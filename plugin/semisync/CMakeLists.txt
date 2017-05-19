@@ -31,6 +31,7 @@ MYSQL_ADD_PLUGIN(semisync_source
   semisync_source.cc
   semisync_source_ack_receiver.cc
   semisync_source_plugin.cc
+  semisync_timespec_util.h
   MODULE_ONLY
   MODULE_OUTPUT_NAME "semisync_source"
   VISIBILITY_HIDDEN
@@ -50,6 +51,7 @@ MYSQL_ADD_PLUGIN(semisync_master
   semisync_source.cc
   semisync_source_ack_receiver.cc
   semisync_source_plugin_old.cc
+  semisync_timespec_util.h
   MODULE_ONLY
   MODULE_OUTPUT_NAME "semisync_master"
   VISIBILITY_HIDDEN

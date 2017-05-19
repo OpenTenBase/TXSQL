@@ -48,7 +48,15 @@ INSERT INTO aliases(name) VALUES
 ('slave_parallel_workers'), ('slave_pending_jobs_size_max'),
 ('pseudo_slave_mode'), ('skip_slave_start');
 
+<<<<<<< HEAD
 include/assert.inc [Expect 120 variables in the table.]
+=======
+<<<<<<< HEAD
+include/assert.inc [Expect 118 variables in the table.]
+=======
+include/assert.inc ['Expect 86 variables in the table.']
+>>>>>>> f6443bb2e7f ([feature] issue#55, semi sync support for oss)
+>>>>>>> 44f5d4d3467 ([feature]issue#144 support wait forever for semisync replication)
 
 # Test SET PERSIST_ONLY
 SET PERSIST_ONLY binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -168,6 +176,7 @@ SET PERSIST_ONLY replica_type_conversions = @@GLOBAL.replica_type_conversions;
 SET PERSIST_ONLY replication_optimize_for_static_plugin_config = @@GLOBAL.replication_optimize_for_static_plugin_config;
 SET PERSIST_ONLY replication_sender_observe_commit_only = @@GLOBAL.replication_sender_observe_commit_only;
 SET PERSIST_ONLY rpl_read_size = @@GLOBAL.rpl_read_size;
+<<<<<<< HEAD
 SET PERSIST_ONLY rpl_semi_sync_replica_enabled = @@GLOBAL.rpl_semi_sync_replica_enabled;
 SET PERSIST_ONLY rpl_semi_sync_replica_trace_level = @@GLOBAL.rpl_semi_sync_replica_trace_level;
 SET PERSIST_ONLY rpl_semi_sync_source_enabled = @@GLOBAL.rpl_semi_sync_source_enabled;
@@ -177,6 +186,17 @@ SET PERSIST_ONLY rpl_semi_sync_source_wait_for_replica_count = @@GLOBAL.rpl_semi
 SET PERSIST_ONLY rpl_semi_sync_source_wait_no_replica = @@GLOBAL.rpl_semi_sync_source_wait_no_replica;
 SET PERSIST_ONLY rpl_semi_sync_source_wait_point = @@GLOBAL.rpl_semi_sync_source_wait_point;
 SET PERSIST_ONLY rpl_stop_replica_timeout = @@GLOBAL.rpl_stop_replica_timeout;
+=======
+SET PERSIST_ONLY rpl_semi_sync_master_enabled = @@GLOBAL.rpl_semi_sync_master_enabled;
+SET PERSIST_ONLY rpl_semi_sync_master_timeout = @@GLOBAL.rpl_semi_sync_master_timeout;
+SET PERSIST_ONLY rpl_semi_sync_master_trace_level = @@GLOBAL.rpl_semi_sync_master_trace_level;
+SET PERSIST_ONLY rpl_semi_sync_master_wait_for_slave_count = @@GLOBAL.rpl_semi_sync_master_wait_for_slave_count;
+SET PERSIST_ONLY rpl_semi_sync_master_wait_forever = @@GLOBAL.rpl_semi_sync_master_wait_forever;
+SET PERSIST_ONLY rpl_semi_sync_master_wait_no_slave = @@GLOBAL.rpl_semi_sync_master_wait_no_slave;
+SET PERSIST_ONLY rpl_semi_sync_master_wait_point = @@GLOBAL.rpl_semi_sync_master_wait_point;
+SET PERSIST_ONLY rpl_semi_sync_slave_enabled = @@GLOBAL.rpl_semi_sync_slave_enabled;
+SET PERSIST_ONLY rpl_semi_sync_slave_trace_level = @@GLOBAL.rpl_semi_sync_slave_trace_level;
+>>>>>>> f6443bb2e7f ([feature] issue#55, semi sync support for oss)
 SET PERSIST_ONLY rpl_stop_slave_timeout = @@GLOBAL.rpl_stop_slave_timeout;
 Warnings:
 Warning	1287	'@@rpl_stop_slave_timeout' is deprecated and will be removed in a future release. Please use rpl_stop_replica_timeout instead.
@@ -269,16 +289,36 @@ SET PERSIST_ONLY sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 SET PERSIST_ONLY sync_source_info = @@GLOBAL.sync_source_info;
 SET PERSIST_ONLY txsql_slave_wait_group_done = @@GLOBAL.txsql_slave_wait_group_done;
 
+<<<<<<< HEAD
 include/assert.inc [Expect 107 persisted variables in persisted_variables table.]
+=======
+<<<<<<< HEAD
+include/assert.inc [Expect 105 persisted variables in persisted_variables table.]
+=======
+include/assert.inc ['Expect 75 persisted variables in persisted_variables table.']
+>>>>>>> f6443bb2e7f ([feature] issue#55, semi sync support for oss)
+>>>>>>> 44f5d4d3467 ([feature]issue#144 support wait forever for semisync replication)
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
+<<<<<<< HEAD
 include/assert.inc [Expect 107 persisted variables in persisted_variables table.]
 include/assert.inc [Expect 107 persisted variables shown as PERSISTED in variables_info table.]
 include/assert.inc [Expect 107 persisted variables with matching persisted and global values.]
+=======
+<<<<<<< HEAD
+include/assert.inc [Expect 105 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 105 persisted variables shown as PERSISTED in variables_info table.]
+include/assert.inc [Expect 105 persisted variables with matching persisted and global values.]
+=======
+include/assert.inc ['Expect 75 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 75 persisted variables shown as PERSISTED in variables_info table.']
+include/assert.inc ['Expect 75 persisted variables with matching persisted and global values.']
+>>>>>>> f6443bb2e7f ([feature] issue#55, semi sync support for oss)
+>>>>>>> 44f5d4d3467 ([feature]issue#144 support wait forever for semisync replication)
 
 ############################################################
 # 3. Test RESET PERSIST. Verify persisted variable settings
@@ -372,6 +412,7 @@ RESET PERSIST replica_type_conversions;
 RESET PERSIST replication_optimize_for_static_plugin_config;
 RESET PERSIST replication_sender_observe_commit_only;
 RESET PERSIST rpl_read_size;
+<<<<<<< HEAD
 RESET PERSIST rpl_semi_sync_replica_enabled;
 RESET PERSIST rpl_semi_sync_replica_trace_level;
 RESET PERSIST rpl_semi_sync_source_enabled;
@@ -381,6 +422,18 @@ RESET PERSIST rpl_semi_sync_source_wait_for_replica_count;
 RESET PERSIST rpl_semi_sync_source_wait_no_replica;
 RESET PERSIST rpl_semi_sync_source_wait_point;
 RESET PERSIST rpl_stop_replica_timeout;
+=======
+RESET PERSIST rpl_semi_sync_master_enabled;
+RESET PERSIST rpl_semi_sync_master_timeout;
+RESET PERSIST rpl_semi_sync_master_trace_level;
+RESET PERSIST rpl_semi_sync_master_wait_for_slave_count;
+RESET PERSIST rpl_semi_sync_master_wait_forever;
+RESET PERSIST rpl_semi_sync_master_wait_no_slave;
+RESET PERSIST rpl_semi_sync_master_wait_point;
+RESET PERSIST rpl_semi_sync_slave_enabled;
+RESET PERSIST rpl_semi_sync_slave_trace_level;
+RESET PERSIST rpl_stop_slave_timeout;
+>>>>>>> f6443bb2e7f ([feature] issue#55, semi sync support for oss)
 RESET PERSIST session_track_gtids;
 RESET PERSIST skip_replica_start;
 RESET PERSIST slave_rows_search_algorithms;

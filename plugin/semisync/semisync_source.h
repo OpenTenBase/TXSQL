@@ -31,6 +31,7 @@
 #include "my_io.h"
 #include "my_psi_config.h"
 #include "plugin/semisync/semisync.h"
+#include "plugin/semisync/semisync_timespec_util.h"
 
 extern PSI_memory_key key_ss_memory_TranxNodeAllocator_block;
 
@@ -50,6 +51,7 @@ struct TranxNode {
   my_off_t log_pos_;
   mysql_cond_t cond;
   int n_waiters;
+  struct timespec  start_ts_;         /* the first time for waiting ack */
   struct TranxNode *next_;      /* the next node in the sorted list */
   struct TranxNode *hash_next_; /* the next node during hash collision */
 };
@@ -144,6 +146,8 @@ class TranxNodeAllocator {
     trx_node->next_ = nullptr;
     trx_node->hash_next_ = nullptr;
     trx_node->n_waiters = 0;
+    timespec_reset(&trx_node->start_ts_);
+  
     return trx_node;
   }
 
@@ -345,6 +349,8 @@ class ActiveTranx : public Trace {
                                     my_off_t log_file_pos);
   TranxNode *find_active_tranx_node(const char *log_file_name,
                                     my_off_t log_file_pos);
+  TranxNode* find_oldest_wait_tranx_node();
+
   ActiveTranx(mysql_mutex_t *lock, unsigned long trace_level);
   ~ActiveTranx();
 
@@ -629,6 +635,11 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
   void lock();
   void unlock();
 
+  /* Wait for the position to be ACKed back.
+   * If wait_time is NULL, wait forever, otherwise wait until timeout */
+  int wait_for_ack(TranxNode *entry, struct timespec *start_ts,
+                   struct timespec *wait_time);
+
   /* Is semi-sync replication on? */
   bool is_on() { return (state_); }
 
@@ -655,6 +666,11 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
 
   /* Set if the master has to wait for an ack from the salve or not. */
   void set_wait_no_replica(const void *val);
+
+  /* Set if the transaction has to wait for an ack even when wait timeout
+   * is reached.
+   */
+  int setWaitForever(bool forever_on);
 
   /* Set the transaction wait timeout period, in milliseconds. */
   void setWaitTimeout(unsigned long wait_timeout) {
@@ -787,6 +803,10 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
   /* Export internal statistics for semi-sync replication. */
   void setExportStats();
 
+  /* Export oldest wait transaction status for semi-sync replication. */
+  void setExportCurWaitTrxStatus(unsigned long long *wait_time, char *log_file,
+                                 unsigned long long *log_pos);
+
   /* 'reset master' command is issued from the user and semi-sync need to
    * go off for that.
    */
@@ -851,6 +871,9 @@ extern unsigned long long rpl_semi_sync_source_net_wait_num;
 extern unsigned long long rpl_semi_sync_source_trx_wait_num;
 extern unsigned long long rpl_semi_sync_source_net_wait_time;
 extern unsigned long long rpl_semi_sync_source_trx_wait_time;
+extern unsigned long rpl_semi_sync_master_killed_transactions;
+extern unsigned long long rpl_semi_sync_master_trx_cur_wait_time;
+extern unsigned long long rpl_semi_sync_master_trx_cur_wait_pos;
 
 /*
   This indicates whether we should keep waiting if no semi-sync slave
@@ -859,4 +882,10 @@ extern unsigned long long rpl_semi_sync_source_trx_wait_time;
      1 (default) : keep waiting until timeout even no available semi-sync slave.
 */
 extern bool rpl_semi_sync_source_wait_no_replica;
+
+/*
+   This indicates whether we should keep waiting if no ack has been received.
+*/
+extern bool rpl_semi_sync_master_wait_forever;
+
 #endif /* SEMISYNC_SOURCE_H */

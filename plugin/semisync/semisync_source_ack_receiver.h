@@ -109,6 +109,7 @@ class Ack_receiver : public ReplSemiSyncBase {
     return false;
   }
 
+  void setExportClientThreads(char *buff, int len);
  private:
   enum status { ST_UP, ST_DOWN, ST_STOPPING };
   uint8 m_status;

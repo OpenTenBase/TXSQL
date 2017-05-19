@@ -1,0 +1,579 @@
+###############################################################################
+# Forced sync: rpl_semi_sync_wait_forever
+#
+# If wait_forever is ON, there is no timeout for waiting for ack from slaves.
+################################################################################
+--source include/not_valgrind.inc
+--source include/not_group_replication_plugin.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+#--source include/have_innodb.inc
+--source include/have_binlog_format_row.inc
+
+# server_1 is master, others are slaves.
+--let $rpl_topology= 1->2, 1->3
+--source include/rpl_init.inc
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+# Suppress warning:
+# "Semi-sync master failed on net_flush() before waiting for slave reply"
+CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
+CALL mtr.add_suppression('Timeout waiting for reply of binlog');
+
+--echo # Test forever on and off
+--let $semisync_master_enabled= OFF
+--let $use_old_semisync_plugin_names = 1
+--source include/install_semisync_source.inc
+SET GLOBAL rpl_semi_sync_master_enabled= OFF;
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+
+SET GLOBAL rpl_semi_sync_master_enabled= OFF;
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+
+SET GLOBAL rpl_semi_sync_master_enabled= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+
+SET GLOBAL rpl_semi_sync_master_enabled= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+
+--echo # Start slave : server_2
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names=1
+--source include/install_semisync_replica.inc
+
+--echo # Enable semisync on master
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+SET GLOBAL rpl_semi_sync_master_enabled= ON;
+
+--echo # Change master variables
+SET GLOBAL rpl_semi_sync_master_timeout= 2000;
+SET GLOBAL rpl_semi_sync_master_wait_no_slave= OFF;
+
+--source include/rpl_sync.inc
+
+--echo # Verify ack_receiver thread is created
+--let $assert_text= ack receiver thread is created;
+--let $assert_cond= count(*) = 1 FROM performance_schema.threads WHERE name LIKE "%Ack_receiver"
+--source include/assert.inc
+
+CREATE TABLE t1(c1 INT);
+--source include/rpl_sync.inc
+
+--echo # Verify semisync replication works well
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names=1
+--source include/assert_semisync_source_status_on.inc
+
+--echo # Test with wait for slave count = 1
+SET GLOBAL rpl_semi_sync_master_wait_for_slave_count = 1;
+--echo # Test 1.1 : timeout without forever enabled
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+--echo # Let server_2 wait before sending ack
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET GLOBAL debug = '+d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 send INSERT (1)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(1);
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+SET DEBUG_SYNC = 'now SIGNAL continue';
+
+--echo # Server_1 wait timeout
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+
+--echo # Check wait time
+let $wait_time_start = 0;
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time >  $wait_timeout)
+{
+  --echo 'wait time $wait_time >  wait timeout $wait_timeout'
+}
+
+--echo # Test 1.2 : no timeout with forever enabled
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SELECT @@rpl_semi_sync_master_wait_forever;
+
+--echo # Server_1 send INSERT (2)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(2);
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+SET DEBUG_SYNC = 'now SIGNAL continue';
+
+--echo # Server_1 wait timeout
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+
+--echo # Check wait time
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time <  $wait_timeout)
+{
+  --echo 'wait time $wait_time >  wait timeout $wait_timeout'
+}
+
+--echo # Test 1.3 : wakeup when switch forever off
+--echo # with rpl_semi_sync_master_wait_no_slave= ON
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SELECT @@rpl_semi_sync_master_wait_forever;
+
+--echo # Server_1 send INSERT (3)
+--send INSERT INTO t1 VALUES(3);
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+
+--echo #  Switch forever off
+--connect(con1,127.0.0.1,root,,test,$MASTER_MYPORT,)
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--disconnect con1
+
+--echo # Server_1 wakeup
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+--echo # Server_2 ack
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET DEBUG_SYNC = 'now SIGNAL continue';
+
+--echo # Check wait time
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--echo # Semi sync enabled again
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time <  $wait_timeout)
+{
+  --echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+
+--echo # Test 1.4 : wakeup when switch forever off
+--echo # with rpl_semi_sync_master_wait_no_slave= ON
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+SET GLOBAL rpl_semi_sync_master_wait_no_slave= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SELECT @@rpl_semi_sync_master_wait_forever;
+
+--echo # Server_1 send INSERT (4)
+--send INSERT INTO t1 VALUES(4);
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+
+--echo #  Switch forever off
+--connect(con1,127.0.0.1,root,,test,$MASTER_MYPORT,)
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--disconnect con1
+
+--echo # Server_1 wakeup
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+--echo # Server_2 ack
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET DEBUG_SYNC = 'now SIGNAL continue';
+SET GLOBAL debug = '-d,rpl_semisync_before_send_ack';
+
+--echo # Check wait time
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--echo # Semi sync still disabled
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time <  $wait_timeout)
+{
+  --echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+SET GLOBAL rpl_semi_sync_master_wait_no_slave= OFF;
+
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+
+--echo # Enable semi sync again
+SET GLOBAL rpl_semi_sync_master_enabled= OFF;
+SET GLOBAL rpl_semi_sync_master_enabled= ON;
+
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+--echo # Test 1.5 : wait again when timeout if switch forever on
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+# Waitforever should be off
+SELECT @@rpl_semi_sync_master_wait_forever;
+SET GLOBAL debug = '+d,rpl_semisync_wait_timeout';
+
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET GLOBAL debug = '+d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 send INSERT (5)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(5);
+
+--echo # Con1 switch forever on and wait for timeout
+--connect(con1,127.0.0.1,root,,test,$MASTER_MYPORT,)
+SET DEBUG_SYNC = 'now WAIT_FOR timeout';
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SET DEBUG_SYNC = 'now SIGNAL continue';
+# Server_1 should wait again
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--disconnect con1
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+SET DEBUG_SYNC = 'now SIGNAL continue';
+SET GLOBAL debug = '-d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 wakeup
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+SET GLOBAL debug = '-d,rpl_semisync_wait_timeout';
+
+--echo # Check wait time
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                     WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time <  $wait_timeout)
+{
+  --echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+--echo # Test with wait for slave count = 2
+SET GLOBAL rpl_semi_sync_master_wait_for_slave_count = 2;
+
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names=1
+--source include/install_semisync_replica.inc
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--source include/wait_for_semisync_source_status_on.inc
+
+--echo # Test 2.1 : timeout without forever enabled
+--echo # Let server_2 wait before sending ack
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET @original_debug = @@GLOBAL.debug;
+SET GLOBAL debug = '+d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 send INSERT (21)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(21);
+
+--echo # Make sure server_1 receives ack from server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $wait_condition= SELECT COUNT(*) FROM t1 WHERE c1 = 21
+--source include/wait_condition.inc
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+SET DEBUG_SYNC = 'now SIGNAL continue';
+
+--echo # Server_1 wait timeout
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+
+--echo # Check wait time
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time <  $wait_timeout)
+{
+--echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+--echo # Test 2.2 : no timeout with forever enabled
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SELECT @@rpl_semi_sync_master_wait_forever;
+
+--echo # Server_1 send INSERT(22)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(22);
+
+--echo # Make sure server_1 receives ack from server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $wait_condition= SELECT COUNT(*) FROM t1 WHERE c1 = 22
+--source include/wait_condition.inc
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--sleep 5
+SET DEBUG_SYNC = 'now SIGNAL continue';
+SET GLOBAL debug = '-d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 wait timeout
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+
+--echo # Check wait time
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+let $wait_time_start = $wait_time_end;
+if ($wait_time <  $wait_timeout)
+{
+--echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+--echo # Test 2.3: wakeup when switch forever off
+--echo # with rpl_semi_sync_master_wait_no_slave=OFF
+--echo # Let server_2 wait before sending ack
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET GLOBAL debug = '+d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 send INSERT(23)
+--let $rpl_connection_name= default
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(23)
+
+--echo # Make sure server_1 receives ack (23) from server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $wait_condition= SELECT COUNT(*) FROM t1 WHERE c1 = 23
+--source include/wait_condition.inc
+
+--echo # Server_1 send INSERT(24)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(24)
+
+--echo # Make sure server_1 receives ack (24) from server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $wait_condition= SELECT COUNT(*) FROM t1 WHERE c1 = 24
+--source include/wait_condition.inc
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--sleep 5
+
+--connect(con1,127.0.0.1,root,,test,$MASTER_MYPORT,)
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--disconnect con1
+
+--let $rpl_connection_name= default
+--source include/rpl_connection.inc
+--reap
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+--echo # Server_3 send ack for INSERT (23)
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET DEBUG_SYNC = 'now SIGNAL continue';
+
+--echo # Server_3 send ack for INSERT (24)
+SET DEBUG_SYNC = 'now SIGNAL continue';
+SET GLOBAL debug = '-d,rpl_semisync_before_send_ack';
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--echo # Check wait time
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+if ($wait_time < $wait_timeout)
+{
+--echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+
+--echo # Test 2.4: wakeup when switch forever off
+--echo # with rpl_semi_sync_master_wait_no_slave=OFF
+SET GLOBAL rpl_semi_sync_master_wait_no_slave= ON;
+
+--echo # Let server_2 wait before sending ack
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET GLOBAL debug = '+d,rpl_semisync_before_send_ack';
+
+--echo # Server_1 send INSERT(25)
+--let $rpl_connection_name= default
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(25)
+
+--echo # Make sure server_1 receives ack (25) from server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $wait_condition= SELECT COUNT(*) FROM t1 WHERE c1 = 25
+--source include/wait_condition.inc
+
+--echo # Server_1 send INSERT(26)
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send INSERT INTO t1 VALUES(26)
+
+--echo # Make sure server_1 receives ack (26) from server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $wait_condition= SELECT COUNT(*) FROM t1 WHERE c1 = 26
+--source include/wait_condition.inc
+
+--echo # Server_2 ack after sleeping 5s
+--let $rpl_connection_name= server_2
+--sleep 5
+
+--connect(con1,127.0.0.1,root,,test,$MASTER_MYPORT,)
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--disconnect con1
+
+--let $rpl_connection_name= default
+--source include/rpl_connection.inc
+--reap
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--reap
+
+--echo # Server_3 send ack for INSERT (25)
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+SET DEBUG_SYNC = 'now SIGNAL continue';
+
+--echo # Server_3 send ack for INSERT (26)
+SET DEBUG_SYNC = 'now SIGNAL continue';
+SET GLOBAL debug = '-d,rpl_semisync_before_send_ack';
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+SELECT @@rpl_semi_sync_master_enabled;
+SHOW STATUS like 'rpl_semi_sync_master_status';
+--echo # Check wait time
+let $wait_timeout = `SELECT @@rpl_semi_sync_master_timeout`;
+let $wait_time_end = `SELECT variable_value FROM performance_schema.global_status
+                  WHERE variable_name = 'Rpl_semi_sync_master_tx_wait_time'`;
+let $wait_time = $wait_time_end - $wait_time_start;
+if ($wait_time < $wait_timeout)
+{
+--echo 'wait time $wait_time <  wait timeout $wait_timeout'
+}
+
+SET GLOBAL rpl_semi_sync_master_wait_no_slave= OFF;
+
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
+
+--echo # Cleanup
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+DROP TABLE t1;
+--source include/rpl_sync.inc
+
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_replica.inc
+
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_replica.inc
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+
+SET GLOBAL rpl_semi_sync_master_enabled= OFF;
+--source include/wait_for_semisync_source_status_off.inc
+
+--source include/uninstall_semisync_source.inc
+--source include/rpl_end.inc

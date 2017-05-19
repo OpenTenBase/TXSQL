@@ -247,6 +247,11 @@ static void fix_rpl_semi_sync_source_wait_for_replica_count(MYSQL_THD thd,
                                                             void *ptr,
                                                             const void *val);
 
+static void fix_rpl_semi_sync_master_wait_forever(MYSQL_THD thd,
+                                                  SYS_VAR *var,
+                                                  void *ptr,
+                                                  const void *val);
+
 static MYSQL_SYSVAR_BOOL(
     enabled, rpl_semi_sync_source_enabled, PLUGIN_VAR_OPCMDARG,
     "Enable semi-synchronous replication source (disabled by default). ",
@@ -294,6 +299,13 @@ static MYSQL_SYSVAR_ULONG(trace_level, rpl_semi_sync_source_trace_level,
                           nullptr,                                // check
                           &fix_rpl_semi_sync_source_trace_level,  // update
                           32, 0, ~0UL, 1);
+
+static MYSQL_SYSVAR_BOOL(wait_forever, rpl_semi_sync_master_wait_forever,
+  PLUGIN_VAR_OPCMDARG,
+  "wait forever until ack is received",
+  NULL,                           // check
+  &fix_rpl_semi_sync_master_wait_forever,// update
+  0);
 
 static const char *wait_point_names[] = {"AFTER_SYNC", "AFTER_COMMIT", NullS};
 static TYPELIB wait_point_typelib = {array_elements(wait_point_names) - 1, "",
@@ -347,6 +359,7 @@ static SYS_VAR *semi_sync_master_system_vars[] = {
     MYSQL_SYSVAR(trace_level),
     MYSQL_SYSVAR(wait_point),
     MYSQL_SYSVAR(WAIT_FOR_REPLICA_COUNT_NAME),
+    MYSQL_SYSVAR(wait_forever),
     nullptr,
 };
 static void fix_rpl_semi_sync_source_timeout(MYSQL_THD, SYS_VAR *, void *ptr,
@@ -380,6 +393,17 @@ static void fix_rpl_semi_sync_source_enabled(MYSQL_THD, SYS_VAR *, void *ptr,
     ack_receiver->stop();
   }
 
+  return;
+}
+
+static void fix_rpl_semi_sync_master_wait_forever(MYSQL_THD,
+                                                  SYS_VAR *,
+                                                  void *ptr,
+                                                  const void *val) {
+  if (rpl_semi_sync_master_wait_forever != *static_cast<const char *>(val)) {
+    *static_cast<char *>(ptr) = *static_cast<const char *>(val);
+    repl_semisync->setWaitForever(*static_cast<const char *>(val));
+  }
   return;
 }
 
@@ -448,18 +472,70 @@ DEF_SHOW_FUNC(net_wait_num, SHOW_LONGLONG)
 DEF_SHOW_FUNC(avg_net_wait_time, SHOW_LONG)
 DEF_SHOW_FUNC(avg_trx_wait_time, SHOW_LONG)
 
+static  int rpl_semi_sync_master_show_trx_cur_wait_time(MYSQL_THD,
+                                                        SHOW_VAR *var,
+                                                        char *) {
+  repl_semisync->setExportCurWaitTrxStatus(&rpl_semi_sync_master_trx_cur_wait_time,
+                                          NULL, NULL);
+  var->type= SHOW_LONGLONG;
+  var->value= (char *)&rpl_semi_sync_master_trx_cur_wait_time;
+  return 0;
+}
+
+static int rpl_semi_sync_master_show_trx_cur_wait_file(MYSQL_THD,
+                                                       SHOW_VAR *var,
+                                                       char *buff) {
+  repl_semisync->setExportCurWaitTrxStatus(NULL, buff, NULL);
+  var->type= SHOW_CHAR;
+  var->value= buff;
+  return 0;
+}
+
+static int rpl_semi_sync_master_show_trx_cur_wait_pos(MYSQL_THD ,
+                                                      SHOW_VAR *var,
+                                                      char *) {
+  repl_semisync->setExportCurWaitTrxStatus(NULL, NULL,
+                                          &rpl_semi_sync_master_trx_cur_wait_pos);
+  var->type= SHOW_LONGLONG;
+  var->value= (char*)&rpl_semi_sync_master_trx_cur_wait_pos;
+  return 0;
+}
+
+static int rpl_semi_sync_master_show_client_threads(MYSQL_THD, SHOW_VAR *var, char *buff) {
+  ack_receiver->setExportClientThreads(buff, SHOW_VAR_FUNC_BUFF_SIZE);
+  var->type= SHOW_CHAR;
+  var->value= buff;
+  return 0;
+}
+
+
 /* plugin status variables */
 static SHOW_VAR semi_sync_master_status_vars[] = {
     {STATUS_VAR_PREFIX "status", (char *)&SHOW_FNAME(status), SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "clients", (char *)&SHOW_FNAME(clients), SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {STATUS_VAR_PREFIX "client_threads",
+     (char *)&rpl_semi_sync_master_show_client_threads, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "yes_tx", (char *)&rpl_semi_sync_source_yes_transactions,
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "no_tx", (char *)&rpl_semi_sync_source_no_transactions,
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
+    {STATUS_VAR_PREFIX "killed_tx",
+     (char *)&rpl_semi_sync_master_killed_transactions, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "wait_sessions", (char *)&SHOW_FNAME(wait_sessions),
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {STATUS_VAR_PREFIX "tx_cur_wait_time",
+     (char *)&rpl_semi_sync_master_show_trx_cur_wait_time, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {STATUS_VAR_PREFIX "tx_cur_wait_file",
+     (char *)&rpl_semi_sync_master_show_trx_cur_wait_file, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {STATUS_VAR_PREFIX "tx_cur_wait_pos",
+     (char *)&rpl_semi_sync_master_show_trx_cur_wait_pos, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "no_times", (char *)&rpl_semi_sync_source_off_times,
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "timefunc_failures",

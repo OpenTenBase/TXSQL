@@ -22,6 +22,8 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "plugin/semisync/semisync_source.h"
+#include "plugin/semisync/semisync_timespec_util.h"
+#include "sql/sql_error.h"
 
 #include <assert.h>
 #include <time.h>
@@ -30,15 +32,11 @@
 #include "my_compiler.h"
 #include "my_systime.h"
 #include "sql/mysqld.h"  // max_connections
-#if defined(ENABLED_DEBUG_SYNC)
 #include "sql/current_thd.h"
+#if defined(ENABLED_DEBUG_SYNC)
 #include "sql/debug_sync.h"
 #include "sql/sql_class.h"
 #endif
-
-#define TIME_THOUSAND 1000
-#define TIME_MILLION 1000000
-#define TIME_BILLION 1000000000
 
 /* This indicates whether semi-synchronous replication is enabled. */
 bool rpl_semi_sync_source_enabled;
@@ -62,12 +60,10 @@ unsigned long long rpl_semi_sync_source_trx_wait_time = 0;
 bool rpl_semi_sync_source_wait_no_replica = true;
 unsigned int rpl_semi_sync_source_wait_for_replica_count = 1;
 
-static int getWaitTime(const struct timespec &start_ts);
-
-static unsigned long long timespec_to_usec(const struct timespec *ts) {
-  return (unsigned long long)ts->tv_sec * TIME_MILLION +
-         ts->tv_nsec / TIME_THOUSAND;
-}
+unsigned long rpl_semi_sync_master_killed_transactions = 0;
+unsigned long long rpl_semi_sync_master_trx_cur_wait_time = 0;
+unsigned long long rpl_semi_sync_master_trx_cur_wait_pos = 0;
+bool rpl_semi_sync_master_wait_forever  = 0;
 
 /*******************************************************************************
  *
@@ -257,6 +253,27 @@ TranxNode *ActiveTranx::find_active_tranx_node(const char *log_file_name,
   }
   function_exit(kWho, 0);
   return entry;
+}
+
+TranxNode * ActiveTranx::find_oldest_wait_tranx_node()
+{
+  const char *kWho= "ActiveTranx::find_oldest_wait_tranx_node";
+  function_enter(kWho);
+
+  TranxNode* ret= NULL;
+  TranxNode* entry= trx_front_;
+
+  while (entry)
+  {
+    if (timespec_is_set(&entry->start_ts_))
+    {
+      ret= entry;
+      break;
+    }
+    entry= entry->next_;
+  }
+  function_exit(kWho, 0);
+  return ret;
 }
 
 int ActiveTranx::clear_active_tranx_nodes(const char *log_file_name,
@@ -501,6 +518,31 @@ int ReplSemiSyncMaster::disableMaster() {
   return 0;
 }
 
+int ReplSemiSyncMaster::setWaitForever(bool forever_on)
+{
+  lock();
+
+  if (!getMasterEnabled() || !is_on()) {
+    push_warning(current_thd, Sql_condition::SL_WARNING, HA_ERR_GENERIC,
+                 "Set wait forever is forbidden when semi-sync replication is disabled.");
+  }
+
+  /* Switch semisync off while forever is turned off, just like wait timeout. */
+  if (getMasterEnabled() && is_on() && !forever_on) {
+
+      /* Switch off the semi-sync first so that waiting transaction will be
+       * waken up.
+       */
+      LogErr(INFORMATION_LEVEL, ER_SEMISYNC_WAIT_FOREVER_DISABLED);
+
+      switch_off();
+  }
+
+  unlock();
+
+  return 0;
+}
+
 ReplSemiSyncMaster::~ReplSemiSyncMaster() {
   if (init_done_) {
     mysql_mutex_destroy(&LOCK_binlog_);
@@ -512,6 +554,22 @@ ReplSemiSyncMaster::~ReplSemiSyncMaster() {
 void ReplSemiSyncMaster::lock() { mysql_mutex_lock(&LOCK_binlog_); }
 
 void ReplSemiSyncMaster::unlock() { mysql_mutex_unlock(&LOCK_binlog_); }
+
+int ReplSemiSyncMaster::wait_for_ack(TranxNode *entry, struct timespec *start_ts,
+                                     struct timespec *wait_time) {
+  /* record start waiting time */
+  if (!timespec_is_set(&entry->start_ts_))
+    entry->start_ts_ = *start_ts;
+
+  int wait_result;
+  if (wait_time)
+    wait_result = mysql_cond_timedwait(&entry->cond, &LOCK_binlog_, wait_time);
+  else
+    wait_result = mysql_cond_wait(&entry->cond, &LOCK_binlog_);
+
+  return wait_result;
+}
+
 
 void ReplSemiSyncMaster::add_slave() {
   lock();
@@ -665,6 +723,7 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
     int wait_result;
 
     set_timespec(&start_ts, 0);
+    timespec_reset(&abstime);
     /* This is the real check inside the mutex. */
     if (!getMasterEnabled() || !is_on()) goto l_end;
 
@@ -683,7 +742,7 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
       abstime.tv_nsec -= TIME_BILLION;
     }
 
-    while (is_on()) {
+    while (is_on() && !thd_killed(current_thd)) {
       if (reply_file_name_inited_) {
         int cmp =
             ActiveTranx::compare(reply_file_name_, reply_file_pos_,
@@ -713,6 +772,8 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
         transaction.
       */
       if (!entry) {
+        LogErr(WARNING_LEVEL, ER_SEMISYNC_CANNOT_FIND_TRANXNODE,
+                   kWho, trx_wait_binlog_name, (unsigned long)trx_wait_binlog_pos);
         is_semi_sync_trans = false;
         goto l_end;
       }
@@ -748,6 +809,13 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
                  wait_file_name_, (unsigned long)wait_file_pos_);
       }
 
+      /* Calculate the waiting period. */
+      bool wait_forever = rpl_semi_sync_master_wait_forever;
+      if (!wait_forever && !timespec_is_set(&abstime))
+      {
+        timespec_add(start_ts, wait_timeout_, &abstime);
+      }
+
       /* In semi-synchronous replication, we wait until the binlog-dump
        * thread has received the reply on the relevant binlog segment from the
        * replication slave.
@@ -769,12 +837,12 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
 
       if (trace_level_ & kTraceDetail)
         LogErr(INFORMATION_LEVEL, ER_SEMISYNC_WAIT_TIME_FOR_BINLOG_SENT, kWho,
-               wait_timeout_, wait_file_name_, (unsigned long)wait_file_pos_);
+               wait_forever ? 0 : wait_timeout_, wait_file_name_, (unsigned long)wait_file_pos_);
 
       /* wait for the position to be ACK'ed back */
       assert(entry);
       entry->n_waiters++;
-      wait_result = mysql_cond_timedwait(&entry->cond, &LOCK_binlog_, &abstime);
+      wait_result= wait_for_ack(entry, &start_ts, wait_forever ? NULL : &abstime);
       entry->n_waiters--;
       /*
         After we release LOCK_binlog_ above while waiting for the condition,
@@ -787,6 +855,25 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
         rpl_semi_sync_source_wait_sessions--;
 
       if (wait_result != 0) {
+        DBUG_EXECUTE_IF("rpl_semisync_wait_timeout",
+                {
+                  unlock();
+                  const char act[]=
+                    "now SIGNAL timeout WAIT_FOR continue";
+                  assert(opt_debug_sync_timeout > 0);
+                  assert(!debug_sync_set_action(current_thd,
+                                                      STRING_WITH_LEN(act)));
+                  lock();
+                };);
+
+        /*
+          If wait forever is switched on during wait timeout,
+          we should wait for ack again.
+         */
+        assert(!wait_forever);
+        if (rpl_semi_sync_master_wait_forever)
+          continue;
+
         /* This is a real wait timeout. */
         LogErr(WARNING_LEVEL, ER_SEMISYNC_WAIT_FOR_BINLOG_TIMEDOUT,
                trx_wait_binlog_name, (unsigned long)trx_wait_binlog_pos,
@@ -816,7 +903,12 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
   l_end:
     /* Update the status counter. */
     if (is_on() && is_semi_sync_trans)
-      rpl_semi_sync_source_yes_transactions++;
+    {
+      if (unlikely(thd_killed(current_thd)))
+        rpl_semi_sync_master_killed_transactions++;
+      else
+        rpl_semi_sync_source_yes_transactions++;
+    }
     else
       rpl_semi_sync_source_no_transactions++;
   }
@@ -1057,6 +1149,11 @@ int ReplSemiSyncMaster::writeTranxInBinlog(const char *log_file_name,
       */
       LogErr(WARNING_LEVEL, ER_SEMISYNC_FAILED_TO_INSERT_TRX_NODE,
              log_file_name, (ulong)log_file_pos);
+
+      if (rpl_semi_sync_master_wait_forever) {
+          LogErr(ERROR_LEVEL, ER_SEMISYNC_WAIT_FOROVER_IS_ON);
+          abort();
+      }
       switch_off();
     }
   }
@@ -1145,6 +1242,7 @@ int ReplSemiSyncMaster::resetMaster() {
   rpl_semi_sync_source_trx_wait_time = 0;
   rpl_semi_sync_source_net_wait_num = 0;
   rpl_semi_sync_source_net_wait_time = 0;
+  rpl_semi_sync_master_killed_transactions = 0;
 
   unlock();
 
@@ -1167,6 +1265,44 @@ void ReplSemiSyncMaster::setExportStats() {
            : 0);
 
   unlock();
+}
+
+void ReplSemiSyncMaster::setExportCurWaitTrxStatus(unsigned long long *wait_time,
+                                                   char *log_file,
+                                                   unsigned long long *log_pos) {
+  timespec start_ts;
+  set_timespec(&start_ts, 0);
+
+  if (wait_time)
+    *wait_time= 0;
+  if (log_file)
+    log_file[0]= '\0';
+  if (log_pos)
+    *log_pos= 0;
+
+  lock();
+
+  if (getMasterEnabled() && rpl_semi_sync_source_wait_sessions > 0) {
+    assert(active_tranxs_ != NULL);
+    TranxNode *node = active_tranxs_->find_oldest_wait_tranx_node();
+    if (node) {
+      if (wait_time) {
+        int  t= getWaitTime(node->start_ts_);
+        if (t > 0)
+          *wait_time= (unsigned long long)t;
+      }
+
+      if (log_file)
+        strcpy(log_file, node->log_name_);
+      if (log_pos)
+        *log_pos= (unsigned long long)node->log_pos_;
+    }
+  }
+
+  unlock();
+
+  if (trace_level_ & kTraceDetail)
+    LogErr(INFORMATION_LEVEL, ER_SEMISYNC_SET_EXPORT_CUR_WAIT_TRX_USE_TIME, getWaitTime(start_ts));
 }
 
 int ReplSemiSyncMaster::setWaitSlaveCount(unsigned int new_value) {
@@ -1266,28 +1402,4 @@ int AckContainer::resize(unsigned int size, const AckInfo **ackinfo) {
     my_free(old_ack_array);
   }
   return 0;
-}
-
-/* Get the waiting time given the wait's staring time.
- *
- * Return:
- *  >= 0: the waiting time in microsecons(us)
- *   < 0: error in get time or time back traverse
- */
-static int getWaitTime(const struct timespec &start_ts) {
-  unsigned long long start_usecs, end_usecs;
-  struct timespec end_ts;
-
-  /* Starting time in microseconds(us). */
-  start_usecs = timespec_to_usec(&start_ts);
-
-  /* Get the wait time interval. */
-  set_timespec(&end_ts, 0);
-
-  /* Ending time in microseconds(us). */
-  end_usecs = timespec_to_usec(&end_ts);
-
-  if (end_usecs < start_usecs) return -1;
-
-  return (int)(end_usecs - start_usecs);
 }

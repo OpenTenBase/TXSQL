@@ -327,3 +327,32 @@ end:
   mysql_cond_broadcast(&m_cond);
   mysql_mutex_unlock(&m_mutex);
 }
+
+void Ack_receiver::setExportClientThreads(char *buff, int len)
+{
+  timespec start_ts;
+  set_timespec(&start_ts, 0);
+
+  char *ptr= buff;
+  int total_len= len;
+  mysql_mutex_lock(&m_mutex);
+  for (Slave_vector_it iter = m_slaves.begin(); iter != m_slaves.end(); ++iter)
+  {
+    int n = snprintf(buff, len, "%llu ", (ulonglong)iter->thread_id);
+    if (n <= 0)
+    {
+      LogErr(WARNING_LEVEL, ER_SEMISYNC_MASTER_CLIENT_THREAD_OVERFLOW, total_len);
+      break;
+    }
+    buff += n;
+    len  -= n;
+  }
+  mysql_mutex_unlock(&m_mutex);
+  if (ptr < buff)
+    buff--;         //skip blank
+  buff[0]= '\0';
+
+  if (trace_level_ & kTraceDetail)
+    LogErr(INFORMATION_LEVEL, 
+           ER_SEMISYNC_SET_EXPORT_CLIENT_THREADS_USE_TIME, getWaitTime(start_ts));
+}
