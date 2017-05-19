@@ -11901,6 +11901,7 @@ ER_RES_GRP_SWITCH_FAILED_UNABLE_TO_APPLY_RES_GRP
 ER_IB_MSG_CLEAR_INSTANT_DROP_COLUMN_METADATA
   eng "Failed to clear instant drop column metadata for table %s"
 
+
 # DO NOT add server-to-client messages here;
 # they go in messages_to_clients.txt
 # in the same directory as this file.
@@ -11940,6 +11941,25 @@ ER_CDB_FAILED_TO_SET_CLEANER_WORKER_PRIORITY
 ER_CDB_WARN_INCOMPATIBLE_HISTOGRAM
   eng "Could not load incompatible histogram for column '%.64s' in table '%.64s'.'%.64s'"
 
+## extra for semi-sync plugin
+
+ER_SEMISYNC_WAIT_FOREVER_DISABLED
+  eng "Semi-sync wait forever disabled."
+
+ER_SEMISYNC_CANNOT_FIND_TRANXNODE
+  eng "%s: can't find TranxNode in (%s:%lu), no need to wait"
+
+ER_SEMISYNC_WAIT_FOROVER_IS_ON
+  eng "wait forever is ON, insert failed would cause crash..."
+
+ER_SEMISYNC_SET_EXPORT_CUR_WAIT_TRX_USE_TIME
+  eng "setExportCurWaitTrx use time: %d"
+
+ER_SEMISYNC_MASTER_CLIENT_THREAD_OVERFLOW
+  eng "rpl_semi_sync_master_client_threads is overflow: it's larger than %d"
+
+ER_SEMISYNC_SET_EXPORT_CLIENT_THREADS_USE_TIME
+  eng "setExportClientThreads use time: %d"
 #
 # End of server-to-error-log message for CDB 8.0.
 #

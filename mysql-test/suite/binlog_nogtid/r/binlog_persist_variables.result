@@ -26,7 +26,11 @@ VARIABLE_NAME LIKE '%source%') AND
 'innodb_master_thread_disabled_debug', 'innodb_replication_delay'))
 ORDER BY VARIABLE_NAME;
 
+<<<<<<< HEAD
 include/assert.inc [Expect 120 variables in the table.]
+=======
+include/assert.inc [Expect 119 variables in the table.]
+>>>>>>> 44f5d4d3467 ([feature]issue#144 support wait forever for semisync replication)
 
 # Test SET PERSIST
 SET PERSIST binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -157,6 +161,7 @@ SET PERSIST rpl_semi_sync_source_enabled = @@GLOBAL.rpl_semi_sync_source_enabled
 SET PERSIST rpl_semi_sync_source_timeout = @@GLOBAL.rpl_semi_sync_source_timeout;
 SET PERSIST rpl_semi_sync_source_trace_level = @@GLOBAL.rpl_semi_sync_source_trace_level;
 SET PERSIST rpl_semi_sync_source_wait_for_replica_count = @@GLOBAL.rpl_semi_sync_source_wait_for_replica_count;
+SET PERSIST rpl_semi_sync_source_wait_forever = @@GLOBAL.rpl_semi_sync_source_wait_forever;
 SET PERSIST rpl_semi_sync_source_wait_no_replica = @@GLOBAL.rpl_semi_sync_source_wait_no_replica;
 SET PERSIST rpl_semi_sync_source_wait_point = @@GLOBAL.rpl_semi_sync_source_wait_point;
 SET PERSIST rpl_stop_replica_timeout = @@GLOBAL.rpl_stop_replica_timeout;
@@ -249,16 +254,26 @@ SET PERSIST sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 SET PERSIST sync_source_info = @@GLOBAL.sync_source_info;
 SET PERSIST txsql_slave_wait_group_done = @@GLOBAL.txsql_slave_wait_group_done;
 
+<<<<<<< HEAD
 include/assert.inc [Expect 96 persisted variables in persisted_variables table.]
+=======
+include/assert.inc [Expect 95 persisted variables in persisted_variables table.]
+>>>>>>> 44f5d4d3467 ([feature]issue#144 support wait forever for semisync replication)
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
+<<<<<<< HEAD
 include/assert.inc [Expect 96 persisted variables in persisted_variables table.']
 include/assert.inc [Expect 96 persisted variables shown as PERSISTED in variables_info table.']
 include/assert.inc [Expect 96 persisted variables with matching persisted and global values.]
+=======
+include/assert.inc [Expect 95 persisted variables in persisted_variables table.']
+include/assert.inc [Expect 95 persisted variables shown as PERSISTED in variables_info table.']
+include/assert.inc [Expect 95 persisted variables with matching persisted and global values.]
+>>>>>>> 44f5d4d3467 ([feature]issue#144 support wait forever for semisync replication)
 
 ############################################################
 # 3. Test RESET PERSIST IF EXISTS. Verify persisted variable
@@ -394,6 +409,7 @@ RESET PERSIST IF EXISTS rpl_semi_sync_source_enabled;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_timeout;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_trace_level;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_for_replica_count;
+RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_forever;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_no_replica;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_point;
 RESET PERSIST IF EXISTS rpl_stop_replica_timeout;
