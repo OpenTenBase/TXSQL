@@ -643,6 +643,8 @@ sub main {
   # Simplify reference to semisync plugins
   $ENV{'SEMISYNC_PLUGIN_OPT'} = $ENV{'SEMISYNC_MASTER_PLUGIN_OPT'};
 
+  $ENV{'SPEED_LIMIT_PLUGIN_OPT'}= $ENV{'SPEED_LIMIT_MASTER_PLUGIN_OPT'};
+
   if (IS_WINDOWS) {
     $ENV{'PLUGIN_SUFFIX'} = "dll";
   } else {

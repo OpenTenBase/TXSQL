@@ -1,0 +1,65 @@
+--source include/no_valgrind_without_big.inc
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+--source include/have_speed_limit_plugin.inc
+
+connection master;
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN rpl_speed_limit_master soname '$SPEED_LIMIT_MASTER_PLUGIN';
+
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+SET GLOBAL rpl_speed_limit_master_slave_bandwidth=4096;
+SET GLOBAL rpl_speed_limit_master_enabled=on;
+
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+connection slave;
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN rpl_speed_limit_slave SONAME '$SPEED_LIMIT_SLAVE_PLUGIN';
+
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+SET GLOBAL rpl_speed_limit_slave_slave_bandwidth=4096;
+SET GLOBAL rpl_speed_limit_slave_enabled=on;
+
+# Stop and start slave to make slave registered in speed limit plugin.
+STOP SLAVE IO_THREAD;
+START SLAVE IO_THREAD;
+
+SELECT SLEEP(1);
+
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+connection master;
+
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+CREATE TABLE t1(id INT);
+INSERT INTO t1 VALUES(1);
+DROP TABLE t1;
+
+--source include/rpl_sync.inc
+
+SELECT SLEEP(1);
+
+connection slave;
+
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+#uninstall speed limit plugin
+UNINSTALL PLUGIN rpl_speed_limit_slave;
+
+connection master;
+SHOW VARIABLES LIKE 'rpl_speed%';
+SHOW STATUS LIKE 'rpl_speed%';
+
+UNINSTALL PLUGIN rpl_speed_limit_master;
+
+--source include/rpl_end.inc

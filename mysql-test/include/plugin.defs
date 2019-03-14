@@ -62,6 +62,8 @@ test_udf_services  			plugin_output_directory TESTUDFREGISTRATION test_udf_regis
 group_replication  			plugin_output_directory GROUP_REPLICATION
 locking_service    			plugin_output_directory LOCKING_SERVICE
 version_token      			plugin_output_directory VERSION_TOKEN
+rpl_speed_limit_master                  plugin_output_directory SPEED_LIMIT_MASTER_PLUGIN
+rpl_speed_limit_slave                   plugin_output_directory SPEED_LIMIT_SLAVE_PLUGIN
 # Test services framework
 libtest_services                        plugin_output_directory TESTSERVICES
 libtest_services_threaded               plugin_output_directory TESTSERVICESTHREADED
