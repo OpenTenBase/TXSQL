@@ -1,0 +1,1 @@
+Fixed bug in full join with many NULL fields.

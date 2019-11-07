@@ -1,0 +1,6 @@
+tree 7c1d39f59ed0aa7eba1303ca1a12035653eb1ae2
+parent 2abdcf81afe0ddcbab9784c63e3f8795c47f103c
+author monty@hundin.mysql.fi <> 1013338057 +0200
+committer monty@hundin.mysql.fi <> 1013338057 +0200
+
+Fixed bug in full join with many NULL fields.

@@ -1,0 +1,10 @@
+2dd69ebd96b0c8a4a8605dda12898e39698c49f3 tdsql/depend/boost_1_73_0.tar.gz
+2e75a3b0ee649000f1f0e0d4eb831bbaeaf97124 env_depend/x86_64/xtrabackup/cross_xtrabackup
+d6282cf87b8bf3dc8f620b6d25bd68ea0be88268 bin/gcc
+9e2136a22fbd70087fa9897266249df0e75f0616 tdsql/depend/boost_1_70_0.tar.gz
+e5d8b7b18770f0497d25c7a46b0f9486d5eaeccb tdsql/r710d002/mysql-8.0.18_V2.0R710D002_Tlinux2.2-00000012.tgz
+008bb3e8527f361d87d019155ee88e39d2a3d5b2 tdsql/r710d002/mysql-8.0.18_V2.0R710D002_Tlinux2.2_bin-symbol-00000012.tgz
+fb7df483a941e9a7c106b8b63d0064a5b29bba8c tdsql/r710d002/mysql-8.0.18_V2.0R710D002_Tlinux2.2_lib-symbol-00000012.tgz
+351d70124497e7efbd64a024e33e58464f2906dd tdsql/r710d002/mysql-8.0.18_V2.0R710D002_Tlinux2.4__arm.tgz
+1b58d14dd2121e07299a39ab30626a7dc422e095 tdsql/r710d002/mysql-8.0.18_V2.0R710D002_Tlinux2.4_bin-symbol_arm.tgz
+5a9f13a2c6b07d0e53cf9bddcad1a99b0881ccdf tdsql/r710d002/mysql-8.0.18_V2.0R710D002_Tlinux2.4_lib-symbol_arm.tgz
