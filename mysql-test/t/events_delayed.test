@@ -1,0 +1,95 @@
+#
+# Bugfix: Bug #96849 some events are delayed after dropping event
+#
+
+--disable_query_log
+--disable_warnings
+drop database if exists events_test;
+create database events_test;
+use events_test;
+
+# step1: turn off event scheduler
+set global event_scheduler=OFF;
+
+# step2: create some special events to build an special min-heap event queue
+drop table if exists event_log;
+CREATE TABLE `event_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(50) NOT NULL,
+  `create_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP EVENT IF EXISTS event1;
+CREATE EVENT event1
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 5 SECOND
+DO insert into event_log values(NULL, 'event1', now()); 
+
+DROP EVENT IF EXISTS event2;
+CREATE EVENT event2
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 6 SECOND
+DO insert into event_log values(NULL, 'event2', now()); 
+
+DROP EVENT IF EXISTS event3;
+CREATE EVENT event3
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 11 SECOND
+DO insert into event_log values(NULL, 'event3', now());
+
+DROP EVENT IF EXISTS event4;
+CREATE EVENT event4
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 7 SECOND
+DO insert into event_log values(NULL, 'event4', now());
+
+DROP EVENT IF EXISTS event5;
+CREATE EVENT event5
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 8 SECOND
+DO insert into event_log values(NULL, 'event5', now());
+
+DROP EVENT IF EXISTS event6;
+CREATE EVENT event6
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 12 SECOND
+DO insert into event_log values(NULL, 'event6', now());
+
+DROP EVENT IF EXISTS event7;
+CREATE EVENT event7
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 13 SECOND
+DO insert into event_log values(NULL, 'event7', now());
+
+DROP EVENT IF EXISTS event8;
+CREATE EVENT event8
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 14 SECOND
+DO insert into event_log values(NULL, 'event8', now());
+
+DROP EVENT IF EXISTS event9;
+CREATE EVENT event9
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 15 SECOND
+DO insert into event_log values(NULL, 'event9', now());
+
+DROP EVENT IF EXISTS event10;
+CREATE EVENT event10
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 9 SECOND
+DO insert into event_log values(NULL, 'event10', now());
+
+DROP EVENT IF EXISTS event11;
+CREATE EVENT event11
+ON SCHEDULE EVERY 1 HOUR STARTS CURRENT_TIMESTAMP + INTERVAL 10 SECOND
+DO insert into event_log values(NULL, 'event11', now());
+
+# step3: turn on event scheduler. This step must be executed before step4,
+#        because event queue will be adjusted on the start of event scheduler
+#        thread
+set global event_scheduler=ON;
+
+# step4: drop event7, then part of the event queue will not be min-heap, because
+#        in function queue_remove, we just move event11 to event7 but not 
+#        adjust min-heap furthermore. In this case, event11's parent is 
+#        event3, but execute time of event3 is larger than event11.
+drop event if exists event7;
+--enable_query_log
+--enable_warnings
+
+# step5: check event execute order after each event has runned one time
+select sleep(20);
+select event_name from event_log;
+
+drop database events_test;

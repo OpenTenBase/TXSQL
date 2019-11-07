@@ -291,7 +291,7 @@ void Event_queue::drop_matching_events(LEX_CSTRING pattern,
         an array from left to the right. In this case we should not
         increment the counter and the (i < queue.elements) condition is ok.
       */
-      queue.remove(i);
+      queue.remove_event_no_heapify(i);
 #ifdef HAVE_PSI_SP_INTERFACE
       /* Drop statistics for this stored program from performance schema. */
       MYSQL_DROP_SP(to_uint(enum_sp_type::EVENT), et->m_schema_name.str,
@@ -302,6 +302,9 @@ void Event_queue::drop_matching_events(LEX_CSTRING pattern,
     } else
       i++;
   }
+
+  queue.build_heap();
+
   /*
     We don't call mysql_cond_broadcast(&COND_queue_state);
     If we remove the top event:
@@ -352,7 +355,7 @@ void Event_queue::find_n_remove_event(LEX_CSTRING db, LEX_CSTRING name) {
     DBUG_PRINT("info", ("[%s.%s]==[%s.%s]?", db.str, name.str,
                         et->m_schema_name.str, et->m_event_name.str));
     if (event_basic_identifier_equal(db, name, et)) {
-      queue.remove(i);
+      queue.remove_event(i);
       delete et;
       break;
     }
@@ -406,7 +409,7 @@ void Event_queue::recalculate_activation_times(THD *thd) {
       This won't cause queue re-order, because we remove
       always the last element.
     */
-    queue.remove(i - 1);
+    queue.remove_event(i - 1);
     /*
       Dropping the event from Data Dictionary.
     */
@@ -608,7 +611,7 @@ bool Event_queue::get_top_for_execution_if_time(
       LogErr(INFORMATION_LEVEL, ER_EVENT_LAST_EXECUTION, top->m_schema_name.str,
              top->m_event_name.str, top->m_dropped ? "Dropping." : "");
       delete top;
-      queue.pop();
+      queue.pop_event();
       /*
        This event will get dropped from mysql.events table in
        Event_job_data::execute() function eventually.

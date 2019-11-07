@@ -246,6 +246,36 @@ class Priority_queue : public Less {
     heapify(i);
   }
 
+  /// Pops the top-most element in the priority event queue.
+  void pop_event(){ remove_event(0); }
+
+  /// Removes the element at position i from the priority event queue.
+  void remove_event(size_type i){
+    DBUG_ASSERT(i < size());
+
+    if (i == m_container.size() - 1){
+      m_container.pop_back();
+      return;
+    }
+
+    m_container[i] = m_container[m_container.size() - 1];
+    m_container.pop_back();
+    update(i);
+  }
+
+  /// Removes the element at position i from the priority event queue without heapify.
+  void remove_event_no_heapify(size_type i){
+    DBUG_ASSERT(i < size());
+
+    if (i == m_container.size() - 1){
+      m_container.pop_back();
+      return;
+    }
+
+    m_container[i] = m_container[m_container.size() - 1];
+    m_container.pop_back();
+  }
+
   /**
     Decreases the priority of the element at position i, where the
     new priority is x.
