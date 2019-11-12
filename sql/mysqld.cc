@@ -973,6 +973,8 @@ bool temptable_use_mmap;
 static char compiled_default_collation_name[] = MYSQL_DEFAULT_COLLATION_NAME;
 static bool binlog_format_used = false;
 
+bool cdb_skip_event_scheduler = FALSE;
+
 LEX_STRING opt_init_connect, opt_init_slave;
 
 /* Global variables */

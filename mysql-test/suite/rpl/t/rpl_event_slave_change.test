@@ -1,0 +1,67 @@
+source include/master-slave.inc;
+
+connect (con1,localhost,root);
+
+create database  testdb;
+use testdb;
+create table t1(
+  a int,
+  b varchar(20)
+);
+insert into t1 values(1000,'test');
+
+create event t1_event  on schedule  at now()  do insert into t1 values(1,'event_now_test11');
+create event t2_event  on schedule  at now() disable do insert into t1 values(2,'event_now_test22');
+create event t3_event  on schedule  at now() DISABLE ON SLAVE do insert into t1 values(3,'event_now_test33');
+
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+select event_schema,event_name,interval_value,interval_field,status,on_completion,event_comment,originator from information_schema.events order by event_name;
+
+connection con1;
+show variables like '%event_scheduler';
+
+--source include/rpl_sync.inc
+--connection slave
+use testdb;
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+
+--connection con1
+alter event t2_event  DISABLE ON SLAVE;
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+
+--source include/rpl_sync.inc
+--connection slave
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+
+connection con1;
+set global event_scheduler = on;
+select sleep(1);
+select * from t1 order by a;
+create event t4_event  on schedule  at now()  do insert into t1 values(4,'event_now_test44');
+select sleep(1);
+select * from t1 order by a;
+set global cdb_skip_event_scheduler = on;
+create event t5_event  on schedule  at now()  do insert into t1 values(5,'event_now_test55');
+select sleep(1);
+select * from t1 order by a;
+
+--source include/rpl_sync.inc
+--connection slave
+select * from testdb.t1 order by a;
+show variables like '%event_scheduler';
+
+--connection con1
+set global cdb_skip_event_scheduler = off;
+drop database testdb;
+--source include/rpl_sync.inc
+
+--source include/rpl_end.inc
+

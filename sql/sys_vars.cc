@@ -1953,7 +1953,8 @@ static bool event_scheduler_update(sys_var *, THD *, enum_var_type) {
     rare and it's difficult to avoid it without opening up possibilities
     for deadlocks. See bug#51160.
   */
-  bool ret = opt_event_scheduler_value == Events::EVENTS_ON
+  bool ret = ((opt_event_scheduler_value == Events::EVENTS_ON)
+              && !cdb_skip_event_scheduler)
                  ? Events::start(&err_no)
                  : Events::stop();
   mysql_mutex_lock(&LOCK_global_system_variables);
@@ -6235,6 +6236,13 @@ static Sys_var_charptr Sys_disabled_storage_engines(
     "Limit CREATE TABLE for the storage engines listed",
     READ_ONLY GLOBAL_VAR(opt_disabled_storage_engines), CMD_LINE(REQUIRED_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(""));
+
+static Sys_var_bool Sys_cdb_skip_event_scheduler(
+    "cdb_skip_event_scheduler", "Enable the event scheduler."
+    "Possible values are ON,OFF",
+    GLOBAL_VAR(cdb_skip_event_scheduler), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(event_scheduler_update));
 
 static Sys_var_bool Sys_persisted_globals_load(
     PERSISTED_GLOBALS_LOAD,
