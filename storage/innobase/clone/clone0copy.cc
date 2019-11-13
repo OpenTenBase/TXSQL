@@ -327,14 +327,14 @@ int Clone_Snapshot::update_binlog_position() {
 }
 
 int Clone_Snapshot::wait_trx_end(THD *thd, trx_id_t trx_id) {
-  auto trx = trx_rw_is_active(trx_id, nullptr, false);
+  auto trx = trx_sys->find(current_trx(), trx_id, false);
   if (trx == nullptr) {
     return (0);
   }
 
   auto wait_cond = [&](bool alert, bool &result) {
     /* Check if transaction is still active. */
-    auto trx = trx_rw_is_active(trx_id, nullptr, false);
+    auto trx = trx_sys->find(current_trx(), trx_id, false);
     if (trx == nullptr) {
       result = false;
       return (0);

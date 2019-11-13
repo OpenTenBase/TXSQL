@@ -495,6 +495,13 @@ void lock_report_trx_id_insanity(
     const dict_index_t *index, /*!< in: index */
     const ulint *offsets,      /*!< in: rec_get_offsets(rec, index) */
     trx_id_t max_trx_id);      /*!< in: trx_sys_get_max_trx_id() */
+/** Checks that a transaction id is sensible, i.e., not in the future.
+ @return true if ok */
+bool lock_check_trx_id_sanity(
+    trx_id_t trx_id,           /*!< in: trx id */
+    const rec_t *rec,          /*!< in: user record */
+    const dict_index_t *index, /*!< in: index */
+    const ulint *offsets);      /*!< in: rec_get_offsets(rec, index) */
 
 /** Prints info of locks for all transactions.
 @return false if not able to obtain lock mutex and exits without

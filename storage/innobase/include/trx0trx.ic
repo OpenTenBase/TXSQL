@@ -35,7 +35,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 /** Determines if a transaction is in the given state.
  The caller must hold trx_sys->mutex, or it must be the thread
  that is serving a running transaction.
- A running RW transaction must be in trx_sys->rw_trx_list.
+ A running RW transaction must be in trx_sys->rw_trx_hash.
  @return true if trx->state == state */
 UNIV_INLINE
 bool trx_state_eq(const trx_t *trx,  /*!< in: transaction */
@@ -64,8 +64,6 @@ bool trx_state_eq(const trx_t *trx,  /*!< in: transaction */
       /* These states are not allowed for running transactions. */
       ut_a(state == TRX_STATE_NOT_STARTED ||
            state == TRX_STATE_FORCED_ROLLBACK);
-
-      ut_ad(!trx->in_rw_trx_list);
 
       return (true);
   }
@@ -259,7 +257,7 @@ void trx_release_reference(trx_t *trx) {
 @return the transaction's read view or NULL if one not assigned. */
 UNIV_INLINE
 ReadView *trx_get_read_view(trx_t *trx) {
-  return (!MVCC::is_view_active(trx->read_view) ? NULL : trx->read_view);
+  return (!trx->register_view ? NULL : trx->read_view);
 }
 
 /**
@@ -267,7 +265,7 @@ ReadView *trx_get_read_view(trx_t *trx) {
 @return the transaction's read view or NULL if one not assigned. */
 UNIV_INLINE
 const ReadView *trx_get_read_view(const trx_t *trx) {
-  return (!MVCC::is_view_active(trx->read_view) ? NULL : trx->read_view);
+  return (!trx->register_view ? NULL : trx->read_view);
 }
 
 /**

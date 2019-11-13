@@ -860,25 +860,17 @@ static void trx_i_s_cache_clear(
 
 /** Fetches the data needed to fill the 3 INFORMATION SCHEMA tables into the
  table cache buffer. Cache must be locked for write. */
-static void fetch_data_into_cache_low(
-    trx_i_s_cache_t *cache,  /*!< in/out: cache */
-    bool read_write,         /*!< in: only read-write
-                             transactions */
-    trx_ut_list_t *trx_list) /*!< in: trx list */
+static void fetch_read_only_data_into_cache_low(
+    trx_i_s_cache_t *cache)  /*!< in/out: cache */
 {
   trx_t *trx;
-  bool rw_trx_list = trx_list == &trx_sys->rw_trx_list;
-
-  ut_ad(rw_trx_list || trx_list == &trx_sys->mysql_trx_list);
-
   /* Iterate over the transaction list and add each one
   to innodb_trx's cache. We also add all locks that are relevant
   to each transaction into innodb_locks' and innodb_lock_waits'
   caches. */
 
-  for (trx = UT_LIST_GET_FIRST(*trx_list); trx != NULL;
-       trx = (rw_trx_list ? UT_LIST_GET_NEXT(trx_list, trx)
-                          : UT_LIST_GET_NEXT(mysql_trx_list, trx))) {
+  for (trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list); trx != NULL;
+       trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
     i_s_trx_row_t *trx_row;
     i_s_locks_row_t *requested_lock_row;
 
@@ -887,14 +879,10 @@ static void fetch_data_into_cache_low(
     /* Note: Read only transactions that modify temporary
     tables an have a transaction ID */
     if (!trx_is_started(trx) ||
-        (!rw_trx_list && trx->id != 0 && !trx->read_only)) {
+        (trx->id != 0 && !trx->read_only)) {
       trx_mutex_exit(trx);
       continue;
     }
-
-    assert_trx_nonlocking_or_in_list(trx);
-
-    ut_ad(trx->in_rw_trx_list == rw_trx_list);
 
     if (!add_trx_relevant_locks_to_cache(cache, trx, &requested_lock_row)) {
       cache->is_truncated = TRUE;
@@ -924,22 +912,76 @@ static void fetch_data_into_cache_low(
   }
 }
 
+static bool fetch_rw_data_into_cache_callback(
+    rw_trx_hash_element_t* element, trx_i_s_cache_t *cache) {
+  mutex_enter(&element->mutex);
+
+  trx_t *trx = element->trx;
+  if (trx) {
+    i_s_trx_row_t *trx_row;
+    i_s_locks_row_t *requested_lock_row;
+    trx_mutex_enter(trx);
+
+    if (!trx_is_started(trx)) {
+      trx_mutex_exit(trx);
+      mutex_exit(&element->mutex);
+
+      return (false);
+    }
+
+    if (!add_trx_relevant_locks_to_cache(cache, trx, &requested_lock_row)) {
+      cache->is_truncated = TRUE;
+      trx_mutex_exit(trx);
+      mutex_exit(&element->mutex);
+      return (true);
+    }
+
+    trx_row = reinterpret_cast<i_s_trx_row_t *>(
+                              table_cache_create_empty_row(&cache->innodb_trx, cache));
+
+    /* memory could not be allocated */
+    if (trx_row == NULL) {
+      cache->is_truncated = TRUE;
+      trx_mutex_exit(trx);
+      mutex_exit(&element->mutex);
+      return (true);
+    }
+
+    if (!fill_trx_row(trx_row, trx, requested_lock_row, cache)) {
+      /* memory could not be allocated */
+      --cache->innodb_trx.rows_used;
+      cache->is_truncated = TRUE;
+      trx_mutex_exit(trx);
+      mutex_exit(&element->mutex);
+      return (true);
+    }
+
+    trx_mutex_exit(trx);
+  }
+
+  mutex_exit(&element->mutex);
+
+  return (false);
+}
+
 /** Fetches the data needed to fill the 3 INFORMATION SCHEMA tables into the
  table cache buffer. Cache must be locked for write. */
 static void fetch_data_into_cache(trx_i_s_cache_t *cache) /*!< in/out: cache */
 {
   ut_ad(lock_mutex_own());
-  ut_ad(trx_sys_mutex_own());
 
   trx_i_s_cache_clear(cache);
 
   /* Capture the state of the read-write transactions. This includes
   internal transactions too. They are not on mysql_trx_list */
-  fetch_data_into_cache_low(cache, true, &trx_sys->rw_trx_list);
+  trx_sys->rw_trx_hash.iterate_no_dups(reinterpret_cast<my_hash_walk_action>
+                                       (fetch_rw_data_into_cache_callback), cache);
 
+  trx_sys_mutex_enter();
   /* Capture the state of the read-only active transactions */
-  fetch_data_into_cache_low(cache, false, &trx_sys->mysql_trx_list);
-
+  fetch_read_only_data_into_cache_low(cache);
+  trx_sys_mutex_exit();
+  
   cache->is_truncated = FALSE;
 }
 
@@ -957,11 +999,7 @@ int trx_i_s_possibly_fetch_data_into_cache(
 
   lock_mutex_enter();
 
-  trx_sys_mutex_enter();
-
   fetch_data_into_cache(cache);
-
-  trx_sys_mutex_exit();
 
   lock_mutex_exit();
 

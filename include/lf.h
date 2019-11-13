@@ -62,12 +62,14 @@ void *lf_dynarray_value(LF_DYNARRAY *array, uint idx);
 void *lf_dynarray_lvalue(LF_DYNARRAY *array, uint idx);
 int lf_dynarray_iterate(LF_DYNARRAY *array, lf_dynarray_func func, void *arg);
 
+typedef bool (*my_hash_walk_action)(void *,void *);
+
 /*
   pin manager for memory allocator, lf_alloc-pin.c
 */
 
 #define LF_PINBOX_PINS 4
-#define LF_PURGATORY_SIZE 10
+#define LF_PURGATORY_SIZE 100
 
 typedef void lf_pinbox_free_func(void *, void *, void *);
 
@@ -222,7 +224,8 @@ static inline LF_PINS *lf_hash_get_pins(LF_HASH *hash) {
 static inline void lf_hash_put_pins(LF_PINS *pins) { lf_pinbox_put_pins(pins); }
 
 static inline void lf_hash_search_unpin(LF_PINS *pins) { lf_unpin(pins, 2); }
-
+int lf_hash_iterate(LF_HASH *hash, LF_PINS *pins,
+                    my_hash_walk_action action, void *argument);
 typedef int lf_hash_match_func(const uchar *el);
 void *lf_hash_random_match(LF_HASH *hash, LF_PINS *pins,
                            lf_hash_match_func *match, uint rand_val);

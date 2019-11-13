@@ -49,7 +49,6 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   if (!is_active() || gtid_table_persistor == nullptr) {
     return;
   }
-  ut_ad(trx_sys_mutex_own());
   /* Get active GTID list */
   auto &current_gtids = get_active_list();
 
@@ -426,7 +425,7 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
   trx_sys_mutex_enter();
   /* Get oldest transaction number that is yet to be committed. Any transaction
   with lower transaction number is committed and is added to GTID list. */
-  auto oldest_trx_no = trx_sys_oldest_trx_no();
+  auto oldest_trx_no = trx_sys->get_min_trx_no();
   bool compress_recovery = false;
   /* Check and write if any GTID is accumulated. */
   if (m_num_gtid_mem.load() != 0) {

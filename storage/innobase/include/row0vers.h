@@ -53,6 +53,7 @@ class ReadView;
  negatives. The caller must confirm all positive results by calling
  trx_is_active() while holding lock_sys->mutex. */
 trx_t *row_vers_impl_x_locked(
+    trx_t *caller_trx,         /*!< in: current transaction */
     const rec_t *rec,          /*!< in: record in a secondary index */
     const dict_index_t *index, /*!< in: the secondary index */
     const ulint *offsets);     /*!< in: rec_get_offsets(rec, index) */
@@ -116,6 +117,7 @@ dberr_t row_vers_build_for_consistent_read(
 /** Constructs the last committed version of a clustered index record,
  which should be seen by a semi-consistent read. */
 void row_vers_build_for_semi_consistent_read(
+    trx_t *caller_trx,        /*!< in: current transaction */
     const rec_t *rec,         /*!< in: record in a clustered index; the
                               caller must have a latch on the page; this
                               latch locks the top of the stack of versions

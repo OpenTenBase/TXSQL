@@ -235,7 +235,6 @@ class Clone_persist_gtid {
 
   /** @return current active GTID list */
   Gitd_info_list &get_active_list() {
-    ut_ad(trx_sys_mutex_own());
     return (get_list(m_active_number));
   }
 

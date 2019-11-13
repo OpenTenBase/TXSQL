@@ -256,7 +256,7 @@ static bool row_vers_find_matching(
     delete-marked, because we never start a transaction by
     inserting a delete-marked record. */
     ut_ad(prev_version || !rec_get_deleted_flag(version, comp) ||
-          !trx_rw_is_active(trx_id, NULL, false));
+          !trx_sys->find(NULL, trx_id, false));
 
     /* Free version and clust_offsets. */
     mem_heap_free(old_heap);
@@ -289,6 +289,7 @@ static bool row_vers_find_matching(
  trx_is_active() while holding lock_sys->mutex. */
 UNIV_INLINE
 trx_t *row_vers_impl_x_locked_low(
+    trx_t *caller_trx,                     /*!< in: current transaction */
     const rec_t *const clust_rec,          /*!< in: clustered index record */
     const dict_index_t *const clust_index, /*!< in: the clustered index */
     const rec_t *const sec_rec,            /*!< in: secondary index record */
@@ -298,7 +299,6 @@ trx_t *row_vers_impl_x_locked_low(
     mtr_t *const mtr)       /*!< in/out: mini-transaction */
 {
   trx_id_t trx_id;
-  ibool corrupt;
   ulint comp;
 
   ulint *clust_offsets;
@@ -494,19 +494,23 @@ trx_t *row_vers_impl_x_locked_low(
       rec_get_offsets(clust_rec, clust_index, NULL, ULINT_UNDEFINED, &heap);
 
   trx_id = row_get_rec_trx_id(clust_rec, clust_index, clust_offsets);
-  corrupt = FALSE;
 
-  trx_t *trx = trx_rw_is_active(trx_id, &corrupt, true);
+  trx_t* trx;
+  if (trx_id == caller_trx->id) {
+    trx = caller_trx;
+    trx->n_ref++;
+  } else {
+    trx = trx_sys->find(caller_trx, trx_id, true);
 
-  if (trx == 0) {
-    /* The transaction that modified or inserted clust_rec is no
-    longer active, or it is corrupt: no implicit lock on rec */
-    if (corrupt) {
-      lock_report_trx_id_insanity(trx_id, clust_rec, clust_index, clust_offsets,
-                                  trx_sys_get_max_trx_id());
+    if (trx == NULL) {
+      if (!lock_check_trx_id_sanity(trx_id, clust_rec,
+                               clust_index, clust_offsets)) {
+        ib::error() << "Transaction ID Sanity checking is failed.";
+      }
+      mem_heap_free(heap);
+
+      return 0;
     }
-    mem_heap_free(heap);
-    return 0;
   }
 
   comp = page_rec_is_comp(sec_rec);
@@ -536,6 +540,7 @@ trx_t *row_vers_impl_x_locked_low(
  negatives. The caller must confirm all positive results by calling
  trx_is_active() while holding lock_sys->mutex. */
 trx_t *row_vers_impl_x_locked(
+    trx_t *caller_trx,         /*!< in: current transaction */
     const rec_t *rec,          /*!< in: record in a secondary index */
     const dict_index_t *index, /*!< in: the secondary index */
     const ulint *offsets)      /*!< in: rec_get_offsets(rec, index) */
@@ -575,7 +580,7 @@ trx_t *row_vers_impl_x_locked(
 
     trx = 0;
   } else {
-    trx = row_vers_impl_x_locked_low(clust_rec, clust_index, rec, index,
+    trx = row_vers_impl_x_locked_low(caller_trx, clust_rec, clust_index, rec, index,
                                      offsets, &mtr);
 
     ut_ad(trx == 0 || trx_is_referenced(trx));
@@ -1357,6 +1362,7 @@ dberr_t row_vers_build_for_consistent_read(
 /** Constructs the last committed version of a clustered index record,
  which should be seen by a semi-consistent read. */
 void row_vers_build_for_semi_consistent_read(
+    trx_t *caller_trx,        /*!< in: current transaction */
     const rec_t *rec,         /*!< in: record in a clustered index; the
                               caller must have a latch on the page; this
                               latch locks the top of the stack of versions
@@ -1393,7 +1399,6 @@ void row_vers_build_for_semi_consistent_read(
   ut_ad(!vrow || !(*vrow));
 
   for (;;) {
-    const trx_t *version_trx;
     mem_heap_t *heap2;
     rec_t *prev_version;
     trx_id_t version_trx_id;
@@ -1403,20 +1408,8 @@ void row_vers_build_for_semi_consistent_read(
       rec_trx_id = version_trx_id;
     }
 
-    trx_sys_mutex_enter();
-    version_trx = trx_get_rw_trx_by_id(version_trx_id);
-    /* Because version_trx is a read-write transaction,
-    its state cannot change from or to NOT_STARTED while
-    we are holding the trx_sys->mutex.  It may change from
-    ACTIVE to PREPARED or COMMITTED. */
-    if (version_trx &&
-        trx_state_eq(version_trx, TRX_STATE_COMMITTED_IN_MEMORY)) {
-      version_trx = NULL;
-    }
-    trx_sys_mutex_exit();
-
-    if (!version_trx) {
-    committed_version_trx:
+    if (!trx_sys->rw_trx_hash.find(caller_trx, version_trx_id, false)) {
+committed_version_trx:
       /* We found a version that belongs to a
       committed transaction: return it. */
 

@@ -45,109 +45,6 @@ class MVCC;
 read should not see the modifications to the database. */
 
 class ReadView {
-  /** This is similar to a std::vector but it is not a drop
-  in replacement. It is specific to ReadView. */
-  class ids_t {
-    typedef trx_ids_t::value_type value_type;
-
-    /**
-    Constructor */
-    ids_t() : m_ptr(), m_size(), m_reserved() {}
-
-    /**
-    Destructor */
-    ~ids_t() { UT_DELETE_ARRAY(m_ptr); }
-
-    /**
-    Try and increase the size of the array. Old elements are
-    copied across. It is a no-op if n is < current size.
-
-    @param n 		Make space for n elements */
-    void reserve(ulint n);
-
-    /**
-    Resize the array, sets the current element count.
-    @param n		new size of the array, in elements */
-    void resize(ulint n) {
-      ut_ad(n <= capacity());
-
-      m_size = n;
-    }
-
-    /**
-    Reset the size to 0 */
-    void clear() { resize(0); }
-
-    /**
-    @return the capacity of the array in elements */
-    ulint capacity() const { return (m_reserved); }
-
-    /**
-    Copy and overwrite the current array contents
-
-    @param start		Source array
-    @param end		Pointer to end of array */
-    void assign(const value_type *start, const value_type *end);
-
-    /**
-    Insert the value in the correct slot, preserving the order.
-    Doesn't check for duplicates. */
-    void insert(value_type value);
-
-    /**
-    @return the value of the first element in the array */
-    value_type front() const {
-      ut_ad(!empty());
-
-      return (m_ptr[0]);
-    }
-
-    /**
-    @return the value of the last element in the array */
-    value_type back() const {
-      ut_ad(!empty());
-
-      return (m_ptr[m_size - 1]);
-    }
-
-    /**
-    Append a value to the array.
-    @param value		the value to append */
-    void push_back(value_type value);
-
-    /**
-    @return a pointer to the start of the array */
-    trx_id_t *data() { return (m_ptr); }
-
-    /**
-    @return a const pointer to the start of the array */
-    const trx_id_t *data() const { return (m_ptr); }
-
-    /**
-    @return the number of elements in the array */
-    ulint size() const { return (m_size); }
-
-    /**
-    @return true if size() == 0 */
-    bool empty() const { return (size() == 0); }
-
-   private:
-    // Prevent copying
-    ids_t(const ids_t &);
-    ids_t &operator=(const ids_t &);
-
-   private:
-    /** Memory for the array */
-    value_type *m_ptr;
-
-    /** Number of active elements in the array */
-    ulint m_size;
-
-    /** Size of m_ptr in elements */
-    ulint m_reserved;
-
-    friend class ReadView;
-  };
 
  public:
   ReadView();
@@ -178,26 +75,13 @@ class ReadView {
       return (true);
     }
 
-    const ids_t::value_type *p = m_ids.data();
-
-    return (!std::binary_search(p, p + m_ids.size(), id));
+    return (!std::binary_search(m_ids.begin(), m_ids.end(), id));
   }
 
   /**
   @param id		transaction to check
   @return true if view sees transaction id */
   bool sees(trx_id_t id) const { return (id < m_up_limit_id); }
-
-  /**
-  Mark the view as closed */
-  void close() {
-    ut_ad(m_creator_trx_id != TRX_ID_MAX);
-    m_creator_trx_id = TRX_ID_MAX;
-  }
-
-  /**
-  @return true if the view is closed */
-  bool is_closed() const { return (m_closed); }
 
   /**
   Write the limits to the file.
@@ -228,10 +112,46 @@ class ReadView {
   @return the low limit id */
   trx_id_t low_limit_id() const { return (m_low_limit_id); }
 
+  trx_id_t up_limit_id() const { return (m_up_limit_id); }
   /**
   @return true if there are no transaction ids in the snapshot */
   bool empty() const { return (m_ids.empty()); }
 
+  int id_size() const { return (m_ids.size()); }
+
+
+  /** Check and reuse the cached read view
+  @return true if it can be reused. */
+  bool reuse();
+
+  /** Set cache flag to true */
+  void cache(bool new_val) {
+    m_cached = new_val; 
+  }
+
+  /** Return true if the read view is cached on view list */
+  bool is_cached() const {
+    return (m_cached.load());
+  }
+
+  /** The purge thread may remove read view from list, Meanwhile
+  it needs be marked ad abandoned.*/
+  void mark_abandoned() {
+    m_abandoned = true;
+  }
+
+  /** Return true if read view is abandoned */
+  bool is_abandoned() {
+    return (m_abandoned.load());
+  }
+
+  /** Take a subset of two read view */
+  void subset(ReadView *other);
+
+  /** Take a snapshot of current transaction state
+  @param[in] trx  transaction object
+  @param[in] add_list true if the read view needs adding to list */
+  void snapshot(trx_t *trx, bool add_list);
 #ifdef UNIV_DEBUG
   /**
   @return the view low limit number */
@@ -245,26 +165,17 @@ class ReadView {
   }
 #endif /* UNIV_DEBUG */
  private:
-  /**
-  Copy the transaction ids from the source vector */
-  inline void copy_trx_ids(const trx_ids_t &trx_ids);
 
-  /**
-  Opens a read view where exactly the transactions serialized before this
-  point in time are seen in the view.
-  @param id		Creator transaction id */
-  inline void prepare(trx_id_t id);
+  /** Flag that indicates the read view is cached on
+  view list. It can be only be changed by the session
+  that owns the view */
+  std::atomic<bool> m_cached;
 
-  /**
-  Copy state from another view. Must call copy_complete() to finish.
-  @param other		view to copy from */
-  inline void copy_prepare(const ReadView &other);
-
-  /**
-  Complete the copy, insert the creator transaction id into the
-  m_trx_ids too and adjust the m_up_limit_id *, if required */
-  inline void copy_complete();
-
+  /** Flag that indicates the read view is removed from
+  view list by purge thread, Note that m_cached may still
+  be true. */
+  std::atomic<bool> m_abandoned;
+  
   /**
   Set the creator transaction id, existing id must be 0 */
   void creator_trx_id(trx_id_t id) {
@@ -295,7 +206,7 @@ class ReadView {
 
   /** Set of RW transactions that was active when this snapshot
   was taken */
-  ids_t m_ids;
+  trx_ids_t m_ids;
 
   /** The view does not need to see the undo logs for transactions
   whose transaction number is strictly smaller (<) than this value:
@@ -309,9 +220,6 @@ class ReadView {
   variable INNODB_PURGE_VIEW_TRX_ID_AGE. */
   trx_id_t m_view_low_limit_no;
 #endif /* UNIV_DEBUG */
-
-  /** AC-NL-RO transaction view that has been "closed". */
-  bool m_closed;
 
   typedef UT_LIST_NODE_T(ReadView) node_t;
 

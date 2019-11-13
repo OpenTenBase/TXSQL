@@ -633,8 +633,6 @@ static ibool trx_rollback_resurrected(
     ibool all)  /*!< in: FALSE=roll back dictionary transactions;
                 TRUE=roll back all non-PREPARED transactions */
 {
-  ut_ad(trx_sys_mutex_own());
-
   /* The trx->is_recovered flag and trx->state are set
   atomically under the protection of the trx->mutex (and
   lock_sys->mutex) in lock_trx_release_locks(). We do not want
@@ -651,7 +649,6 @@ static ibool trx_rollback_resurrected(
 
   switch (state) {
     case TRX_STATE_COMMITTED_IN_MEMORY:
-      trx_sys_mutex_exit();
       ib::info(ER_IB_MSG_1188)
           << "Cleaning up trx with id " << trx_get_id_for_print(trx);
 
@@ -660,8 +657,15 @@ static ibool trx_rollback_resurrected(
       return (TRUE);
     case TRX_STATE_ACTIVE:
       if (all || trx->ddl_operation) {
-        trx_sys_mutex_exit();
+#ifdef UNIV_DEBUG
+        trx_id_t id = trx->id;
+        ut_ad(id > 0);
+#endif
         trx_rollback_active(trx);
+#ifdef UNIV_DEBUG
+        /* Trx should have been deregistered */
+        ut_ad(!trx_sys->is_registered(NULL, id));
+#endif
         trx_free_for_background(trx);
         return (TRUE);
       }
@@ -677,6 +681,21 @@ static ibool trx_rollback_resurrected(
   return (FALSE);
 }
 
+static bool trx_rollback_recovered_callback(rw_trx_hash_element_t *element,
+                                               std::vector<trx_t*> *trx_list) {
+  mutex_enter(&element->mutex);
+  if (trx_t *trx = element->trx) {
+    trx_mutex_enter(trx);
+    if (trx->is_recovered) {
+      trx_list->push_back(trx);
+    }
+    trx_mutex_exit(trx);
+  }
+
+  mutex_exit(&element->mutex);
+  return (false);
+}
+
 /** Rollback or clean up any incomplete transactions which were
  encountered in crash recovery.  If the transaction already was
  committed, then we clean up a possible insert undo log. If the
@@ -685,10 +704,19 @@ void trx_rollback_or_clean_recovered(
     ibool all) /*!< in: FALSE=roll back dictionary transactions;
                TRUE=roll back all non-PREPARED transactions */
 {
-  trx_t *trx;
-
   ut_a(srv_force_recovery < SRV_FORCE_NO_TRX_UNDO);
   ut_ad(!all || trx_sys_need_rollback());
+
+  std::vector<trx_t*> trx_list;
+  trx_list.clear();
+
+  /*
+  Collect list of recovered ACTIVE transaction ids first. Once collected,
+  no other thread is allowed to modify or remove these transactions from
+  rw_trx_hash.  */
+  trx_sys->rw_trx_hash.iterate_no_dups(reinterpret_cast<my_hash_walk_action>
+                                      (trx_rollback_recovered_callback),
+                                      &trx_list);
 
   if (all) {
     ib::info(ER_IB_MSG_1189) << "Starting in background the rollback"
@@ -703,27 +731,11 @@ void trx_rollback_or_clean_recovered(
   /* Loop over the transaction list as long as there are
   recovered transactions to clean up or recover. */
 
-  do {
-    trx_sys_mutex_enter();
-
-    for (trx = UT_LIST_GET_FIRST(trx_sys->rw_trx_list); trx != NULL;
-         trx = UT_LIST_GET_NEXT(trx_list, trx)) {
-      assert_trx_in_rw_list(trx);
-
-      /* If this function does a cleanup or rollback
-      then it will release the trx_sys->mutex, therefore
-      we need to reacquire it before retrying the loop. */
-
-      if (trx_rollback_resurrected(trx, all)) {
-        trx_sys_mutex_enter();
-
-        break;
-      }
-    }
-
-    trx_sys_mutex_exit();
-
-  } while (trx != NULL);
+  while (!trx_list.empty()) {
+    trx_t *trx= trx_list.back();
+    trx_list.pop_back();
+    trx_rollback_resurrected(trx, all);
+  }
 
   if (all) {
     ib::info(ER_IB_MSG_1190) << "Rollback of non-prepared transactions"

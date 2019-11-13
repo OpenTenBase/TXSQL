@@ -675,6 +675,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(lock_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(lock_wait_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(rw_trx_hash_element_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(srv_threads_mutex, 0, 0, PSI_DOCUMENT_ME),
 #ifndef PFS_SKIP_EVENT_MUTEX
     PSI_MUTEX_KEY(event_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -2568,6 +2569,20 @@ trx_t *check_trx_exists(THD *thd) /*!< in: user thread handle */
   }
 
   return (trx);
+}
+
+/** Gets current trx.
+
+This function may be called during InnoDB initialisation, when
+innodb_hton_ptr->slot is not yet set to meaningful value.  */
+trx_t *current_trx()
+{
+  THD *thd = current_thd;
+  if (likely(thd != 0) && innodb_hton_ptr->slot != HA_SLOT_UNDEF) {
+    return (thd_to_trx(thd));
+  } else {
+    return (NULL);
+  }
 }
 
 /** InnoDB transaction object that is currently associated with THD is
@@ -18206,12 +18221,8 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
       }
 
     } else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
-               MVCC::is_view_active(trx->read_view)) {
-      mutex_enter(&trx_sys->mutex);
-
-      trx_sys->mvcc->view_close(trx->read_view, true);
-
-      mutex_exit(&trx_sys->mutex);
+               trx->register_view) {
+      trx_sys->mvcc->view_close(trx, false);
     }
   }
 
@@ -18807,16 +18818,10 @@ THR_LOCK_DATA **ha_innobase::store_lock(
     trx->isolation_level =
         innobase_map_isolation_level((enum_tx_isolation)thd_tx_isolation(thd));
 
-    if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
-        MVCC::is_view_active(trx->read_view)) {
+    if (trx->isolation_level <= TRX_ISO_READ_COMMITTED && trx->register_view) {
       /* At low transaction isolation levels we let
       each consistent read set its own snapshot */
-
-      mutex_enter(&trx_sys->mutex);
-
-      trx_sys->mvcc->view_close(trx->read_view, true);
-
-      mutex_exit(&trx_sys->mutex);
+      trx_sys->mvcc->view_close(trx, false);
     }
   }
 
