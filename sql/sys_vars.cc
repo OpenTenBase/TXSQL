@@ -1152,6 +1152,12 @@ static bool check_gtid_next(sys_var *self, THD *thd, set_var *var) {
              var->var->name.str);
     return true;
   }
+
+  /** TDSQL: Allow user with prefix tdsqlsys_ to set GTID_NEXT */
+  if (is_tdsql_internal_user(thd)) {
+    return false;
+  }
+
   return check_session_admin_or_replication_applier(self, thd, var);
 }
 
