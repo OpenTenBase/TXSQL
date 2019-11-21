@@ -2419,6 +2419,7 @@ static char *get_41_lenc_string(char **buffer, size_t *max_bytes_available,
 static size_t parse_client_handshake_packet(THD *thd, MPVIO_EXT *mpvio,
                                             uchar **buff, size_t pkt_len) {
   Protocol_classic *protocol = mpvio->protocol;
+  NET *net = protocol->get_net();
   char *end;
   bool packet_has_required_size = false;
   /* save server capabilities before setting client capabilities */
@@ -2475,6 +2476,83 @@ static size_t parse_client_handshake_packet(THD *thd, MPVIO_EXT *mpvio,
     */
     end += AUTH_PACKET_HEADER_SIZE_PROTO_41;
     bytes_remaining_in_packet -= AUTH_PACKET_HEADER_SIZE_PROTO_41;
+
+    /*
+      add by harlylei
+      tdsql:
+      get the client IP and optionally port from the packet and overwrite the
+      ip and port set by 'static int check_connection(THD *thd)'.
+      Without this piece of code,
+      the THD::security_context->ip and THD::peer_port contains IP and port
+      of the gateway since it's the gateway who is connecting the mariadb
+      server. Before this version of tdsql, port was not in the packet
+      so we used to store client's ip address and gateway's port, which is
+      weired if we have multiple connections from the same client ip, and hard
+      to distinguish connections in commands such as 'show process list'. 
+      the client ip is also required in authorization to allow only connections
+      from certain ip address to do some actions.
+      The format of the optional sections is: {1-byte-hdr, body}+
+      the 1-byte header's format: highest 3 bits store 'type' of section, lower
+      5 bits store length (in bytes) of section's body. so far type can be 0 or
+      1, for ip and port respectively, there can be more sections in the
+      packet in the future.
+     
+      Some language(Go mysql connector) don't follow this format, so now we
+      ignore errors in case of unexpected format. 
+   */
+    unsigned char * reserver_begin = (unsigned char*) net->read_pos+9; 
+    unsigned char * reserver_end = (unsigned char *)end;
+    unsigned char * reserver_cur = (unsigned char *)reserver_begin;
+
+    char fromaddr[24] = {0};
+    const char * fromptr = NULL;
+    uint16 from_port = 0;
+
+    while(reserver_cur < reserver_end) {
+      if(0 == *reserver_cur){
+        break;
+      }
+
+      unsigned char  type = (*reserver_cur) >> 5;
+      unsigned char len =  (*reserver_cur) & 0x1F; 
+      if(reserver_cur + 1 + len > reserver_end) {
+        break;
+      }
+
+      if(0 == type) {
+        if(len != 4) {
+          break;
+        }
+
+        fromptr = inet_ntop(AF_INET,reserver_cur+1,fromaddr,sizeof(fromaddr));
+
+        if (!fromptr) {
+          break;
+        }
+      } else if (1 == type) { // port. old tdsql didn't have this field.
+        if (len != 2) {
+          break;
+        }
+
+        // Get client's port and set to session info. the port is encoded in
+        // little endian, i.e. mysql's datum endian.
+        from_port= uint2korr(reserver_cur + 1);
+      }
+
+      reserver_cur=reserver_cur+1+len;
+    }
+
+    //add by harlylei end
+    if(fromptr) {
+      thd->updateFromProxyIp(fromptr);
+      // Refresh reference to the two buffer ptrs.
+      mpvio->ip = thd->security_context()->ip().str;
+      mpvio->host = thd->security_context()->host().str;
+
+      if (from_port) {
+        thd->update_from_proxy_port(from_port);
+      }
+    }
   } else {
     protocol->set_client_capabilities(uint2korr(end));
     mpvio->max_client_packet_length = uint3korr(end + 2);

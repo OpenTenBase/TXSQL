@@ -1085,6 +1085,24 @@ class THD : public MDL_context_owner,
   Security_context m_main_security_ctx;
   Security_context *m_security_ctx;
 
+  char m_ipfromproxy[24];// tdsql, source ip address in string.
+
+  void updateFromProxyIp(const char *ip) {
+    strncpy(m_ipfromproxy,ip,sizeof(m_ipfromproxy)-1);
+
+    // Refer to m_ipfromproxy in security_ctx, m_ipfromproxy string no dupped.
+    const size_t tmp_len= strlen(m_ipfromproxy) + 1;
+    m_security_ctx->set_ip_ptr(m_ipfromproxy, tmp_len);
+    m_security_ctx->set_host_or_ip_ptr(m_ipfromproxy, tmp_len);
+    m_security_ctx->set_host_ptr(m_ipfromproxy, tmp_len);
+  }
+
+  void update_from_proxy_port(uint16 port) {
+    // tdsql: for show proceslist to list the client's port rather than that of
+    // the gateway
+    peer_port = port;
+  }
+
   Security_context *security_context() const { return m_security_ctx; }
   void set_security_context(Security_context *sctx) { m_security_ctx = sctx; }
   List<Security_context> m_view_ctx_list;
