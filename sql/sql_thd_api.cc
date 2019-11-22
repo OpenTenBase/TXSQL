@@ -84,7 +84,7 @@ using std::min;
   @retval               Scheduler data object on THD
 */
 
-void *thd_get_scheduler_data(THD *thd) { return thd->scheduler.data; }
+void *thd_get_scheduler_data(THD *thd) { return thd->event_scheduler.data; }
 
 /**
   Set reference to Scheduler data object for THD object
@@ -94,7 +94,7 @@ void *thd_get_scheduler_data(THD *thd) { return thd->scheduler.data; }
 */
 
 void thd_set_scheduler_data(THD *thd, void *data) {
-  thd->scheduler.data = data;
+  thd->event_scheduler.data = data;
 }
 
 /**
@@ -614,7 +614,12 @@ void *thd_memdup(MYSQL_THD thd, const void *str, size_t size) {
   thd_wait_end MUST be called immediately after waking up again.
 */
 void thd_wait_begin(MYSQL_THD thd, int wait_type) {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_begin,
+  if (!thd) {
+    thd = current_thd;
+    if (!unlikely(thd)) return;
+  }
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_begin,
                  (thd, wait_type));
 }
 
@@ -625,8 +630,12 @@ void thd_wait_begin(MYSQL_THD thd, int wait_type) {
   @param  thd   Thread handle
 */
 void thd_wait_end(MYSQL_THD thd) {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_end,
-                 (thd));
+  if (!thd) {
+    thd = current_thd;
+    if (!unlikely(thd)) return;
+  }
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_end, (thd));
 }
 
 //////////////////////////////////////////////////////////

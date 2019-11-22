@@ -1195,12 +1195,12 @@ void THD::awake(THD::killed_state state_to_set) {
         reading the next statement.
       */
 
-      shutdown_active_vio();
+      if (active_vio) vio_cancel(active_vio, SHUT_RDWR);
     }
 
     /* Send an event to the scheduler that a thread should be killed. */
     if (!slave_thread)
-      MYSQL_CALLBACK(Connection_handler_manager::event_functions,
+      MYSQL_CALLBACK(scheduler,
                      post_kill_notification, (this));
   }
 
@@ -1576,7 +1576,7 @@ void THD::shutdown_active_vio() {
   DBUG_TRACE;
   mysql_mutex_assert_owner(&LOCK_thd_data);
   if (active_vio) {
-    vio_shutdown(active_vio);
+    vio_shutdown(active_vio, SHUT_RDWR);
     active_vio = 0;
     m_SSL = NULL;
   }
@@ -1586,7 +1586,7 @@ void THD::shutdown_clone_vio() {
   DBUG_TRACE;
   mysql_mutex_assert_owner(&LOCK_thd_data);
   if (clone_vio != nullptr) {
-    vio_shutdown(clone_vio);
+    vio_shutdown(clone_vio, SHUT_RDWR);
     clone_vio = nullptr;
   }
 }

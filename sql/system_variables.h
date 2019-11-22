@@ -324,6 +324,9 @@ struct System_variables {
   bool session_track_state_change;
   ulong session_track_transaction_info;
 
+  uint threadpool_high_prio_tickets;
+  ulong threadpool_high_prio_mode;
+
   /*
     Time in seconds, after which the statistics in mysql.table/index_stats
     get invalid

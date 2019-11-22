@@ -451,17 +451,12 @@ static void vio_wait_until_woken(Vio *vio) {
 }
 #endif
 
-int vio_shutdown(Vio *vio) {
-  int r = 0;
-  DBUG_TRACE;
+int vio_shutdown(Vio *vio, int how) {
+  DBUG_ENTER("vio_shutdown");
+
+  int r = vio_cancel(vio, how);
 
   if (vio->inactive == false) {
-    DBUG_ASSERT(vio->type == VIO_TYPE_TCPIP || vio->type == VIO_TYPE_SOCKET ||
-                vio->type == VIO_TYPE_SSL);
-
-    DBUG_ASSERT(mysql_socket_getfd(vio->mysql_socket) >= 0);
-    if (mysql_socket_shutdown(vio->mysql_socket, SHUT_RDWR)) r = -1;
-
 #ifdef USE_PPOLL_IN_VIO
     if (vio->thread_id != 0 && vio->poll_shutdown_flag.test_and_set()) {
       // Send signal to wake up from poll.
@@ -488,7 +483,27 @@ int vio_shutdown(Vio *vio) {
   }
   vio->inactive = true;
   vio->mysql_socket = MYSQL_INVALID_SOCKET;
-  return r;
+  DBUG_RETURN(r);
+}
+
+int vio_cancel(Vio *vio, int how) {
+  int r = 0;
+  DBUG_ENTER("vio_cancel");
+
+  if (!vio->inactive) {
+    DBUG_ASSERT(vio->type == VIO_TYPE_TCPIP || vio->type == VIO_TYPE_SOCKET ||
+                vio->type == VIO_TYPE_SSL);
+
+    DBUG_ASSERT(mysql_socket_getfd(vio->mysql_socket) >= 0);
+    if (mysql_socket_shutdown(vio->mysql_socket, how)) r = -1;
+#ifdef _WIN32
+    /* Cancel possible IO in progress (shutdown does not
+     * do that on Windows). */
+    (void)cancel_io((HANDLE)vio->mysql_socket, vio->thread_id);
+#endif
+  }
+
+  DBUG_RETURN(r);
 }
 
 #ifndef DBUG_OFF

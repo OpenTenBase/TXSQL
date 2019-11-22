@@ -43,6 +43,7 @@
 #include "sql/current_thd.h"
 #include "sql/mysqld.h"        // max_connections
 #include "sql/sql_callback.h"  // MYSQL_CALLBACK
+#include "sql/sql_class.h"
 #include "thr_lock.h"
 #include "thr_mutex.h"
 
@@ -67,22 +68,38 @@ uint Connection_handler_manager::max_threads = 0;
 */
 
 static void scheduler_wait_lock_begin() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_begin,
+  THD *thd = current_thd;
+  if (!thd)
+    return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_begin,
                  (current_thd, THD_WAIT_TABLE_LOCK));
 }
 
 static void scheduler_wait_lock_end() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_end,
+  THD *thd = current_thd;
+  if (!thd)
+    return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_end,
                  (current_thd));
 }
 
 static void scheduler_wait_sync_begin() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_begin,
+  THD *thd = current_thd;
+  if (!thd)
+    return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_begin,
                  (current_thd, THD_WAIT_SYNC));
 }
 
 static void scheduler_wait_sync_end() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_end,
+  THD *thd = current_thd;
+  if (!thd)
+    return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_end,
                  (current_thd));
 }
 
@@ -153,6 +170,9 @@ bool Connection_handler_manager::init() {
       break;
     case SCHEDULER_NO_THREADS:
       connection_handler = new (std::nothrow) One_thread_connection_handler();
+      break;
+    case SCHEDULER_THREAD_POOL:
+      connection_handler = new (std::nothrow) Thread_pool_connection_handler();
       break;
     default:
       DBUG_ASSERT(false);
