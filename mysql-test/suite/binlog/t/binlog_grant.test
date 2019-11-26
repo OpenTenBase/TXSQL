@@ -25,6 +25,26 @@ connection root;
 --echo [root]
 set session sql_log_bin = 1;
 
+# Testing forbid_remote_change_sql_log_bin
+set global forbid_remote_change_sql_log_bin=ON;
+set session sql_log_bin = 1;
+set global forbid_remote_change_sql_log_bin=OFF;
+
+create user superuser_tmp;
+grant all on *.* to 'superuser_tmp'@'%';
+# Although generally the 127.0.0.1 is equiv to localhost, in mysql
+# it's still used to create tcp/ip connections.
+connect (root2,"127.0.0.1",superuser_tmp,,test);
+connection root2;
+set session sql_log_bin = 1;
+set global forbid_remote_change_sql_log_bin=ON;
+--error ER_REMOTE_OPERATION_DENIED
+set session sql_log_bin = 1;
+set global forbid_remote_change_sql_log_bin=OFF;
+disconnect root2;
+connection default;
+drop user superuser_tmp;
+
 connection plain;
 --echo [plain]
 --error ER_SPECIFIC_ACCESS_DENIED_ERROR

@@ -373,6 +373,7 @@ THD::THD(bool enable_plugins)
       current_mutex(NULL),
       current_cond(NULL),
       m_is_admin_conn(false),
+      m_is_local_or_admin_port(false),
       in_sub_stmt(0),
       fill_status_recursion_level(0),
       fill_variables_recursion_level(0),

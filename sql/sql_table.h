@@ -572,4 +572,11 @@ bool lock_check_constraint_names_for_rename(THD *thd, const char *db,
 bool prepare_check_constraints_for_create(THD *thd, const char *db_name,
                                           const char *table_name,
                                           Alter_info *alter_info);
+bool is_in_sysdb(const char *db);
+
+bool tdsql_rm_db_tbl_check(THD *thd, const char *dbname);
+
+bool tdsql_rm_db_tbl_row_check(THD *thd, TABLE_LIST *table);
+
+bool tdsql_table_remote_insert_extra_check(THD *thd, TABLE_LIST *table);
 #endif /* SQL_TABLE_INCLUDED */

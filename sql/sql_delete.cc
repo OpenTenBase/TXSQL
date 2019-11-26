@@ -67,6 +67,7 @@
 #include "sql/sql_resolver.h"   // setup_order
 #include "sql/sql_select.h"
 #include "sql/sql_view.h"  // check_key_in_view
+#include "sql/sql_table.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"
 #include "sql/table_trigger_dispatcher.h"  // Table_trigger_dispatcher
@@ -87,12 +88,24 @@ bool Sql_cmd_delete::precheck(THD *thd) {
 
   if (!multitable) {
     if (check_one_table_access(thd, DELETE_ACL, tables)) return true;
+    if (tdsql_rm_db_tbl_row_check(thd, tables)) return true;
   } else {
     TABLE_LIST *aux_tables = delete_tables->first;
     TABLE_LIST **save_query_tables_own_last = lex->query_tables_own_last;
 
     if (check_table_access(thd, SELECT_ACL, tables, false, UINT_MAX, false))
       return true;
+
+    /*
+      tdsql: check every target table of multi-delete stmt for system
+      tables by remote users.
+    */
+    TABLE_LIST *first_not_own_table= thd->lex->first_not_own_table();
+    for (TABLE_LIST *tbl= aux_tables; tbl != first_not_own_table && tbl;
+         tbl= tbl->next_global) {
+      if (tdsql_rm_db_tbl_row_check(thd, tbl))
+        return true;
+    }
 
     /*
       Since aux_tables list is not part of LEX::query_tables list we

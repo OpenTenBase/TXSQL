@@ -1,0 +1,115 @@
+set global reject_rw_mysql_user_sys_users = true;
+--echo connection default
+create user abc identified by 'abc';
+grant all on *.* to 'abc'@'%' ;
+# abc_conn is a tcp/ip connection.
+connect (abc_conn,"127.0.0.1",abc,abc,test);
+connection default;
+# create def and connect via unix socket
+create user def identified by 'def';
+grant all on *.* to 'def'@'%' with grant option;
+# using localhost, so def_conn is a unix socket connection.
+connect (def_conn,localhost,def,def,test);
+connection def_conn;
+create user tdsqlsys_abc identified by 'abc';
+grant all on *.* to 'tdsqlsys_abc'@'%' with grant option;
+# Although generally the 127.0.0.1 is equiv to localhost, in mysql
+# it's still used to create tcp/ip connections.
+connect (sysu_conn,"127.0.0.1",tdsqlsys_abc,abc,test);
+
+--echo
+--echo
+--echo
+--echo connection sysu_conn(tdsqlsys_abc)
+connection sysu_conn;
+create user tdsqlsys_def identified by 'def';
+grant all on *.* to 'tdsqlsys_def'@'%';
+connect (sysu_conn1,"127.0.0.1",tdsqlsys_def,def,test);
+
+flush privileges;
+select user from mysql.user;
+
+--echo
+--echo
+--echo
+--echo connection abc_conn(tcp/ip connection);
+connection abc_conn;
+--error ER_GET_ERRNO
+delete from mysql.user where user='tdsqlsys_def';
+
+--echo see whether tdsqlsys_def is deleted --- should not be.
+--echo connection sysu_conn(tdsqlsys_abc)
+connection sysu_conn;
+select user from mysql.user where user='tdsqlsys_def';
+
+--echo connection abc_conn(tcp/ip connection);
+connection abc_conn;
+drop user tdsqlsys_def;
+--echo see whether tdsqlsys_def is deleted --- should not be.
+--echo connection sysu_conn(tdsqlsys_abc)
+connection sysu_conn;
+select user from mysql.user where user='tdsqlsys_def';
+
+--echo connection abc_conn(tcp/ip connection);
+connection abc_conn;
+create user tmpusr;
+flush privileges;
+select user from mysql.user;
+drop user tmpusr;
+--error ER_ACL_OPERATION_FAILED
+create user tdsqlsys_xyz;
+flush privileges;
+select user from mysql.user;
+--replace_regex /[0-9]+/0/
+show processlist;
+
+
+--echo
+--echo
+--echo
+--echo connection def_conn(unix socket connection);
+connection def_conn;
+#--error ER_GET_ERRNO
+drop user tdsqlsys_def;
+create user tmpusr;
+select user from mysql.user;
+#--error ER_GET_ERRNO
+create user tdsqlsys_def identified by 'def';
+grant all on *.* to 'tdsqlsys_def'@'%' ;
+connect (sysu_conn2,"127.0.0.1",tdsqlsys_def,def,test);
+connection def_conn;
+drop user tmpusr;
+create user tdsqlsys_xyz;
+select user from mysql.user;
+--replace_regex /[0-9]+/0/
+show processlist;
+
+--echo
+--echo
+--echo
+--echo connection sysu_conn(tdsqlsys_abc);
+connection sysu_conn;
+drop user tdsqlsys_def;
+drop user tdsqlsys_xyz;
+create user tmpusr;
+select user from mysql.user;
+create user tdsqlsys_def identified by 'def';
+grant all on *.* to 'tdsqlsys_def'@'%' ;
+connect (sysu_conn3,"127.0.0.1",tdsqlsys_def,def,test);
+connection sysu_conn;
+drop user tmpusr;
+create user tdsqlsys_xyz;
+select user from mysql.user;
+--replace_regex /[0-9]+/0/
+show processlist;
+
+--echo
+--echo
+--echo cleaning up
+--connection default
+drop user abc;
+drop user def;
+drop user tdsqlsys_abc;
+drop user tdsqlsys_def;
+drop user tdsqlsys_xyz;
+set global reject_rw_mysql_user_sys_users = false;

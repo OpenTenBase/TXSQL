@@ -2187,6 +2187,12 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
   dd::Schema_MDL_locker mdl_handler(thd);
   Persisted_variables_cache *pv = Persisted_variables_cache::get_instance();
 
+  if (forbid_remote_install_plugin && !thd->is_local_or_admin_port() &&
+      !is_tdsql_internal_user(thd)) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_install_plugin");
+    return true;
+  }
+
   DBUG_TRACE;
 
   Disable_autocommit_guard autocommit_guard(thd);

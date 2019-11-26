@@ -330,6 +330,9 @@ retry_assign_storage_engine:
   if (check_grant(thd, priv_needed, first_table, false, UINT_MAX, false))
     return true; /* purecov: inspected */
 
+  if (tdsql_rm_db_tbl_row_check(thd, first_table))
+    return true;
+
   if (alter_info.new_table_name.str &&
       !test_all_bits(priv, INSERT_ACL | CREATE_ACL)) {
     // Rename of table

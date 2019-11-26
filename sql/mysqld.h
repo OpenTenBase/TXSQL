@@ -395,6 +395,16 @@ extern char *opt_keyring_migration_socket;
 extern char *opt_keyring_migration_source;
 extern char *opt_keyring_migration_destination;
 extern ulong opt_keyring_migration_port;
+
+/** tdsql: protect system operation */
+extern bool forbid_server_path_remote_access;
+extern bool forbid_server_path_remote_change;
+extern bool g_reject_rw_mysql_user_sys_users;
+extern bool forbid_remote_install_plugin;
+extern bool forbid_remote_drop_meta;
+extern bool forbid_remote_change_sql_log_bin;
+extern bool forbid_remote_change_master;
+
 /**
   Variable to check if connection related options are set
   as part of keyring migration.

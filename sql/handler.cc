@@ -343,6 +343,42 @@ struct st_sys_tbl_chk_params {
   } status;  // OUT param
 };
 
+// 1st column is "host char(60)", 2nd column is "user char(80)".
+const int handler::mysql_user_name_offset=256;
+
+static bool reject_mysql_user_sys_users(handler* hdlr, const uchar *buf)
+{
+  if (!g_reject_rw_mysql_user_sys_users)
+    return false;
+
+  DBUG_ASSERT(hdlr != NULL && buf != NULL);
+
+  if (unlikely(hdlr->mysql_user_table() == -1))
+  {
+    const TABLE_SHARE *ts= hdlr->get_table_share();
+    hdlr->set_mysql_user_table((ts != NULL && !strcasecmp(ts->db.str, "mysql") &&
+                                !strcasecmp(ts->table_name.str, "user")) ? 1 : 0);
+  }
+  THD *thd=hdlr->get_table()->in_use;
+  Security_context *sc= thd->security_context();
+  return (thd && sc && hdlr->mysql_user_table() && // target table is mysql.user
+          sc->user().str && sc->host_or_ip().str && // the connection is an established user connection.
+          thd->lex->sql_command != SQLCOM_FLUSH && // tdsqlsys_* user who can't see its row would not be able to log in after a flush privileges;.
+          !thd->is_local_or_admin_port() &&
+          strncasecmp(sc->user().str, "tdsqlsys_", 9) && // always allow tdsqlsys_ users to operate on any row of user table.
+          !strncasecmp((const char *)(buf+handler::mysql_user_name_offset), "tdsqlsys_", 9/*len of tdsqlsys_ */));
+}
+
+inline static bool tdsql_filter_result_row(handler *hdlr, const uchar *buf)
+{
+    return reject_mysql_user_sys_users(hdlr, buf);
+}
+
+inline static bool tdsql_filter_row_dui(handler *hdlr, const uchar *buf)
+{
+    return reject_mysql_user_sys_users(hdlr, buf);
+}
+
 static plugin_ref ha_default_plugin(THD *thd) {
   if (thd->variables.table_plugin) return thd->variables.table_plugin;
   return my_plugin_lock(thd, &global_system_variables.table_plugin);
@@ -693,6 +729,7 @@ int ha_init_errors(void) {
   SETMSG(HA_ERR_NO_SESSION_TEMP, ER_DEFAULT(ER_NO_SESSION_TEMP));
   SETMSG(HA_ERR_WRONG_TABLE_NAME, ER_DEFAULT(ER_WRONG_TABLE_NAME));
   SETMSG(HA_ERR_TOO_LONG_PATH, ER_DEFAULT(ER_TABLE_NAME_CAUSES_TOO_LONG_PATH));
+  SETMSG(HA_ERR_ROW_DUI_REJECTED,"Row insert/delete/update operation is rejected");
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsg, HA_ERR_FIRST, HA_ERR_LAST);
 }
@@ -3181,6 +3218,12 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
     result = update_generated_read_fields(buf, table, index);
     m_update_generated_read_fields = false;
   }
+
+  if (likely(!result)) {
+    if (tdsql_filter_result_row(this, buf))
+      result= HA_ERR_KEY_NOT_FOUND;
+  }
+
   table->set_row_status_from_handler(result);
   return result;
 }
@@ -3202,7 +3245,7 @@ int handler::ha_index_next(uchar *buf) {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
-
+again:
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
@@ -3212,6 +3255,12 @@ int handler::ha_index_next(uchar *buf) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
   }
+
+  if (likely(!result)) {
+    if (tdsql_filter_result_row(this, buf))
+      goto again;
+  }
+
   table->set_row_status_from_handler(result);
   return result;
 }
@@ -3233,7 +3282,7 @@ int handler::ha_index_prev(uchar *buf) {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
-
+again:
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
@@ -3243,6 +3292,12 @@ int handler::ha_index_prev(uchar *buf) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
   }
+
+  if (likely(!result)) {
+    if (tdsql_filter_result_row(this, buf))
+      goto again;
+  }
+
   table->set_row_status_from_handler(result);
   return result;
 }
@@ -3274,6 +3329,12 @@ int handler::ha_index_first(uchar *buf) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
   }
+
+  if (likely(!result)) {
+    if (tdsql_filter_result_row(this, buf))
+      return (ha_index_next(buf));
+  }
+
   table->set_row_status_from_handler(result);
   return result;
 }
@@ -3305,6 +3366,12 @@ int handler::ha_index_last(uchar *buf) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
   }
+
+  if (likely(!result)) {
+    if (tdsql_filter_result_row(this, buf))
+      return ha_index_prev(buf);
+  }
+
   table->set_row_status_from_handler(result);
   return result;
 }
@@ -3328,7 +3395,7 @@ int handler::ha_index_next_same(uchar *buf, const uchar *key, uint keylen) {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
-
+again:
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
@@ -3338,6 +3405,12 @@ int handler::ha_index_next_same(uchar *buf, const uchar *key, uint keylen) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
   }
+
+  if (likely(!result)) {
+    if (tdsql_filter_result_row(this, buf))
+      goto again;
+  }
+
   table->set_row_status_from_handler(result);
   return result;
 }
@@ -7730,6 +7803,10 @@ int handler::ha_write_row(uchar *buf) {
   DBUG_EXECUTE_IF("inject_error_ha_write_row", return HA_ERR_INTERNAL_ERROR;);
   DBUG_EXECUTE_IF("simulate_storage_engine_out_of_memory",
                   return HA_ERR_SE_OUT_OF_MEMORY;);
+
+  if (tdsql_filter_row_dui(this, buf))
+    return HA_ERR_ROW_DUI_REJECTED;
+
   mark_trx_read_write();
 
   DBUG_EXECUTE_IF(
@@ -7761,6 +7838,9 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
   DBUG_ASSERT(new_data == table->record[0]);
   DBUG_ASSERT(old_data == table->record[1]);
 
+  if (tdsql_filter_row_dui(this, old_data) || tdsql_filter_row_dui(this, new_data))
+    return HA_ERR_ROW_DUI_REJECTED;
+
   mark_trx_read_write();
 
   DBUG_EXECUTE_IF(
@@ -7791,6 +7871,9 @@ int handler::ha_delete_row(const uchar *buf) {
       "handler_crashed_table_on_usage",
       my_error(HA_ERR_CRASHED, MYF(ME_ERRORLOG), table_share->table_name.str);
       set_my_errno(HA_ERR_CRASHED); return (HA_ERR_CRASHED););
+
+  if (tdsql_filter_row_dui(this, buf))
+    return HA_ERR_ROW_DUI_REJECTED;
 
   mark_trx_read_write();
 

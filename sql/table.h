@@ -2466,7 +2466,7 @@ class Table_function;
 */
 
 struct TABLE_LIST {
-  TABLE_LIST() = default;
+  TABLE_LIST() {is_tdsql_systable = 0;}
 
   /**
     Only to be used by legacy code that temporarily needs a TABLE_LIST, more
@@ -3514,7 +3514,10 @@ struct TABLE_LIST {
     could be re-used while statement re-execution.
   */
   bool derived_keys_ready{false};
-
+  
+  // 0: unknown; -1: no; 1: yes. this object is often zerofied to intialize, so
+  // 0 has to be unknwon
+  char is_tdsql_systable;
  private:
   /// If a recursive reference inside the definition of a CTE.
   bool m_is_recursive_reference{false};

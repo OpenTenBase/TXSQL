@@ -1794,13 +1794,15 @@ class thread_info {
         host(NULL),
         db(NULL),
         proc_info(NULL),
-        state_info(NULL) {}
+        state_info(NULL),
+        system_thread(NON_SYSTEM_THREAD) {}
 
   my_thread_id thread_id;
   time_t start_time_in_secs;
   uint command;
   const char *user, *host, *db, *proc_info, *state_info;
   CSET_STRING query_string;
+  enum enum_thread_type system_thread;
 };
 
 // For sorting by thread_id.
@@ -1882,6 +1884,7 @@ class List_process_list : public Do_THD_Impl {
     else
       thd_info->user = "unauthenticated user";
 
+    thd_info->system_thread = inspect_thd->system_thread;
     /* HOST */
     if (inspect_thd->peer_port &&
         (inspect_sctx_host.length || inspect_sctx->ip().length) &&
@@ -1997,6 +2000,16 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   time_t now = my_time(0);
   for (size_t ix = 0; ix < thread_infos.size(); ++ix) {
     thread_info *thd_info = thread_infos.at(ix);
+
+    // tdsql: don't show sessions of tdsqlsys_ users to non tdsqlssy_ users who
+    // are connecting from tcp/ip and who can see all connections.
+    if (!user && g_reject_rw_mysql_user_sys_users &&
+        thd_info->system_thread == NON_SYSTEM_THREAD &&
+        !thd->is_local_or_admin_port() &&
+        is_tdsql_internal_user(thd_info->user) &&
+        !is_tdsql_internal_user(thd))
+      continue;
+
     protocol->start_row();
     protocol->store((ulonglong)thd_info->thread_id);
     protocol->store(thd_info->user, system_charset_info);

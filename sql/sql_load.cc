@@ -1985,6 +1985,11 @@ bool Sql_cmd_load_table::execute(THD *thd) {
       my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
       return true;
     }
+  } else if (forbid_server_path_remote_access &&
+             !thd->is_local_or_admin_port() &&
+             !is_tdsql_internal_user(thd)) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_access");
+    return true;
   }
 
   if (check_one_table_access(thd, privilege, lex->query_tables)) return true;

@@ -1305,10 +1305,14 @@ class THD : public MDL_context_owner,
 
  private:
   bool m_is_admin_conn;
+  bool m_is_local_or_admin_port;
 
  public:
   void set_admin_connection(bool admin) { m_is_admin_conn = admin; }
   bool is_admin_connection() const { return m_is_admin_conn; }
+
+  void set_local_or_admin_port(bool v) { m_is_local_or_admin_port = v; }
+  bool is_local_or_admin_port() const { return m_is_local_or_admin_port; }
 
   uint32 unmasked_server_id;
   uint32 server_id;
@@ -4353,5 +4357,15 @@ inline void THD::set_system_user(bool system_user_flag) {
 }
 
 extern void thd_statistics_io_time(uintmax_t current_io_time);
+
+inline bool is_tdsql_internal_user(const char *user) {
+  return (user && strncasecmp(user, "tdsqlsys_", 9) == 0);
+}
+
+inline bool is_tdsql_internal_user(const THD *thd) {
+  Security_context *sc= thd->security_context();
+  const char *usr= NULL;
+  return (sc && (usr= sc->user().str) && strncasecmp(usr, "tdsqlsys_", 9) == 0);
+}
 
 #endif /* SQL_CLASS_INCLUDED */

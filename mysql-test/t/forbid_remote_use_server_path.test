@@ -1,0 +1,53 @@
+# forbid remote connection(via tcp/ip) to read/write server path variables, or
+# access server path in file system, including creating/opening files via
+# dump/load commands.
+
+create user superuser_tmp;
+grant all on *.* to 'superuser_tmp'@'%';
+# Although generally the 127.0.0.1 is equiv to localhost, in mysql
+# it's still used to create tcp/ip connections.
+connect (root2,"127.0.0.1",superuser_tmp,,test);
+connection root2;
+set global forbid_server_path_remote_change=ON;
+show variables like 'hostname';
+--error ER_REMOTE_OPERATION_DENIED 
+set global general_log_file='abc.log';
+--error ER_REMOTE_OPERATION_DENIED
+set global slow_query_log_file='abc.log';
+
+#
+# Some simple test of load data
+#
+
+--disable_warnings
+drop table if exists t1, t2;
+--enable_warnings
+
+create table t1 (a date, b date, c date not null, d date);
+set global forbid_server_path_remote_access=false;
+
+load data infile '../../std_data/loaddata1.dat' ignore into table t1 fields terminated by ',';
+select* into outfile 't1.out.txt' from t1;
+select 'abc' into dumpfile 'abc.out.txt';
+select load_file('./abc.out.txt');
+
+set global forbid_server_path_remote_access=true;
+--error ER_REMOTE_OPERATION_DENIED
+load data infile '../../std_data/loaddata1.dat' into table t1 fields terminated by ',' IGNORE 2 LINES;
+SELECT * from t1;
+
+--error ER_REMOTE_OPERATION_DENIED
+select* into outfile 't1.out.txt' from t1;
+--error ER_REMOTE_OPERATION_DENIED
+select 'abc' into dumpfile 'abc.out.txt';
+--error ER_REMOTE_OPERATION_DENIED
+select load_file('abc.out.txt');
+
+set global forbid_server_path_remote_access = false;
+set global forbid_server_path_remote_change = false;
+
+--connection default
+disconnect root2;
+#clean up
+drop user superuser_tmp;
+drop table t1;

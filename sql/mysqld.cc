@@ -1022,6 +1022,14 @@ ulong txsql_convert_myisam_to_innodb;
 const char *txsql_convert_myisam_to_innodb_names[]=
 { "OFF", "WARN", "ON", "TRY", NullS };
 unsigned long txsql_kill_idle_trans_timeout= 0;
+/** tdsql: protect system operation */
+bool forbid_server_path_remote_access = false;
+bool forbid_server_path_remote_change = false;
+bool g_reject_rw_mysql_user_sys_users = false;
+bool forbid_remote_install_plugin = false;
+bool forbid_remote_drop_meta = false;
+bool forbid_remote_change_sql_log_bin = false;
+bool forbid_remote_change_master = false;
 
 #if defined(_WIN32)
 /*

@@ -4231,6 +4231,10 @@ class handler {
 
   /* Filter row ids to weed out duplicates when multi-valued index is used */
   Unique_on_insert *m_unique;
+  
+  //FIXME: whether this handler correpsonds to the mysql.user table. -1:
+  //unknown; 0: not; 1: yes.
+   char m_is_mysql_user_table;
 
  public:
   handler(handlerton *ht_arg, TABLE_SHARE *share_arg)
@@ -4261,7 +4265,7 @@ class handler {
         m_lock_type(F_UNLCK),
         ha_share(NULL),
         m_update_generated_read_fields(false),
-        m_unique(nullptr) {
+        m_unique(nullptr), m_is_mysql_user_table(-1) {
     DBUG_PRINT("info", ("handler created F_UNLCK %d F_RDLCK %d F_WRLCK %d",
                         F_UNLCK, F_RDLCK, F_WRLCK));
   }
@@ -4549,6 +4553,16 @@ class handler {
     table_share = share;
   }
   const TABLE_SHARE *get_table_share() const { return table_share; }
+
+  TABLE *get_table() { return table; }
+
+  /* the offset of 'user' field in a row buffer of the mysql.user table. */
+  const static int mysql_user_name_offset;
+
+  int mysql_user_table() const {return m_is_mysql_user_table;}
+
+  void set_mysql_user_table(char v) { m_is_mysql_user_table= v;}
+
 
   /* Estimates calculation */
 

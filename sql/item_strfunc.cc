@@ -3401,6 +3401,13 @@ String *Item_load_file::val_str(String *str) {
   char path[FN_REFLEN];
   uchar buf[4096];
 
+  THD *thd = current_thd;
+  if (forbid_server_path_remote_access && !thd->is_admin_connection() &&
+      !is_tdsql_internal_user(thd)) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_access");
+    return error_str();
+  }
+
   if (!(file_name = args[0]->val_str(str)) ||
       !(current_thd->security_context()->check_access(FILE_ACL))) {
     DBUG_ASSERT(maybe_null);

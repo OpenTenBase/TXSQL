@@ -734,6 +734,8 @@ bool Sql_cmd_truncate_table::execute(THD *thd) {
   TABLE_LIST *first_table = thd->lex->select_lex->table_list.first;
   if (check_one_table_access(thd, DROP_ACL, first_table)) return true;
 
+  if (tdsql_rm_db_tbl_row_check(thd, first_table)) return true;
+
   if (is_temporary_table(first_table))
     truncate_temporary(thd, first_table);
   else

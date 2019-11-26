@@ -1415,6 +1415,9 @@ bool mysql_rm_table(THD *thd, TABLE_LIST *tables, bool if_exists,
       my_error(ER_BAD_LOG_STATEMENT, MYF(0), "DROP");
       return true;
     }
+
+    if (!drop_temporary && tdsql_rm_db_tbl_row_check(thd, table))
+      return true;
   }
 
   if (!drop_temporary) {
@@ -18877,5 +18880,93 @@ bool lock_check_constraint_names(THD *thd, TABLE_LIST *tables) {
                                      thd->variables.lock_wait_timeout))
     return true;
 
+  return false;
+}
+
+const char *mysql_protected_tbls[] ={"columns_priv", "db",
+  "plugin", "procs_priv", "proxies_priv", "slave_master_info",
+  "slave_relay_log_info", "slave_worker_info", "tables_priv",
+  "user","tdsql_sequences"
+};
+
+static inline bool is_mysql_sys_table(const char*s)
+{
+  for (uint i= 0; i < sizeof(mysql_protected_tbls)/sizeof(char*); i++)
+    if (strcasecmp(mysql_protected_tbls[i], s) == 0)
+      return true;
+  return false;
+}
+
+bool is_in_sysdb(const char *db)
+{
+  if (db == NULL || db[0] == '\0')
+    return false;
+
+  return (strcasecmp(db, "mysql") == 0 ||
+          strcasecmp(db, "information_schema") == 0 ||
+          strcasecmp(db, "performance_schema") == 0 ||
+          strcasecmp(db, "xa") == 0 ||
+          strcasecmp(db, "sys") == 0 ||
+          strcasecmp(db, "sysdb") == 0);
+}
+
+static bool is_sys_table(TABLE_LIST *tbl)
+{
+  return (tbl->is_tdsql_systable != 0 ? tbl->is_tdsql_systable :
+          (tbl->is_tdsql_systable= ((is_in_sysdb(tbl->db) && (strcasecmp(tbl->db, "mysql")  ||
+                                                   is_mysql_sys_table(tbl->table_name))) ? 1 : -1))) == 1;
+}
+
+/*
+Forbid non tdsqlsys_ user connected via tcp/ip to drop a system db when
+forbid_remote_drop_meta is on. slave replication thread ignored.  Returns
+true if access denied, false if allowed.  */
+bool tdsql_rm_db_tbl_check(THD *thd, const char *dbname)
+{
+  if (dbname && forbid_remote_drop_meta && !opt_initialize &&
+      !thd->is_local_or_admin_port() && is_in_sysdb(dbname) &&
+      thd->system_thread == NON_SYSTEM_THREAD &&
+      !is_tdsql_internal_user(thd)) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_drop_meta");
+    return true;
+  }
+  return false;
+}
+
+/*
+  Forbid non tdsqlsys_ user connected via tcp/ip to update/delete rows in
+  system tables when forbid_remote_drop_meta is on. slave replication thread
+  ignored.  Returns true if access denied, false if allowed.  */
+bool tdsql_rm_db_tbl_row_check(THD *thd, TABLE_LIST *table)
+{
+  if (forbid_remote_drop_meta &&
+      table->db && table->table_name && is_sys_table(table) &&
+      !is_tdsql_internal_user(thd) &&
+      !opt_initialize && 
+      !thd->is_local_or_admin_port() &&
+      thd->system_thread == NON_SYSTEM_THREAD) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_drop_meta");
+    return true;
+  }
+  return false;
+}
+
+
+/*
+   Forbid non tdsqlsys_ user connected via tcp/ip to insert into mysql.user
+  when forbid_remote_drop_meta is on. slave replication thread ignored.
+  Returns true if access denied, false if allowed.  */
+bool tdsql_table_remote_insert_extra_check(THD *thd, TABLE_LIST *table)
+{
+  if (table->db && table->table_name &&
+      !strcasecmp(table->db, "mysql") && !strcasecmp(table->table_name, "user") &&
+      !is_tdsql_internal_user(thd) &&
+      forbid_remote_drop_meta &&
+      !opt_initialize &&
+      !thd->is_local_or_admin_port() &&
+      thd->system_thread == NON_SYSTEM_THREAD) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_drop_meta");
+    return true;
+  }
   return false;
 }

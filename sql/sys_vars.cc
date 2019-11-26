@@ -5014,6 +5014,16 @@ static bool fix_sql_log_bin_after_update(
   @return @c false if the change is allowed, otherwise @c true.
 */
 static bool check_sql_log_bin(sys_var *self, THD *thd, set_var *var) {
+
+  /*
+  When forbid_remote_change_sql_log_bin is on, only allow local clients
+  connected via unix socket to change the value of 'sql_log_bin'.  */
+  if (forbid_remote_change_sql_log_bin && !opt_initialize &&
+      !thd->is_local_or_admin_port()) {
+    my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_change_sql_log_bin");
+    return TRUE;
+  }
+
   if (check_session_admin(self, thd, var)) return true;
 
   if (var->is_global_persist()) return true;
@@ -5333,8 +5343,17 @@ static Sys_var_charptr Sys_license("license",
                                    NO_CMD_LINE, IN_SYSTEM_CHARSET,
                                    DEFAULT(STRINGIFY_ARG(LICENSE)));
 
-static bool check_log_path(sys_var *self, THD *, set_var *var) {
+
+static bool check_log_path(sys_var *self, THD *thd, set_var *var) {
   if (!var->value) return false;  // DEFAULT is ok
+
+  if (forbid_server_path_remote_change &&
+      !thd->is_local_or_admin_port() &&
+      !is_tdsql_internal_user(thd)) {
+        my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_change");
+
+        return true;
+      }
 
   if (!var->save_result.string_value.str) return true;
 
@@ -6913,3 +6932,48 @@ static Sys_var_ulong Sys_txsql_kill_idle_trans_timeout(
   GLOBAL_VAR(txsql_kill_idle_trans_timeout), CMD_LINE(OPT_ARG),
   VALID_RANGE(0, LONG_TIMEOUT),
   DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_forbid_server_path_remote_access(
+   "forbid_server_path_remote_access",
+   "Forbid accessing server path from remote tcp/ip connection.",
+   GLOBAL_VAR(forbid_server_path_remote_access), CMD_LINE(OPT_ARG),
+   DEFAULT(false));
+
+static Sys_var_bool Sys_forbid_server_path_remote_change(
+   "forbid_server_path_remote_change",
+   "Forbid modifying server path variables from remote tcp/ip connection.",
+   GLOBAL_VAR(forbid_server_path_remote_change), CMD_LINE(OPT_ARG),
+   DEFAULT(false));
+
+static Sys_var_bool Sys_reject_rw_mysql_user_sys_users(
+   "reject_rw_mysql_user_sys_users",
+   "Reject inserting/updating/deleting/fetching mysql.user rows whose "
+   "'user' field starts with 'tdsqlsys_'. Rejected insert will return error"
+   " , but all other operations will be silently ignored with such rows.",
+   GLOBAL_VAR(g_reject_rw_mysql_user_sys_users),
+   CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_forbid_remote_install_plugin(
+   "forbid_remote_install_plugin", "Forbid installing plugins "
+   "for clients not connected from local unix socket.",
+   GLOBAL_VAR(forbid_remote_install_plugin), CMD_LINE(OPT_ARG),
+   DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_forbid_remote_drop_meta(
+   "forbid_remote_drop_meta", "Forbid dropping database mysql, "
+   "information_schema, performance_schema, sys, sysdb, xa, or its tables"
+   " or rows in such tables for clients not connected from local unix socket.",
+   GLOBAL_VAR(forbid_remote_drop_meta), CMD_LINE(OPT_ARG),
+   DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_forbid_remote_change_sql_log_bin(
+   "forbid_remote_change_sql_log_bin", "Forbid modifying sql_log_bin from"
+   " tcp/ip connections, only allow so for unix socket connections.",
+   GLOBAL_VAR(forbid_remote_change_sql_log_bin), CMD_LINE(OPT_ARG),
+   DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_forbid_remote_change_master(
+   "forbid_remote_change_master", "Forbid change master by user with SUPER_ACL",
+   GLOBAL_VAR(forbid_remote_change_master), CMD_LINE(OPT_ARG),
+   DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+

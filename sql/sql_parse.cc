@@ -3162,6 +3162,14 @@ int mysql_execute_command(THD *thd, bool first_level) {
                  "SUPER or REPLICATION_SLAVE_ADMIN");
         goto error;
       }
+
+      if (forbid_remote_change_master &&
+          !thd->is_local_or_admin_port() &&
+          !is_tdsql_internal_user(thd)) {
+        my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_change_master");
+        goto error;
+      }
+
       res = change_master_cmd(thd);
       break;
     }
@@ -3658,7 +3666,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_DROP_DB: {
       if (check_and_convert_db_name(&lex->name, false) != Ident_name_check::OK)
         break;
-      if (check_access(thd, DROP_ACL, lex->name.str, NULL, NULL, 1, 0)) break;
+      if (check_access(thd, DROP_ACL, lex->name.str, NULL, NULL, 1, 0) ||
+          tdsql_rm_db_tbl_check(thd, lex->name.str)) break;
       res = mysql_rm_db(thd, to_lex_cstring(lex->name), lex->drop_if_exists);
       break;
     }

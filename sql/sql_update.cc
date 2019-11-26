@@ -93,6 +93,7 @@
 #include "sql/sql_select.h"
 #include "sql/sql_tmp_table.h"  // create_tmp_table
 #include "sql/sql_view.h"       // check_key_in_view
+#include "sql/sql_table.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"                     // TABLE
 #include "sql/table_trigger_dispatcher.h"  // Table_trigger_dispatcher
@@ -111,6 +112,7 @@ bool Sql_cmd_update::precheck(THD *thd) {
 
   if (!multitable) {
     if (check_one_table_access(thd, UPDATE_ACL, lex->query_tables)) return true;
+    if (tdsql_rm_db_tbl_row_check(thd, lex->query_tables))  return true;
   } else {
     /*
       Ensure that we have UPDATE or SELECT privilege for each table
@@ -131,6 +133,8 @@ bool Sql_cmd_update::precheck(THD *thd) {
                (check_access(thd, SELECT_ACL, tr->db, &tr->grant.privilege,
                              &tr->grant.m_internal, 0, 0) ||
                 check_grant(thd, SELECT_ACL, tr, false, 1, false)))
+        return true;
+      else if (tdsql_rm_db_tbl_row_check(thd, tr))
         return true;
     }
   }
