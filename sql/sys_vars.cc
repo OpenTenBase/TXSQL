@@ -6977,3 +6977,7 @@ static Sys_var_bool Sys_forbid_remote_change_master(
    GLOBAL_VAR(forbid_remote_change_master), CMD_LINE(OPT_ARG),
    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_bool Sys_hidden_sensitive_variable(
+   "hidden_sensitive_variable", "hidde sensitive variable so remote user with super_acl "
+   " can't change them.", READ_ONLY GLOBAL_VAR(hidden_sensitive_variable), CMD_LINE(OPT_ARG),
+   DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);

@@ -681,6 +681,76 @@ ulonglong get_system_variable_hash_version(void) {
   return (system_variable_hash_version);
 }
 
+static const char *path_vars[]=
+{
+  "basedir",
+  "character_sets_dir",
+  "datadir",
+  "general_log_file",
+  "innodb_data_home_dir",
+  "innodb_log_arch_dir",
+  "innodb_log_group_home_dir",
+  "innodb_undo_directory",
+  "lc_messages_dir",
+  "log_bin_basename",
+  "log_bin_index",
+  "log_error",
+  "pid_file",
+  "plugin_dir",
+  "relay_log",
+  "relay_log_basename",
+  "relay_log_index",
+  "secure_file_priv",
+  "slave_load_tmpdir",
+  "slow_query_log_file",
+  "socket",
+  "tmpdir"
+};
+
+static bool is_path_var(const char *vn)
+{
+  for (uint i= 0; i < (sizeof(path_vars) / sizeof(char*)); i++)
+    if (strcasecmp(vn, path_vars[i]) == 0)
+      return true;
+
+  return false;
+}
+
+static bool is_tdsql_hidden_var(const char *str) {
+  static const char *hidden_vars2[]=
+  {
+    "forbid_remote_drop_meta",
+    "forbid_server_path_remote_change",
+    "forbid_server_path_remote_access",
+    "reject_rw_mysql_user_sys_users",
+    "forbid_remote_install_plugin",
+    "forbid_remote_change_master"
+  };
+
+  for (uint i= 0; i < (sizeof(hidden_vars2)/sizeof(char*)); i++)
+    if (strcasecmp(hidden_vars2[i], str)==0)
+      return true;
+  return false;
+}
+
+/**
+  Tdsql: global visibility checker.  @return true if visible; false
+  otherwise. 
+*/
+static bool check_sysvar_visibility(THD *thd, sys_var *var)
+{
+  if (thd == NULL || !hidden_sensitive_variable)
+    return true;
+  if (is_tdsql_hidden_var(var->name.str))
+    return (thd->is_local_or_admin_port() || is_tdsql_internal_user(thd));
+  if (forbid_server_path_remote_change && !thd->is_local_or_admin_port() &&
+      !opt_initialize && !is_tdsql_internal_user(thd) &&
+      is_path_var(var->name.str))
+    return false;
+
+  return true;
+}
+
 /**
   Constructs an array of system variables for display to the user.
 
@@ -723,7 +793,7 @@ bool enumerate_sys_vars(Show_var_array *show_var_array, bool sort,
       }
 
       /* Don't show non-visible variables. */
-      if (sysvar->not_visible()) continue;
+      if (sysvar->not_visible() || !check_sysvar_visibility(current_thd, sysvar)) continue;
 
       SHOW_VAR show_var;
       show_var.name = sysvar->name.str;
@@ -768,7 +838,7 @@ sys_var *intern_find_sys_var(const char *str, size_t length) {
                         string(str, length ? length : strlen(str)));
 
   /* Don't show non-visible variables. */
-  if (var && var->not_visible()) return NULL;
+  if (var && (var->not_visible() || !check_sysvar_visibility(current_thd, var))) return NULL;
 
   return var;
 }
