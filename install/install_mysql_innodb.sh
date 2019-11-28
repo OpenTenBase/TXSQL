@@ -266,6 +266,7 @@ if [ ${modifyconf}"e" != "1""e" ];then
     install_succ=0
     for i in `seq 0 180`
     do
+			 #break
        #echo "----- ${mysql_dir}/bin/mysql"
        ${mysql_dir}/bin/mysql --connect-expired-password -uroot -p"$init_mysql_pwd" -S ${prod_dir}/mysql.sock -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'root';"
 
@@ -273,12 +274,12 @@ if [ ${modifyconf}"e" != "1""e" ];then
             #config_db ${m_s} "/usr/local/master_slave.cnf"
             #for replication
             ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e " ;flush privileges;"
-            ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "create user  'tdsqlsys_repl'@'%' identified  WITH mysql_native_password BY  '*EE92CB4BBCA8B11B210BE3544631158A39ACB0F7';grant replication slave,replication client on *.* to 'tdsqlsys_repl'@'%'; flush privileges;"
+            ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "create user  'tdsqlsys_repl'@'%'; update mysql.user set authentication_string='*EE92CB4BBCA8B11B210BE3544631158A39ACB0F7'  where User='tdsqlsys_repl' and Host='%' ;grant replication slave,replication client on *.* to 'tdsqlsys_repl'@'%'; flush privileges;"
 
             #for kp
-            ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "create user  'tdsqlsys_kp_new'@'%' identified  WITH mysql_native_password BY  '*CA47A9E4FFBE9054CF11B70BF495C03BBAD6DEDD';grant all on *.* to 'tdsqlsys_kp_new'@'%' with grant option;revoke File,Shutdown,super on *.* from 'tdsqlsys_kp_new'@'%' ;flush privileges;"
+            ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "create user  'tdsqlsys_kp_new'@'%'; update mysql.user set authentication_string='*CA47A9E4FFBE9054CF11B70BF495C03BBAD6DEDD' where User='tdsqlsys_kp_new' and Host='%' ; grant all on *.* to 'tdsqlsys_kp_new'@'%' with grant option;revoke File,Shutdown,super on *.* from 'tdsqlsys_kp_new'@'%' ;flush privileges;"
             #for agent
-            ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "create user  'tdsqlsys_agent'@'localhost' identified  WITH mysql_native_password BY  '*52070E9E4F996BFF87753629DA3B26D4D83AAFD1' ; grant all on *.* to 'tdsqlsys_agent'@'localhost' with grant option;flush privileges;"
+            ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "create user  'tdsqlsys_agent'@'localhost';update mysql.user set authentication_string='*52070E9E4F996BFF87753629DA3B26D4D83AAFD1' where User='tdsqlsys_agent' and Host='localhost' ; grant all on *.* to 'tdsqlsys_agent'@'localhost' with grant option;flush privileges;"
             #for security,remove test
             ${mysql_dir}/bin/mysql -uroot -p'root' -S${prod_dir}/mysql.sock -e "set sql_log_bin=0;delete from mysql.db where Db='test\_%' and Host='%' ;delete from mysql.db where Db='test' and Host='%';flush privileges;"
             #local load so

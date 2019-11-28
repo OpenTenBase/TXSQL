@@ -10,6 +10,9 @@ core-file-size=unlimited
 
 # The MySQL server
 [mysqld]
+
+default_authentication_plugin=mysql_native_password
+
 #early-plugin-load=keyring_file.so
 #keyring_file_data=data_dir/sys/tdsql.frm
 core-file
