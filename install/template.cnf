@@ -1,0 +1,299 @@
+[mysql]
+prompt="instance_name \\R:\\m:\\s>"
+[client]
+port        = change_port_before_use
+socket      = prod_dir/mysql.sock
+
+# Here follows entries for some specific programs
+[mysqld_safe]
+core-file-size=unlimited
+
+# The MySQL server
+[mysqld]
+#early-plugin-load=keyring_file.so
+#keyring_file_data=data_dir/sys/tdsql.frm
+core-file
+#sqlasyn=1
+# required unique id between 1 and 2^32 - 1
+# defaults to 1 if master-host is not set
+# but will not function as a master if omitted
+bind_address    = change_ip_before_use
+port      = change_port_before_use
+report-host=change_ip_before_use
+#extra_port = change_extra_port_before_use
+
+local_infile=1
+#secure_auth=1
+#secure_file_priv=/dev/null can't do so otherwise install fails.
+skip-symbolic-links
+
+socket      = prod_dir/mysql.sock
+pid-file    = prod_dir/mysql.pid
+
+server-id=   change_server_id_before_use
+#replicate-same-server-id=1 #in circle master,may be dead loop 
+
+plugin-dir=base_dir/lib/mysql/plugin
+
+user=change_user_before_use
+
+#rootdatadir=rootdatadir_arg
+#rootlogdir=rootlogdir_arg
+datadir     = data_dir
+#log=../dblogs/run/run.log
+#log-slow-queries = log_dir/slowquery.sql
+#innodb_log_arch_dir = log_arch
+#replicate_wild_ignore_table = mysql.%
+
+#log dir is=log_dir
+log-bin  = log_bin_arg/binlog.log
+relay-log = log_relay/relay.log
+log-error = log_dir/mysqld.err
+
+
+# Point the following paths to a dedicated disk
+
+binlog_format=row
+
+default-storage-engine = innodb
+lc-messages-dir     = base_dir/share
+character-set-server = utf8mb4
+collation-server = utf8mb4_general_ci
+slave_rows_search_algorithms="INDEX_SCAN,HASH_SCAN"
+
+# Uncomment the following if you are using InnoDB tables
+innodb_log_group_home_dir = log_arch
+tmpdir = tmp_dir
+innodb_data_home_dir = innodb_dir
+
+#loglevel=1
+slow_query_log=ON
+table_open_cache = 10240
+innodb_open_files   =   10240
+open_files_limit    =   100000 
+max_prepared_stmt_count=200000
+performance_schema=off
+enforce_gtid_consistency = ON
+gtid_mode = ON
+skip-slave-start 
+slave_skip_errors=1397
+slave_preserve_commit_order=ON
+#sql_log_bin = ON
+#tdsql_compute_query_time_for_slow_logging=2
+#xa_commit_lock_wait_timeout = 3600
+
+# 3seconds
+#mutex_wait_timeout=3000
+
+#tdsql_mode=1
+#tdsql_relay_log_opt=OFF
+#relay_log_sync_timeout=1000 # 1000 micro-seconds. If set to 0, sync at every txn commit.
+#relay_log_sync_txn_count=10 # sync relay log every 10 transactions. if set to 0, sync at every txn commit.
+#relay_log_sync_threshold=20000 # sync whenever receive 20KB relay logs.
+
+#tdsql_delayed_drop=TRUE
+#file_slow_delete_rate=5 # 5MB/s delete speed
+
+#drop_hide_table=TRUE
+#drop_hide_db=TRUE
+
+# Set this to 1 to forbid creating a table which has no PK and
+# no unique index whose all columns are NOT NULL using any storage engine.
+#reject_table_no_pk=1
+
+# Set it to ON to reject creating myisam tables in databases other than the 3
+# system databases --- mysql, performance_schema and information_schema.
+#reject_create_table_myisam=ON
+
+# If non-zero, the NO. of bytes a transaction is allowed to write into the
+# binlog file at transaction commit, if the threshold is exceeded the txn is
+# rolled back by mysql when it's to be committed, and no binlogs of it is
+# written to the binlog file.
+#binlog_write_threshold=1610612736
+
+# Set it to ON so that users can set session binlog_format without super priviledge.
+#binlog_format_free_change=ON
+
+# Only allow modifying the 'sql_log_bin' variable by users from a unix socket
+# connection who have the priveledges.
+#forbid_remote_change_sql_log_bin=ON
+
+# Forbid dropping 'mysql' database or some tables in it or deleting rows via
+# 'delete from' statement from such tables by users NOT from a unix socket
+# connection who have the priveledges.
+#forbid_remote_drop_meta=ON
+
+# forbid clients connected via tcp/ip to install plugins
+#forbid_remote_install_plugin=ON
+
+# If positive, it is the max allowed myisam temp table size. If more
+# data are inserted into the myisam temp table when it already reaches this
+# limit, ER_RECORD_FILE_FULL error is returned and the SQL query execution will fail.
+# If this value is smaller than temp_table_size, then the same error will occur
+# when the inmemory temp table is filled and its rows moved into the temp myisam table.
+#max_temp_table_size=0
+
+# Forbid reading or modifying server path variables from remote tcp/ip connection.
+#forbid_server_path_remote_change=ON
+
+# Forbid accessing mysqld server file system locations specified by
+# server path variables from remote tcp/ip connection.
+#forbid_server_path_remote_access=ON
+
+# do not allow tcp/ip connections to fetch/upate/delete/insert users
+# with name starting with "tdsqlsys_", because such users are tdsql system
+# users used only internally.
+#reject_rw_mysql_user_sys_users=ON
+
+#reset_slave_force_delete_slave_info=OFF
+
+# the default 60 seconds sometimes isn't sufficient, and if net write times out,
+# the client connection breaks
+net_write_timeout=300
+# likewise, the default 30 seconds should be enlarged.
+net_read_timeout=150
+
+transaction-isolation=READ-COMMITTED
+
+# if positive, a delete/update/select query must have a 'limit N' clause and N
+# must be no greater than the corresponding limit value. if the query accesses a
+# table in mysql/sysdb/information_schema/performance_schema databases it is not
+# required so.
+# added since tdsql-mariadb-10.1.9V1.0R020
+#delete-rows-limit=0
+#select-rows-limit=0
+#update-rows-limit=0
+
+#tdsql_disconnect_on_write_timeout= TRUE
+#tdsql_allow_async=OFF
+#keep_hidden_secs=86400
+#num_seq_threads=4
+
+#notify_group_commit_follower_wait=TRUE
+log_timestamps=SYSTEM
+binlog_checksum=NONE
+default_tmp_storage_engine=innodb
+innodb_data_file_path=ibdata1:2G:autoextend
+#innodb_empty_free_list_algorithm=legacy
+innodb_flush_method=O_DIRECT
+#innodb_large_prefix=ON
+innodb_log_compressed_pages=OFF
+innodb_stats_auto_recalc=ON
+innodb_stats_persistent=ON
+innodb_strict_mode=OFF
+innodb_thread_sleep_delay=5000
+innodb_adaptive_max_sleep_delay=100000
+innodb_flush_log_at_trx_commit=1
+innodb_buffer_pool_size = change_innodb_buffer_pool_size_before_use
+innodb_buffer_pool_instances = change_innodb_buffer_pool_instances_before_use
+innodb_log_buffer_size = 268435456
+join_buffer_size = 2097152
+read_rnd_buffer_size = 2097152
+sort_buffer_size = 2097152
+read_buffer_size = 2097152
+key_buffer_size = 134217728
+innodb_purge_threads = 16
+innodb_read_io_threads = 16
+innodb_write_io_threads = 16
+innodb_lock_wait_timeout = 20 
+max_connections = 10000
+#extra_max_connections   =   32
+innodb_fill_factor = 70
+innodb_flush_neighbors  =   0
+innodb_io_capacity  =   10000
+innodb_io_capacity_max  =   20000
+innodb_log_files_in_group   =   4
+innodb_log_file_size    =   1073741824
+innodb_max_dirty_pages_pct  =   70
+innodb_max_purge_lag    =   500000
+innodb_purge_batch_size =   1000
+innodb_thread_concurrency   =   64
+innodb_adaptive_hash_index_parts = 256
+innodb_adaptive_hash_index=OFF # if ON, tpcc TPS drops over half.
+innodb_doublewrite=1
+innodb_lru_scan_depth=1024
+innodb_print_all_deadlocks=ON
+innodb_buffer_pool_dump_at_shutdown=OFF
+innodb_buffer_pool_load_at_startup=OFF
+innodb_temp_data_file_path=ibtmp1:50M:autoextend:max:30G
+
+# below setting will be made effective in real config files.
+#skip_name_resolve=on
+
+
+log_bin_trust_function_creators=ON
+log_statements_unsafe_for_binlog = off
+#sync_frm = ON
+
+lock_wait_timeout   =   5
+long_query_time =   1
+lower_case_table_names  =   1
+max_allowed_packet  =   1073741824
+max_binlog_size =   104857600
+max_connect_errors  =   2000
+max_heap_table_size =   33554432
+max_relay_log_size  =   104857600
+#metadata_locks_hash_instances   =   128
+myisam_sort_buffer_size =   4194304
+query_alloc_block_size  =   16384
+#query_cache_size    =   0
+query_prealloc_size =   24576
+slave_net_timeout   =   3600
+log_slave_updates=on
+slave_parallel_type=logical_clock
+slave_parallel_workers=64
+innodb_sync_array_size=64
+sync_master_info    =   0
+sync_relay_log  =   0
+sync_relay_log_info =   0
+table_definition_cache  =   400
+thread_cache_size   =   8
+
+#thread_pool_size=24 #same as cpu num,change when use cgroup
+#thread_pool_oversubscribe_parall=1 # eager mode
+
+# more enhancements for eager mode, more actively&aggressively taking requests
+# from queue, waking up&creating worker threads, etc.
+# added since tdsql-mariadb-10.1.9V1.0R020
+#thread_pool_eager_mode=0
+#thread_pool_listen_eager_mode=1
+#thread_pool_queue_congest_threshold=13
+#thread_pool_oversubscribe_parall_timeout=20
+#thread_pool_oversubscribe_parall_num=3
+#thread_pool_max_threads =   2000
+#thread_pool_oversubscribe   =   10
+#thread_pool_stall_limit =   50
+thread_stack    =   196608
+#thread_handling =   2
+tmp_table_size  =   33554432
+
+# Remove leading # to set options mainly useful for reporting servers.
+# The server defaults are faster for transactions and fast SELECTs.
+# Adjust sizes as needed, experiment to find the optimal values.
+# join_buffer_size = 128M
+# sort_buffer_size = 2M
+# read_rnd_buffer_size = 2M 
+
+sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES
+master_info_repository =table
+relay_log_info_repository =table
+
+#TDSQL: implicit primary key. These are performance killers, disable them by
+# default.
+#auto_add_pk_enable = OFF
+#auto_add_pk_modify_enable = OFF
+#auto_add_pk_test_enable = OFF
+#hot_commodity_enable=OFF
+
+range_optimizer_max_mem_size=83886080 
+slave_pending_jobs_size_max=1677721600
+
+#undo log
+#innodb_undo_directory=innodb_dir/undo_data
+#innodb_max_undo_log_size=1073741824
+#innodb_undo_log_truncate=on
+#innodb_undo_tablespaces=4
+
+!include  base_dir/etc/frominstall_my_change_port_before_use.ini
+!include  base_dir/etc/add_my_change_port_before_use.ini
+

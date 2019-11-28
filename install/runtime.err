@@ -1,0 +1,52 @@
+[2017-01-04 15:26:04] 18740,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fc05bb697e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 15:26:04] 18740,proc/proctool.cpp:138:waitChildToExec,tid:0x7fc05bb697e0,child stat:pid:18741,bin:modifycnf,state:R,ppid:18740 is waiting count:1 <= 5 
+[2017-01-04 15:26:05] 18757,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fbf15a047e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 15:26:05] 18757,proc/proctool.cpp:138:waitChildToExec,tid:0x7fbf15a047e0,child stat:pid:18758,bin:modifycnf,state:R,ppid:18757 is waiting count:1 <= 5 
+[2017-01-04 15:48:23] 22099,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f01d0fea7e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 15:48:23] 22099,proc/proctool.cpp:138:waitChildToExec,tid:0x7f01d0fea7e0,child stat:pid:22100,bin:modifycnf,state:R,ppid:22099 is waiting count:1 <= 5 
+[2017-01-04 15:48:24] 22121,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f8a53ab17e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 15:48:24] 22121,proc/proctool.cpp:138:waitChildToExec,tid:0x7f8a53ab17e0,child stat:pid:22122,bin:modifycnf,state:R,ppid:22121 is waiting count:1 <= 5 
+[2017-01-04 16:03:51] 21115,proc/proctool.cpp:35:getSafeShellPath,tid:0x7ff6338757e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:03:51] 21115,proc/proctool.cpp:138:waitChildToExec,tid:0x7ff6338757e0,child stat:pid:21116,bin:modifycnf,state:R,ppid:21115 is waiting count:1 <= 5 
+[2017-01-04 16:03:52] 21137,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f5bfa38a7e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:03:52] 21137,proc/proctool.cpp:138:waitChildToExec,tid:0x7f5bfa38a7e0,child stat:pid:21138,bin:modifycnf,state:R,ppid:21137 is waiting count:1 <= 5 
+[2017-01-04 16:05:57] 26417,proc/proctool.cpp:35:getSafeShellPath,tid:0x7ffadce767e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:05:57] 26417,proc/proctool.cpp:138:waitChildToExec,tid:0x7ffadce767e0,child stat:pid:26418,bin:modifycnf,state:R,ppid:26417 is waiting count:1 <= 5 
+[2017-01-04 16:05:58] 26439,proc/proctool.cpp:35:getSafeShellPath,tid:0x7ffccb97f7e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:05:58] 26439,proc/proctool.cpp:138:waitChildToExec,tid:0x7ffccb97f7e0,child stat:pid:26440,bin:modifycnf,state:R,ppid:26439 is waiting count:1 <= 5 
+[2017-01-04 16:06:38] 27483,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f6c5c4957e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:06:38] 27483,proc/proctool.cpp:138:waitChildToExec,tid:0x7f6c5c4957e0,child stat:pid:27484,bin:modifycnf,state:R,ppid:27483 is waiting count:1 <= 5 
+[2017-01-04 16:06:40] 27495,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fe1211537e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:06:40] 27495,proc/proctool.cpp:138:waitChildToExec,tid:0x7fe1211537e0,child stat:pid:27496,bin:modifycnf,state:R,ppid:27495 is waiting count:1 <= 5 
+[2017-01-04 16:07:05] 28212,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f5ddd26d7e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:07:05] 28212,proc/proctool.cpp:138:waitChildToExec,tid:0x7f5ddd26d7e0,child stat:pid:28213,bin:modifycnf,state:R,ppid:28212 is waiting count:1 <= 5 
+[2017-01-04 16:07:06] 28229,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fdf447647e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:07:07] 28229,proc/proctool.cpp:138:waitChildToExec,tid:0x7fdf447647e0,child stat:pid:28231,bin:modifycnf,state:R,ppid:28229 is waiting count:1 <= 5 
+[2017-01-04 16:07:13] 28560,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f3484aae7e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:07:13] 28560,proc/proctool.cpp:138:waitChildToExec,tid:0x7f3484aae7e0,child stat:pid:28561,bin:modifycnf,state:R,ppid:28560 is waiting count:1 <= 5 
+[2017-01-04 16:07:14] 28582,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fdef61e87e0,get_file_time cmd:/data/home/dongzhi/workspace/percona-5.7.15-9-bin-release/install/safeshell is 0,may file is not exists
+[2017-01-04 16:07:14] 28582,proc/proctool.cpp:138:waitChildToExec,tid:0x7fdef61e87e0,child stat:pid:28583,bin:modifycnf,state:R,ppid:28582 is waiting count:1 <= 5 
+[2017-03-08 18:36:46] 21397,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fad42fce7e0,get_file_time cmd:/data/home/tdengine/davie/mysql_installs/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-08 18:36:46] 21397,proc/proctool.cpp:138:waitChildToExec,tid:0x7fad42fce7e0,child stat:pid:21398,bin:modifycnf,state:R,ppid:21397 is waiting count:1 <= 5 
+[2017-03-08 18:36:47] 21405,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f84c3b3f7e0,get_file_time cmd:/data/home/tdengine/davie/mysql_installs/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-08 18:36:47] 21405,proc/proctool.cpp:138:waitChildToExec,tid:0x7f84c3b3f7e0,child stat:pid:21406,bin:modifycnf,state:R,ppid:21405 is waiting count:1 <= 5 
+[2017-03-08 18:37:51] 22216,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f2818b197e0,get_file_time cmd:/data/home/tdengine/davie/mysql_installs/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-08 18:37:51] 22216,proc/proctool.cpp:138:waitChildToExec,tid:0x7f2818b197e0,child stat:pid:22217,bin:modifycnf,state:R,ppid:22216 is waiting count:1 <= 5 
+[2017-03-08 18:37:52] 22233,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f575ce587e0,get_file_time cmd:/data/home/tdengine/davie/mysql_installs/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-08 18:37:52] 22233,proc/proctool.cpp:138:waitChildToExec,tid:0x7f575ce587e0,child stat:pid:22234,bin:modifycnf,state:R,ppid:22233 is waiting count:1 <= 5 
+[2017-03-13 20:43:40] 19905,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f0ee1fc5840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:43:40] 19905,proc/proctool.cpp:138:waitChildToExec,tid:0x7f0ee1fc5840,child stat:pid:19906,bin:modifycnf,state:R,ppid:19905 is waiting count:1 <= 5 
+[2017-03-13 20:43:41] 19907,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fca50033840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:43:41] 19907,proc/proctool.cpp:138:waitChildToExec,tid:0x7fca50033840,child stat:pid:19908,bin:modifycnf,state:R,ppid:19907 is waiting count:1 <= 5 
+[2017-03-13 20:45:59] 25303,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f923290b840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:45:59] 25303,proc/proctool.cpp:138:waitChildToExec,tid:0x7f923290b840,child stat:pid:25304,bin:modifycnf,state:R,ppid:25303 is waiting count:1 <= 5 
+[2017-03-13 20:46:00] 25403,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fdb09aa0840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:46:00] 25403,proc/proctool.cpp:138:waitChildToExec,tid:0x7fdb09aa0840,child stat:pid:25404,bin:modifycnf,state:R,ppid:25403 is waiting count:1 <= 5 
+[2017-03-13 20:50:16] 32437,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f7663ec8840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:50:16] 32437,proc/proctool.cpp:138:waitChildToExec,tid:0x7f7663ec8840,child stat:pid:32438,bin:modifycnf,state:R,ppid:32437 is waiting count:1 <= 5 
+[2017-03-13 20:50:17] 32446,proc/proctool.cpp:35:getSafeShellPath,tid:0x7f3a91984840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:50:17] 32446,proc/proctool.cpp:138:waitChildToExec,tid:0x7f3a91984840,child stat:pid:32447,bin:modifycnf,state:R,ppid:32446 is waiting count:1 <= 5 
+[2017-03-13 20:51:36] 5060,proc/proctool.cpp:35:getSafeShellPath,tid:0x7fbc3c33b840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:51:36] 5060,proc/proctool.cpp:138:waitChildToExec,tid:0x7fbc3c33b840,child stat:pid:5061,bin:modifycnf,state:R,ppid:5060 is waiting count:1 <= 5 
+[2017-03-13 20:51:37] 5069,proc/proctool.cpp:35:getSafeShellPath,tid:0x7ff937f27840,get_file_time cmd:/data/home/tdengine/20170313/percona-5.7.17-11-bin-release/install/safeshell is 0,may file is not exists
+[2017-03-13 20:51:37] 5069,proc/proctool.cpp:138:waitChildToExec,tid:0x7ff937f27840,child stat:pid:5070,bin:modifycnf,state:R,ppid:5069 is waiting count:1 <= 5 
