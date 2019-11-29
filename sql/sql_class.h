@@ -4368,4 +4368,7 @@ inline bool is_tdsql_internal_user(const THD *thd) {
   return (sc && (usr= sc->user().str) && strncasecmp(usr, "tdsqlsys_", 9) == 0);
 }
 
+inline bool is_local_or_admin_user(const THD *thd) {
+  return (thd->is_local_or_admin_port() || is_tdsql_internal_user(thd));
+}
 #endif /* SQL_CLASS_INCLUDED */

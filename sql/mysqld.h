@@ -404,6 +404,7 @@ extern bool forbid_remote_install_plugin;
 extern bool forbid_remote_drop_meta;
 extern bool forbid_remote_change_sql_log_bin;
 extern bool forbid_remote_change_master;
+extern bool forbid_remote_stop_server;
 extern bool hidden_sensitive_variable;
 /**
   Variable to check if connection related options are set

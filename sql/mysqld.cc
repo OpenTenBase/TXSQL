@@ -1030,6 +1030,7 @@ bool forbid_remote_install_plugin = false;
 bool forbid_remote_drop_meta = false;
 bool forbid_remote_change_sql_log_bin = false;
 bool forbid_remote_change_master = false;
+bool forbid_remote_stop_server = false;
 bool hidden_sensitive_variable = false;
 
 #if defined(_WIN32)

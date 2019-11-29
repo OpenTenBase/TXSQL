@@ -1986,8 +1986,7 @@ bool Sql_cmd_load_table::execute(THD *thd) {
       return true;
     }
   } else if (forbid_server_path_remote_access &&
-             !thd->is_local_or_admin_port() &&
-             !is_tdsql_internal_user(thd)) {
+             !is_local_or_admin_user(thd)) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_access");
     return true;
   }

@@ -4234,7 +4234,7 @@ class handler {
   
   //FIXME: whether this handler correpsonds to the mysql.user table. -1:
   //unknown; 0: not; 1: yes.
-   char m_is_mysql_user_table;
+   int m_is_mysql_user_table;
 
  public:
   handler(handlerton *ht_arg, TABLE_SHARE *share_arg)
@@ -4561,7 +4561,7 @@ class handler {
 
   int mysql_user_table() const {return m_is_mysql_user_table;}
 
-  void set_mysql_user_table(char v) { m_is_mysql_user_table= v;}
+  void set_mysql_user_table(int v) { m_is_mysql_user_table= v;}
 
 
   /* Estimates calculation */

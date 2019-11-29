@@ -244,8 +244,8 @@ bool Query_result_export::prepare(THD *thd, List<Item> &list,
   bool string_results = false, non_string_results = false;
   unit = u;
 
-  if (forbid_server_path_remote_access && !thd->is_local_or_admin_port() &&
-      !is_tdsql_internal_user(thd)) {
+  if (forbid_server_path_remote_access && 
+      !is_local_or_admin_user(thd)) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_access");
     return true;
   }
@@ -650,8 +650,8 @@ bool Query_result_dump::prepare(THD *, List<Item> &, SELECT_LEX_UNIT *u) {
   unit = u;
 
   THD *thd = current_thd;
-  if (forbid_server_path_remote_access && !thd->is_local_or_admin_port() &&
-      !is_tdsql_internal_user(thd)) {
+  if (forbid_server_path_remote_access &&
+      !is_local_or_admin_user(thd)) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_access");
     return true;
   }

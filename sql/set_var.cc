@@ -724,7 +724,8 @@ static bool is_tdsql_hidden_var(const char *str) {
     "forbid_server_path_remote_access",
     "reject_rw_mysql_user_sys_users",
     "forbid_remote_install_plugin",
-    "forbid_remote_change_master"
+    "forbid_remote_change_master",
+    "forbid_remote_stop_server"
   };
 
   for (uint i= 0; i < (sizeof(hidden_vars2)/sizeof(char*)); i++)
@@ -742,10 +743,9 @@ static bool check_sysvar_visibility(THD *thd, sys_var *var)
   if (thd == NULL || !hidden_sensitive_variable)
     return true;
   if (is_tdsql_hidden_var(var->name.str))
-    return (thd->is_local_or_admin_port() || is_tdsql_internal_user(thd));
-  if (forbid_server_path_remote_change && !thd->is_local_or_admin_port() &&
-      !opt_initialize && !is_tdsql_internal_user(thd) &&
-      is_path_var(var->name.str))
+    return (is_local_or_admin_user(thd));
+  if (forbid_server_path_remote_change && !is_local_or_admin_user(thd) &&
+      !opt_initialize && is_path_var(var->name.str))
     return false;
 
   return true;

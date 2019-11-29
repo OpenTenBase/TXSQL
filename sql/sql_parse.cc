@@ -3164,8 +3164,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
       }
 
       if (forbid_remote_change_master &&
-          !thd->is_local_or_admin_port() &&
-          !is_tdsql_internal_user(thd)) {
+          !is_local_or_admin_user(thd)) {
         my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_change_master");
         goto error;
       }
@@ -3944,6 +3943,15 @@ int mysql_execute_command(THD *thd, bool first_level) {
         my_ok(thd);
         break;
       }
+
+      if ((lex->type & REFRESH_SLAVE) || (lex->type & REFRESH_MASTER)) {
+        if (forbid_remote_change_master &&
+            !is_local_or_admin_user(thd)) {
+          my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_change_master");
+          goto error;
+        }
+      }
+
       // Fall through.
     case SQLCOM_FLUSH: {
       int write_to_binlog;
@@ -4477,6 +4485,14 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_DROP_SRS:
 
       DBUG_ASSERT(lex->m_sql_cmd != nullptr);
+
+      if ((lex->sql_command == SQLCOM_RESTART_SERVER
+            || lex->sql_command == SQLCOM_SHUTDOWN) &&
+          forbid_remote_stop_server && !is_local_or_admin_user(thd)) {
+         my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_stop_server");
+         goto error;
+      }
+
       res = lex->m_sql_cmd->execute(thd);
       break;
 

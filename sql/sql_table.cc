@@ -18924,9 +18924,9 @@ true if access denied, false if allowed.  */
 bool tdsql_rm_db_tbl_check(THD *thd, const char *dbname)
 {
   if (dbname && forbid_remote_drop_meta && !opt_initialize &&
-      !thd->is_local_or_admin_port() && is_in_sysdb(dbname) &&
-      thd->system_thread == NON_SYSTEM_THREAD &&
-      !is_tdsql_internal_user(thd)) {
+      !is_local_or_admin_user(thd) &&
+      is_in_sysdb(dbname) &&
+      thd->system_thread == NON_SYSTEM_THREAD) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_drop_meta");
     return true;
   }
@@ -18941,9 +18941,8 @@ bool tdsql_rm_db_tbl_row_check(THD *thd, TABLE_LIST *table)
 {
   if (forbid_remote_drop_meta &&
       table->db && table->table_name && is_sys_table(table) &&
-      !is_tdsql_internal_user(thd) &&
+      !is_local_or_admin_user(thd) &&
       !opt_initialize && 
-      !thd->is_local_or_admin_port() &&
       thd->system_thread == NON_SYSTEM_THREAD) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_drop_meta");
     return true;
@@ -18960,10 +18959,9 @@ bool tdsql_table_remote_insert_extra_check(THD *thd, TABLE_LIST *table)
 {
   if (table->db && table->table_name &&
       !strcasecmp(table->db, "mysql") && !strcasecmp(table->table_name, "user") &&
-      !is_tdsql_internal_user(thd) &&
+      !is_local_or_admin_user(thd) &&
       forbid_remote_drop_meta &&
       !opt_initialize &&
-      !thd->is_local_or_admin_port() &&
       thd->system_thread == NON_SYSTEM_THREAD) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_drop_meta");
     return true;

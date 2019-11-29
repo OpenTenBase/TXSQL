@@ -5348,8 +5348,7 @@ static bool check_log_path(sys_var *self, THD *thd, set_var *var) {
   if (!var->value) return false;  // DEFAULT is ok
 
   if (forbid_server_path_remote_change &&
-      !thd->is_local_or_admin_port() &&
-      !is_tdsql_internal_user(thd)) {
+      !is_local_or_admin_user(thd)) {
         my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_change");
 
         return true;
@@ -6975,6 +6974,11 @@ static Sys_var_bool Sys_forbid_remote_change_sql_log_bin(
 static Sys_var_bool Sys_forbid_remote_change_master(
    "forbid_remote_change_master", "Forbid change master by user with SUPER_ACL",
    GLOBAL_VAR(forbid_remote_change_master), CMD_LINE(OPT_ARG),
+   DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_forbid_remote_stop_server(
+   "forbid_remote_stop_server", "Forbid remote user from SHUTDOWN or RESTART server",
+   GLOBAL_VAR(forbid_remote_stop_server), CMD_LINE(OPT_ARG),
    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 static Sys_var_bool Sys_hidden_sensitive_variable(

@@ -364,8 +364,7 @@ static bool reject_mysql_user_sys_users(handler* hdlr, const uchar *buf)
   return (thd && sc && hdlr->mysql_user_table() && // target table is mysql.user
           sc->user().str && sc->host_or_ip().str && // the connection is an established user connection.
           thd->lex->sql_command != SQLCOM_FLUSH && // tdsqlsys_* user who can't see its row would not be able to log in after a flush privileges;.
-          !thd->is_local_or_admin_port() &&
-          strncasecmp(sc->user().str, "tdsqlsys_", 9) && // always allow tdsqlsys_ users to operate on any row of user table.
+          !is_local_or_admin_user(thd) &&
           !strncasecmp((const char *)(buf+handler::mysql_user_name_offset), "tdsqlsys_", 9/*len of tdsqlsys_ */));
 }
 
