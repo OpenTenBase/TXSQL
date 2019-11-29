@@ -260,7 +260,7 @@ These language specific generated files can be used with no restrictions under
 your own terms.
 
 The X Protocol use of .proto makes our protocol design clear and concise,
-no longer requiring the efforts previously required – no longer will you need
+no longer requiring the efforts previously required - no longer will you need
 to directly analyze our message format. In addition to the layout of
 the message format, the .proto also defines and documents message sequence
 and flow between the connectors and the MySQL server. The information defined
@@ -535,6 +535,9 @@ The documentation is based on the source files such as:
   - @ref AGGREGATE_CHECKS
 */
 /* clang-format on */
+
+#include "commdefine.h"
+#include "compile_time.h"
 
 #include "sql/mysqld.h"
 
@@ -9911,6 +9914,9 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
 static void set_server_version(void) {
   char *end MY_ATTRIBUTE((unused)) = strxmov(
       server_version, MYSQL_SERVER_VERSION, MYSQL_SERVER_SUFFIX_STR, NullS);
+
+  end = my_stpcpy(end, CompileTime() );
+
 #ifndef DBUG_OFF
   if (!strstr(MYSQL_SERVER_SUFFIX_STR, "-debug"))
     end = my_stpcpy(end, "-debug");
