@@ -2248,6 +2248,15 @@ class THD : public MDL_context_owner,
   */
   THD *next_to_commit;
 
+  /* The previous node of commit queue for binary log group commit */
+  THD *prev_to_commit;
+
+  /* Stage leader of group commit if true*/
+  bool stage_leader;
+
+  /* If this thread is a leader, then assign a mysql_cond_t for it*/
+  int stage_cond_id;
+
   /**
     The member is served for marking a query that CREATEs or ALTERs
     a table declared with a TIMESTAMP column as dependent on

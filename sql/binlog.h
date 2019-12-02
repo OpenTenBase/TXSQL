@@ -70,6 +70,9 @@ struct Gtid;
 
 typedef int64 query_id_t;
 
+#define MAX_STAGE_COND 128
+#define UNDEF_COND_SLOT -1
+
 /*
   Maximum unique log filename extension.
   Note: setting to 0x7FFFFFFF due to atol windows
@@ -101,7 +104,7 @@ class Stage_manager {
     friend class Stage_manager;
 
    public:
-    Mutex_queue() : m_first(nullptr), m_last(&m_first), m_size(0) {}
+    Mutex_queue() : m_first(nullptr), m_last(&m_first), m_stage_last(NULL), m_cond_index(0), m_size(0) {}
 
     void init(PSI_mutex_key key_LOCK_queue) {
       mysql_mutex_init(key_LOCK_queue, &m_lock, MY_MUTEX_INIT_FAST);
@@ -116,7 +119,7 @@ class Stage_manager {
       @retval true The queue was empty before this operation.
       @retval false The queue was non-empty before this operation.
     */
-    bool append(THD *first);
+    bool append(THD *first, int *slot);
 
     /**
        Fetch the entire queue for a stage.
@@ -124,8 +127,6 @@ class Stage_manager {
        This will fetch the entire queue in one go.
     */
     THD *fetch_and_empty();
-
-    std::pair<bool, THD *> pop_front();
 
     inline int32 get_size() { return m_size.load(); }
 
@@ -146,6 +147,13 @@ class Stage_manager {
        the last thread that is enqueued.
     */
     THD **m_last;
+
+    /** Pointer to the last thd which is last thread of the stage. Note that
+    the thread can be a leader of previous stage.*/
+    THD *m_stage_last;
+
+    /** Counter for partition */
+    int m_cond_index;
 
     /** size of the queue */
     std::atomic<int32> m_size;
@@ -168,11 +176,14 @@ class Stage_manager {
             PSI_mutex_key key_LOCK_sync_queue,
             PSI_mutex_key key_LOCK_commit_queue, PSI_mutex_key key_LOCK_done,
             PSI_cond_key key_COND_done) {
-    mysql_mutex_init(key_LOCK_done, &m_lock_done, MY_MUTEX_INIT_FAST);
-    mysql_cond_init(key_COND_done, &m_cond_done);
+    for(int i = 0; i< MAX_STAGE_COND; i++) {
+      mysql_mutex_init(key_LOCK_done, &m_lock_done[i], MY_MUTEX_INIT_FAST);
+      mysql_cond_init(key_COND_done, &m_cond_done[i]);
+    }
 #ifndef DBUG_OFF
     /* reuse key_COND_done 'cos a new PSI object would be wasteful in !DBUG_OFF
      */
+    mysql_mutex_init(key_LOCK_done, &m_lock_preempt, MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_COND_done, &m_cond_preempt);
 #endif
     m_queue[FLUSH_STAGE].init(key_LOCK_flush_queue);
@@ -182,11 +193,14 @@ class Stage_manager {
 
   void deinit() {
     for (size_t i = 0; i < STAGE_COUNTER; ++i) m_queue[i].deinit();
-    mysql_cond_destroy(&m_cond_done);
+    for(int i= 0; i< MAX_STAGE_COND; i++) {
+      mysql_cond_destroy(&m_cond_done[i]);
+      mysql_mutex_destroy(&m_lock_done[i]);
+    }
 #ifndef DBUG_OFF
     mysql_cond_destroy(&m_cond_preempt);
+    mysql_mutex_destroy(&m_lock_preempt);
 #endif
-    mysql_mutex_destroy(&m_lock_done);
   }
 
   /**
@@ -212,10 +226,6 @@ class Stage_manager {
     @retval false Thread was not stage leader and processing has been done.
    */
   bool enroll_for(StageID stage, THD *first, mysql_mutex_t *stage_mutex);
-
-  std::pair<bool, THD *> pop_front(StageID stage) {
-    return m_queue[stage].pop_front();
-  }
 
 #ifndef DBUG_OFF
   /**
@@ -256,6 +266,22 @@ class Stage_manager {
 
   void signal_done(THD *queue);
 
+  void mutex_enter_slot(int slot) {
+    mysql_mutex_lock(&(m_lock_done[slot]));
+  }
+
+  void mutex_exit_slot(int slot) {
+    mysql_mutex_unlock(&(m_lock_done[slot]));
+  }
+
+  void enter_cond_slot(int slot) {
+    mysql_cond_wait(&(m_cond_done[slot]), &(m_lock_done[slot]));
+  }
+
+  void cond_signal_slot(int slot) {
+    mysql_cond_broadcast(&(m_cond_done[slot]));
+  }
+
  private:
   /**
      Queues for sessions.
@@ -267,13 +293,15 @@ class Stage_manager {
   Mutex_queue m_queue[STAGE_COUNTER];
 
   /** Condition variable to indicate that the commit was processed */
-  mysql_cond_t m_cond_done;
+  mysql_cond_t m_cond_done[MAX_STAGE_COND];
 
   /** Mutex used for the condition variable above */
-  mysql_mutex_t m_lock_done;
+  mysql_mutex_t m_lock_done[MAX_STAGE_COND];
 #ifndef DBUG_OFF
   /** Flag is set by Leader when it starts waiting for follower's all-clear */
   bool leader_await_preempt_status;
+
+  mysql_mutex_t m_lock_preempt;
 
   /** Condition variable to indicate a follower started waiting for commit */
   mysql_cond_t m_cond_preempt;
