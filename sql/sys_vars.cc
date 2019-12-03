@@ -1153,8 +1153,8 @@ static bool check_gtid_next(sys_var *self, THD *thd, set_var *var) {
     return true;
   }
 
-  /** TDSQL: Allow user with prefix tdsqlsys_ to set GTID_NEXT */
-  if (is_tdsql_internal_user(thd)) {
+  /** TDSQL: Allow user with prefix opt_admin_username_prefix to set GTID_NEXT */
+  if (is_cloud_internal_user(thd)) {
     return false;
   }
 
@@ -6953,7 +6953,7 @@ static Sys_var_bool Sys_forbid_server_path_remote_change(
 static Sys_var_bool Sys_reject_rw_mysql_user_sys_users(
    "reject_rw_mysql_user_sys_users",
    "Reject inserting/updating/deleting/fetching mysql.user rows whose "
-   "'user' field starts with 'tdsqlsys_'. Rejected insert will return error"
+   "'user' field starts with opt_admin_username_prefix. Rejected insert will return error"
    " , but all other operations will be silently ignored with such rows.",
    GLOBAL_VAR(g_reject_rw_mysql_user_sys_users),
    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
@@ -6991,3 +6991,9 @@ static Sys_var_bool Sys_hidden_sensitive_variable(
    "hidden_sensitive_variable", "hidde sensitive variable so remote user with super_acl "
    " can't change them.", READ_ONLY GLOBAL_VAR(hidden_sensitive_variable), CMD_LINE(OPT_ARG),
    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_lexstring Sys_admin_username_prefix(
+    "admin_username_prefix",
+    "User name prefixed with this string is treated as admin user",
+    READ_ONLY GLOBAL_VAR(opt_admin_username_prefix), CMD_LINE(REQUIRED_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT("tdsqlsys_"));

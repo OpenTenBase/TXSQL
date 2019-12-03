@@ -3403,7 +3403,7 @@ String *Item_load_file::val_str(String *str) {
 
   THD *thd = current_thd;
   if (forbid_server_path_remote_access && !thd->is_admin_connection() &&
-      !is_tdsql_internal_user(thd)) {
+      !is_cloud_internal_user(thd)) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_server_path_remote_access");
     return error_str();
   }

@@ -2001,13 +2001,13 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   for (size_t ix = 0; ix < thread_infos.size(); ++ix) {
     thread_info *thd_info = thread_infos.at(ix);
 
-    // tdsql: don't show sessions of tdsqlsys_ users to non tdsqlssy_ users who
+    // tdsql: don't show sessions of admin users to non admin users who
     // are connecting from tcp/ip and who can see all connections.
     if (!user && g_reject_rw_mysql_user_sys_users &&
         thd_info->system_thread == NON_SYSTEM_THREAD &&
         !thd->is_local_or_admin_port() &&
-        is_tdsql_internal_user(thd_info->user) &&
-        !is_tdsql_internal_user(thd))
+        is_cloud_internal_user(thd_info->user) &&
+        !is_cloud_internal_user(thd))
       continue;
 
     protocol->start_row();

@@ -4380,13 +4380,11 @@ inline bool is_tdsql_internal_user(const char *user) {
   return (user && strncasecmp(user, "tdsqlsys_", 9) == 0);
 }
 
-inline bool is_tdsql_internal_user(const THD *thd) {
-  Security_context *sc= thd->security_context();
-  const char *usr= NULL;
-  return (sc && (usr= sc->user().str) && strncasecmp(usr, "tdsqlsys_", 9) == 0);
-}
+bool is_cloud_internal_user(const char *user);
+
+bool is_cloud_internal_user(const THD *thd);
 
 inline bool is_local_or_admin_user(const THD *thd) {
-  return (thd->is_local_or_admin_port() || is_tdsql_internal_user(thd));
+  return (thd->is_local_or_admin_port() || is_cloud_internal_user(thd));
 }
 #endif /* SQL_CLASS_INCLUDED */

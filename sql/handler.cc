@@ -363,9 +363,11 @@ static bool reject_mysql_user_sys_users(handler* hdlr, const uchar *buf)
   Security_context *sc= thd->security_context();
   return (thd && sc && hdlr->mysql_user_table() && // target table is mysql.user
           sc->user().str && sc->host_or_ip().str && // the connection is an established user connection.
-          thd->lex->sql_command != SQLCOM_FLUSH && // tdsqlsys_* user who can't see its row would not be able to log in after a flush privileges;.
+          thd->lex->sql_command != SQLCOM_FLUSH && // admin user who can't see its row would not be able to log in after a flush privileges;.
           !is_local_or_admin_user(thd) &&
-          !strncasecmp((const char *)(buf+handler::mysql_user_name_offset), "tdsqlsys_", 9/*len of tdsqlsys_ */));
+          opt_admin_username_prefix.length > 0 &&
+          !strncasecmp((const char *)(buf+handler::mysql_user_name_offset),
+                       opt_admin_username_prefix.str, opt_admin_username_prefix.length));
 }
 
 inline static bool tdsql_filter_result_row(handler *hdlr, const uchar *buf)

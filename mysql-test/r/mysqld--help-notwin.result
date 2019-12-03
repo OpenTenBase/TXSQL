@@ -29,6 +29,9 @@ The following options may be given as the first argument:
  socket creation.
  --admin-port=#      Port number to use for service connection, built-in
  default (33062)
+ --admin-username-prefix=name 
+ User name prefixed with this string is treated as admin
+ user
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -353,6 +356,27 @@ The following options may be given as the first argument:
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
+ --forbid-remote-change-master 
+ Forbid change master by user with SUPER_ACL
+ --forbid-remote-change-sql-log-bin 
+ Forbid modifying sql_log_bin from tcp/ip connections,
+ only allow so for unix socket connections.
+ --forbid-remote-drop-meta 
+ Forbid dropping database mysql, information_schema,
+ performance_schema, sys, sysdb, xa, or its tables or rows
+ in such tables for clients not connected from local unix
+ socket.
+ --forbid-remote-install-plugin 
+ Forbid installing plugins for clients not connected from
+ local unix socket.
+ --forbid-remote-stop-server 
+ Forbid remote user from SHUTDOWN or RESTART server
+ --forbid-server-path-remote-access 
+ Forbid accessing server path from remote tcp/ip
+ connection.
+ --forbid-server-path-remote-change 
+ Forbid modifying server path variables from remote tcp/ip
+ connection.
  --ft-boolean-syntax=name 
  List of operators for MATCH ... AGAINST ( ... IN BOOLEAN
  MODE)
@@ -405,6 +429,9 @@ The following options may be given as the first argument:
  without a GTID to be replicated and executed on all
  servers, and finally set all servers to GTID_MODE = ON.
  -?, --help          Display this help and exit.
+ --hidden-sensitive-variable 
+ hidde sensitive variable so remote user with super_acl 
+ can't change them.
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
@@ -1024,6 +1051,12 @@ The following options may be given as the first argument:
  --regexp-time-limit=# 
  Timeout for regular expressions matches, in steps of the
  match engine, typically on the order of milliseconds.
+ --reject-rw-mysql-user-sys-users 
+ Reject inserting/updating/deleting/fetching mysql.user
+ rows whose 'user' field starts with
+ opt_admin_username_prefix. Rejected insert will return
+ error , but all other operations will be silently ignored
+ with such rows.
  --relay-log=name    The location and name to use for relay logs
  --relay-log-index=name 
  File that holds the names for relay log files.
@@ -1451,6 +1484,7 @@ abort-slave-event-count 0
 activate-all-roles-on-login FALSE
 admin-address (No default value)
 admin-port 33062
+admin-username-prefix tdsqlsys_
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
 auto-increment-offset 1
@@ -1524,6 +1558,13 @@ explicit-defaults-for-timestamp TRUE
 external-locking FALSE
 flush FALSE
 flush-time 0
+forbid-remote-change-master FALSE
+forbid-remote-change-sql-log-bin FALSE
+forbid-remote-drop-meta FALSE
+forbid-remote-install-plugin FALSE
+forbid-remote-stop-server FALSE
+forbid-server-path-remote-access FALSE
+forbid-server-path-remote-change FALSE
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84
 ft-min-word-len 4
@@ -1537,6 +1578,7 @@ group-replication-consistency EVENTUAL
 gtid-executed-compression-period 1000
 gtid-mode OFF
 help TRUE
+hidden-sensitive-variable FALSE
 histogram-generation-max-mem-size 20000000
 host-cache-size 279
 information-schema-stats-expiry 86400
@@ -1727,6 +1769,7 @@ read-only FALSE
 read-rnd-buffer-size 262144
 regexp-stack-limit 8000000
 regexp-time-limit 32
+reject-rw-mysql-user-sys-users FALSE
 relay-log relaylog
 relay-log-index relaylog.index
 relay-log-info-file relay-log.info

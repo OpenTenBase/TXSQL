@@ -2814,4 +2814,19 @@ void thd_statistics_io_time(uintmax_t current_io_time) {
   if (thd) {
     thd->cur_query_io_utime+= current_io_time;
   }
+
+bool is_cloud_internal_user(const char *user) {
+  return (user &&
+          opt_admin_username_prefix.length > 0 &&
+          strncasecmp(user, opt_admin_username_prefix.str,
+                      opt_admin_username_prefix.length) == 0);
+}
+
+bool is_cloud_internal_user(const THD *thd) {
+  Security_context *sc= thd->security_context();
+  const char *usr= NULL;
+  return (sc && (usr= sc->user().str) &&
+          opt_admin_username_prefix.length > 0 &&
+          strncasecmp(usr, opt_admin_username_prefix.str,
+                      opt_admin_username_prefix.length) == 0);
 }

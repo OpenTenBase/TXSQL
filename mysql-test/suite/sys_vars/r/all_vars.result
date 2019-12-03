@@ -16,6 +16,8 @@ left join t1 on variable_name=test_name where test_name is null ORDER BY variabl
 There should be *no* variables listed below:
 activate_all_roles_on_login
 activate_all_roles_on_login
+admin_username_prefix
+admin_username_prefix
 binlog_encryption
 binlog_encryption
 binlog_rotate_encryption_master_key_at_startup
@@ -30,6 +32,20 @@ default_collation_for_utf8mb4
 default_collation_for_utf8mb4
 disabled_storage_engines
 disabled_storage_engines
+forbid_remote_change_master
+forbid_remote_change_master
+forbid_remote_change_sql_log_bin
+forbid_remote_change_sql_log_bin
+forbid_remote_drop_meta
+forbid_remote_drop_meta
+forbid_remote_install_plugin
+forbid_remote_install_plugin
+forbid_remote_stop_server
+forbid_remote_stop_server
+forbid_server_path_remote_access
+forbid_server_path_remote_access
+forbid_server_path_remote_change
+forbid_server_path_remote_change
 generated_random_password_length
 generated_random_password_length
 group_replication_consistency
@@ -40,6 +56,8 @@ innodb_async_table_size
 innodb_async_table_size
 innodb_async_truncate_size
 innodb_async_truncate_size
+hidden_sensitive_variable
+hidden_sensitive_variable
 innodb_dedicated_server
 innodb_dedicated_server
 innodb_log_checkpoint_every
@@ -102,6 +120,8 @@ regexp_stack_limit
 regexp_stack_limit
 regexp_time_limit
 regexp_time_limit
+reject_rw_mysql_user_sys_users
+reject_rw_mysql_user_sys_users
 resultset_metadata
 sql_require_primary_key
 sql_require_primary_key

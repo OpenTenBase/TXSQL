@@ -369,6 +369,7 @@ extern ulong connection_errors_peer_addr;
 extern char *opt_log_error_suppression_list;
 extern char *opt_log_error_services;
 extern char *opt_protocol_compression_algorithms;
+extern LEX_STRING opt_admin_username_prefix;
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;

@@ -18918,7 +18918,7 @@ static bool is_sys_table(TABLE_LIST *tbl)
 }
 
 /*
-Forbid non tdsqlsys_ user connected via tcp/ip to drop a system db when
+Forbid non admin user connected via tcp/ip to drop a system db when
 forbid_remote_drop_meta is on. slave replication thread ignored.  Returns
 true if access denied, false if allowed.  */
 bool tdsql_rm_db_tbl_check(THD *thd, const char *dbname)
@@ -18934,7 +18934,7 @@ bool tdsql_rm_db_tbl_check(THD *thd, const char *dbname)
 }
 
 /*
-  Forbid non tdsqlsys_ user connected via tcp/ip to update/delete rows in
+  Forbid non admin user connected via tcp/ip to update/delete rows in
   system tables when forbid_remote_drop_meta is on. slave replication thread
   ignored.  Returns true if access denied, false if allowed.  */
 bool tdsql_rm_db_tbl_row_check(THD *thd, TABLE_LIST *table)
@@ -18952,7 +18952,7 @@ bool tdsql_rm_db_tbl_row_check(THD *thd, TABLE_LIST *table)
 
 
 /*
-   Forbid non tdsqlsys_ user connected via tcp/ip to insert into mysql.user
+   Forbid non admin user connected via tcp/ip to insert into mysql.user
   when forbid_remote_drop_meta is on. slave replication thread ignored.
   Returns true if access denied, false if allowed.  */
 bool tdsql_table_remote_insert_extra_check(THD *thd, TABLE_LIST *table)

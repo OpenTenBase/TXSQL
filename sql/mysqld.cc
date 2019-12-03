@@ -1307,7 +1307,7 @@ char *opt_protocol_compression_algorithms;
 char server_version[SERVER_VERSION_LENGTH];
 const char *mysqld_unix_port;
 char *opt_mysql_tmpdir;
-
+LEX_STRING opt_admin_username_prefix;
 /** name of reference on left expression in rewritten IN subquery */
 const char *in_left_expr_name = "<left expr>";
 
