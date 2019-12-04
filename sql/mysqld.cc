@@ -704,6 +704,7 @@ The documentation is based on the source files such as:
 #include "sql/thr_malloc.h"
 #include "sql/threadpool.h"
 #include "sql/transaction.h"
+#include "sql/thd_bottom_half.h"
 #include "sql/tztime.h"  // Time_zone
 #include "sql/xa.h"
 #include "sql_common.h"  // mysql_client_plugin_init
@@ -1033,6 +1034,17 @@ bool forbid_remote_change_master = false;
 bool forbid_remote_stop_server = false;
 bool hidden_sensitive_variable = false;
 
+/** tdsql: Variables to control strong consistency behavior */
+bool g_sqlAsyn = false;
+bool g_reliable_relaylog = true;
+bool tdsql_allow_async = false;
+ulong g_relaylog_sync_threshold;
+ulong g_relaylog_fsync_ack_timeout;
+ulong g_relaylog_fsync_txn_count;
+uint g_sqlAsynTimeout;
+uint g_sqlAsynWarnTimeout;
+
+CThdBottomHalf *g_thdBottomHalf = nullptr;
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.
@@ -2861,6 +2873,17 @@ static bool network_init(void) {
     if (report_port == 0) report_port = mysqld_port;
 
     if (!opt_disable_networking) DBUG_ASSERT(report_port != 0);
+
+    if (Connection_handler_manager::thread_handling
+          == Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+      g_thdBottomHalf = new CThdBottomHalf(my_bind_addr_str, mysqld_port, threadpool_size);
+
+      if (!g_thdBottomHalf->init()) {
+        sql_print_error("CThdBottomHalf listen(%s : %d) on UDP failed with error %s",
+            my_bind_addr_str, mysqld_port,g_thdBottomHalf->getErrMsg());
+        return true;
+      }
+    }
   }
 #ifdef _WIN32
   // Create named pipe
@@ -7099,7 +7122,12 @@ int mysqld_main(int argc, char **argv)
   mysql_cond_broadcast(&COND_socket_listener_active);
   mysql_mutex_unlock(&LOCK_socket_listener_active);
 #endif  // !_WIN32
+  if (g_thdBottomHalf) {
+    g_thdBottomHalf->stop_all();
 
+    delete g_thdBottomHalf;
+    g_thdBottomHalf = nullptr;
+  }
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /*
     Disable the main thread instrumentation,
@@ -8806,6 +8834,18 @@ SHOW_VAR status_vars[] = {
     {"Uptime_since_flush_status", (char *)&show_flushstatustime, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
 #endif
+    //master
+    {"sqlasyn_get_slave_ans", (char*) &sqlasyn_get_slave_ans, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_get_slave_ans_skip", (char*) &sqlasyn_get_slave_ans_skip, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_deal_trx_by_ans", (char*) &sqlasyn_deal_trx_by_ans, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_deal_trx_by_fast_ans", (char*) &sqlasyn_deal_trx_by_fast_ans, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_exceed_warn_num", (char*) &sqlasyn_exceed_warn_num, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_timeout_num", (char*) &sqlasyn_timeout_num, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+
+    //slave
+    {"sqlasyn_acks_to_master", (char*) &sqlasyn_sendto_master, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_slave_recv_txns", (char*) &sqlasyn_slave_recv_txns, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_slave_relaylog_syncs", (char*) &sqlasyn_slave_relaylog_syncs, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {

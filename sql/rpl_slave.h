@@ -513,7 +513,8 @@ typedef enum {
   QUEUE_EVENT_ERROR_FLUSHING_INFO
 } QUEUE_EVENT_RESULT;
 QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
-                               ulong event_len, bool flush_mi = true);
+                               ulong event_len, bool flush_mi,
+                               bool& needAck, bool &rl_synced);
 
 extern "C" void *handle_slave_io(void *arg);
 extern "C" void *handle_slave_sql(void *arg);
@@ -548,6 +549,9 @@ bool sql_slave_killed(THD *thd, Relay_log_info *rli);
 #define SLAVE_IO 1
 #define SLAVE_SQL 2
 
+extern ulonglong sqlasyn_sendto_master;
+extern ulonglong sqlasyn_slave_relaylog_syncs;
+extern ulonglong sqlasyn_slave_recv_txns;
 /**
   @} (end of group Replication)
 */

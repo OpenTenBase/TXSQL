@@ -20,6 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include "sql/conn_handler/connection_handler_manager.h"
 #include "sql/sql_parse.h"
 
 #include "my_config.h"
@@ -65,6 +66,8 @@
 #include "mysql/psi/mysql_rwlock.h"
 #include "mysql/psi/mysql_statement.h"
 #include "mysql/service_mysql_alloc.h"
+#include "mysql/psi/mysql_idle.h"
+#include "mysql/psi/mysql_socket.h"
 #include "mysqld_error.h"
 #include "mysys_err.h"  // EE_CAPACITY_EXCEEDED
 #include "nullable.h"
@@ -165,6 +168,7 @@
 #include "sql/thd_raii.h"
 #include "sql/transaction.h"  // trans_rollback_implicit
 #include "sql/transaction_info.h"
+#include "sql/thd_bottom_half.h"
 #include "sql_string.h"
 #include "thr_lock.h"
 #include "violite.h"
@@ -1447,6 +1451,92 @@ static void check_secondary_engine_statement(THD *thd,
                                    query_length);
 }
 
+bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+
+  /* Finalize server status flags after executing a command. */
+  thd->send_statement_status();
+
+  /* After sending response, switch to clone protocol */
+  if (clone_cmd != nullptr) {
+    DBUG_ASSERT(command == COM_CLONE);
+    error = clone_cmd->execute_server(thd);
+  }
+
+  thd->rpl_thd_ctx.session_gtids_ctx().notify_after_response_packet(thd);
+
+  clock_gettime(clock_id, &time_end);
+  thd->cur_cpu_nstime= diff_timespec(&time_end, &time_start);
+
+  if (!thd->is_error() && !thd->killed)
+    mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, NULL,
+                       0);
+
+  mysql_audit_notify(
+      thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
+      thd->get_stmt_da()->is_error() ? thd->get_stmt_da()->mysql_errno() : 0,
+      command_name[command].str, command_name[command].length);
+
+  /* command_end is informational only. The plugin cannot abort
+     execution of the command at thie point. */
+  mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_COMMAND_END), command,
+                     command_name[command].str);
+
+  log_slow_statement(thd, thd->use_extra_status_var ? (&thd->extra_status_var) : nullptr);
+
+  THD_STAGE_INFO(thd, stage_cleaning_up);
+
+  thd->reset_query();
+  thd->set_command(COM_SLEEP);
+  thd->proc_info = 0;
+  thd->lex->sql_command = SQLCOM_END;
+
+  /* Performance Schema Interface instrumentation, end */
+  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->m_statement_psi = NULL;
+  thd->m_digest = NULL;
+
+  /* Prevent rewritten query from getting "stuck" in SHOW PROCESSLIST. */
+  thd->rewritten_query.mem_free();
+
+  thd_manager->dec_thread_running();
+ 
+  /* Freeing the memroot will leave the THD::work_part_info invalid. */
+  thd->work_part_info = nullptr;
+
+  /*
+    If we've allocated a lot of memory (compared to the user's desired
+    preallocation size; note that we don't actually preallocate anymore), free
+    it so that one big query won't cause us to hold on to a lot of RAM forever.
+    If not, keep the last block so that the next query will hopefully be able to
+    run without allocating memory from the OS.
+
+    The factor 5 is pretty much arbitrary, but ends up allowing three
+    allocations (1 + 1.5 + 1.5²) under the current allocation policy.
+  */
+  if (thd->mem_root->allocated_size() < 5 * thd->variables.query_prealloc_size)
+    thd->mem_root->ClearForReuse();
+  else
+    thd->mem_root->Clear();
+
+    /* SHOW PROFILE instrumentation, end */
+#if defined(ENABLED_PROFILING)
+  thd->profiling->finish_current_query();
+#endif
+
+  /*
+    this has to be defered to do here, used to be in threadpool_process_request,
+    but if doing async wait, won't have chance to execute code in threadpool_process_request
+  */
+  if (thd->m_asyncAns && !thd->m_server_idle) {
+    MYSQL_SOCKET_SET_STATE(thd->get_protocol_classic()->get_vio()->mysql_socket, PSI_SOCKET_STATE_IDLE);
+    MYSQL_START_IDLE_WAIT(thd->m_idle_psi, &thd->m_idle_state);
+    thd->m_server_idle= true;
+  }
+
+  return error;
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -1477,11 +1567,14 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   Sql_cmd_clone *clone_cmd = nullptr;
 
   /* For per-query performance counters with log_slow_statement */
-  struct System_status_var query_start_status;
+
   struct System_status_var *query_start_status_ptr = nullptr;
   if (opt_log_slow_extra) {
-    query_start_status_ptr = &query_start_status;
-    query_start_status = thd->status_var;
+    query_start_status_ptr = &thd->extra_status_var;
+    thd->extra_status_var = thd->status_var;
+    thd->use_extra_status_var = true;
+  } else {
+    thd->use_extra_status_var = false;
   }
 
   /* SHOW PROFILE instrumentation, begin */
@@ -1812,7 +1905,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         log_slow_statement(thd, query_start_status_ptr);
         if (query_start_status_ptr) {
           /* Reset for values at start of next statement */
-          query_start_status = thd->status_var;
+          thd->extra_status_var = thd->status_var;
         }
 
         /* Remove garbage at start of query */
@@ -2150,79 +2243,40 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 done:
   DBUG_ASSERT(thd->open_tables == NULL ||
               (thd->locked_tables_mode == LTM_LOCK_TABLES));
-
-  /* Finalize server status flags after executing a command. */
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
-  thd->send_statement_status();
-
-  /* After sending response, switch to clone protocol */
-  if (clone_cmd != nullptr) {
-    DBUG_ASSERT(command == COM_CLONE);
-    error = clone_cmd->execute_server(thd);
+  
+  if (!g_sqlAsyn ||
+      !g_thdBottomHalf ||
+      thd->is_local_or_admin_port() || clone_cmd != nullptr ||
+      Connection_handler_manager::thread_handling != Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+    return (finish_command(command, thd, clone_cmd, error));
   }
 
-  thd->rpl_thd_ctx.session_gtids_ctx().notify_after_response_packet(thd);
+  if (!error &&
+      (thd->lex->sql_command != SQLCOM_XA_COMMIT) &&
+      (thd->lex->sql_command != SQLCOM_XA_ROLLBACK) &&
+      thd->binlog_has_grown()) {
 
-  clock_gettime(clock_id, &time_end);
-  thd->cur_cpu_nstime= diff_timespec(&time_end, &time_start);
-  if (!thd->is_error() && !thd->killed)
-    mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, NULL,
-                       0);
+    thd->m_asyncAns = true;
+    thd->update_old_binlog_pos();
 
-  mysql_audit_notify(
-      thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
-      thd->get_stmt_da()->is_error() ? thd->get_stmt_da()->mysql_errno() : 0,
-      command_name[command].str, command_name[command].length);
+    bool haveGetAns = false;
+    if (false == g_thdBottomHalf->saveThd(command, thd, error, haveGetAns)) {
+      /* Have been answered */
+      thd->m_asyncAns = false;
+      return (finish_command(command, thd, nullptr, error));
+    } else {
+      return 0;  
+    }
+  } else {
+    if ((thd->lex->sql_command == SQLCOM_XA_COMMIT) ||
+        (thd->lex->sql_command == SQLCOM_XA_ROLLBACK)) {
+      thd->update_old_binlog_pos();
+    }
+  }
 
-  /* command_end is informational only. The plugin cannot abort
-     execution of the command at thie point. */
-  mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_COMMAND_END), command,
-                     command_name[command].str);
-
-  log_slow_statement(thd, query_start_status_ptr);
-
-  THD_STAGE_INFO(thd, stage_cleaning_up);
-
-  thd->reset_query();
-  thd->set_command(COM_SLEEP);
-  thd->proc_info = 0;
-  thd->lex->sql_command = SQLCOM_END;
-
-  /* Performance Schema Interface instrumentation, end */
-  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
-  thd->m_statement_psi = NULL;
-  thd->m_digest = NULL;
-
-  /* Prevent rewritten query from getting "stuck" in SHOW PROCESSLIST. */
-  thd->rewritten_query.mem_free();
-
-  thd_manager->dec_thread_running();
-
-  /* Freeing the memroot will leave the THD::work_part_info invalid. */
-  thd->work_part_info = nullptr;
-
-  /*
-    If we've allocated a lot of memory (compared to the user's desired
-    preallocation size; note that we don't actually preallocate anymore), free
-    it so that one big query won't cause us to hold on to a lot of RAM forever.
-    If not, keep the last block so that the next query will hopefully be able to
-    run without allocating memory from the OS.
-
-    The factor 5 is pretty much arbitrary, but ends up allowing three
-    allocations (1 + 1.5 + 1.5²) under the current allocation policy.
-  */
-  if (thd->mem_root->allocated_size() < 5 * thd->variables.query_prealloc_size)
-    thd->mem_root->ClearForReuse();
-  else
-    thd->mem_root->Clear();
-
-    /* SHOW PROFILE instrumentation, end */
-#if defined(ENABLED_PROFILING)
-  thd->profiling->finish_current_query();
-#endif
-
-  return error;
+  return (finish_command(command, thd, nullptr, error));
 }
 
 /**

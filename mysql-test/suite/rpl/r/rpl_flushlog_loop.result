@@ -15,6 +15,9 @@ relay_log_info_repository	FILE
 relay_log_purge	ON
 relay_log_recovery	OFF
 relay_log_space_limit	0
+relay_log_sync_threshold	134217728
+relay_log_sync_timeout	200
+relay_log_sync_txn_count	5
 CREATE TABLE t1 (a INT KEY) ENGINE= MyISAM;
 include/sync_slave_sql_with_master.inc
 INSERT INTO t1 VALUE(1);

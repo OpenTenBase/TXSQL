@@ -6678,7 +6678,7 @@ end:
   @retval false success
   @retval true error
 */
-bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi) {
+bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl) {
   DBUG_TRACE;
   DBUG_PRINT("info", ("max_size: %lu", max_size));
 
@@ -6702,7 +6702,7 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi) {
 #endif
 
   // Flush and sync
-  bool error = flush_and_sync(0);
+  bool error = flush_and_sync(g_reliable_relaylog && sync_rl);
   if (error) {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -6775,7 +6775,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   bool error = false;
   if (!binary_event_serialize(ev, m_binlog_file)) {
     bytes_written += ev->common_header->data_written;
-    error = after_write_to_relay_log(mi);
+    error = after_write_to_relay_log(mi, false);
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -6787,7 +6787,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   return error;
 }
 
-bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi) {
+bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, bool sync_rl) {
   DBUG_TRACE;
 
   // check preconditions
@@ -6798,7 +6798,7 @@ bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi) {
   bool error = false;
   if (m_binlog_file->write(pointer_cast<const uchar *>(buf), len) == 0) {
     bytes_written += len;
-    error = after_write_to_relay_log(mi);
+    error = after_write_to_relay_log(mi, sync_rl);
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),

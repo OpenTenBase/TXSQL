@@ -826,11 +826,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void stop_union_events(THD *thd);
   bool is_query_in_union(THD *thd, query_id_t query_id_param);
 
-  bool write_buffer(const char *buf, uint len, Master_info *mi);
+  bool write_buffer(const char *buf, uint len, Master_info *mi, bool sync_rl);
   bool write_event(Log_event *ev, Master_info *mi);
 
  private:
-  bool after_write_to_relay_log(Master_info *mi);
+  bool after_write_to_relay_log(Master_info *mi, bool sync_rl= false);
 
  public:
   void make_log_name(char *buf, const char *log_ident);

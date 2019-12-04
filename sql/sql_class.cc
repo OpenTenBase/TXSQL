@@ -110,6 +110,16 @@ LEX_CSTRING NULL_CSTR = {NULL, 0};
 const char *const THD::DEFAULT_WHERE = "field list";
 extern PSI_stage_info stage_waiting_for_disk_space;
 
+bool operator ==(const Thd_Trans_binlog_info & lft,
+                 const Thd_Trans_binlog_info & rht) {
+      return ((lft.file_no() == rht.file_no()) &&
+              (lft.pos() == rht.pos()));
+}
+
+bool operator <(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht) {
+      return lft.less(rht);
+}
+
 void THD::Transaction_state::backup(THD *thd) {
   this->m_sql_command = thd->lex->sql_command;
   this->m_trx = thd->get_transaction();
@@ -362,6 +372,7 @@ THD::THD(bool enable_plugins)
       rli_slave(NULL),
       initial_status_var(NULL),
       status_var_aggregated(false),
+      use_extra_status_var(false),
       m_current_query_cost(0),
       m_current_query_partial_plans(0),
       m_main_security_ctx(this),
@@ -550,6 +561,9 @@ THD::THD(bool enable_plugins)
   timer_cache = NULL;
 
   m_token_array = NULL;
+
+  m_asyncAns = false;
+
   if (max_digest_length > 0) {
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
                                                max_digest_length, MYF(MY_WME));
@@ -835,6 +849,8 @@ void THD::init(void) {
     ALTER USER statements.
   */
   m_disable_password_validation = false;
+
+  m_asyncAns = false;
 }
 
 void THD::init_query_mem_roots() {

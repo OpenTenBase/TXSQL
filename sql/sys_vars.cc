@@ -7041,3 +7041,57 @@ static Sys_var_ulonglong Sys_binlog_write_threshold(
     GLOBAL_VAR(binlog_write_threshold),
     CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, SIZE_T_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_g_sqlAsyn(
+    "sqlasyn",
+    "sql thread async,turn on perfomance semisync, speed up cpu parellelism",
+    GLOBAL_VAR(g_sqlAsyn),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_uint Sys_g_sqlAsynTimeout(
+    "sqlasyntimeout",
+    "sql thread async, speed up cpu parellel, timeout",
+    GLOBAL_VAR(g_sqlAsynTimeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(30), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_g_sqlAsynWarnTimeout(
+    "sqlasynwarntimeout",
+    "sql thread async, speed up cpu parellelism, sqlasynwarntimeout",
+    GLOBAL_VAR(g_sqlAsynWarnTimeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(3), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_relay_log_sync_threshold(
+    "relay_log_sync_threshold",
+    "Number of bytes to accumulate before fsync'ing relay log and sending an ack to master.",
+    GLOBAL_VAR(g_relaylog_sync_threshold), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(134217728), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_relay_log_sync_timeout(
+    "relay_log_sync_timeout",
+    "If this many micro-seconds has passed since last time slave IO thread "
+    "fsync&ack relay log, IO thread will fsync&ack relay log anyway "
+    "regardless of relay_log_sync_threshold. This timeout should be shorter "
+    "than sqlasyntimeout, otherwise clients will get ER_RBTIMEOUT errors when"
+    " committing a transaction, and then get disconnected.",
+    GLOBAL_VAR(g_relaylog_fsync_ack_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(200), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_relay_log_sync_txn_count(
+    "relay_log_sync_txn_count",
+    "If IO thread has received binlogs of this many transactions since last time "
+    "it fsync&ack relay log, it will fsync&ack relay log anyway "
+    "regardless of other limits.",
+    GLOBAL_VAR(g_relaylog_fsync_txn_count), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(5), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_reliable_relaylog(
+    "tdsql_relay_log_opt",
+    "Always sync relaylog at end of trx to make relaylog reliable.",
+    GLOBAL_VAR(g_reliable_relaylog), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_tdsql_allow_async(
+    "tdsql_allow_async",
+    "When no slave ack, allow master to do asynchronous replication.",
+    GLOBAL_VAR(tdsql_allow_async),
+    CMD_LINE(OPT_ARG), DEFAULT(false));

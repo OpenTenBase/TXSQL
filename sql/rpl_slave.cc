@@ -278,6 +278,10 @@ enum enum_slave_apply_event_and_update_pos_retval {
   SLAVE_APPLY_EVENT_AND_UPDATE_POS_MAX
 };
 
+ulonglong sqlasyn_slave_recv_txns = 0;
+ulonglong sqlasyn_slave_relaylog_syncs = 0;
+ulonglong sqlasyn_sendto_master = 0;
+
 static int process_io_rotate(Master_info *mi, Rotate_log_event *rev);
 static bool wait_for_relay_log_space(Relay_log_info *rli);
 static inline bool io_slave_killed(THD *thd, Master_info *mi);
@@ -5407,6 +5411,7 @@ reading event"))
         /* XXX: 'synced' should be updated by queue_event to indicate
            whether event has been synced to disk */
         bool synced = 0;
+        bool needAck = false;
 #ifndef DBUG_OFF
         bool was_in_trx = false;
         if (mi->is_queueing_trx()) {
@@ -5421,7 +5426,9 @@ reading event"))
           };);
         }
 #endif
-        QUEUE_EVENT_RESULT queue_res = queue_event(mi, event_buf, event_len);
+        QUEUE_EVENT_RESULT queue_res = queue_event(mi, event_buf, event_len,
+                                                    true/*FIXME: should we always flush master info */,
+                                                    needAck, synced);
         if (queue_res == QUEUE_EVENT_ERROR_QUEUING) {
           mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                      ER_THD(thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -5446,6 +5453,30 @@ reading event"))
                      ER_THD(thd, ER_SLAVE_FATAL_ERROR),
                      "Failed to run 'after_queue_event' hook");
           goto err;
+        }
+
+        if (g_sqlAsyn && needAck && (!g_reliable_relaylog || synced)) {
+          mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
+          mysql_mutex_lock(&mi->data_lock);
+          if (flush_master_info(mi, false, false, true)) {
+            mi->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                ER_THD(thd, ER_SLAVE_FATAL_ERROR),
+                "Failed to flush master info");
+            mysql_mutex_unlock(&mi->data_lock);
+            mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+            goto err;
+          }
+
+          BinlogPosAns ans;
+          ans.setFileName(mi->master_log_name,strlen(mi->master_log_name));
+          ans.log_pos  = mi->master_log_pos;
+
+          mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+          mysql_mutex_unlock(&mi->data_lock);
+
+          ans.computeLen();
+          mi->sendAnsToMaster(ans);
+          ++sqlasyn_sendto_master;
         }
 
         /* The event was queued, but there was a failure flushing master info */
@@ -7223,6 +7254,57 @@ static bool ends_transaction(Master_info *mi, const char *buf,
   return ret;
 }
 
+using namespace binary_log;
+static bool checkNeedAck(Master_info* m,Log_event_type event_type){
+  switch(event_type){
+    case UNKNOWN_EVENT:
+    case START_EVENT_V3:
+      return false;
+    case QUERY_EVENT:
+        return m->isLastGtidIsDdl();//dll return true
+    case STOP_EVENT:
+    case ROTATE_EVENT:
+    case INTVAR_EVENT:
+      return false;
+    case SLAVE_EVENT:
+      return false;
+    case APPEND_BLOCK_EVENT:
+      return false;
+    case DELETE_FILE_EVENT:
+      return true;
+    case RAND_EVENT:
+    case USER_VAR_EVENT:
+    case FORMAT_DESCRIPTION_EVENT:
+      return false;
+    case XID_EVENT:
+    case BEGIN_LOAD_QUERY_EVENT:
+    case EXECUTE_LOAD_QUERY_EVENT:
+      return true;
+    case TABLE_MAP_EVENT:
+    case WRITE_ROWS_EVENT_V1:
+    case UPDATE_ROWS_EVENT_V1:
+    case DELETE_ROWS_EVENT_V1:
+    case INCIDENT_EVENT:
+    case HEARTBEAT_LOG_EVENT:
+    case IGNORABLE_LOG_EVENT:
+    case ROWS_QUERY_LOG_EVENT:
+    case WRITE_ROWS_EVENT:
+    case UPDATE_ROWS_EVENT:
+    case DELETE_ROWS_EVENT:
+    case GTID_LOG_EVENT:
+    case ANONYMOUS_GTID_LOG_EVENT:
+    case PREVIOUS_GTIDS_LOG_EVENT:
+    case TRANSACTION_CONTEXT_EVENT:
+    case VIEW_CHANGE_EVENT:
+      return false;
+    case XA_PREPARE_LOG_EVENT:
+      return true;
+    default:
+      return false;
+  }
+
+  return false;
+}
 /**
   Store an event received from the master connection into the relay
   log.
@@ -7241,13 +7323,16 @@ static bool ends_transaction(Master_info *mi, const char *buf,
   @todo Make this a member of Master_info.
 */
 QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
-                               ulong event_len, bool do_flush_mi) {
+                               ulong event_len, bool do_flush_mi,
+                               bool& needAck, bool &rl_synced) {
   QUEUE_EVENT_RESULT res = QUEUE_EVENT_OK;
   ulong inc_pos = 0;
   Relay_log_info *rli = mi->rli;
   mysql_mutex_t *log_lock = rli->relay_log.get_log_lock();
   ulong s_id;
   int lock_count = 0;
+  needAck = false;
+  rl_synced= false;
 
   DBUG_EXECUTE_IF("wait_in_the_middle_of_trx", {
     /*
@@ -7721,6 +7806,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       original_commit_timestamp = gtid_ev.original_commit_timestamp;
       immediate_commit_timestamp = gtid_ev.immediate_commit_timestamp;
       inc_pos = event_len;
+      mi->setLastGtidIsDdl((gtid_ev.header()->flags) & LOG_EVENT_DDL_F);
     } break;
 
     case binary_log::ANONYMOUS_GTID_LOG_EVENT: {
@@ -7895,8 +7981,36 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
          (ulong)mi->get_master_log_pos(), uint4korr(buf + SERVER_ID_OFFSET)));
   } else {
     bool is_error = false;
+    bool is_default_channel =
+      strcmp(mi->get_channel(), channel_map.get_default_channel()) == 0;
+    if (g_sqlAsyn && likely(is_default_channel)) {
+      needAck = checkNeedAck(mi,event_type);
+      if (!needAck && event_type == QUERY_EVENT) {
+        Query_log_event qe(buf, mi->get_mi_description_event(), event_type);
+        needAck= qe.ends_group();
+        //FIXME
+        mi->setLastGtidIsDdl((qe.header()->flags) & LOG_EVENT_DDL_F);
+      }
+    }
+
+    /*
+      This is inaccurate because file transfer binlog events also does ack.
+      For non-default channels, this status var is always 0, it's OK, we don't
+      want to take the cost to compute it.
+    */
+    if (needAck)
+      sqlasyn_slave_recv_txns++;
+
+    ulonglong now_hr= 0;// resolution: micro second.
+    if (needAck && ((mi->accu_bytes_relaylog + event_len > g_relaylog_sync_threshold) ||
+          !g_relaylog_fsync_txn_count ||
+          g_relaylog_fsync_txn_count <= mi->txns_since_last_relaylog_sync ||
+          !g_relaylog_fsync_ack_timeout ||
+          ((now_hr= my_microsecond_getsystime()) - mi->when_last_fsync_ack > g_relaylog_fsync_ack_timeout)))
+      rl_synced= true; // we must sync relay log now.
+
     /* write the event to the relay log */
-    if (likely(rli->relay_log.write_buffer(buf, event_len, mi) == 0)) {
+    if (likely(rli->relay_log.write_buffer(buf, event_len, mi, rl_synced) == 0)) {
       DBUG_SIGNAL_WAIT_FOR(current_thd,
                            "pause_on_queue_event_after_write_buffer",
                            "receiver_reached_pause_on_queue_event",
@@ -7907,6 +8021,11 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       DBUG_PRINT("info",
                  ("master_log_pos: %lu", (ulong)mi->get_master_log_pos()));
 
+      if (needAck)
+        mi->update_sync_ack_status(rl_synced && g_reliable_relaylog);
+      else
+        mi->accu_bytes_relaylog += event_len;
+      
       /*
         If we are starting an anonymous transaction, we will discard
         the GTID of the partial transaction that was not finished (if
@@ -9507,6 +9626,7 @@ static void issue_deprecation_warnings_for_channel(THD *thd) {
 int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
                   bool preserve_logs) {
   int error = 0;
+  int master_udp_sock = 0;
 
   /* Do we have at least one receive related (IO thread) option? */
   bool have_receive_option = false;
@@ -9874,6 +9994,13 @@ int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
       my_error(ER_MTS_RESET_WORKERS, MYF(0));
       goto err;
     }
+
+  master_udp_sock = mi->m_masterHostFd;
+  mi->m_masterHostFd = -1;
+
+  if (master_udp_sock != -1) {
+    close(master_udp_sock);
+  }
 err:
 
   unlock_slave_threads(mi);

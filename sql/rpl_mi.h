@@ -43,6 +43,7 @@
 #include "sql/rpl_rli.h"                  // rli->get_log_lock()
 #include "sql/rpl_trx_boundary_parser.h"  // Transaction_boundary_parser
 #include "sql/sql_const.h"
+ #include "sql/thd_bottom_half.h"
 
 class Rpl_info_handler;
 class Server_ids;
@@ -308,6 +309,45 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   Server_ids *ignore_server_ids;
 
   ulong master_id;
+
+  // tdsql specific data members
+  int m_masterHostFd;// udp socket fd to send ack to master.
+  struct sockaddr_in m_masterAddr; // udp sock addr to send master ack.
+
+  /*
+    Accumulated NO. of bytes written to relay log since last time syncing the
+    relay log. Used to sync the relay log until certain amount of bytes are
+    accumulated, to prevent frequently fsync'ing it.
+  */
+  ulong accu_bytes_relaylog;
+
+  /*
+    Accumulated NO. of transactions written to relay log since last time syncing
+    the relay log.
+  */
+  ulong txns_since_last_relaylog_sync;
+
+  /*
+    The time point when we did relay log fsync &ack to master last time.
+    Used to do forced timeout fsync&ack regardless of 'relaylog_sync_threshold'.
+  */
+  ulonglong when_last_fsync_ack;
+  
+  /*
+    whether the background thread needs to do fsync&ack. It is set to true if a
+    txn commit event is received but IO thread decides to defer fsync'ing the
+    relay log. And this can NOT be replaced by accu_bytes_relaylog since we may
+    not always want to fsync relay log even when we have accumulated some bytes(
+    e.g. when no txn commit seen yet).
+  */
+  bool need_fsync_ack;
+
+  /*
+    NO. of times the last ack is sent, it's resent multiple times in case it's
+    lost, since we are sending via UDP.
+  */
+  unsigned char num_acks_sent;
+
   /*
     to hold checksum alg in use until IO thread has received FD.
     Initialized to novalue, then set to the queried from master
@@ -434,7 +474,7 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
    */
   bool is_rotate_requested();
 
- protected:
+ public:
   char master_log_name[FN_REFLEN];
   my_off_t master_log_pos;
   my_off_t complete_trx_log_pos;
@@ -544,6 +584,10 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   void init_master_log_pos();
   void init_complete_trx_log_pos();
 
+  void sendAnsToMaster(BinlogPosAns &ans);
+  void update_sync_ack_status(bool synced);
+  void sync_relaylog_send_ack();
+
  private:
   bool read_info(Rpl_info_handler *from);
   bool write_info(Rpl_info_handler *to);
@@ -646,6 +690,15 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   */
   void wait_until_no_reference(THD *thd);
 
+
+  bool isLastGtidIsDdl () const {
+    return m_lastGtidIsDdl;
+  }
+
+  void setLastGtidIsDdl ( bool lastGtidIsDdl ) {
+    m_lastGtidIsDdl = lastGtidIsDdl;
+  }
+
   /* Set true when the Master_info object was cleared by a RESET SLAVE */
   bool reset;
 
@@ -676,6 +729,8 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   void get_flushed_relay_log_info(LOG_INFO *linfo);
 
  private:
+
+  bool m_lastGtidIsDdl;
   /*
     Holds the relay log coordinates (file name and position) of the last master
     coordinates flushed into Master_info repository.
@@ -683,4 +738,5 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   LOG_INFO flushed_relay_log_info;
 };
 
+void sync_relaylog_ack_all_masters();
 #endif /* RPL_MI_H */

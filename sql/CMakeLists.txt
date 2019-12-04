@@ -538,6 +538,8 @@ SET(SQL_SHARED_SOURCES
   tc_log.cc
   thr_malloc.cc 
   threadpool_common.cc
+  thd_bottom_half.cc
+  udpsvr.cc
   transaction.cc
   transaction_info.cc
   trigger.cc

@@ -317,6 +317,9 @@ int ignored_error_code(int err_code);
 */
 #define LOG_EVENT_MTS_ISOLATE_F 0x200
 
+// tdsql: tag the query_log_event is ddl,it is maxed,can't modify and duplicate
+#define LOG_EVENT_DDL_F 0x8000
+
 /** @}*/
 
 /**

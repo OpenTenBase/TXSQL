@@ -408,6 +408,19 @@ extern bool forbid_remote_change_sql_log_bin;
 extern bool forbid_remote_change_master;
 extern bool forbid_remote_stop_server;
 extern bool hidden_sensitive_variable;
+
+/** tdsql: Variables to control strong consistency behavior */
+extern bool g_sqlAsyn;
+extern bool g_reliable_relaylog;
+extern bool tdsql_allow_async;
+extern ulong g_relaylog_sync_threshold;
+extern ulong g_relaylog_fsync_ack_timeout;
+extern ulong g_relaylog_fsync_txn_count;
+extern uint g_sqlAsynTimeout;
+extern uint g_sqlAsynWarnTimeout;
+
+class CThdBottomHalf;
+extern CThdBottomHalf *g_thdBottomHalf;
 /**
   Variable to check if connection related options are set
   as part of keyring migration.

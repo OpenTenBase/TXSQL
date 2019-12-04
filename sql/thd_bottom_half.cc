@@ -1,0 +1,523 @@
+/*
+ * thd_bottom_half.cpp
+ *
+ *  Created on: 2014.4.5
+ *      Author: harlylei
+ *  Modified by: daviezhao
+ 1. use std::deque<CThdKey> instead of std::set<CThdKey> for better
+ back-insertion and removal performance.
+ 2. Bug fix: make sure a THD is always used/owned/attached by one thread only.
+ Otherwise there can be undefined behaviors and system crash in mysqld.
+ 3. Bug fix: make sure a THD is not processed by the answering thread if it's
+ not alive anymore.
+ 4. Bug fix: make sure if a connection C should be aborted but C is to be
+ handled by bottom half threads, it's removed from the udp sver thread, and
+ if C is already dispatched to an answering thread T, C will be aborted by T
+ instead. Without this fix, mysqld will crash when C is handled by T since C
+ is already destroyed by the threadpool worker thread.
+ */
+//Functionity: the last part of statement
+#include <string.h>
+#include <utility>
+
+#include <my_thread_local.h>
+#include "log.h"
+#include "my_sys.h"
+#include "binlog.h"
+#include "sql_parse.h"
+#include "mysqld.h"
+#include "protocol_classic.h"
+#include "mysql/psi/mysql_idle.h"
+#include "mysql/psi/mysql_socket.h"
+#include "thd_bottom_half.h"
+
+PSI_stage_info stage_waiting_for_sqlasyn_ack_from_slave = { 0, "Waiting for sqlasyn ACK from slave", 0 };
+PSI_stage_info stage_waiting_for_dispatch_thd_to_ans_thread = { 0, "dispatched thd to answering thread(ack'ed)", 0 };
+
+struct connection_t;
+extern void connection_abort(connection_t *connection);
+bool connection_should_abort(connection_t *connection);
+void lock_conn_sqlasync(connection_t *connection);
+void unlock_conn_sqlasync(connection_t *connection);
+bool thd_connection_alive(THD *thd);
+extern bool bindThdToEvent(THD* thd);
+extern int detach_io(THD* thd);
+
+ulonglong sqlasyn_get_slave_ans = 0;
+ulonglong sqlasyn_get_slave_ans_skip = 0;
+ulonglong sqlasyn_deal_trx_by_ans = 0;
+ulonglong sqlasyn_deal_trx_by_fast_ans = 0;
+ulonglong sqlasyn_exceed_warn_num = 0;
+ulonglong sqlasyn_timeout_num = 0;
+
+static bool enable_sql_asyn_when_ok= false;
+
+extern MYSQL_BIN_LOG mysql_bin_log;
+
+using namespace VarBufNS;
+
+CLocalMysqlThread::CLocalMysqlThread() {
+    m_threadID = 0;
+    initThread();
+    m_threadstate = 0;
+}
+
+CLocalMysqlThread::~CLocalMysqlThread() {
+    pthread_attr_destroy(&m_attr);
+}
+int CLocalMysqlThread::initThread() {
+    pthread_attr_init(&m_attr);
+    int iRet = 0;
+
+    iRet = pthread_attr_setscope(&m_attr, PTHREAD_SCOPE_SYSTEM);
+    if (iRet != 0) {
+        fprintf(stderr, "set PTHREAD_SCOPE_SYSTEM error %d\n", iRet);
+        pthread_attr_destroy(&m_attr);
+        return -1;
+    }
+    return 0;
+}
+int CLocalMysqlThread::start() {
+    if (m_threadID > 0) { /* Already started */ 
+        return 0;
+    }
+
+    int iRet = 0;
+    m_threadstate = 1; // set the flag to running state
+    if ((iRet = pthread_create(&m_threadID, &m_attr, &startThread,(void *) this)) != 0) {
+        fprintf(stderr, "create thread error %d\n", iRet);
+        pthread_attr_destroy(&m_attr);
+        errno = iRet;
+        m_threadstate = 0; //set the flag to stopping state
+        return -1;
+    }
+    return 0;
+}
+
+void* CLocalMysqlThread::startThread(void* arg) {
+    if (0 == arg)
+        return 0;
+    CLocalMysqlThread* ptr = (CLocalMysqlThread*)arg;
+    ptr->run();
+
+    return 0;
+}
+
+int CLocalMysqlThread::stop() {
+    m_threadstate = 0;
+
+    return 0;
+}
+
+/*
+  Save thd into bottom-half dispatcher thread in order to resume executing
+  the sql command of thd when slaves have received binlogs of thd's executing
+  txn T0.
+  @param [out] haveGetAns whether slave have already received binlogs of thd's
+  currently executing txn T0. If true, the bottom half of T0 will be executed
+  immediately rather than asyncly.
+  @return true if the thd is successfully stored into the bottom-half dispatcher
+  thread. false otherwise.
+*/
+struct connection_t;
+bool CThdBottomHalf::saveThd(enum enum_server_command command, THD *thd, bool error, bool &haveGetAns) {
+
+    haveGetAns = false;
+    CThdKey key(command, thd, error);
+
+    bool result = false;
+
+    THD_STAGE_INFO(thd, stage_waiting_for_sqlasyn_ack_from_slave);
+
+    do {
+        CTGuard<CTMutex> gaurd(m_mutex);
+
+        if (m_newstBinlogInfoAns < thd->ack_binlog_pos()) {
+            m_thdContainer.push_back(key);
+            result = true;
+        } else { //already be answered so keep going
+            ++sqlasyn_deal_trx_by_fast_ans;
+            haveGetAns = true;
+        }
+    } while (0);
+
+    return result;
+}
+
+/*
+  Remove thd from container, returns true if removed, false if 'thd' is already
+  dispatched to an answering thread.
+  Called when the connection is to be killed, and thd must be a session that has
+  its bottom half work done by bottom half threads.
+*/
+bool CThdBottomHalf::remove_thd(const THD *thd)
+{
+  // Can only remove a thd that is ever given to us here.
+  DBUG_ASSERT(thd->m_asyncAns);
+  CTGuard<CTMutex> gaurd(m_mutex);
+  for (ThdQueue_t::iterator i= m_thdContainer.begin();
+       i != m_thdContainer.end(); ++i) {
+    if (i->getThd() == thd) {
+      // It's OK to erase here since no iterator used after the erase.
+      m_thdContainer.erase(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Deal with answers from slave */
+void CThdBottomHalf::dealBinlogPosAns(BinlogPosAns* binlogAns) {
+    ++sqlasyn_get_slave_ans;
+
+    // it's OK to read m_newstBinlogInfoAns without mutex because the udpsvr
+    // thread is the only writer. but write must be done under m_mutex below.
+    const char *fnstr= 0;
+    if (!(m_newstBinlogInfoAns.less((fnstr= binlogAns->getFileName()), binlogAns->log_pos))) {
+        ++sqlasyn_get_slave_ans_skip;
+        return;
+    }
+
+    /*
+      When we receive an ack, re-enable sqlasyn if we turned it off. BUT this ack
+      might not be one that can really push forward txn commits, if slave starts
+      replication from a very old position, and if we simply
+      reenable sqlasyn, the committing txns will timeout, and on timeout sqlasyn
+      will be again turned off, and then again turned on here, and many txns
+      would be made waiting for acks which are doomed to timeout. So, only
+      reenable sqlasyn when the ack reaches the current binlog file.
+    */
+    if (tdsql_allow_async && enable_sql_asyn_when_ok) {
+        LOG_INFO log_info;
+        mysql_bin_log.get_current_log(&log_info);
+        if (strcmp(fnstr, log_info.log_file_name + dirname_length(log_info.log_file_name)) >= 0) {
+            enable_sql_asyn_when_ok= false;
+            g_sqlAsyn= true;
+        }
+    }
+
+    do {
+        const uint64_t ack_time = getMonotonic_sec(); // current time, in seconds
+        CTGuard<CTMutex> gaurd(m_mutex);
+        // must copy under m_mutex.
+        m_newstBinlogInfoAns.set(fnstr, binlogAns->log_pos);
+        /*
+          dispatch all bottom-half work that are do-able to answering threads.
+          a do-able one is one whose txn's binlog have been received by slaves.
+          the order that the answering threads reply to clients is arbitrary,
+          but that's OK since all of them are guaranteed to have committed
+          successfully on current master and slaves and future master(if a
+          master switch happens soon).
+ 
+          if a txn T2 modifies a row R0 that was inserted by txn T1, and user
+          has issued 'commit' to T1 but T1's bottom half is sitll in
+          this->m_thdContainer, then something strange and intresting can happen:
+          since T1 has already SE-committed on master, T2 is able to see and
+          modify the row R0 --- although T1's user doesn't know that T1 has
+          already committed, other connections know already at this moment.
+ 
+          But since T2's
+          binlog is after that of T1, when T2's binlog is received by slaves,
+          so will those of T1, thus when we can reply to client that T2 has
+          commited, T1 are guaranteed to exist on current master and
+          slaves together with T2. So a committed txn(T2)'s changes will always be made based on
+          committed data, this is guaranteed by binlog order as above logic.
+          Although it's likely that T2's user receives the 'commit OK' message
+          earlier than T1's user, and this is OK and irrelevant.
+ 
+          However, if T2 only reads R0 and is read only, then when T2
+          ends, it's likely that because of master crashes before slave
+          receiving T1's binlog, user will later not be able to find the row
+          R0 after connecting to the new master, although he did see it in
+          the old master.
+        */
+        for (ThdQueue_t::iterator iter = m_thdContainer.begin();
+             iter != m_thdContainer.end(); ++iter) {
+            if (iter->is_processed())
+              continue;
+            iter->setAckTime(ack_time);
+            if (m_newstBinlogInfoAns < iter->getThd()->ack_binlog_pos()) { 
+                /*
+                  No need to keep searching, because even if there can be more
+                  waiters <= m_newstBinlogInfoAns, they can be freed when next
+                  larger position is ack'ed.
+                  It's more efficient to use a deque instead of a set because there are very
+                  frequent and massive insertion/deletions, and deque does so in
+                  O(1) complexity, but set does so generally in O(NlogN) complexity.
+                  The only benifit of using a set is be able to skip following
+                  searches(if any) here, but that's a O(1) gain.
+                */
+                break;
+            } else {
+                /*
+                  Don't erase(iter) here because deque's iterator invalidation rules
+                  is complex and varies in implementations. Let's be safe, mark
+                  it processed and at the end of the function after this
+                  iteration, pop processed items at head of the deque.
+                */
+                iter->mark_processed();
+                // Round robin assign the bottom-half jobs to each answering
+                // thread, in binlog order
+                THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
+
+                ++sqlasyn_deal_trx_by_ans;
+
+                m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);
+            }
+            // Here m_mutex is locked.
+        }
+        pop_processed();
+    } while (0);
+}
+
+/*
+  Pop out processed items until the 1st item is not processed, or until the
+  container is empty. This function assumes the 'm_mutex' is locked.
+
+  returns the NO. of items poped.
+*/
+size_t CThdBottomHalf::pop_processed() {
+  size_t cnt= 0;
+
+  while (m_thdContainer.size() > 0 && m_thdContainer.front().is_processed()) {
+    m_thdContainer.pop_front();
+    cnt++;
+  }
+
+  return cnt;
+}
+
+void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
+    int num_processed = 0;
+    while (m_threadstate) {
+        num_processed = 0;
+        do {
+            CTGuard<CTMutex> gaurd(m_mutex);
+
+            const uint64_t cur = getMonotonic_sec(); // current timestamp in seconds
+
+            bool sqlasyn = g_sqlAsyn; // use a consistent g_sqlAsyn in case it's modified between below uses.
+
+            for (ThdQueue_t::iterator iter = m_thdContainer.begin();
+                  iter != m_thdContainer.end(); ++iter) {
+                if (iter->is_processed())
+                    continue;
+                // when the bottom-half work was delayed too long, the session timesout and we reject it.
+                // and the tdsql set will stop working, master's binlog
+                // tail(txns whose binlog commit done, but SE commit not done)
+                // will be truncated, new master will be selected and the
+                // cluster(set) then will be restarted.
+                if ((!sqlasyn) || cur > (uint64_t)(iter->getReqTime() + g_sqlAsynTimeout)) {
+                  /* The session is timeout */
+                    if (sqlasyn) { 
+                        if (tdsql_allow_async) {
+                            /*
+                              Use this var because sqlasyn might be OFF and
+                              tdsql_allow_sync might be ON at the same time, and
+                              we must not turn on sqlasyn in such a combination.
+                            */
+                            enable_sql_asyn_when_ok= true;
+                            g_sqlAsyn= false;// degrade to async replication.
+                            sqlasyn= false;
+                        } else {
+                            iter->setTimeout (true);
+                            sqlasyn_timeout_num++;
+                        }
+                    }
+
+                    iter->mark_processed();
+                    num_processed++;
+                    THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
+                    m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);
+                } else {
+                    /*
+                      This is OK because CThdKey::m_reqTime is set at construction time, so
+                      they are increasing in the deque.
+                    */
+                    break;
+                }
+                // Go through all items.
+            }
+            // m_mutex is locked here.
+            pop_processed();
+        } while (0);
+
+        if (num_processed == 0)
+          sleep(1);
+    }
+}
+
+bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
+  if (len <(int)(VarBufNS::CloudCommHead::getMinLen())) {
+    sql_print_error("get req[ip:%s,msglen:%d] < CloudCommHead::getMinLen():%u \n",
+        ip, len, VarBufNS::CloudCommHead::getMinLen());
+    return false;
+  }
+
+  CloudCommHead* newCommHead =(CloudCommHead*)(const_cast<char*>(buf));
+  if (len != newCommHead->getLen()) {
+    sql_print_error("get req[ip:%s,msglen:%d] != req should len:%d \n", ip, len, newCommHead->getLen());
+    return false;
+  }
+
+  if (0 == strcmp(newCommHead->classname, "BinlogPosAns")) {  //packet header
+    BinlogPosAns* binlogAns =(BinlogPosAns*) newCommHead;
+    binlogAns->decode();
+
+    dealBinlogPosAns(binlogAns);
+
+    return true;
+  }
+
+  return false;
+}
+
+struct Worker_thread_context {
+    PSI_thread *psi_thread;
+#ifndef DBUG_OFF
+    my_thread_id thread_id;
+#endif
+
+    void save() {
+#ifdef HAVE_PSI_THREAD_INTERFACE
+        psi_thread= PSI_THREAD_CALL(get_thread)();
+#endif
+#ifndef DBUG_OFF
+        thread_id = my_thread_var_id();
+#endif
+    }
+
+    void restore() {
+#ifdef HAVE_PSI_THREAD_INTERFACE
+        PSI_THREAD_CALL(set_thread)(psi_thread);
+#endif
+#ifndef DBUG_OFF
+        set_my_thread_var_id(thread_id);
+#endif
+        //  pthread_setspecific(THR_THD, 0);
+        //  pthread_setspecific(THR_MALLOC, 0);
+        THR_MALLOC = nullptr;
+    }
+};
+
+/*
+ Attach/associate the connection with the OS thread,
+ */
+static bool thread_attach(THD* thd) {
+#ifndef DBUG_OFF
+    set_my_thread_var_id(thd->thread_id());
+#endif
+    thd->thread_stack =(char*) &thd;
+    thd->store_globals();
+#ifdef HAVE_PSI_THREAD_INTERFACE
+    PSI_THREAD_CALL(set_thread)(thd->get_psi());
+#endif
+    mysql_socket_set_thread_owner(thd->get_protocol_classic()->get_vio()->mysql_socket);
+    return 0;
+}
+
+int CThdBottomHalfAnsThread::run() {
+
+    my_thread_init();
+
+    CThdKey thdKey;
+    while (m_threadstate) {
+        const bool got_msg = m_queue.getmsg(2000, thdKey);
+        /*
+          If notified to exit, we will finish processing all bottom-half work
+          before exiting this thread, so that all work in queue are processed,
+          otherwise the corresponding clients won't know that their txns have
+          committed successfully.
+        */
+        if (!got_msg) {
+            if (m_threadstate)
+                continue;
+            else
+                break;
+        }
+
+        THD *the_thd= thdKey.getThd();
+        /*
+          If a connection is already dispatched to an answering thread, it is
+          never aborted by the threadpool-worker thread, so here we always have
+          valid the_thd pointers.
+        */
+        connection_t *connection =(connection_t*)(the_thd->event_scheduler.data);
+        DBUG_ASSERT(connection);
+        if (!connection) {
+          sql_print_error("get thd,but connection is NULL");
+          continue;
+        }
+        /*
+          Should lock m_lockWithSqlAsyn here, rather than inside
+          bindThdToEvent() below, and unlock it after bindThdToEvent() below.
+          then check that the connection isn't marked for us to abort
+          here, if so, abort it.
+        */
+        lock_conn_sqlasync(connection);
+        if (connection_should_abort(connection)) {
+          // Must unlock the mutex before destroying it
+          // otherwise pthread causes undefined behavior.
+          unlock_conn_sqlasync(connection);
+          sql_print_error("connection_should_abort is true,so call connection_abort");
+          connection_abort(connection);
+          continue;
+        }
+
+        Worker_thread_context worker_context;
+        worker_context.save();
+
+        thread_attach(the_thd);
+
+        // Have to define them here because of the 'goto' below.
+        bool thd_timeout = false;
+        bool bind_result = false;
+        // Check aliveness after attaching to the thd. The session/connection
+        // may have been killed by user, and if so we should not work on it.
+        if (!thd_connection_alive(the_thd)) {
+           // When connection is dead, we need to call connection_abort()(see
+           // handle_event() for same processing). So flip this switch, don't
+           // bother to define and use another flag variable.
+           goto conn_gone;
+        }
+
+        thd_timeout= thdKey.isTimeout();
+        //execute the last part
+        if (thd_timeout) {
+            /*
+              The OK status was already set by the DML statement so here we have
+              to allow overwrite status to set error status.
+            */
+            the_thd->get_stmt_da()->set_overwrite_status(true);
+            my_error(ER_XA_RBTIMEOUT, MYF(0));
+            the_thd->get_stmt_da()->set_overwrite_status(false);
+            // Timeout error already logged, not gonna repeat here.
+        } else if (g_sqlAsynWarnTimeout > 0) {
+            const uint64 cur = getMonotonic_sec();
+            if ((uint)(cur - thdKey.getReqTime()) > g_sqlAsynWarnTimeout) {
+                sqlasyn_exceed_warn_num++;
+                sql_print_error("session waiting for ack of binlog pos (%u,%llu) cost [%ld] sec,exceed %d sec",
+                         thdKey.getThd()->ack_binlog_pos().file_no(),
+                         thdKey.getThd()->ack_binlog_pos().pos(),
+                         (int64_t)(cur - thdKey.getReqTime()), g_sqlAsynWarnTimeout);
+            }
+        }
+
+        finish_command(thdKey.getCommand(), the_thd, nullptr, thdKey.isError());
+        if (!thd_timeout) // if times out, the connection will be aborted below so won't bind it.
+            bind_result= bindThdToEvent(the_thd);
+conn_gone:
+        worker_context.restore();
+        unlock_conn_sqlasync(connection);
+        if (!bind_result) {
+            sql_print_error("aborting in bottom half answering thread, reason: %s",
+                     (thd_timeout ? "tdsql ack timeout" : ((!thd_connection_alive(the_thd)) ? "connection killed" : "bind-poll error")));
+            connection_abort(connection);
+        }
+    }
+
+    my_thread_end();
+
+    return 0;
+}
+

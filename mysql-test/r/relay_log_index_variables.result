@@ -15,3 +15,9 @@ Variable_name	relay_log_recovery
 Value	OFF
 Variable_name	relay_log_space_limit
 Value	0
+Variable_name	relay_log_sync_threshold
+Value	134217728
+Variable_name	relay_log_sync_timeout
+Value	200
+Variable_name	relay_log_sync_txn_count
+Value	5

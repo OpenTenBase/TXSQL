@@ -145,6 +145,9 @@ bool set_default_charset(HA_CREATE_INFO *create_info,
 bool set_default_collation(HA_CREATE_INFO *create_info,
                            const CHARSET_INFO *value);
 
+class Sql_cmd_clone;
+bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error);
+
 /* Bits in sql_command_flags */
 
 #define CF_CHANGES_DATA (1U << 0)

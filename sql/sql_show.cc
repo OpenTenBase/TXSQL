@@ -1814,7 +1814,7 @@ class thread_info_compare {
 };
 
 static const char *thread_state_info(THD *tmp) {
-  if (tmp->get_protocol()->get_rw_status()) {
+  if ((!tmp->m_asyncAns) && tmp->get_protocol()->get_rw_status()) {
     if (tmp->get_protocol()->get_rw_status() == 2)
       return "Sending to client";
     else if (tmp->get_command() == COM_SLEEP)

@@ -1080,6 +1080,22 @@ The following options may be given as the first argument:
  transaction processed
  --relay-log-space-limit=# 
  Maximum space to use for all relay logs
+ --relay-log-sync-threshold[=#] 
+ Number of bytes to accumulate before fsync'ing relay log
+ and sending an ack to master.
+ --relay-log-sync-timeout[=#] 
+ If this many micro-seconds has passed since last time
+ slave IO thread fsync&ack relay log, IO thread will
+ fsync&ack relay log anyway regardless of
+ relay_log_sync_threshold. This timeout should be shorter
+ than sqlasyntimeout, otherwise clients will get
+ ER_RBTIMEOUT errors when committing a transaction, and
+ then get disconnected.
+ --relay-log-sync-txn-count[=#] 
+ If IO thread has received binlogs of this many
+ transactions since last time it fsync&ack relay log, it
+ will fsync&ack relay log anyway regardless of other
+ limits.
  --replicate-do-db=name 
  Tells the slave thread to restrict replication to the
  specified database. To specify more than one database,
@@ -1331,6 +1347,13 @@ The following options may be given as the first argument:
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
  TABLE'. Attempts to do so will result in an error.
+ --sqlasyn           sql thread async,turn on perfomance semisync, speed up
+ cpu parellelism
+ --sqlasyntimeout[=#] 
+ sql thread async, speed up cpu parellel, timeout
+ --sqlasynwarntimeout[=#] 
+ sql thread async, speed up cpu parellelism,
+ sqlasynwarntimeout
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -1380,6 +1403,12 @@ The following options may be given as the first argument:
  all partitioned tables on the DB instance. Specifiy as
  comma separated numbers or number ranges, e.g. 1,3-6,7
  means parititions 1,3,4,5,6,7.
+ --tdsql-allow-async When no slave ack, allow master to do asynchronous
+ replication.
+ --tdsql-relay-log-opt 
+ Always sync relaylog at end of trx to make relaylog
+ reliable.
+ (Defaults to on; use --skip-tdsql-relay-log-opt to disable.)
  --temptable-max-ram=# 
  Maximum amount of memory (in bytes) the TempTable storage
  engine is allowed to allocate from the main memory (RAM)
@@ -1787,6 +1816,9 @@ relay-log-info-repository TABLE
 relay-log-purge TRUE
 relay-log-recovery FALSE
 relay-log-space-limit 0
+relay-log-sync-threshold 134217728
+relay-log-sync-timeout 200
+relay-log-sync-txn-count 5
 replicate-same-server-id FALSE
 report-host (No default value)
 report-password (No default value)
@@ -1836,6 +1868,9 @@ sort-buffer-size 262144
 sporadic-binlog-dump-fail FALSE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
+sqlasyn FALSE
+sqlasyntimeout 30
+sqlasynwarntimeout 3
 stored-program-cache 256
 stored-program-definition-cache 256
 super-read-only FALSE
@@ -1850,6 +1885,8 @@ table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
 tdsql-hide-partitions 
+tdsql-allow-async FALSE
+tdsql-relay-log-opt TRUE
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
 thread-cache-size 9
