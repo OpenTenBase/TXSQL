@@ -173,7 +173,7 @@ void Item_subselect::init(SELECT_LEX *select_lex,
   Accumulate missing used_tables information from embedded query expression
   into the subquery.
   This function relies on a few other functions to accumulate information:
-    accumulate_expression(), accumulate_condition(), accumulate_join_condition()
+    accumulate_expression(), accumulate_condition().
 
   Currently, the only property that is accumulated is INNER_TABLE_BIT.
   Information about local tables and outer references are accumulated in
@@ -242,7 +242,11 @@ void Item_subselect::accumulate_properties(SELECT_LEX *select) {
 
   if (select->where_cond()) accumulate_condition(select->where_cond());
 
-  if (select->join_list) accumulate_join_condition(select->join_list);
+  if (select->join_list)
+    walk_join_list(*select->join_list, [this](TABLE_LIST *tr) -> bool {
+      if (tr->join_cond()) accumulate_condition(tr->join_cond());
+      return false;
+    });
 
   for (ORDER *group = select->group_list.first; group; group = group->next)
     accumulate_condition(*group->item);
@@ -282,23 +286,6 @@ void Item_subselect::accumulate_expression(Item *item) {
 void Item_subselect::accumulate_condition(Item *item) {
   if (item->used_tables() & ~OUTER_REF_TABLE_BIT)
     used_tables_cache |= INNER_TABLE_BIT;
-}
-
-/**
-  Accumulate used_tables information for the join conditions from a query block.
-
-  @param tables  References to joined tables.
-*/
-void Item_subselect::accumulate_join_condition(List<TABLE_LIST> *tables) {
-  TABLE_LIST *table_ref;
-  List_iterator<TABLE_LIST> li(*tables);
-
-  while ((table_ref = li++)) {
-    if (table_ref->join_cond()) accumulate_condition(table_ref->join_cond());
-
-    if (table_ref->nested_join != NULL)
-      accumulate_join_condition(&table_ref->nested_join->join_list);
-  }
 }
 
 void Item_subselect::cleanup() {
