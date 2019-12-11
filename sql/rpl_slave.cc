@@ -8021,10 +8021,10 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       DBUG_PRINT("info",
                  ("master_log_pos: %lu", (ulong)mi->get_master_log_pos()));
 
-      if (needAck)
+      mi->accu_bytes_relaylog += event_len;
+      if (needAck) {
         mi->update_sync_ack_status(rl_synced && g_reliable_relaylog);
-      else
-        mi->accu_bytes_relaylog += event_len;
+      }
       
       /*
         If we are starting an anonymous transaction, we will discard

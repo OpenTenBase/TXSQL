@@ -564,6 +564,8 @@ THD::THD(bool enable_plugins)
 
   m_asyncAns = false;
 
+  m_delay_commit = false;
+
   if (max_digest_length > 0) {
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
                                                max_digest_length, MYF(MY_WME));

@@ -138,6 +138,8 @@ tdsql_hide_partitions
 tdsql_hide_partitions
 sqlasyn
 sqlasyn
+sqlasync_after_sync
+sqlasync_after_sync
 sqlasyntimeout
 sqlasyntimeout
 sqlasynwarntimeout

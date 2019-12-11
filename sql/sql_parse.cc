@@ -196,6 +196,7 @@ class Abstract_table;
 using Mysql::Nullable;
 using std::max;
 
+ulonglong sqlasync_delay_commit = 0;
 /**
   @defgroup Runtime_Environment Runtime Environment
   @{
@@ -1281,8 +1282,8 @@ bool do_command(THD *thd) {
 
 out:
   /* The statement instrumentation must be closed in all cases. */
-  DBUG_ASSERT(thd->m_digest == NULL);
-  DBUG_ASSERT(thd->m_statement_psi == NULL);
+  DBUG_ASSERT(thd->m_digest == NULL || thd->m_asyncAns);
+  DBUG_ASSERT(thd->m_statement_psi == NULL || thd->m_asyncAns);
   return return_value;
 }
 
@@ -1453,6 +1454,35 @@ static void check_secondary_engine_statement(THD *thd,
 
 bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+
+  /* Commit transaction if needed. */
+  if (thd->m_delay_commit) {
+    Transaction_ctx *trn_ctx = thd->get_transaction();
+    trn_ctx->m_flags.commit_low = true;
+
+    /* Engine may get commit here if it's autocommit */
+    close_thread_tables(thd);
+
+    /* Reset the stmt scope. */
+    ha_commit_low(thd, false, false);
+
+    /* Commit the engine if needed. */
+    ha_commit_low(thd, true, false);
+
+    if (trn_ctx->m_flags.xid_written) {
+      mysql_bin_log.dec_prep_xids(thd);
+    }
+
+    thd->m_delay_commit = false;
+
+    /* Reset some variables by invoking this function */
+    trans_commit_implicit(thd);
+
+    /* Release mdl lock */
+    thd->mdl_context.release_transactional_locks();
+
+    sqlasync_delay_commit++;
+  }
 
   /* Finalize server status flags after executing a command. */
   thd->send_statement_status();
@@ -2242,7 +2272,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
 done:
   DBUG_ASSERT(thd->open_tables == NULL ||
-              (thd->locked_tables_mode == LTM_LOCK_TABLES));
+              (thd->locked_tables_mode == LTM_LOCK_TABLES) || thd->m_delay_commit);
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
   
@@ -2250,6 +2280,14 @@ done:
       !g_thdBottomHalf ||
       thd->is_local_or_admin_port() || clone_cmd != nullptr ||
       Connection_handler_manager::thread_handling != Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+    /* Always update binlog pos to latest value, because we may change g_sqlAsyn
+    on fly, and if we enable the option, but the binlog pos is a stale value,
+    then the statement will always wait for ack from slave no matter if it changed
+    anything. */
+    if (g_thdBottomHalf) {
+      thd->update_old_binlog_pos();
+    }
+
     return (finish_command(command, thd, clone_cmd, error));
   }
 
@@ -4721,8 +4759,10 @@ finish:
   lex->unit->cleanup(thd, true);
   /* Free tables */
   THD_STAGE_INFO(thd, stage_closing_tables);
-  close_thread_tables(thd);
 
+  if (!thd->m_delay_commit) {
+    close_thread_tables(thd);
+  }
 #ifndef DBUG_OFF
   if (lex->sql_command != SQLCOM_SET_OPTION && !thd->in_sub_stmt)
     DEBUG_SYNC(thd, "execute_command_after_close_tables");
@@ -4736,6 +4776,8 @@ finish:
     */
     trans_rollback_implicit(thd);
     thd->mdl_context.release_transactional_locks();
+  } else if (thd->m_delay_commit) {
+    /* do nothing */
   } else if (stmt_causes_implicit_commit(thd, CF_IMPLICIT_COMMIT_END)) {
     /* No transaction control allowed in sub-statements. */
     DBUG_ASSERT(!thd->in_sub_stmt);

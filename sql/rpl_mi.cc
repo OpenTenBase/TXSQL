@@ -368,7 +368,8 @@ void Master_info::update_sync_ack_status(bool synced) {
 
 void Master_info::sync_relaylog_send_ack() {
   // Only do so when tdsql strong-consistency enabled.
-  if (!g_sqlAsyn || host[0] == '\0' || master_log_name[0] == '\0')
+  if (!g_sqlAsyn || host[0] == '\0' || master_log_name[0] == '\0' ||
+      (strcmp(get_channel(), channel_map.get_default_channel()) != 0))
     return;
 
   /*
@@ -428,8 +429,9 @@ void sync_relaylog_ack_all_masters() {
   channel_map.rdlock();
 
   for (mi_map::iterator i= channel_map.begin(); i != channel_map.end(); ++i) {
-    if (i->second != 0) {
+    if (i->second != 0) { 
       i->second->sync_relaylog_send_ack();
+      break;
     }
   }
 

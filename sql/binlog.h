@@ -465,6 +465,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   void inc_prep_xids(THD *thd);
 
+  int32 get_prep_xids() { return m_atomic_prep_xids; }
+
+  inline uint get_sync_period() { return *sync_period_ptr; }
+
+ public:
   /**
     Decrement the prepared XID counter.
 
@@ -472,11 +477,6 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   void dec_prep_xids(THD *thd);
 
-  int32 get_prep_xids() { return m_atomic_prep_xids; }
-
-  inline uint get_sync_period() { return *sync_period_ptr; }
-
- public:
   /*
     This is used to start writing to a new log file. The difference from
     new_file() is locking. new_file_without_locking() does not acquire

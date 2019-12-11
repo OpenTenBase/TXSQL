@@ -1678,11 +1678,11 @@ class THD : public MDL_context_owner,
   String packet;  // dynamic buffer for network I/O
  public:
 
-  Thd_Trans_binlog_info ack_binlog_pos() const {
+  const Thd_Trans_binlog_info& ack_binlog_pos() const {
     return m_ack_binlog_pos;
   }
 
-  Thd_Trans_binlog_info new_binlog_pos() const {
+  const Thd_Trans_binlog_info& new_binlog_pos() const {
     return m_new_binlog_pos;
   }
 
@@ -1699,6 +1699,8 @@ class THD : public MDL_context_owner,
     to be performed
   */
   bool m_asyncAns;
+
+  bool m_delay_commit;
 
   void set_skip_readonly_check() { skip_readonly_check = true; }
 

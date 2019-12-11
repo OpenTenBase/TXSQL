@@ -7048,6 +7048,11 @@ static Sys_var_bool Sys_g_sqlAsyn(
     GLOBAL_VAR(g_sqlAsyn),
     CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_g_sqlAsyncAfterSync(
+    "sqlasync_after_sync",
+    "If true, the async process will commit transaction for each thd",
+    GLOBAL_VAR(g_sqlAsyncAfterSync), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_uint Sys_g_sqlAsynTimeout(
     "sqlasyntimeout",
     "sql thread async, speed up cpu parellel, timeout",

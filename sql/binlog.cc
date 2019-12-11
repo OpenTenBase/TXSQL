@@ -8182,6 +8182,7 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
       (void)RUN_HOOK(transaction, after_commit, (thd, all));
     }
   } else if (!skip_commit) {
+    DBUG_ASSERT(!thd->m_delay_commit);
     if (ha_commit_low(thd, all)) return RESULT_INCONSISTENT;
   }
 
@@ -8777,6 +8778,15 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
   thd->durability_property = HA_IGNORE_DURABILITY;
   thd->get_transaction()->m_flags.real_commit = all;
   thd->get_transaction()->m_flags.xid_written = false;
+
+  DBUG_ASSERT(!thd->m_delay_commit);
+  if (!skip_commit && g_sqlAsyncAfterSync && g_sqlAsyn &&
+      (thd->system_thread == NON_SYSTEM_THREAD) &&
+      !(sql_command_flags[thd->lex->sql_command] & (CF_DISALLOW_IN_RO_TRANS | CF_AUTO_COMMIT_TRANS))) {
+    thd->m_delay_commit = true;
+    skip_commit = true;
+  }
+
   thd->get_transaction()->m_flags.commit_low = !skip_commit;
   thd->get_transaction()->m_flags.run_hooks = !skip_commit;
   thd->stage_leader = false;

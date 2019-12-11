@@ -1349,6 +1349,9 @@ The following options may be given as the first argument:
  TABLE'. Attempts to do so will result in an error.
  --sqlasyn           sql thread async,turn on perfomance semisync, speed up
  cpu parellelism
+ --sqlasync-after-sync 
+ If true, the async process will commit transaction for
+ each thd
  --sqlasyntimeout[=#] 
  sql thread async, speed up cpu parellel, timeout
  --sqlasynwarntimeout[=#] 
@@ -1869,6 +1872,7 @@ sporadic-binlog-dump-fail FALSE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
 sqlasyn FALSE
+sqlasync-after-sync FALSE
 sqlasyntimeout 30
 sqlasynwarntimeout 3
 stored-program-cache 256

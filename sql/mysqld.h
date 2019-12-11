@@ -411,6 +411,7 @@ extern bool hidden_sensitive_variable;
 
 /** tdsql: Variables to control strong consistency behavior */
 extern bool g_sqlAsyn;
+extern bool g_sqlAsyncAfterSync;
 extern bool g_reliable_relaylog;
 extern bool tdsql_allow_async;
 extern ulong g_relaylog_sync_threshold;

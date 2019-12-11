@@ -68,8 +68,8 @@ class Disable_autocommit_guard {
         Both session and statement transactions need to be finished by the
         time when we enable auto-commit mode back.
       */
-      DBUG_ASSERT(m_thd->get_transaction()->is_empty(Transaction_ctx::STMT) &&
-                  m_thd->get_transaction()->is_empty(Transaction_ctx::SESSION));
+      DBUG_ASSERT((m_thd->get_transaction()->is_empty(Transaction_ctx::STMT) &&
+                  m_thd->get_transaction()->is_empty(Transaction_ctx::SESSION)) || m_thd->m_delay_commit);
       m_thd->variables.option_bits = m_save_option_bits;
     }
   }

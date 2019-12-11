@@ -16,7 +16,6 @@ default_authentication_plugin=mysql_native_password
 #early-plugin-load=keyring_file.so
 #keyring_file_data=data_dir/sys/tdsql.frm
 core-file
-#sqlasyn=1
 # required unique id between 1 and 2^32 - 1
 # defaults to 1 if master-host is not set
 # but will not function as a master if omitted
@@ -24,6 +23,28 @@ bind_address    = change_ip_before_use
 port      = change_port_before_use
 report-host=change_ip_before_use
 #extra_port = change_extra_port_before_use
+
+#Security
+forbid_server_path_remote_change=ON
+forbid_server_path_remote_access=ON
+reject_rw_mysql_user_sys_users=ON
+forbid_remote_install_plugin=ON
+forbid_remote_drop_meta=ON
+forbid_remote_change_sql_log_bin=ON
+forbid_remote_change_master=ON
+forbid_remote_stop_server=ON
+hidden_sensitive_variable=TRUE
+admin_username_prefix="tdsqlsys_"
+
+# Strong Consistency
+sqlasyn=1
+sqlasyntimeout=30
+sqlasynwarntimeout=3
+relay_log_sync_threshold=20000
+relay_log_sync_timeout=1000
+relay_log_sync_txn_count=10
+tdsql_relay_log_opt=OFF
+tdsql_allow_async=OFF
 
 local_infile=1
 #secure_auth=1
