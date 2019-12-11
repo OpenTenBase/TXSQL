@@ -5027,7 +5027,7 @@ static bool check_sql_log_bin(sys_var *self, THD *thd, set_var *var) {
   if (forbid_remote_change_sql_log_bin && !opt_initialize &&
       !thd->is_local_or_admin_port()) {
     my_error(ER_REMOTE_OPERATION_DENIED, MYF(0), "forbid_remote_change_sql_log_bin");
-    return TRUE;
+    return true;
   }
 
   if (check_session_admin(self, thd, var)) return true;
