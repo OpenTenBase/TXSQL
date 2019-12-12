@@ -7003,6 +7003,8 @@ int mysqld_main(int argc, char **argv)
 
   start_handle_manager();
 
+  sql_print_information("%s is using '%s' malloc library", my_progname, MALLOC_LIBRARY);
+
   create_compress_gtid_table_thread();
 
   LogEvent()
