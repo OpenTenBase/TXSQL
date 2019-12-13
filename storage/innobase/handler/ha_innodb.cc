@@ -1380,7 +1380,7 @@ static int innobase_start_trx_and_assign_read_view(
 @param[in]	binlog_group_flush	true if we got invoked by binlog
 group commit during flush stage, false in other cases.
 @return false */
-static bool innobase_flush_logs(handlerton *hton, bool binlog_group_flush);
+static bool innobase_flush_logs(handlerton *hton, bool binlog_group_flush, uint64_t prepared_lsn);
 
 /** Implements the SHOW ENGINE INNODB STATUS command. Sends the output of the
 InnoDB Monitor to the client.
@@ -1518,6 +1518,11 @@ enum durability_properties thd_requested_durability(
     const THD *thd) /*!< in: thread handle */
 {
   return (thd_get_durability_property(thd));
+}
+
+/** Store the lsn after transaction is prepared in engine. */
+void thd_set_prepare_lsn(THD* thd, uint64_t lsn) {
+  thd->prepared_lsn = lsn;
 }
 
 /** Returns true if transaction should be flagged as read-only.
@@ -5196,7 +5201,7 @@ static int innobase_init_files(dict_init_mode_t dict_init_mode,
 @param[in]	binlog_group_flush	true if we got invoked by binlog
 group commit during flush stage, false in other cases.
 @return false */
-static bool innobase_flush_logs(handlerton *hton, bool binlog_group_flush) {
+static bool innobase_flush_logs(handlerton *hton, bool binlog_group_flush, uint64_t prepared_lsn) {
   DBUG_TRACE;
   DBUG_ASSERT(hton == innodb_hton_ptr);
 
@@ -5223,14 +5228,26 @@ static bool innobase_flush_logs(handlerton *hton, bool binlog_group_flush) {
   if (!binlog_group_flush) {
     auto &gtid_persistor = clone_sys->get_gtid_persistor();
     gtid_persistor.wait_flush(true, true, true, nullptr);
-  }
 
-  /* Flush the redo log buffer to the redo log file.
-  Sync it to disc if we are in FLUSH LOGS, or if
-  innodb_flush_log_at_trx_commit=1
-  (write and sync at each commit). */
-  log_buffer_flush_to_disk(!binlog_group_flush ||
-                           srv_flush_log_at_trx_commit == 1);
+    /* Sync redo log to disk if we are in FLUSH LOGS */
+    log_buffer_flush_to_disk(true);
+  } else {
+    /* Flush the redo log buffer to the redo log file.
+    Sync it to disc if innodb_flush_log_at_trx_commit=1
+    (write and sync at each commit). */
+
+    if (prepared_lsn == 0) {
+      /* For xa prepare, it writes binglog first and then prepare in engine,
+      so its prepared lsn is always zero. Actually it needs to be fixed later
+      (it has been fixed in tdsql-5.7).
+      But for XA commit, it doesn't have prepare stage so it's prepared lsn
+      is always zero, if it's mixed with other normal transactions, we also
+      wait for all log to be flushed. */
+      log_buffer_flush_to_disk(srv_flush_log_at_trx_commit == 1);
+    } else {
+      log_write_up_to(*log_sys, prepared_lsn, srv_flush_log_at_trx_commit == 1);
+    }
+  }
 
   return false;
 }

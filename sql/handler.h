@@ -1319,7 +1319,7 @@ typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd);
   @retval false Succeed
   @retval true Error
 */
-typedef bool (*flush_logs_t)(handlerton *hton, bool binlog_group_flush);
+typedef bool (*flush_logs_t)(handlerton *hton, bool binlog_group_flush, uint64_t prepared_lsn);
 
 typedef bool (*show_status_t)(handlerton *hton, THD *thd, stat_print_fn *print,
                               enum ha_stat_type stat);
@@ -6738,7 +6738,7 @@ void ha_pre_dd_shutdown(void);
   @retval false Succeed
   @retval true Error
 */
-bool ha_flush_logs(bool binlog_group_flush = false);
+bool ha_flush_logs(bool binlog_group_flush = false, uint64_t prepared_lsn = 0);
 void ha_drop_database(char *path);
 int ha_create_table(THD *thd, const char *path, const char *db,
                     const char *table_name, HA_CREATE_INFO *create_info,

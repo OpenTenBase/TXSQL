@@ -2645,6 +2645,7 @@ static void trx_prepare(trx_t *trx) /*!< in/out: transaction */
       here. So that we can flush prepared records of transactions to
       redo log in a group right before writing them to binary log
       during flush stage of binlog group commit. */
+      thd_set_prepare_lsn(trx->mysql_thd, lsn);
       break;
     case HA_REGULAR_DURABILITY:
       if (lsn == 0) {

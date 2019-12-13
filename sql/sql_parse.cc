@@ -5225,6 +5225,8 @@ void THD::reset_for_next_command() {
 #ifndef DBUG_OFF
   thd->set_tmp_table_seq_id(1);
 #endif
+
+  thd->prepared_lsn = 0;
 }
 
 /**

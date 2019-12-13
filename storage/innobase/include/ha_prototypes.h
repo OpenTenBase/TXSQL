@@ -396,6 +396,8 @@ enum durability_properties thd_requested_durability(
     const THD *thd) /*!< in: thread handle */
     MY_ATTRIBUTE((warn_unused_result));
 
+void thd_set_prepare_lsn(THD* thd, uint64_t lsn);
+
 /** Update the system variable with the given value of the InnoDB
 buffer pool size.
 @param[in]	buf_pool_size	given value of buffer pool size.*/

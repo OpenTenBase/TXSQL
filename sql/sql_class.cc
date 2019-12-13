@@ -570,6 +570,8 @@ THD::THD(bool enable_plugins)
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
                                                max_digest_length, MYF(MY_WME));
   }
+
+  prepared_lsn = 0;
 #ifndef DBUG_OFF
   debug_binlog_xid_last.reset();
 #endif
@@ -853,6 +855,7 @@ void THD::init(void) {
   m_disable_password_validation = false;
 
   m_asyncAns = false;
+  prepared_lsn = 0;
 }
 
 void THD::init_query_mem_roots() {

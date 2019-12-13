@@ -2382,17 +2382,24 @@ int ha_start_consistent_snapshot(THD *thd) {
   return 0;
 }
 
+struct log_flush_lsn {
+  bool binlog_group_flush;
+  uint64_t prepared_lsn;
+};
+
 static bool flush_handlerton(THD *, plugin_ref plugin, void *arg) {
   handlerton *hton = plugin_data<handlerton *>(plugin);
+  log_flush_lsn* to_flush = static_cast<log_flush_lsn*>(arg);
   if (hton->state == SHOW_OPTION_YES && hton->flush_logs &&
-      hton->flush_logs(hton, *(static_cast<bool *>(arg))))
+      hton->flush_logs(hton, to_flush->binlog_group_flush, to_flush->prepared_lsn))
     return true;
   return false;
 }
 
-bool ha_flush_logs(bool binlog_group_flush) {
+bool ha_flush_logs(bool binlog_group_flush, uint64_t prepared_lsn) {
+  log_flush_lsn arg = {binlog_group_flush, prepared_lsn};
   if (plugin_foreach(NULL, flush_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN,
-                     static_cast<void *>(&binlog_group_flush))) {
+                     static_cast<void *>(&arg))) {
     return true;
   }
   return false;

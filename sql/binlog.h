@@ -126,7 +126,7 @@ class Stage_manager {
 
        This will fetch the entire queue in one go.
     */
-    THD *fetch_and_empty();
+    THD *fetch_and_empty(uint64_t* prepared_lsn);
 
     inline int32 get_size() { return m_size.load(); }
 
@@ -155,6 +155,7 @@ class Stage_manager {
     /** Counter for partition */
     int m_cond_index;
 
+    uint64_t m_max_lsn;
     /** size of the queue */
     std::atomic<int32> m_size;
 
@@ -244,9 +245,9 @@ class Stage_manager {
 
     @return Pointer to the first session of the queue.
    */
-  THD *fetch_queue_for(StageID stage) {
+  THD *fetch_queue_for(StageID stage, uint64_t* prepared_lsn = nullptr) {
     DBUG_PRINT("debug", ("Fetching queue for stage %d", stage));
-    return m_queue[stage].fetch_and_empty();
+    return m_queue[stage].fetch_and_empty(prepared_lsn);
   }
 
   /**

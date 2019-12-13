@@ -1795,6 +1795,7 @@ class THD : public MDL_context_owner,
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
 
+  uint64_t prepared_lsn;
  private:
   /**
     Class representing read-only attachable transaction, encapsulates

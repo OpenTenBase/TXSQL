@@ -2245,9 +2245,23 @@ bool Stage_manager::Mutex_queue::append(THD *first, int *slot) {
       }
 
       first->stage_cond_id = ((m_cond_index++)%MAX_STAGE_COND);
+
+      m_max_lsn = first->prepared_lsn;
     }
   } else {
     first->prev_to_commit = m_stage_last;
+
+    /* The m_max_lsn is correct and make sense for first stage, but as this
+    is a common function for all 3 stages and the overhead is low, let's tolerate
+    this.  m_max_lsn is actually only used during flush stage.
+    When it's XA prepare or XA commit, the prepared_lsn is 0. For such case we always
+    tell innodb engine to flush all redo logs. */
+    if (first->prepared_lsn == 0) {
+      /* flush all redo logs */
+      m_max_lsn = 0;
+    } else if (m_max_lsn != 0) {
+      m_max_lsn = std::max(first->prepared_lsn, m_max_lsn);
+    }
   }
 
   *slot = m_first->stage_cond_id;
@@ -2372,7 +2386,7 @@ bool Stage_manager::enroll_for(StageID stage, THD *thd,
   return leader;
 }
 
-THD *Stage_manager::Mutex_queue::fetch_and_empty() {
+THD *Stage_manager::Mutex_queue::fetch_and_empty(uint64_t *prepared_lsn) {
   DBUG_TRACE;
   lock();
   DBUG_PRINT("enter",
@@ -2383,6 +2397,11 @@ THD *Stage_manager::Mutex_queue::fetch_and_empty() {
   m_first = nullptr;
   m_last = &m_first;
   m_stage_last= NULL;
+
+  if (prepared_lsn) {
+    *prepared_lsn = m_max_lsn;
+  }
+
   DBUG_PRINT("info",
              ("m_first: 0x%llx, &m_first: 0x%llx, m_last: 0x%llx",
               (ulonglong)m_first, (ulonglong)&m_first, (ulonglong)m_last));
@@ -8257,14 +8276,15 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
     for guaranteeing to flush prepared records of transactions before
     flushing them to binary log, which is required by crash recovery.
   */
-  THD *first_seen = stage_manager.fetch_queue_for(Stage_manager::FLUSH_STAGE);
+  uint64_t prepared_lsn = 0;
+  THD *first_seen = stage_manager.fetch_queue_for(Stage_manager::FLUSH_STAGE, &prepared_lsn);
   DBUG_ASSERT(first_seen != nullptr);
   /*
     We flush prepared records of transactions to the log of storage
     engine (for example, InnoDB redo log) in a group right before
     flushing them to binary log.
   */
-  ha_flush_logs(true);
+  ha_flush_logs(true, prepared_lsn);
   DBUG_EXECUTE_IF("crash_after_flush_engine_log", DBUG_SUICIDE(););
   assign_automatic_gtids_to_flush_group(first_seen);
   /* Flush thread caches to binary log. */
