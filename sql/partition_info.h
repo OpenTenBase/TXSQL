@@ -385,6 +385,16 @@ class partition_info {
 
   enum_key_algorithm key_algorithm;
 
+  /*
+    tdsql: the starting partition number of the global table that this partition
+    table belongs to. UINT16_MAX is invalid.
+
+    In tdsql_disable_partitions , the arguments are global table's partition
+    numbers, not the local table's partition numbers. The global number should
+    substract this starting_part_num to get the corresponding local partition number.
+  */
+  uint16_t starting_part_num;
+
   /* Only the number of partitions defined (uses default names and options). */
   bool use_default_partitions;
   bool use_default_num_partitions;
@@ -447,6 +457,7 @@ class partition_info {
         has_null_part_id(0),
         linear_hash_mask(0),
         key_algorithm(enum_key_algorithm::KEY_ALGORITHM_NONE),
+        starting_part_num(UINT16_MAX),
         use_default_partitions(true),
         use_default_num_partitions(true),
         use_default_subpartitions(true),

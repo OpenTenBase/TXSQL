@@ -901,6 +901,18 @@ class Item_int_func : public Item_func {
   bool resolve_type(THD *) override { return false; }
 };
 
+class Item_func_murmurHashCodeAndMod :public Item_int_func {
+  String m_str_arg;
+  unsigned int doMurmurHashCode(char * key, unsigned short len);
+  public:
+  Item_func_murmurHashCodeAndMod(Item *a,Item *b) :Item_int_func(a,b) {}
+  Item_func_murmurHashCodeAndMod(const POS &pos, Item *a,Item *b) :Item_int_func(pos, a,b) {}
+
+  const char *func_name() const { return "murmurHashCodeAndMod"; }
+  longlong val_int();
+  bool check_partition_func_processor(uchar *) override {return false;}
+};
+
 class Item_func_connection_id final : public Item_int_func {
   typedef Item_int_func super;
 
