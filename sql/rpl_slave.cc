@@ -222,6 +222,12 @@ const ulong mts_worker_underrun_level = 10;
 
 int disconnect_slave_event_count = 0, abort_slave_event_count = 0;
 
+/*
+  Latest log event timestamp that slave io thread received from master
+  extracted from gtid event.
+*/
+uint32_t iothreadreadtime = 0;
+
 static thread_local Master_info *RPL_MASTER_INFO = nullptr;
 
 enum enum_slave_reconnect_actions {
@@ -7292,6 +7298,27 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
         "WAIT_FOR continue_queuing_event";
     DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
   };);
+
+  /*
+    TDSQL:
+    Only update iothreadreadtime in case of GTID event, because:
+    1. tdsql always uses GTID replication
+    2. any event group begins with a GTID event, including ddls
+    3. on master GTID event is created when committing a stmt/txn. For any event
+    group, the GTID event(1st event of any event group) and the last event of
+    the group(e.g. QUERY_LOG_EVENT(DDL), QUERY_LOG_EVENT(COMMIT), Xid_log_event,
+    XA_PREPARE_LOG_EVENT, QUERY_LOG_EVENT(XA COMMIT/XA ROLLBACK) have newest
+    time, any events in between have older events because any event's timestamp
+    is the time when the event was created. if a master has a long txn that
+    lasts several miniutes, then formerly we would update iothreadreadtime to N
+    minutes ago, making tdsql components to set a shard to async.
+  */
+  if (event_len >= 4 && binary_log::GTID_LOG_EVENT == event_type) {
+    uint32_t readTime = uint4korr(buf);
+    if (readTime) {
+      iothreadreadtime = readTime;
+    }
+  }
 
   /*
     FD_queue checksum alg description does not apply in a case of

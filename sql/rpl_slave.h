@@ -92,6 +92,7 @@ typedef enum { SLAVE_THD_IO, SLAVE_THD_SQL, SLAVE_THD_WORKER } SLAVE_THD_TYPE;
 
 extern bool server_id_supplied;
 
+extern uint32_t iothreadreadtime;
 /*****************************************************************************
 
   MySQL Replication
