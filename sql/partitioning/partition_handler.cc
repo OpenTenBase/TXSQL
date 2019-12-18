@@ -527,6 +527,13 @@ int Partition_helper::ph_write_row(uchar *buf) {
     m_part_info->err_value = func_value;
     goto exit;
   }
+
+  if (m_part_info->is_partition_hidden(part_id)) {
+    m_part_info->err_value = INT_MAX;
+    error = HA_ERR_NO_PARTITION_FOUND;
+    goto exit;
+  }
+
   if (!m_part_info->is_partition_locked(part_id)) {
     DBUG_PRINT("info", ("Write to non-locked partition %u (func_value: %ld)",
                         part_id, (long)func_value));

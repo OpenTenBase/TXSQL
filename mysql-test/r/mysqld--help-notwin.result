@@ -1371,6 +1371,11 @@ The following options may be given as the first argument:
  --tc-heuristic-recover=name 
  Decision to use in heuristic recover process. Possible
  values are OFF, COMMIT or ROLLBACK.
+ --tdsql-hide-partitions[=name] 
+ TDSQL: Partitions to disable, effective for partitions of
+ all partitioned tables on the DB instance. Specifiy as
+ comma separated numbers or number ranges, e.g. 1,3-6,7
+ means parititions 1,3,4,5,6,7.
  --temptable-max-ram=# 
  Maximum amount of memory (in bytes) the TempTable storage
  engine is allowed to allocate from the main memory (RAM)
@@ -1839,6 +1844,7 @@ table-encryption-privilege-check FALSE
 table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
+tdsql-hide-partitions 
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
 thread-cache-size 9

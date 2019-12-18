@@ -25,6 +25,7 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <atomic>
 
 #include "my_bitmap.h"
 #include "my_inttypes.h"
@@ -164,6 +165,37 @@ typedef int (*get_partitions_in_range_iter)(
     partition_info *part_info, bool is_subpart, uint32 *store_length_array,
     uchar *min_val, uchar *max_val, uint min_len, uint max_len, uint flags,
     PARTITION_ITERATOR *part_iter);
+
+/* Tracks the hidden partition number */
+class Partition_hide_info {
+public:
+  Partition_hide_info() {
+    m_parts.clear();
+    m_updating_counter = 0;
+    m_scanning_counter = 0;
+    m_empty = true;
+  }
+
+  ~Partition_hide_info() {
+    m_parts.clear();
+  }
+
+  bool parse(std::string &str);
+
+  bool contain(int64_t part_id);
+
+private:
+  std::set<int64_t> m_parts;
+
+  std::atomic<bool> m_empty;
+
+  std::atomic<int64_t> m_updating_counter;
+
+  std::atomic<int64_t> m_scanning_counter;
+};
+
+extern Partition_hide_info g_partition_hide;
+
 /**
   PARTITION BY KEY ALGORITHM=N
   Which algorithm to use for hashing the fields.
@@ -545,15 +577,41 @@ class partition_info {
   inline bool is_partition_locked(uint part_id) const {
     return bitmap_is_set(&lock_partitions, part_id);
   }
-  inline uint num_partitions_used() {
+  inline uint num_partitions_used() const {
     return bitmap_bits_set(&read_partitions);
   }
-  inline uint get_first_used_partition() const {
-    return bitmap_get_first_set(&read_partitions);
+
+  inline uint get_first_used_partition(bool filter_hidden_parts = true) const {
+
+    const uint part_id = bitmap_get_first_set(&read_partitions);
+
+    if (filter_hidden_parts &&
+        g_partition_hide.contain(part_id + (starting_part_num == UINT16_MAX ? 0 : starting_part_num))) {
+      return get_next_used_partition(part_id);
+    }
+
+    return part_id;
   }
-  inline uint get_next_used_partition(uint part_id) const {
-    return bitmap_get_next_set(&read_partitions, part_id);
+
+  inline uint get_next_used_partition(uint part_id, bool filter_hidden_parts = true) const {
+    uint i= 0;
+    const uint nparts = num_partitions_used();
+
+    do {
+      uint res = bitmap_get_next_set(&read_partitions, part_id + i);
+      if (!filter_hidden_parts ||
+          !g_partition_hide.contain(res + (starting_part_num == UINT16_MAX ? 0 : starting_part_num))) {
+        return res;
+      }
+    } while (i++ < nparts);
+
+    return MY_BIT_NONE;
   }
+
+  bool is_partition_hidden(const uint part_id) const {
+    return (g_partition_hide.contain(part_id + (starting_part_num == UINT16_MAX ? 0 : starting_part_num)));
+  }
+
   bool same_key_column_order(List<Create_field> *create_list);
 
   /**

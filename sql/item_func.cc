@@ -1212,8 +1212,8 @@ unsigned int Item_func_murmurHashCodeAndMod:: doMurmurHashCode(char* key, unsign
 
 static inline longlong filter_dropped_parts(longlong ll)
 {
-  // if ( g_tdsql_mode && unlikely(g_delayed_drop_parts.has_partition(ll)) )
-  //    return INT_MAX;
+  if (g_partition_hide.contain(ll))
+    return INT_MAX;
   return ll;
 }
 

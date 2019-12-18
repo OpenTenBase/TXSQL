@@ -153,6 +153,8 @@ TYPELIB bool_typelib = {array_elements(bool_values) - 1, "", bool_values, 0};
 
 #define MAX_CONNECTIONS 100000
 
+char *tdsql_disable_partitions = nullptr;
+
 static bool update_buffer_size(THD *, KEY_CACHE *key_cache,
                                ptrdiff_t offset MY_ATTRIBUTE((unused)),
                                ulonglong new_value) {
@@ -7017,3 +7019,17 @@ static Sys_var_ulong Sys_pseudo_server_id(
     NO_CMD_LINE, VALID_RANGE(0, ULONG_MAX), DEFAULT(0),
     BLOCK_SIZE(1), NO_MUTEX_GUARD, IN_BINLOG,
     ON_CHECK(check_pseudo_server_id), ON_UPDATE(fix_pseudo_server_id));
+
+static bool check_hide_partitions(sys_var *, THD *, set_var *var) {
+  std::string str(var->save_result.string_value.str,
+                  var->save_result.string_value.length);
+  return (g_partition_hide.parse(str));
+}
+static Sys_var_charptr Sys_tdsql_hide_partitions(
+    "tdsql_hide_partitions",
+    "TDSQL: Partitions to disable, effective for partitions of all partitioned "
+    "tables on the DB instance. Specifiy as comma separated numbers or number "
+    "ranges, e.g. 1,3-6,7 means parititions 1,3,4,5,6,7.",
+    GLOBAL_VAR(tdsql_disable_partitions), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_hide_partitions));
