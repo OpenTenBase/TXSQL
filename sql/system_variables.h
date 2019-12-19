@@ -267,6 +267,8 @@ struct System_variables {
     thread the query is being run to replicate temp tables properly
   */
   my_thread_id pseudo_thread_id;
+
+  ulong pseudo_server_id;
   /**
     Default transaction access mode. READ ONLY (true) or READ WRITE (false).
   */
