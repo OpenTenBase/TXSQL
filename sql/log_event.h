@@ -1413,7 +1413,8 @@ class Query_log_event : public virtual binary_log::Query_event,
     return !strncmp(query, "COMMIT", q_len) ||
            (!native_strncasecmp(query, STRING_WITH_LEN("ROLLBACK")) &&
             native_strncasecmp(query, STRING_WITH_LEN("ROLLBACK TO "))) ||
-           !strncmp(query, STRING_WITH_LEN("XA ROLLBACK"));
+           !strncmp(query, STRING_WITH_LEN("XA ROLLBACK")) ||
+           !strncmp(query, STRING_WITH_LEN("XA COMMIT"));
   }
   static size_t get_query(const char *buf, size_t length,
                           const Format_description_event *fd_event,
