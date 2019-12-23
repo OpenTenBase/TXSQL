@@ -2648,6 +2648,16 @@ bool THD::rpl_unflag_detached_engine_ha_data() const {
   return rli ? rli->unflag_detached_engine_ha_data() : false;
 }
 
+bool THD::rpl_partial_xa_rollback() const {
+    return rli_slave && rli_slave->partial_xa_rollback();
+}
+
+
+void THD::rpl_partial_xa_rollback(bool b) {
+    if (rli_slave)
+          rli_slave->partial_xa_rollback(b);
+}
+
 /**
   Determine if binlogging is disabled for this session
   @retval 0 if the current statement binlogging is disabled

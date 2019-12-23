@@ -2739,7 +2739,15 @@ end:
         is not empty.
       */
       else {
-        gtid_state->update_on_commit(thd);
+        /*
+           Successful XA-rollback commits the new gtid_state.
+           But if we are rolling back a partial xa txn, we should not record the
+           current thd->owned_gtid into GTID_EXECUTED or clear thd->owned_gtid,
+           because the same txn must be reexecuted.
+        */
+        if (!thd->rpl_partial_xa_rollback()) {
+          gtid_state->update_on_commit(thd);
+        }
         /*
           Inform hook listeners that a XA ROLLBACK did commit, that
           is, did log a transaction to the binary log.

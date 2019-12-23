@@ -75,4 +75,6 @@ inline char *serialize_xid(char *buf, long fmt, long gln, long bln,
   return buf;
 }
 
+bool deserialize_xid(const char *buf, long &fmt, long &gln, long &bln, char *dat);
+
 #endif /* XA_AUX_H */

@@ -951,6 +951,9 @@ class THD : public MDL_context_owner,
   /* Slave applier execution context */
   Relay_log_info *rli_slave;
 
+  bool rpl_partial_xa_rollback() const;
+  void rpl_partial_xa_rollback(bool b);
+
   /* Is transaction commit still pending */
   bool tx_commit_pending;
 

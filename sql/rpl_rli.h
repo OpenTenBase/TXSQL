@@ -612,6 +612,8 @@ class Relay_log_info : public Rpl_info {
   /* Flag that ensures the retrieved GTID set is initialized only once. */
   bool gtid_retrieved_initialized;
 
+  bool is_partial_xa_rollback;
+
   /**
     Stores information on the last processed transaction or the transaction
     that is currently being processed.
@@ -652,6 +654,16 @@ class Relay_log_info : public Rpl_info {
   bool m_privilege_checks_user_corrupted;
 
  public:
+
+  bool partial_xa_rollback() const {
+    return is_partial_xa_rollback;
+  }
+
+
+  void partial_xa_rollback(bool b) {
+    is_partial_xa_rollback= b;
+  }
+
   bool is_relay_log_truncated() { return m_relay_log_truncated; }
 
   Sid_map *get_sid_map() { return gtid_set->get_sid_map(); }

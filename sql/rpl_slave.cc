@@ -4621,6 +4621,134 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
     mysql_mutex_lock(&rli->data_lock);
   }
 
+  THD *worker_thd = (rli->last_assigned_worker ? rli->last_assigned_worker->info_thd : thd);
+  XID_STATE *xid_state = worker_thd->get_transaction()->xid_state();
+  const XID_STATE::xa_states xa_state = xid_state->get_state();
+  const char *xid_ptr = xid_state->get_xid()->get_data();
+  size_t xid_len = xid_state->get_xid()->get_gtrid_length();
+  bool is_xa_start = false;
+  XID xa_xid;
+
+  if (!rli->last_assigned_worker && rli->curr_group_da.size() > 0 &&
+      rli->curr_group_da.back().data->get_type_code() == binary_log::QUERY_EVENT) {
+    Query_log_event *qle= (Query_log_event *)rli->curr_group_da.back().data;
+    int qstr_head = 0;
+    if ((!strncasecmp(qle->query, STRING_WITH_LEN("XA START")) && (qstr_head = 9)) ||
+        (!strncasecmp(qle->query, STRING_WITH_LEN("XA END")) && (qstr_head = 7))) {
+      is_xa_start= true;
+      if (xa_xid.deserialize(qle->query + qstr_head)) {
+        return true;
+      }
+      xid_ptr= xa_xid.get_data();
+      xid_len= xa_xid.get_gtrid_length();
+    }
+  }
+
+  if (is_xa_start || xid_state->get_xa_type() == XID_STATE::XA_EXTERNAL ||
+      xa_state == XID_STATE::XA_ACTIVE || xa_state == XID_STATE::XA_IDLE) {
+
+    DBUG_PRINT("info",("Injecting QUERY(XA END and/or XA ROLLBACK) to rollback worker"));
+    /*
+      if there is only gtid and xa-start, the txn is still cached in
+      rli->curr_group_da, so xa_state has to be XA_NOTR, but we must insert
+      'xa end' and 'xa rollback' in this case.
+    */
+    if (is_xa_start)
+      goto end_xa_start;
+
+    switch (xa_state) {
+      case XID_STATE::XA_ACTIVE:
+        {
+end_xa_start:
+          std::string xa_end_cmd = "XA END ''";
+          xa_end_cmd.insert(xa_end_cmd.length() - 1, xid_ptr, xid_len);
+          const size_t qbuflen = xa_end_cmd.length() + 1;
+          char *qbuf = new char[qbuflen];
+          if (qbuf == nullptr) {
+            return true;
+          }
+
+          strncpy(qbuf, xa_end_cmd.c_str(), qbuflen);
+          Log_event *xa_end_event = new Query_log_event(thd,
+                                                        qbuf,
+                                                        qbuflen - 1,// not even an extra char is allowed
+                                                        true, /* using_trans */
+                                                        false, /* immediate */
+                                                        true, /* suppress_use */
+                                                        0, /* error */
+                                                        true /* ignore_command */);
+
+          ((Query_log_event*) xa_end_event)->db = "";
+          xa_end_event->common_header->data_written = 0;
+
+          /*
+            Slave must never execute more gtids than master with respect to
+            master's uuid, otherwise ER_SLAVE_HAS_MORE_GTIDS_THAN_MASTER is returned.
+          */
+          xa_end_event->server_id = ev->server_id;
+          ((Query_log_event *)xa_end_event)->set_release_query(2);
+          /*
+            We must be careful to avoid SQL thread increasing its position
+            farther than the event that triggered this QUERY(XA END).
+          */
+          xa_end_event->common_header->log_pos = ev->common_header->log_pos;
+          xa_end_event->future_event_relay_log_pos = ev->future_event_relay_log_pos;
+
+          if (apply_event_and_update_pos(&xa_end_event, thd, rli) !=
+              SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK) {
+            delete xa_end_event;
+            return true;
+          }
+
+          mysql_mutex_lock(&rli->data_lock);
+        }
+        // fall through
+      case XID_STATE::XA_IDLE:
+        {
+          std::string xa_rb_cmd = "XA ROLLBACK ''";
+          xa_rb_cmd.insert(xa_rb_cmd.length() - 1, xid_ptr, xid_len);
+          const size_t qbuflen = xa_rb_cmd.length() + 1;
+          char *qbuf = new char[qbuflen];
+
+          if (qbuf == nullptr) {
+            return true;
+          }
+
+          strncpy(qbuf, xa_rb_cmd.c_str(), qbuflen);
+          Log_event *xa_rb_event= new Query_log_event(thd,
+                                                      qbuf,
+                                                      qbuflen - 1,// not even an extra char is allowed
+                                                      true, /* using_trans */
+                                                      false, /* immediate */
+                                                      true, /* suppress_use */
+                                                      0, /* error */
+                                                      true /* ignore_command */);
+          ((Query_log_event*) xa_rb_event)->db = "";
+          xa_rb_event->common_header->data_written = 0;
+
+          xa_rb_event->server_id = ev->server_id;
+          ((Query_log_event *)xa_rb_event)->set_release_query(2);
+
+          xa_rb_event->common_header->log_pos = ev->common_header->log_pos;
+          xa_rb_event->future_event_relay_log_pos = ev->future_event_relay_log_pos;
+          ((Query_log_event *)xa_rb_event)->rollback_injected_by_coord = true;
+
+          if (apply_event_and_update_pos(&xa_rb_event, thd, rli) !=
+              SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK) {
+            delete xa_rb_event;
+            return true;
+          }
+
+          mysql_mutex_lock(&rli->data_lock);
+          break;
+        }
+      default:
+        break;
+    }
+
+    return false;
+  }
+
   DBUG_PRINT("info", ("Injecting QUERY(ROLLBACK) to rollback worker"));
   Log_event *rollback_event = new Query_log_event(
       thd, STRING_WITH_LEN("ROLLBACK"), true, /* using_trans */

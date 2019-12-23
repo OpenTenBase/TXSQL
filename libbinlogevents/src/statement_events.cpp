@@ -43,7 +43,7 @@ Query_event::Query_event(Log_event_type type_arg)
       host(0),
       host_len(0),
       db_len(0),
-      q_len(0) {}
+      q_len(0) { m_release_query_buf = 0;}
 
 /**
   The constructor used by MySQL master to create a query event, to be
@@ -71,6 +71,7 @@ Query_event::Query_event(
       flags2_inited(1),
       sql_mode_inited(1),
       charset_inited(1),
+      m_release_query_buf(0),
       sql_mode(sql_mode_arg),
       auto_increment_increment(
           static_cast<uint16_t>(auto_increment_increment_arg)),
@@ -123,6 +124,7 @@ Query_event::Query_event(const char *buf, const Format_description_event *fde,
       flags2_inited(0),
       sql_mode_inited(0),
       charset_inited(0),
+      m_release_query_buf(0),
       auto_increment_increment(1),
       auto_increment_offset(1),
       time_zone_len(0),
