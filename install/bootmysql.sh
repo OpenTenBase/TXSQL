@@ -22,19 +22,19 @@ if [ ! -d  ${runso_dir} ] ; then
     mkdir ${runso_dir}
 fi
 
-libjemalloc=libjemalloc.so.3.6.0
+#libjemalloc=libjemalloc.so.3.6.0
 
-if [ ! -e ${runso_dir}/${libjemalloc} ] ; then
+#if [ ! -e ${runso_dir}/${libjemalloc} ] ; then
 
-	if [ -f  ${base_dir}/share_lib/${libjemalloc} ] ; then
-		cp ${base_dir}/share_lib/${libjemalloc}  ${runso_dir}
-	else # old DB instance.
-		cp ${base_dir}/install/${libjemalloc} ${runso_dir}
-		cp ${base_dir}/install/${libjemalloc} ${base_dir}/share_lib
-	fi
+	#if [ -f  ${base_dir}/share_lib/${libjemalloc} ] ; then
+		#cp ${base_dir}/share_lib/${libjemalloc}  ${runso_dir}
+	#else # old DB instance.
+		#cp ${base_dir}/install/${libjemalloc} ${runso_dir}
+		#cp ${base_dir}/install/${libjemalloc} ${base_dir}/share_lib
+	#fi
 
-fi
+#fi
 
-export LD_PRELOAD="${runso_dir}/${libjemalloc}"
+#export LD_PRELOAD="${runso_dir}/${libjemalloc}"
 cd ${base_dir}; nohup ./bin/mysqld_safe --defaults-file=${etcfile} --user=${mysqluser} >>${log_dir}/nohup.out &
 
