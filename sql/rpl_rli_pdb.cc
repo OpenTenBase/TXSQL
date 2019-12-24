@@ -1117,8 +1117,13 @@ void Slave_worker::slave_worker_ends_group(Log_event *ev, int error) {
 
     /*
       DDL that has not yet updated the slave info repository does it now.
+
+      For both types of events, the commit_positions() was already called in
+      Xid_apply_log_event::do_apply_event_worker().
     */
-    if (ev->get_type_code() != binary_log::XID_EVENT && !is_committed_ddl(ev)) {
+    if (ev->get_type_code() != binary_log::XID_EVENT &&
+        !is_committed_ddl(ev) &&
+        ev->get_type_code() != binary_log::XA_PREPARE_LOG_EVENT) {
       commit_positions(ev, ptr_g, true);
       DBUG_EXECUTE_IF(
           "crash_after_commit_and_update_pos",

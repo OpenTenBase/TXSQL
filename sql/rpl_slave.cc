@@ -4436,7 +4436,8 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
     */
     int error = 0;
     if (*ptr_ev &&
-        ((ev->get_type_code() != binary_log::XID_EVENT &&
+        (((ev->get_type_code() != binary_log::XID_EVENT &&
+           ev->get_type_code() != binary_log::XA_PREPARE_LOG_EVENT) &&
           !is_committed_ddl(*ptr_ev)) ||
          skip_event ||
          (rli->is_mts_recovery() && !is_gtid_event(ev) &&
@@ -4775,8 +4776,8 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
       DBUG_EXECUTE_IF(
           "incomplete_group_in_relay_log",
           if ((ev->get_type_code() == binary_log::XID_EVENT) ||
-              ((ev->get_type_code() == binary_log::QUERY_EVENT) &&
-               strcmp("COMMIT", ((Query_log_event *)ev)->query) == 0)) {
+            (ev->get_type_code() == binary_log::XA_PREPARE_LOG_EVENT) ||
+            ((ev->get_type_code() == binary_log::QUERY_EVENT) && ev->ends_group())) {
             DBUG_ASSERT(thd->get_transaction()->cannot_safely_rollback(
                 Transaction_ctx::SESSION));
             rli->abort_slave = 1;
