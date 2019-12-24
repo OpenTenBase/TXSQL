@@ -1402,6 +1402,7 @@ int ha_prepare(THD *thd) {
   DBUG_TRACE;
 
   if (trn_ctx->is_active(Transaction_ctx::SESSION)) {
+    const bool is_xa_prepare= (thd->lex->sql_command == SQLCOM_XA_PREPARE);
     const Ha_trx_info *ha_info = trn_ctx->ha_trx_info(Transaction_ctx::SESSION);
     bool gtid_error = false, need_clear_owned_gtid = false;
 
@@ -1417,24 +1418,33 @@ int ha_prepare(THD *thd) {
     {
       Clone_handler::XA_Operation xa_guard(thd);
 
-      /* Prepare binlog SE first, if there. */
-      while (ha_info != nullptr && error == 0) {
-        auto ht = ha_info->ht();
-        if (ht->db_type == DB_TYPE_BINLOG) {
-          error = prepare_one_ht(thd, ht);
-          break;
+      std::vector<handlerton*> hdlrs;
+      hdlrs.clear();
+      handlerton *binlog_ht = nullptr;
+
+      while (ha_info != nullptr) {
+        handlerton *ht = ha_info->ht();
+
+        /* For XA PREPARE, it should prepare engine first and then write binlog*/
+        if (is_xa_prepare && ht->db_type == DB_TYPE_BINLOG) {
+          DBUG_ASSERT(binlog_ht == nullptr);
+          binlog_ht = ht;
+        } else {
+          hdlrs.push_back(ht);
         }
+
         ha_info = ha_info->next();
       }
-      /* Prepare all SE other than binlog. */
-      ha_info = trn_ctx->ha_trx_info(Transaction_ctx::SESSION);
-      while (ha_info != nullptr && error == 0) {
-        auto ht = ha_info->ht();
+
+      if (binlog_ht != nullptr) {
+        hdlrs.push_back(binlog_ht);
+      }
+
+      for (auto ht : hdlrs) {
         error = prepare_one_ht(thd, ht);
         if (error != 0) {
           break;
         }
-        ha_info = ha_info->next();
       }
     }
 
@@ -2249,27 +2259,61 @@ int ha_prepare_low(THD *thd, bool all) {
       all ? Transaction_ctx::SESSION : Transaction_ctx::STMT;
   Ha_trx_info *ha_info = thd->get_transaction()->ha_trx_info(trx_scope);
 
+  /*
+    TDSQL: Special handling of XA COMMIT ONE PHASE, swap order of innodb and binlog,
+    do innodb prepare first
+  */
+  const bool is_xa_cop=
+    (thd->lex->sql_command == SQLCOM_XA_COMMIT &&
+     static_cast<Sql_cmd_xa_commit*>(thd->lex->m_sql_cmd)->get_xa_opt() == XA_ONE_PHASE);
+
   DBUG_TRACE;
 
   if (ha_info) {
-    for (; ha_info && !error; ha_info = ha_info->next()) {
-      int err = 0;
-      handlerton *ht = ha_info->ht();
+    std::vector<handlerton*> hdlrs;
+    hdlrs.clear();
+    handlerton *binlog_ht = nullptr;
+
+    for (; ha_info; ha_info = ha_info->next()) {
       /*
         Do not call two-phase commit if this particular
         transaction is read-only. This allows for simpler
         implementation in engines that are always read-only.
       */
       if (!ha_info->is_trx_read_write()) continue;
+
+      handlerton *ht = ha_info->ht();
+
+      if (is_xa_cop && ht->db_type == DB_TYPE_BINLOG) {
+        DBUG_ASSERT(binlog_ht == nullptr);
+        binlog_ht = ht;
+      } else {
+        hdlrs.push_back(ht);
+      }
+    }
+
+    if (binlog_ht) {
+      /* For X COMMIT ONE PHASE, we'll commit engine first and then binlog. */
+      hdlrs.push_back(binlog_ht);
+    }
+
+    for (auto ht : hdlrs) {
+      int err = 0;
       if ((err = ht->prepare(ht, thd, all))) {
         char errbuf[MYSQL_ERRMSG_SIZE];
         my_error(ER_ERROR_DURING_COMMIT, MYF(0), err,
-                 my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
+            my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
         error = 1;
       }
+
       DBUG_ASSERT(!thd->status_var_aggregated);
       thd->status_var.ha_prepare_count++;
+
+      if (error) {
+        break;
+      }
     }
+
     DBUG_EXECUTE_IF("crash_commit_after_prepare", DBUG_SUICIDE(););
   }
 
