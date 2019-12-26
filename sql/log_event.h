@@ -1204,6 +1204,7 @@ class Log_event {
 #endif
 };
 
+class Format_description_log_event;
 /*
    One class for each type of event.
    Two constructors for each class:
@@ -1423,6 +1424,8 @@ class Query_log_event : public virtual binary_log::Query_event,
   bool is_query_prefix_match(const char *pattern, uint p_len) {
     return !strncmp(query, pattern, p_len);
   }
+
+  void init_without_session(const char *query, const Format_description_log_event *s);
 
  private:
   /** Whether or not the statement represented by this event requires
@@ -1741,6 +1744,12 @@ class XA_prepare_log_event : public binary_log::XA_prepare_event,
   size_t get_data_size() override {
     return xid_bufs_size + my_xid.gtrid_length + my_xid.bqual_length;
   }
+
+  std::string get_xid_str() const {
+    std::string xid_str(my_xid.data, my_xid.gtrid_length);
+    return xid_str;
+  }
+
 #ifdef MYSQL_SERVER
   bool write(Basic_ostream *ostream) override;
 #else

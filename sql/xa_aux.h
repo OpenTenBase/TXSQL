@@ -77,4 +77,115 @@ inline char *serialize_xid(char *buf, long fmt, long gln, long bln,
 
 bool deserialize_xid(const char *buf, long &fmt, long &gln, long &bln, char *dat);
 
+#include <set>
+#include <atomic>
+#include "my_thread.h"
+
+typedef std::set<std::string> Txnids_t;
+class Prepared_xa_txnids {
+public:
+  class Xa_txnids_instance {
+    std::atomic<bool> atomic_locked{false};
+    Txnids_t txnids;
+    public:
+    Xa_txnids_instance() {
+      txnids.clear();
+    }
+
+    ~Xa_txnids_instance() {
+      txnids.clear();
+    }
+
+    void lock() {
+      bool expected = false;
+      while (!atomic_locked.compare_exchange_weak(expected, true)) {
+        expected = false;
+        my_thread_yield();
+      }
+    }
+
+    void unlock() {
+      atomic_locked = false;
+    }
+
+    void clear() {
+      lock();
+      txnids.clear();
+      unlock();
+    }
+
+    void add_id(const std::string &id) {
+      lock();
+      txnids.insert(id);
+      unlock();
+    }
+
+    void del_id(const std::string &id) {
+      lock();
+      txnids.erase(id);
+      unlock();
+    }
+
+    uint32_t serialize(std::string &id) {
+      uint32_t count = 0;
+      lock();
+
+      for (Txnids_t::iterator i= txnids.begin(); i != txnids.end(); ++i) {
+        id+= *i;
+        id+= "|";
+        count++;
+      }
+
+      unlock();
+
+      return count;
+    }
+  };
+
+  Prepared_xa_txnids() {}
+  ~Prepared_xa_txnids() {
+    delete [] m_instances;
+  }
+
+  uint32_t serialize(std::string &id) {
+    id.reserve(1024*4);
+    id.push_back('\'');
+    uint32_t count = 0;
+
+    for (uint32_t i = 0; i < m_parts; i++) {
+      count += m_instances[i].serialize(id);
+    }
+
+    id.push_back('\'');
+
+    return count;
+  }
+
+  void clear() {
+    for (uint32_t i = 0; i < m_parts; i++) {
+      m_instances[i].clear();
+    }
+  }
+
+  void add_id(const std::string &id);
+
+  void del_id(const std::string &id);
+
+  void from_recovery(Txnids_t &prepared, const Txnids_t &committed,
+                     const Txnids_t &aborted);
+
+  static int parse(const char *str, Txnids_t &ids);
+
+  void init(uint32_t parts);
+
+private:
+  uint32_t get_instance(const std::string &id);
+
+  uint32_t m_parts;
+
+  Xa_txnids_instance *m_instances;
+};
+
+extern Prepared_xa_txnids prepared_xa_txnids;
+
 #endif /* XA_AUX_H */

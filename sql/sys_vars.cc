@@ -7100,3 +7100,15 @@ static Sys_var_bool Sys_tdsql_allow_async(
     "When no slave ack, allow master to do asynchronous replication.",
     GLOBAL_VAR(tdsql_allow_async),
     CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_log_prepared_xid_list(
+    "log_prepared_xid_list",
+    "True if writing XA_PREPARED_LIST to binlog header",
+    GLOBAL_VAR(g_log_prepared_xid_list),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_uint Sys_prepared_xid_list_instances(
+    "log_prepared_xid_list_instances",
+    "Instance number of sets for storing prepared xids",
+    READ_ONLY GLOBAL_VAR(g_log_prepared_xid_list_instances),
+    CMD_LINE(OPT_ARG), VALID_RANGE(1, UINT_MAX), DEFAULT(8), BLOCK_SIZE(1));

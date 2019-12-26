@@ -414,11 +414,13 @@ extern bool g_sqlAsyn;
 extern bool g_sqlAsyncAfterSync;
 extern bool g_reliable_relaylog;
 extern bool tdsql_allow_async;
+extern bool g_log_prepared_xid_list;
 extern ulong g_relaylog_sync_threshold;
 extern ulong g_relaylog_fsync_ack_timeout;
 extern ulong g_relaylog_fsync_txn_count;
 extern uint g_sqlAsynTimeout;
 extern uint g_sqlAsynWarnTimeout;
+extern uint g_log_prepared_xid_list_instances;
 
 class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;

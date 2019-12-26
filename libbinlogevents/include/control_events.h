@@ -614,6 +614,8 @@ class XA_prepare_event : public Binary_log_event {
     @param fde  An FDE event (see Rotate_event constructor for more info).
   */
   XA_prepare_event(const char *buf, const Format_description_event *fde);
+
+  bool is_one_phase() const { return one_phase; }
 #ifndef HAVE_MYSYS
   /*
     todo: we need to find way how to exploit server's code of

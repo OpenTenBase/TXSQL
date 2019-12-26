@@ -43,7 +43,19 @@ Query_event::Query_event(Log_event_type type_arg)
       host(0),
       host_len(0),
       db_len(0),
-      q_len(0) { m_release_query_buf = 0;}
+      error_code(0),
+      status_vars_len(0),
+      q_len(0),
+      sql_mode_inited(0),
+      charset_inited(0),
+      m_release_query_buf(0),
+      time_zone_len(0),
+      catalog_len(0),
+      lc_time_names_number(0),
+      charset_database_number(0),
+      mts_accessed_dbs(0),
+      ddl_xid(INVALID_XID),
+      default_collation_for_utf8mb4_number(0) {}
 
 /**
   The constructor used by MySQL master to create a query event, to be

@@ -1156,7 +1156,7 @@ bool Item_func_connection_id::fix_fields(THD *thd, Item **ref) {
 }
 
 
-unsigned int Item_func_murmurHashCodeAndMod:: doMurmurHashCode(char* key, unsigned short len) {
+uint32_t doMurmurHashCode(char* key, unsigned short len) {
   /*
     'm' and 'r' are mixing constants generated offline.
      They're not really 'magic', they just happen to work well.

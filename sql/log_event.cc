@@ -4071,6 +4071,18 @@ Query_log_event::Query_log_event(
   common_header->set_is_valid(query != 0 && q_len > 0);
 }
 
+void Query_log_event::init_without_session(const char *query_arg, const Format_description_log_event *s)
+{
+  query= query_arg;
+  common_header->flags|= LOG_EVENT_SUPPRESS_USE_F;
+  event_cache_type= Log_event::EVENT_STMT_CACHE;
+  event_logging_type= Log_event::EVENT_NORMAL_LOGGING;
+  common_footer->checksum_alg= (s->common_footer)->checksum_alg;
+  q_len= strlen(query_arg);
+  server_id = s->server_id;
+}
+
+
 #ifndef MYSQL_SERVER
 /**
   Given a timestamp (microseconds since epoch), generate a string

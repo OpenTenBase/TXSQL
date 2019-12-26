@@ -1039,11 +1039,13 @@ bool g_sqlAsyn = false;
 bool g_sqlAsyncAfterSync = false;
 bool g_reliable_relaylog = true;
 bool tdsql_allow_async = false;
+bool g_log_prepared_xid_list = true;
 ulong g_relaylog_sync_threshold;
 ulong g_relaylog_fsync_ack_timeout;
 ulong g_relaylog_fsync_txn_count;
 uint g_sqlAsynTimeout;
 uint g_sqlAsynWarnTimeout;
+uint g_log_prepared_xid_list_instances = 8;
 
 CThdBottomHalf *g_thdBottomHalf = nullptr;
 #if defined(_WIN32)
@@ -4127,6 +4129,9 @@ SHOW_VAR com_status_vars[] = {
     {"xa_start",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_XA_START]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"xa_prepared_list",
+     (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_XA_PREPARED_LIST]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 LEX_CSTRING sql_statement_names[(uint)SQLCOM_END + 1];
@@ -4317,6 +4322,9 @@ int init_common_variables() {
     inited before MY_INIT(). So we do it here.
   */
   mysql_bin_log.init_pthread_objects();
+
+  /* Init instances of prepared_xa_txnids */
+  prepared_xa_txnids.init(g_log_prepared_xid_list_instances);
 
   /* TODO: remove this when my_time_t is 64 bit compatible */
   if (!is_time_t_valid_for_timestamp(server_start_time)) {
@@ -6710,6 +6718,24 @@ int mysqld_main(int argc, char **argv)
 
     if (mysql_bin_log.write_event_to_binlog_and_sync(&prev_gtids_ev))
       unireg_abort(MYSQLD_ABORT_EXIT);
+
+    /*
+       TDSQL
+       Write the 'xa prepared txn ids list', which was created in
+       (init_server_components() -> MYSQL_BIN_LOG::open_binlog) and we have to
+       defer writing it to here.
+    */
+
+    if (g_xa_prepared_le) {
+      if (mysql_bin_log.write_event_to_binlog_and_sync(g_xa_prepared_le))
+        unireg_abort(MYSQLD_ABORT_EXIT);
+
+      delete g_xa_prepared_le;
+      g_xa_prepared_le = nullptr;
+
+      delete g_xa_prepared_query;
+      g_xa_prepared_query = nullptr;
+    }
 
     (void)RUN_HOOK(server_state, after_engine_recovery, (NULL));
   }

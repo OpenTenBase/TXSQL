@@ -6800,7 +6800,12 @@ int ha_prepare(THD *thd);
 */
 
 typedef ulonglong my_xid;  // this line is the same as in log_event.h
-int ha_recover(const memroot_unordered_set<my_xid> *commit_list);
+int ha_recover(const memroot_unordered_set<my_xid> *commit_list,
+    const std::set<std::string> *xa_prepared = nullptr,
+    const std::set<std::string> *xa_cop = nullptr,
+    const std::set<std::string> *xa_committed = nullptr,
+    const std::set<std::string> *xa_aborted = nullptr);
+
 
 /**
   Perform SE-specific cleanup after recovery of transactions.

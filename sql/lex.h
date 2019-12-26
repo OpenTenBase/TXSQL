@@ -755,6 +755,7 @@ static const SYMBOL symbols[] = {
     {SYM("X509", X509_SYM)},
     {SYM("XOR", XOR)},
     {SYM("XA", XA_SYM)},
+    {SYM("XA_PREPARED_LIST", XA_PREPARED_LIST)},
     {SYM("XID", XID_SYM)},
     {SYM("XML", XML_SYM)}, /* LOAD XML Arnold/Erik */
     {SYM("YEAR", YEAR_SYM)},

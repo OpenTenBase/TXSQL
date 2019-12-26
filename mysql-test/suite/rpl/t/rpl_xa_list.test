@@ -1,0 +1,67 @@
+--source include/have_binlog_format_mixed_or_row.inc
+--source include/master-slave.inc
+
+--connection master
+
+# create tables for testing
+create table t1 (a int) engine=innodb;
+create table t2 (a int) engine=innodb;
+create table t3 (a int) engine=innodb;
+create table t4 (a int) engine=innodb;
+
+#create more connections on master
+connect (master_conn1, 127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect (master_conn2, 127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect (master_conn3, 127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect (master_conn4, 127.0.0.1,root,,test,$MASTER_MYPORT,);
+
+--connection master_conn1
+xa begin '123';
+insert into t1 values (1);
+xa end '123';
+xa prepare '123';
+
+--connection master_conn2
+xa begin '234';
+insert into t2 values (2);
+xa end '234';
+xa prepare '234';
+
+--connection master_conn3
+xa begin '345';
+insert into t3 values (3);
+xa end '345';
+xa prepare '345';
+
+--connection master_conn4
+xa begin '456';
+insert into t3 values (4);
+xa end '456';
+xa prepare '456';
+
+--connection master
+flush logs;
+--source include/sync_slave_sql_with_master.inc
+
+--connection master_conn1
+xa commit '123';
+--connection master_conn2
+xa commit '234';
+--connection master_conn3
+xa commit '345';
+--connection master_conn4
+xa commit '456';
+
+#cleanup
+--connection master
+--disconnect master_conn1
+--disconnect master_conn2
+--disconnect master_conn3
+--disconnect master_conn4
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
+

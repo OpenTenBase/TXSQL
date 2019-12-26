@@ -1026,4 +1026,7 @@ extern ulong rpl_read_size;
 
 bool normalize_binlog_name(char *to, const char *from, bool is_relay_log);
 
+class Query_log_event;
+extern Query_log_event *g_xa_prepared_le;
+extern std::string *g_xa_prepared_query;
 #endif /* BINLOG_H_INCLUDED */

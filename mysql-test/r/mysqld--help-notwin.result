@@ -553,6 +553,11 @@ The following options may be given as the first argument:
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE
+ --log-prepared-xid-list 
+ True if writing XA_PREPARED_LIST to binlog header
+ (Defaults to on; use --skip-log-prepared-xid-list to disable.)
+ --log-prepared-xid-list-instances[=#] 
+ Instance number of sets for storing prepared xids
  --log-queries-not-using-indexes 
  Log queries that are executed without benefit of any
  index to the slow log if it is open
@@ -1657,6 +1662,8 @@ log-error-suppression-list
 log-error-verbosity 2
 log-isam myisam.log
 log-output FILE
+log-prepared-xid-list TRUE
+log-prepared-xid-list-instances 8
 log-queries-not-using-indexes FALSE
 log-raw FALSE
 log-short-format FALSE
@@ -1783,7 +1790,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 218
+performance-schema-max-statement-classes 219
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1

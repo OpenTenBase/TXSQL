@@ -901,9 +901,9 @@ class Item_int_func : public Item_func {
   bool resolve_type(THD *) override { return false; }
 };
 
+uint32_t doMurmurHashCode(char * key, unsigned short len);
 class Item_func_murmurHashCodeAndMod :public Item_int_func {
   String m_str_arg;
-  unsigned int doMurmurHashCode(char * key, unsigned short len);
   public:
   Item_func_murmurHashCodeAndMod(Item *a,Item *b) :Item_int_func(a,b) {}
   Item_func_murmurHashCodeAndMod(const POS &pos, Item *a,Item *b) :Item_int_func(pos, a,b) {}

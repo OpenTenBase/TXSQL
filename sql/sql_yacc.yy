@@ -1246,6 +1246,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> MASTER_ZSTD_COMPRESSION_LEVEL_SYM  /* MYSQL */
 %token<lexer.keyword> PRIVILEGE_CHECKS_USER_SYM     /* MYSQL */
 
+%token XA_PREPARED_LIST /* MYSQL */
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
@@ -16587,6 +16588,10 @@ xa:
           {
             Lex->sql_command = SQLCOM_XA_RECOVER;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_recover($3);
+          }
+        | XA_PREPARED_LIST text_string
+          {
+            Lex->sql_command = SQLCOM_XA_PREPARED_LIST;
           }
         ;
 

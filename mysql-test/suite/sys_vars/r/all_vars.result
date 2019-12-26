@@ -112,6 +112,10 @@ innodb_log_writer_timeout
 innodb_log_writer_timeout
 keyring_operations
 keyring_operations
+log_prepared_xid_list
+log_prepared_xid_list
+log_prepared_xid_list_instances
+log_prepared_xid_list_instances
 mandatory_roles
 mandatory_roles
 partial_revokes

@@ -606,7 +606,7 @@ dberr_t trx_undo_gtid_add_update_undo(trx_t *trx, bool prepare, bool rollback) {
   auto undo_ptr = &trx->rsegs.m_redo;
   dberr_t db_err = DB_SUCCESS;
   if (!undo_ptr->update_undo) {
-    ut_ad(!rollback);
+    ut_ad(!rollback || trx->state == TRX_STATE_PREPARED);
     mutex_enter(&trx->undo_mutex);
     db_err = trx_undo_assign_undo(trx, undo_ptr, TRX_UNDO_UPDATE);
     mutex_exit(&trx->undo_mutex);

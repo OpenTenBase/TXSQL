@@ -1402,7 +1402,6 @@ int ha_prepare(THD *thd) {
   DBUG_TRACE;
 
   if (trn_ctx->is_active(Transaction_ctx::SESSION)) {
-    const bool is_xa_prepare= (thd->lex->sql_command == SQLCOM_XA_PREPARE);
     const Ha_trx_info *ha_info = trn_ctx->ha_trx_info(Transaction_ctx::SESSION);
     bool gtid_error = false, need_clear_owned_gtid = false;
 
@@ -1414,37 +1413,36 @@ int ha_prepare(THD *thd) {
       goto err;
     }
 
-    /* Allow GTID to be read by SE for XA prepare. */
+    /** ATTENTION: We break the protocol of clone plugin, because it must allow
+    GTID to be read by SE for XA prepare. But we change the order to let engine
+    prepare first and then write binlog. So the engine can't get gtid. */
     {
       Clone_handler::XA_Operation xa_guard(thd);
 
-      std::vector<handlerton*> hdlrs;
-      hdlrs.clear();
-      handlerton *binlog_ht = nullptr;
+      /* For now, only XA Prepare invokes this function */
+      DBUG_ASSERT(thd->lex->sql_command == SQLCOM_XA_PREPARE);
 
-      while (ha_info != nullptr) {
-        handlerton *ht = ha_info->ht();
+      handlerton *xa_binlog_ht = nullptr;
 
-        /* For XA PREPARE, it should prepare engine first and then write binlog*/
-        if (is_xa_prepare && ht->db_type == DB_TYPE_BINLOG) {
-          DBUG_ASSERT(binlog_ht == nullptr);
-          binlog_ht = ht;
+      /** Prepare engines other than binlog ht */
+      for (; ha_info; ha_info = ha_info->next()) {
+        auto ht = ha_info->ht();
+
+        if (ht->db_type == DB_TYPE_BINLOG) {
+          DBUG_ASSERT(xa_binlog_ht == nullptr);
+          xa_binlog_ht = ht;
+          continue;
         } else {
-          hdlrs.push_back(ht);
+          error = prepare_one_ht(thd, ht);
+          if (error) {
+            break;
+          }
         }
-
-        ha_info = ha_info->next();
       }
 
-      if (binlog_ht != nullptr) {
-        hdlrs.push_back(binlog_ht);
-      }
-
-      for (auto ht : hdlrs) {
-        error = prepare_one_ht(thd, ht);
-        if (error != 0) {
-          break;
-        }
+      /** Write binlog */
+      if (!error && xa_binlog_ht != nullptr) {
+        error = prepare_one_ht(thd, xa_binlog_ht);
       }
     }
 
@@ -2271,9 +2269,7 @@ int ha_prepare_low(THD *thd, bool all) {
   DBUG_TRACE;
 
   if (ha_info) {
-    std::vector<handlerton*> hdlrs;
-    hdlrs.clear();
-    handlerton *binlog_ht = nullptr;
+    handlerton *xa_binlog_ht = nullptr;
 
     for (; ha_info; ha_info = ha_info->next()) {
       /*
@@ -2286,33 +2282,39 @@ int ha_prepare_low(THD *thd, bool all) {
       handlerton *ht = ha_info->ht();
 
       if (is_xa_cop && ht->db_type == DB_TYPE_BINLOG) {
-        DBUG_ASSERT(binlog_ht == nullptr);
-        binlog_ht = ht;
+        DBUG_ASSERT(xa_binlog_ht == nullptr);
+        xa_binlog_ht = ht;
+        continue;
       } else {
-        hdlrs.push_back(ht);
+        int err = 0;
+        if ((err = ht->prepare(ht, thd, all))) {
+          char errbuf[MYSQL_ERRMSG_SIZE];
+          my_error(ER_ERROR_DURING_COMMIT, MYF(0), err,
+              my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
+          error = 1;
+        }
+
+        DBUG_ASSERT(!thd->status_var_aggregated);
+        thd->status_var.ha_prepare_count++;
+
+        if (error) {
+          break;
+        }
       }
     }
 
-    if (binlog_ht) {
       /* For X COMMIT ONE PHASE, we'll commit engine first and then binlog. */
-      hdlrs.push_back(binlog_ht);
-    }
+    if (error == 0 && xa_binlog_ht != nullptr) {
+        int err = 0;
+        if ((err = xa_binlog_ht->prepare(xa_binlog_ht, thd, all))) {
+          char errbuf[MYSQL_ERRMSG_SIZE];
+          my_error(ER_ERROR_DURING_COMMIT, MYF(0), err,
+              my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
+          error = 1;
+        }
 
-    for (auto ht : hdlrs) {
-      int err = 0;
-      if ((err = ht->prepare(ht, thd, all))) {
-        char errbuf[MYSQL_ERRMSG_SIZE];
-        my_error(ER_ERROR_DURING_COMMIT, MYF(0), err,
-            my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
-        error = 1;
-      }
-
-      DBUG_ASSERT(!thd->status_var_aggregated);
-      thd->status_var.ha_prepare_count++;
-
-      if (error) {
-        break;
-      }
+        DBUG_ASSERT(!thd->status_var_aggregated);
+        thd->status_var.ha_prepare_count++;
     }
 
     DBUG_EXECUTE_IF("crash_commit_after_prepare", DBUG_SUICIDE(););
