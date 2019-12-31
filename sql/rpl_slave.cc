@@ -5427,7 +5427,7 @@ reading event"))
         }
 #endif
         QUEUE_EVENT_RESULT queue_res = queue_event(mi, event_buf, event_len,
-                                                    true/*FIXME: should we always flush master info */,
+                                                    g_reliable_relaylog, /* true if flushing master info */
                                                     needAck, synced);
         if (queue_res == QUEUE_EVENT_ERROR_QUEUING) {
           mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
@@ -7988,7 +7988,6 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       if (!needAck && event_type == QUERY_EVENT) {
         Query_log_event qe(buf, mi->get_mi_description_event(), event_type);
         needAck= qe.ends_group();
-        //FIXME
         mi->setLastGtidIsDdl((qe.header()->flags) & LOG_EVENT_DDL_F);
       }
     }

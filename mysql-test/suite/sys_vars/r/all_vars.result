@@ -134,8 +134,6 @@ relay_log_sync_txn_count
 resultset_metadata
 sql_require_primary_key
 sql_require_primary_key
-tdsql_hide_partitions
-tdsql_hide_partitions
 sqlasyn
 sqlasyn
 sqlasync_after_sync
@@ -146,6 +144,8 @@ sqlasynwarntimeout
 sqlasynwarntimeout
 tdsql_allow_async
 tdsql_allow_async
+tdsql_hide_partitions
+tdsql_hide_partitions
 tdsql_relay_log_opt
 tdsql_relay_log_opt
 temptable_use_mmap
