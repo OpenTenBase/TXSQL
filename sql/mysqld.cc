@@ -1172,6 +1172,7 @@ uint slave_rows_last_search_algorithm_used;
 ulong mts_parallel_option;
 ulong binlog_cache_size = 0;
 ulonglong max_binlog_cache_size = 0;
+ulonglong binlog_write_threshold = 0;
 ulong slave_max_allowed_packet = 0;
 ulong binlog_stmt_cache_size = 0;
 int32 opt_binlog_max_flush_queue_time = 0;

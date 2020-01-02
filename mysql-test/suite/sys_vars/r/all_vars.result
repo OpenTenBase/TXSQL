@@ -24,6 +24,8 @@ binlog_rotate_encryption_master_key_at_startup
 binlog_rotate_encryption_master_key_at_startup
 txsql_kill_idle_trans_timeout
 txsql_kill_idle_trans_timeout
+binlog_write_threshold
+binlog_write_threshold
 cdb_skip_event_scheduler
 cdb_skip_event_scheduler
 cte_max_recursion_depth
@@ -116,6 +118,7 @@ partial_revokes
 partial_revokes
 password_require_current
 password_require_current
+pseudo_server_id
 regexp_stack_limit
 regexp_stack_limit
 regexp_time_limit

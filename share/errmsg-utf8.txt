@@ -9169,9 +9169,12 @@ ER_WARN_DA_PRIVILEGE_NOT_REGISTERED
 
 ER_EXPLICIT_LIMIT_REQUIRED
   eng "Explicit limit required to be set no greater than %llu (rows)."
+
 ER_REMOTE_OPERATION_DENIED
   eng "Operation only allowed for clients connected via local unix socket when corresponding '%s' variable is ON."
 
+ER_BINLOG_THRESHOLD_EXCEEDED
+  eng "binlog write threshold(%lu) exceeded, the transaction has %lu (bytes) binlogs, it is aborted."
 #
 #  End of 8.0 error messages (server-to-client).
 #  Do NOT add messages intended for the error log above!

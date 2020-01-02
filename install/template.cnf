@@ -300,6 +300,12 @@ slave_pending_jobs_size_max=1677721600
 #mysqlx: disable it by default
 mysqlx=0
 
+# If non-zero, the NO. of bytes a transaction is allowed to write into the
+# binlog file at transaction commit, if the threshold is exceeded the txn is
+# rolled back by mysql when it's to be committed, and no binlogs of it is
+# written to the binlog file.
+binlog_write_threshold=1610612736
+
 !include  base_dir/etc/frominstall_my_change_port_before_use.ini
 !include  base_dir/etc/add_my_change_port_before_use.ini
 

@@ -7033,3 +7033,11 @@ static Sys_var_charptr Sys_tdsql_hide_partitions(
     GLOBAL_VAR(tdsql_disable_partitions), CMD_LINE(OPT_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_hide_partitions));
+
+static Sys_var_ulonglong Sys_binlog_write_threshold(
+    "binlog_write_threshold", "The max allowed size (in bytes) of the transactional and"
+    " statement cache for current transaction. If there are more than this"
+    " binlog, the transaction commit will fail.",
+    GLOBAL_VAR(binlog_write_threshold),
+    CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, SIZE_T_MAX), DEFAULT(0), BLOCK_SIZE(1));

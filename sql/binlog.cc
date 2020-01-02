@@ -568,6 +568,7 @@ class binlog_cache_data {
         ptr_binlog_cache_use(ptr_binlog_cache_use_arg),
         ptr_binlog_cache_disk_use(ptr_binlog_cache_disk_use_arg) {
     flags.transactional = trx_cache_arg;
+    err_binlog_size = 0;
   }
 
   bool open(my_off_t cache_size, my_off_t max_cache_size) {
@@ -578,7 +579,7 @@ class binlog_cache_data {
   int finalize(THD *thd, Log_event *end_event);
   int finalize(THD *thd, Log_event *end_event, XID_STATE *xs);
   int flush(THD *thd, my_off_t *bytes, bool *wrote_xid);
-  int write_event(Log_event *event);
+  int write_event(THD *thd, Log_event *event);
   size_t get_event_counter() { return event_counter; }
 
   virtual ~binlog_cache_data() {
@@ -683,6 +684,7 @@ class binlog_cache_data {
     */
     cache_state_map.clear();
     event_counter = 0;
+    err_binlog_size = 0;
     DBUG_ASSERT(is_binlog_empty());
   }
 
@@ -747,6 +749,7 @@ class binlog_cache_data {
     return is_binlog_empty() || has_empty_transaction();
   }
 
+  my_off_t err_binlog_size;
  protected:
   /*
     This structure should have all cache variables/flags that should be restored
@@ -790,7 +793,7 @@ class binlog_cache_data {
   int flush_pending_event(THD *thd) {
     if (m_pending) {
       m_pending->set_flags(Rows_log_event::STMT_END_F);
-      if (int error = write_event(m_pending)) return error;
+      if (int error = write_event(thd, m_pending)) return error;
       thd->clear_binlog_table_maps();
     }
     return 0;
@@ -1356,7 +1359,7 @@ static int binlog_close_connection(handlerton *, THD *thd) {
   return 0;
 }
 
-int binlog_cache_data::write_event(Log_event *ev) {
+int binlog_cache_data::write_event(THD *thd, Log_event *ev) {
   DBUG_TRACE;
 
   if (ev != nullptr) {
@@ -1389,6 +1392,15 @@ int binlog_cache_data::write_event(Log_event *ev) {
     if (ev->starts_group()) flags.with_start = true;
     if (ev->ends_group()) flags.with_end = true;
     if (!ev->starts_group() && !ev->ends_group()) flags.with_content = true;
+
+    my_off_t binlog_sz;
+    ulonglong threshold = binlog_write_threshold;
+    if (threshold > 0 && thd->system_thread == NON_SYSTEM_THREAD &&
+        (binlog_sz = get_byte_position()) > threshold) {
+      err_binlog_size = binlog_sz;
+      return 1;
+    }
+
     event_counter++;
     DBUG_PRINT("debug",
                ("event_counter= %lu", static_cast<ulong>(event_counter)));
@@ -1653,7 +1665,7 @@ int MYSQL_BIN_LOG::gtid_end_transaction(THD *thd) {
         event and Gtid_log_event)
       */
       DBUG_PRINT("debug", ("Writing to trx_cache"));
-      if (cache_data->write_event(&qinfo) || mysql_bin_log.commit(thd, true))
+      if (cache_data->write_event(thd, &qinfo) || mysql_bin_log.commit(thd, true))
         return 1;
     }
   } else if (thd->owned_gtid.sidno == THD::OWNED_SIDNO_ANONYMOUS ||
@@ -1795,7 +1807,7 @@ int binlog_cache_data::finalize(THD *thd, Log_event *end_event) {
   if (!is_binlog_empty()) {
     DBUG_ASSERT(!flags.finalized);
     if (int error = flush_pending_event(thd)) return error;
-    if (int error = write_event(end_event)) return error;
+    if (int error = write_event(thd, end_event)) return error;
     flags.finalized = true;
     DBUG_PRINT("debug", ("flags.finalized: %s", YESNO(flags.finalized)));
   }
@@ -1816,7 +1828,7 @@ int binlog_cache_data::finalize(THD *thd, Log_event *end_event, XID_STATE *xs) {
   int qlen = sprintf(query, "XA END %s", xs->get_xid()->serialize(buf));
   Query_log_event qev(thd, query, qlen, true, false, true, 0);
 
-  if ((error = write_event(&qev))) return error;
+  if ((error = write_event(thd, &qev))) return error;
 
   return finalize(thd, end_event);
 }
@@ -5303,9 +5315,18 @@ void MYSQL_BIN_LOG::report_cache_write_error(THD *thd, bool is_transactional) {
       my_error(ER_STMT_CACHE_FULL, MYF(MY_WME));
     }
   } else {
-    char errbuf[MYSYS_STRERROR_SIZE];
-    my_error(ER_ERROR_ON_WRITE, MYF(MY_WME), name, errno,
-             my_strerror(errbuf, sizeof(errbuf), errno));
+    binlog_cache_mngr *const cache_mgr = thd_get_cache_mngr(thd);
+    binlog_cache_data *cache_data =
+      cache_mgr ? cache_mgr->get_binlog_cache_data(is_transactional) : 0;
+
+    if (cache_data && cache_data->err_binlog_size > 0) {
+      my_error(ER_BINLOG_THRESHOLD_EXCEEDED, MYF(0),
+               binlog_write_threshold, cache_data->err_binlog_size);
+    } else {
+      char errbuf[MYSYS_STRERROR_SIZE];
+      my_error(ER_ERROR_ON_WRITE, MYF(MY_WME), name, errno,
+               my_strerror(errbuf, sizeof(errbuf), errno));
+    }
   }
 }
 
@@ -6862,13 +6883,16 @@ int MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
     /*
       Write pending event to the cache.
     */
-    if (cache_data->write_event(pending)) {
+    if (cache_data->write_event(thd, pending)) {
       report_cache_write_error(thd, is_transactional);
       if (check_write_error(thd) && cache_data &&
           stmt_cannot_safely_rollback(thd))
         cache_data->set_incident();
       delete pending;
       cache_data->set_pending(nullptr);
+      if (cache_data->err_binlog_size > 0) {
+        thd->mark_transaction_to_rollback(true);
+      }
       return 1;
     }
 
@@ -6965,7 +6989,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
               thd, (uchar)binary_log::Intvar_event::LAST_INSERT_ID_EVENT,
               thd->first_successful_insert_id_in_prev_stmt_for_binlog,
               event_info->event_cache_type, event_info->event_logging_type);
-          if (cache_data->write_event(&e)) goto err;
+          if (cache_data->write_event(thd, &e)) goto err;
         }
         if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() > 0) {
           DBUG_PRINT(
@@ -6976,13 +7000,13 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
               thd, (uchar)binary_log::Intvar_event::INSERT_ID_EVENT,
               thd->auto_inc_intervals_in_cur_stmt_for_binlog.minimum(),
               event_info->event_cache_type, event_info->event_logging_type);
-          if (cache_data->write_event(&e)) goto err;
+          if (cache_data->write_event(thd, &e)) goto err;
         }
         if (thd->rand_used) {
           Rand_log_event e(thd, thd->rand_saved_seed1, thd->rand_saved_seed2,
                            event_info->event_cache_type,
                            event_info->event_logging_type);
-          if (cache_data->write_event(&e)) goto err;
+          if (cache_data->write_event(thd, &e)) goto err;
         }
         if (!thd->user_var_events.empty()) {
           for (size_t i = 0; i < thd->user_var_events.size(); i++) {
@@ -6999,7 +7023,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
                 user_var_event->value, user_var_event->length,
                 user_var_event->type, user_var_event->charset_number, flags,
                 event_info->event_cache_type, event_info->event_logging_type);
-            if (cache_data->write_event(&e)) goto err;
+            if (cache_data->write_event(thd, &e)) goto err;
           }
         }
       }
@@ -7008,7 +7032,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
     /*
       Write the event.
     */
-    if (cache_data->write_event(event_info)) goto err;
+    if (cache_data->write_event(thd, event_info)) goto err;
 
     if (DBUG_EVALUATE_IF("injecting_fault_writing", 1, 0)) goto err;
 
@@ -7028,6 +7052,10 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
       if (check_write_error(thd) && cache_data &&
           stmt_cannot_safely_rollback(thd))
         cache_data->set_incident();
+    }
+    
+    if (cache_data && cache_data->err_binlog_size > 0) {
+      thd->mark_transaction_to_rollback(true);
     }
   }
 
@@ -7291,7 +7319,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, THD *thd,
       written for it prior to flushing the stmt_cache.
     */
     binlog_cache_data *cache_data = cache_mngr->get_binlog_cache_data(false);
-    if ((error = cache_data->write_event(ev))) {
+    if ((error = cache_data->write_event(thd, ev))) {
       LogErr(ERROR_LEVEL, ER_BINLOG_EVENT_WRITE_TO_STMT_CACHE_FAILED);
       cache_mngr->stmt_cache.reset();
       return error;
@@ -9348,7 +9376,7 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event) {
 
     Query_log_event qinfo(thd, query, qlen, is_transactional, false, true, 0,
                           true);
-    if (cache_data->write_event(&qinfo)) return 1;
+    if (cache_data->write_event(thd, &qinfo)) return 1;
   }
 
   return 0;
@@ -9398,10 +9426,10 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
     /* Write the Rows_query_log_event into binlog before the table map */
     Rows_query_log_event rows_query_ev(this, this->query().str,
                                        this->query().length);
-    if ((error = cache_data->write_event(&rows_query_ev))) return error;
+    if ((error = cache_data->write_event(this, &rows_query_ev))) return error;
   }
 
-  if ((error = cache_data->write_event(&the_event))) return error;
+  if ((error = cache_data->write_event(this, &the_event))) return error;
 
   binlog_table_maps++;
   return 0;
