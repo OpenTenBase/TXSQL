@@ -297,6 +297,9 @@ slave_pending_jobs_size_max=1677721600
 #innodb_undo_log_truncate=on
 #innodb_undo_tablespaces=4
 
+#mysqlx: disable it by default
+mysqlx=0
+
 !include  base_dir/etc/frominstall_my_change_port_before_use.ini
 !include  base_dir/etc/add_my_change_port_before_use.ini
 
