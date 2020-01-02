@@ -183,6 +183,7 @@ extern char empty_c_string[1];
 extern LEX_STRING NULL_STR;
 extern LEX_CSTRING EMPTY_CSTR;
 extern LEX_CSTRING NULL_CSTR;
+extern unsigned long txsql_kill_idle_trans_timeout;
 
 /*
   We preallocate data for several storage engine plugins.
@@ -1327,6 +1328,15 @@ class THD : public MDL_context_owner,
 
   /* <> 0 if we are inside of trigger or stored function. */
   uint in_sub_stmt;
+
+  inline ulong get_wait_timeout(void) const {
+    if (in_active_multi_stmt_transaction()
+        && txsql_kill_idle_trans_timeout > 0
+        && txsql_kill_idle_trans_timeout < variables.net_wait_timeout)
+      return txsql_kill_idle_trans_timeout;
+
+    return variables.net_wait_timeout;
+  }
 
   /**
     Used by fill_status() to avoid acquiring LOCK_status mutex twice

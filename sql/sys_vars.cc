@@ -6769,3 +6769,11 @@ static Sys_var_charptr Sys_protocol_compression_algorithms(
     DEFAULT(const_cast<char *>(PROTOCOL_COMPRESSION_DEFAULT_VALUE)),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_set_protocol_compression_algorithms), ON_UPDATE(0));
+
+static Sys_var_ulong Sys_txsql_kill_idle_trans_timeout(
+  "txsql_kill_idle_trans_timeout",
+  "The number of seconds the server waits for next command on an "
+  "active transaction before closing it",
+  GLOBAL_VAR(txsql_kill_idle_trans_timeout), CMD_LINE(OPT_ARG),
+  VALID_RANGE(0, LONG_TIMEOUT),
+  DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));

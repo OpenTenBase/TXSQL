@@ -22,6 +22,14 @@
 
 MESSAGE(STATUS "Running cmake version ${CMAKE_VERSION}")
 
+## if you want to use ccache to speed up compile, install ccache and then, uncomment below cmake lines
+## use make -VERBOSE to check if ccache enabled
+#find_program(CCACHE_FOUND ccache)
+#if(CCACHE_FOUND)
+#  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+#  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+#endif(CCACHE_FOUND)
+
 IF(WIN32)
   # CMake 3.8.0 is needed for Visual Studio 2017 and x64 toolset.
   CMAKE_MINIMUM_REQUIRED(VERSION 3.8.0)

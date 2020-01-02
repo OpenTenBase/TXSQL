@@ -1013,6 +1013,8 @@ bool migrate_connect_options = 0;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 
+unsigned long txsql_kill_idle_trans_timeout= 0;
+
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.
