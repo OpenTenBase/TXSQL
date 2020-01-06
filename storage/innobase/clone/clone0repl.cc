@@ -49,6 +49,8 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   if (!is_active() || gtid_table_persistor == nullptr) {
     return;
   }
+
+  trx_sys_mutex_enter();
   /* Get active GTID list */
   auto &current_gtids = get_active_list();
 
@@ -56,6 +58,8 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   current_gtids.push_back(gtid_desc.m_info);
   /* Atomic increment. */
   int current_value = ++m_num_gtid_mem;
+
+  trx_sys_mutex_exit();
 
   /* Wake up background if GTIDs crossed threshold. */
   if (current_value == s_gtid_threshold) {

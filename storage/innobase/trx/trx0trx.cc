@@ -2609,14 +2609,14 @@ static void trx_prepare(trx_t *trx) /*!< in/out: transaction */
 
   /*--------------------------------------*/
   ut_a(trx->state == TRX_STATE_ACTIVE);
-  trx_sys_mutex_enter();
+  trx_mutex_enter(trx);
   trx->state = TRX_STATE_PREPARED;
+  trx_mutex_exit(trx);
   trx_sys->n_prepared_trx++;
   /* Add GTID to be persisted to disk table, if needed. */
   if (gtid_desc.m_is_set) {
     gtid_persistor.add(gtid_desc);
   }
-  trx_sys_mutex_exit();
   /*--------------------------------------*/
   DEBUG_SYNC_C("trx_prepare_has_changed_state");
 
