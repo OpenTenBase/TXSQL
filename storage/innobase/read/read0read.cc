@@ -324,6 +324,13 @@ loop:
   ut_ad(m_up_limit_id <= m_low_limit_id);
 }
 
+void ReadView::clone(ReadView *other) {
+  m_low_limit_id = other->low_limit_id();
+  m_low_limit_no = other->low_limit_no();
+  m_up_limit_id = other->up_limit_id();
+  m_ids = other->m_ids;
+}
+
 void MVCC::add_list(ReadView* view) {
   ut_ad(trx_sys_mutex_own());
 
@@ -380,10 +387,15 @@ void MVCC::clone_oldest_view(ReadView *view) {
 
   view->snapshot(NULL, false);
 
-  uint64_t old_view_prepare = read_view_create_prepare.load();
-  //FIXME
-  /* Make sure all read view started before current point is done. */
-  while (read_view_create_done.load() < old_view_prepare) {
+  /* It's possible that there are ongoing view creation while taking
+  snapshot here, and we must make sure that these views are all added
+  to view list, otherwise we may create a purge view which is 'newer'
+  than user view.
+  
+  The following while loop may consume more cpu if under heavy read
+  write workload, but let's tolerate this, as it only affects purge
+  thread. */
+  while (read_view_create_done.load() != read_view_create_prepare.load()) {
     ut_delay(1);
   }
  

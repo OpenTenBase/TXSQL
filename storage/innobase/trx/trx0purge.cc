@@ -2209,11 +2209,14 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
   /* The number of tasks submitted should be completed. */
   ut_a(purge_sys->n_submitted == purge_sys->n_completed);
 
+  ReadView view;
+  trx_sys->mvcc->clone_oldest_view(&view);
+
   rw_lock_x_lock(&purge_sys->latch);
 
   purge_sys->view_active = false;
 
-  trx_sys->mvcc->clone_oldest_view(&purge_sys->view);
+  purge_sys->view.clone(&view);
 
   purge_sys->view_active = true;
 

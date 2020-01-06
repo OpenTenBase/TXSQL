@@ -148,6 +148,9 @@ class ReadView {
   /** Take a subset of two read view */
   void subset(ReadView *other);
 
+  /** Clone from another read view */
+  void clone(ReadView *other);
+
   /** Take a snapshot of current transaction state
   @param[in] trx  transaction object
   @param[in] add_list true if the read view needs adding to list */
