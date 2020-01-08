@@ -1329,6 +1329,10 @@ lock_t *RecLock::create(trx_t *trx, bool add_to_hash, const lock_prdt_t *prdt) {
 
   lock_add(lock, add_to_hash);
 
+  if (lock->is_gap() || lock->is_next_key_lock()) {
+    trx->has_gap_locks = true;
+  }
+
   return (lock);
 }
 

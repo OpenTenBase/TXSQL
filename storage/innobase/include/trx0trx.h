@@ -1168,6 +1168,7 @@ struct trx_t {
   bool api_trx;                /*!< trx started by InnoDB API */
   bool api_auto_commit;        /*!< automatic commit */
   bool read_write;             /*!< if read and write operation */
+  bool has_gap_locks;          /*!< if trx holds GAP lock */
 
   /*------------------------------*/
   char *detailed_error;          /*!< detailed error message for last
