@@ -267,7 +267,7 @@ while(<FILE>) {
   }
 }
 
-if (!$found)
+if ($found)
 {
   print "**** ERROR **** Table map 'end_log_pos $table_map_log_pos  Table_map' NOT FOUND in mysqlbinlog output ($flags $file).";
   seek(FILE, 0, 0);

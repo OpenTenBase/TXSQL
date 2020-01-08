@@ -282,6 +282,7 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   char public_key_path[FN_REFLEN];
   bool ssl_verify_server_cert;
   bool get_public_key;
+  bool is_in_transaction;   /* in a transaction */
 
   MYSQL *mysql;
   uint32 file_id; /* for 3.23 load data infile */
@@ -436,6 +437,7 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
  protected:
   char master_log_name[FN_REFLEN];
   my_off_t master_log_pos;
+  my_off_t complete_trx_log_pos;
 
  public:
   inline const char *get_master_log_name() { return master_log_name; }
@@ -469,6 +471,14 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
      fields of the table repository.
   */
   static const uint *get_table_pk_field_indexes();
+
+  inline void set_complete_trx_log_pos(ulonglong log_pos) {
+    complete_trx_log_pos = log_pos;
+  }
+
+  inline ulonglong get_complete_trx_log_pos() {
+    return complete_trx_log_pos;
+  }
 
   /**
      Sets bits for columns that are allowed to be `NULL`.
@@ -532,6 +542,7 @@ class Master_info : public Rpl_info, public Gtid_mode_copy {
   }
 
   void init_master_log_pos();
+  void init_complete_trx_log_pos();
 
  private:
   bool read_info(Rpl_info_handler *from);

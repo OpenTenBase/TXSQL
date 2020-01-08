@@ -1,0 +1,14 @@
+use test;
+--disable_warnings
+CREATE TABLE tab(c1 int NOT NULL PRIMARY KEY,c2 POINT NOT NULL,c3 LINESTRING NOT NULL,c4 POLYGON NOT NULL,c5 GEOMETRY NOT NULL, SPATIAL KEY idx2(c2), SPATIAL KEY idx3(c3), SPATIAL KEY idx4(c4), SPATIAL KEY idx5(c5))ENGINE=InnoDB;
+--enable_warnings
+INSERT INTO tab(c1,c2,c3,c4,c5) VALUES(1,ST_GeomFromText('POINT(10 10)'),ST_GeomFromText('LINESTRING(5 5,20 20,30 30)'),ST_GeomFromText('POLYGON((30 30,40 40,50 50,30 50,30 40,30 30))'),ST_GeomFromText('POLYGON((30 30,40 40,50 50,30 50,30 40,30 30))'));
+INSERT INTO tab(c1,c2,c3,c4,c5) VALUES(2,ST_GeomFromText('POINT(20 20)'),ST_GeomFromText('LINESTRING(20 20,30 30,40 40)'),ST_GeomFromText('POLYGON((40 50,40 70,50 100,70 100,80 80,70 50,40 50))'),ST_GeomFromText('POLYGON((40 50,40 70,50 100,70 100,80 80,70 50,40 50))'));
+INSERT INTO tab(c1,c2,c3,c4,c5) VALUES(3,ST_GeomFromText('POINT(20 20)'),ST_GeomFromText('LINESTRING(20 20,30 30,40 40)'),ST_GeomFromText('POLYGON((40 50,40 70,50 100,70 100,80 80,70 50,40 50))'),ST_GeomFromText('POLYGON((40 50,40 70,50 100,70 100,80 80,70 50,40 50))'));
+
+
+alter table tab drop primary key, add column new_uniq_col int NOT NULL AUTO_INCREMENT FIRST, add unique index uniq_idx(new_uniq_col);
+
+delete from tab;
+
+drop table tab;

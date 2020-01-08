@@ -100,6 +100,10 @@ class index_tuple_info_t {
 
     ut_ad(dtuple);
 
+    for (ulint i = 0; i < dtuple->n_fields; i++) {
+      dfield_dup(dtuple->fields + i, m_heap);
+    }
+
     m_dtuple_vec->push_back(dtuple);
   }
 
