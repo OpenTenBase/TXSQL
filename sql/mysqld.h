@@ -421,6 +421,7 @@ extern ulong g_relaylog_fsync_txn_count;
 extern uint g_sqlAsynTimeout;
 extern uint g_sqlAsynWarnTimeout;
 extern uint g_log_prepared_xid_list_instances;
+extern uint g_simple_slow_logging;
 
 class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;

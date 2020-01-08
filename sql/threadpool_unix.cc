@@ -115,6 +115,7 @@ struct connection_t {
   thread_group_t *thread_group;
   connection_t *next_in_queue;
   connection_t **prev_in_queue;
+  ulonglong when_enqueued;
   ulonglong abs_wait_timeout;
   bool logged_in;
   bool bound_to_poll_descriptor;
@@ -796,6 +797,7 @@ static connection_t *listener(thread_group_t *thread_group) {
     */
     for (int i = (listener_picks_event) ? 1 : 0; i < cnt; i++) {
       connection_t *c = (connection_t *)native_event_get_userdata(&ev[i]);
+      c->when_enqueued = my_micro_time();
       if (connection_is_high_prio(*c)) {
         c->tickets--;
         thread_group->high_prio_queue.push_back(c);
@@ -808,6 +810,7 @@ static connection_t *listener(thread_group_t *thread_group) {
     if (listener_picks_event) {
       /* Handle the first event. */
       retval = (connection_t *)native_event_get_userdata(&ev[0]);
+      retval->when_enqueued = 0;
       mysql_mutex_unlock(&thread_group->mutex);
       break;
     }
@@ -1077,6 +1080,7 @@ static void queue_put(thread_group_t *thread_group, connection_t *connection) {
 
   mysql_mutex_lock(&thread_group->mutex);
   connection->tickets = connection->thd->variables.threadpool_high_prio_tickets;
+  connection->when_enqueued = my_micro_time();
   thread_group->queue.push_back(connection);
 
   if (thread_group->active_thread_count == 0)
@@ -1157,9 +1161,10 @@ static connection_t *get_event(worker_thread_t *current_thread,
           must either have a high priority ticket, or there must be not too many
           busy threads (as if it was coming from a low priority queue).
         */
-        if (connection_is_high_prio(*connection))
+        if (connection_is_high_prio(*connection)) {
           connection->tickets--;
-        else if (too_many_busy_threads(*thread_group)) {
+          connection->when_enqueued = 0;
+        } else if (too_many_busy_threads(*thread_group)) {
           /*
             Not eligible for high priority processing. Restore tickets and put
             it into the low priority queue.
@@ -1167,6 +1172,7 @@ static connection_t *get_event(worker_thread_t *current_thread,
 
           connection->tickets =
               connection->thd->variables.threadpool_high_prio_tickets;
+          connection->when_enqueued = my_micro_time();
           thread_group->queue.push_back(connection);
           connection = nullptr;
         }
@@ -1272,6 +1278,7 @@ static connection_t *alloc_connection(THD *thd) noexcept {
     connection->waiting = false;
     connection->logged_in = false;
     connection->bound_to_poll_descriptor = false;
+    connection->when_enqueued = 0;
     connection->abs_wait_timeout = ULLONG_MAX;
     connection->tickets = 0;
     connection->ans_should_abort= false;
@@ -1507,7 +1514,11 @@ static void handle_event(connection_t *connection) {
     err = threadpool_add_connection(connection->thd);
     connection->logged_in = true;
   } else {
+    connection->thd->usecs_in_q = (connection->when_enqueued > 0 ?
+                    my_micro_time() - connection->when_enqueued : 0);
     err = threadpool_process_request(connection->thd);
+    connection->thd->usecs_in_q = 0;
+    connection->when_enqueued = 0;
   }
 
   if (err) goto end;

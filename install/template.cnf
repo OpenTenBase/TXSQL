@@ -103,7 +103,7 @@ skip-slave-start
 slave_skip_errors=1397
 slave_preserve_commit_order=ON
 #sql_log_bin = ON
-#tdsql_compute_query_time_for_slow_logging=2
+tdsql_compute_query_time_for_slow_logging=2
 #xa_commit_lock_wait_timeout = 3600
 
 # 3seconds

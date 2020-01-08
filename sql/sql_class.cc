@@ -566,6 +566,8 @@ THD::THD(bool enable_plugins)
 
   m_delay_commit = false;
 
+  usecs_in_q = 0;
+
   if (max_digest_length > 0) {
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
                                                max_digest_length, MYF(MY_WME));
@@ -2849,6 +2851,18 @@ void thd_statistics_io_time(uintmax_t current_io_time) {
   if (thd) {
     thd->cur_query_io_utime+= current_io_time;
   }
+
+void THD::update_slow_query_status() {
+  ulonglong exec_time = 0;
+  exec_time = my_micro_time() - (g_simple_slow_logging ? start_utime : utime_after_lock);
+  if (g_simple_slow_logging == 2) {
+    exec_time += usecs_in_q;
+  }
+
+  if (exec_time > variables.long_query_time) {
+    server_status |= SERVER_QUERY_WAS_SLOW;
+  }
+}
 
 bool is_cloud_internal_user(const char *user) {
   return (user &&

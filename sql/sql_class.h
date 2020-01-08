@@ -1401,6 +1401,12 @@ class THD : public MDL_context_owner,
   ulonglong start_trx_utime;
 
   /**
+    TDSQL: microseconds the thd has been waiting in threadpool req queue before
+    its query is processed.
+  */
+  ulonglong usecs_in_q;
+
+  /**
     Type of lock to be used for all DML statements, except INSERT, in cases
     when lock is not specified explicitly.  Set to TL_WRITE or
     TL_WRITE_LOW_PRIORITY depending on whether low_priority_updates option is
@@ -2859,10 +2865,8 @@ class THD : public MDL_context_owner,
    Evaluate the current time, and if it exceeds the long-query-time
    setting, mark the query as slow.
   */
-  void update_slow_query_status() {
-    if (my_micro_time() > utime_after_lock + variables.long_query_time)
-      server_status |= SERVER_QUERY_WAS_SLOW;
-  }
+  void update_slow_query_status();
+
   ulonglong found_rows() const { return previous_found_rows; }
 
   /*

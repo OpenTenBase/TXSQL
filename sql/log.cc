@@ -741,7 +741,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
 
     if (my_b_printf(
             &log_file,
-            "# Query_time: %s  Lock_time: %s"
+            "# Query_time: %s  Lock_time: %s Usecs_wait_tp_wq: %llu"
             " Rows_sent: %lu  Rows_examined: %lu"
             " Thread_id: %lu Errno: %lu Killed: %lu"
             " Bytes_received: %lu Bytes_sent: %lu"
@@ -753,7 +753,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
             " Created_tmp_disk_tables: %lu"
             " Created_tmp_tables: %lu"
             " Start: %s End: %s\n",
-            query_time_buff, lock_time_buff, (ulong)thd->get_sent_row_count(),
+            query_time_buff, lock_time_buff, thd->usecs_in_q,
+            (ulong)thd->get_sent_row_count(),
             (ulong)thd->get_examined_row_count(), (ulong)thd->thread_id(),
             (ulong)thd->get_protocol_classic()->get_net()->last_errno,
             (ulong)thd->killed,
@@ -1310,6 +1311,10 @@ bool Query_logger::slow_log_write(
   } else {
     query_utime = 0;
     lock_utime = 0;
+  }
+
+  if (g_simple_slow_logging == 2) {
+    query_utime += thd->usecs_in_q;
   }
 
   bool is_command = false;

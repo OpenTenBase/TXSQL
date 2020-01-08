@@ -1408,6 +1408,10 @@ The following options may be given as the first argument:
  values are OFF, COMMIT or ROLLBACK.
  --tdsql-allow-async When no slave ack, allow master to do asynchronous
  replication.
+ --tdsql-compute-query-time-for-slow-logging[=#] 
+ Compute query time for slow logging by measuring from
+ query reception(2) or query start(1) or after locking(0)
+ to end time.
  --tdsql-hide-partitions[=name] 
  TDSQL: Partitions to disable, effective for partitions of
  all partitioned tables on the DB instance. Specifiy as
@@ -1896,6 +1900,7 @@ table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
 tdsql-allow-async FALSE
+tdsql-compute-query-time-for-slow-logging 0
 tdsql-hide-partitions 
 tdsql-relay-log-opt TRUE
 temptable-max-ram 1073741824

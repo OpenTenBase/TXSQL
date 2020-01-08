@@ -148,6 +148,8 @@ sqlasynwarntimeout
 sqlasynwarntimeout
 tdsql_allow_async
 tdsql_allow_async
+tdsql_compute_query_time_for_slow_logging
+tdsql_compute_query_time_for_slow_logging
 tdsql_hide_partitions
 tdsql_hide_partitions
 tdsql_relay_log_opt

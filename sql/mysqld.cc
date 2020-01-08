@@ -1046,6 +1046,7 @@ ulong g_relaylog_fsync_txn_count;
 uint g_sqlAsynTimeout;
 uint g_sqlAsynWarnTimeout;
 uint g_log_prepared_xid_list_instances = 8;
+uint g_simple_slow_logging = 0;
 
 CThdBottomHalf *g_thdBottomHalf = nullptr;
 #if defined(_WIN32)

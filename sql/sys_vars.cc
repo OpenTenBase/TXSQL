@@ -7112,3 +7112,12 @@ static Sys_var_uint Sys_prepared_xid_list_instances(
     "Instance number of sets for storing prepared xids",
     READ_ONLY GLOBAL_VAR(g_log_prepared_xid_list_instances),
     CMD_LINE(OPT_ARG), VALID_RANGE(1, UINT_MAX), DEFAULT(8), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_tdsql_simple_slow_logging(
+    "tdsql_compute_query_time_for_slow_logging",
+    "Compute query time for slow logging by measuring from query "
+    "reception(2) or query start(1) or after locking(0) to end time.",
+    GLOBAL_VAR(g_simple_slow_logging),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 2), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
