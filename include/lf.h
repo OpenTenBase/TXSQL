@@ -189,6 +189,7 @@ struct LF_HASH {
   uint key_offset, key_length;   /* see HASH */
   uint element_size;             /* size of memcpy'ed area on insert */
   uint flags;                    /* LF_HASH_UNIQUE, etc */
+  uint max_size;                 /* Max number of hash buckets */
   std::atomic<int32> size;       /* size of array */
   std::atomic<int32> count;      /* number of elements in the hash */
   /**

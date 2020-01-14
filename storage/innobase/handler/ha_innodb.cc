@@ -718,6 +718,7 @@ static PSI_rwlock_info all_innodb_rwlocks[] = {
     PSI_RWLOCK_KEY(index_online_log, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(dict_table_stats, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(hash_table_locks, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(trx_sys_rw_lock, 0, PSI_DOCUMENT_ME),
 };
 #endif /* UNIV_PFS_RWLOCK */
 
@@ -19931,6 +19932,28 @@ static void innodb_change_buffer_max_size_update(
   ibuf_max_size_update(srv_change_buffer_max_size);
 }
 
+static void innodb_rw_trx_hash_size_update(
+     THD *thd,         /*!< in: thread handle */
+    SYS_VAR *var,     /*!< in: pointer to
+                                      system variable */
+    void *var_ptr,    /*!< out: where the
+                      formal string goes */
+    const void *save) /*!< in: immediate result
+                      from check function */
+{
+  srv_rw_trx_hash_size = *static_cast<const uint *>(save);
+  if (srv_rw_trx_hash_size > 0
+      && trx_sys->rw_trx_hash.array_size() > srv_rw_trx_hash_size) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+        "The size of lf_hash(%u) is larger than srv_rw_trx_hash_size(%u), and "
+        "doesn't supoort withdrawing.",
+        trx_sys->rw_trx_hash.array_size(),
+        srv_rw_trx_hash_size);
+  }
+ 
+  trx_sys->rw_trx_hash.update_hash_size(srv_rw_trx_hash_size);
+}
+
 #ifdef UNIV_DEBUG
 static ulong srv_fil_make_page_dirty_debug = 0;
 static ulong srv_saved_page_number_debug = 0;
@@ -22315,6 +22338,12 @@ static MYSQL_SYSVAR_UINT(
     NULL, innodb_change_buffer_max_size_update, CHANGE_BUFFER_DEFAULT_SIZE, 0,
     50, 0);
 
+static MYSQL_SYSVAR_UINT(
+    rw_trx_hash_max_size, srv_rw_trx_hash_size, PLUGIN_VAR_RQCMDARG,
+    "Maximum of rw_trx_hash, this is a one-way changing because the lf_hash "
+    "itself doesn't support withdrawing.",
+    NULL, innodb_rw_trx_hash_size_update, 256, 0, 16384, 2);
+
 static MYSQL_SYSVAR_ENUM(
     stats_method, srv_innodb_stats_method, PLUGIN_VAR_RQCMDARG,
     "Specifies how InnoDB index statistics collection code should"
@@ -22401,6 +22430,13 @@ static MYSQL_SYSVAR_ULONG(
     "Percentage of empty space on a data page that can be reserved"
     " to make the page compressible.",
     NULL, NULL, 50, 0, 75, 0);
+
+static MYSQL_SYSVAR_UINT(
+    snapshot_spin_loop, srv_snapshot_spin_loop, PLUGIN_VAR_OPCMDARG,
+    "Max count of ut_delay in snapshot_ids function, if exceeding this "
+    "many ut_delay, it'll acquire x lock and take max_trx_id() which is "
+    "more expensive",
+    NULL, NULL, 32, 0,  UINT_MAX32, 0);
 
 static MYSQL_SYSVAR_BOOL(read_only, srv_read_only_mode,
                          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY |
@@ -22719,6 +22755,8 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(ddl_log_crash_reset_debug),
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
+    MYSQL_SYSVAR(rw_trx_hash_max_size),
+    MYSQL_SYSVAR(snapshot_spin_loop),
     NULL};
 
 mysql_declare_plugin(innobase){

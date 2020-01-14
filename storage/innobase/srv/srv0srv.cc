@@ -444,6 +444,7 @@ ulong srv_read_ahead_threshold = 56;
 /** Maximum on-disk size of change buffer in terms of percentage
 of the buffer pool. */
 uint srv_change_buffer_max_size = CHANGE_BUFFER_DEFAULT_SIZE;
+uint srv_rw_trx_hash_size = 256;
 
 #ifndef _WIN32
 enum srv_unix_flush_t srv_unix_file_flush_method = SRV_UNIX_FSYNC;

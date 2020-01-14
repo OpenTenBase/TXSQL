@@ -1447,6 +1447,8 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_RWLOCK(UNDO_SPACES, SYNC_UNDO_SPACES, undo_spaces_lock_key);
 
+  LATCH_ADD_RWLOCK(TRX_SYS_RW_LOCK, SYNC_NO_ORDER_CHECK, trx_sys_rw_lock_key);
+
   LATCH_ADD_MUTEX(UNDO_DDL, SYNC_UNDO_DDL, PFS_NOT_INSTRUMENTED);
 
   LATCH_ADD_RWLOCK(FIL_SPACE, SYNC_FSP, fil_space_latch_key);

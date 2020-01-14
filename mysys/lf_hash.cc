@@ -450,6 +450,7 @@ void lf_hash_init2(LF_HASH *hash, uint element_size, uint flags,
   lf_dynarray_init(&hash->array, sizeof(LF_SLIST *));
   hash->size = 1;
   hash->count = 0;
+  hash->max_size = 0;
   hash->element_size = element_size;
   hash->flags = flags;
   hash->charset = charset ? charset : &my_charset_bin;
@@ -529,7 +530,8 @@ int lf_hash_insert(LF_HASH *hash, LF_PINS *pins, const void *data) {
     return 1;
   }
   csize = hash->size;
-  if ((hash->count.fetch_add(1) + 1.0) / csize > MAX_LOAD) {
+  if ((hash->count.fetch_add(1) + 1.0) / csize > MAX_LOAD &&
+      (hash->max_size == 0 || csize < (int)(hash->max_size))) {
     atomic_compare_exchange_strong(&hash->size, &csize, csize * 2);
   }
   return 0;

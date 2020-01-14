@@ -1,5 +1,8 @@
 #include "trx0sys.h"
 #include "trx0trx.h"
+#include "srv0srv.h"
+
+uint srv_snapshot_spin_loop = 32;
 
 void rw_trx_hash_t::init() {
   lf_hash_init2(&hash, sizeof(rw_trx_hash_element_t), LF_HASH_UNIQUE, 0,
@@ -7,6 +10,7 @@ void rw_trx_hash_t::init() {
                rw_trx_hash_constructor,
                rw_trx_hash_destructor,
                reinterpret_cast<lf_hash_init_func*>(&rw_trx_hash_initializer));
+  hash.max_size = srv_rw_trx_hash_size;
 }
 
 void rw_trx_hash_t::destroy() {
@@ -178,9 +182,11 @@ trx_id_t trx_sys_t::get_min_trx_no() {
 }
 
 void trx_sys_t::register_rw(trx_t *trx) {
+  rw_lock_s_lock(lock);
   trx->id = get_new_trx_id_no_refresh();
   rw_trx_hash.insert(trx);
   refresh_rw_trx_hash_version();
+  rw_lock_s_unlock(lock);
 }
 
 void trx_sys_t::deregister_rw(trx_t *trx) {
@@ -217,8 +223,22 @@ void trx_sys_t::snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_tr
                              trx_id_t *min_trx_no) {
   ut_ad(!mutex_own(&mutex));
   snapshot_ids_arg arg(ids);
+  uint32_t max_count = srv_snapshot_spin_loop;
 
   while ((arg.m_id = get_rw_trx_hash_version()) != get_max_trx_id()) {
+    /* For background purge thread which has caller_trx = nullptr, we
+    always let it spins. */
+    if (caller_trx) {
+      if (max_count == 0) {
+        rw_lock_x_lock(lock);
+        arg.m_id = get_rw_trx_hash_version(); 
+        rw_lock_x_unlock(lock);
+        break;
+      }
+
+      max_count--;
+    }
+    
     ut_delay(1);
   }
 

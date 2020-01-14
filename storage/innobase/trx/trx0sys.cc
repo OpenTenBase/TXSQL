@@ -518,6 +518,9 @@ void trx_sys_create(void) {
 
   ut_d(trx_sys->rw_max_trx_no = 0);
 
+  trx_sys->lock = static_cast<rw_lock_t *>(ut_malloc_nokey(sizeof(rw_lock_t)));
+  rw_lock_create(trx_sys_rw_lock_key, trx_sys->lock, SYNC_NO_ORDER_CHECK);
+
   new (&trx_sys->rsegs) Rsegs();
   trx_sys->rsegs.set_empty();
 
@@ -563,6 +566,9 @@ void trx_sys_close(void) {
   buf_dblwr_free();
 
   trx_sys->rw_trx_hash.destroy();
+
+  rw_lock_free(trx_sys->lock);
+  ut_free(trx_sys->lock);
 
   /* There can't be any active transactions. */
   trx_sys->rsegs.~Rsegs();

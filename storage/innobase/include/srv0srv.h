@@ -594,6 +594,7 @@ extern ulong srv_n_read_io_threads;
 extern ulong srv_n_write_io_threads;
 
 extern uint srv_change_buffer_max_size;
+extern uint srv_rw_trx_hash_size;
 
 /** Default value of srv_idle_flush_pct */
 extern const ulong srv_idle_flush_pct_default;

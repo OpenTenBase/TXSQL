@@ -110,6 +110,10 @@ innodb_log_writer_spin_delay
 innodb_log_writer_spin_delay
 innodb_log_writer_timeout
 innodb_log_writer_timeout
+innodb_rw_trx_hash_max_size
+innodb_rw_trx_hash_max_size
+innodb_snapshot_spin_loop
+innodb_snapshot_spin_loop
 keyring_operations
 keyring_operations
 log_prepared_xid_list

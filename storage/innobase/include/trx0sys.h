@@ -372,6 +372,8 @@ class Space_Ids : public std::vector<space_id_t, ut_allocator<space_id_t>> {
 
 trx_t* current_trx();
 
+extern uint srv_snapshot_spin_loop;
+
 struct rw_trx_hash_element_t {
   rw_trx_hash_element_t(): trx(0) {
     mutex_create(LATCH_ID_RW_TRX_HASH_ELEMENT, &mutex);
@@ -520,6 +522,10 @@ public:
 
   uint32_t size() { return uint32_t(hash.count.load()); }
 
+  uint32_t array_size() { return uint32_t(hash.size.load()); }
+
+  void update_hash_size(uint32_t max_size) { hash.max_size = max_size; }
+
   int iterate(trx_t *caller_trx, my_hash_walk_action action, void *argument);
 
   int iterate(my_hash_walk_action action, void *argument);
@@ -579,6 +585,8 @@ struct trx_sys_t {
   TrxSysMutex mutex; /*!< mutex protecting most fields in
                      this structure except when noted
                      otherwise */
+  rw_lock_t* lock; /*!< lock to avoid ongoing registering trx
+                   while taking snapshot. */
 
   MVCC *mvcc;                   /*!< Multi version concurrency control
                                 manager */
