@@ -274,16 +274,16 @@ table_definition_cache  =   400
 thread_cache_size   =   8
 
 thread_pool_size=24 #same as cpu num,change when use cgroup
-#thread_pool_oversubscribe_parall=1 # eager mode
+thread_pool_oversubscribe_parall=1 # eager mode
 
 # more enhancements for eager mode, more actively&aggressively taking requests
 # from queue, waking up&creating worker threads, etc.
 # added since tdsql-mariadb-10.1.9V1.0R020
-#thread_pool_eager_mode=0
-#thread_pool_listen_eager_mode=1
-#thread_pool_queue_congest_threshold=13
-#thread_pool_oversubscribe_parall_timeout=20
-#thread_pool_oversubscribe_parall_num=3
+thread_pool_eager_mode=0
+thread_pool_listen_eager_mode=1
+thread_pool_queue_congest_threshold=13
+thread_pool_oversubscribe_parall_timeout=20
+thread_pool_oversubscribe_parall_num=3
 thread_pool_max_threads =   2000
 thread_pool_oversubscribe   =   10
 thread_pool_stall_limit =   50

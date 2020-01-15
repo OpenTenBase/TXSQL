@@ -5378,6 +5378,7 @@ longlong Item_func_sleep::val_int() {
   thd->ENTER_COND(&cond, &LOCK_item_func_sleep, &stage_user_sleep, NULL);
 
   error = 0;
+  thd->m_long_service = true;
   thd_wait_begin(thd, THD_WAIT_SLEEP);
   while (!thd->killed) {
     error = timed_cond.wait(&cond, &LOCK_item_func_sleep);

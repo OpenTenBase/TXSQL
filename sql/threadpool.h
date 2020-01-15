@@ -43,6 +43,13 @@ extern uint threadpool_oversubscribe; /* Maximum active threads in group */
 /* Possible values for thread_pool_high_prio_mode */
 extern const char *threadpool_high_prio_mode_names[];
 
+extern bool threadpool_eager_mode;
+extern bool threadpool_listen_eager_mode;
+extern bool thread_pool_oversubscribe_parall;
+extern uint threadpool_oversubscribe_extra_threads;
+extern uint threadpool_queue_congest_req_timeout;
+extern uint threadpool_queue_congest_threshold;
+
 /* Common thread pool routines, suitable for different implementations */
 extern void threadpool_remove_connection(THD *thd);
 extern int threadpool_process_request(THD *thd);

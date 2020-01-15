@@ -4674,6 +4674,46 @@ static Sys_var_enum Sys_threadpool_high_prio_mode(
     SESSION_VAR(threadpool_high_prio_mode), CMD_LINE(REQUIRED_ARG),
     threadpool_high_prio_mode_names, DEFAULT(TP_HIGH_PRIO_MODE_TRANSACTIONS));
 
+static Sys_var_bool Sys_threadpool_eager_mode(
+    "thread_pool_eager_mode",
+    "Always take on requests, and wake up and/or create even more threads when"
+    " there is pending requests, even already over subscribed(eager mode).",
+    GLOBAL_VAR(threadpool_eager_mode),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_threadpool_listen_eager_mode(
+    "thread_pool_listen_eager_mode",
+    "listener will wake more thread",
+    GLOBAL_VAR(threadpool_listen_eager_mode),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_threadpool_oversubscribeParall(
+    "thread_pool_oversubscribe_parall",
+    "If request queue is congested, always take on requests, and at most"
+    " thread_pool_oversubscribe_parall_num worker threads will be wakenup or created"
+    " regardless of the thread_pool_oversubscribe limit.",
+    GLOBAL_VAR(thread_pool_oversubscribe_parall),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_uint Sys_threadpool_oversubscribeParallNum(
+    "thread_pool_oversubscribe_parall_num",
+    "The number of extra threads allowed to create in eager mode.",
+    GLOBAL_VAR(threadpool_oversubscribe_extra_threads), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 100), DEFAULT(3), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_threadpool_oversubscribeParallTimeout(
+    "thread_pool_oversubscribe_parall_timeout",
+    "If a client's request is not processed after this many milli-seconds since"
+    " it was put into thread pool's request queue, the queue is seen as congested.",
+    GLOBAL_VAR(threadpool_queue_congest_req_timeout), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 1000*10), DEFAULT(5), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_threadpool_queue_congest_threshold(
+    "thread_pool_queue_congest_threshold",
+    "If any of the threadpool's request queue has more than this many requests to"
+    " process, the queue is seen as congested.",
+    GLOBAL_VAR(threadpool_queue_congest_threshold), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 1024), DEFAULT(5), BLOCK_SIZE(1));
 #endif /* !WIN32 */
 static Sys_var_uint Sys_threadpool_max_threads(
     "thread_pool_max_threads",

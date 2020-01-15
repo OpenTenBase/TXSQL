@@ -1711,6 +1711,9 @@ class THD : public MDL_context_owner,
 
   bool m_delay_commit;
 
+  /** True if it's a long-time connection such as binlog dump. */
+  bool m_long_service;
+
   void set_skip_readonly_check() { skip_readonly_check = true; }
 
   bool is_cmd_skip_readonly() const { return skip_readonly_check; }

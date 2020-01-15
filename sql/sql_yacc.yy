@@ -1247,6 +1247,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> PRIVILEGE_CHECKS_USER_SYM     /* MYSQL */
 
 %token XA_PREPARED_LIST /* MYSQL */
+%token THREADPOOL_SYM     /* MYSQL */
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
@@ -12964,6 +12965,10 @@ show_param:
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_SHOW_CREATE_USER;
             lex->grant_user=$3;
+          }
+        | THREADPOOL_SYM STATUS_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_THREADPOOL_STAT;
           }
         ;
 

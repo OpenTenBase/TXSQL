@@ -568,6 +568,8 @@ THD::THD(bool enable_plugins)
 
   usecs_in_q = 0;
 
+  m_long_service = false;
+
   if (max_digest_length > 0) {
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
                                                max_digest_length, MYF(MY_WME));

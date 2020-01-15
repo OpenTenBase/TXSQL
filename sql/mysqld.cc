@@ -4133,6 +4133,9 @@ SHOW_VAR com_status_vars[] = {
     {"xa_prepared_list",
      (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_XA_PREPARED_LIST]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_threadpool_status",
+     (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_SHOW_THREADPOOL_STAT]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 LEX_CSTRING sql_statement_names[(uint)SQLCOM_END + 1];

@@ -685,6 +685,7 @@ static const SYMBOL symbols[] = {
     {SYM("TEXT", TEXT_SYM)},
     {SYM("THAN", THAN_SYM)},
     {SYM("THEN", THEN_SYM)},
+    {SYM("THREADPOOL", THREADPOOL_SYM)},
     {SYM("THREAD_PRIORITY", THREAD_PRIORITY_SYM)},
     {SYM("TIES", TIES_SYM)},
     {SYM("TIME", TIME_SYM)},
