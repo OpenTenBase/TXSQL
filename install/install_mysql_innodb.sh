@@ -295,7 +295,7 @@ if [ ${modifyconf}"e" != "1""e" ];then
        sleep 1
     done
 
-    sed -e 's/#skip_name_resolve=on/skip_name_resolve=on/' -i  ${cnf_file}
+    sed -e 's/#skip_name_resolve=on/skip_name_resolve=on/' -e 's/^skip-log-bin /#skip-log-bin /g' -i  ${cnf_file}
     su $user -c "./restartmysql.sh ${mysql_port}"
     rm ${cnf_file_tmp}
 
@@ -312,5 +312,6 @@ else
     echo "[`date +'%Y-%m-%d %H:%M:%S'`] modifyconf finished!" |tee -a ${log}
 fi
 
-sed -e 's/#skip_name_resolve=on/skip_name_resolve=on/' -i  ${cnf_file}
+#sed -e 's/#skip_name_resolve=on/skip_name_resolve=on/' -i  ${cnf_file}
+sed -e 's/#skip_name_resolve=on/skip_name_resolve=on/' -e 's/^skip-log-bin /#skip-log-bin /g' -i  ${cnf_file}
 
