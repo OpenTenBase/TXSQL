@@ -339,38 +339,52 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
 
           sql_print_information("Found prepared xa %s\n", xid_data.c_str());
 
-          if (info->binlog_xa_prepared &&
-              info->binlog_xa_prepared->find(xid_data) == info->binlog_xa_prepared->end()) { //not prepared
-            if (info->binlog_xa_cop &&
-                info->binlog_xa_cop->find(xid_data) != info->binlog_xa_cop->end()) {
-              /* it's xa commit one phase */
-              commit_i = true;
-            } else {
-              //rollback
-              hton->rollback_by_xid(hton, &info->list[i].id);
-              sql_print_information("Rolled back XA txn branch (%s) which is only "
-                                    "prepared in engine but not in binlog.", xid_data.c_str());
-              continue;
-            }
-          } else {
-            if (info->binlog_xa_committed &&
-                info->binlog_xa_committed->find(xid_data) != info->binlog_xa_committed->end()) {
-              commit_i = true;
-              sql_print_information("commit xa txn %s\n", xid_data.c_str());
-            } else if (info->binlog_xa_aborted &&
-                info->binlog_xa_aborted->find(xid_data) != info->binlog_xa_aborted->end()) {
-              sql_print_information("rollback xa txn %s\n", xid_data.c_str());
-              goto abort_i;
-            } else {
+          /* We maintained four set while scanning the last binlog file. If one
+          of them is not null, then all of them are not null. */
+          bool has_xa_set = (info->binlog_xa_prepared != nullptr);
+
+          DBUG_ASSERT(!has_xa_set ||
+                (info->binlog_xa_prepared &&
+                 info->binlog_xa_cop &&
+                 info->binlog_xa_committed &&
+                 info->binlog_xa_aborted));
+
+          if (has_xa_set) {
+            if (info->binlog_xa_prepared->find(xid_data) != info->binlog_xa_prepared->end()) {
+              /* In prepared state */
               if (Recovered_xa_transactions::instance().add_prepared_xa_transaction(
                     &info->list[i])) {
                 return true;
               }
               info->found_foreign_xids++;
               continue;
+            } else if (info->binlog_xa_cop->find(xid_data) != info->binlog_xa_cop->end() ||
+                info->binlog_xa_committed->find(xid_data) != info->binlog_xa_committed->end()) {
+              /* XA COMMIT ONE PHASE or XA COMMIT is written to binlog, let's commit it */
+              sql_print_information("Commit xa txn %s\n", xid_data.c_str());
+              commit_i = true;
+            } else if (info->binlog_xa_aborted->find(xid_data) != info->binlog_xa_aborted->end()) {
+              /* XA ROLLBACK is written to binlog,  let's abort it */
+              sql_print_information("Rollback xa txn %s\n", xid_data.c_str());
+              goto abort_i;
+            } else {
+              /* Not present in four set, so even engine is in prepared state, we should
+              rollback it */
+              hton->rollback_by_xid(hton, &info->list[i].id);
+              sql_print_information("Rolled back XA txn branch (%s) which is only "
+                                    "prepared in engine but not in binlog.", xid_data.c_str());
+              continue;
             }
+          } else  {
+            if (Recovered_xa_transactions::instance().add_prepared_xa_transaction(
+                  &info->list[i])) {
+              return true;
+            }
+            info->found_foreign_xids++;
+            continue;
           }
         }
+
         if (info->dry_run) {
           info->found_my_xids++;
           continue;

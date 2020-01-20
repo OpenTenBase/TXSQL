@@ -9294,7 +9294,7 @@ static int binlog_recover(Binlog_file_reader *binlog_file_reader,
           /* Remove xid with same name from other set */
           xa_committed.erase(xid_str);
           xa_aborted.erase(xid_str);
-          xa_prepared.insert(xid_str);
+          xa_prepared.erase(xid_str);
         }
       }
 

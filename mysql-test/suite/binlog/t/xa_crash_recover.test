@@ -1,0 +1,87 @@
+-- source include/have_log_bin.inc
+-- source include/have_debug.inc
+-- source include/have_binlog_format_mixed_or_row.inc
+
+CALL mtr.add_suppression(" prepared XA transactions");
+
+CREATE TABLE t1 (a INT, b INT);
+
+#Crash after writing xa prepare
+
+XA BEGIN '123';
+INSERT INTO t1 VALUES (1,2);
+XA END '123';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 2013
+XA PREPARE '123';
+
+--source include/wait_until_disconnected.inc
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+XA RECOVER;
+XA COMMIT '123';
+SELECT * FROM t1;
+
+# Crash after writing xa commit
+XA BEGIN '234';
+INSERT INTO t1 VALUES (2,3);
+XA END '234';
+XA PREPARE '234';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 2013
+XA COMMIT '234';
+
+--source include/wait_until_disconnected.inc
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+SELECT * FROM t1 ORDER BY a;
+
+# Crash after writing xa rollback
+XA BEGIN '345';
+INSERT INTO t1 VALUES (3,4);
+XA END '345';
+XA PREPARE '345';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 2013
+XA ROLLBACK '345';
+
+--source include/wait_until_disconnected.inc
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+SELECT * FROM t1 ORDER BY a;
+
+# Crash after writing xa commit one phase
+XA BEGIN '456';
+INSERT INTO t1 VALUES (4,5);
+XA END '456';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 2013
+XA COMMIT '456' ONE PHASE;
+
+--source include/wait_until_disconnected.inc
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+SELECT * FROM t1 ORDER BY a;
+
+# cleanup
+DROP TABLE t1;

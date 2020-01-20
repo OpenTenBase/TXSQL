@@ -1,0 +1,53 @@
+CALL mtr.add_suppression(" prepared XA transactions");
+CREATE TABLE t1 (a INT, b INT);
+XA BEGIN '123';
+INSERT INTO t1 VALUES (1,2);
+XA END '123';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+XA PREPARE '123';
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+XA RECOVER;
+formatID	gtrid_length	bqual_length	data
+1	3	0	123
+XA COMMIT '123';
+SELECT * FROM t1;
+a	b
+1	2
+XA BEGIN '234';
+INSERT INTO t1 VALUES (2,3);
+XA END '234';
+XA PREPARE '234';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+XA COMMIT '234';
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+SELECT * FROM t1 ORDER BY a;
+a	b
+1	2
+2	3
+XA BEGIN '345';
+INSERT INTO t1 VALUES (3,4);
+XA END '345';
+XA PREPARE '345';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+XA ROLLBACK '345';
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+SELECT * FROM t1 ORDER BY a;
+a	b
+1	2
+2	3
+XA BEGIN '456';
+INSERT INTO t1 VALUES (4,5);
+XA END '456';
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+XA COMMIT '456' ONE PHASE;
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+SELECT * FROM t1 ORDER BY a;
+a	b
+1	2
+2	3
+4	5
+DROP TABLE t1;
