@@ -16,9 +16,12 @@ audit_null.audit_plugin_bugs : BUG#28080637 Test fails consistently
 
 # auth_sec
 auth_sec.openssl_without_fips : BUG#28812609 Test fails all over
+auth_sec.keyring_kms3                          : WL#1111 tencent cloud server access privilege needed
 
 # binlog suite tests
 binlog.binlog_mysqlbinlog_rewrite_db @windows     : BUG#26717205 Requires a debug client binary and fails consistently.
+binlog.binlog_rotate_binlog_master_key_crash_recovery_at_startup_kms3       : WL#1111 tencent cloud server access privilege needed
+binlog.binlog_rotate_binlog_master_key_crash_recovery_kms3                  : WL#1111 tencent cloud server access privilege needed
 
 # func1 suite tests
 funcs_1.is_basics_mixed @darwin  : BUG#25882809 INCORRECT RESULT WHEN USING SUBQUERY ON TOP OF VIEW.

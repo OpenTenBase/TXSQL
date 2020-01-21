@@ -1,0 +1,4 @@
+--early-plugin-load="keyring_kms=$KEYRING_KMS"
+--keyring_kms_file=$MYSQL_TMP_DIR/keyring_data_wl12080_startup
+--force-restart
+$KEYRING_PLUGIN_OPT
