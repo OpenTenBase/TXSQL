@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2005, 2019, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 2005, 2020, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -7666,7 +7666,6 @@ rollback_trx:
       ut_ad(m_prebuilt != ctx->prebuilt || ctx == ctx0);
       bool update_own_prebuilt = (m_prebuilt == ctx->prebuilt);
       trx_t *const user_trx = m_prebuilt->trx;
-      mem_heap_t *const temp_blob_heap = ctx->prebuilt->blob_heap;
       if (dict_table_is_partition(ctx->new_table)) {
         ctx->prebuilt->blob_heap = NULL;
       }
@@ -7688,7 +7687,6 @@ rollback_trx:
       }
       user_trx->will_lock++;
       m_prebuilt->trx = user_trx;
-      m_prebuilt->blob_heap = temp_blob_heap;
       m_prebuilt->blob_in_use = true;
     }
     DBUG_INJECT_CRASH("ib_commit_inplace_crash", crash_inject_count++);
