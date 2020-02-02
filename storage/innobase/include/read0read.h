@@ -38,7 +38,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "read0types.h"
 #include "univ.i"
+#include "ut0link_buf.h"
 
+/** The link_buf size for tracking the process of taking snapshot. */
+#define MAX_SLOTS 1048576
 /** The MVCC read view manager */
 class MVCC {
  public:
@@ -81,6 +84,15 @@ class MVCC {
 
   void remove_list(ReadView* view);
 
+  uint64_t register_slot();
+
+  void unregister_slot(uint64_t slot_id);
+
+  void view_closer_task();
+
+  void start_view_closer();
+
+  void stop_view_closer();
 #ifdef UNIV_DEBUG
   bool view_on_list(ReadView* view);
 #endif
@@ -101,6 +113,18 @@ class MVCC {
   /** Active and closed views, the closed views will have the
   creator trx id set to TRX_ID_MAX */
   view_list_t m_views;
+
+  /** It uses background thread to advance tail of m_add_recently.
+  This flag indicates if the thread is active or not */
+  std::atomic<bool> m_view_closer_active;
+  
+  os_event_t  m_view_closer_event;
+
+  /** Increased everytime before taking a snapshot */
+  std::atomic<uint64_t> m_create_counter;
+ 
+  /** Track the process of taking snapshot. */
+  Link_buf<uint64_t> m_add_recently;
 };
 
 #endif /* read0read_h */

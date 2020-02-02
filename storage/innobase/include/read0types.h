@@ -119,6 +119,7 @@ class ReadView {
 
   int id_size() const { return (m_ids.size()); }
 
+  uint64_t view_id() const { return (m_view_id); }
 
   /** Check and reuse the cached read view
   @return true if it can be reused. */
@@ -194,6 +195,10 @@ class ReadView {
   ReadView &operator=(const ReadView &);
 
  private:
+
+  /** The id of view while taking snapshot. */
+  uint64_t m_view_id;
+
   /** The read should not see any transaction with trx id >= this
   value. In other words, this is the "high water mark". */
   trx_id_t m_low_limit_id;

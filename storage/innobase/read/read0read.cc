@@ -181,9 +181,6 @@ will mark their views as closed but not actually free their views.
 
 /** Minimum number of elements to reserve in ReadView::ids_t */
 static const ulint MIN_TRX_IDS = 32;
-std::atomic<uint64_t> read_view_create_prepare(0);
-std::atomic<uint64_t> read_view_create_done(0);
-
 #ifdef UNIV_DEBUG
 /**
 Validates a read view list. */
@@ -223,10 +220,78 @@ ReadView::~ReadView() {
 /** Constructor */
 MVCC::MVCC() {
   UT_LIST_INIT(m_views, &ReadView::m_view_list);
+  m_create_counter = 1;
+  m_add_recently = Link_buf<uint64_t>{MAX_SLOTS};
+  m_add_recently.add_link(0, 1);
+  m_add_recently.advance_tail();
+
+  m_view_closer_active = false;
+  m_view_closer_event = os_event_create("view_closer_event");
+  os_event_reset(m_view_closer_event);
 }
 
 MVCC::~MVCC() {
   ut_a(UT_LIST_GET_LEN(m_views) == 0);
+  m_add_recently = {};
+  os_event_destroy(m_view_closer_event);
+}
+
+uint64_t MVCC::register_slot() {
+  uint64_t slot_id = m_create_counter++;
+
+  return slot_id;
+}
+
+void MVCC::unregister_slot(uint64_t slot_id) {
+  while (!m_add_recently.has_space(slot_id)) {
+    /* If this loop happens, we should increase
+    link_buf size, aka MAX_SLOTS */
+    os_event_try_set(m_view_closer_event);
+    ut_delay(10);
+  }
+
+  std::atomic_thread_fence(std::memory_order_release);
+
+  m_add_recently.add_link(slot_id, slot_id + 1);
+
+  /* Wakeup view closer thread if needed */
+  if ((m_create_counter.load() - m_add_recently.tail() > (MAX_SLOTS / 2))
+      && !os_event_is_set(m_view_closer_event)) {
+    os_event_try_set(m_view_closer_event);
+  }
+}
+
+void MVCC::view_closer_task() {
+  m_view_closer_active = true;
+
+  int64_t sig_counter = 0;
+
+  ib::info() << "Start view_closer thread.";
+  while (!trx_sys->is_shutdown) {
+    sig_counter = os_event_reset(m_view_closer_event);
+    m_add_recently.advance_tail();
+    os_event_wait_time_low(m_view_closer_event, 500000, sig_counter);
+  }
+
+  m_view_closer_active = false;
+
+  ib::info() << "view_closer thread exits.";
+}
+
+void MVCC::start_view_closer() {
+  std::thread th(&MVCC::view_closer_task, this);
+  while (!m_view_closer_active.load()) {
+    os_thread_sleep(50);
+  }
+
+  th.detach();
+}
+
+void MVCC::stop_view_closer() {
+  while (m_view_closer_active.load()) {
+    os_event_set(m_view_closer_event);
+    os_thread_sleep(1000);
+  }
 }
 
 bool ReadView::reuse() {
@@ -255,8 +320,10 @@ void ReadView::snapshot(trx_t *trx, bool add_list) {
   trx_id_t  low_limit_id = 0;
   trx_id_t  low_limit_no = 0;
 
+  m_view_id = 0;
+
   if (add_list) {
-    read_view_create_prepare++;
+    m_view_id = trx_sys->mvcc->register_slot();
   }
 
   trx_sys->snapshot_ids(trx, &ids, &low_limit_id, &low_limit_no);
@@ -288,7 +355,7 @@ void ReadView::snapshot(trx_t *trx, bool add_list) {
  
   trx_sys_mutex_exit();
 
-  read_view_create_done++;
+  trx_sys->mvcc->unregister_slot(m_view_id);
 }
 
 void ReadView::subset(ReadView* other) {
@@ -395,10 +462,14 @@ void MVCC::clone_oldest_view(ReadView *view) {
   The following while loop may consume more cpu if under heavy read
   write workload, but let's tolerate this, as it only affects purge
   thread. */
-  while (read_view_create_done.load() != read_view_create_prepare.load()) {
-    ut_delay(1);
+
+  uint64_t latest_counter= m_create_counter.load();
+
+  while (m_add_recently.tail() < latest_counter) {
+    os_event_try_set(m_view_closer_event);
+    os_thread_sleep(10);
   }
- 
+
   trx_sys_mutex_enter();
 
   ReadView *oldest_view =  UT_LIST_GET_LAST(m_views);
@@ -413,6 +484,9 @@ void MVCC::clone_oldest_view(ReadView *view) {
         remove_list(oldest_view);
         oldest_view->mark_abandoned();
       }
+    } else if (view->view_id() > latest_counter) {
+      /* The view is created after snapshot taken above and
+      must be a newer one. Do nothing */
     } else {
       view->subset(oldest_view);
     }
