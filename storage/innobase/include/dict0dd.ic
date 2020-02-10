@@ -84,7 +84,7 @@ Note the table name may have trailing TMP_POSTFIX for temporary table name.
 is invalid */
 inline bool dd_parse_tbl_name(const char *tbl_name, char *dd_db_name,
                               char *dd_tbl_name, char *dd_part_name,
-                              char *dd_sub_name, bool *is_temp) {
+                              char *dd_sub_name, bool *is_temp, bool case_sensitive) {
   char db_buf[MAX_DATABASE_NAME_LEN + 1];
   char tbl_buf[MAX_TABLE_NAME_LEN + 1];
   ulint db_len = dict_get_db_name_len(tbl_name);
@@ -104,7 +104,8 @@ inline bool dd_parse_tbl_name(const char *tbl_name, char *dd_db_name,
 
   filename_to_tablename(db_buf, dd_db_name, MAX_DATABASE_NAME_LEN + 1, true);
 
-  auto is_part = strstr(tbl_buf, PART_SEPARATOR);
+  auto is_part = case_sensitive ? strstr(tbl_buf, PART_SEPARATOR)
+                                : strcasestr(tbl_buf, PART_SEPARATOR);
 
   if (is_part != nullptr) {
     *is_part = '\0';
@@ -124,8 +125,8 @@ inline bool dd_parse_tbl_name(const char *tbl_name, char *dd_db_name,
     return (true);
   }
 
-  auto is_sub = strstr(is_part + PART_SEPARATOR_LEN, SUB_PART_SEPARATOR);
-
+  auto is_sub = case_sensitive ? strstr(is_part + PART_SEPARATOR_LEN, SUB_PART_SEPARATOR)
+                               : strcasestr(is_part + PART_SEPARATOR_LEN, SUB_PART_SEPARATOR);
   char *trailing_sharp;
 
   if (is_sub == nullptr) {
@@ -372,7 +373,7 @@ inline const char *get_row_format_name(enum row_type row_format) {
 @retval false if acquired
 @retval true if failed (my_error() will have been called) */
 UNIV_INLINE MY_ATTRIBUTE((warn_unused_result)) bool dd_mdl_acquire(
-    THD *thd, MDL_ticket **mdl, const char *db, const char *table) {
+    THD *thd, MDL_ticket **mdl, const char *db, const char *table, bool transactional) {
   bool ret = false;
   char table_name[MAX_TABLE_NAME_LEN + 1];
   const char *namep = table;
@@ -395,9 +396,84 @@ UNIV_INLINE MY_ATTRIBUTE((warn_unused_result)) bool dd_mdl_acquire(
 #endif /* !_WIN32 */
   }
 
-  ret = dd::acquire_shared_table_mdl(thd, db, namep, false, mdl);
+  ret = dd::acquire_shared_table_mdl(thd, db, namep, false, mdl, transactional);
 
   return (ret);
+}
+
+UNIV_INLINE bool dd_has_shared_mdl(THD *thd, const char *db, const char *table) {
+  char table_name[MAX_TABLE_NAME_LEN + 1];
+  const char *namep = table;
+
+  if (innobase_get_lower_case_table_names() == 2) {
+    ulint len = strlen(table);
+    ut_memcpy(table_name, table, len);
+    table_name[len] = '\0';
+    innobase_casedn_str(table_name);
+    namep = table_name;
+  } else {
+#ifndef _WIN32
+    if (innobase_get_lower_case_table_names() == 1) {
+      ulint len = strlen(table);
+      ut_memcpy(table_name, table, len);
+      table_name[len] = '\0';
+      innobase_casedn_str(table_name);
+      namep = table_name;
+    }
+#endif /* !_WIN32 */
+  }
+
+  return (dd::has_shared_table_mdl(thd, db, namep));
+}
+
+UNIV_INLINE bool dd_has_no_write_mdl(THD *thd, const char *db, const char *table) {
+  char table_name[MAX_TABLE_NAME_LEN + 1];
+  const char *namep = table;
+
+  if (innobase_get_lower_case_table_names() == 2) {
+    ulint len = strlen(table);
+    ut_memcpy(table_name, table, len);
+    table_name[len] = '\0';
+    innobase_casedn_str(table_name);
+    namep = table_name;
+  } else {
+#ifndef _WIN32
+    if (innobase_get_lower_case_table_names() == 1) {
+      ulint len = strlen(table);
+      ut_memcpy(table_name, table, len);
+      table_name[len] = '\0';
+      innobase_casedn_str(table_name);
+      namep = table_name;
+    }
+#endif /* !_WIN32 */
+  }
+
+  return (dd::has_no_write_mdl(thd, db, namep));
+}
+
+UNIV_INLINE bool dd_has_read_only_mdl(THD *thd, const char *db, const char *table) {
+  char table_name[MAX_TABLE_NAME_LEN + 1];
+  const char *namep = table;
+
+  if (innobase_get_lower_case_table_names() == 2) {
+    ulint len = strlen(table);
+    ut_memcpy(table_name, table, len);
+    table_name[len] = '\0';
+    innobase_casedn_str(table_name);
+    namep = table_name;
+  } else {
+#ifndef _WIN32
+    if (innobase_get_lower_case_table_names() == 1) {
+      ulint len = strlen(table);
+      ut_memcpy(table_name, table, len);
+      table_name[len] = '\0';
+      innobase_casedn_str(table_name);
+      namep = table_name;
+    }
+#endif /* !_WIN32 */
+  }
+
+  return (dd::has_read_only_mdl(thd, db, namep));
 }
 
 /** Get the version attribute.

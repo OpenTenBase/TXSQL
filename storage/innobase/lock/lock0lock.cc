@@ -44,6 +44,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "btr0btr.h"
 #include "current_thd.h"
 #include "dict0boot.h"
+#include "dict0dd.h"
 #include "dict0mem.h"
 #include "ha_prototypes.h"
 #include "lock0lock.h"
@@ -3873,6 +3874,62 @@ dberr_t lock_table(ulint flags, /*!< in: if BTR_NO_LOCKING_FLAG bit is set,
     trx_set_rw_mode(trx);
   }
 
+  if (mode != LOCK_AUTO_INC) {
+
+    ut_a(!dict_table_is_sdi(table->id) ||
+        mode == LOCK_IS || mode == LOCK_IX);
+
+    ut_a(!table->is_fts_aux() ||
+        mode == LOCK_IS || mode == LOCK_IX);
+#ifdef UNIV_DEBUG
+    /* For dd table, sdi table(resides in each ibd file which contains
+    one btree), or fulltext aux index file, it only acquires is/ix lock
+    which means no exclusive lock is holded by these tables. So we can
+    skip the checking as bellow.
+    
+    For parent table of foreign key, If the query is executed through
+    normal statement, the server layer will acquire mdl locks for its
+    parent tables. But if it's executed through binlog, it only holds
+    mdl lock on child table. But let's tolerate this as our slave is
+    read only. */
+    if (!table->is_dd_table &&
+        !dict_table_is_sdi(table->id) &&
+        !table->is_fts_aux() &&
+        !thd_is_log_apply_thread(trx->mysql_thd)) {
+      char db_buf[NAME_LEN + 1] = {'\0'};
+      char tbl_buf[NAME_LEN + 1];
+      dd_parse_tbl_name(table->name.m_name, db_buf, tbl_buf,
+          nullptr, nullptr, nullptr, false);
+
+      switch (mode) {
+        case LOCK_IS:
+        case LOCK_IX:
+          ut_a(dd_has_shared_mdl(trx->mysql_thd, db_buf, tbl_buf));
+          break;
+        case LOCK_X:
+          ut_a(dd_has_no_write_mdl(trx->mysql_thd, db_buf, tbl_buf));
+          break;
+        case LOCK_S:
+          ut_a(dd_has_read_only_mdl(trx->mysql_thd, db_buf, tbl_buf));
+          break;
+        default:
+          ut_error;
+          break;
+      }
+    }
+#endif
+    /* As only currrent transaction operates on the set, we
+    can check firstly without holding trx_t::mutex */
+    if (trx->locked_tables.find(table) == trx->locked_tables.end()) {
+      trx_mutex_enter(trx);
+      trx->locked_tables.insert(table);
+      table->n_table_locks++;
+      trx_mutex_exit(trx);
+    }
+
+    return (DB_SUCCESS);
+  }
+
   lock_mutex_enter();
 
   /* We have to check if the new lock is compatible with any locks
@@ -4384,6 +4441,12 @@ static void lock_remove_all_on_table_for_trx(
     }
   }
 
+  if (trx->locked_tables.find(table) != trx->locked_tables.end()) {
+    trx->locked_tables.erase(table);
+    ut_a(table->n_table_locks.load() > 0);
+    table->n_table_locks--;
+  }
+
   trx_mutex_exit(trx);
 }
 
@@ -4432,6 +4495,18 @@ static bool lock_remove_recovered_trx_record_locks_callback(
       }
     }
 
+    if (trx->locked_tables.find(arg->table) != trx->locked_tables.end()) {
+      trx->locked_tables.erase(arg->table);
+      ut_a(arg->table->n_table_locks.load() > 0);
+      arg->table->n_table_locks--;
+    }
+
+    if (trx->recover_mysql_thd) {
+      dd_mdl_release_transactional(trx->recover_mysql_thd);
+      destroy_thd(trx->recover_mysql_thd);
+      trx->recover_mysql_thd = nullptr;
+    }
+
     trx_mutex_exit(trx);
     arg->n_recovered_trx++;
   }
@@ -4468,49 +4543,17 @@ static ulint lock_remove_recovered_trx_record_locks(
  also removed in addition to other table-level and record-level locks.
  No lock, that is going to be removed, is allowed to be a wait lock. */
 void lock_remove_all_on_table(
+    trx_t *trx,   /*!< in: current transaction */
     dict_table_t *table,              /*!< in: table to be dropped
                                       or discarded */
     ibool remove_also_table_sx_locks) /*!< in: also removes
                                    table S and X locks */
 {
-  lock_t *lock;
-
   lock_mutex_enter();
 
-  for (lock = UT_LIST_GET_FIRST(table->locks); lock != NULL;
-       /* No op */) {
-    lock_t *prev_lock;
-
-    prev_lock = UT_LIST_GET_PREV(tab_lock.locks, lock);
-
-    /* If we should remove all locks (remove_also_table_sx_locks
-    is true), or if the lock is not table-level S or X lock,
-    then check we are not going to remove a wait lock. */
-    if (remove_also_table_sx_locks ||
-        !(lock_get_type(lock) == LOCK_TABLE && IS_LOCK_S_OR_X(lock))) {
-      ut_a(!lock_get_wait(lock));
-    }
-
-    lock_remove_all_on_table_for_trx(table, lock->trx,
-                                     remove_also_table_sx_locks);
-
-    if (prev_lock == NULL) {
-      if (lock == UT_LIST_GET_FIRST(table->locks)) {
-        /* lock was not removed, pick its successor */
-        lock = UT_LIST_GET_NEXT(tab_lock.locks, lock);
-      } else {
-        /* lock was removed, pick the first one */
-        lock = UT_LIST_GET_FIRST(table->locks);
-      }
-    } else if (UT_LIST_GET_NEXT(tab_lock.locks, prev_lock) != lock) {
-      /* If lock was removed by
-      lock_remove_all_on_table_for_trx() then pick the
-      successor of prev_lock ... */
-      lock = UT_LIST_GET_NEXT(tab_lock.locks, prev_lock);
-    } else {
-      /* ... otherwise pick the successor of lock. */
-      lock = UT_LIST_GET_NEXT(tab_lock.locks, lock);
-    }
+  if (trx) {
+    lock_remove_all_on_table_for_trx(table, trx,
+        remove_also_table_sx_locks);
   }
 
   /* Note: Recovered transactions don't have table level IX or IS locks
@@ -4518,10 +4561,7 @@ void lock_remove_all_on_table(
   record locks. Such record locks cannot be freed by traversing the
   transaction lock list in dict_table_t (as above). */
 
-  if (!lock_sys->rollback_complete &&
-      lock_remove_recovered_trx_record_locks(table) == 0) {
-    lock_sys->rollback_complete = true;
-  }
+  lock_remove_recovered_trx_record_locks(table);
 
   lock_mutex_exit();
 }
@@ -6287,6 +6327,17 @@ void lock_trx_release_locks(trx_t *trx) /*!< in/out: transaction */
   ut_a(trx->lock.table_locks.empty());
 
   mem_heap_empty(trx->lock.lock_heap);
+  
+  /* Decrease table lock counter */
+  trx_mod_tables_t::const_iterator end = trx->locked_tables.end();
+  for (trx_mod_tables_t::const_iterator it = trx->locked_tables.begin(); it != end;
+      it++) {
+    ut_a((*it)->n_table_locks.load() > 0);
+    (*it)->n_table_locks--;
+  }
+
+  trx->locked_tables.clear();
+
   trx_mutex_exit(trx);
 }
 
@@ -6358,7 +6409,9 @@ bool lock_table_has_locks(
 
   lock_mutex_enter();
 
-  has_locks = UT_LIST_GET_LEN(table->locks) > 0 || table->n_rec_locks > 0;
+  has_locks = UT_LIST_GET_LEN(table->locks) > 0 ||
+            table->n_rec_locks > 0 ||
+            table->n_table_locks.load() > 0;
 
 #ifdef UNIV_DEBUG
   if (!has_locks) {

@@ -134,6 +134,7 @@ size_t thd_query_safe(THD *thd, char *buf, size_t buflen);
 */
 int thd_slave_thread(const THD *thd);
 
+bool thd_is_binlog_applier(const THD *thd);
 /**
   Check if a user thread is running a non-transactional update
   @param thd user thread

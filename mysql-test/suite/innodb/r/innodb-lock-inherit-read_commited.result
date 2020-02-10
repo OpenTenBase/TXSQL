@@ -184,7 +184,6 @@ FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1'
   ORDER BY 1,2,3,4,5,6;
 con	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	a	RECORD	X	GRANTED	1, 1
 con1	a	RECORD	X	GRANTED	2, 2
 con1	a	RECORD	X	GRANTED	supremum pseudo-record
@@ -207,7 +206,6 @@ FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1'
   ORDER BY 1,2,3,4,5,6;
 con	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	a	RECORD	X	GRANTED	1, 1
 con1	a	RECORD	X	GRANTED	2, 2
 con1	a	RECORD	X	GRANTED	supremum pseudo-record
@@ -236,7 +234,6 @@ FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1'
   ORDER BY 1,2,3,4,5,6;
 con	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	a	RECORD	X	GRANTED	supremum pseudo-record
 con1	a	RECORD	X,GAP	GRANTED	5, 5
 con1	a	RECORD	X,GAP	GRANTED	7, 6
@@ -255,7 +252,6 @@ FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1'
   ORDER BY 1,2,3,4,5,6;
 con	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	a	RECORD	X	GRANTED	supremum pseudo-record
 con1	a	RECORD	X,GAP	GRANTED	5, 5
 con1	a	RECORD	X,GAP	GRANTED	7, 6

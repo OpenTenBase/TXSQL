@@ -47,7 +47,6 @@ SELECT * FROM t1 WHERE id=2 FOR UPDATE;
 id	val
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
 # 2. con2 obtains a GRANTED LOCK_X on row id=4
 SELECT * FROM t1 WHERE id=4 FOR UPDATE;
@@ -55,9 +54,7 @@ id	val
 4	d
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
 # 3. con2 enqueues a waiting LOCK_INSERT_INTENTION into the gap
 #    before id=3
@@ -66,9 +63,7 @@ INSERT INTO t1 (id, val) VALUES (2, "b");
 SET DEBUG_SYNC = 'now WAIT_FOR con2_will_wait';
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	3
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
 # 4. con3 obtains a GRANTED LOCK_GAP on gap before row id=3
@@ -76,12 +71,9 @@ SELECT * FROM t1 WHERE id=2 FOR UPDATE;
 id	val
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	3
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
-con3	NULL	TABLE	IX	GRANTED	NULL
 con3	PRIMARY	RECORD	X,GAP	GRANTED	3
 # 5. con3 enqueues a waiting lock on same row as in step 2.
 SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL con3_will_wait';
@@ -89,12 +81,9 @@ SELECT * FROM t1 WHERE id=4 FOR UPDATE;
 SET DEBUG_SYNC = 'now WAIT_FOR con3_will_wait';
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	3
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
-con3	NULL	TABLE	IX	GRANTED	NULL
 con3	PRIMARY	RECORD	X,GAP	GRANTED	3
 con3	PRIMARY	RECORD	X,REC_NOT_GAP	WAITING	4
 # 6. con1 resizes the row with id=3 ("c"->"cccccccccccccccc") causing
@@ -127,7 +116,6 @@ SELECT * FROM t1 WHERE id=2 FOR UPDATE;
 id	val
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
 # 2. con2 obtains a GRANTED LOCK_X on row id=4
 SELECT * FROM t1 WHERE id=4 FOR UPDATE;
@@ -135,9 +123,7 @@ id	val
 4	d
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
 # 3. con2 enqueues a waiting LOCK_INSERT_INTENTION into the gap
 #    before id=3
@@ -146,9 +132,7 @@ INSERT INTO t1 (id, val) VALUES (2, "b");
 SET DEBUG_SYNC = 'now WAIT_FOR con2_will_wait';
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	3
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
 # 4. con3 obtains a GRANTED LOCK_GAP on gap before row id=3
@@ -156,12 +140,9 @@ SELECT * FROM t1 WHERE id=2 FOR UPDATE;
 id	val
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	3
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
-con3	NULL	TABLE	IX	GRANTED	NULL
 con3	PRIMARY	RECORD	X,GAP	GRANTED	3
 # 5. con3 enqueues a waiting lock on same row as in step 2.
 SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL con3_will_wait';
@@ -169,12 +150,9 @@ SELECT * FROM t1 WHERE id=4 FOR UPDATE;
 SET DEBUG_SYNC = 'now WAIT_FOR con3_will_wait';
 CALL show_locks();
 connection	index_name	lock_type	lock_mode	lock_status	lock_data
-con1	NULL	TABLE	IX	GRANTED	NULL
 con1	PRIMARY	RECORD	X,GAP	GRANTED	3
-con2	NULL	TABLE	IX	GRANTED	NULL
 con2	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	3
 con2	PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	4
-con3	NULL	TABLE	IX	GRANTED	NULL
 con3	PRIMARY	RECORD	X,GAP	GRANTED	3
 con3	PRIMARY	RECORD	X,REC_NOT_GAP	WAITING	4
 # We enable CATS algorithm, to force placing GRANTED locks at the

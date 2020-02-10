@@ -112,51 +112,33 @@ order by OBJECT_SCHEMA, OBJECT_NAME,
 PARTITION_NAME, SUBPARTITION_NAME, INDEX_NAME,
 LOCK_TYPE, LOCK_MODE, LOCK_STATUS, LOCK_DATA;
 ENGINE	OBJECT_SCHEMA	OBJECT_NAME	PARTITION_NAME	SUBPARTITION_NAME	INDEX_NAME	LOCK_TYPE	LOCK_MODE	LOCK_STATUS	LOCK_DATA
-INNODB	test	t1_max	NULL	NULL	NULL	TABLE	IX	GRANTED	NULL
-INNODB	test	t1_max	NULL	NULL	NULL	TABLE	IX	GRANTED	NULL
-INNODB	test	t1_max	NULL	NULL	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_max	NULL	NULL	PRIMARY	RECORD	X	GRANTED	127, 255, 32767, 65535, 8388607, 16777215, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615
 INNODB	test	t1_max	NULL	NULL	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 INNODB	test	t1_max	NULL	NULL	PRIMARY	RECORD	X	WAITING	127, 255, 32767, 65535, 8388607, 16777215, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615
 INNODB	test	t1_max	NULL	NULL	PRIMARY	RECORD	X,GAP,INSERT_INTENTION	WAITING	127, 255, 32767, 65535, 8388607, 16777215, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615
-INNODB	test	t1_min	NULL	NULL	NULL	TABLE	IX	GRANTED	NULL
-INNODB	test	t1_min	NULL	NULL	NULL	TABLE	IX	GRANTED	NULL
-INNODB	test	t1_min	NULL	NULL	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_min	NULL	NULL	PRIMARY	RECORD	X	GRANTED	-128, 0, -32768, 0, -8388608, 0, -2147483648, 0, -9223372036854775808, 0
 INNODB	test	t1_min	NULL	NULL	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 INNODB	test	t1_min	NULL	NULL	PRIMARY	RECORD	X	WAITING	-128, 0, -32768, 0, -8388608, 0, -2147483648, 0, -9223372036854775808, 0
 INNODB	test	t1_min	NULL	NULL	PRIMARY	RECORD	X,INSERT_INTENTION	WAITING	supremum pseudo-record
-INNODB	test	t1_part	p0	NULL	NULL	TABLE	IX	GRANTED	NULL
-INNODB	test	t1_part	p0	NULL	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_part	p0	NULL	PRIMARY	RECORD	X	GRANTED	4, 4, 4
 INNODB	test	t1_part	p0	NULL	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 INNODB	test	t1_part	p0	NULL	PRIMARY	RECORD	X	WAITING	4, 4, 4
-INNODB	test	t1_part	p1	NULL	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_part	p1	NULL	PRIMARY	RECORD	X	GRANTED	1, 1, 1
 INNODB	test	t1_part	p1	NULL	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_part	p2	NULL	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_part	p2	NULL	PRIMARY	RECORD	X	GRANTED	2, 2, 2
 INNODB	test	t1_part	p2	NULL	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_part	p3	NULL	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_part	p3	NULL	PRIMARY	RECORD	X	GRANTED	3, 3, 3
 INNODB	test	t1_part	p3	NULL	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_subpart	p0	s0	NULL	TABLE	IX	GRANTED	NULL
-INNODB	test	t1_subpart	p0	s0	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_subpart	p0	s0	PRIMARY	RECORD	X	GRANTED	2, 2, 2
 INNODB	test	t1_subpart	p0	s0	PRIMARY	RECORD	X	GRANTED	4, 4, 4
 INNODB	test	t1_subpart	p0	s0	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 INNODB	test	t1_subpart	p0	s0	PRIMARY	RECORD	X	WAITING	2, 2, 2
-INNODB	test	t1_subpart	p0	s1	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_subpart	p0	s1	PRIMARY	RECORD	X	GRANTED	1, 1, 1
 INNODB	test	t1_subpart	p0	s1	PRIMARY	RECORD	X	GRANTED	3, 3, 3
 INNODB	test	t1_subpart	p0	s1	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_subpart	p1	s2	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_subpart	p1	s2	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_subpart	p1	s3	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_subpart	p1	s3	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_subpart	p2	s4	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_subpart	p2	s4	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
-INNODB	test	t1_subpart	p2	s5	NULL	TABLE	IX	GRANTED	NULL
 INNODB	test	t1_subpart	p2	s5	PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 select ENGINE, ENGINE_LOCK_ID, ENGINE_TRANSACTION_ID
 from performance_schema.data_locks
@@ -204,102 +186,18 @@ OBJECT_SCHEMA	test
 OBJECT_NAME	t1_max
 PARTITION_NAME	NULL
 SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_max
-PARTITION_NAME	NULL
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	LOCK WAIT
-trx_weight	2
-trx_query	insert into t1_max values (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-trx_operation_state	inserting
-trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
-trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_max
-PARTITION_NAME	NULL
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	LOCK WAIT
-trx_weight	2
-trx_query	select * from t1_max for update
-trx_operation_state	starting index read
-trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
-trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_max
-PARTITION_NAME	NULL
-SUBPARTITION_NAME	NULL
 INDEX_NAME	PRIMARY
 LOCK_TYPE	RECORD
 LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	127, 255, 32767, 65535, 8388607, 16777215, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -322,12 +220,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -350,12 +248,12 @@ LOCK_MODE	X,GAP,INSERT_INTENTION
 LOCK_STATUS	WAITING
 LOCK_DATA	127, 255, 32767, 65535, 8388607, 16777215, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615
 trx_state	LOCK WAIT
-trx_weight	2
+trx_weight	1
 trx_query	insert into t1_max values (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 trx_operation_state	inserting
 trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
+trx_tables_locked	0
+trx_lock_structs	1
 trx_rows_locked	1
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -378,96 +276,12 @@ LOCK_MODE	X
 LOCK_STATUS	WAITING
 LOCK_DATA	127, 255, 32767, 65535, 8388607, 16777215, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615
 trx_state	LOCK WAIT
-trx_weight	2
+trx_weight	1
 trx_query	select * from t1_max for update
 trx_operation_state	starting index read
 trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
-trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_min
-PARTITION_NAME	NULL
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_min
-PARTITION_NAME	NULL
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	LOCK WAIT
-trx_weight	2
-trx_query	insert into t1_min values (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-trx_operation_state	inserting
-trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
-trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_min
-PARTITION_NAME	NULL
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	LOCK WAIT
-trx_weight	2
-trx_query	select * from t1_min for update
-trx_operation_state	starting index read
-trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
+trx_tables_locked	0
+trx_lock_structs	1
 trx_rows_locked	1
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -490,12 +304,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	-128, 0, -32768, 0, -8388608, 0, -2147483648, 0, -9223372036854775808, 0
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -518,12 +332,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -546,12 +360,12 @@ LOCK_MODE	X,INSERT_INTENTION
 LOCK_STATUS	WAITING
 LOCK_DATA	supremum pseudo-record
 trx_state	LOCK WAIT
-trx_weight	2
+trx_weight	1
 trx_query	insert into t1_min values (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 trx_operation_state	inserting
 trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
+trx_tables_locked	0
+trx_lock_structs	1
 trx_rows_locked	1
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -574,68 +388,12 @@ LOCK_MODE	X
 LOCK_STATUS	WAITING
 LOCK_DATA	-128, 0, -32768, 0, -8388608, 0, -2147483648, 0, -9223372036854775808, 0
 trx_state	LOCK WAIT
-trx_weight	2
+trx_weight	1
 trx_query	select * from t1_min for update
 trx_operation_state	starting index read
 trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
-trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_part
-PARTITION_NAME	p0
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_part
-PARTITION_NAME	p0
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	LOCK WAIT
-trx_weight	2
-trx_query	select * from t1_part for update
-trx_operation_state	starting index read
-trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
+trx_tables_locked	0
+trx_lock_structs	1
 trx_rows_locked	1
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -658,12 +416,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	4, 4, 4
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -686,12 +444,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -714,41 +472,13 @@ LOCK_MODE	X
 LOCK_STATUS	WAITING
 LOCK_DATA	4, 4, 4
 trx_state	LOCK WAIT
-trx_weight	2
+trx_weight	1
 trx_query	select * from t1_part for update
 trx_operation_state	starting index read
 trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
+trx_tables_locked	0
+trx_lock_structs	1
 trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_part
-PARTITION_NAME	p1
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
 trx_isolation_level	REPEATABLE READ
@@ -770,12 +500,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	1, 1, 1
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -798,40 +528,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_part
-PARTITION_NAME	p2
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -854,12 +556,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	2, 2, 2
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -882,40 +584,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_part
-PARTITION_NAME	p3
-SUBPARTITION_NAME	NULL
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -938,12 +612,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	3, 3, 3
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -966,69 +640,13 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p0
-SUBPARTITION_NAME	s0
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p0
-SUBPARTITION_NAME	s0
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	LOCK WAIT
-trx_weight	2
-trx_query	select * from t1_subpart for update
-trx_operation_state	starting index read
-trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
-trx_rows_locked	1
 trx_rows_modified	0
 trx_concurrency_tickets	0
 trx_isolation_level	REPEATABLE READ
@@ -1050,12 +668,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	2, 2, 2
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1078,12 +696,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	4, 4, 4
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1106,12 +724,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1134,41 +752,13 @@ LOCK_MODE	X
 LOCK_STATUS	WAITING
 LOCK_DATA	2, 2, 2
 trx_state	LOCK WAIT
-trx_weight	2
+trx_weight	1
 trx_query	select * from t1_subpart for update
 trx_operation_state	starting index read
 trx_tables_in_use	1
-trx_tables_locked	1
-trx_lock_structs	2
+trx_tables_locked	0
+trx_lock_structs	1
 trx_rows_locked	1
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p0
-SUBPARTITION_NAME	s1
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
 trx_isolation_level	REPEATABLE READ
@@ -1190,12 +780,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	1, 1, 1
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1218,12 +808,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	3, 3, 3
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1246,40 +836,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p1
-SUBPARTITION_NAME	s2
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1302,40 +864,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p1
-SUBPARTITION_NAME	s3
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1358,40 +892,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p2
-SUBPARTITION_NAME	s4
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1414,40 +920,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
-trx_rows_locked	22
-trx_rows_modified	0
-trx_concurrency_tickets	0
-trx_isolation_level	REPEATABLE READ
-trx_unique_checks	1
-trx_foreign_key_checks	1
-trx_last_foreign_key_error	NULL
-trx_adaptive_hash_latched	0
-trx_adaptive_hash_timeout	0
-trx_is_read_only	0
-trx_autocommit_non_locking	0
-ENGINE	INNODB
-OBJECT_SCHEMA	test
-OBJECT_NAME	t1_subpart
-PARTITION_NAME	p2
-SUBPARTITION_NAME	s5
-INDEX_NAME	NULL
-LOCK_TYPE	TABLE
-LOCK_MODE	IX
-LOCK_STATUS	GRANTED
-LOCK_DATA	NULL
-trx_state	RUNNING
-trx_weight	24
-trx_query	NULL
-trx_operation_state	NULL
-trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1470,12 +948,12 @@ LOCK_MODE	X
 LOCK_STATUS	GRANTED
 LOCK_DATA	supremum pseudo-record
 trx_state	RUNNING
-trx_weight	24
+trx_weight	12
 trx_query	NULL
 trx_operation_state	NULL
 trx_tables_in_use	0
-trx_tables_locked	12
-trx_lock_structs	24
+trx_tables_locked	0
+trx_lock_structs	12
 trx_rows_locked	22
 trx_rows_modified	0
 trx_concurrency_tickets	0
@@ -1548,6 +1026,5 @@ RECORD	k_u1_u2	X,GAP	40, 50, 10
 RECORD	k_u1_u2	X,REC_NOT_GAP	40, 50, 10
 RECORD	PRIMARY	X,REC_NOT_GAP	1
 RECORD	PRIMARY	X,REC_NOT_GAP	10
-TABLE	NULL	IX	NULL
 ROLLBACK;
 DROP TABLE t;

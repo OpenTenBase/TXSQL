@@ -186,11 +186,13 @@ class Dictionary {
                           thd->variables.lock_wait_timeout timeout value.
   @param out_mdl_ticket - This is a OUT parameter, a pointer to MDL_ticket
                           upon successful lock attempt.
+  @param transactional  - The mdl lock scope is transaction if true
 
 */
 bool acquire_shared_table_mdl(THD *thd, const char *schema_name,
                               const char *table_name, bool no_wait,
-                              MDL_ticket **out_mdl_ticket)
+                              MDL_ticket **out_mdl_ticket,
+                              bool transactional = false)
     MY_ATTRIBUTE((warn_unused_result));
 
 /**
@@ -222,6 +224,32 @@ bool has_shared_table_mdl(THD *thd, const char *schema_name,
 
 bool has_exclusive_table_mdl(THD *thd, const char *schema_name,
                              const char *table_name);
+/**
+  Predicate to check if we have an read only meta data lock on the
+  submitted schema qualified table name.
+
+  @param    thd            Thread context.
+  @param    schema_name    Schema name.
+  @param    table_name     Table name.
+
+  @retval   true           The thread context has a lock.
+  @retval   false          The thread context does not have a lock.
+*/
+bool has_read_only_mdl(THD *thd, const char *schema_name, const char *table_name);
+
+/**
+  Predicate to check if we have no-write meta data lock on the
+  submitted schema qualified table name.
+
+  @param    thd            Thread context.
+  @param    schema_name    Schema name.
+  @param    table_name     Table name.
+
+  @retval   true           The thread context has a lock.
+  @retval   false          The thread context does not have a lock.
+*/
+
+bool has_no_write_mdl(THD *thd, const char *schema_name, const char *table_name);
 
 /**
   Acquire an exclusive metadata lock on the given tablespace name with
@@ -356,6 +384,9 @@ bool acquire_exclusive_schema_mdl(THD *thd, const char *schema_name,
 
 */
 void release_mdl(THD *thd, MDL_ticket *mdl_ticket);
+
+/** Release mdl which scope is MDL_TRANSACTION */
+void release_transactional_mdl(THD *thd);
 
 /** Get Dictionary_client from THD object (the latter is opaque * in SEs). */
 cache::Dictionary_client *get_dd_client(THD *thd);

@@ -13,7 +13,6 @@ FROM performance_schema.data_locks
 WHERE object_schema="test" AND object_name="t1"
   ORDER BY 1, 2, 3, 4, 5;
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 BEGIN;
 SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL con2_will_wait';

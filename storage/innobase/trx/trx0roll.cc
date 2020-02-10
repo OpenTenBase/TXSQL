@@ -734,7 +734,9 @@ void trx_rollback_or_clean_recovered(
   while (!trx_list.empty()) {
     trx_t *trx= trx_list.back();
     trx_list.pop_back();
-    trx_rollback_resurrected(trx, all);
+    if (trx_rollback_resurrected(trx, all)) {
+      trx_resurrect_erase(trx);
+    }
   }
 
   if (all) {
@@ -749,6 +751,15 @@ committed, then we clean up a possible insert undo log. If the
 transaction was not yet committed, then we roll it back.
 Note: this is done in a background thread. */
 void trx_recovery_rollback_thread() {
+
+  while (!trx_sys->is_shutdown && !trx_sys->start_rollback) {
+    os_thread_sleep(1000);
+  }
+
+  /* Resurrect MDL locks for modified table */
+  trx_resurrect_locks();
+
+  trx_sys->resurrect_lock_done = true;
 #ifdef UNIV_PFS_THREAD
   THD *thd =
       create_thd(false, true, true, trx_recovery_rollback_thread_key.m_value);

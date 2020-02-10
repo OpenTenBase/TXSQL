@@ -21,14 +21,14 @@ FROM performance_schema.data_locks
 WHERE object_name='t1';
 SELECT COUNT(*) FROM t2;
 COUNT(*)
-4
+2
 SELECT COUNT(t2.id)
 FROM t2
 JOIN performance_schema.data_locks dl
 ON(dl.engine_lock_id = t2.lock_id)
 ORDER BY t2.id;
 COUNT(t2.id)
-4
+2
 DROP TABLE t2;
 ROLLBACK;
 DROP TABLE t1;

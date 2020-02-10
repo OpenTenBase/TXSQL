@@ -65,7 +65,6 @@ FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1'
     ORDER BY 1,2,3,4,5;
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 b	RECORD	X	GRANTED	100, 10
 b	RECORD	X	GRANTED	60, 6
 b	RECORD	X	GRANTED	80, 8
@@ -97,8 +96,6 @@ FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't2'
     ORDER BY 1,2,3,4,5;
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IS	GRANTED	NULL
-NULL	TABLE	IX	GRANTED	NULL
 b	RECORD	X	GRANTED	100, 10
 b	RECORD	X	GRANTED	60, 6
 b	RECORD	X	GRANTED	80, 8

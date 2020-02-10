@@ -199,6 +199,10 @@ size_t thd_query_safe(THD *thd, char *buf, size_t buflen) {
 
 int thd_slave_thread(const THD *thd) { return (thd->slave_thread); }
 
+bool thd_is_binlog_applier(const THD *thd) {
+  return (thd->is_binlog_applier());
+}
+
 int thd_non_transactional_update(const THD *thd) {
   return thd->get_transaction()->has_modified_non_trans_table(
       Transaction_ctx::SESSION);

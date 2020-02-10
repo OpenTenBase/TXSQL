@@ -4,7 +4,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 COMMIT;
 SELECT * FROM t1;
 a	b
@@ -20,7 +19,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 a	RECORD	S	GRANTED	0, 0
 COMMIT;
 SELECT * FROM t1;
@@ -36,7 +34,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	0
 COMMIT;
 SELECT * FROM t1;
@@ -52,7 +49,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	0
 COMMIT;
 SELECT * FROM t1;
@@ -67,7 +63,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 a	RECORD	S	GRANTED	2, 2
 a	RECORD	S	GRANTED	3, 3
 a	RECORD	S,GAP	GRANTED	2, 5
@@ -85,7 +80,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	2
 COMMIT;
 SELECT * FROM t1;
@@ -101,7 +95,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	2
 a	RECORD	S	GRANTED	2, 2
 a	RECORD	S	GRANTED	3, 3
@@ -120,7 +113,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	0
 COMMIT;
 SELECT * FROM t1;
@@ -136,7 +128,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	2
 a	RECORD	S	GRANTED	0, 0
 COMMIT;
@@ -152,7 +143,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 COMMIT;
 SELECT * FROM t1;
 a	b
@@ -167,7 +157,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 a	RECORD	X	GRANTED	0, 0
 a	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	0
@@ -185,7 +174,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	0
 COMMIT;
 SELECT * FROM t1;
@@ -200,7 +188,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	0
 a	RECORD	X,REC_NOT_GAP	GRANTED	0, 0
 a	RECORD	X,GAP	GRANTED	0, 0
@@ -218,7 +205,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 a	RECORD	X	GRANTED	2, 2
 a	RECORD	X	GRANTED	3, 3
 a	RECORD	X,GAP	GRANTED	2, 5
@@ -236,7 +222,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 COMMIT;
 SELECT * FROM t1;
@@ -252,7 +237,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 a	RECORD	X	GRANTED	2, 2
 a	RECORD	X	GRANTED	3, 3
@@ -270,7 +254,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	0
 a	RECORD	X	GRANTED	2, 2
 a	RECORD	X	GRANTED	3, 3
@@ -288,7 +271,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	0
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 a	RECORD	X	GRANTED	0, 0

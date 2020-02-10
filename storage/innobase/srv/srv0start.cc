@@ -2861,7 +2861,7 @@ static void apply_dynamic_metadata() {
 /** On a restart, initialize the remaining InnoDB subsystems so that
 any tables (including data dictionary tables) can be accessed. */
 void srv_dict_recover_on_restart() {
-  trx_resurrect_locks();
+  trx_resurrect_modified_tables();
 
   /* Roll back any recovered data dictionary transactions, so
   that the data dictionary tables will be free of any locks.
@@ -2946,6 +2946,7 @@ void srv_start_threads(bool bootstrap) {
   srv_threads.m_buf_resize.start();
 
   if (srv_read_only_mode) {
+    trx_sys->resurrect_lock_done = true;
     purge_sys->state = PURGE_STATE_DISABLED;
     return;
   }
@@ -2958,6 +2959,9 @@ void srv_start_threads(bool bootstrap) {
         trx_recovery_rollback_thread_key, trx_recovery_rollback_thread);
 
     srv_threads.m_trx_recovery_rollback.start();
+  } else {
+    /* Set the flag. */
+    trx_sys->resurrect_lock_done = true;
   }
 
   /* Create the master thread which does purge and other utility

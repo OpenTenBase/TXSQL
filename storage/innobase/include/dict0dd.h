@@ -626,12 +626,20 @@ const dict_index_t *dd_find_index(const dict_table_t *table, Index *dd_index);
 @retval false if acquired, or trylock timed out
 @retval true if failed (my_error() will have been called) */
 UNIV_INLINE MY_ATTRIBUTE((warn_unused_result)) bool dd_mdl_acquire(
-    THD *thd, MDL_ticket **mdl, const char *db, const char *table);
+    THD *thd, MDL_ticket **mdl, const char *db, const char *table, bool transactional = false);
 
 /** Release a metadata lock.
 @param[in,out]	thd	current thread
 @param[in,out]	mdl	metadata lock */
 void dd_mdl_release(THD *thd, MDL_ticket **mdl);
+
+UNIV_INLINE bool dd_has_shared_mdl(THD *thd, const char *db, const char *table);
+
+UNIV_INLINE bool dd_has_no_write_mdl(THD *thd, const char *db, const char *table);
+
+UNIV_INLINE bool dd_has_read_only_mdl(THD *thd, const char *db, const char *table);
+
+void dd_mdl_release_transactional(THD *thd);
 
 /** Returns thd associated with the trx or current_thd
 @param[in]	trx	transaction
@@ -1010,12 +1018,14 @@ Note the table name may have trailing TMP_POSTFIX for temporary table name.
 @param[in,out]	dd_sub_name	sub-partition name to be filled it not nullptr
 @param[in,out]	is_temp		true if it is a temporary table name which
                                 ends with TMP_POSTFIX.
+@param[in]      case_sensitive  true if it cares case sensitivity of partition
+                                identifier
 @return	true if table name is parsed properly, false if the table name
 is invalid */
 UNIV_INLINE
 bool dd_parse_tbl_name(const char *tbl_name, char *dd_db_name,
                        char *dd_tbl_name, char *dd_part_name, char *dd_sub_name,
-                       bool *is_temp);
+                       bool *is_temp, bool case_sensitive = true);
 
 /** Look up a column in a table using the system_charset_info collation.
 @param[in]	dd_table	data dictionary table

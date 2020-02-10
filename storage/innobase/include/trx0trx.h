@@ -94,6 +94,10 @@ trx_t *trx_allocate_for_background(void);
 /** Resurrect table locks for resurrected transactions. */
 void trx_resurrect_locks();
 
+void trx_resurrect_modified_tables();
+
+void trx_resurrect_erase(trx_t *trx);
+
 /** Free and initialize a transaction object instantiated during recovery.
 @param[in,out]	trx	transaction object to free and initialize */
 void trx_free_resurrected(trx_t *trx);
@@ -1024,6 +1028,9 @@ struct trx_t {
   THD *mysql_thd; /*!< MySQL thread handle corresponding
                   to this trx, or NULL */
 
+  THD *recover_mysql_thd; /** Special handler for holding
+                          resurrected mdl locks. */
+
   const char *mysql_log_file_name;
   /*!< if MySQL binlog is used, this field
   contains a pointer to the latest file
@@ -1163,6 +1170,7 @@ struct trx_t {
                                transaction branch */
   trx_mod_tables_t mod_tables; /*!< List of tables that were modified
                                by this transaction */
+  trx_mod_tables_t locked_tables; /*!< track tables which requires table lock */
 #endif                         /* !UNIV_HOTBACKUP */
                                /*------------------------------*/
   bool api_trx;                /*!< trx started by InnoDB API */

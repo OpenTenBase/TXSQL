@@ -1738,6 +1738,8 @@ typedef void (*dict_cache_reset_t)(const char *schema_name,
 
 typedef void (*dict_cache_reset_tables_and_tablespaces_t)();
 
+typedef void (*start_rollback_t)();
+
 /** Mode for data dictionary recovery. */
 enum dict_recovery_mode_t {
   DICT_RECOVERY_INITIALIZE_SERVER,       ///< First start of a new server
@@ -2340,6 +2342,7 @@ struct handlerton {
   dict_cache_reset_t dict_cache_reset;
   dict_cache_reset_tables_and_tablespaces_t
       dict_cache_reset_tables_and_tablespaces;
+  start_rollback_t start_rollback;
   dict_recover_t dict_recover;
   dict_get_server_version_t dict_get_server_version;
   dict_set_server_version_t dict_set_server_version;

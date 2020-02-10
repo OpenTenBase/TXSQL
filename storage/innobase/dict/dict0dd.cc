@@ -237,6 +237,10 @@ void dd_mdl_release(THD *thd, MDL_ticket **mdl) {
   *mdl = nullptr;
 }
 
+void dd_mdl_release_transactional(THD *thd) {
+  dd::release_transactional_mdl(thd);
+}
+
 THD *dd_thd_for_undo(const trx_t *trx) {
   return trx->mysql_thd == nullptr ? current_thd : trx->mysql_thd;
 }

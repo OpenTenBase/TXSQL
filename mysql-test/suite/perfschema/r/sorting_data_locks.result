@@ -14,7 +14,7 @@ id
 1
 SELECT COUNT(DISTINCT engine_lock_id) FROM performance_schema.data_locks;
 COUNT(DISTINCT engine_lock_id)
-4
+2
 SELECT
 lock_type,
 lock_mode,
@@ -25,8 +25,6 @@ ORDER BY 1,2,3,4;
 lock_type	lock_mode	lock_status	lock_data
 RECORD	S,REC_NOT_GAP	GRANTED	1
 RECORD	X,REC_NOT_GAP	GRANTED	1
-TABLE	IS	GRANTED	NULL
-TABLE	IX	GRANTED	NULL
 BEGIN;
 SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL C1_will_wait';
 SELECT * FROM t1 FOR UPDATE;;

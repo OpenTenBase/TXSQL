@@ -518,6 +518,10 @@ void trx_sys_create(void) {
 
   trx_sys->is_shutdown = false;
 
+  trx_sys->start_rollback = false;
+
+  trx_sys->resurrect_lock_done = false;
+
   ut_d(trx_sys->rw_max_trx_no = 0);
 
   trx_sys->lock = static_cast<rw_lock_t *>(ut_malloc_nokey(sizeof(rw_lock_t)));

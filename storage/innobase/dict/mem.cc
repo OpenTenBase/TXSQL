@@ -218,6 +218,7 @@ dict_table_t *dict_mem_table_create(
   table->autoinc_field_no = ULINT_UNDEFINED;
   table->sess_row_id = 0;
   table->sess_trx_id = 0;
+  table->n_table_locks = 0;
 
   /* If the table has an FTS index or we are in the process
   of building one, create the table->fts */

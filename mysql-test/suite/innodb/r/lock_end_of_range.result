@@ -28,7 +28,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1
 ROLLBACK;
 BEGIN;
@@ -42,7 +41,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1
 ROLLBACK;
 BEGIN;
@@ -56,7 +54,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1
 ROLLBACK;
 BEGIN;
@@ -70,7 +67,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1
 ROLLBACK;
 BEGIN;
@@ -85,7 +81,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 ROLLBACK;
 BEGIN;
@@ -100,7 +95,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X,GAP	GRANTED	3
 ROLLBACK;
@@ -120,7 +114,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -144,7 +137,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -169,7 +161,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -194,7 +185,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -220,7 +210,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -246,7 +235,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -272,7 +260,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -298,7 +285,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -325,7 +311,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -353,7 +338,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -381,7 +365,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -409,7 +392,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -430,7 +412,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -444,7 +425,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	9
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -459,7 +439,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -473,7 +452,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	9
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -489,7 +467,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	9
 ROLLBACK;
@@ -505,7 +482,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	7
 PRIMARY	RECORD	X	GRANTED	9
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -526,7 +502,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
 PRIMARY	RECORD	X	GRANTED	6
@@ -550,7 +525,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -576,7 +550,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
 PRIMARY	RECORD	X	GRANTED	6
@@ -602,7 +575,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -629,7 +601,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -655,7 +626,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -682,7 +652,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -708,7 +677,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -736,7 +704,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -764,7 +731,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -792,7 +758,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -820,7 +785,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -846,7 +810,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -861,7 +824,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -875,7 +837,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -890,7 +851,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -905,7 +865,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -922,7 +881,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	1
 ROLLBACK;
@@ -942,7 +900,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -967,7 +924,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -992,7 +948,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1019,7 +974,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1045,7 +999,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1072,7 +1025,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1098,7 +1050,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1125,7 +1076,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1152,7 +1102,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1180,7 +1129,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1208,7 +1156,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1236,7 +1183,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1257,7 +1203,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	9
 ROLLBACK;
 BEGIN;
@@ -1271,7 +1216,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	9
 ROLLBACK;
 BEGIN;
@@ -1285,7 +1229,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	9
 ROLLBACK;
 BEGIN;
@@ -1299,7 +1242,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	9
 ROLLBACK;
 BEGIN;
@@ -1314,7 +1256,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	9
 PRIMARY	RECORD	X,GAP	GRANTED	7
 ROLLBACK;
@@ -1330,7 +1271,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	9
 ROLLBACK;
 BEGIN;
@@ -1349,7 +1289,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
 PRIMARY	RECORD	X	GRANTED	6
@@ -1373,7 +1312,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
 PRIMARY	RECORD	X	GRANTED	6
@@ -1398,7 +1336,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -1424,7 +1361,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -1449,7 +1385,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -1475,7 +1410,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -1501,7 +1435,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -1527,7 +1460,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
 PRIMARY	RECORD	X	GRANTED	5
@@ -1554,7 +1486,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1582,7 +1513,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1610,7 +1540,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1638,7 +1567,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -1689,7 +1617,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -1703,7 +1630,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
 BEGIN;
@@ -1717,7 +1643,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -1731,7 +1656,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
@@ -1746,7 +1670,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -1760,7 +1683,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
 BEGIN;
@@ -1774,7 +1696,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -1788,7 +1709,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
@@ -1806,7 +1726,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -1824,7 +1743,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
 ROLLBACK;
@@ -1842,7 +1760,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -1860,7 +1777,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
@@ -1882,7 +1798,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -1904,7 +1819,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 ROLLBACK;
@@ -1925,7 +1839,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -1947,7 +1860,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -1970,7 +1882,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -1992,7 +1903,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
@@ -2014,7 +1924,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2036,7 +1945,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2059,7 +1967,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2081,7 +1988,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
@@ -2103,7 +2009,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2125,7 +2030,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2151,7 +2055,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2177,7 +2080,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2202,7 +2104,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2228,7 +2129,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2246,7 +2146,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -2260,7 +2159,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
 BEGIN;
@@ -2274,7 +2172,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 5
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -2289,7 +2186,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
@@ -2304,7 +2200,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -2318,7 +2213,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
 BEGIN;
@@ -2332,7 +2226,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 5
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -2347,7 +2240,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
@@ -2365,7 +2257,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
 PRIMARY	RECORD	X	GRANTED	5, 5
@@ -2383,7 +2274,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
@@ -2401,7 +2291,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
@@ -2420,7 +2309,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
@@ -2442,7 +2330,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2464,7 +2351,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3, 3
@@ -2486,7 +2372,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2509,7 +2394,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2532,7 +2416,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2554,7 +2437,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
@@ -2576,7 +2458,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2599,7 +2480,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2622,7 +2502,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2644,7 +2523,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
@@ -2666,7 +2544,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2689,7 +2566,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -2715,7 +2591,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2741,7 +2616,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
@@ -2767,7 +2641,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2793,7 +2666,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -2817,7 +2689,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
 BEGIN;
@@ -2831,7 +2702,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -2845,7 +2715,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
 BEGIN;
@@ -2859,7 +2728,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -2873,7 +2741,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
 BEGIN;
@@ -2887,7 +2754,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -2901,7 +2767,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
 BEGIN;
@@ -2915,7 +2780,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -2932,7 +2796,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2950,7 +2813,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
@@ -2968,7 +2830,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -2986,7 +2847,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
@@ -3007,7 +2867,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3029,7 +2888,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3, 3
@@ -3051,7 +2909,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3073,7 +2930,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3, 3
@@ -3095,7 +2951,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3117,7 +2972,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
@@ -3139,7 +2993,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3161,7 +3014,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
@@ -3183,7 +3035,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3205,7 +3056,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
@@ -3227,7 +3077,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3249,7 +3098,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
@@ -3274,7 +3122,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3300,7 +3147,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
@@ -3326,7 +3172,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3352,7 +3197,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
@@ -3369,7 +3213,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -3383,7 +3226,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
 BEGIN;
@@ -3397,7 +3239,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -3412,7 +3253,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
 BEGIN;
@@ -3426,7 +3266,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -3440,7 +3279,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
 BEGIN;
@@ -3454,7 +3292,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -3469,7 +3306,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
 BEGIN;
@@ -3486,7 +3322,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
 PRIMARY	RECORD	X	GRANTED	5, 5
@@ -3504,7 +3339,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
 ROLLBACK;
@@ -3522,7 +3356,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
@@ -3541,7 +3374,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
 ROLLBACK;
@@ -3562,7 +3394,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -3584,7 +3415,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 ROLLBACK;
@@ -3605,7 +3435,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -3628,7 +3457,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 ROLLBACK;
@@ -3649,7 +3477,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -3671,7 +3498,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
@@ -3693,7 +3519,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -3716,7 +3541,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
@@ -3738,7 +3562,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -3760,7 +3583,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
@@ -3782,7 +3604,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
@@ -3805,7 +3626,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
@@ -3830,7 +3650,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3856,7 +3675,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -3881,7 +3699,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -3907,7 +3724,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -3929,7 +3745,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -3944,7 +3759,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
 BEGIN;
@@ -3958,7 +3772,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -3972,7 +3785,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
 BEGIN;
@@ -3986,7 +3798,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 5
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -4001,7 +3812,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
 BEGIN;
@@ -4015,7 +3825,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -4029,7 +3838,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
 ROLLBACK;
 BEGIN;
@@ -4046,7 +3854,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4065,7 +3872,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
 ROLLBACK;
@@ -4083,7 +3889,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4101,7 +3906,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
 ROLLBACK;
@@ -4122,7 +3926,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4145,7 +3948,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 ROLLBACK;
@@ -4166,7 +3968,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4188,7 +3989,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 ROLLBACK;
@@ -4209,7 +4009,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4232,7 +4031,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
@@ -4254,7 +4052,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4276,7 +4073,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
@@ -4298,7 +4094,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4321,7 +4116,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
@@ -4343,7 +4137,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4365,7 +4158,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
@@ -4390,7 +4182,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4416,7 +4207,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4441,7 +4231,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4467,7 +4256,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4483,7 +4271,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
 BEGIN;
@@ -4497,7 +4284,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -4511,7 +4297,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
 BEGIN;
@@ -4525,7 +4310,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -4539,7 +4323,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
 BEGIN;
@@ -4553,7 +4336,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -4567,7 +4349,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 1
 ROLLBACK;
 BEGIN;
@@ -4581,7 +4362,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
 BEGIN;
@@ -4598,7 +4378,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
 PRIMARY	RECORD	X	GRANTED	5, 5
@@ -4616,7 +4395,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
@@ -4634,7 +4412,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
 PRIMARY	RECORD	X	GRANTED	5, 5
@@ -4652,7 +4429,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 ROLLBACK;
@@ -4673,7 +4449,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4695,7 +4470,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3, 3
@@ -4717,7 +4491,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4739,7 +4512,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3, 3
@@ -4761,7 +4533,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4783,7 +4554,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
@@ -4805,7 +4575,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4827,7 +4596,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
@@ -4849,7 +4617,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4871,7 +4638,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
@@ -4893,7 +4659,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -4915,7 +4680,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
@@ -4940,7 +4704,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -4966,7 +4729,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
@@ -4992,7 +4754,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5018,7 +4779,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't3';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	1, 1
@@ -5041,7 +4801,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -5056,7 +4815,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
@@ -5071,7 +4829,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -5085,7 +4842,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
 BEGIN;
@@ -5099,7 +4855,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
@@ -5114,7 +4869,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
@@ -5129,7 +4883,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
 ROLLBACK;
 BEGIN;
@@ -5143,7 +4896,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
 BEGIN;
@@ -5160,7 +4912,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5179,7 +4930,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
@@ -5198,7 +4948,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5216,7 +4965,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 ROLLBACK;
@@ -5237,7 +4985,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5260,7 +5007,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5283,7 +5029,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5305,7 +5050,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3, 3
@@ -5327,7 +5071,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5350,7 +5093,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5373,7 +5115,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5395,7 +5136,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
@@ -5417,7 +5157,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5440,7 +5179,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5463,7 +5201,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5485,7 +5222,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
@@ -5510,7 +5246,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5536,7 +5271,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5563,7 +5297,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -5589,7 +5322,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X,GAP	GRANTED	1, 5
@@ -5606,7 +5338,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -5620,7 +5351,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
@@ -5635,7 +5365,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -5649,7 +5378,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
 BEGIN;
@@ -5663,7 +5391,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -5677,7 +5404,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
@@ -5692,7 +5418,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	5, 5
 ROLLBACK;
 BEGIN;
@@ -5706,7 +5431,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,GAP	GRANTED	3, 5
 ROLLBACK;
 BEGIN;
@@ -5723,7 +5447,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
 PRIMARY	RECORD	X	GRANTED	5, 5
@@ -5741,7 +5464,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
@@ -5760,7 +5482,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	5, 1
 PRIMARY	RECORD	X	GRANTED	5, 3
 PRIMARY	RECORD	X	GRANTED	5, 5
@@ -5778,7 +5499,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 3
 ROLLBACK;
@@ -5799,7 +5519,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5821,7 +5540,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X	GRANTED	5, 1
@@ -5844,7 +5562,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5866,7 +5583,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 ROLLBACK;
@@ -5887,7 +5603,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5909,7 +5624,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X	GRANTED	5, 1
@@ -5932,7 +5646,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5954,7 +5667,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
@@ -5976,7 +5688,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -5998,7 +5709,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X	GRANTED	5, 1
@@ -6021,7 +5731,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -6043,7 +5752,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
 PRIMARY	RECORD	X,GAP	GRANTED	3, 1
@@ -6068,7 +5776,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -6094,7 +5801,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -6121,7 +5827,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1, 1
 PRIMARY	RECORD	X	GRANTED	1, 3
 PRIMARY	RECORD	X	GRANTED	1, 5
@@ -6147,7 +5852,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't4';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	3, 1
 PRIMARY	RECORD	X	GRANTED	3, 3
 PRIMARY	RECORD	X	GRANTED	3, 5
@@ -6183,7 +5887,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6201,7 +5904,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6220,7 +5922,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6240,7 +5941,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6260,7 +5960,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6280,7 +5979,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6300,7 +5998,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6320,7 +6017,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6341,7 +6037,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6362,7 +6057,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6382,7 +6076,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6402,7 +6095,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6423,7 +6115,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6444,7 +6135,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6464,7 +6154,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -6484,7 +6173,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -6504,7 +6192,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6524,7 +6211,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6545,7 +6231,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6567,7 +6252,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6588,7 +6272,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6609,7 +6292,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6631,7 +6313,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6653,7 +6334,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6674,7 +6354,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6695,7 +6374,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6717,7 +6395,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6739,7 +6416,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -6765,7 +6441,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -6784,7 +6459,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -6804,7 +6478,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6824,7 +6497,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6844,7 +6516,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6865,7 +6536,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6886,7 +6556,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6907,7 +6576,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6929,7 +6597,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6951,7 +6618,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6972,7 +6638,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -6993,7 +6658,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -7015,7 +6679,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -7037,7 +6700,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'a'
 PRIMARY	RECORD	X	GRANTED	'b'
 PRIMARY	RECORD	X	GRANTED	'c'
@@ -7058,7 +6720,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -7077,7 +6738,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -7096,7 +6756,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -7116,7 +6775,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
 PRIMARY	RECORD	X	GRANTED	'i'
@@ -7137,7 +6795,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7158,7 +6815,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7178,7 +6834,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7198,7 +6853,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7219,7 +6873,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7240,7 +6893,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7260,7 +6912,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7280,7 +6931,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7301,7 +6951,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7322,7 +6971,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'e'
 PRIMARY	RECORD	X	GRANTED	'g'
 PRIMARY	RECORD	X	GRANTED	'h'
@@ -7359,7 +7007,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X,GAP	GRANTED	'cc'
@@ -7377,7 +7024,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X,GAP	GRANTED	'cc'
@@ -7396,7 +7042,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7416,7 +7061,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7436,7 +7080,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7456,7 +7099,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7476,7 +7118,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7496,7 +7137,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7516,7 +7156,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7536,7 +7175,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7556,7 +7194,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7576,7 +7213,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7597,7 +7233,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7619,7 +7254,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7640,7 +7274,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7660,7 +7293,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7680,7 +7312,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7700,7 +7331,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7721,7 +7351,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -7743,7 +7372,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -7765,7 +7393,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7787,7 +7414,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7809,7 +7435,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7831,7 +7456,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7852,7 +7476,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7872,7 +7495,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -7893,7 +7515,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -7915,7 +7536,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -7941,7 +7561,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -7959,7 +7578,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	supremum pseudo-record
@@ -7978,7 +7596,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -7998,7 +7615,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8018,7 +7634,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8038,7 +7653,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8058,7 +7672,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8079,7 +7692,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8100,7 +7712,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8121,7 +7732,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8142,7 +7752,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8162,7 +7771,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8183,7 +7791,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8205,7 +7812,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'aa'
 PRIMARY	RECORD	X	GRANTED	'bb'
 PRIMARY	RECORD	X	GRANTED	'cc'
@@ -8226,7 +7832,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -8246,7 +7851,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -8266,7 +7870,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -8286,7 +7889,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -8307,7 +7909,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8329,7 +7930,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8351,7 +7951,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8372,7 +7971,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8393,7 +7991,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8414,7 +8011,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8434,7 +8030,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -8454,7 +8049,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
 PRIMARY	RECORD	X	GRANTED	'ii'
@@ -8475,7 +8069,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8497,7 +8090,6 @@ SELECT index_name,lock_type,lock_mode,lock_status,lock_data
 FROM performance_schema.data_locks
 WHERE object_name = 't2';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	'ee'
 PRIMARY	RECORD	X	GRANTED	'gg'
 PRIMARY	RECORD	X	GRANTED	'hh'
@@ -8552,7 +8144,6 @@ SELECT index_name, lock_type, lock_mode, lock_status, lock_data
 FROM performance_schema.data_locks
 WHERE object_name='t1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X	GRANTED	1
 PRIMARY	RECORD	X	GRANTED	3
 PRIMARY	RECORD	X	GRANTED	4
@@ -8679,8 +8270,6 @@ SELECT index_name, lock_type, lock_mode, lock_status, lock_data
 FROM performance_schema.data_locks
 WHERE object_name='t1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3
@@ -8694,8 +8283,6 @@ SELECT index_name, lock_type, lock_mode, lock_status, lock_data
 FROM performance_schema.data_locks
 WHERE object_name='t1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3
@@ -8707,7 +8294,6 @@ SELECT index_name, lock_type, lock_mode, lock_status, lock_data
 FROM performance_schema.data_locks
 WHERE object_name='t1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3
@@ -8718,7 +8304,6 @@ SELECT index_name, lock_type, lock_mode, lock_status, lock_data
 FROM performance_schema.data_locks
 WHERE object_name='t1';
 index_name	lock_type	lock_mode	lock_status	lock_data
-NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	1
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	2
 PRIMARY	RECORD	X,REC_NOT_GAP	GRANTED	3

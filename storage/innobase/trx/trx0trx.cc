@@ -213,6 +213,8 @@ static void trx_init(trx_t *trx) {
 
   trx->error_index = nullptr;
 
+  trx->recover_mysql_thd = nullptr;
+
   /* During asynchronous rollback, we should reset forced rollback flag
   only after rollback is complete to avoid race with the thread owning
   the transaction. */
@@ -245,6 +247,8 @@ struct TrxFactory {
     ut_zalloc() in Pool::Pool() which would not call
     the constructors of the trx_t members. */
     new (&trx->mod_tables) trx_mod_tables_t();
+
+    new (&trx->locked_tables) trx_mod_tables_t();
 
     new (&trx->lock.rec_pool) lock_pool_t();
 
@@ -307,6 +311,8 @@ struct TrxFactory {
     mutex_free(&trx->undo_mutex);
 
     trx->mod_tables.~trx_mod_tables_t();
+
+    trx->locked_tables.~trx_mod_tables_t();
 
     ut_ad(trx->read_view == NULL);
 
@@ -483,6 +489,8 @@ static trx_t *trx_create_low() {
   trx_free(). */
   ut_a(trx->mod_tables.size() == 0);
 
+  ut_a(trx->locked_tables.size() == 0);
+
   return (trx);
 }
 
@@ -526,6 +534,7 @@ static void trx_free(trx_t *&trx) {
 
   trx->mod_tables.clear();
 
+  ut_a(trx->locked_tables.size() == 0);
   ut_ad(trx->read_view == NULL);
   ut_ad(trx->is_dd_trx == false);
 
@@ -746,16 +755,17 @@ static void trx_resurrect_table_ids(trx_t *trx, const trx_undo_ptr_t *undo_ptr,
   mtr_commit(&mtr);
 }
 
-/** Resurrect table locks for resurrected transactions. */
-void trx_resurrect_locks() {
+void trx_resurrect_erase(trx_t* trx) {
+  resurrected_trx_tables.erase(trx);
+}
+
+void trx_resurrect_modified_tables() {
   for (trx_table_map::const_iterator t = resurrected_trx_tables.begin();
-       t != resurrected_trx_tables.end(); t++) {
+      t != resurrected_trx_tables.end(); t++) {
     trx_t *trx = t->first;
     const table_id_set &tables = t->second;
-    ut_ad(trx->is_recovered);
-
     for (table_id_set::const_iterator i = tables.begin(); i != tables.end();
-         i++) {
+        i++) {
       dict_table_t *table = dd_table_open_on_id(*i, NULL, NULL, false, true);
       if (table) {
         ut_ad(!table->is_temporary());
@@ -771,9 +781,54 @@ void trx_resurrect_locks() {
         if (trx->state == TRX_STATE_PREPARED && !dict_table_is_sdi(table->id)) {
           trx->mod_tables.insert(table);
         }
+
         DICT_TF2_FLAG_SET(table, DICT_TF2_RESURRECT_PREPARED);
 
-        lock_table_ix_resurrect(table, trx);
+        trx->locked_tables.insert(table);
+
+        /* Increase the counter so the table object won't be
+        evicted. */
+        table->n_table_locks++;
+
+        dd_table_close(table, NULL, NULL, false);
+      }
+    }
+  }
+}
+
+/** Resurrect table locks for resurrected transactions. */
+void trx_resurrect_locks() {
+  for (trx_table_map::const_iterator t = resurrected_trx_tables.begin();
+       t != resurrected_trx_tables.end(); t++) {
+    trx_t *trx = t->first;
+    const table_id_set &tables = t->second;
+    ut_ad(trx->is_recovered);
+    ut_a(!trx->mysql_thd);
+    ut_a(!trx->recover_mysql_thd);
+
+    trx->recover_mysql_thd = create_thd(false, true, false , 0);
+
+    for (table_id_set::const_iterator i = tables.begin(); i != tables.end();
+         i++) {
+      dict_table_t *table = dd_table_open_on_id(*i, NULL, NULL, false, true);
+      if (table) {
+        ut_ad(!table->is_temporary());
+
+        if (table->ibd_file_missing || table->is_temporary()) {
+          mutex_enter(&dict_sys->mutex);
+          dd_table_close(table, NULL, NULL, true);
+          dict_table_remove_from_cache(table);
+          mutex_exit(&dict_sys->mutex);
+          continue;
+        }
+
+        /** Acquire shared mdl lock */
+        char db_buf[NAME_LEN + 1] = {'\0'};
+        char tbl_buf[NAME_LEN + 1];
+        dd_parse_tbl_name(table->name.m_name, db_buf, tbl_buf,
+                          nullptr, nullptr, nullptr);
+        bool ret = dd_mdl_acquire(trx->recover_mysql_thd, nullptr, db_buf, tbl_buf, true);
+        ut_a(!ret);
 
         DBUG_PRINT("ib_trx", ("resurrect" TRX_ID_FMT "  table '%s' IX lock",
                               trx_get_id_for_print(trx), table->name.m_name));
@@ -1226,6 +1281,7 @@ static void trx_start_low(
   ut_ad(UT_LIST_GET_LEN(trx->lock.trx_locks) == 0);
   ut_ad(!(trx->in_innodb & TRX_FORCE_ROLLBACK));
   ut_ad(!(trx->in_innodb & TRX_FORCE_ROLLBACK_ASYNC));
+  ut_ad(trx->locked_tables.size() == 0);
 
   ++trx->version;
 
@@ -1730,7 +1786,18 @@ static void trx_release_impl_and_expl_locks(trx_t *trx, bool serialized) {
   trx->state = TRX_STATE_COMMITTED_IN_MEMORY;
   trx_mutex_exit(trx);
 
+  ut_ad(!trx->recover_mysql_thd || trx->is_recovered);
+
   lock_trx_release_locks(trx);
+
+  /* Release mdl locks if it's recovered from crash recovery */
+  trx_mutex_enter(trx);
+  if (trx->recover_mysql_thd) {
+    dd_mdl_release_transactional(trx->recover_mysql_thd);
+    destroy_thd(trx->recover_mysql_thd);
+    trx->recover_mysql_thd = nullptr;
+  }
+  trx_mutex_exit(trx);
 }
 
 /** Commits a transaction in memory. */

@@ -1954,6 +1954,9 @@ detect this and will eventually quit sooner. */
   It is protected by lock_sys->mutex. */
   ulint n_rec_locks;
 
+  /** table lock counter holded by transaction. the table can't be
+  evicted from cache if not equal to zero. */
+  std::atomic<ulint> n_table_locks;
 #ifndef UNIV_DEBUG
  private:
 #endif

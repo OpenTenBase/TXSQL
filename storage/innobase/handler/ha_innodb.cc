@@ -1512,6 +1512,11 @@ ibool thd_is_replication_slave_thread(THD *thd) /*!< in: thread handle */
   return (thd != nullptr && (ibool)thd_slave_thread(thd));
 }
 
+bool thd_is_log_apply_thread(THD *thd) {
+  return (thd != nullptr &&
+      (thd_slave_thread(thd) || thd_is_binlog_applier(thd)));
+}
+
 /** Gets information on the durability property requested by thread.
  Used when writing either a prepare or commit record to the log
  buffer. @return the durability property. */
@@ -3568,6 +3573,17 @@ static void innobase_dict_cache_reset_tables_and_tablespaces() {
   mutex_exit(&dict_sys->mutex);
 }
 
+static void innobase_start_rollback() {
+  ut_a(!trx_sys->start_rollback);
+  trx_sys->start_rollback = true;
+
+  /* Wait until resurrect mdl lock is done by rollback
+  thread. */
+  while (!trx_sys->resurrect_lock_done) {
+    os_thread_sleep(1000);
+  }
+}
+
 /** Perform high-level recovery in InnoDB as part of initializing the
 data dictionary.
 @param[in]	dict_recovery_mode	How to do recovery
@@ -4737,6 +4753,8 @@ static int innodb_init(void *p) {
   innobase_hton->dict_cache_reset = innobase_dict_cache_reset;
   innobase_hton->dict_cache_reset_tables_and_tablespaces =
       innobase_dict_cache_reset_tables_and_tablespaces;
+
+  innobase_hton->start_rollback = innobase_start_rollback;
 
   innobase_hton->dict_recover = innobase_dict_recover;
   innobase_hton->dict_get_server_version = innobase_dict_get_server_version;
@@ -19448,6 +19466,8 @@ static xa_status_code innobase_commit_by_xid(
     ut_ad(!trx->will_lock); /* trx cache requirement */
     trx_free_for_background(trx);
 
+    trx_resurrect_erase(trx);
+
     return (XA_OK);
   } else {
     return (XAER_NOTA);
@@ -19474,6 +19494,8 @@ static xa_status_code innobase_rollback_by_xid(
     trx_deregister_from_2pc(trx);
     ut_ad(!trx->will_lock);
     trx_free_for_background(trx);
+
+    trx_resurrect_erase(trx);
 
     return (ret != 0 ? XAER_RMERR : XA_OK);
   } else {

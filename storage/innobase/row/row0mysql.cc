@@ -3658,7 +3658,8 @@ static dberr_t row_mysql_table_id_reassign(dict_table_t *table,
   dict_hdr_get_new_id(new_id, NULL, NULL, table, false);
 
   /* Remove all locks except the table-level S and X locks. */
-  lock_remove_all_on_table(table, FALSE);
+  lock_remove_all_on_table(nullptr, table, FALSE);
+  ut_a(table->n_rec_locks == 0);
 
   return (DB_SUCCESS);
 }
@@ -4319,7 +4320,7 @@ dberr_t row_drop_table_for_mysql(const char *name, trx_t *trx, bool nonatomic,
   if (table->get_ref_count() == 0) {
     /* We don't take lock on intrinsic table so nothing to remove.*/
     if (!table->is_intrinsic()) {
-      lock_remove_all_on_table(table, TRUE);
+      lock_remove_all_on_table(trx, table, TRUE);
     }
     ut_a(table->n_rec_locks == 0);
   } else if (table->get_ref_count() > 0 || table->n_rec_locks > 0) {

@@ -596,6 +596,14 @@ struct trx_sys_t {
   std::atomic<trx_id_t> m_min_active_id;
 
   bool is_shutdown;
+
+  /** Tell background thread to start rollback. */
+  bool start_rollback;
+
+  /** True if the background thread already resurrect
+  all mdl locks for tables waiting for rollback. */
+  volatile bool resurrect_lock_done;
+
   /*!< Ordered on trx_t::no of all the
   currenrtly active RW transactions */
 #ifdef UNIV_DEBUG

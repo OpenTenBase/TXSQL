@@ -1277,8 +1277,7 @@ dberr_t row_undo_mod(undo_node_t *node, /*!< in: row undo node */
 
   THD *thd = dd_thd_for_undo(node->trx);
 
-  row_undo_mod_parse_undo_rec(node, thd,
-                              dd_mdl_for_undo(node->trx) ? &mdl : nullptr);
+  row_undo_mod_parse_undo_rec(node, thd, nullptr);
 
   if (node->table == NULL) {
     /* It is already undone, or will be undone by another query

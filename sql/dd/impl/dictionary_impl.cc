@@ -451,11 +451,25 @@ static bool acquire_mdl(THD *thd, MDL_key::enum_mdl_namespace lock_namespace,
   return false;
 }
 
+bool has_no_write_mdl(THD *thd, const char *schema_name,
+                             const char *table_name) {
+  return thd->mdl_context.owns_equal_or_stronger_lock(
+      MDL_key::TABLE, schema_name, table_name, MDL_SHARED_NO_WRITE);
+}
+
+bool has_read_only_mdl(THD *thd, const char *schema_name,
+                             const char *table_name) {
+  return thd->mdl_context.owns_equal_or_stronger_lock(
+      MDL_key::TABLE, schema_name, table_name, MDL_SHARED_READ_ONLY);
+}
+
 bool acquire_shared_table_mdl(THD *thd, const char *schema_name,
                               const char *table_name, bool no_wait,
-                              MDL_ticket **out_mdl_ticket) {
+                              MDL_ticket **out_mdl_ticket,
+                              bool transactional) {
   return acquire_mdl(thd, MDL_key::TABLE, schema_name, table_name, no_wait,
-                     thd->variables.lock_wait_timeout, MDL_SHARED, MDL_EXPLICIT,
+                     thd->variables.lock_wait_timeout, MDL_SHARED,
+                     transactional ?  MDL_TRANSACTION : MDL_EXPLICIT,
                      out_mdl_ticket);
 }
 
@@ -530,6 +544,10 @@ void release_mdl(THD *thd, MDL_ticket *mdl_ticket) {
   DBUG_TRACE;
 
   thd->mdl_context.release_lock(mdl_ticket);
+}
+
+void release_transactional_mdl(THD *thd) {
+  thd->mdl_context.release_transactional_locks();
 }
 
 /* purecov: begin deadcode */
@@ -651,6 +669,11 @@ bool reset_tables_and_tablespaces() {
 
   // Release transactional metadata locks.
   thd.thd->mdl_context.release_transactional_locks();
+
+  /* Tell innodb to start rollback by background thread
+  The reason we hold on the thread is to avoid deadlock, because
+  both this function and background thread may acquire mdl lock.*/
+  ddse->start_rollback();
 
   return ret;
 }

@@ -442,6 +442,7 @@ void lock_make_trx_hit_list(trx_t *trx, hit_list_t &hit_list);
  also removed in addition to other table-level and record-level locks.
  No lock, that is going to be removed, is allowed to be a wait lock. */
 void lock_remove_all_on_table(
+    trx_t *trx, 
     dict_table_t *table,               /*!< in: table to be dropped
                                        or discarded */
     ibool remove_also_table_sx_locks); /*!< in: also removes
