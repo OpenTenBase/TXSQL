@@ -237,6 +237,13 @@ class Parser_partition_info {
   bool add_column_list_value(THD *thd, Item *item);
 };
 
+enum TDSQL_Shard_Table_Type_Enum{
+  TDSQL_Shard_Table_Type_NotInited,
+  TDSQL_Shard_Table_Type_NormalShard,//normal shard type
+  TDSQL_Shard_Table_Type_ListAndHash,//gtid_log_t ,list and hash partition
+  TDSQL_Shard_Table_Type_Other,//other type,don't need hide
+};
+
 class partition_info {
  public:
   /*
@@ -248,6 +255,7 @@ class partition_info {
   List<char> part_field_list;
   List<char> subpart_field_list;
 
+  std::vector<int> m_pNoVec;
   /*
     If there is no subpartitioning, use only this func to get partition ids.
 
@@ -425,7 +433,32 @@ class partition_info {
     numbers, not the local table's partition numbers. The global number should
     substract this starting_part_num to get the corresponding local partition number.
   */
-  uint16_t starting_part_num;
+
+  TDSQL_Shard_Table_Type_Enum m_tdsql_shard_type;
+  void computePnoVec();
+  void computeShardTableType();
+
+  inline int getFirstIndexFromPartid(uint partid) const {
+    if (likely(TDSQL_Shard_Table_Type_NormalShard == m_tdsql_shard_type)) {
+      return (int)partid;
+    } else if (TDSQL_Shard_Table_Type_ListAndHash == m_tdsql_shard_type) {
+      if (!num_subparts) {
+        return -1;
+      }
+
+      return (int)(partid / num_subparts);
+    } else {
+      return -1;
+    }
+  }
+
+  inline int getPnoFromPartid(uint partid) const {
+    int index = getFirstIndexFromPartid(partid);
+    if(unlikely(index < 0 || ((size_t)index) >= m_pNoVec.size())){
+      return -1; 
+    }   
+    return m_pNoVec[index];
+  }
 
   /* Only the number of partitions defined (uses default names and options). */
   bool use_default_partitions;
@@ -489,7 +522,7 @@ class partition_info {
         has_null_part_id(0),
         linear_hash_mask(0),
         key_algorithm(enum_key_algorithm::KEY_ALGORITHM_NONE),
-        starting_part_num(UINT16_MAX),
+        m_tdsql_shard_type(TDSQL_Shard_Table_Type_NotInited),
         use_default_partitions(true),
         use_default_num_partitions(true),
         use_default_subpartitions(true),
@@ -585,31 +618,33 @@ class partition_info {
 
     const uint part_id = bitmap_get_first_set(&read_partitions);
 
-    if (filter_hidden_parts &&
-        g_partition_hide.contain(part_id + (starting_part_num == UINT16_MAX ? 0 : starting_part_num))) {
-      return get_next_used_partition(part_id);
+    if (filter_hidden_parts && is_partition_hidden(part_id)) {
+      return get_next_used_partition(part_id, filter_hidden_parts);
     }
 
     return part_id;
   }
 
   inline uint get_next_used_partition(uint part_id, bool filter_hidden_parts = true) const {
-    uint i= 0;
-    const uint nparts = num_partitions_used();
-
-    do {
-      uint res = bitmap_get_next_set(&read_partitions, part_id + i);
-      if (!filter_hidden_parts ||
-          !g_partition_hide.contain(res + (starting_part_num == UINT16_MAX ? 0 : starting_part_num))) {
-        return res;
+    
+    while (true) {
+      part_id= bitmap_get_next_set(&read_partitions, part_id);
+      if (unlikely(MY_BIT_NONE == part_id)) {
+        return MY_BIT_NONE;
       }
-    } while (i++ < nparts);
+
+      if(filter_hidden_parts && is_partition_hidden(part_id)) {
+        continue;
+      }
+
+      return part_id;
+    }
 
     return MY_BIT_NONE;
   }
 
   bool is_partition_hidden(const uint part_id) const {
-    return (g_partition_hide.contain(part_id + (starting_part_num == UINT16_MAX ? 0 : starting_part_num)));
+    return (g_partition_hide.contain(getPnoFromPartid(part_id)));
   }
 
   bool same_key_column_order(List<Create_field> *create_list);

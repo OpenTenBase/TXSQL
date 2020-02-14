@@ -1230,43 +1230,28 @@ longlong Item_func_murmurHashCodeAndMod::val_int()
             (arg0_type != STRING_RESULT && arg0_type != INT_RESULT &&
              arg0_type != DECIMAL_RESULT))) != 0)) {
     my_error(ER_WRONG_ARGUMENTS, MYF(0), func_name());
-    return 0;
+    return INT_MAX;
   }
 
   /* If arg0 is NULL, this buf will be directly used, and arg0 being NULL is not
   an error. */
   char buf[1];
   String *str = args[0]->val_str(&m_str_arg);
-  partition_info* part_info = NULL;
   Item_field *ifld = NULL;
-  longlong result = 0;
+  longlong result = args[0]->null_value ? (doMurmurHashCode(buf, 0) % num)
+                                    : (doMurmurHashCode(str->c_ptr(), str->length()) % num); 
 
   if (args[0]->type() != Item::FIELD_ITEM)
     goto no_filter;
 
   ifld = ((Item_field*)args[0]);
   if (unlikely(!ifld->field || !ifld->field->table || !ifld->field->table->part_info ||
-        ifld->field->table->part_info->starting_part_num == UINT16_MAX))
+        ifld->field->table->part_info->m_pNoVec.empty()))
     goto no_filter;
 
-  part_info = ifld->field->table->part_info;
-
-  if (args[0]->null_value)
-    result = filter_dropped_parts((doMurmurHashCode(buf, 0) % num) +
-        part_info->starting_part_num);
-  else
-    result = filter_dropped_parts((doMurmurHashCode(str->c_ptr(), str->length()) % num) +
-        part_info->starting_part_num);
-  if (unlikely(result == INT_MAX))
-    return result; /* INT_MAX means partition hidden/disabled. */
-
-  /* Always return local partition number if it's not hidden. */
-  return result - part_info->starting_part_num;
-
+  result = filter_dropped_parts(result);
 no_filter:
-  if (args[0]->null_value)
-    return (doMurmurHashCode(buf, 0) % num);
-  return (doMurmurHashCode(str->c_ptr(), str->length()) % num);
+  return result;
 }
 
 /**

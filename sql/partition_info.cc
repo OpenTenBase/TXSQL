@@ -72,6 +72,40 @@ Partition_hide_info g_partition_hide;
 
 using std::string;
 
+void partition_info::computePnoVec() {
+  m_pNoVec.clear();
+  List_iterator<partition_element> part_it(partitions);
+  partition_element *part = NULL;
+  while ((part = (part_it++))) {
+    m_pNoVec.push_back(part->m_p_no);
+  }
+}
+
+void partition_info::computeShardTableType() {//compute
+  if(TDSQL_Shard_Table_Type_NotInited != m_tdsql_shard_type){
+    return ;//have compute
+  }
+
+  computePnoVec();
+
+  if(partition_type::LIST == part_type) {//list partion
+    if (partition_type::NONE == subpart_type) { //no sub partition
+      if (part_func_string &&
+          0 == strncmp(part_func_string,"murmurHashCodeAndMod",
+                       sizeof("murmurHashCodeAndMod")-1)) {
+        m_tdsql_shard_type = TDSQL_Shard_Table_Type_NormalShard;
+        return ;
+      }
+    } else if (partition_type::HASH == subpart_type) {
+      m_tdsql_shard_type = TDSQL_Shard_Table_Type_ListAndHash;
+      return ;
+    }
+  }
+
+  m_tdsql_shard_type = TDSQL_Shard_Table_Type_Other;
+  return ;
+}
+
 // TODO: Create ::get_copy() for getting a deep copy.
 
 partition_info *partition_info::get_clone(THD *thd, bool reset /* = false */) {
@@ -140,6 +174,8 @@ partition_info *partition_info::get_clone(THD *thd, bool reset /* = false */) {
     }
     clone->partitions.push_back(part_clone);
   }
+
+  clone->computeShardTableType();
   return clone;
 }
 
@@ -2897,7 +2933,7 @@ static inline const char *check_valid_range_str(const char *str, size_t len) {
 }
 
 bool Partition_hide_info::contain(int64_t part_id) {
-  if (m_empty.load(std::memory_order_relaxed)) {
+  if (m_empty.load(std::memory_order_relaxed) || part_id == -1 /* invalid id */) {
     return false;
   }
 

@@ -113,6 +113,7 @@ class partition_element {
   ha_rows part_max_rows;
   ha_rows part_min_rows;
   longlong range_value;
+  int m_p_no;//default -1, for example, p16=>16, p1=>1
   const char *partition_name;
   const char *tablespace_name;
   char *part_comment;
@@ -130,6 +131,7 @@ class partition_element {
       : part_max_rows(0),
         part_min_rows(0),
         range_value(0),
+        m_p_no(-1),
         partition_name(NULL),
         tablespace_name(NULL),
         part_comment(NULL),
@@ -145,6 +147,7 @@ class partition_element {
       : part_max_rows(part_elem->part_max_rows),
         part_min_rows(part_elem->part_min_rows),
         range_value(0),
+        m_p_no(-1),
         partition_name(NULL),
         tablespace_name(part_elem->tablespace_name),
         part_comment(part_elem->part_comment),
