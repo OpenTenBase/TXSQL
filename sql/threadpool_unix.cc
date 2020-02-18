@@ -2076,7 +2076,7 @@ bool show_threadpool_status(THD *thd) {
 
   if (thd->send_result_metadata(&field_list,
         Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
-    DBUG_RETURN(TRUE);
+    DBUG_RETURN(true);
   }
 
   uint grp_cnt = group_count;
@@ -2112,12 +2112,12 @@ bool show_threadpool_status(THD *thd) {
 
     if (protocol->end_row())
     {
-      DBUG_RETURN(TRUE);
+      DBUG_RETURN(true);
     }
   }
 
   my_eof(thd);
-  DBUG_RETURN(FALSE);
+  DBUG_RETURN(false);
 }
 
 void lock_conn_sqlasync(connection_t *connection) {
