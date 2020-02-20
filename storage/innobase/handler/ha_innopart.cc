@@ -3991,51 +3991,58 @@ int ha_innopart::external_lock(THD *thd, int lock_type) {
   m_prebuilt->table = m_part_share->get_table_part(0);
   error = ha_innobase::external_lock(thd, lock_type);
 
-  for (uint i = 0; i < m_tot_parts; i++) {
-    dict_table_t *table = m_part_share->get_table_part(i);
+  if ((!srv_read_only_mode &&
+        thd_sql_command(thd) == SQLCOM_FLUSH
+        && lock_type == F_RDLCK)
+      || (m_prebuilt->trx->flush_tables > 0 && 
+        (lock_type == F_UNLCK || trx_is_interrupted(m_prebuilt->trx)))) {
 
-    switch (table->quiesce) {
-      case QUIESCE_START:
-        /* Check for FLUSH TABLE t WITH READ LOCK */
-        if (!srv_read_only_mode && thd_sql_command(thd) == SQLCOM_FLUSH &&
-            lock_type == F_RDLCK) {
-          ut_ad(table->quiesce == QUIESCE_START);
+    for (uint i = 0; i < m_tot_parts; i++) {
+      dict_table_t *table = m_part_share->get_table_part(i);
 
-          if (dict_table_is_discarded(table)) {
-            ib_senderrf(m_prebuilt->trx->mysql_thd, IB_LOG_LEVEL_ERROR,
-                        ER_TABLESPACE_DISCARDED, table->name.m_name);
+      switch (table->quiesce) {
+        case QUIESCE_START:
+          /* Check for FLUSH TABLE t WITH READ LOCK */
+          if (!srv_read_only_mode && thd_sql_command(thd) == SQLCOM_FLUSH &&
+              lock_type == F_RDLCK) {
+            ut_ad(table->quiesce == QUIESCE_START);
 
-            return (HA_ERR_NO_SUCH_TABLE);
+            if (dict_table_is_discarded(table)) {
+              ib_senderrf(m_prebuilt->trx->mysql_thd, IB_LOG_LEVEL_ERROR,
+                  ER_TABLESPACE_DISCARDED, table->name.m_name);
+
+              return (HA_ERR_NO_SUCH_TABLE);
+            }
+
+            row_quiesce_table_start(table, m_prebuilt->trx);
+
+            /* Use the transaction instance to track
+               UNLOCK TABLES. It can be done via START
+               TRANSACTION; too implicitly. */
+
+            ++m_prebuilt->trx->flush_tables;
           }
+          break;
 
-          row_quiesce_table_start(table, m_prebuilt->trx);
+        case QUIESCE_COMPLETE:
+          /* Check for UNLOCK TABLES; implicit or explicit
+             or trx interruption. */
+          if (m_prebuilt->trx->flush_tables > 0 &&
+              (lock_type == F_UNLCK || trx_is_interrupted(m_prebuilt->trx))) {
+            ut_ad(table->quiesce == QUIESCE_COMPLETE);
+            row_quiesce_table_complete(table, m_prebuilt->trx);
 
-          /* Use the transaction instance to track
-          UNLOCK TABLES. It can be done via START
-          TRANSACTION; too implicitly. */
+            ut_a(m_prebuilt->trx->flush_tables > 0);
+            --m_prebuilt->trx->flush_tables;
+          }
+          break;
 
-          ++m_prebuilt->trx->flush_tables;
-        }
-        break;
+        case QUIESCE_NONE:
+          break;
 
-      case QUIESCE_COMPLETE:
-        /* Check for UNLOCK TABLES; implicit or explicit
-        or trx interruption. */
-        if (m_prebuilt->trx->flush_tables > 0 &&
-            (lock_type == F_UNLCK || trx_is_interrupted(m_prebuilt->trx))) {
-          ut_ad(table->quiesce == QUIESCE_COMPLETE);
-          row_quiesce_table_complete(table, m_prebuilt->trx);
-
-          ut_a(m_prebuilt->trx->flush_tables > 0);
-          --m_prebuilt->trx->flush_tables;
-        }
-        break;
-
-      case QUIESCE_NONE:
-        break;
-
-      default:
-        ut_ad(0);
+        default:
+          ut_ad(0);
+      }
     }
   }
 
