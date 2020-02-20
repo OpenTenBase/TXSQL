@@ -208,6 +208,7 @@ innodb_strict_mode=OFF
 innodb_thread_sleep_delay=5000
 innodb_adaptive_max_sleep_delay=100000
 innodb_flush_log_at_trx_commit=1
+innodb_buffer_pool_chunk_size=32M
 innodb_buffer_pool_size = change_innodb_buffer_pool_size_before_use
 innodb_buffer_pool_instances = change_innodb_buffer_pool_instances_before_use
 innodb_log_buffer_size = 268435456
