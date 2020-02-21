@@ -2968,6 +2968,19 @@ bool os_file_flush_func(os_file_t file) {
   return (false);
 }
 
+bool os_file_flush_data_func(os_file_t file) {
+#ifdef _WIN32
+   return (os_file_flush_func(file));
+#else
+   bool success= (fdatasync(file) != -1);
+   if (!success) {
+    ib::error() << "fdatasync() errno: " << errno;
+   }
+
+   return (success);
+#endif
+}
+
 /** NOTE! Use the corresponding macro os_file_create_simple(), not directly
 this function!
 A simple function to open or create a file.

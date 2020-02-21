@@ -1178,6 +1178,7 @@ The wrapper functions have the prefix of "innodb_". */
 
 #define os_file_flush_pfs(file) pfs_os_file_flush_func(file, __FILE__, __LINE__)
 
+#define os_file_flush_data_pfs(file) pfs_os_file_flush_data_func(file, __FILE__, __LINE__)
 #define os_file_rename(key, oldpath, newpath) \
   pfs_os_file_rename_func(key, oldpath, newpath, __FILE__, __LINE__)
 
@@ -1450,6 +1451,10 @@ UNIV_INLINE
 bool pfs_os_file_flush_func(pfs_os_file_t file, const char *src_file,
                             uint src_line);
 
+UNIV_INLINE
+bool pfs_os_file_flush_data_func(pfs_os_file_t file, const char *src_file,
+                            uint src_line);
+
 /** NOTE! Please use the corresponding macro os_file_rename(), not directly
 this function!
 This is the performance schema instrumented wrapper function for
@@ -1559,6 +1564,8 @@ to original un-instrumented file I/O APIs */
 
 #define os_file_flush_pfs(file) os_file_flush_func(file)
 
+#define os_file_flush_data_pfs(file) os_file_flush_data_func(file)
+
 #define os_file_rename(key, oldpath, newpath) \
   os_file_rename_func(oldpath, newpath)
 
@@ -1596,8 +1603,10 @@ to original un-instrumented file I/O APIs */
 
 #ifdef UNIV_PFS_IO
 #define os_file_flush(file) os_file_flush_pfs(file)
+#define os_file_flush_data(file) os_file_flush_data_pfs(file)
 #else
 #define os_file_flush(file) os_file_flush_pfs(file.m_file)
+#define os_file_flush_data(file)  os_file_flush_data_pfs(file.m_file)
 #endif
 
 #ifdef UNIV_PFS_IO
@@ -1687,6 +1696,8 @@ Flushes the write buffers of a given file to the disk.
 @param[in]	file		handle to a file
 @return true if success */
 bool os_file_flush_func(os_file_t file);
+
+bool os_file_flush_data_func(os_file_t file);
 
 /** Retrieves the last error number if an error occurs in a file io function.
 The number should be retrieved before any other OS calls (because they may

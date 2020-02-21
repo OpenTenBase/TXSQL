@@ -7745,7 +7745,7 @@ void Fil_shard::redo_space_flush() {
 
       mutex_release();
 
-      os_file_flush(file.handle);
+      os_file_flush_data(file.handle);
 
       mutex_acquire();
 
