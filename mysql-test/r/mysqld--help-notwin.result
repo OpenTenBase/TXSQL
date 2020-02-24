@@ -216,11 +216,6 @@ The following options may be given as the first argument:
  --caching-sha2-password-public-key-path=name 
  A fully qualified path to the public RSA key used for
  authentication.
- --cdb-convert-memory-to-innodb 
- memory storage convert innodb
- --cdb-kill-idle-trans-timeout[=#] 
- The number of seconds the server waits for next command
- on an active transaction before closing it
  --cdb-skip-event-scheduler 
  Enable the event scheduler.Possible values are ON,OFF
  --character-set-client-handshake 
@@ -660,8 +655,6 @@ The following options may be given as the first argument:
  than that
  --myisam-block-size=# 
  Block size to be used for MyISAM index pages
- --myisam-conversion-innodb=name 
- myisam conversion innodb mode,Can be ON/OFF/WARN/TRY
  --myisam-data-pointer-size=# 
  Default pointer size to be used for MyISAM tables
  --myisam-max-sort-file-size=# 
@@ -1352,9 +1345,6 @@ The following options may be given as the first argument:
  --temptable-use-mmap 
  Use mmap files for temptables
  (Defaults to on; use --skip-temptable-use-mmap to disable.)
- --tencent-myisam-conversion-innodb=name 
- control tencentroot/system user,myisam conversion innodb
- mode,Can be ON/OFF/WARN/TRY
  --thread-cache-size=# 
  How many threads we should keep in a cache for reuse
  --thread-handling=name 
@@ -1385,6 +1375,10 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-convert-memory-to-innodb 
+ memory storage convert innodb
+ --txsql-convert-myisam-to-innodb=name 
+ myisam conversion innodb mode,Can be ON/OFF/WARN/TRY
  --txsql-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
@@ -1455,8 +1449,6 @@ block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
 caching-sha2-password-private-key-path private_key.pem
 caching-sha2-password-public-key-path public_key.pem
-cdb-convert-memory-to-innodb FALSE
-cdb-kill-idle-trans-timeout 0
 cdb-skip-event-scheduler FALSE
 character-set-client-handshake TRUE
 character-set-filesystem binary
@@ -1590,7 +1582,6 @@ max-write-lock-count 18446744073709551615
 memlock FALSE
 min-examined-row-limit 0
 myisam-block-size 1024
-myisam-conversion-innodb OFF
 myisam-data-pointer-size 6
 myisam-max-sort-file-size 9223372036853727232
 myisam-mmap-size 18446744073709551615
@@ -1771,7 +1762,6 @@ tablespace-definition-cache 256
 tc-heuristic-recover OFF
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
-tencent-myisam-conversion-innodb OFF
 thread-cache-size 9
 thread-handling one-thread-per-connection
 thread-stack 262144
@@ -1782,6 +1772,8 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-convert-memory-to-innodb FALSE
+txsql-convert-myisam-to-innodb OFF
 txsql-kill-idle-trans-timeout 0
 updatable-views-with-limit YES
 upgrade AUTO
