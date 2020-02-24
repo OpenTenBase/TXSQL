@@ -6527,7 +6527,7 @@ static bool check_resultset_metadata(sys_var *, THD *thd, set_var *var) {
     Set @@resultset_metadata to the value other than FULL only if
     the client supports it.
   */
-  if (var->save_result.ulonglong_value != RESULTSET_METADATA_FULL &&
+  if (var->save_result.ulonglong_value == RESULTSET_METADATA_NONE &&
       !thd->get_protocol()->has_client_capability(
           CLIENT_OPTIONAL_RESULTSET_METADATA)) {
     my_error(ER_CLIENT_DOES_NOT_SUPPORT, MYF(0), "optional metadata transfer");
@@ -6536,7 +6536,7 @@ static bool check_resultset_metadata(sys_var *, THD *thd, set_var *var) {
   return false;
 }
 
-static const char *resultset_metadata_names[] = {"NONE", "FULL", NullS};
+static const char *resultset_metadata_names[] = {"NONE", "FULL", "ALIAS_NAME", "COLUMN_NAME_ONLY", NullS};
 
 static Sys_var_enum Sys_resultset_metadata(
     "resultset_metadata",

@@ -1301,7 +1301,7 @@ bool cli_read_prepare_result(MYSQL *mysql, MYSQL_STMT *stmt) {
   }
 
   if (param_count != 0 &&
-      mysql->resultset_metadata == RESULTSET_METADATA_FULL) {
+      mysql->resultset_metadata != RESULTSET_METADATA_NONE) {
     MYSQL_TRACE_STAGE(mysql, WAIT_FOR_PARAM_DEF);
     /* skip parameters data: we don't support it yet */
     if (!(cli_read_metadata(mysql, param_count, 7))) return 1;
@@ -1313,7 +1313,7 @@ bool cli_read_prepare_result(MYSQL *mysql, MYSQL_STMT *stmt) {
     if (!(mysql->server_status & SERVER_STATUS_AUTOCOMMIT))
       mysql->server_status |= SERVER_STATUS_IN_TRANS;
 
-    if (mysql->resultset_metadata == RESULTSET_METADATA_FULL) {
+    if (mysql->resultset_metadata != RESULTSET_METADATA_NONE) {
       MYSQL_TRACE_STAGE(mysql, WAIT_FOR_FIELD_DEF);
       if (!(stmt->fields =
                 cli_read_metadata_ex(mysql, stmt->mem_root, field_count, 7)))

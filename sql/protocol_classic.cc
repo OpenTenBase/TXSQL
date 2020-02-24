@@ -2931,7 +2931,7 @@ bool Protocol_classic::start_result_metadata(uint num_cols_arg, uint flags,
     Set it to NULL if we skip resultset metadata to avoid
     ::storeXXX() method's asserts failures.
   */
-  if (m_thd->variables.resultset_metadata == RESULTSET_METADATA_FULL)
+  if (m_thd->variables.resultset_metadata != RESULTSET_METADATA_NONE)
     field_types =
         (enum_field_types *)m_thd->alloc(sizeof(field_types) * num_cols);
   else

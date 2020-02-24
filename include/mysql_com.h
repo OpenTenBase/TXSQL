@@ -962,7 +962,12 @@ enum enum_resultset_metadata {
   /** No metadata will be sent. */
   RESULTSET_METADATA_NONE = 0,
   /** The server will send all metadata. */
-  RESULTSET_METADATA_FULL = 1
+  RESULTSET_METADATA_FULL = 1,
+  /** Record alias name if there's some, otherwise
+  remove duplicate column/table name from meta */
+  RESULTSET_METADATA_ALIAS_NAME = 2,
+  /** Only send column name to client */
+  RESULTSET_METADATA_COLUMN_NAME_ONLY = 3
 };
 
 enum enum_cursor_type {
