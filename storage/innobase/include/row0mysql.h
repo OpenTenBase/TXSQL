@@ -824,6 +824,7 @@ struct row_prebuilt_t {
                                     fetched row in fetch_cache */
   ulint n_fetch_cached;               /*!< number of not yet fetched rows
                                       in fetch_cache */
+  bool  blob_in_use;                  /*!< indicate if blob_heap is used */
   mem_heap_t *blob_heap;              /*!< in SELECTS BLOB fields are copied
                                       to this heap */
   mem_heap_t *old_vers_heap;          /*!< memory heap where a previous

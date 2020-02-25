@@ -582,6 +582,7 @@ static void row_mysql_convert_row_to_innobase(
   ulint n_v_col = 0;
   ulint n_m_v_col = 0;
 
+  ut_ad(blob_heap != &(prebuilt->blob_heap));
   ut_ad(prebuilt->template_type == ROW_MYSQL_WHOLE_ROW);
   ut_ad(prebuilt->mysql_template);
 
@@ -929,6 +930,7 @@ Max size Secondary index: 16 * 8 bytes + PK = 256 bytes. */
 
   prebuilt->fts_doc_id_in_read_set = 0;
   prebuilt->blob_heap = NULL;
+  prebuilt->blob_in_use = false;
 
   prebuilt->skip_serializable_dd_view = false;
   prebuilt->no_autoinc_locking = false;

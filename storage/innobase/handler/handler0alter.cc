@@ -7675,6 +7675,7 @@ rollback_trx:
       user_trx->will_lock++;
       m_prebuilt->trx = user_trx;
       m_prebuilt->blob_heap = temp_blob_heap;
+      m_prebuilt->blob_in_use = true;
     }
     DBUG_INJECT_CRASH("ib_commit_inplace_crash", crash_inject_count++);
   }
@@ -9976,6 +9977,7 @@ bool ha_innopart::prepare_inplace_alter_table(TABLE *altered_table,
   THD *thd = ha_thd();
   bool res = true;
 
+  bool blob_in_use = m_prebuilt->blob_in_use;
   /* Clean up all ins/upd nodes. */
   clear_ins_upd_nodes();
   /*
@@ -10033,6 +10035,7 @@ bool ha_innopart::prepare_inplace_alter_table(TABLE *altered_table,
 
   for (uint i = 0; i < m_tot_parts; ++oldp, ++newp) {
     m_prebuilt = ctx_parts->prebuilt_array[i];
+    m_prebuilt->blob_in_use = blob_in_use;
     set_partition(i);
 
     const dd::Partition *old_part = *oldp;
@@ -10069,10 +10072,15 @@ bool ha_innopart::prepare_inplace_alter_table(TABLE *altered_table,
       ctx_parts->m_old_info[i].update(ctx->old_table, ctx->need_rebuild());
     }
 
+    if (!blob_in_use) {
+      blob_in_use = m_prebuilt->blob_in_use;
+    }
+
     ++i;
   }
 
   m_prebuilt = ctx_parts->prebuilt_array[0];
+  m_prebuilt->blob_in_use = blob_in_use;
   ha_alter_info->handler_ctx = ctx_parts;
   ha_alter_info->group_commit_ctx = ctx_parts->ctx_array;
   ha_alter_info->create_info->tablespace = save_tablespace;

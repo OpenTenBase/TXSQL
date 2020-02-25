@@ -1382,6 +1382,7 @@ void ha_innopart::set_partition(uint part_id) {
     DBUG_PRINT("ha_innopart",
                ("validating blob_heap: %p", m_prebuilt->blob_heap));
     mem_heap_validate(m_prebuilt->blob_heap);
+    ut_ad(m_prebuilt->blob_in_use);
   }
 #endif
 
@@ -1411,6 +1412,7 @@ void ha_innopart::update_partition(uint part_id) {
     DBUG_PRINT("ha_innopart",
                ("validating blob_heap: %p", m_prebuilt->blob_heap));
     mem_heap_validate(m_prebuilt->blob_heap);
+    ut_ad(m_prebuilt->blob_in_use);
   }
 #endif
 
@@ -4107,6 +4109,7 @@ int ha_innopart::cmp_ref(const uchar *ref1, const uchar *ref2) const {
 mem_heap_t **ha_innopart::alloc_blob_heap_array() {
   DBUG_TRACE;
 
+  m_prebuilt->blob_in_use = false;
   const ulint len = sizeof(mem_heap_t *) * m_tot_parts;
   m_blob_heap_parts =
       static_cast<mem_heap_t **>(ut_zalloc(len, mem_key_partitioning));
@@ -4135,6 +4138,15 @@ void ha_innopart::clear_blob_heaps() {
     return;
   }
 
+  if (!m_prebuilt->blob_in_use) {
+#ifdef UNIV_DEBUG
+    for (uint i = 0; i < m_tot_parts; i++) {
+      ut_ad(m_blob_heap_parts[i] == NULL);
+    }
+#endif
+    return;
+  }
+
   for (uint i = 0; i < m_tot_parts; i++) {
     if (m_blob_heap_parts[i] != NULL) {
       DBUG_PRINT("ha_innopart",
@@ -4144,6 +4156,7 @@ void ha_innopart::clear_blob_heaps() {
     }
   }
 
+  m_prebuilt->blob_in_use = false;
   /* Reset blob_heap in m_prebuilt after freeing all heaps. It is set in
   ha_innopart::set_partition to the blob heap of current partition. */
   m_prebuilt->blob_heap = NULL;

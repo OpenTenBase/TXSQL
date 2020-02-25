@@ -2789,6 +2789,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_sel_store_mysql_field_func(
   ulint clust_field_no = 0;
   bool clust_templ_for_sec = (sec_field_no != ULINT_UNDEFINED);
 
+  ut_ad(&blob_heap != &(prebuilt->blob_heap));
   ut_ad(templ);
   ut_ad(prebuilt->default_rec);
   ut_ad(templ >= prebuilt->mysql_template);
@@ -2822,6 +2823,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_sel_store_mysql_field_func(
       } else {
         if (prebuilt->blob_heap == nullptr) {
           prebuilt->blob_heap = mem_heap_create(UNIV_PAGE_SIZE);
+          prebuilt->blob_in_use = true;
         }
         heap = prebuilt->blob_heap;
       }
@@ -2927,6 +2929,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_sel_store_mysql_field_func(
       } else {
         if (prebuilt->blob_heap == nullptr) {
           prebuilt->blob_heap = mem_heap_create(UNIV_PAGE_SIZE);
+          prebuilt->blob_in_use = true;
         }
         heap = prebuilt->blob_heap;
       }
