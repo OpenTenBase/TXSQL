@@ -973,7 +973,8 @@ bool temptable_use_mmap;
 static char compiled_default_collation_name[] = MYSQL_DEFAULT_COLLATION_NAME;
 static bool binlog_format_used = false;
 
-bool cdb_skip_event_scheduler = FALSE;
+bool cdb_skip_event_scheduler = false;
+bool txsql_convert_memory_to_innodb = false;
 
 LEX_STRING opt_init_connect, opt_init_slave;
 
@@ -1013,6 +1014,9 @@ bool migrate_connect_options = 0;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 
+ulong txsql_convert_myisam_to_innodb;
+const char *txsql_convert_myisam_to_innodb_names[]=
+{ "OFF", "WARN", "ON", "TRY", NullS };
 unsigned long txsql_kill_idle_trans_timeout= 0;
 
 #if defined(_WIN32)

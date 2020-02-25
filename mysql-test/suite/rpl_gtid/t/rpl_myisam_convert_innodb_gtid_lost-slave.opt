@@ -1,0 +1,2 @@
+--gtid-mode=on --enforce-gtid-consistency --log-slave-updates --txsql_convert_myisam_to_innodb=try
+

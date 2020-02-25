@@ -6244,6 +6244,20 @@ static Sys_var_bool Sys_cdb_skip_event_scheduler(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(event_scheduler_update));
 
+static Sys_var_bool Sys_txsql_convert_memory_to_innodb(
+    "txsql_convert_memory_to_innodb", "memory storage convert innodb",
+    GLOBAL_VAR(txsql_convert_memory_to_innodb),
+    CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_enum Sys_txsql_convert_myisam_to_innodb(
+    "txsql_convert_myisam_to_innodb",
+    "myisam conversion innodb mode,Can be ON/OFF/WARN/TRY",
+    GLOBAL_VAR(txsql_convert_myisam_to_innodb), CMD_LINE(REQUIRED_ARG),
+    txsql_convert_myisam_to_innodb_names, DEFAULT(CONVERSION_MODE_OFF),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_bool Sys_persisted_globals_load(
     PERSISTED_GLOBALS_LOAD,
     "When this option is enabled, config file mysqld-auto.cnf is read "

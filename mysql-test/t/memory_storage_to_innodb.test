@@ -1,0 +1,66 @@
+#
+# Test of convert memory storage to innodb storage
+#
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+connection con1;
+show variables like 'txsql_convert_memory_to_innodb';
+
+connection con2;
+create database testdb;
+use testdb;
+
+CREATE TABLE `t1` (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` varchar(10) DEFAULT NULL,
+  `c` char(254) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+
+show create table t1;
+CREATE TABLE `t2` (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` varchar(10) DEFAULT NULL,
+  `c` char(254) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
+
+show create table t2;
+alter table t2 ENGINE=MEMORY;
+show create table t2;
+drop table t1,t2;
+
+connection con1;
+set global txsql_convert_memory_to_innodb = on;
+show variables like 'txsql_convert_memory_to_innodb';
+
+connection con2;
+use testdb;
+CREATE TABLE `t1` (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` varchar(10) DEFAULT NULL,
+  `c` char(254) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+
+show create table t1;
+
+CREATE TABLE `t2` (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` varchar(10) DEFAULT NULL,
+  `c` char(254) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
+
+show create table t2;
+
+alter table t2 ENGINE=MEMORY;
+show create table t2;
+
+drop table t1,t2;
+drop database testdb;
+
+connection con1;
+set global txsql_convert_memory_to_innodb = off;
+

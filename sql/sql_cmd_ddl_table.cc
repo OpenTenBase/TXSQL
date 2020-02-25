@@ -91,6 +91,7 @@ bool Sql_cmd_create_table::execute(THD *thd) {
   bool link_to_local;
   TABLE_LIST *create_table = first_table;
 
+  bool converted= false;
   /*
     Code below (especially in mysql_create_table() and Query_result_create
     methods) may modify HA_CREATE_INFO structure in LEX, so we have to
@@ -134,6 +135,14 @@ bool Sql_cmd_create_table::execute(THD *thd) {
     create_info.db_type = create_info.options & HA_LEX_CREATE_TMP_TABLE
                               ? ha_default_temp_handlerton(thd)
                               : ha_default_handlerton(thd);
+
+retry_assign_storage_engine:
+    mysql_convert_table_myisam_to_innodb(thd,
+                                         "create table",
+                                         create_table->db,
+                                         first_table->table_name,
+                                         converted,
+                                         create_info.db_type);
 
   /*
     Assign target tablespace name to enable locking in lock_table_names().
@@ -316,7 +325,8 @@ bool Sql_cmd_create_table::execute(THD *thd) {
                                     &create_info);
     } else {
       /* Regular CREATE TABLE */
-      res = mysql_create_table(thd, create_table, &create_info, &alter_info);
+      res = mysql_create_table(thd, create_table, &create_info, &alter_info,
+                               converted);
     }
     /* Pop Strict_error_handler */
     if (!thd->lex->is_ignore() && thd->is_strict_mode())
@@ -330,6 +340,10 @@ bool Sql_cmd_create_table::execute(THD *thd) {
         thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
             ->mark_as_changed(thd, NULL);
       my_ok(thd);
+    } else {
+      if (converted) {
+        goto retry_assign_storage_engine;
+      }
     }
   }
   return res;

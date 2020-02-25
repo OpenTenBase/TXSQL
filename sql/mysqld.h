@@ -138,6 +138,7 @@ extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *table_alias_charset;
 extern CHARSET_INFO *character_set_filesystem;
 
 extern bool cdb_skip_event_scheduler;
+extern bool txsql_convert_memory_to_innodb;
 
 enum enum_server_operational_state {
   SERVER_BOOTING,      /* Server is not operational. It is starting */
@@ -371,6 +372,18 @@ extern char *opt_protocol_compression_algorithms;
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
+
+enum enum_txsql_convert_myisam_to_innodb_mode
+{
+  CONVERSION_MODE_OFF= 0,  // no conversion
+  CONVERSION_MODE_WARN= 1, // myisam conversion innodb,but show warning
+  CONVERSION_MODE_ON= 2,   // Secretly conversion
+  CONVERSION_MODE_TRY= 3   // once conversion failed, create table with myisam engine.
+};
+
+extern ulong txsql_convert_myisam_to_innodb;
+extern const char *txsql_convert_myisam_to_innodb_names[];
+
 extern unsigned long txsql_kill_idle_trans_timeout;
 extern bool persisted_globals_load;
 extern bool opt_keyring_operations;
