@@ -1,0 +1,15 @@
+# ==== Purpose ====
+#
+# functional test for open_binlog call using when
+# 
+# flush log reset master/slave called
+#
+# ==== Related ====
+#
+# TXSQL feature 67 binlog rotate perf optimization
+
+-- source include/have_binlog_format_row.inc
+
+let $engine= myisam;
+
+--source suite/binlog/include/binlog_rotate_perf.inc

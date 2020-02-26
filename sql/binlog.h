@@ -419,6 +419,16 @@ class MYSQL_BIN_LOG : public TC_LOG {
   uint *sync_period_ptr;
   uint sync_counter;
 
+  ulong m_cur_bin_suffix;
+  ulong m_cur_tmp_suffix;
+
+  /* this should be called when reset */
+  inline void reset_suffix() {
+    m_cur_bin_suffix= 0;
+    m_cur_tmp_suffix= 0;
+    DBUG_PRINT("info", ("suffix reset already"));
+  }
+
   mysql_cond_t m_prep_xids_cond;
   std::atomic<int32> m_atomic_prep_xids{0};
 
@@ -458,10 +468,27 @@ class MYSQL_BIN_LOG : public TC_LOG {
             const char *new_name, uint32 new_index_number);
   bool init_and_set_log_file_name(const char *log_name, const char *new_name,
                                   uint32 new_index_number);
+
+ public:
+  /**
+    This should be called only log creatation or rotate success and exist on disk
+    TODO: this should be private method, but for unitest
+  */
+  inline void update_bin_suffix_idx() {
+    m_cur_bin_suffix= m_cur_tmp_suffix;
+    DBUG_PRINT("info", ("m_cur_tmp_suffix updated=%lu", m_cur_bin_suffix));
+  }
+  /* TODO: this should be private method, but for unitest */
   int generate_new_name(char *new_name, const char *log_name,
                         uint32 new_index_number = 0);
 
- public:
+  /**
+    To fetch binlog suffix integer index, used when doing binlog rotate to avoid
+    scan whole dir return 0 means log_file_name not set already, will scan return
+    ulong to specify the current binlog idx
+  */
+  ulong get_binlog_suffix_idx() const;
+
   const char *generate_name(const char *log_name, const char *suffix,
                             char *buff);
   bool is_open() { return atomic_log_state != LOG_CLOSED; }

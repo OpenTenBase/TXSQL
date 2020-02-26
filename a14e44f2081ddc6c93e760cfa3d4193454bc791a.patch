@@ -1,0 +1,11 @@
+commit a14e44f2081ddc6c93e760cfa3d4193454bc791a
+Merge: 2ec94d99705 6c1310e8317
+Author: vinchen <vinchen@tencent.com>
+Date:   Wed Feb 26 01:50:56 2020 +0000
+
+    Merge branch 'feature_myisam_memory_to_innodb_issue28_review' into 'master' (merge request !42)
+    
+    [feature] issue#28 convert myisam and memory table to innodb tableA
+    Support convert table created with memory/myisam storage engine to
+    innodb for avoiding replication break caused by them.
+
