@@ -646,7 +646,7 @@ int lf_hash_iterate(LF_HASH *hash, LF_PINS *pins,
       lf_dynarray_lvalue(&hash->array, bucket));
   if (unlikely(!el))
     return 0; /* if there's no bucket==0, the hash is empty */
-  if (el->load() == nullptr && unlikely(initialize_bucket(hash, el, bucket, pins)))
+  if (el->load(std::memory_order_relaxed) == nullptr)
     return 0; /* if there's no bucket==0, the hash is empty */
 
   res = my_lfind(el, 0, 0, (uchar*)argument, 0, &cursor, pins, action);

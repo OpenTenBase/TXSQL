@@ -111,14 +111,14 @@ static inline void lf_pin(LF_PINS *pins, int pin, void *addr) {
 #if defined(__GNUC__) && defined(MY_LF_EXTRA_DEBUG)
   assert(pin < LF_NUM_PINS_IN_THIS_FILE);
 #endif
-  pins->pin[pin].store(addr);
+  pins->pin[pin].store(addr, std::memory_order_release);
 }
 
 static inline void lf_unpin(LF_PINS *pins, int pin) {
 #if defined(__GNUC__) && defined(MY_LF_EXTRA_DEBUG)
   assert(pin < LF_NUM_PINS_IN_THIS_FILE);
 #endif
-  pins->pin[pin].store(nullptr);
+  pins->pin[pin].store(nullptr, std::memory_order_release);
 }
 
 void lf_pinbox_init(LF_PINBOX *pinbox, uint free_ptr_offset,

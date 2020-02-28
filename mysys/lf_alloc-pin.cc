@@ -341,6 +341,9 @@ static void lf_pinbox_real_free(LF_PINS *pins) {
     while (pnext_node(pinbox, last)) {
       last = pnext_node(pinbox, last);
     }
+
+    /* Just for safety. */
+    std::atomic_thread_fence(std::memory_order_acquire);
     pinbox->free_func(arg.old_purgatory, last, pinbox->free_func_arg);
   }
 }
