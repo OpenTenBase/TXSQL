@@ -215,6 +215,12 @@ struct Srv_threads {
   same shared state as m_page_cleaner_coordinator. */
   IB_thread *m_page_cleaner_workers;
 
+  /** Number of LRU manager threads and size of array below. */
+  size_t m_lru_managers_n;
+
+  /** LRU manager threads. */
+  IB_thread *m_lru_managers;
+
   /** Archiver's log archiver (used by Clone). */
   IB_thread m_log_archiver;
 
@@ -587,6 +593,8 @@ extern ulong srv_buf_pool_dump_pct;
 /** Lock table size in bytes */
 extern ulint srv_lock_table_size;
 
+extern ulong srv_empty_free_list_algorithm;
+
 extern ulint srv_n_file_io_threads;
 extern bool srv_random_read_ahead;
 extern ulong srv_read_ahead_threshold;
@@ -739,6 +747,7 @@ extern srv_stats_t srv_stats;
 extern mysql_pfs_key_t log_archiver_thread_key;
 extern mysql_pfs_key_t page_archiver_thread_key;
 extern mysql_pfs_key_t buf_dump_thread_key;
+extern mysql_pfs_key_t buf_lru_manager_thread_key;
 extern mysql_pfs_key_t buf_resize_thread_key;
 extern mysql_pfs_key_t clone_ddl_thread_key;
 extern mysql_pfs_key_t clone_gtid_thread_key;

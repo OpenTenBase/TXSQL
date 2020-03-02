@@ -3284,6 +3284,9 @@ static void srv_shutdown_page_cleaners() {
   ut_a(srv_shutdown_state.load() == SRV_SHUTDOWN_MASTER_STOP);
   ut_a(!srv_master_thread_is_active());
 
+  ut_ad(buf_flush_active_lru_managers() == srv_buf_pool_instances ||
+      buf_flush_active_lru_managers() == 0);
+
   srv_shutdown_state.store(SRV_SHUTDOWN_FLUSH_PHASE);
 
   /* We force DD to flush table buffers, so they have opportunity
@@ -3294,7 +3297,8 @@ static void srv_shutdown_page_cleaners() {
   here to let it complete the flushing of the buffer pools
   before proceeding further. */
 
-  for (uint32_t count = 0; buf_flush_page_cleaner_is_active(); ++count) {
+  for (uint32_t count = 0; buf_flush_page_cleaner_is_active() ||
+      buf_flush_active_lru_managers() > 0; ++count) {
     if (count >= SHUTDOWN_SLEEP_ROUNDS) {
       ib::info(ER_IB_MSG_1251);
       count = 0;

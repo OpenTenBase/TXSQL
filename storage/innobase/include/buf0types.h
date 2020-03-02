@@ -92,6 +92,17 @@ enum buf_io_fix {
                    the flush_list */
 };
 
+/** Alternatives for srv_empty_free_list_algorithm, set through
+innodb_empty_free_list_algorithm variable  */
+enum srv_empty_free_list_t {
+  SRV_EMPTY_FREE_LIST_LEGACY, /*!< Original Oracle MySQL 5.6
+                                algorithm */
+  SRV_EMPTY_FREE_LIST_BACKOFF /*!< Percona Server 5.6 algorithm that
+                                loops in a progressive backoff until a
+                                free page is produced by the cleaner
+                                thread */
+};
+
 /** Alternatives for srv_checksum_algorithm, which can be changed by
 setting innodb_checksum_algorithm */
 enum srv_checksum_algorithm_t {

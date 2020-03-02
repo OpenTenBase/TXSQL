@@ -62,6 +62,8 @@ hidden_sensitive_variable
 hidden_sensitive_variable
 innodb_dedicated_server
 innodb_dedicated_server
+innodb_empty_free_list_algorithm
+innodb_empty_free_list_algorithm
 innodb_log_checkpoint_every
 innodb_log_checkpoint_every
 innodb_log_closer_spin_delay
