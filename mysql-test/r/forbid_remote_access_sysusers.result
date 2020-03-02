@@ -67,10 +67,10 @@ mysql.sys
 root
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-0	event_scheduler	localhost	NULL	Daemon	0	Waiting on empty queue	NULL
-0	root	localhost	test	Sleep	0		NULL
-0	abc	localhost:0	test	Query	0	starting	show processlist
-0	def	localhost	test	Sleep	0		NULL
+0	event_scheduler	localhost	NULL	Daemon	0	#	NULL
+0	root	localhost	test	Sleep	0	#	NULL
+0	abc	localhost:0	test	Query	0	#	show processlist
+0	def	localhost	test	Sleep	0	#	NULL
 
 
 
@@ -104,13 +104,13 @@ mysql.sys
 root
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-0	event_scheduler	localhost	NULL	Daemon	0	Waiting on empty queue	NULL
-0	root	localhost	test	Sleep	0		NULL
-0	abc	localhost:0	test	Sleep	0		NULL
-0	def	localhost	test	Query	0	starting	show processlist
-0	tdsqlsys_abc	localhost:0	test	Sleep	0		NULL
-0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
-0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+0	event_scheduler	localhost	NULL	Daemon	0	#	NULL
+0	root	localhost	test	Sleep	0	#	NULL
+0	abc	localhost:0	test	Sleep	0	#	NULL
+0	def	localhost	test	Query	0	#	show processlist
+0	tdsqlsys_abc	localhost:0	test	Sleep	0	#	NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0	#	NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0	#	NULL
 
 
 
@@ -145,14 +145,14 @@ mysql.sys
 root
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-0	event_scheduler	localhost	NULL	Daemon	0	Waiting on empty queue	NULL
-0	root	localhost	test	Sleep	0		NULL
-0	abc	localhost:0	test	Sleep	0		NULL
-0	def	localhost	test	Sleep	0		NULL
-0	tdsqlsys_abc	localhost:0	test	Query	0	starting	show processlist
-0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
-0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
-0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+0	event_scheduler	localhost	NULL	Daemon	0	#	NULL
+0	root	localhost	test	Sleep	0	#	NULL
+0	abc	localhost:0	test	Sleep	0	#	NULL
+0	def	localhost	test	Sleep	0	#	NULL
+0	tdsqlsys_abc	localhost:0	test	Query	0	#	show processlist
+0	tdsqlsys_def	localhost:0	test	Sleep	0	#	NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0	#	NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0	#	NULL
 
 
 cleaning up

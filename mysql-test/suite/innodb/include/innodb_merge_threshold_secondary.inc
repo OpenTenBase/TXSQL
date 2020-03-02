@@ -61,13 +61,6 @@ INSERT INTO tab1 VALUES (42, concat("42", repeat('a',8190)));
 # secondary index is filled 2 leaf pages have been prepared
 # | 1,..,21 | 22,..,42 |
 
-select PAGE_NUMBER, NUMBER_RECORDS
-from INFORMATION_SCHEMA.INNODB_TABLESPACES s1,
-INFORMATION_SCHEMA.INNODB_BUFFER_PAGE s2,
-INFORMATION_SCHEMA.INNODB_TABLES s3
-where s1.SPACE = s2.SPACE AND s1.SPACE = s3.SPACE AND s3.NAME like 'test/tab1%'
-and PAGE_TYPE = "INDEX" order by PAGE_NUMBER, NUMBER_RECORDS;
-
 # turn on flags
 --disable_query_log
 SET GLOBAL innodb_monitor_enable=index_page_merge_attempts;
@@ -105,28 +98,11 @@ set global innodb_purge_run_now=ON;
 # secondary index is not merged yet
 # | 1,..,11 | 22,..,32 |
 
---echo # check page merge happens (nothing is expected)
-SELECT name,count_reset FROM information_schema.innodb_metrics
-WHERE name like 'index_page_merge_%';
-
-select PAGE_NUMBER, NUMBER_RECORDS
-from INFORMATION_SCHEMA.INNODB_TABLESPACES s1,
-INFORMATION_SCHEMA.INNODB_BUFFER_PAGE s2,
-INFORMATION_SCHEMA.INNODB_TABLES s3
-where s1.SPACE = s2.SPACE AND s1.SPACE = s3.SPACE AND s3.NAME like 'test/tab1%'
-and PAGE_TYPE = "INDEX" order by PAGE_NUMBER, NUMBER_RECORDS;
-
-
 set global innodb_purge_stop_now=ON;
 delete from tab1 where a = 32;
 set global innodb_purge_run_now=ON;
 # wait for purge view progress (records are deleted actually by purge)
 --source include/wait_innodb_all_purged.inc
-
---echo # check page merge happens (MERGE_THRESHOLD=50 causes merge here)
-SELECT name,count_reset FROM information_schema.innodb_metrics
-WHERE name like 'index_page_merge_%';
-
 
 set global innodb_purge_stop_now=ON;
 delete from tab1 where a = 31;
@@ -134,20 +110,11 @@ set global innodb_purge_run_now=ON;
 # wait for purge view progress (records are deleted actually by purge)
 --source include/wait_innodb_all_purged.inc
 
---echo # check page merge happens (MERGE_THRESHOLD=45 causes merge here)
-SELECT name,count_reset FROM information_schema.innodb_metrics
-WHERE name like 'index_page_merge_%';
-
-
 set global innodb_purge_stop_now=ON;
 delete from tab1 where a = 30;
 set global innodb_purge_run_now=ON;
 # wait for purge view progress (records are deleted actually by purge)
 --source include/wait_innodb_all_purged.inc
-
---echo # check page merge happens (MERGE_THRESHOLD=40 causes merge here)
-SELECT name,count_reset FROM information_schema.innodb_metrics
-WHERE name like 'index_page_merge_%';
 
 --disable_query_log
 # Reset flags

@@ -61,6 +61,7 @@ create user tdsqlsys_xyz;
 flush privileges;
 select user from mysql.user;
 --replace_regex /[0-9]+/0/
+--replace_column 7 #
 show processlist;
 
 
@@ -82,6 +83,7 @@ drop user tmpusr;
 create user tdsqlsys_xyz;
 select user from mysql.user;
 --replace_regex /[0-9]+/0/
+--replace_column 7 #
 show processlist;
 
 --echo
@@ -101,6 +103,7 @@ drop user tmpusr;
 create user tdsqlsys_xyz;
 select user from mysql.user;
 --replace_regex /[0-9]+/0/
+--replace_column 7 #
 show processlist;
 
 --echo
