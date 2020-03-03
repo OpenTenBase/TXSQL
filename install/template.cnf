@@ -73,6 +73,7 @@ datadir     = data_dir
 log-bin  = log_bin_arg/binlog.log
 relay-log = log_relay/relay.log
 log-error = log_dir/mysqld.err
+skip-log-bin 
 
 
 # Point the following paths to a dedicated disk
