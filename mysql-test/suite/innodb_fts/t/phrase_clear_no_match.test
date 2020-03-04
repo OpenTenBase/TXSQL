@@ -1,0 +1,98 @@
+# issue#188 : fts phrase search crash
+
+select @@ngram_token_size;
+select @@innodb_ft_enable_stopword;
+
+let $restart_parameters = restart: --ngram_token_size=1;
+--source include/restart_mysqld.inc
+
+select @@ngram_token_size;
+select @@innodb_ft_enable_stopword;
+--disable_warnings
+# Case 1 : test phrase search with ngarm.
+create table t1(
+	FTS_DOC_ID bigint unsigned auto_increment not null primary key,
+	content varchar(100) COLLATE utf8_danish_ci
+) DEFAULT CHARSET=utf8 COLLATE=utf8_danish_ci;
+
+create fulltext index fts_index on t1(content) with parser ngram;
+
+insert into t1(content) values('María'), ('Maríb'), ('Maria'), ('Marib');
+
+# Show fts index entries
+SET GLOBAL innodb_ft_aux_table = 'test/t1';
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE;
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE;
+SET GLOBAL innodb_ft_aux_table = default;
+
+
+select * from t1 where match(content) against('+María' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Maríb' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Maria' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Marib' IN BOOLEAN MODE);
+
+drop table t1;
+
+let $restart_parameters = restart: --ngram_token_size=1 --innodb_ft_enable_stopword=off;
+--source include/restart_mysqld.inc
+
+select @@ngram_token_size;
+select @@innodb_ft_enable_stopword;
+
+# Case 2: test with ngram without stopword
+create table t1(
+	FTS_DOC_ID bigint unsigned auto_increment not null primary key,
+	content varchar(100) COLLATE utf8_danish_ci
+) DEFAULT CHARSET=utf8 COLLATE=utf8_danish_ci;
+
+create fulltext index fts_index on t1(content) with parser ngram;
+
+insert into t1(content) values('María'), ('Maríb'), ('Maria'), ('Marib');
+
+# Show fts index entries
+SET GLOBAL innodb_ft_aux_table = 'test/t1';
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE;
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE;
+SET GLOBAL innodb_ft_aux_table = default;
+
+
+select * from t1 where match(content) against('+María' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Maríb' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Maria' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Marib' IN BOOLEAN MODE);
+
+drop table t1;
+
+# Case 3: test phrase search without ngarm.
+create table t1(
+	FTS_DOC_ID bigint unsigned auto_increment not null primary key,
+	content varchar(100) COLLATE utf8_danish_ci
+) DEFAULT CHARSET=utf8 COLLATE=utf8_danish_ci;
+
+create fulltext index fts_index on t1(content);
+
+insert into t1(content) values('María'), ('Maríb'), ('Maria'), ('Marib');
+
+# Show fts index entries
+SET GLOBAL innodb_ft_aux_table = 'test/t1';
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE;
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE;
+SET GLOBAL innodb_ft_aux_table = default;
+
+select * from t1 where match(content) against('+María' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Maríb' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Maria' IN BOOLEAN MODE);
+select * from t1 where match(content) against('+Marib' IN BOOLEAN MODE);
+
+drop table t1;
+
+--enable_warnings
+
+# restore config
+let $restart_parameters = restart: ;
+--source include/restart_mysqld.inc
+
+select @@ngram_token_size;
+select @@innodb_ft_enable_stopword;
+
+

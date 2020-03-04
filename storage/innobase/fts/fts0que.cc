@@ -4053,15 +4053,7 @@ static ibool fts_phrase_or_proximity_search(
         if (match[j]->doc_id != match[0]->doc_id) {
           /* no match */
           if (query->flags & FTS_PHRASE) {
-            ulint s;
-
             match[0]->doc_id = 0;
-
-            for (s = i + 1; s < n_matched; s++) {
-              match[0] = static_cast<fts_match_t *>(
-                  ib_vector_get(query->match_array[0], s));
-              match[0]->doc_id = 0;
-            }
           }
 
           goto func_exit;
@@ -4112,6 +4104,17 @@ static ibool fts_phrase_or_proximity_search(
   }
 
 func_exit:
+  /* If there is a matched, clear the rest of match array. */
+  if ((query->flags & FTS_PHRASE) && matched) {
+    fts_match_t*	match;
+
+    for (ulint s = i + 1; s < n_matched; s++) {
+      match = static_cast<fts_match_t*>(
+              ib_vector_get(query->match_array[0], s));
+      match->doc_id = 0;
+    }
+  }
+
   return (matched);
 }
 

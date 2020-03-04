@@ -1,0 +1,17 @@
+commit be747ae79f320994cf39c24c64e977035efe334c
+Merge: a14e44f2081 325cd20aa8d
+Author: vinchen <vinchen@tencent.com>
+Date:   Thu Feb 27 05:17:16 2020 +0000
+
+    Merge branch 'perf_unique_binlog_name_issue40_review' into 'master' (merge request !44)
+    
+    [perf] issue#20 optimization for generating unique binlog file name
+    [perf] issue#20 optimization for generating unique binlog file name
+    
+    LOCK_LOG will be held in the whole process of generating a
+    new binlog file name, and this could cause performance issue
+    where there're lots of binlog files, since this lock also
+    required in writing/reading binlog.
+    We optimized this by remember the largest number of binlog file name,
+    and use it to generate the new binlog file name.
+

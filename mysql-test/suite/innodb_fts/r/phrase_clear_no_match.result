@@ -1,0 +1,148 @@
+select @@ngram_token_size;
+@@ngram_token_size
+2
+select @@innodb_ft_enable_stopword;
+@@innodb_ft_enable_stopword
+1
+# restart: --ngram_token_size=1
+select @@ngram_token_size;
+@@ngram_token_size
+1
+select @@innodb_ft_enable_stopword;
+@@innodb_ft_enable_stopword
+1
+create table t1(
+FTS_DOC_ID bigint unsigned auto_increment not null primary key,
+content varchar(100) COLLATE utf8_danish_ci
+) DEFAULT CHARSET=utf8 COLLATE=utf8_danish_ci;
+create fulltext index fts_index on t1(content) with parser ngram;
+insert into t1(content) values('María'), ('Maríb'), ('Maria'), ('Marib');
+SET GLOBAL innodb_ft_aux_table = 'test/t1';
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE;
+WORD	FIRST_DOC_ID	LAST_DOC_ID	DOC_COUNT	DOC_ID	POSITION
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE;
+WORD	FIRST_DOC_ID	LAST_DOC_ID	DOC_COUNT	DOC_ID	POSITION
+b	2	4	2	2	5
+b	2	4	2	4	4
+í	1	2	2	1	3
+í	1	2	2	2	3
+m	1	4	4	1	0
+m	1	4	4	2	0
+m	1	4	4	3	0
+m	1	4	4	4	0
+r	1	4	4	1	2
+r	1	4	4	2	2
+r	1	4	4	3	2
+r	1	4	4	4	2
+SET GLOBAL innodb_ft_aux_table = default;
+select * from t1 where match(content) against('+María' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+1	María
+select * from t1 where match(content) against('+Maríb' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+2	Maríb
+select * from t1 where match(content) against('+Maria' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+1	María
+3	Maria
+select * from t1 where match(content) against('+Marib' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+2	Maríb
+4	Marib
+drop table t1;
+# restart: --ngram_token_size=1 --innodb_ft_enable_stopword=off
+select @@ngram_token_size;
+@@ngram_token_size
+1
+select @@innodb_ft_enable_stopword;
+@@innodb_ft_enable_stopword
+0
+create table t1(
+FTS_DOC_ID bigint unsigned auto_increment not null primary key,
+content varchar(100) COLLATE utf8_danish_ci
+) DEFAULT CHARSET=utf8 COLLATE=utf8_danish_ci;
+create fulltext index fts_index on t1(content) with parser ngram;
+insert into t1(content) values('María'), ('Maríb'), ('Maria'), ('Marib');
+SET GLOBAL innodb_ft_aux_table = 'test/t1';
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE;
+WORD	FIRST_DOC_ID	LAST_DOC_ID	DOC_COUNT	DOC_ID	POSITION
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE;
+WORD	FIRST_DOC_ID	LAST_DOC_ID	DOC_COUNT	DOC_ID	POSITION
+a	1	4	4	1	1
+a	1	4	4	1	4
+a	1	4	4	2	1
+a	1	4	4	3	1
+a	1	4	4	3	3
+a	1	4	4	4	1
+b	2	4	2	2	5
+b	2	4	2	4	4
+í	1	4	4	1	3
+í	1	4	4	2	3
+í	1	4	4	3	3
+í	1	4	4	4	3
+m	1	4	4	1	0
+m	1	4	4	2	0
+m	1	4	4	3	0
+m	1	4	4	4	0
+r	1	4	4	1	2
+r	1	4	4	2	2
+r	1	4	4	3	2
+r	1	4	4	4	2
+SET GLOBAL innodb_ft_aux_table = default;
+select * from t1 where match(content) against('+María' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+1	María
+3	Maria
+select * from t1 where match(content) against('+Maríb' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+2	Maríb
+4	Marib
+select * from t1 where match(content) against('+Maria' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+1	María
+3	Maria
+select * from t1 where match(content) against('+Marib' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+2	Maríb
+4	Marib
+drop table t1;
+create table t1(
+FTS_DOC_ID bigint unsigned auto_increment not null primary key,
+content varchar(100) COLLATE utf8_danish_ci
+) DEFAULT CHARSET=utf8 COLLATE=utf8_danish_ci;
+create fulltext index fts_index on t1(content);
+insert into t1(content) values('María'), ('Maríb'), ('Maria'), ('Marib');
+SET GLOBAL innodb_ft_aux_table = 'test/t1';
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE;
+WORD	FIRST_DOC_ID	LAST_DOC_ID	DOC_COUNT	DOC_ID	POSITION
+SELECT *FROM INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE;
+WORD	FIRST_DOC_ID	LAST_DOC_ID	DOC_COUNT	DOC_ID	POSITION
+maría	1	3	2	1	0
+maría	1	3	2	3	0
+maríb	2	4	2	2	0
+maríb	2	4	2	4	0
+SET GLOBAL innodb_ft_aux_table = default;
+select * from t1 where match(content) against('+María' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+1	María
+3	Maria
+select * from t1 where match(content) against('+Maríb' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+2	Maríb
+4	Marib
+select * from t1 where match(content) against('+Maria' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+1	María
+3	Maria
+select * from t1 where match(content) against('+Marib' IN BOOLEAN MODE);
+FTS_DOC_ID	content
+2	Maríb
+4	Marib
+drop table t1;
+# restart: 
+select @@ngram_token_size;
+@@ngram_token_size
+2
+select @@innodb_ft_enable_stopword;
+@@innodb_ft_enable_stopword
+1
