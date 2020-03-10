@@ -504,6 +504,7 @@ bool lock_check_trx_id_sanity(
     const dict_index_t *index, /*!< in: index */
     const ulint *offsets);      /*!< in: rec_get_offsets(rec, index) */
 
+class LockGuard;
 /** Prints info of locks for all transactions.
 @return false if not able to obtain lock mutex and exits without
 printing info */
@@ -749,6 +750,7 @@ struct lock_op_t {
 
 typedef ib_mutex_t LockMutex;
 
+#define LOCK_REC_MUTEX_INSTANCES 128 
 /** The lock system struct */
 struct lock_sys_t {
   char pad1[INNOBASE_CACHE_LINE_SIZE];
@@ -756,8 +758,13 @@ struct lock_sys_t {
   memory update hotspots from
   residing on the same memory
   cache line */
-  LockMutex mutex;              /*!< Mutex protecting the
-                                locks */
+  LockMutex table_mutex;        /*!< Mutex protecting the
+                                table locks */
+  LockMutex rec_mutex[LOCK_REC_MUTEX_INSTANCES];
+                                /* Protect rec hash */
+  LockMutex prdt_mutex;         /* Protect prdt_hash and prdt_page_hash */
+
+  LockMutex deadlock_mutex;     /* Protect output of deadlock information */
   hash_table_t *rec_hash;       /*!< hash table of the record
                                 locks */
   hash_table_t *prdt_hash;      /*!< hash table of the predicate
@@ -810,6 +817,144 @@ struct lock_sys_t {
 #endif /* UNIV_DEBUG */
 };
 
+typedef std::set<uint32_t> PartIds;
+
+enum GuardType {
+  /** Protect rec_hash */
+  GUARD_RECORD_HASH = 1,
+
+  /** Protect prdt_hash and prdt_page_hash */
+  GUARD_PRDT_HASH,
+
+  /** Protect table lock, currently there's only
+  LOCK_AUTO_INC. */
+  GUARD_TABLE,
+
+  /** Initlize value of guard type which means nothing. */
+  GUARD_INIT
+};
+
+/** Store information of trx->lock.wait_lock to avoid
+access the pointer which is actually owned by another
+session. */
+class LockWaitInfo {
+public:
+  LockWaitInfo() {
+    set_undefined();
+  }
+
+  void set_undefined() {
+    m_defined = false;
+    m_guard_type = GUARD_INIT;
+  }
+
+  bool is_defined() const {
+    return (m_defined);
+  }
+
+  void copy_from(LockWaitInfo *src);
+
+  void set(const lock_t *lock);
+
+  enum GuardType type() const {
+    ut_a(m_guard_type != GUARD_INIT);
+    return (m_guard_type); }
+
+  space_id_t space_id();
+
+  page_no_t page_no();
+
+private:
+  bool m_defined;
+
+  enum GuardType m_guard_type;
+
+  page_id_t m_page_id;
+};
+
+/** Helper class to wrap the mutex of lock system. the
+mutex is acquired through constructor and released through
+destructor. Of course you can invoke acquire/release function
+explicitly. */
+class LockGuard {
+public:
+  explicit LockGuard(bool raw_obj = false) {
+    m_mutexs.clear();
+    if (!raw_obj) {
+      /** Acquire all mutexs of lock system */
+      acquire();
+    }
+  }
+
+  explicit LockGuard (const lock_t *lock) {
+    acquire(lock);
+  }
+
+  explicit LockGuard(const buf_block_t *block) {
+    acquire(block);  
+  }
+
+  explicit LockGuard(const buf_block_t *block1, const buf_block_t *block2) {
+    acquire(block1, block2);
+  }
+
+  explicit LockGuard(enum GuardType guard_type) {
+    acquire(guard_type);
+  }
+
+  explicit LockGuard(space_id_t space, page_no_t page_no) {
+    acquire(space, page_no);
+  }
+
+  explicit LockGuard(LockWaitInfo &wait_info) {
+    if (wait_info.is_defined()) {
+      acquire(wait_info);
+    }
+  }
+
+  explicit LockGuard(PartIds &ids) {
+    acquire(ids);
+  }
+
+  ~LockGuard() {
+    release();
+  }
+
+  void enter(LockMutex *mutex);
+  
+  bool try_enter(LockMutex *mutex);
+
+  void exit(LockMutex *mutex);
+
+  void acquire();
+
+  bool try_acquire();
+
+  void acquire(space_id_t space, page_no_t page_no);
+
+  void acquire(const buf_block_t *block);
+
+  void acquire(const buf_block_t *block1, const buf_block_t *block2);
+
+  void acquire(const lock_t *lock);
+
+  void acquire(enum GuardType guard_type);
+
+  void acquire(PartIds &ids);
+
+  void acquire(LockWaitInfo &wait_info);
+
+  void acquire_switch(const lock_t *lock);
+  
+  void release();
+
+  static uint32_t get_part(space_id_t space, page_no_t page_no);
+private:
+
+  /** Store pointers of acquired mutex */
+  std::vector<ib_mutex_t*> m_mutexs;
+};
+
 /*********************************************************************/ /**
 This function is kind of wrapper to lock_rec_convert_impl_to_expl_for_trx()
 function with functionailty added to facilitate lock conversion from implicit
@@ -854,23 +999,11 @@ void lock_rec_trx_wait(lock_t *lock, ulint i, ulint type);
 /** The lock system */
 extern lock_sys_t *lock_sys;
 
-/** Test if lock_sys->mutex can be acquired without waiting. */
-#define lock_mutex_enter_nowait() (lock_sys->mutex.trylock(__FILE__, __LINE__))
-
-/** Test if lock_sys->mutex is owned by the current thread. */
-#define lock_mutex_own() (lock_sys->mutex.is_owned())
-
-/** Acquire the lock_sys->mutex. */
-#define lock_mutex_enter()         \
-  do {                             \
-    mutex_enter(&lock_sys->mutex); \
-  } while (0)
-
-/** Release the lock_sys->mutex. */
-#define lock_mutex_exit()   \
-  do {                      \
-    lock_sys->mutex.exit(); \
-  } while (0)
+bool lock_mutex_own_all();
+bool lock_mutex_own();
+bool lock_mutex_own(const lock_t *lock);
+bool lock_mutex_own(const buf_block_t *block);
+bool lock_mutex_own(GuardType guard_type);
 
 /** Test if lock_sys->wait_mutex is owned. */
 #define lock_wait_mutex_own() (lock_sys->wait_mutex.is_owned())
@@ -886,6 +1019,20 @@ extern lock_sys_t *lock_sys;
   do {                           \
     lock_sys->wait_mutex.exit(); \
   } while (0)
+
+/** Acquire the lock_sys->deadlock_mutex. */
+#define lock_deadlock_mutex_enter()         \
+  do {                                  \
+    mutex_enter(&lock_sys->deadlock_mutex); \
+  } while (0)
+
+/** Release the lock_sys->deadlock_mutex. */
+#define lock_deadlock_mutex_exit()   \
+  do {                           \
+    lock_sys->deadlock_mutex.exit(); \
+  } while (0)
+
+#define lock_deadlock_mutex_own() (lock_sys->deadlock_mutex.is_owned())
 
 #include "lock0lock.ic"
 

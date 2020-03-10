@@ -1479,6 +1479,9 @@ struct buf_block_t {
                          mutex in InnoDB-5.1 to relieve
                          contention on the buffer pool mutex */
 
+  /** Get the space id of the current buffer block. */
+  space_id_t get_space_id() const { return (page.id.space()); }
+
   /** Get the page number of the current buffer block.
   @return page number of the current buffer block. */
   page_no_t get_page_no() const { return (page.id.page_no()); }

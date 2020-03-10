@@ -165,6 +165,9 @@ static void trx_init(trx_t *trx) {
 
   trx->lock.blocking_trx.store(nullptr);
 
+  ut_a(trx->lock.wait_info);
+  trx->lock.wait_info->set_undefined();
+
   trx->dict_operation = TRX_DICT_OP_NONE;
 
   trx->ddl_operation = false;
@@ -264,6 +267,8 @@ struct TrxFactory {
     ut_a(!trx->register_view);
     ut_a(!trx->rw_trx_hash_element);
 
+    trx->lock.wait_info = new LockWaitInfo();
+    
     trx_init(trx);
 
     trx->state = TRX_STATE_NOT_STARTED;
@@ -344,6 +349,9 @@ struct TrxFactory {
     trx->lock.table_pool.~lock_pool_t();
 
     trx->lock.table_locks.~lock_pool_t();
+  
+    delete trx->lock.wait_info;
+    trx->lock.wait_info = nullptr;
   }
 
   /** Enforce any invariants here, this is called before the transaction
@@ -2486,8 +2494,6 @@ void trx_print_latched(
     ulint max_query_len) /*!< in: max query length to print,
                          or 0 to use the default max length */
 {
-  ut_ad(lock_mutex_own());
-
   trx_print_low(f, trx, max_query_len, lock_number_of_rows_locked(&trx->lock),
                 UT_LIST_GET_LEN(trx->lock.trx_locks),
                 mem_heap_get_size(trx->lock.lock_heap));
@@ -2504,11 +2510,11 @@ void trx_print(FILE *f,             /*!< in: output stream */
   ulint n_trx_locks;
   ulint heap_size;
 
-  lock_mutex_enter();
+  trx_mutex_enter(trx);
   n_rec_locks = lock_number_of_rows_locked(&trx->lock);
   n_trx_locks = UT_LIST_GET_LEN(trx->lock.trx_locks);
   heap_size = mem_heap_get_size(trx->lock.lock_heap);
-  lock_mutex_exit();
+  trx_mutex_exit(trx);
 
   mutex_enter(&trx_sys->mutex);
 

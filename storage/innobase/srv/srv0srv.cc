@@ -1379,8 +1379,7 @@ ibool srv_printf_innodb_monitor(
 
   /* Only if lock_print_info_summary proceeds correctly,
   before we call the lock_print_info_all_transactions
-  to print all the lock information. IMPORTANT NOTE: This
-  function acquires the lock mutex on success. */
+  to print all the lock information. */
   ret = lock_print_info_summary(file, nowait);
 
   if (ret) {

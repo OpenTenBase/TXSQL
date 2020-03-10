@@ -136,6 +136,9 @@ struct lock_t {
   linked list, used by the hash table. */
   lock_t *hash;
 
+  /** True if the lock is already removed from list. */
+  bool discard;
+
   union {
     /** Table lock */
     lock_table_t tab_lock;

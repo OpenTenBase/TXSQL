@@ -1953,7 +1953,7 @@ detect this and will eventually quit sooner. */
   /** Count of the number of record locks on this table. We use this to
   determine whether we can evict the table from the dictionary cache.
   It is protected by lock_sys->mutex. */
-  ulint n_rec_locks;
+  std::atomic<ulint> n_rec_locks;
 
   /** table lock counter holded by transaction. the table can't be
   evicted from cache if not equal to zero. */

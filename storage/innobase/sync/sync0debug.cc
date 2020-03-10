@@ -704,7 +704,6 @@ Latches *LatchDebug::check_order(const latch_t *latch,
     case SYNC_DOUBLEWRITE:
     case SYNC_SEARCH_SYS:
     case SYNC_THREADS:
-    case SYNC_LOCK_SYS:
     case SYNC_LOCK_WAIT_SYS:
     case SYNC_RW_TRX_HASH_ELEMENT:
     case SYNC_TRX_SYS:
@@ -736,7 +735,11 @@ Latches *LatchDebug::check_order(const latch_t *latch,
 
       basic_check(latches, level, level);
       break;
-
+    case SYNC_LOCK_SYS:
+      if (!find(latches, SYNC_LOCK_SYS)) {
+        basic_check(latches, level, level);
+      }
+      break;
     case SYNC_ANY_LATCH:
 
       /* Temporary workaround for LATCH_ID_RTR_*_MUTEX */

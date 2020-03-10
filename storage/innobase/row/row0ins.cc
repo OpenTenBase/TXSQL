@@ -700,11 +700,11 @@ static void row_ins_foreign_trx_print(trx_t *trx) /*!< in: transaction */
     return;
   }
 
-  lock_mutex_enter();
+  trx_mutex_enter(trx);
   n_rec_locks = lock_number_of_rows_locked(&trx->lock);
   n_trx_locks = UT_LIST_GET_LEN(trx->lock.trx_locks);
   heap_size = mem_heap_get_size(trx->lock.lock_heap);
-  lock_mutex_exit();
+  trx_mutex_exit(trx);
 
   trx_sys_mutex_enter();
 

@@ -583,7 +583,7 @@ bool Innodb_data_lock_iterator::scan(PSI_server_data_lock_container *container,
     return true;
   }
 
-  lock_mutex_enter();
+  LockGuard guard;
 
   trx_sys_mutex_enter();
 
@@ -596,8 +596,6 @@ bool Innodb_data_lock_iterator::scan(PSI_server_data_lock_container *container,
   }
 
   trx_sys_mutex_exit();
-
-  lock_mutex_exit();
 
   return false;
 }
@@ -623,7 +621,7 @@ bool Innodb_data_lock_iterator::fetch(PSI_server_data_lock_container *container,
     return true;
   }
 
-  lock_mutex_enter();
+  LockGuard guard;
 
   trx_sys_mutex_enter();
 
@@ -635,8 +633,6 @@ bool Innodb_data_lock_iterator::fetch(PSI_server_data_lock_container *container,
   }
 
   trx_sys_mutex_exit();
-
-  lock_mutex_exit();
 
   return true;
 }
@@ -846,7 +842,7 @@ bool Innodb_data_lock_wait_iterator::scan(
     return true;
   }
 
-  lock_mutex_enter();
+  LockGuard guard;
 
   trx_sys_mutex_enter();
 
@@ -858,8 +854,6 @@ bool Innodb_data_lock_wait_iterator::scan(
   }
 
   trx_sys_mutex_exit();
-
-  lock_mutex_exit();
 
   return false;
 }
@@ -900,7 +894,7 @@ bool Innodb_data_lock_wait_iterator::fetch(
     return true;
   }
 
-  lock_mutex_enter();
+  LockGuard guard;
 
   trx_sys_mutex_enter();
 
@@ -913,8 +907,6 @@ bool Innodb_data_lock_wait_iterator::fetch(
   }
 
   trx_sys_mutex_exit();
-
-  lock_mutex_exit();
 
   return true;
 }

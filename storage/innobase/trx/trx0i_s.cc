@@ -996,12 +996,9 @@ int trx_i_s_possibly_fetch_data_into_cache(
   }
 
   /* We need to read trx_sys and record/table lock queues */
-
-  lock_mutex_enter();
+  LockGuard guard;
 
   fetch_data_into_cache(cache);
-
-  lock_mutex_exit();
 
   return (0);
 }

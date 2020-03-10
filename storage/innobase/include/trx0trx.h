@@ -523,6 +523,8 @@ transaction pool.
 
 typedef std::vector<ib_lock_t *, ut_allocator<ib_lock_t *>> lock_pool_t;
 
+class LockWaitInfo;
+
 /** Latching protocol for trx_lock_t::que_state.  trx_lock_t::que_state
  captures the state of the query thread during the execution of a query.
  This is different from a transaction state. The query state of a transaction
@@ -583,6 +585,10 @@ struct trx_lock_t {
   hold lock_sys->mutex, except when they are holding trx->mutex and
   wait_lock==NULL */
   lock_t *wait_lock;
+
+  /** Store information of waiting lock, so we can avoid accessing wait_lock
+  which is owned by other session. */
+  LockWaitInfo *wait_info;
 
   /** Stores the type of the most recent lock for which this trx had to wait.
   Set to lock_get_type_low(wait_lock) together with wait_lock in

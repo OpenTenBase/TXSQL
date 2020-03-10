@@ -2957,9 +2957,8 @@ static buf_block_t *btr_lift_page_up(
   if (!dict_table_is_locking_disabled(index->table)) {
     /* Free predicate page locks on the block */
     if (dict_index_is_spatial(index)) {
-      lock_mutex_enter();
+      LockGuard guard(GUARD_PRDT_HASH);
       lock_prdt_page_free_from_discard(block, lock_sys->prdt_page_hash);
-      lock_mutex_exit();
     }
     lock_update_copy_and_discard(father_block, block);
   }
@@ -3226,10 +3225,9 @@ retry:
       }
 
       /* No GAP lock needs to be worrying about */
-      lock_mutex_enter();
+      LockGuard guard(block);
       lock_prdt_page_free_from_discard(block, lock_sys->prdt_page_hash);
       lock_rec_free_all_from_discard_page(block);
-      lock_mutex_exit();
     } else {
       btr_node_ptr_delete(index, block, mtr);
       if (!dict_table_is_locking_disabled(index->table)) {
@@ -3361,10 +3359,9 @@ retry:
         rtr_merge_and_update_mbr(&cursor2, &father_cursor, offsets2, offsets,
                                  merge_page, merge_block, block, index, mtr);
       }
-      lock_mutex_enter();
+      LockGuard guard(block);
       lock_prdt_page_free_from_discard(block, lock_sys->prdt_page_hash);
       lock_rec_free_all_from_discard_page(block);
-      lock_mutex_exit();
     } else {
       compressed = btr_cur_pessimistic_delete(
           &err, TRUE, &cursor2, BTR_CREATE_FLAG, false, 0, 0, 0, mtr);

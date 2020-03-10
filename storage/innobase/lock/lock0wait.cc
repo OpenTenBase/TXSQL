@@ -492,17 +492,24 @@ static void lock_wait_check_and_cancel(
     possible that the lock has already been
     granted: in that case do nothing */
 
-    lock_mutex_enter();
+    LockGuard guard(true);
 
     trx_mutex_enter(trx);
+    if (trx->lock.wait_lock != NULL) {
+      ut_a(trx->lock.wait_info->is_defined());
+      LockWaitInfo wait_info;
+      wait_info.copy_from(trx->lock.wait_info);
+      trx_mutex_exit(trx);
+
+      guard.acquire(wait_info);
+      trx_mutex_enter(trx);
+    }
 
     if (trx->lock.wait_lock != NULL && !trx_is_high_priority(trx)) {
       ut_a(trx->lock.que_state == TRX_QUE_LOCK_WAIT);
 
       lock_cancel_waiting_and_release(trx->lock.wait_lock, false);
     }
-
-    lock_mutex_exit();
 
     trx_mutex_exit(trx);
   }
@@ -576,8 +583,14 @@ static void lock_wait_snapshot_waiting_threads(
     if (slot->in_use) {
       auto from = thr_get_trx(slot->thr);
       auto to = from->lock.blocking_trx.load();
+     
       if (to != nullptr) {
-        infos.push_back({from, to, slot, slot->reservation_no});
+        trx_mutex_enter(from);
+        if (from->lock.wait_info->is_defined() &&
+            from->lock.wait_info->type() == GUARD_RECORD_HASH) {
+          infos.push_back({from, to, slot, slot->reservation_no});
+        }
+        trx_mutex_exit(from);
       }
     }
   }
@@ -771,6 +784,30 @@ static trx_t *lock_wait_choose_victim(
   return chosen_victim;
 }
 
+static void lock_wait_collect_part_ids(
+    const ut::vector<uint> &cycle_ids,
+    const ut::vector<waiting_trx_info_t> &infos,
+    PartIds &ids) {
+  for (auto id : cycle_ids) {
+    const auto slot = infos[id].slot;
+    if (!slot->in_use || slot->reservation_no != infos[id].reservation_no) {
+      return;
+    }
+
+    trx_t *trx = infos[id].trx;
+
+    trx_mutex_enter(trx);
+    if (trx->lock.wait_info->is_defined()) {
+      ut_a(trx->lock.wait_info->type() == GUARD_RECORD_HASH);
+
+      ids.insert((lock_rec_hash(trx->lock.wait_info->space_id(),
+                               trx->lock.wait_info->page_no())
+                    % LOCK_REC_MUTEX_INSTANCES));
+    }
+    trx_mutex_exit(trx);
+  }
+}
+
 /** Given an array with information about all waiting transactions and indexes
 in it which form a deadlock cycle, checks if the transactions allegedly forming
 the deadlock have actually stayed in slots since we've last checked, as opposed
@@ -873,8 +910,10 @@ chosen victim.
 static void lock_wait_handle_deadlock(
     trx_t *chosen_victim, const ut::vector<uint> &cycle_ids,
     const ut::vector<waiting_trx_info_t> &infos) {
+  lock_deadlock_mutex_enter();
   lock_notify_about_deadlock(
       lock_wait_trxs_rotated_for_notification(cycle_ids, infos), chosen_victim);
+  lock_deadlock_mutex_exit();
 
   lock_wait_rollback_deadlock_victim(chosen_victim);
 }
@@ -929,9 +968,20 @@ static bool lock_wait_check_candidate_cycle(
   lock_reset_lock_and_trx_wait() resets trx->lock.wait_lock to NULL.
   Checking trx->lock.wait_lock must be done under lock_mutex.
   */
-  lock_mutex_enter();
+  
+  /* Collect partition ids of rec_hash*/
+  PartIds part_ids;
+  part_ids.clear();
+
+  lock_wait_collect_part_ids(cycle_ids, infos, part_ids);
+
+  if (part_ids.empty()) {
+    return false;
+  }
+
+  LockGuard guard(part_ids);
+
   if (!lock_wait_trxs_are_still_waiting(cycle_ids, infos)) {
-    lock_mutex_exit();
     lock_wait_mutex_exit();
     return false;
   }
@@ -954,7 +1004,6 @@ static bool lock_wait_check_candidate_cycle(
 
   lock_wait_handle_deadlock(chosen_victim, cycle_ids, infos);
 
-  lock_mutex_exit();
   return true;
 }
 

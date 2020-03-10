@@ -2141,7 +2141,6 @@ withdraw_retry:
       message_interval *= 2;
     }
 
-    lock_mutex_enter();
     trx_sys_mutex_enter();
     bool found = false;
     for (trx_t *trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list); trx != NULL;
@@ -2158,11 +2157,12 @@ withdraw_retry:
           found = true;
         }
 
+        trx_mutex_enter(trx);
         lock_trx_print_wait_and_mvcc_state(stderr, trx);
+        trx_mutex_exit(trx);
       }
     }
     trx_sys_mutex_exit();
-    lock_mutex_exit();
 
     withdraw_started = ut_time();
   }

@@ -197,6 +197,12 @@ class page_id_t {
   @return page number */
   inline page_no_t page_no() const { return (m_page_no); }
 
+  /** Set space id and page no */
+  inline void set_page(space_id_t space, page_no_t page_no) {
+    m_space = space;
+    m_page_no = page_no;
+  }
+
   /** Retrieve the fold value.
   @return fold value */
   inline ulint fold() const {
