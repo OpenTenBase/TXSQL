@@ -2891,3 +2891,39 @@ bool is_cloud_internal_user(const THD *thd) {
           strncasecmp(usr, opt_admin_username_prefix.str,
                       opt_admin_username_prefix.length) == 0);
 }
+
+std::string THD::toString() const
+{
+  char net_str[512];
+  net_str[0]=0;
+  char buff[4096];
+  buff[0]=0;
+//  char da_buff[4096];
+
+//  printNETtoString(&net, net_str, 512);
+//  if (m_stmt_da)
+//    m_stmt_da->toString(da_buff, sizeof(da_buff));
+  const Security_context *sctx= &m_main_security_ctx;
+  snprintf(buff, sizeof(buff),
+              "thd info: net:{%s},security_ctx:{%s},m_ipfromproxy:%s,peerport:%d,proc_info:%s,client_capabilities:%#lX,max_client_packet_length:%lu,conn_broken_cmd:%d, m_command:%d, killed: %d, db:%s,start_time:%lu,query_id:%ld,thread_id:%u,os_thread_id:%d,no_errors:%d,is_fatal_error:%d,current_connect_time:%s,Diagnostics_area:{%s}",
+              net_str,
+              sctx? sctx->toString().c_str():"<null>",
+              m_ipfromproxy,peer_port,
+              proc_info ? proc_info : "<null>",
+              m_protocol? m_protocol->get_client_capabilities(): 0,
+              max_client_packet_length,
+              0,
+              m_command,
+              killed.load(),
+              m_db.str ? m_db.str : "unconnected",
+              start_time.tv_sec,
+              (long)query_id,
+              thread_id(),
+              0,
+              0,
+              is_fatal_error(),
+              "",
+              "<null>");
+
+  return std::string(buff);
+}

@@ -274,6 +274,17 @@ class Security_context {
 
   bool user_matches(Security_context *);
 
+  std::string toString() const {
+      char buf[1024];
+
+      snprintf(buf, sizeof(buf), "host:%s,user:%s,ip:%s,priv_user:%s,proxy_user:%s,priv_host:%s,external_user:%s,host_or_ip:%s,master_access:%lu,db_access:%lu",
+                  m_host.ptr(),m_user.ptr(),m_ip.ptr(),m_priv_user,
+                  m_proxy_user,m_priv_host,m_external_user.ptr(),
+                  m_host_or_ip.ptr(),m_master_access,m_db_access);
+
+      return std::string(buf);
+  }
+
   void logout();
   /**
     Locked account can still be used as routine definers and when they are

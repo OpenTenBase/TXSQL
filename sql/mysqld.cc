@@ -1925,8 +1925,13 @@ class Set_kill_conn : public Do_THD_Impl {
     } else {
       killing_thd->killed = THD::KILL_CONNECTION;
 
-      MYSQL_CALLBACK(Connection_handler_manager::event_functions,
-                     post_kill_notification, (killing_thd));
+//      MYSQL_CALLBACK(Connection_handler_manager::event_functions,
+//                     post_kill_notification, (killing_thd));
+      /*
+       * Connection_handler_manager::event_functions is NULL,so add below line harlylei
+       */
+      MYSQL_CALLBACK(killing_thd->scheduler, post_kill_notification,
+                     (killing_thd));
     }
 
     if (killing_thd->is_killable && killing_thd->kill_immunizer == NULL) {
