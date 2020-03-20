@@ -1370,6 +1370,8 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_MUTEX(BUF_DBLWR, SYNC_DOUBLEWRITE, buf_dblwr_mutex_key);
 
+  LATCH_ADD_MUTEX(TRX_VIEW, SYNC_NO_ORDER_CHECK, trx_view_mutex_key);
+
   LATCH_ADD_MUTEX(TRX_UNDO, SYNC_TRX_UNDO, trx_undo_mutex_key);
 
   LATCH_ADD_MUTEX(TRX_POOL, SYNC_POOL, trx_pool_mutex_key);
@@ -1446,6 +1448,8 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
   LATCH_ADD_RWLOCK(RSEGS, SYNC_RSEGS, rsegs_lock_key);
 
   LATCH_ADD_RWLOCK(UNDO_SPACES, SYNC_UNDO_SPACES, undo_spaces_lock_key);
+
+  LATCH_ADD_RWLOCK(TRX_SYS_MVCC_LOCK, SYNC_NO_ORDER_CHECK, trx_sys_mvcc_lock_key);
 
   LATCH_ADD_RWLOCK(TRX_SYS_RW_LOCK, SYNC_NO_ORDER_CHECK, trx_sys_rw_lock_key);
 

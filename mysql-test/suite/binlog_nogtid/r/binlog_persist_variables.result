@@ -19,7 +19,7 @@ VARIABLE_NAME LIKE '%rpl%' OR
 VARIABLE_NAME LIKE '%semi_sync%' OR
 VARIABLE_NAME LIKE '%slave%') AND
 (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
-'innodb_master_thread_disabled_debug', 'relay_log_sync_txn_count', 'relay_log_sync_timeout', 'tdsql_relay_log_opt', 'relay_log_sync_threshold'))
+'innodb_master_thread_disabled_debug', 'relay_log_sync_txn_count', 'innodb_strict_gtid_commit', 'relay_log_sync_timeout', 'tdsql_relay_log_opt', 'relay_log_sync_threshold'))
 ORDER BY VARIABLE_NAME;
 
 include/assert.inc ['Expect 86 variables in the table.']

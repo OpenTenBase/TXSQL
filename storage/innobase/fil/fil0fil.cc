@@ -2545,6 +2545,14 @@ void Fil_shard::close_file(fil_node_t *file, bool LRU_close) {
   ut_a(file->n_pending == 0);
   ut_a(file->n_pending_flushes == 0);
 
+  /* the buf_dblwr_update() may flush files after
+  lru_manger/page cleaner thread exits. so the pending
+  flushes here si not zero, we should wait until it decrease
+  to zero. */
+  while (file->n_pending_flushes > 0) {
+   os_thread_sleep(20); 
+  }
+
 #ifndef UNIV_HOTBACKUP
   ut_a(file->modification_counter == file->flush_counter ||
        file->space->purpose == FIL_TYPE_TEMPORARY || srv_fast_shutdown == 2);

@@ -399,7 +399,7 @@ static ibool fts_load_user_stopword(
   ibool ret = TRUE;
   trx_t *trx;
 
-  trx = trx_allocate_for_background();
+  trx = trx_allocate_for_mysql();
   trx->op_info = "Load user stopword table into FTS cache";
 
   /* Validate the user table existence and in the right
@@ -466,7 +466,7 @@ static ibool fts_load_user_stopword(
   que_graph_free(graph);
 
 cleanup:
-  trx_free_for_background(trx);
+  trx_free_for_mysql(trx);
   return (ret);
 }
 
@@ -3834,7 +3834,7 @@ dberr_t fts_doc_fetch_by_doc_id(
   const char *select_str;
   doc_id_t write_doc_id;
   dict_index_t *index;
-  trx_t *trx = trx_allocate_for_background();
+  trx_t *trx = trx_allocate_for_mysql();
   que_t *graph;
 
   trx->op_info = "fetching indexed FTS document";
@@ -3927,7 +3927,7 @@ dberr_t fts_doc_fetch_by_doc_id(
     fts_sql_rollback(trx);
   }
 
-  trx_free_for_background(trx);
+  trx_free_for_mysql(trx);
 
   if (!get_doc) {
     fts_que_graph_free(graph);
@@ -4962,7 +4962,7 @@ ulint fts_get_rows_count(fts_table_t *fts_table) /*!< in: fts table to read */
   ulint count = 0;
   char table_name[MAX_FULL_NAME_LEN];
 
-  trx = trx_allocate_for_background();
+  trx = trx_allocate_for_mysql();
 
   trx->op_info = "fetching FT table rows count";
 
@@ -5015,7 +5015,7 @@ ulint fts_get_rows_count(fts_table_t *fts_table) /*!< in: fts table to read */
 
   fts_que_graph_free(graph);
 
-  trx_free_for_background(trx);
+  trx_free_for_mysql(trx);
 
   return (count);
 }
@@ -5027,7 +5027,7 @@ static void fts_update_max_cache_size(fts_sync_t *sync) /*!< in: sync state */
   trx_t *trx;
   fts_table_t fts_table;
 
-  trx = trx_allocate_for_background();
+  trx = trx_allocate_for_mysql();
 
   FTS_INIT_FTS_TABLE(&fts_table, FTS_SUFFIX_CONFIG, FTS_COMMON_TABLE,
                      sync->table);
@@ -5037,7 +5037,7 @@ static void fts_update_max_cache_size(fts_sync_t *sync) /*!< in: sync state */
 
   fts_sql_commit(trx);
 
-  trx_free_for_background(trx);
+  trx_free_for_mysql(trx);
 }
 #endif /* FTS_CACHE_SIZE_DEBUG */
 
@@ -5959,7 +5959,7 @@ ibool fts_load_stopword(
   }
 
   if (!trx) {
-    trx = trx_allocate_for_background();
+    trx = trx_allocate_for_mysql();
     trx->op_info = "upload FTS stopword";
     new_trx = TRUE;
   }
@@ -6033,7 +6033,7 @@ cleanup:
       fts_sql_rollback(trx);
     }
 
-    trx_free_for_background(trx);
+    trx_free_for_mysql(trx);
   }
 
   if (!cache->stopword_info.cached_stopword) {

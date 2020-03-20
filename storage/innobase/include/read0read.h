@@ -40,8 +40,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "univ.i"
 #include "ut0link_buf.h"
 
-/** The link_buf size for tracking the process of taking snapshot. */
-#define MAX_SLOTS 1048576
 /** The MVCC read view manager */
 class MVCC {
  public:
@@ -59,10 +57,8 @@ class MVCC {
   void view_open(ReadView *view, trx_t *trx);
 
   /**
-  Close a view created by the above function.
-  @param view		view allocated by trx_open.
-  @param own_mutex	true if caller owns trx_sys_t::mutex */
-  void view_close(trx_t *trx, bool own_mutex);
+  Close a view created by the above function. */
+  void view_close(trx_t *trx);
 
   /** Clones the oldest view and stores it in view. No need to
   call view_close(). The caller owns the view that is passed in.
@@ -80,51 +76,56 @@ class MVCC {
   for views created by RW transactions. */
   static void set_view_creator_trx_id(ReadView *view, trx_id_t id);
 
-  void add_list(ReadView* view);
+  void set_view_flag(bool new_flag) {
+    m_valid_view.store(new_flag, std::memory_order_release);
+  }
 
-  void remove_list(ReadView* view);
+  bool is_clone_valid() const {
+    return (m_valid_view.load(std::memory_order_acquire));
+  }
 
-  uint64_t register_slot();
+  bool is_clone_valid_relaxed() const {
+    return (m_valid_view.load(std::memory_order_relaxed));
+  }
 
-  void unregister_slot(uint64_t slot_id);
+  void clone_slock() {
+    rw_lock_s_lock(m_clone_lock);
+  }
 
-  void view_closer_task();
+  void clone_sunlock() {
+    rw_lock_s_unlock(m_clone_lock);
+  }
 
-  void start_view_closer();
+  void clone_xlock() {
+    rw_lock_x_lock(m_clone_lock);
+  }
 
-  void stop_view_closer();
-#ifdef UNIV_DEBUG
-  bool view_on_list(ReadView* view);
-#endif
+  bool clone_xtrylock() {
+    return (rw_lock_x_lock_nowait(m_clone_lock));
+  }
 
- private:
-  /**
-  Validates a read view list. */
-  bool validate() const;
+  void clone_xunlock() {
+    rw_lock_x_unlock(m_clone_lock);
+  }
 
+  ReadView* global_view() { return (m_clone_view); }
  private:
   // Prevent copying
   MVCC(const MVCC &);
   MVCC &operator=(const MVCC &);
 
- private:
-  typedef UT_LIST_BASE_NODE_T(ReadView) view_list_t;
+  /** Pointer to a cached read view.If m_valid_view is true,
+  we can directly clone read view from it so can reduce cpu
+  cost of iterating lf_hash. */
+  ReadView *m_clone_view;
 
-  /** Active and closed views, the closed views will have the
-  creator trx id set to TRX_ID_MAX */
-  view_list_t m_views;
+  /** Flag to indicate if m_clone_view can be used to create
+  user read view. */
+  std::atomic<bool> m_valid_view;
 
-  /** It uses background thread to advance tail of m_add_recently.
-  This flag indicates if the thread is active or not */
-  std::atomic<bool> m_view_closer_active;
-  
-  os_event_t  m_view_closer_event;
-
-  /** Increased everytime before taking a snapshot */
-  std::atomic<uint64_t> m_create_counter;
- 
-  /** Track the process of taking snapshot. */
-  Link_buf<uint64_t> m_add_recently;
+  /** read-write lock to protect m_clone_view */
+  rw_lock_t *m_clone_lock;
 };
 
+extern bool opt_use_cloned_view;
 #endif /* read0read_h */

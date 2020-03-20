@@ -3610,7 +3610,7 @@ dberr_t fts_query(trx_t *trx, dict_index_t *index, uint flags,
 
   *result = NULL;
   memset(&query, 0x0, sizeof(query));
-  query_trx = trx_allocate_for_background();
+  query_trx = trx_allocate_for_mysql();
   query_trx->op_info = "FTS query";
 
   const auto start_time_ms = ut_time_monotonic_ms();
@@ -3792,7 +3792,7 @@ dberr_t fts_query(trx_t *trx, dict_index_t *index, uint flags,
 func_exit:
   fts_query_free(&query);
 
-  trx_free_for_background(query_trx);
+  trx_free_for_mysql(query_trx);
 
   return (error);
 }

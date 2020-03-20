@@ -324,7 +324,7 @@ bool Parallel_reader::Scan_ctx::check_visibility(const rec_t *&rec,
                                                  mtr_t *mtr) {
   const auto table_name = m_config.m_index->table->name;
 
-  ut_ad(m_trx->read_view == nullptr || m_trx->register_view);
+  ut_ad(!m_trx->read_view->is_open() || m_trx->register_view);
 
   if (m_trx->read_view != nullptr) {
     auto view = m_trx->read_view;

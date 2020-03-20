@@ -227,7 +227,7 @@ void trx_mark_sql_stat_end(trx_t *trx); /*!< in: trx handle */
 /** Assigns a read view for a consistent read query. All the consistent reads
  within the same transaction will get the same read view, which is created
  when this function is first called for a new started transaction. */
-ReadView *trx_assign_read_view(trx_t *trx); /*!< in: active transaction */
+void trx_assign_read_view(trx_t *trx); /*!< in: active transaction */
 
 /** @return the transaction's read view or NULL if one not assigned. */
 UNIV_INLINE
@@ -812,6 +812,10 @@ struct trx_t {
   `lock`,  which are protected by lock_sys->mutex) */
   mutable TrxMutex mutex;
 
+  /** Mutex used to protect trx_t::read_view while it's being copied
+  by purge thread. */
+  TrxMutex view_mutex;
+
   /* Note: in_depth was split from in_innodb for fixing a RO
   performance issue. Acquiring the trx_t::mutex for each row
   costs ~3% in performance. It is not required for correctness.
@@ -830,6 +834,12 @@ struct trx_t {
   bool abort; /*!< if this flag is set then
               this transaction must abort when
               it can */
+
+  /** True if it's created for background and not added to
+  mysql_trx_list. If it's not added to list, we shouldn't create
+  read view for it. As purge thread relies on mysql_trx_list to
+  build purge view. */
+  bool is_background;
 
   trx_id_t id; /*!< transaction id */
 
@@ -1188,11 +1198,9 @@ struct trx_t {
   LF_PINS *rw_trx_hash_pins;
 
   bool register_view; /*!< true if the trx has assigned a read view */
-#ifdef UNIV_DEBUG
   bool is_dd_trx; /*!< True if the transaction is used for
                   doing Non-locking Read-only Read
                   Committed on DD tables */
-#endif            /* UNIV_DEBUG */
   ulint magic_n;
 
   bool is_read_uncommitted() const {
@@ -1456,6 +1464,7 @@ bool trx_is_mysql_xa(const trx_t *trx);
 @param[in,out]  trx     current transaction. */
 void trx_sys_update_binlog_position(trx_t *trx);
 
+extern bool opt_strict_gtid_commit;
 #include "trx0trx.ic"
 #endif /* !UNIV_HOTBACKUP */
 

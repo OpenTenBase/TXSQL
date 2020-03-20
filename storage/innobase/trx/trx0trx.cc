@@ -84,6 +84,7 @@ static trx_table_map resurrected_trx_tables;
 /** Dummy session used currently in MySQL interface */
 sess_t *trx_dummy_sess = NULL;
 
+bool opt_strict_gtid_commit = true;
 /** Constructor */
 TrxVersion::TrxVersion(trx_t *trx) : m_trx(trx), m_version(trx->version) {
   /* No op */
@@ -189,8 +190,9 @@ static void trx_init(trx_t *trx) {
   trx->internal = false;
 
   trx->in_truncate = false;
-#ifdef UNIV_DEBUG
   trx->is_dd_trx = false;
+  
+#ifdef UNIV_DEBUG
   trx->in_rollback = false;
   trx->lock.in_rollback = false;
 #endif /* UNIV_DEBUG */
@@ -256,6 +258,8 @@ struct TrxFactory {
 
     new (&trx->lock.table_locks) lock_pool_t();
 
+    trx->read_view = new ReadView();
+
     ut_a(!trx->rw_trx_hash_pins);
     ut_a(!trx->register_view);
     ut_a(!trx->rw_trx_hash_element);
@@ -279,6 +283,7 @@ struct TrxFactory {
 
     mutex_create(LATCH_ID_TRX, &trx->mutex);
     mutex_create(LATCH_ID_TRX_UNDO, &trx->undo_mutex);
+    mutex_create(LATCH_ID_TRX_VIEW, &trx->view_mutex);
 
     lock_trx_alloc_locks(trx);
   }
@@ -297,6 +302,9 @@ struct TrxFactory {
 
     ut_a(trx->dict_operation_lock_mode == 0);
 
+    delete trx->read_view;
+    trx->read_view = nullptr;
+
     if (trx->lock.lock_heap != NULL) {
       mem_heap_free(trx->lock.lock_heap);
       trx->lock.lock_heap = NULL;
@@ -309,6 +317,7 @@ struct TrxFactory {
 
     mutex_free(&trx->mutex);
     mutex_free(&trx->undo_mutex);
+    mutex_free(&trx->view_mutex);
 
     trx->mod_tables.~trx_mod_tables_t();
 
@@ -508,20 +517,6 @@ static void trx_free(trx_t *&trx) {
 
   ut_a(!trx->register_view);
 
-  if (trx->read_view) {
-    if (trx->read_view->is_cached()) {
-      trx_sys_mutex_enter();
-
-      if (!trx->read_view->is_abandoned()) {
-        trx_sys->mvcc->remove_list(trx->read_view);
-      }
-      trx_sys_mutex_exit();
-    }
-
-    UT_DELETE(trx->read_view);
-    trx->read_view = NULL;
-  }
-
   trx->mysql_thd = 0;
 
   // FIXME: We need to avoid this heap free/alloc for each commit.
@@ -535,7 +530,6 @@ static void trx_free(trx_t *&trx) {
   trx->mod_tables.clear();
 
   ut_a(trx->locked_tables.size() == 0);
-  ut_ad(trx->read_view == NULL);
   ut_ad(trx->is_dd_trx == false);
 
   /* trx locking state should have been reset before returning trx
@@ -556,6 +550,8 @@ trx_t *trx_allocate_for_background(void) {
 
   trx->sess = trx_dummy_sess;
 
+  trx->is_background = true;
+
   return (trx);
 }
 
@@ -572,6 +568,8 @@ trx_t *trx_allocate_for_mysql(void) {
   UT_LIST_ADD_FIRST(trx_sys->mysql_trx_list, trx);
 
   trx_sys_mutex_exit();
+
+  trx->is_background = false;
 
   return (trx);
 }
@@ -665,7 +663,7 @@ inline void trx_disconnect_from_mysql(trx_t *trx, bool prepared) {
   UT_LIST_REMOVE(trx_sys->mysql_trx_list, trx);
 
   if (trx->register_view) {
-    trx_sys->mvcc->view_close(trx, true);
+    trx_sys->mvcc->view_close(trx);
   }
 
   if (prepared) {
@@ -1724,8 +1722,9 @@ static void trx_erase_lists(trx_t *trx, bool serialised, Gtid_desc &gtid_desc) {
     2.Before it is removed from serialization list. Otherwise the transaction
       undo could get purged before persisting GTID on disk table. */
 
-    //FIXME: lucas: check if it needs to be protected by mutex
-    if (gtid_desc.m_is_set) {
+    if (gtid_desc.m_is_set && (opt_strict_gtid_commit ||
+                               thd_is_log_apply_thread(trx->mysql_thd) ||
+                               !gtid_desc.is_automatic_gtid)) {
       auto &gtid_persistor = clone_sys->get_gtid_persistor();
       gtid_persistor.add(gtid_desc);
     }
@@ -1738,7 +1737,7 @@ static void trx_erase_lists(trx_t *trx, bool serialised, Gtid_desc &gtid_desc) {
   if (trx->read_only || trx->rsegs.m_redo.rseg == NULL) {
   } else {
     if (trx->register_view) {
-      trx_sys->mvcc->view_close(trx, false);
+      trx_sys->mvcc->view_close(trx);
     }
   }
 }
@@ -1839,7 +1838,7 @@ written */
     ut_ad(trx_state_eq(trx, TRX_STATE_ACTIVE));
 
     if (trx->register_view) {
-      trx_sys->mvcc->view_close(trx, false);
+      trx_sys->mvcc->view_close(trx);
     }
 
     MONITOR_INC(MONITOR_TRX_NL_RO_COMMIT);
@@ -1863,7 +1862,7 @@ written */
       MONITOR_INC(MONITOR_TRX_RO_COMMIT);
       if (trx->register_view) {
 
-        trx_sys->mvcc->view_close(trx, false);
+        trx_sys->mvcc->view_close(trx);
       }
     } else {
       ut_ad(trx->id > 0);
@@ -2139,21 +2138,17 @@ void trx_cleanup_at_db_startup(trx_t *trx) /*!< in: transaction */
  within the same transaction will get the same read view, which is created
  when this function is first called for a new started transaction.
  @return consistent read view */
-ReadView *trx_assign_read_view(trx_t *trx) /*!< in/out: active transaction */
+void trx_assign_read_view(trx_t *trx) /*!< in/out: active transaction */
 {
   ut_ad(trx->state == TRX_STATE_ACTIVE);
 
   if (srv_read_only_mode) {
-    ut_ad(trx->read_view == NULL);
-    return (NULL);
-
+    return;
   } else if (!trx->register_view) {
     trx_sys->mvcc->view_open(trx->read_view, trx);
 
     trx->register_view = true;
   }
-
-  return (trx->read_view);
 }
 
 /** Prepares a transaction for commit/rollback. */

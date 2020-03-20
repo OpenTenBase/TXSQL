@@ -679,6 +679,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
 #endif /* UNIV_DEBUG */
     PSI_MUTEX_KEY(buf_dblwr_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_undo_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(trx_view_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_pool_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_pool_manager_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(temp_pool_manager_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -729,6 +730,7 @@ static PSI_rwlock_info all_innodb_rwlocks[] = {
     PSI_RWLOCK_KEY(index_online_log, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(dict_table_stats, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(hash_table_locks, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(trx_sys_mvcc_lock, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(trx_sys_rw_lock, 0, PSI_DOCUMENT_ME),
 };
 #endif /* UNIV_PFS_RWLOCK */
@@ -18270,11 +18272,10 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
 
     TrxInInnoDB::begin_stmt(trx);
 
-#ifdef UNIV_DEBUG
     if (thd != NULL && thd_tx_is_dd_trx(thd)) {
       trx->is_dd_trx = true;
     }
-#endif /* UNIV_DEBUG */
+
     return 0;
   } else {
     TrxInInnoDB::end_stmt(trx);
@@ -18303,12 +18304,12 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
         /* Since the trx state is TRX_NOT_STARTED,
         trx_commit() will not be called. Reset
         trx->is_dd_trx here */
-        ut_d(trx->is_dd_trx = false);
+        trx->is_dd_trx = false;
       }
 
     } else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
                trx->register_view) {
-      trx_sys->mvcc->view_close(trx, false);
+      trx_sys->mvcc->view_close(trx);
     }
   }
 
@@ -18907,7 +18908,7 @@ THR_LOCK_DATA **ha_innobase::store_lock(
     if (trx->isolation_level <= TRX_ISO_READ_COMMITTED && trx->register_view) {
       /* At low transaction isolation levels we let
       each consistent read set its own snapshot */
-      trx_sys->mvcc->view_close(trx, false);
+      trx_sys->mvcc->view_close(trx);
     }
   }
 
@@ -22606,6 +22607,16 @@ static MYSQL_SYSVAR_BOOL(
     "Print all DDl logs to MySQL error log (off by default)", NULL, NULL,
     FALSE);
 
+static MYSQL_SYSVAR_BOOL(
+    use_cloned_view, opt_use_cloned_view, PLUGIN_VAR_OPCMDARG,
+    "Cache the created view and reuse it if true", NULL, NULL, true);
+
+static MYSQL_SYSVAR_BOOL(
+    strict_gtid_commit, opt_strict_gtid_commit, PLUGIN_VAR_OPCMDARG,
+    "Strictly write gtid to clone gtid persister if true, else only "
+    "when thread is apply thread or explicitly set gtid_next, it'll "
+    "write gtid.", NULL, NULL, true);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
                          PLUGIN_VAR_RQCMDARG,
@@ -22889,6 +22900,8 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(rw_trx_hash_max_size),
     MYSQL_SYSVAR(snapshot_spin_loop),
     MYSQL_SYSVAR(empty_free_list_algorithm),
+    MYSQL_SYSVAR(use_cloned_view),
+    MYSQL_SYSVAR(strict_gtid_commit),
     NULL};
 
 mysql_declare_plugin(innobase){

@@ -909,7 +909,7 @@ dberr_t fts_table_fetch_doc_ids(
   ut_a(fts_table->type == FTS_COMMON_TABLE);
 
   if (!trx) {
-    trx = trx_allocate_for_background();
+    trx = trx_allocate_for_mysql();
     alloc_bk_trx = TRUE;
   }
 
@@ -948,7 +948,7 @@ dberr_t fts_table_fetch_doc_ids(
   }
 
   if (alloc_bk_trx) {
-    trx_free_for_background(trx);
+    trx_free_for_mysql(trx);
   }
 
   return (error);
@@ -1474,7 +1474,7 @@ static fts_optimize_t *fts_optimize_create(
 
   optim->table = table;
 
-  optim->trx = trx_allocate_for_background();
+  optim->trx = trx_allocate_for_mysql();
 
   optim->fts_common_table.parent = table->name.m_name;
   optim->fts_common_table.table_id = table->id;
@@ -1573,7 +1573,7 @@ static void fts_optimize_free(
 {
   mem_heap_t *heap = static_cast<mem_heap_t *>(optim->self_heap->arg);
 
-  trx_free_for_background(optim->trx);
+  trx_free_for_mysql(optim->trx);
 
   fts_doc_ids_free(optim->to_delete);
   fts_optimize_graph_free(&optim->graph);

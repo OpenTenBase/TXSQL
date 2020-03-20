@@ -152,6 +152,7 @@ extern mysql_pfs_key_t srv_monitor_file_mutex_key;
 extern mysql_pfs_key_t sync_thread_mutex_key;
 #endif /* UNIV_DEBUG */
 extern mysql_pfs_key_t buf_dblwr_mutex_key;
+extern mysql_pfs_key_t trx_view_mutex_key;
 extern mysql_pfs_key_t trx_undo_mutex_key;
 extern mysql_pfs_key_t trx_mutex_key;
 extern mysql_pfs_key_t trx_pool_mutex_key;
@@ -200,9 +201,9 @@ extern mysql_pfs_key_t trx_purge_latch_key;
 extern mysql_pfs_key_t index_tree_rw_lock_key;
 extern mysql_pfs_key_t index_online_log_key;
 extern mysql_pfs_key_t dict_table_stats_key;
+extern mysql_pfs_key_t trx_sys_mvcc_lock_key;
 extern mysql_pfs_key_t trx_sys_rw_lock_key;
 extern mysql_pfs_key_t hash_table_locks_key;
-extern mysql_pfs_key_t trx_sys_rw_lock_key;
 #endif /* UNIV_PFS_RWLOCK */
 
 #ifdef HAVE_PSI_INTERFACE

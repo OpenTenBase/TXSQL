@@ -510,8 +510,6 @@ void trx_sys_create(void) {
 
   trx_sys->mvcc = UT_NEW_NOKEY(MVCC());
 
-  trx_sys->mvcc->start_view_closer();
-
   trx_sys->rw_trx_hash.init();
 
   trx_sys->m_min_active_id = 0;
@@ -563,8 +561,6 @@ void trx_sys_close(void) {
   }
 
   trx_sys->is_shutdown = true;
-
-  trx_sys->mvcc->stop_view_closer();
 
   sess_close(trx_dummy_sess);
   trx_dummy_sess = NULL;

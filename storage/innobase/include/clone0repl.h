@@ -58,6 +58,9 @@ using Gitd_info_list = std::vector<Gtid_info>;
 struct Gtid_desc {
   /** If GTID descriptor is set. */
   bool m_is_set;
+
+  /** If gtid is generated automatically */
+  bool is_automatic_gtid;
   /** Serialized GTID information. */
   Gtid_info m_info;
   /* GTID version. */

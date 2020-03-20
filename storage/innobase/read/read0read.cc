@@ -181,22 +181,10 @@ will mark their views as closed but not actually free their views.
 
 /** Minimum number of elements to reserve in ReadView::ids_t */
 static const ulint MIN_TRX_IDS = 32;
-#ifdef UNIV_DEBUG
-/**
-Validates a read view list. */
 
-bool MVCC::validate() const {
-//FIXME
-//ViewCheck check;
-
-//  ut_ad(mutex_own(&trx_sys->mutex));
-
-//  ut_list_map(m_views, check);
-
-  return (true);
-}
-#endif /* UNIV_DEBUG */
-
+/** If set to true, it'll make use of global view to take snapshot
+without iterating lf_hash */
+bool opt_use_cloned_view = true;
 /**
 ReadView constructor */
 ReadView::ReadView()
@@ -205,10 +193,7 @@ ReadView::ReadView()
       m_creator_trx_id(),
       m_ids(),
       m_low_limit_no() {
-  ut_d(::memset(&m_view_list, 0x0, sizeof(m_view_list)));
-  ut_d(m_view_low_limit_no = 0);
-  m_abandoned = false;
-  m_cached = false;
+  m_state = READ_VIEW_STATE_CLOSED;
 }
 
 /**
@@ -219,143 +204,131 @@ ReadView::~ReadView() {
 
 /** Constructor */
 MVCC::MVCC() {
-  UT_LIST_INIT(m_views, &ReadView::m_view_list);
-  m_create_counter = 1;
-  m_add_recently = Link_buf<uint64_t>{MAX_SLOTS};
-  m_add_recently.add_link(0, 1);
-  m_add_recently.advance_tail();
-
-  m_view_closer_active = false;
-  m_view_closer_event = os_event_create("view_closer_event");
-  os_event_reset(m_view_closer_event);
+  m_valid_view = false;
+  m_clone_view = new ReadView();
+  m_clone_lock = static_cast<rw_lock_t *>(ut_malloc_nokey(sizeof(rw_lock_t)));
+  rw_lock_create(trx_sys_mvcc_lock_key, m_clone_lock, SYNC_NO_ORDER_CHECK);
 }
 
 MVCC::~MVCC() {
-  ut_a(UT_LIST_GET_LEN(m_views) == 0);
-  m_add_recently = {};
-  os_event_destroy(m_view_closer_event);
+  delete m_clone_view;
+  rw_lock_free(m_clone_lock);
+  ut_free(m_clone_lock);
 }
 
-uint64_t MVCC::register_slot() {
-  uint64_t slot_id = m_create_counter++;
-
-  return slot_id;
+inline bool ReadView::reuse() {
+  return (empty() &&
+          m_low_limit_id == trx_sys_get_max_trx_id() &&
+          m_creator_trx_id == 0);
 }
 
-void MVCC::unregister_slot(uint64_t slot_id) {
-  while (!m_add_recently.has_space(slot_id)) {
-    /* If this loop happens, we should increase
-    link_buf size, aka MAX_SLOTS */
-    os_event_try_set(m_view_closer_event);
-    ut_delay(10);
-  }
-
-  std::atomic_thread_fence(std::memory_order_release);
-
-  m_add_recently.add_link(slot_id, slot_id + 1);
-
-  /* Wakeup view closer thread if needed */
-  if ((m_create_counter.load() - m_add_recently.tail() > (MAX_SLOTS / 2))
-      && !os_event_is_set(m_view_closer_event)) {
-    os_event_try_set(m_view_closer_event);
-  }
+inline void ReadView::take_snapshot(trx_t *trx) {
+  trx_sys->snapshot_ids(trx, &m_ids, &m_low_limit_id, &m_low_limit_no);
+  std::sort(m_ids.begin(), m_ids.end());
+  m_up_limit_id= m_ids.empty() ? m_low_limit_id : m_ids.front();
 }
 
-void MVCC::view_closer_task() {
-  m_view_closer_active = true;
-
-  int64_t sig_counter = 0;
-
-  ib::info() << "Start view_closer thread.";
-  while (!trx_sys->is_shutdown) {
-    sig_counter = os_event_reset(m_view_closer_event);
-    m_add_recently.advance_tail();
-    os_event_wait_time_low(m_view_closer_event, 500000, sig_counter);
+bool ReadView::changes_visible(trx_id_t id, const table_name_t &name) const {
+  if (srv_read_only_mode) {
+    return true;
   }
 
-  m_view_closer_active = false;
+  ut_ad(id > 0);
+  ut_ad(m_up_limit_id > 0);
 
-  ib::info() << "view_closer thread exits.";
+  if (id < m_up_limit_id || id == m_creator_trx_id) {
+    return (true);
+  }
+
+  check_trx_id_sanity(id, name);
+
+  if (id >= m_low_limit_id) {
+    return (false);
+
+  } else if (m_ids.empty()) {
+    return (true);
+  }
+
+  return (!std::binary_search(m_ids.begin(), m_ids.end(), id));
 }
 
-void MVCC::start_view_closer() {
-  std::thread th(&MVCC::view_closer_task, this);
-  while (!m_view_closer_active.load()) {
-    os_thread_sleep(50);
-  }
+void ReadView::snapshot(trx_t *trx) {
+  if (trx == nullptr) {
+    /* This is purge thread, take the snapshot and go back. */
+    take_snapshot(nullptr);
 
-  th.detach();
-}
-
-void MVCC::stop_view_closer() {
-  while (m_view_closer_active.load()) {
-    os_event_set(m_view_closer_event);
-    os_thread_sleep(1000);
-  }
-}
-
-bool ReadView::reuse() {
-  if (is_cached()
-      && !is_abandoned()) {
-
-    m_cached = false;
-    if (empty()
-        && !is_abandoned()
-        && m_low_limit_id == trx_sys_get_max_trx_id()
-        && m_creator_trx_id == 0) {
-      return (true);
-    } else {
-      m_cached = true;
-      return (false);
-    }
-  }
-  return (false);
-}
-
-void ReadView::snapshot(trx_t *trx, bool add_list) {
-
-  trx_ids_t ids;
-  ids.clear();
-  trx_id_t  up_limit_id = 0;
-  trx_id_t  low_limit_id = 0;
-  trx_id_t  low_limit_no = 0;
-
-  m_view_id = 0;
-
-  if (add_list) {
-    m_view_id = trx_sys->mvcc->register_slot();
-  }
-
-  trx_sys->snapshot_ids(trx, &ids, &low_limit_id, &low_limit_no);
-  std::sort(ids.begin(),ids.end());
-  up_limit_id = ids.empty() ? low_limit_id : ids.front();
-  ut_ad(up_limit_id <= low_limit_id);
-
-  if (add_list) {
-    trx_sys_mutex_enter();
-  }
-
-  m_ids = std::move(ids);
-  m_low_limit_id = low_limit_id;
-  m_up_limit_id = up_limit_id;
-  m_low_limit_no = low_limit_no;
-  m_creator_trx_id = trx ? trx->id : 0;
-
-  if (!add_list) {
     return;
   }
 
-  if (!is_cached() || is_abandoned()) {
-    /* Add to view list */
-    ut_ad(!trx_sys->mvcc->view_on_list(this));
-    trx_sys->mvcc->add_list(this);
-  }
-  m_abandoned = false;
-  m_cached = false;
- 
-  trx_sys_mutex_exit();
+  ut_ad(this == trx->read_view);
+  ut_ad(!trx->is_background);
 
-  trx_sys->mvcc->unregister_slot(m_view_id);
+  bool new_snapshot = false;
+  switch (state()) {
+    case READ_VIEW_STATE_OPEN:
+      ut_ad(!srv_read_only_mode);
+      return;
+    case READ_VIEW_STATE_CLOSED:
+      if (srv_read_only_mode) {
+        return;
+      }
+
+      mutex_enter(&trx->view_mutex);
+      if (reuse()) {
+        goto reopen;
+      }
+      
+      if (opt_use_cloned_view &&
+          trx_sys->mvcc->is_clone_valid_relaxed() &&
+          !trx->is_dd_trx &&
+          !thd_is_log_apply_thread(trx->mysql_thd)) {
+        trx_sys->mvcc->clone_slock();
+
+        /* Double check */
+        if (trx_sys->mvcc->is_clone_valid()) {
+          clone(trx_sys->mvcc->global_view());
+          creator_trx_id(trx->id);
+          trx_sys->mvcc->clone_sunlock();
+          m_state = READ_VIEW_STATE_OPEN;
+          mutex_exit(&trx->view_mutex);
+          
+          return;
+        } else {
+          trx_sys->mvcc->clone_sunlock();
+        }
+      }
+      
+      break;
+    default:
+      ut_error;
+      break;
+  }
+
+  take_snapshot(trx);
+
+  new_snapshot = true;
+
+reopen:
+  m_creator_trx_id = trx->id;
+  m_state.store(READ_VIEW_STATE_OPEN, std::memory_order_release);
+  mutex_exit(&trx->view_mutex);
+  
+  if (new_snapshot &&
+      (opt_use_cloned_view
+       || trx_sys->mvcc->global_view()->low_limit_id() > 0) &&
+      (low_limit_id() == trx_sys_get_max_trx_id()) &&
+      !trx_sys->mvcc->is_clone_valid() &&
+      trx_sys->mvcc->clone_xtrylock()) {
+
+    if (!opt_use_cloned_view) {
+      trx_sys->mvcc->global_view()->init();
+    } else {
+      trx_sys->mvcc->global_view()->clone(this);
+      trx_sys->mvcc->set_view_flag(low_limit_id() == trx_sys_get_max_trx_id());
+    }
+    
+    trx_sys->mvcc->clone_xunlock();
+  }
 }
 
 void ReadView::subset(ReadView* other) {
@@ -398,17 +371,6 @@ void ReadView::clone(ReadView *other) {
   m_ids = other->m_ids;
 }
 
-void MVCC::add_list(ReadView* view) {
-  ut_ad(trx_sys_mutex_own());
-
-  UT_LIST_ADD_FIRST(m_views, view);
-}
-
-void MVCC::remove_list(ReadView* view) {
-  ut_ad(trx_sys_mutex_own());
-  UT_LIST_REMOVE(m_views, view);
-}
-
 /**
 Allocate and create a view.
 @param view		view owned by this class created for the
@@ -418,30 +380,26 @@ void MVCC::view_open(ReadView *view, trx_t *trx) {
   ut_ad(!srv_read_only_mode);
   ut_ad(!trx->register_view);
 
-  /** If no new RW transaction has been started since the last view
-  was created then reuse the the existing view. */
-  if (view) {
-    if (view->reuse()) {
-      ut_ad(!view->is_abandoned());
-      ut_ad(!view->is_cached());
-
-      return;
-    }
-
-    ut_ad(view->is_cached());
-  } else {
-    view = UT_NEW_NOKEY(ReadView());
-    trx->read_view = view;
-  }
-
   ut_a(view != nullptr);
 
   /* Create a snapshot and add to list */
-  view->snapshot(trx, true);
-  ut_ad(!view->is_abandoned());
-  ut_ad(!view->is_cached());
+  view->snapshot(trx);
 
   return;
+}
+
+ulint MVCC::size() const {
+  ulint size = 0;
+  trx_sys_mutex_enter();
+  for (const trx_t *trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list); trx != NULL;
+      trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+    if (trx->read_view->get_state() == READ_VIEW_STATE_OPEN) {
+      size++;
+    }
+  }
+  trx_sys_mutex_exit();
+
+  return (size);
 }
 
 /** Clones the oldest view and stores it in view. No need to
@@ -452,50 +410,27 @@ purge the delete marked record or not.
 
 void MVCC::clone_oldest_view(ReadView *view) {
 
-  view->snapshot(NULL, false);
-
-  /* It's possible that there are ongoing view creation while taking
-  snapshot here, and we must make sure that these views are all added
-  to view list, otherwise we may create a purge view which is 'newer'
-  than user view.
+  view->snapshot(nullptr);
   
-  The following while loop may consume more cpu if under heavy read
-  write workload, but let's tolerate this, as it only affects purge
-  thread. */
-
-  uint64_t latest_counter= m_create_counter.load();
-
-  while (m_add_recently.tail() < latest_counter) {
-    os_event_try_set(m_view_closer_event);
-    os_thread_sleep(10);
+  clone_slock();
+  if (is_clone_valid()) {
+     view->subset(m_clone_view);
   }
-
+  clone_sunlock();
+  
   trx_sys_mutex_enter();
 
-  ReadView *oldest_view =  UT_LIST_GET_LAST(m_views);
-
-  while (oldest_view) {
-    ReadView* prev_view = UT_LIST_GET_PREV(m_view_list, oldest_view);
-
-    if (oldest_view->is_cached()) {
-      if (oldest_view->low_limit_id() != trx_sys_get_max_trx_id()
-          || !oldest_view->empty()) {
-        /* Remove the cached view from list */
-        remove_list(oldest_view);
-        oldest_view->mark_abandoned();
-      }
-    } else if (view->view_id() > latest_counter) {
-      /* The view is created after snapshot taken above and
-      must be a newer one. Do nothing */
-    } else {
-      view->subset(oldest_view);
+  for (trx_t *trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list); trx != NULL;
+      trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+    mutex_enter(&trx->view_mutex);
+    if (trx->read_view->get_state() == READ_VIEW_STATE_OPEN) {
+      view->subset(trx->read_view);
     }
-
-    oldest_view = prev_view;
+    mutex_exit(&trx->view_mutex);
   }
 
   trx_sys_mutex_exit();
-
+  
   /* Update view to block purging transaction till GTID is persisted. */
   auto &gtid_persistor = clone_sys->get_gtid_persistor();
   auto gtid_oldest_trxno = gtid_persistor.get_oldest_trx_no();
@@ -505,66 +440,17 @@ void MVCC::clone_oldest_view(ReadView *view) {
 /**
 @return the number of active views */
 
-ulint MVCC::size() const {
-  trx_sys_mutex_enter();
-
-  ulint size = 0;
-
-  for (const ReadView *view = UT_LIST_GET_FIRST(m_views); view != NULL;
-       view = UT_LIST_GET_NEXT(m_view_list, view)) {
-    if (!view->is_cached()) {
-      ++size;
-    }
-  }
-
-  trx_sys_mutex_exit();
-
-  return (size);
-}
-
-#ifdef UNIV_DEBUG
-bool MVCC::view_on_list(ReadView* other) {
-  ut_ad(trx_sys_mutex_own());
-  for (const ReadView *view = UT_LIST_GET_FIRST(m_views); view != NULL;
-       view = UT_LIST_GET_NEXT(m_view_list, view)) {
-    if (view == other) {
-      return (true);
-    }
-  }
-
-  return (false);
-}
-#endif
-
 /**
 Close a view created by the above function.
-@param view		view allocated by trx_open.
-@param own_mutex	true if caller owns trx_sys_t::mutex */
+@param view		view allocated by trx_open. */
 
-void MVCC::view_close(trx_t *trx, bool own_mutex) {
+void MVCC::view_close(trx_t *trx) {
   ReadView* view = trx->read_view;
   ut_a(view);
   ut_a(trx->register_view);
 
-  if (!own_mutex) {
-    ut_ad(!trx_sys_mutex_own());
- #ifdef UNIV_DEBUG
-    trx_sys_mutex_enter();
-    ut_ad(view_on_list(view));
-    trx_sys_mutex_exit();
-#endif
-    view->cache(true);
-  } else {
-    ut_ad(trx_sys_mutex_own());
-    if (!view->is_abandoned()) {
-      ut_a(trx->register_view || view->is_cached());
-      remove_list(view);
-    }
-
-    ut_ad(!view_on_list(view));
-    view->cache(false);
-  }
-
+  view->close();
+  
   trx->register_view = false;
 }
 

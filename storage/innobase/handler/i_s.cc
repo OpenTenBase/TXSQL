@@ -2755,7 +2755,7 @@ static dberr_t i_s_fts_index_table_fill_selected(
   DBUG_EXECUTE_IF("fts_instrument_result_cache_limit",
                   fts_result_cache_limit = 8192;);
 
-  trx = trx_allocate_for_background();
+  trx = trx_allocate_for_mysql();
 
   trx->op_info = "fetching FTS index nodes";
 
@@ -2810,7 +2810,7 @@ static dberr_t i_s_fts_index_table_fill_selected(
 
   que_graph_free(graph);
 
-  trx_free_for_background(trx);
+  trx_free_for_mysql(trx);
 
   if (fetch.total_memory >= fts_result_cache_limit) {
     error = DB_FTS_EXCEED_RESULT_CACHE_LIMIT;

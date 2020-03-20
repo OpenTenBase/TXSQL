@@ -304,6 +304,7 @@ void Clone_persist_gtid::get_gtid_info(trx_t *trx, Gtid_desc &gtid_desc) {
   auto len = trx_gtid.to_string(trx_sid, char_buf);
   ut_a((size_t)len <= GTID_INFO_SIZE);
 
+  gtid_desc.is_automatic_gtid = (thd->variables.gtid_next.type == AUTOMATIC_GTID);
   gtid_desc.m_is_set = true;
 }
 

@@ -120,6 +120,7 @@ mysql_pfs_key_t sync_thread_mutex_key;
 #endif /* UNIV_DEBUG */
 mysql_pfs_key_t buf_dblwr_mutex_key;
 mysql_pfs_key_t trx_undo_mutex_key;
+mysql_pfs_key_t trx_view_mutex_key;
 mysql_pfs_key_t trx_mutex_key;
 mysql_pfs_key_t trx_pool_mutex_key;
 mysql_pfs_key_t trx_pool_manager_mutex_key;
@@ -168,6 +169,7 @@ mysql_pfs_key_t fts_cache_init_rw_lock_key;
 mysql_pfs_key_t trx_i_s_cache_lock_key;
 mysql_pfs_key_t trx_purge_latch_key;
 mysql_pfs_key_t trx_sys_rw_lock_key;
+mysql_pfs_key_t trx_sys_mvcc_lock_key;
 #endif /* UNIV_PFS_RWLOCK */
 
 /* There are mutexes/rwlocks that we want to exclude from instrumentation

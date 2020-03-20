@@ -184,7 +184,7 @@ static dberr_t dict_stats_exec_sql(pars_info_t *pinfo, const char *sql,
   ut_ad(!mutex_own(&dict_sys->mutex));
 
   if (trx == NULL) {
-    trx = trx_allocate_for_background();
+    trx = trx_allocate_for_mysql();
     trx_started = true;
 
     if (srv_read_only_mode) {
@@ -218,7 +218,7 @@ static dberr_t dict_stats_exec_sql(pars_info_t *pinfo, const char *sql,
   }
 
   if (trx_started) {
-    trx_free_for_background(trx);
+    trx_free_for_mysql(trx);
   }
 
   return (err);
@@ -2554,7 +2554,7 @@ static dberr_t dict_stats_fetch_from_ps(
   stats. */
   dict_stats_empty_table(table);
 
-  trx = trx_allocate_for_background();
+  trx = trx_allocate_for_mysql();
 
   /* Use 'read-uncommitted' so that the SELECTs we execute
   do not get blocked in case some user has locked the rows we
@@ -2646,7 +2646,7 @@ static dberr_t dict_stats_fetch_from_ps(
 
   trx_commit_for_mysql(trx);
 
-  trx_free_for_background(trx);
+  trx_free_for_mysql(trx);
 
   if (!index_fetch_arg.stats_were_modified) {
     return (DB_STATS_DO_NOT_EXIST);

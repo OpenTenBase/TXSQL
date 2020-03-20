@@ -38,6 +38,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "trx0types.h"
 
+/** View is not visible to purge thread. */
+#define READ_VIEW_STATE_CLOSED 0
+
+/** View is visible to purge thread. */
+#define READ_VIEW_STATE_OPEN 1
+
 // Friend declaration
 class MVCC;
 
@@ -59,30 +65,36 @@ class ReadView {
   @param[in]	name	table name
   @return whether the view sees the modifications of id. */
   bool changes_visible(trx_id_t id, const table_name_t &name) const
-      MY_ATTRIBUTE((warn_unused_result)) {
-    ut_ad(id > 0);
-
-    if (id < m_up_limit_id || id == m_creator_trx_id) {
-      return (true);
-    }
-
-    check_trx_id_sanity(id, name);
-
-    if (id >= m_low_limit_id) {
-      return (false);
-
-    } else if (m_ids.empty()) {
-      return (true);
-    }
-
-    return (!std::binary_search(m_ids.begin(), m_ids.end(), id));
-  }
-
+      MY_ATTRIBUTE((warn_unused_result));
+  
   /**
   @param id		transaction to check
   @return true if view sees transaction id */
   bool sees(trx_id_t id) const { return (id < m_up_limit_id); }
 
+  void close() {
+    ut_ad(state() == READ_VIEW_STATE_CLOSED ||
+        state() == READ_VIEW_STATE_OPEN);
+
+     m_state.store(READ_VIEW_STATE_CLOSED, std::memory_order_release);
+  }
+
+  uint32_t get_state() const {
+    return (m_state.load(std::memory_order_acquire));
+  }
+
+  uint32_t state() const {
+    return m_state.load(std::memory_order_relaxed);
+  }
+
+  bool is_open() const {
+     ut_ad(state() == READ_VIEW_STATE_OPEN ||
+         state() == READ_VIEW_STATE_CLOSED);
+     return (state() == READ_VIEW_STATE_OPEN);
+  }
+
+  inline void take_snapshot(trx_t *trx);
+  
   /**
   Write the limits to the file.
   @param file		file to write to */
@@ -104,6 +116,13 @@ class ReadView {
     }
   }
 
+  /** Reinit the read view */
+  void init() {
+    m_low_limit_no = 0;
+    m_low_limit_id = 0;
+    m_up_limit_id = 0;
+    m_ids.clear();
+  }
   /**
   @return the low limit no */
   trx_id_t low_limit_no() const { return (m_low_limit_no); }
@@ -123,39 +142,18 @@ class ReadView {
 
   /** Check and reuse the cached read view
   @return true if it can be reused. */
-  bool reuse();
-
-  /** Set cache flag to true */
-  void cache(bool new_val) {
-    m_cached = new_val; 
-  }
-
-  /** Return true if the read view is cached on view list */
-  bool is_cached() const {
-    return (m_cached.load());
-  }
-
-  /** The purge thread may remove read view from list, Meanwhile
-  it needs be marked ad abandoned.*/
-  void mark_abandoned() {
-    m_abandoned = true;
-  }
-
-  /** Return true if read view is abandoned */
-  bool is_abandoned() {
-    return (m_abandoned.load());
-  }
+  inline bool reuse();
 
   /** Take a subset of two read view */
   void subset(ReadView *other);
 
   /** Clone from another read view */
   void clone(ReadView *other);
-
+  
   /** Take a snapshot of current transaction state
   @param[in] trx  transaction object
   @param[in] add_list true if the read view needs adding to list */
-  void snapshot(trx_t *trx, bool add_list);
+  void snapshot(trx_t *trx);
 #ifdef UNIV_DEBUG
   /**
   @return the view low limit number */
@@ -168,25 +166,13 @@ class ReadView {
     return (m_low_limit_no <= rhs->m_low_limit_no);
   }
 #endif /* UNIV_DEBUG */
- private:
-
-  /** Flag that indicates the read view is cached on
-  view list. It can be only be changed by the session
-  that owns the view */
-  std::atomic<bool> m_cached;
-
-  /** Flag that indicates the read view is removed from
-  view list by purge thread, Note that m_cached may still
-  be true. */
-  std::atomic<bool> m_abandoned;
-  
   /**
   Set the creator transaction id, existing id must be 0 */
   void creator_trx_id(trx_id_t id) {
-    ut_ad(m_creator_trx_id == 0);
     m_creator_trx_id = id;
   }
 
+ private:
   friend class MVCC;
 
  private:
@@ -195,6 +181,17 @@ class ReadView {
   ReadView &operator=(const ReadView &);
 
  private:
+  
+  /**
+    View state.
+
+    Start view open:
+    READ_VIEW_STATE_CLOSED -> READ_VIEW_STATE_OPEN
+    
+    Close view:
+    READ_VIEW_STATE_OPEN -> READ_VIEW_STATE_CLOSED
+  */
+  std::atomic<uint32_t> m_state;
 
   /** The id of view while taking snapshot. */
   uint64_t m_view_id;
@@ -228,12 +225,6 @@ class ReadView {
   variable INNODB_PURGE_VIEW_TRX_ID_AGE. */
   trx_id_t m_view_low_limit_no;
 #endif /* UNIV_DEBUG */
-
-  typedef UT_LIST_NODE_T(ReadView) node_t;
-
-  /** List of read views in trx_sys */
-  byte pad1[64 - sizeof(node_t)];
-  node_t m_view_list;
 };
 
 #endif
