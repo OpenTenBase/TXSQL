@@ -1468,6 +1468,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                       enum enum_server_command command) {
   bool error = 0;
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  clockid_t clock_id = 0;
+  struct timespec time_start = {0, 0}, time_end = {0, 0};
   DBUG_TRACE;
   DBUG_PRINT("info", ("command: %d", command));
 
@@ -1497,6 +1499,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   */
   thd->enable_slow_log = true;
   thd->lex->sql_command = SQLCOM_END; /* to avoid confusing VIEW detectors */
+
+  pthread_getcpuclockid(pthread_self(), &clock_id);
+  clock_gettime(clock_id, &time_start);
+  thd->set_ns_time();
+  thd->cur_query_io_utime = 0;
+
   thd->set_time();
   if (is_time_t_valid_for_timestamp(thd->query_start_in_secs()) == false) {
     /*
@@ -1789,6 +1797,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->update_slow_query_status();
         thd->send_statement_status();
 
+        clock_gettime(clock_id, &time_end);
+        thd->cur_cpu_nstime = diff_timespec(&time_end, &time_start);
         mysql_audit_notify(
             thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
             thd->get_stmt_da()->is_error() ? thd->get_stmt_da()->mysql_errno()
@@ -2153,6 +2163,8 @@ done:
 
   thd->rpl_thd_ctx.session_gtids_ctx().notify_after_response_packet(thd);
 
+  clock_gettime(clock_id, &time_end);
+  thd->cur_cpu_nstime= diff_timespec(&time_end, &time_start);
   if (!thd->is_error() && !thd->killed)
     mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, NULL,
                        0);
@@ -2976,6 +2988,11 @@ int mysql_execute_command(THD *thd, bool first_level) {
   if (!thd->in_sub_stmt)
     thd->query_plan.set_query_plan(lex->sql_command, lex,
                                    !thd->stmt_arena->is_regular());
+
+  if (lex->sql_command == SQLCOM_BEGIN ||
+      !(thd->in_active_multi_stmt_transaction() || thd->in_sub_stmt)) {
+    thd->start_trx_utime = my_micro_time();
+  }
 
   /* Update system variables specified in SET_VAR hints. */
   if (lex->opt_hints_global && lex->opt_hints_global->sys_var_hint)
@@ -5072,6 +5089,10 @@ void THD::reset_for_next_command() {
 
   DBUG_PRINT("debug", ("is_current_stmt_binlog_format_row(): %d",
                        thd->is_current_stmt_binlog_format_row()));
+
+  if (!(thd->in_active_multi_stmt_transaction() || thd->in_sub_stmt)) {
+    thd->start_trx_utime = my_micro_time();
+  }
 
   /*
     In case we're processing multiple statements we need to checkout a new

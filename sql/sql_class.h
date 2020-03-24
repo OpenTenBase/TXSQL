@@ -1312,6 +1312,11 @@ class THD : public MDL_context_owner,
   struct timeval user_time;
   ulonglong start_utime, utime_after_lock;
 
+  struct timespec start_nstime;
+  ulonglong cur_cpu_nstime;
+  ulonglong cur_query_io_utime;
+  ulonglong start_trx_utime;
+
   /**
     Type of lock to be used for all DML statements, except INSERT, in cases
     when lock is not specified explicitly.  Set to TL_WRITE or
@@ -2662,6 +2667,11 @@ class THD : public MDL_context_owner,
   }
   time_t query_start_in_secs() const { return start_time.tv_sec; }
   timeval query_start_timeval_trunc(uint decimals);
+
+  inline void set_ns_time() {
+    clock_gettime(CLOCK_REALTIME, &start_nstime);
+  }
+
   void set_time() {
     start_utime = utime_after_lock = my_micro_time();
     if (user_time.tv_sec || user_time.tv_usec)
@@ -4331,5 +4341,7 @@ inline bool THD::is_system_user() {
 inline void THD::set_system_user(bool system_user_flag) {
   m_is_system_user.store(system_user_flag, std::memory_order_seq_cst);
 }
+
+extern void thd_statistics_io_time(uintmax_t current_io_time);
 
 #endif /* SQL_CLASS_INCLUDED */

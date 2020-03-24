@@ -767,6 +767,10 @@ void THD::init(void) {
   reset_first_successful_insert_id();
   user_time.tv_sec = user_time.tv_usec = 0;
   start_time.tv_sec = start_time.tv_usec = 0;
+  cur_cpu_nstime = 0;
+  cur_query_io_utime = 0;
+  start_nstime.tv_nsec = start_nstime.tv_sec = 0;
+  start_trx_utime = 0;
   set_time();
   auto_inc_intervals_forced.empty();
   {
@@ -2802,4 +2806,11 @@ void THD::pop_protocol() {
   DBUG_ASSERT(m_protocol != nullptr);
   m_protocol = m_protocol->pop_protocol();
   DBUG_ASSERT(m_protocol != nullptr);
+}
+
+void thd_statistics_io_time(uintmax_t current_io_time) {
+  THD *thd= current_thd;
+  if (thd) {
+    thd->cur_query_io_utime+= current_io_time;
+  }
 }

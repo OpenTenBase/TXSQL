@@ -1,0 +1,104 @@
+--source include/have_null_audit_plugin.inc
+
+connect (con1,localhost,root,,);
+
+connection con1;
+show variables like "%audit_txsql%";
+install plugin audit_txsql soname 'audit_txsql.so';
+let $DATA_DIR= `SELECT @@global.datadir`;
+sleep 2;
+--exec if [ -f $DATA_DIR/pos_file ]; then echo "Found pos file"; else echo "ERROR"; fi;
+--exec if [ -f $DATA_DIR/audit_log1 ]; then echo "Found log file"; else echo "ERROR"; fi;
+
+#
+# test for audit_txsql_audit_dir, default value is datadir
+#
+let $TMP_DIR= `SELECT @@global.tmpdir`;
+set global audit_txsql_audit_dir=@@global.tmpdir;
+show databases;
+--exec if [ -f $TMP_DIR/pos_file ]; then echo "Found pos file"; else echo "ERROR"; fi;
+--exec if [ -f $TMP_DIR/audit_log1 ]; then echo "Found log file"; else echo "ERROR"; fi;
+
+#
+# test for audit audit_txsql_audit_mode, default value is "all"
+# audit_txsql_filter_db, audit_txsql_filter_user, audit_txsql_filter_ip is
+# available when audit_txsql_audit_mode = "filter"
+#
+set global audit_txsql_audit_mode="filter";
+set global audit_txsql_filter_db="test#mysql#audit";
+create database audit;
+use audit;
+create table t (a int);
+use test;
+show tables;
+drop database audit;
+set global audit_txsql_filter_db="";
+
+set global audit_txsql_filter_user="root#admin#abc";
+set global audit_txsql_filter_user="#";
+set global audit_txsql_filter_user="";
+set global audit_txsql_filter_user="root#";
+set global audit_txsql_filter_user="#root#";
+set global audit_txsql_filter_user="root";
+
+set global audit_txsql_filter_ip="127.0.0.1#127.0.0.10";
+set global audit_txsql_filter_ip="192.168.0.1";
+
+#
+# test for set log file configuration
+#
+set global audit_txsql_log_file_max_size=10485760;
+set global audit_txsql_rotate_file_count = 3;
+set global audit_txsql_truncate_length = 2048;
+
+#
+# test for connection and disconnection
+#
+connect (con2,localhost,root,,);
+connection con2;
+disconnect con2;
+
+#
+# test for normal DDL/DML
+#
+connection con1;
+use test;
+create table t(a int);
+insert into t values (1), (2), (3);
+select * from t;
+select * from t where a=1;
+update t set a=4 where a=3;
+delete from t;
+drop table t;
+
+#
+# test for rotate file and truncating long querys
+#
+set global audit_txsql_log_file_max_size = 8*1024*1024;
+set global audit_txsql_truncate_length = 2048;
+set global audit_txsql_rotate_file_count = 3;
+
+--disable_query_log
+--disable_result_log
+let $count = 100000;
+while ($count)
+{
+  select timestamp(now());
+  dec $count;
+}
+--enable_query_log
+--enable_result_log
+
+show status like "%ignore_actions%";
+show status like "%truncate_count%";
+
+sleep 2;
+uninstall plugin audit_txsql;
+disconnect con1;
+
+--remove_file $DATA_DIR/audit_log1
+--remove_file $DATA_DIR/pos_file
+--remove_file $TMP_DIR/audit_log1
+--remove_file $TMP_DIR/audit_log2
+--remove_file $TMP_DIR/audit_log3
+--remove_file $TMP_DIR/pos_file

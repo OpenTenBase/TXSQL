@@ -97,6 +97,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include <data0type.h>
 #endif /* UNIV_HOTBACKUP */
 
+extern void thd_statistics_io_time(uintmax_t current_io_time);
+
 /* Flush after each os_fsync_threshold bytes */
 unsigned long long os_fsync_threshold = 0;
 
@@ -5714,7 +5716,12 @@ dberr_t os_file_read_func(IORequest &type, const char *file_name,
                           ulint n) {
   ut_ad(type.is_read());
 
-  return (os_file_read_page(type, file_name, file, buf, offset, n, NULL, true));
+  const auto start_time = ut_time_monotonic_us();
+  dberr_t ret = os_file_read_page(type, file_name, file, buf,
+                                  offset, n, NULL, true);
+  const auto end_time = ut_time_monotonic_us();
+  thd_statistics_io_time(end_time - start_time);
+  return ret;
 }
 
 /** NOTE! Use the corresponding macro os_file_read_first_page(), not
@@ -5889,7 +5896,12 @@ dberr_t os_file_read_no_error_handling_func(IORequest &type,
                                             ulint *o) {
   ut_ad(type.is_read());
 
-  return (os_file_read_page(type, file_name, file, buf, offset, n, o, false));
+  const auto start_time = ut_time_monotonic_us();
+  dberr_t ret = os_file_read_page(type, file_name, file, buf,
+                                  offset, n, o, false);
+  const auto end_time = ut_time_monotonic_us();
+  thd_statistics_io_time(end_time - start_time);
+  return ret;
 }
 
 /** NOTE! Use the corresponding macro os_file_write(), not directly
@@ -5915,7 +5927,11 @@ dberr_t os_file_write_func(IORequest &type, const char *name, os_file_t file,
 
   const byte *ptr = reinterpret_cast<const byte *>(buf);
 
-  return (os_file_write_page(type, name, file, ptr, offset, n));
+  const auto start_time = ut_time_monotonic_us();
+  dberr_t ret = os_file_write_page(type, name, file, ptr, offset, n);
+  const auto end_time = ut_time_monotonic_us();
+  thd_statistics_io_time(end_time - start_time);
+  return ret;
 }
 
 /** Check the existence and type of the given file.

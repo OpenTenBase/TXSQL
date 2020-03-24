@@ -824,6 +824,10 @@ static bool find_unknown_and_remove_deletable_files(THD *thd, MY_DIR *dirp,
       continue;
     }
     strxmov(filePath, path, "/", file->name, NullS);
+
+    /* Start to count IO time of drop database */
+    ulonglong start_time = my_micro_time();
+
     /*
       We ignore ENOENT error in order to skip files that was deleted
       by concurrently running statement like REAPIR TABLE ...
@@ -834,6 +838,9 @@ static bool find_unknown_and_remove_deletable_files(THD *thd, MY_DIR *dirp,
                my_strerror(errbuf, sizeof(errbuf), my_errno()));
       return true;
     }
+    /* End IO time statistics of drop database time and add it to thd */
+    ulonglong end_time = my_micro_time();
+    thd_statistics_io_time(end_time - start_time);
   }
 
   return false;

@@ -141,3 +141,6 @@ component_test_mysql_runtime_error  plugin_output_directory  TEST_MYSQL_RUNTIME_
 
 # mysqlbackup component
 component_mysqlbackup           plugin_output_directory  MYSQLBACKUP_COMPONENT
+
+# audit support from txsql
+audit_txsql                     plugin_output_directory  AUDIT_TXSQL

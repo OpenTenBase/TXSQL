@@ -388,6 +388,15 @@ struct mysql_event_general {
   MYSQL_LEX_CSTRING general_sql_command;
   MYSQL_LEX_CSTRING general_external_user;
   MYSQL_LEX_CSTRING general_ip;
+  MYSQL_LEX_CSTRING general_db;
+  unsigned long long general_check_rows;
+  unsigned long long general_sent_rows;
+  unsigned long long general_exec_time;
+  unsigned long long general_lock_wait_time;
+  unsigned long long general_cpu_time;
+  unsigned long long general_ns_st_time;
+  unsigned long long general_io_wait_time;
+  unsigned long long general_trx_utime;
 };
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,

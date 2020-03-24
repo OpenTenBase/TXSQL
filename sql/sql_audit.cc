@@ -356,7 +356,10 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                        const char *subclass_name, int error_code,
                        const char *msg, size_t msg_len) {
   mysql_event_general event;
-  char user_buff[MAX_USER_HOST_SIZE];
+  time_t time = (time_t)thd->start_nstime.tv_sec;
+  time_t time_us = (time_t)thd->start_nstime.tv_nsec / 1000;
+  /* May lose 1 microsecond, add 1. */
+  time_t current_us = (time_t)my_micro_time() + 1;
 
   DBUG_ASSERT(thd);
 
@@ -367,21 +370,47 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   event.event_subclass = subclass;
   event.general_error_code = error_code;
   event.general_thread_id = thd->thread_id();
-
+  event.general_cpu_time = thd->cur_cpu_nstime;
+  event.general_io_wait_time = thd->cur_query_io_utime;
+  event.general_ns_st_time = thd->start_nstime.tv_nsec;
+  event.general_trx_utime = current_us - thd->start_trx_utime;
   Security_context *sctx = thd->security_context();
 
-  event.general_user.str = user_buff;
-  event.general_user.length = make_user_name(sctx, user_buff);
+  event.general_user.str = sctx->user().str;
+  event.general_user.length = sctx->user().length;
   event.general_ip = sctx->ip();
   event.general_host = sctx->host();
   event.general_external_user = sctx->external_user();
-  event.general_rows = thd->get_stmt_da()->current_row_for_condition();
-  event.general_sql_command = sql_statement_names[thd->lex->sql_command];
+  event.general_rows = thd->get_row_count_func() > 0 ?
+                       (unsigned long long) thd->get_row_count_func() : 0;
+  if (thd->lex->sql_command == SQLCOM_END) {
+    event.general_sql_command.str = msg;
+    event.general_sql_command.length = msg_len;
+  } else {
+    event.general_sql_command = sql_statement_names[thd->lex->sql_command];
+  }
 
   event.general_charset = const_cast<CHARSET_INFO *>(
       thd_get_audit_query(thd, &event.general_query));
+  event.general_db.str = thd->db().str;
+  event.general_db.length = thd->db().length;
 
-  event.general_time = thd->query_start_in_secs();
+  if (!thd->rewritten_query.length())
+    mysql_rewrite_query(thd);
+
+  if (thd->rewritten_query.length()) {
+    event.general_query.str = thd->rewritten_query.ptr();
+    event.general_query.length = thd->rewritten_query.length();
+  } else {
+    event.general_query.str = thd->query().str;
+    event.general_query.length = thd->query().length;
+  }
+
+  event.general_time = time;
+  event.general_exec_time = current_us - time * 1000000 - time_us;
+  event.general_check_rows = thd->get_examined_row_count();
+  event.general_sent_rows = thd->get_sent_row_count();
+  event.general_lock_wait_time = thd->utime_after_lock - thd->start_utime;
 
   DBUG_EXECUTE_IF("audit_log_negative_general_error_code",
                   event.general_error_code *= -1;);
