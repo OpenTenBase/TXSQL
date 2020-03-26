@@ -129,8 +129,8 @@ token_bucket* RplSpeedLimit::getBucket() {
   return &m_bucket;
 }
 
-bool speed_monitor_thread_enabled = true;
-bool speed_monitor_thread_running = false;
+volatile bool speed_monitor_thread_enabled = true;
+volatile bool speed_monitor_thread_running = false;
 
 /** Monitor speed thread handler. */
 void* speed_monitor_handler(void* ) {
@@ -262,7 +262,7 @@ bool RplSpeedMonitor::addSlave(THD* thd) {
   }
 
   if (pthread_setspecific(THD_RPL_SPEED_LIMIT, info_ptr)) {
-    free(info_ptr);
+    delete info_ptr;
     return function_exit(kWho, true);
   }
 
@@ -305,7 +305,7 @@ void RplSpeedMonitor::removeSlave(THD* thd) {
 
     mysql_mutex_unlock(&m_mutex);
 
-    free(info);
+    delete info;
     pthread_setspecific(THD_RPL_SPEED_LIMIT, NULL);
     sql_print_information("Stop speed limit to slave (server_id: %d)",
               thd->server_id);

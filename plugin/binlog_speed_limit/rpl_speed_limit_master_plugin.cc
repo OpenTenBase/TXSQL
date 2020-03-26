@@ -75,13 +75,14 @@ static int rpl_speed_limit_master_plugin_init(void *p) {
 }
 
 static int rpl_speed_limit_master_plugin_deinit(void *p) {
-  speed_monitor.cleanup();
   if (unregister_binlog_transmit_observer(&transmit_observer, p)) {
     sql_print_error("unregister_binlog_transmit_observer failed");
     return 1;
   }
 
   sql_print_information("unregister speed limit master plugin OK");
+
+  speed_monitor.cleanup();
   return 0;
 }
 
