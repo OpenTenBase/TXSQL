@@ -174,6 +174,18 @@ bool srv_read_only_mode;
 dictionary tables are in the system tablespace 0 */
 bool srv_file_per_table;
 
+/** MBs of file to be truncated each time by master thread in background */
+ulong srv_async_truncate_size;
+
+/** Threshold for the definition of big table, measured by MBs */
+ulong srv_async_table_size;
+
+/** Directory to store temp files of asynchronously dropped tables */
+char *srv_async_drop_tmp_dir = nullptr;
+
+/** Table-drop mode */
+ulong srv_table_drop_mode = SRV_SYNC_DROP;
+
 /** Sort buffer size in index creation */
 ulong srv_sort_buf_size = 1048576;
 /** Maximum modification log file size for online index creation */
@@ -2218,6 +2230,9 @@ static void srv_master_do_active_tasks(void) {
     return;
   }
 
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background_if_needed();
+
   /* Do an ibuf merge */
   srv_main_thread_op_info = "doing insert buffer merge";
   counter_time = ut_time_monotonic_us();
@@ -2274,6 +2289,9 @@ static void srv_master_do_idle_tasks(void) {
     return;
   }
 
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background_if_needed();
+
   /* Do an ibuf merge */
   counter_time = ut_time_monotonic_us();
   srv_main_thread_op_info = "doing insert buffer merge";
@@ -2326,6 +2344,9 @@ static ibool srv_master_do_shutdown_tasks(
   queries to them. */
   srv_main_thread_op_info = "doing background drop tables";
   n_tables_to_drop = row_drop_tables_for_mysql_in_background();
+
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background_shutdown_if_needed();
 
   /* In case of normal shutdown we don't do ibuf merge or purge */
   if (srv_fast_shutdown == 1) {

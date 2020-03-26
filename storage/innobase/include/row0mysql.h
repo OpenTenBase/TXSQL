@@ -376,10 +376,39 @@ dberr_t row_table_add_foreign_constraints(trx_t *trx, const char *sql_string,
  dropping of tables is needed in ALTER TABLE on Unix.
  @return how many tables dropped + remaining tables in list */
 ulint row_drop_tables_for_mysql_in_background(void);
+
 /** Get the background drop list length. NOTE: the caller must own the kernel
  mutex!
  @return how many tables in list */
 ulint row_get_background_drop_list_len_low(void);
+
+/** The master thread in srv0srv.cc calls this regularly to truncate files
+ which we must delete in background after DROP TABLE have ended. Such lazy
+ dropping of files is needed to alleviate I/O and dict_sys->mutex bottleneck
+ of DROP TABLE. */
+void row_truncate_file_for_mysql_in_background_if_needed(void);
+
+/** The master thread in srv0srv.cc calls this when shutdown innodb,
+ we delete all temp files left by unlink now, instead of truncate. */
+void row_truncate_file_for_mysql_in_background_shutdown_if_needed(void);
+
+/** Get the background truncate list length.
+ NOTE: the caller must own the row_truncate_sys_mutex.
+ @return how many tables in list */
+ulint row_get_background_truncate_list_len(void);
+
+/** Add orphaned trash files under specific directory to the list which master
+ thread would truncate in background. */
+void add_orphaned_file_to_truncate_list_if_needed(void);
+
+/** Try process one trash name.
+ build tmp_name first and then try add to background task list
+ @param[in]  path  to be processed ibd_file path
+ @return true if process success */
+dberr_t row_process_async_drop_if_needed(const char *path);
+
+/** Mutex protecting the background file truncate list. */
+extern ib_mutex_t row_truncate_sys_mutex;
 
 /** Sets an exclusive lock on a table.
  @return error code or DB_SUCCESS */

@@ -334,10 +334,30 @@ extern bool high_level_read_only;
 /** store to its own file each table created by an user; data
 dictionary tables are in the system tablespace 0 */
 extern bool srv_file_per_table;
+/** MBs of file to be truncated each time in background */
+extern ulong srv_async_truncate_size;
+/** Threshold for the difinition of big table, units MBs */
+extern ulong srv_async_table_size;
+/** Directory to store tmp files of async DROP TABLE; if set, DROP TABLE
+will only rename ibd file, the file is deleted in background
+asynchronously */
+extern char *srv_async_drop_tmp_dir;
 /** Sleep delay for threads waiting to enter InnoDB. In micro-seconds. */
 extern ulong srv_thread_sleep_delay;
 /** Maximum sleep delay (in micro-seconds), value of 0 disables it.*/
 extern ulong srv_adaptive_max_sleep_delay;
+/** Table-drop mode */
+extern ulong srv_table_drop_mode;
+/* Alternatives for srv_innodb_stats_method, which could be changed by
+setting innodb_stats_method */
+enum srv_drop_mode_enum {
+  SRV_SYNC_DROP,     /* Drop tables synchronously by unlink all tables. Tables
+                     will be dropped before DROP TABLE ends. */
+  SRV_RENAME_ONLY,   /* Only Rename *.ibd file to srv_async_drop_tmp_dir and
+                     return immediately. */
+  SRV_ASYNC_DROP     /* Rename *.ibd file to srv_async_drop_tmp_dir and
+                     asynchronously drop it in background. */
+};
 
 /** Sort buffer size in index creation */
 extern ulong srv_sort_buf_size;

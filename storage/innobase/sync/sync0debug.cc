@@ -1491,6 +1491,8 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
                   PFS_NOT_INSTRUMENTED);
 
   LATCH_ADD_MUTEX(TEST_MUTEX, SYNC_NO_ORDER_CHECK, PFS_NOT_INSTRUMENTED);
+  LATCH_ADD_MUTEX(ROW_TRUNCATE_LIST, SYNC_NO_ORDER_CHECK,
+                  row_truncate_list_mutex_key);
 
   latch_id_t id = LATCH_ID_NONE;
 

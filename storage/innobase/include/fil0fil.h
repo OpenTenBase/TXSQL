@@ -323,7 +323,8 @@ constexpr size_t FIL_SPACE_MAGIC_N = 89472;
 constexpr size_t FIL_NODE_MAGIC_N = 89389;
 
 /** Common InnoDB file extentions */
-enum ib_file_suffix { NO_EXT = 0, IBD = 1, CFG = 2, CFP = 3, IBT = 4, IBU = 5 };
+enum ib_file_suffix { NO_EXT = 0, IBD = 1, CFG = 2, CFP = 3, IBT = 4, IBU = 5,
+                      TRH = 6 };
 
 extern const char *dot_ext[];
 
@@ -1321,6 +1322,18 @@ dberr_t fil_ibd_open(bool validate, fil_type_t purpose, space_id_t space_id,
                      uint32_t flags, const char *space_name,
                      const char *table_name, const char *path_in, bool strict,
                      bool old_space) MY_ATTRIBUTE((warn_unused_result));
+
+/** A fault-tolerant function that tries to read the next file name in the
+directory. We retry 100 times if os_file_readdir_next_file() returns -1. The
+idea is to read as much good data as we can and jump over bad data.
+@param[out]     err      this is set to DB_ERROR if an error
+@param[in]      dirname  directory name or path
+@param[in]      dir      directory stream
+@param[in,out]  info     buffer where the info is returned
+@return 0 if ok, -1 if error even after the retries, 1 if at the end
+of the directory. */
+int fil_file_readdir_next_file(dberr_t *err, const char *dirname,
+                               os_file_dir_t dir, os_file_stat_t *info);
 
 /** Returns true if a matching tablespace exists in the InnoDB tablespace
 memory cache.

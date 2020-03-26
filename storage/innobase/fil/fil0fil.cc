@@ -241,7 +241,7 @@ Fil_path MySQL_datadir_path;
 Fil_path Fil_path::s_null_path;
 
 /** Common InnoDB file extentions */
-const char *dot_ext[] = {"", ".ibd", ".cfg", ".cfp", ".ibt", ".ibu"};
+const char *dot_ext[] = {"", ".ibd", ".cfg", ".cfp", ".ibt", ".ibu", ".trh"};
 
 /** The number of fsyncs done to the log */
 ulint fil_n_log_flushes = 0;
@@ -1572,6 +1572,32 @@ std::atomic_size_t Fil_shard::s_open_slot;
 static ulint srv_data_read;
 static ulint srv_data_written;
 #endif /* UNIV_HOTBACKUP */
+
+/** A fault-tolerant function that tries to read the next file name in the
+directory. We retry 100 times if os_file_readdir_next_file() returns -1. The
+idea is to read as much good data as we can and jump over bad data.
+@param[out]     err      this is set to DB_ERROR if an error
+@param[in]      dirname  directory name or path
+@param[in]      dir      directory stream
+@param[in,out]  info     buffer where the info is returned
+@return 0 if ok, -1 if error even after the retries, 1 if at the end
+of the directory. */
+int fil_file_readdir_next_file(dberr_t *err, const char *dirname,
+                               os_file_dir_t dir, os_file_stat_t *info) {
+  for (ulint i = 0; i < 100; i++) {
+    int ret = os_file_readdir_next_file(dirname, dir, info);
+
+    if (ret != -1) {
+      return(ret);
+    }
+
+    ib::error() << "os_file_readdir_next_file() returned -1, fail to read "
+                << "files in directory: " << dirname;
+    *err = DB_ERROR;
+  }
+
+  return(-1);
+}
 
 /** Replay a file rename operation if possible.
 @param[in]	page_id		Space ID and first page number in the file
@@ -4107,14 +4133,15 @@ dberr_t Fil_shard::space_delete(space_id_t space_id, buf_remove_t buf_remove) {
     space_free_low(space);
     ut_a(space == nullptr);
 
-    if (!os_file_delete(innodb_data_file_key, path) &&
-        !os_file_delete_if_exists(innodb_data_file_key, path, nullptr)) {
-      /* Note: This is because we have removed the
-      tablespace instance from the cache. */
+    if (DB_UNSUPPORTED == row_process_async_drop_if_needed(path)) {
+      if (!os_file_delete(innodb_data_file_key, path) &&
+          !os_file_delete_if_exists(innodb_data_file_key, path, nullptr)) {
+        /* Note: This is because we have removed the tablespace instance
+        from the cache. */
 
-      err = DB_IO_ERROR;
+        err = DB_IO_ERROR;
+      }
     }
-
   } else {
     mutex_release();
 
@@ -8404,8 +8431,10 @@ This should not be called for temporary tables.
 bool fil_delete_file(const char *path) {
   bool success = true;
 
-  /* Force a delete of any stale .ibd files that are lying around. */
-  success = os_file_delete_if_exists(innodb_data_file_key, path, nullptr);
+  /* Force a delete of any stale .ibd files that are left. */
+  if (DB_UNSUPPORTED == row_process_async_drop_if_needed(path)) {
+    success = os_file_delete_if_exists(innodb_data_file_key, path, nullptr);
+  }
 
   char *cfg_filepath = Fil_path::make_cfg(path);
 

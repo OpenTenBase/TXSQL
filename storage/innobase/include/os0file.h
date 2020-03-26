@@ -114,6 +114,8 @@ the OS actually supports it: Win 95 does not, NT does. */
 /** File handle */
 typedef int os_file_t;
 
+typedef DIR*  os_file_dir_t;  /*!< directory stream */
+
 /** Convert a C file descriptor to a native file handle
 @param fd file descriptor
 @return native file handle */
@@ -885,6 +887,15 @@ parameter (--tmpdir).
 FILE *os_file_create_tmpfile(const char *path);
 #endif /* !UNIV_HOTBACKUP */
 
+/** Read information of the next file in the given directory. The '.' and '..'
+entries will be ignored.
+@param[in]  dirname   directory name or path
+@param[in]  dir       directory stream
+@param[out] info      information of the next file
+@return 0 if ok, -1 if error, 1 if at the end of the directory */
+int os_file_readdir_next_file(const char *dirname, os_file_dir_t dir,
+                              os_file_stat_t *info);
+
 /**
 This function attempts to create a directory named pathname. The new directory
 gets default permissions. On Unix, the permissions are (0770 & ~umask). If the
@@ -993,6 +1004,17 @@ file is closed before calling this function.
 @param[in]	newpath		new file path
 @return true if success */
 bool os_file_rename_func(const char *oldpath, const char *newpath);
+
+/** NOTE! Use the corresponding macro os_file_rename_if_exists(), not
+directly this function!
+Renames a file (can also move it to another directory). It is safest that the
+file is closed before calling this function.
+@param[in]  oldpath   old file path as a null-terminated string
+@param[in]  newpath   new file path
+@param[out] exist     indicate if file pre-exist
+@return true if success */
+bool os_file_rename_if_exists_func(const char *oldpath, const char *newpath,
+                                   bool *exist);
 
 /** NOTE! Use the corresponding macro os_file_close(), not directly this
 function!
@@ -1158,6 +1180,10 @@ The wrapper functions have the prefix of "innodb_". */
 
 #define os_file_rename(key, oldpath, newpath) \
   pfs_os_file_rename_func(key, oldpath, newpath, __FILE__, __LINE__)
+
+# define os_file_rename_if_exists(key, oldpath, newpath, exist)  \
+  pfs_os_file_rename_if_exists_func(key, oldpath, newpath, exist, __FILE__, \
+                                    __LINE__)
 
 #define os_file_delete(key, name) \
   pfs_os_file_delete_func(key, name, __FILE__, __LINE__)
@@ -1439,6 +1465,22 @@ bool pfs_os_file_rename_func(mysql_pfs_key_t key, const char *oldpath,
                              const char *newpath, const char *src_file,
                              uint src_line);
 
+/** NOTE! Please use the corresponding macro os_file_rename_if_exists(),
+not directly this function!
+This is the performance schema instrumented wrapper function for
+os_file_rename_if_exists()
+@param[in]  key       Performance Schema Key
+@param[in]  oldpath   old file path as a null-terminated string
+@param[in]  newpath   new file path
+@param[out] exist     return if old file exists
+@param[in]  src_file  file name where func invoked
+@param[in]  src_line  line where the func invoked
+@return true if success */
+UNIV_INLINE
+bool pfs_os_file_rename_if_exists_func(mysql_pfs_key_t key, const char *oldpath,
+                                       const char *newpath, bool *exist,
+                                       const char *src_file, ulint src_line);
+
 /**
 NOTE! Please use the corresponding macro os_file_delete(), not directly
 this function!
@@ -1519,6 +1561,9 @@ to original un-instrumented file I/O APIs */
 
 #define os_file_rename(key, oldpath, newpath) \
   os_file_rename_func(oldpath, newpath)
+
+# define os_file_rename_if_exists(key, oldpath, newpath, exist) \
+  os_file_rename_if_exists_func(oldpath, newpath, exits)
 
 #define os_file_delete(key, name) os_file_delete_func(name)
 

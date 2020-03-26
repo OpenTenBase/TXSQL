@@ -3427,6 +3427,41 @@ bool os_file_rename_func(const char *oldpath, const char *newpath) {
   return (true);
 }
 
+/** NOTE! Use the corresponding macro os_file_rename_if_exists(), not
+directly this function!
+Renames a file (can also move it to another directory). It is safest
+that the file is closed before calling this function.
+@param[in]  oldpath   old file path as a null-terminated string
+@param[in]  newpath   new file path
+@param[out] exist     indicate if file pre-exist
+@return true if success */
+bool
+os_file_rename_if_exists_func(const char *oldpath, const char *newpath,
+                              bool *exist)
+{
+  if (exist != nullptr) {
+    *exist = true;
+  }
+
+  int ret = rename(oldpath, newpath);
+
+  if (ret == 0) {
+    return (false);
+  }
+
+  if (errno == ENOENT) {
+    if (exist != nullptr) {
+      *exist = false;
+    }
+    return(false);
+  } else {
+    os_file_handle_error_no_exit(oldpath, "rename", false);
+    return(false);
+  }
+
+  return(true);
+}
+
 /** NOTE! Use the corresponding macro os_file_close(), not directly this
 function!
 Closes a file handle. In case of error, error number can be retrieved with
@@ -3443,6 +3478,73 @@ bool os_file_close_func(os_file_t file) {
   }
 
   return (true);
+}
+
+/** Read information of the next file in the given directory. The '.' and '..'
+entries will be ignored.
+@param[in]  dirname   directory name or path
+@param[in]  dir       directory stream
+@param[out] info      information of the next file
+@return 0 if ok, -1 if error, 1 if at the end of the directory */
+int os_file_readdir_next_file(const char *dirname, os_file_dir_t dir,
+                              os_file_stat_t *info) {
+  struct dirent *ent;
+  char *full_path;
+  struct stat statinfo;
+
+next_file:
+  ent = readdir(dir);
+
+  if (ent == nullptr) {
+    return(1);
+  }
+
+  ut_a(strlen(ent->d_name) < OS_FILE_MAX_PATH);
+
+  if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+    goto next_file;
+  }
+
+  strcpy(info->name, ent->d_name);
+
+  full_path = static_cast<char*>(
+      ut_malloc_nokey(strlen(dirname) + strlen(ent->d_name) + 10));
+
+  sprintf(full_path, "%s/%s", dirname, ent->d_name);
+
+  if (stat(full_path, &statinfo)) {
+    if (errno == ENOENT) {
+      /* readdir() returned a file that does not exist, it must have been
+      deleted in the meantime. Do what would have happened if the file was
+      deleted before readdir() - ignore and go to the next entry. If this is
+      the last entry then info->name will still contain the name of the deleted
+      file when this function returns, but this is not an issue since the caller
+      shouldn't be looking at info when end of directory is returned. */
+
+      ut_free(full_path);
+      goto next_file;
+    }
+
+    os_file_handle_error_no_exit(full_path, "stat", false);
+    ut_free(full_path);
+
+    return(-1);
+  }
+
+  info->size = statinfo.st_size;
+
+  if (S_ISDIR(statinfo.st_mode)) {
+    info->type = OS_FILE_TYPE_DIR;
+  } else if (S_ISLNK(statinfo.st_mode)) {
+    info->type = OS_FILE_TYPE_LINK;
+  } else if (S_ISREG(statinfo.st_mode)) {
+    info->type = OS_FILE_TYPE_FILE;
+  } else {
+    info->type = OS_FILE_TYPE_UNKNOWN;
+  }
+
+  ut_free(full_path);
+  return(0);
 }
 
 /** Gets a file size.
