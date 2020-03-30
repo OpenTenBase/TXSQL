@@ -1,0 +1,19 @@
+命令格式:
+build.sh [-b <boost_dir>] [-d <dest_dir>] [-s <server_suffix>] [-t debug|release]
+         [-B 1|0] [-v 1|0] [-D 1|0|default] [-K 1|0]
+         [--asan | --msan | --tsan | --ubsan]
+
+参数说明：
+-b     boost路径
+-d     SYSCONFDIR/CMAKE_INSTALL_PREFIX/MYSQL_DATADIR 三个宏的路径。默认为/usr/local/mysql。
+-s     server suffix。默认为txsql。
+-t     设置编译类型，可选类型为debug/release, debug代表Debug, release代表RelWithDebInfo。默认是debug。
+-v     是否带valgrind。默认为0，不打开valgrind。
+-B     设置是否进行build。默认为1。
+-D     设置是否WITH_DEBUG。默认不设置。
+-K     设置是否编译keyring_kms插件
+--asan 设置是打开AddressSanitizer。默认关闭。
+--msan 设置是否打开MemorySanitizer。默认关闭。
+--tsan 设置是否打开ThreadSanitizer。默认关闭。
+--ubsan设置是否打开Undefined Behavior Sanitizer。默认关闭。
+
