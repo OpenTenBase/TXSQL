@@ -1027,7 +1027,8 @@ struct dict_index_t {
                                upper levels of the index tree */
   bool fill_dd;                /*!< Flag whether need to fill dd tables
                                when it's a fulltext index. */
-
+  uint32_t fsp_flags;          /*!< Cached flags of tablespace to avoid
+                               accessing fil_space_t. */
   /** Determine if the index has been committed to the
   data dictionary.
   @return whether the index definition has been committed */

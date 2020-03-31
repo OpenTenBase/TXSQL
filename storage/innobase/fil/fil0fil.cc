@@ -2646,6 +2646,14 @@ bool Fil_system::close_file_in_all_LRU(bool print_info) {
 @param[in]	space		Tablespace for which we want to wait for IO
                                 to stop */
 void Fil_shard::wait_for_io_to_stop(const fil_space_t *space) {
+  
+  /** If stp_ios is not set, we return directy. Because
+  ut_time_monotonic() has some syscall cost that we found
+  from stacktrace. */
+  if (!space->stop_ios) {
+    return;
+  }
+  
   /* Note: We are reading the value of space->stop_ios without the
   cover of the Fil_shard::mutex. We incremented the in_use counter
   before waiting for IO to stop. */
