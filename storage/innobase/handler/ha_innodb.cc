@@ -21975,6 +21975,11 @@ static MYSQL_SYSVAR_LONG(fill_factor, innobase_fill_factor, PLUGIN_VAR_RQCMDARG,
                          "Percentage of B-tree page filled during bulk insert",
                          NULL, NULL, 100, 10, 100, 0);
 
+static MYSQL_SYSVAR_ULONG(page_reserve_factor, innobase_page_reserve_factor, PLUGIN_VAR_RQCMDARG,
+   "Percentage of B-tree page filled while insertint record, for example: "
+   "16 means 1/16 of the index page space is reserved",
+   NULL, NULL, 16, 2, UNIV_PAGE_SIZE, 0);
+
 static MYSQL_SYSVAR_BOOL(
     ft_enable_diag_print, fts_enable_diag_print, PLUGIN_VAR_OPCMDARG,
     "Whether to enable additional FTS diagnostic printout ", NULL, NULL, FALSE);
@@ -22902,6 +22907,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(empty_free_list_algorithm),
     MYSQL_SYSVAR(use_cloned_view),
     MYSQL_SYSVAR(strict_gtid_commit),
+    MYSQL_SYSVAR(page_reserve_factor),
     NULL};
 
 mysql_declare_plugin(innobase){

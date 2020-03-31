@@ -834,7 +834,7 @@ rw_lock_t *dict_index_get_lock(dict_index_t *index) /*!< in: index */
  which make the records bigger might fragment the index.
  @return number of free bytes on page, reserved for updates */
 UNIV_INLINE
-ulint dict_index_get_space_reserve(void) { return (UNIV_PAGE_SIZE / 16); }
+ulint dict_index_get_space_reserve(void) { return (UNIV_PAGE_SIZE / innobase_page_reserve_factor); }
 
 /** Gets the status of online index creation.
  @return the status */

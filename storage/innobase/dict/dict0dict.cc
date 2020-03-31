@@ -180,6 +180,7 @@ ulong zip_failure_threshold_pct = 5;
 compression failures */
 ulong zip_pad_max = 50;
 
+uint64_t innobase_page_reserve_factor = 16;
 #define DICT_POOL_PER_TABLE_HASH          \
   512 /*!< buffer pool max size per table \
       hash table fixed size in bytes */
