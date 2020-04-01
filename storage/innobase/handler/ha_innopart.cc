@@ -3250,6 +3250,17 @@ ha_rows ha_innopart::records_in_range(uint keynr, key_range *min_key,
     goto func_exit;
   }
 
+  /* This is a temp solution to avoid io for estimation of DML
+  with range where condition. If we have plan cache, it should
+  be removed. */
+  if (opt_skip_dml_estimate_range && !thd_is_select(ha_thd())) {
+    if (index->is_clustered()) {
+      return (ha_rows)1;
+    } else {
+      return (ha_rows)10;
+    }
+  }
+
   heap = mem_heap_create(
       2 * (key->actual_key_parts * sizeof(dfield_t) + sizeof(dtuple_t)));
 

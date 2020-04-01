@@ -85,7 +85,7 @@ static ulint buf_flush_lsn_scan_factor = 3;
 static lsn_t lsn_avg_rate = 0;
 
 /** Target oldest LSN for the requested flush_sync */
-static lsn_t buf_flush_sync_lsn = 0;
+static std::atomic<lsn_t> buf_flush_sync_lsn;
 
 #ifdef UNIV_PFS_THREAD
 mysql_pfs_key_t page_flush_thread_key;
@@ -1222,6 +1222,29 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
   buf_LRU_stat_inc_io();
 }
 
+static bool buf_should_try_flush(lsn_t old_lsn) {
+  ulong strategy = srv_page_flush_strategy;
+
+  lsn_t current_lsn = log_get_lsn(*log_sys);
+
+  switch (strategy) {
+  case 0:
+    return (false);
+  case 1:
+    return (old_lsn < buf_flush_sync_lsn.load());
+  case 2:
+    return (current_lsn - old_lsn > log_sys->max_modified_age_sync);
+  case 3:
+    return (current_lsn - old_lsn > log_sys->max_modified_age_async);
+  case 4:
+    return (current_lsn - old_lsn > log_sys->max_modified_age_async/2);
+  default:
+   break;
+  }
+
+  return (false);
+}
+
 /** Writes a flushable page asynchronously from the buffer pool to a file.
 NOTE: 1. in simulated aio we must call os_aio_simulated_wake_handler_threads
 after we have posted a batch of writes! 2. buf_page_get_mutex(bpage) must be
@@ -1264,10 +1287,13 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
   rw_lock_t *rw_lock = NULL;
   bool no_fix_count = bpage->buf_fix_count == 0;
 
+  bool should_try = buf_should_try_flush(bpage->oldest_modification);
   if (!is_uncompressed) {
     flush = TRUE;
     rw_lock = NULL;
-  } else if (!(no_fix_count || flush_type == BUF_FLUSH_LIST) ||
+  } else if (!(no_fix_count
+                || flush_type == BUF_FLUSH_LIST
+                || should_try) ||
              (!no_fix_count &&
               srv_shutdown_state.load() < SRV_SHUTDOWN_FLUSH_PHASE &&
               fsp_is_system_temporary(bpage->id.space()))) {
@@ -1278,7 +1304,8 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     flush = FALSE;
   } else {
     rw_lock = &reinterpret_cast<buf_block_t *>(bpage)->lock;
-    if (flush_type != BUF_FLUSH_LIST) {
+    if (flush_type != BUF_FLUSH_LIST &&
+          !should_try) {
       flush = rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE);
     } else {
       /* Will SX lock later */
@@ -1329,7 +1356,8 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
       mutex_exit(&buf_pool->LRU_list_mutex);
     }
 
-    if (flush_type == BUF_FLUSH_LIST && is_uncompressed &&
+    if ((flush_type == BUF_FLUSH_LIST || should_try) &&
+        is_uncompressed &&
         !rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE)) {
       if (!fsp_is_system_temporary(bpage->id.space())) {
         /* avoiding deadlock possibility involves
@@ -2334,9 +2362,21 @@ static ulint af_get_pct_for_lsn(lsn_t age) /*!< in: current age of LSN. */
 
   ut_ad(srv_max_io_capacity >= srv_io_capacity);
 
-  return (static_cast<ulint>(((srv_max_io_capacity / srv_io_capacity) *
-                              (lsn_age_factor * sqrt((double)lsn_age_factor))) /
-                             7.5));
+  switch (
+      static_cast<srv_cleaner_lsn_age_factor_t>(srv_cleaner_lsn_age_factor)) {
+    case SRV_CLEANER_LSN_AGE_FACTOR_LEGACY:
+      return (
+          static_cast<ulint>(((srv_max_io_capacity / srv_io_capacity) *
+              (lsn_age_factor * sqrt((double)lsn_age_factor))) /
+            7.5));
+    case SRV_CLEANER_LSN_AGE_FACTOR_HIGH_CHECKPOINT:
+      return (static_cast<ulint>(
+            ((srv_max_io_capacity / srv_io_capacity) *
+             (lsn_age_factor * lsn_age_factor * sqrt((double)lsn_age_factor))) /
+            700.5));
+    default:
+      ut_error;
+  }
 }
 
 /** This function is called approximately once every second by the
@@ -2545,6 +2585,41 @@ static ulint page_cleaner_flush_pages_recommendation(ulint last_pages_in,
   return (n_pages);
 }
 
+static int64_t page_cleaner_adapt_flush_sleep_time(void) {
+  if (!opt_cleaner_adaptive_sleep) {
+    return (1000);
+  }
+
+  int64_t sleep_time = 1000;
+  int64_t pct = 0;
+  lsn_t oldest_lsn = buf_pool_get_oldest_modification_approx();
+
+  if (oldest_lsn == 0) {
+    return (1000); 
+  }
+
+  lsn_t current_lsn = log_get_lsn(*log_sys);
+
+  if (current_lsn <= oldest_lsn) {
+    return (1000);
+  }
+
+  lsn_t age = current_lsn - oldest_lsn;
+  if (age > log_sys->max_modified_age_sync / 2) {
+    if (age > log_sys->max_modified_age_sync) {
+      sleep_time = 0;
+    } else {
+      pct = (age * 100)/log_sys->max_modified_age_sync;
+      sleep_time = 1000 - (pct * pct)/(10 * srv_cleaner_sleep_factor);
+
+      if (sleep_time < 0) {
+        sleep_time = 0;
+      }
+    }
+  }
+
+  return (sleep_time);
+}
 /** Puts the page_cleaner thread to sleep if it has finished work in less
  than a second
  @retval 0 wake up by event set,
@@ -2560,7 +2635,8 @@ static ulint pc_sleep_if_needed(ib_time_monotonic_ms_t next_loop_time,
     /* Get sleep interval in micro seconds. We use
     ut_min() to avoid long sleep in case of wrap around. */
     const auto sleep_us =
-        ut_min(int64_t{1000000}, (next_loop_time - cur_time) * int64_t{1000});
+        ut_min(page_cleaner_adapt_flush_sleep_time() * int64_t{1000},
+               (next_loop_time - cur_time) * int64_t{1000});
 
     ut_a(sleep_us > 0);
 
@@ -2593,6 +2669,8 @@ void buf_flush_page_cleaner_init(size_t n_page_cleaners) {
       static_cast<page_cleaner_t *>(ut_zalloc_nokey(sizeof(*page_cleaner)));
 
   mutex_create(LATCH_ID_PAGE_CLEANER, &page_cleaner->mutex);
+
+  buf_flush_sync_lsn = 0;
 
   page_cleaner->is_requested = os_event_create("pc_is_requested");
   page_cleaner->is_finished = os_event_create("pc_is_finished");

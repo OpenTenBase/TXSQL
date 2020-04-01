@@ -420,6 +420,15 @@ static TYPELIB innodb_empty_free_list_algorithm_typelib = {
   "innodb_empty_free_list_algorithm_typelib",
   innodb_empty_free_list_algorithm_names, nullptr};
 
+/** Possible values for system variable "innodb_cleaner_lsn_age_factor".  */
+static const char *innodb_cleaner_lsn_age_factor_names[] = {
+  "legacy", "high_checkpoint", NullS};
+
+/** Enumeration for innodb_cleaner_lsn_age_factor.  */
+static TYPELIB innodb_cleaner_lsn_age_factor_typelib = {
+  array_elements(innodb_cleaner_lsn_age_factor_names) - 1,
+  "innodb_cleaner_lsn_age_factor_typelib",
+  innodb_cleaner_lsn_age_factor_names, nullptr};
 
 /** Possible values for system variable "innodb_default_row_format". */
 static const char *innodb_default_row_format_names[] = {"redundant", "compact",
@@ -15823,7 +15832,18 @@ ha_rows ha_innobase::records_in_range(
     n_rows = HA_ERR_TABLE_DEF_CHANGED;
     goto func_exit;
   }
-
+  
+  /* This is a temp solution to avoid io for estimation of DML
+  with range where condition. If we have plan cache, it should
+  be removed. */
+  if (opt_skip_dml_estimate_range && !thd_is_select(ha_thd())) {
+    if (index->is_clustered()) {
+      return (ha_rows)1;
+    } else {
+      return (ha_rows)10;
+    }
+  }
+  
   heap = mem_heap_create(
       2 * (key->actual_key_parts * sizeof(dfield_t) + sizeof(dtuple_t)));
 
@@ -21867,6 +21887,14 @@ static MYSQL_SYSVAR_ENUM(
     innodb_srv_empty_free_list_algorithm_validate, nullptr,
     SRV_EMPTY_FREE_LIST_LEGACY, &innodb_empty_free_list_algorithm_typelib);
 
+static MYSQL_SYSVAR_ENUM(
+    cleaner_lsn_age_factor, srv_cleaner_lsn_age_factor, PLUGIN_VAR_OPCMDARG,
+    "The formula for LSN age factor for page cleaner adaptive flushing. "
+    "LEGACY: Original Oracle MySQL formula. "
+    "HIGH_CHECKPOINT: the new formula.",
+    nullptr, nullptr, SRV_CLEANER_LSN_AGE_FACTOR_LEGACY,
+    &innodb_cleaner_lsn_age_factor_typelib);
+
 static MYSQL_SYSVAR_ULONG(buffer_pool_instances, srv_buf_pool_instances,
                           PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                           "Number of buffer pool instances, set to higher "
@@ -21979,6 +22007,19 @@ static MYSQL_SYSVAR_ULONG(page_reserve_factor, innobase_page_reserve_factor, PLU
    "Percentage of B-tree page filled while insertint record, for example: "
    "16 means 1/16 of the index page space is reserved",
    NULL, NULL, 16, 2, UNIV_PAGE_SIZE, 0);
+
+static MYSQL_SYSVAR_LONG(
+    page_cleaner_sleep_factor, srv_cleaner_sleep_factor,
+    PLUGIN_VAR_RQCMDARG,
+    "Factor for adjusting sleep time of page cleaner after "
+    "reaching async checkpoint age, it works only when "
+    "innodb_page_cleaner_adaptive_sleep is turn on",
+    NULL, NULL, 1, 1, 1000, 0);
+
+static MYSQL_SYSVAR_ULONG(page_flush_strategy,
+    srv_page_flush_strategy, PLUGIN_VAR_RQCMDARG,
+    "Note: just for testing purpose",
+    NULL, NULL, 0, 0, 4, 0);
 
 static MYSQL_SYSVAR_BOOL(
     ft_enable_diag_print, fts_enable_diag_print, PLUGIN_VAR_OPCMDARG,
@@ -22622,6 +22663,24 @@ static MYSQL_SYSVAR_BOOL(
     "when thread is apply thread or explicitly set gtid_next, it'll "
     "write gtid.", NULL, NULL, true);
 
+static MYSQL_SYSVAR_BOOL(
+    skip_dml_estimate_range, opt_skip_dml_estimate_range, PLUGIN_VAR_OPCMDARG,
+    "skip estimation of records_in_range for dml statements. This "
+    "is a temp solution, in further we need plan cache to completely "
+    "solve the problem", NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+    simplify_trx_in_innodb, opt_simplify_trx_in_innodb,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    "Don't acquire trx_t::mutex in TrxInInnoDB to avoid unnecessary cpu cost.",
+    NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+    page_cleaner_adaptive_sleep, opt_cleaner_adaptive_sleep,
+    PLUGIN_VAR_OPCMDARG,
+    "Enable adaptive sleeping. If reaching limitted age of "
+    "log space, it'll do more aggressive flushing. ",
+    NULL, NULL, false);
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
                          PLUGIN_VAR_RQCMDARG,
@@ -22908,6 +22967,12 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(use_cloned_view),
     MYSQL_SYSVAR(strict_gtid_commit),
     MYSQL_SYSVAR(page_reserve_factor),
+    MYSQL_SYSVAR(skip_dml_estimate_range),
+    MYSQL_SYSVAR(simplify_trx_in_innodb),
+    MYSQL_SYSVAR(cleaner_lsn_age_factor),
+    MYSQL_SYSVAR(page_cleaner_sleep_factor),
+    MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
+    MYSQL_SYSVAR(page_flush_strategy),
     NULL};
 
 mysql_declare_plugin(innobase){

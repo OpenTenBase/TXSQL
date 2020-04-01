@@ -3075,6 +3075,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
   mtr_t mtr;
   mtr_t bitmap_mtr;
 
+  ut_a(index != ibuf->index);
   ut_a(!index->is_clustered());
   ut_ad(!dict_index_is_spatial(index));
   ut_ad(dtuple_check_typed(entry));

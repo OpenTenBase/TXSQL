@@ -92,6 +92,21 @@ enum buf_io_fix {
                    the flush_list */
 };
 
+/** Alternatives for srv_cleaner_lsn_age_factor, set through
+innodb_cleaner_lsn_age_factor variable  */
+enum srv_cleaner_lsn_age_factor_t {
+  SRV_CLEANER_LSN_AGE_FACTOR_LEGACY, /*!< Original Oracle MySQL 5.6
+                                       formula */
+  SRV_CLEANER_LSN_AGE_FACTOR_HIGH_CHECKPOINT
+  /** Percona Server 5.6 formula
+  that returns lower values than
+  legacy option for low
+  checkpoint ages, and higher
+  values for high ages.  This has
+  the effect of stabilizing the
+  checkpoint age higher. */ 
+};
+
 /** Alternatives for srv_empty_free_list_algorithm, set through
 innodb_empty_free_list_algorithm variable  */
 enum srv_empty_free_list_t {

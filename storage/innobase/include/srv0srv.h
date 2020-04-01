@@ -593,7 +593,12 @@ extern ulong srv_buf_pool_dump_pct;
 /** Lock table size in bytes */
 extern ulint srv_lock_table_size;
 
+extern ulong srv_cleaner_lsn_age_factor;
 extern ulong srv_empty_free_list_algorithm;
+
+extern int64_t srv_cleaner_sleep_factor;
+extern bool opt_cleaner_adaptive_sleep;
+extern ulong srv_page_flush_strategy;
 
 extern ulint srv_n_file_io_threads;
 extern bool srv_random_read_ahead;
@@ -734,6 +739,9 @@ extern bool srv_print_ddl_logs;
 
 extern bool srv_cmp_per_index_enabled;
 
+extern bool opt_skip_dml_estimate_range;
+
+extern bool opt_simplify_trx_in_innodb;
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 

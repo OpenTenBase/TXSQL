@@ -170,6 +170,12 @@ recovery and open all tables in RO mode instead of RW mode. We don't
 sync the max trx id to disk either. */
 bool srv_read_only_mode;
 
+/** Don't acquire trx_t::mutex in TrxInInnoDB to
+avoid unnecessary cpu cost. */
+bool opt_simplify_trx_in_innodb = false;
+
+ulong srv_page_flush_strategy = 0;
+
 /** store to its own file each table created by an user; data
 dictionary tables are in the system tablespace 0 */
 bool srv_file_per_table;
@@ -426,8 +432,15 @@ ulong srv_buf_pool_dump_pct;
 /** Lock table size in bytes */
 ulint srv_lock_table_size = ULINT_MAX;
 
+/** Page cleaner LSN age factor formula option */
+ulong srv_cleaner_lsn_age_factor = SRV_CLEANER_LSN_AGE_FACTOR_LEGACY;
+
 /** Empty free list for a query thread handling algorithm option  */
 ulong srv_empty_free_list_algorithm = SRV_EMPTY_FREE_LIST_BACKOFF;
+
+int64_t srv_cleaner_sleep_factor = 1;
+
+bool opt_cleaner_adaptive_sleep = false;
 
 const ulong srv_idle_flush_pct_default = 100;
 ulong srv_idle_flush_pct = srv_idle_flush_pct_default;
@@ -516,6 +529,12 @@ bool srv_print_ddl_logs = false;
 
 /** Enable INFORMATION_SCHEMA.innodb_cmp_per_index */
 bool srv_cmp_per_index_enabled = FALSE;
+
+/** Don't estimate record ranges for DML operation and
+it tends to choose primary index. This is a temp solution
+to reduce io for estimation.
+Note: If we have plan cache, this option can be removed later.*/
+bool opt_skip_dml_estimate_range = false;
 
 /** The value of the configuration parameter innodb_fast_shutdown,
 controlling the InnoDB shutdown.

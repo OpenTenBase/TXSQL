@@ -2543,7 +2543,6 @@ void Fil_shard::close_file(fil_node_t *file, bool LRU_close) {
   ut_a(file->is_open);
   ut_a(file->in_use == 0);
   ut_a(file->n_pending == 0);
-  ut_a(file->n_pending_flushes == 0);
 
   /* the buf_dblwr_update() may flush files after
   lru_manger/page cleaner thread exits. so the pending
@@ -2553,6 +2552,7 @@ void Fil_shard::close_file(fil_node_t *file, bool LRU_close) {
    os_thread_sleep(20); 
   }
 
+  ut_a(file->n_pending_flushes == 0);
 #ifndef UNIV_HOTBACKUP
   ut_a(file->modification_counter == file->flush_counter ||
        file->space->purpose == FIL_TYPE_TEMPORARY || srv_fast_shutdown == 2);
@@ -7974,6 +7974,22 @@ void Fil_shard::flush_file_spaces(uint8_t purpose) {
   Space_ids space_ids;
 
   ut_ad((purpose & FIL_TYPE_TABLESPACE) || (purpose & FIL_TYPE_LOG));
+  if (purpose == FIL_TYPE_TABLESPACE &&
+      srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC) {
+#ifdef UNIV_DEBUG
+    mutex_acquire();
+    for (auto space = UT_LIST_GET_FIRST(m_unflushed_spaces); space != nullptr;
+        space = UT_LIST_GET_NEXT(unflushed_spaces, space)) {
+      if ((to_int(space->purpose) & purpose) && !space->stop_new_ops) {
+        space_ids.push_back(space->id);
+      }
+    }
+    mutex_release();
+    ut_ad(space_ids.empty());
+    space_ids.clear();
+#endif
+    return;
+  }
 
   mutex_acquire();
 
