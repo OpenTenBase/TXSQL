@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <algorithm>
 
+#include "crypt_genhash_impl.h"
+
 #include "lex_string.h"
 #include "libbinlogevents/include/control_events.h"
 #include "m_ctype.h"
@@ -1640,6 +1642,33 @@ class Item_func_internal_get_dd_column_extra final : public Item_str_func {
   }
 
   String *val_str(String *) override;
+};
+
+/*
+  Item_func_password -- new (4.1.1) PASSWORD() function implementation.
+  Returns strcat('*', octet2hex(sha1(sha1(password)))). '*' stands for new
+  password format, sha1(sha1(password) is so-called hash_stage2 value.
+  Length of returned string is always 41 byte. To find out how entire
+  authentication procedure works, see comments in password.c.
+*/
+
+class Item_func_password final :public Item_str_ascii_func
+{
+  char m_hashed_password_buffer[CRYPT_MAX_PASSWORD_SIZE + 1];
+  unsigned int m_hashed_password_buffer_len;
+  bool m_recalculate_password;
+public:
+  Item_func_password(const POS &pos,Item *a) : Item_str_ascii_func(pos,a)
+  {
+    m_hashed_password_buffer_len= 0;
+    m_recalculate_password= false;
+  }
+  String *val_str_ascii(String *str) override;
+//  void fix_length_and_dec();
+  bool resolve_type(THD *thd) override;
+  const char *func_name() const { return "tdsql_password"; }
+//  static char *create_password_hash_buffer(THD *thd, const char *password,
+//                                           size_t pass_len);
 };
 
 #endif /* ITEM_STRFUNC_INCLUDED */

@@ -1467,6 +1467,7 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"MBRTOUCHES", SQL_FN(Item_func_mbrtouches, 2)},
     {"MBRWITHIN", SQL_FN(Item_func_mbrwithin, 2)},
     {"MD5", SQL_FN(Item_func_md5, 1)},
+    {"TDSQL_PASSWORD", SQL_FN(Item_func_password, 1)},
     {"MONTHNAME", SQL_FN(Item_func_monthname, 1)},
     {"NAME_CONST", SQL_FN(Item_name_const, 2)},
     {"NULLIF", SQL_FN(Item_func_nullif, 2)},
@@ -2052,3 +2053,4 @@ Item *create_temporal_literal(THD *thd, const char *str, size_t length,
 /**
   @} (end of group GROUP_PARSER)
 */
+//
