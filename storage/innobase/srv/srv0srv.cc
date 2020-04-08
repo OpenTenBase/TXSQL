@@ -107,6 +107,10 @@ bool srv_downgrade_logs = false;
 bool srv_upgrade_old_undo_found = false;
 #endif /* INNODB_DD_TABLE */
 
+uint64_t srv_max_pending_sync_ios = 100;
+uint64_t srv_n_pending_ios_per_thread = 32;
+uint64_t srv_max_space_shards = 64;
+
 /* The following is the maximum allowed duration of a lock wait. */
 ulong srv_fatal_semaphore_wait_threshold = 600;
 

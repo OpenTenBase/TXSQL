@@ -43,7 +43,7 @@ COMMIT;
 
 let SEARCH_PATTERN= INNODB MONITOR OUTPUT;
 --source include/search_pattern.inc
-let SEARCH_PATTERN= SELECT SLEEP.*\nTABLE LOCK.*\nRECORD LOCKS space id;
+let SEARCH_PATTERN= SELECT SLEEP.*\nRECORD LOCKS space id;
 --source include/search_pattern_multiline.inc
 --remove_file $SEARCH_FILE
 

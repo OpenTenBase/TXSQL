@@ -22609,6 +22609,24 @@ static MYSQL_SYSVAR_ULONG(
     " to make the page compressible.",
     NULL, NULL, 50, 0, 75, 0);
 
+static MYSQL_SYSVAR_ULONG(
+    pending_ios_per_thread, srv_n_pending_ios_per_thread,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    "pending ios per thread",
+    NULL, NULL, 32, 1, 1024, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    max_pending_sync_ios, srv_max_pending_sync_ios,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    "pending sync ios, mainly for single page flushing",
+    NULL, NULL, 100, 1, 10000, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    max_tablespace_shards, srv_max_space_shards,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    "Max shards of tablespace", 
+    NULL, NULL, 64, 16, 1024, 0);
+
 static MYSQL_SYSVAR_UINT(
     snapshot_spin_loop, srv_snapshot_spin_loop, PLUGIN_VAR_OPCMDARG,
     "Max count of ut_delay in snapshot_ids function, if exceeding this "
@@ -22973,6 +22991,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(page_cleaner_sleep_factor),
     MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
     MYSQL_SYSVAR(page_flush_strategy),
+    MYSQL_SYSVAR(pending_ios_per_thread),
+    MYSQL_SYSVAR(max_pending_sync_ios),
+    MYSQL_SYSVAR(max_tablespace_shards),
     NULL};
 
 mysql_declare_plugin(innobase){

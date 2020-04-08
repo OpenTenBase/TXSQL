@@ -9,6 +9,7 @@ grant all on *.* to 'superuser_tmp'@'%';
 connect (root2,"127.0.0.1",superuser_tmp,,test);
 connection root2;
 set global forbid_server_path_remote_change=ON;
+--replace_column 2 #
 show variables like 'hostname';
 --error ER_REMOTE_OPERATION_DENIED 
 set global general_log_file='abc.log';

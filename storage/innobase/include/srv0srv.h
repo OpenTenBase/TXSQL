@@ -722,6 +722,10 @@ i/o handler thread */
 extern const char *srv_io_thread_op_info[];
 extern const char *srv_io_thread_function[];
 
+extern uint64_t srv_max_pending_sync_ios;
+extern uint64_t srv_n_pending_ios_per_thread;
+extern uint64_t srv_max_space_shards;
+
 /* the number of purge threads to use from the worker pool (currently 0 or 1) */
 extern ulong srv_n_purge_threads;
 

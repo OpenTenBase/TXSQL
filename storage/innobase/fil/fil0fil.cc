@@ -291,16 +291,16 @@ static const size_t MAX_SCAN_THREADS = 8;
 
 #ifndef UNIV_HOTBACKUP
 /** Maximum number of shards supported. */
-static const size_t MAX_SHARDS = 64;
+#define MAX_SHARDS (srv_max_space_shards)
 
 /** The redo log is in its own shard. */
-static const size_t REDO_SHARD = MAX_SHARDS - 1;
+#define REDO_SHARD (MAX_SHARDS - 1)
 
 /** Number of undo shards to reserve. */
-static const size_t UNDO_SHARDS = 4;
+#define UNDO_SHARDS 4
 
 /** The UNDO logs have their own shards (4). */
-static const size_t UNDO_SHARDS_START = REDO_SHARD - (UNDO_SHARDS + 1);
+#define UNDO_SHARDS_START (REDO_SHARD - (UNDO_SHARDS + 1))
 #else  /* !UNIV_HOTBACKUP */
 
 /** Maximum number of shards supported. */
@@ -8021,6 +8021,16 @@ possibly cached by the OS.
 @param[in]	purpose		FIL_TYPE_TABLESPACE or FIL_TYPE_LOG,
                                 can be ORred */
 void Fil_system::flush_file_spaces(uint8_t purpose) {
+  if (purpose == FIL_TYPE_TABLESPACE &&
+      srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC) {
+#ifdef UNIV_DEBUG
+  /* Continue with debug enabled. It'll check
+  the unflushed_spaces list in Fil_shard::flush_file_spaces. */
+#else
+    return;
+#endif
+  }
+
   for (auto shard : m_shards) {
     shard->flush_file_spaces(purpose);
   }

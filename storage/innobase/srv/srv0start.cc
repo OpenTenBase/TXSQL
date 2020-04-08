@@ -174,7 +174,7 @@ static pfs_os_file_t files[1000];
 static char *srv_monitor_file_name;
 
 /** */
-#define SRV_MAX_N_PENDING_SYNC_IOS 100
+#define SRV_MAX_N_PENDING_SYNC_IOS (srv_max_pending_sync_ios) 
 
 /* Keys to register InnoDB threads with performance schema */
 #ifdef UNIV_PFS_THREAD

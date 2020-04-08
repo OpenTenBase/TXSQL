@@ -1129,7 +1129,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
     want those calls because they would have bad impact on the counter
     of calls, which is monitored to save CPU on spinning in log threads. */
 
-    if (log_sys->flushed_to_disk_lsn.load() < flush_to_lsn) {
+    if (log_sys->flushed_to_disk_lsn.load(std::memory_order_acquire) < flush_to_lsn) {
       Wait_stats wait_stats;
 
       wait_stats = log_write_up_to(*log_sys, flush_to_lsn, true);
@@ -1359,13 +1359,13 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     if ((flush_type == BUF_FLUSH_LIST || should_try) &&
         is_uncompressed &&
         !rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE)) {
-      if (!fsp_is_system_temporary(bpage->id.space())) {
+      if (!fsp_is_system_temporary(bpage->id.space()) &&
+          flush_type != BUF_FLUSH_SINGLE_PAGE &&
+          srv_use_doublewrite_buf) {
         /* avoiding deadlock possibility involves
         doublewrite buffer, should flush it, because
         it might hold the another block->lock. */
         buf_dblwr_flush_buffered_writes();
-      } else {
-        buf_dblwr_sync_datafiles();
       }
 
       rw_lock_sx_lock_gen(rw_lock, BUF_IO_WRITE);
@@ -2029,7 +2029,9 @@ static void buf_flush_end(buf_pool_t *buf_pool, buf_flush_t flush_type) {
   mutex_exit(&buf_pool->flush_state_mutex);
 
   if (!srv_read_only_mode) {
-    buf_dblwr_flush_buffered_writes();
+    if (srv_use_doublewrite_buf) {
+      buf_dblwr_flush_buffered_writes();
+    }
   } else {
     os_aio_simulated_wake_handler_threads();
   }
@@ -2281,6 +2283,17 @@ static ulint buf_flush_LRU_list(buf_pool_t *buf_pool) {
 
   return (n_flushed);
 }
+
+void buf_flush_wait_FLUSH_batch_end(buf_pool_t *buf_pool) {
+  mutex_enter(&buf_pool->flush_state_mutex);
+  if (buf_pool->n_flush[BUF_FLUSH_LIST] > 0 ||
+      buf_pool->init_flush[BUF_FLUSH_LIST]) {
+    mutex_exit(&buf_pool->flush_state_mutex);
+    buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LIST);
+  } else {
+    mutex_exit(&buf_pool->flush_state_mutex);
+  }
+} 
 
 /** Wait for any possible LRU flushes that are in progress to end. */
 void buf_flush_wait_LRU_batch_end(void) {
@@ -2832,6 +2845,9 @@ static ulint pc_flush_slot(void) {
     if (page_cleaner->requested) {
       list_tm = ut_time_monotonic_ms();
 
+      /* Possiblely the previous batch is still running. */
+      buf_flush_wait_FLUSH_batch_end(buf_pool);
+      
       slot->succeeded_list =
           buf_flush_do_batch(buf_pool, BUF_FLUSH_LIST, slot->n_pages_requested,
                              page_cleaner->lsn_limit, &slot->n_flushed_list);
@@ -3237,6 +3253,7 @@ static void buf_flush_page_coordinator_thread(size_t n_page_cleaners) {
     } else if (ret_sleep == OS_SYNC_TIME_EXCEEDED && srv_idle_flush_pct) {
       /* no activity, slept enough */
       buf_flush_lists(PCT_IO(srv_idle_flush_pct), LSN_MAX, &n_flushed);
+      buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST);
 
       n_flushed_last += n_flushed;
 

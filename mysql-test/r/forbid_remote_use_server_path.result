@@ -3,7 +3,7 @@ grant all on *.* to 'superuser_tmp'@'%';
 set global forbid_server_path_remote_change=ON;
 show variables like 'hostname';
 Variable_name	Value
-hostname	node01
+hostname	#
 set global general_log_file='abc.log';
 ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_change' variable is ON.
 set global slow_query_log_file='abc.log';

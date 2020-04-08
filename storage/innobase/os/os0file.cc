@@ -297,7 +297,7 @@ struct Slot {
   uint16_t pos{0};
 
   /** true if this slot is reserved */
-  bool is_reserved{false};
+  std::atomic<bool> is_reserved{false};
 
   /** time when reserved */
   ib_time_monotonic_t reservation_time{0};
@@ -716,7 +716,7 @@ class AIO {
 
   /** Number of reserved slots in the AIO array outside
   the ibuf segment */
-  ulint m_n_reserved;
+  std::atomic<uint64_t> m_n_reserved;
 
 #ifdef _WIN32
   typedef std::vector<HANDLE, ut_allocator<HANDLE>> Handles;
@@ -1237,7 +1237,7 @@ dberr_t AIOHandler::check_read(Slot *slot, ulint n_bytes) {
 dberr_t AIOHandler::post_io_processing(Slot *slot) {
   dberr_t err;
 
-  ut_ad(slot->is_reserved);
+  ut_ad(slot->is_reserved.load());
 
   /* Total bytes read so far */
   ulint n_bytes = (slot->ptr - slot->buf) + slot->n_bytes;
@@ -1297,31 +1297,7 @@ dberr_t AIOHandler::post_io_processing(Slot *slot) {
 /** Count the number of free slots
 @return number of reserved slots */
 ulint AIO::pending_io_count() const {
-  acquire();
-
-#ifdef UNIV_DEBUG
-  ut_a(m_n_segments > 0);
-  ut_a(!m_slots.empty());
-
-  ulint count = 0;
-
-  for (ulint i = 0; i < m_slots.size(); ++i) {
-    const Slot &slot = m_slots[i];
-
-    if (slot.is_reserved) {
-      ++count;
-      ut_a(slot.len > 0);
-    }
-  }
-
-  ut_a(m_n_reserved == count);
-#endif /* UNIV_DEBUG */
-
-  ulint reserved = m_n_reserved;
-
-  release();
-
-  return (reserved);
+  return (m_n_reserved.load());
 }
 
 /** Compress a data page
@@ -1558,27 +1534,14 @@ ulint AIO::get_array_and_local_segment(AIO **array, ulint segment) {
 /** Frees a slot in the aio array. Assumes caller owns the mutex.
 @param[in,out]	slot		Slot to release */
 void AIO::release(Slot *slot) {
-  ut_ad(is_mutex_owned());
 
-  ut_ad(slot->is_reserved);
-
-  slot->is_reserved = false;
-
-  --m_n_reserved;
-
-  if (m_n_reserved == m_slots.size() - 1) {
-    os_event_set(m_not_full);
-  }
-
-  if (m_n_reserved == 0) {
-    os_event_set(m_is_empty);
-  }
-
+  ut_ad(srv_use_native_aio || is_mutex_owned());
 #ifdef WIN_ASYNC_IO
 
   ResetEvent(slot->handle);
 
 #elif defined(LINUX_NATIVE_AIO)
+  ut_ad(slot->is_reserved.load());
 
   if (srv_use_native_aio) {
     memset(&slot->control, 0x0, sizeof(slot->control));
@@ -1592,6 +1555,16 @@ void AIO::release(Slot *slot) {
   }
 
 #endif /* WIN_ASYNC_IO */
+
+  slot->io_already_done = false;
+  
+  /** Reset everything before setting is_reserved flag because
+  after setting it to false, it's visible to user thread. */
+  slot->is_reserved = false;
+
+  if (m_n_reserved.fetch_sub(1) == 1) {
+    os_event_set(m_is_empty);
+  }
 }
 
 /** Frees a slot in the AIO array. Assumes caller doesn't own the mutex.
@@ -2137,10 +2110,13 @@ class LinuxAIOHandler {
             !buf_flush_page_cleaner_is_active());
   }
 
-  /** If no slot was found then the m_array->m_mutex will be released.
+  /** Find a completed slot.
   @param[out]	n_pending	The number of pending IOs
   @return NULL or a slot that has completed IO */
-  Slot *find_completed_slot(ulint *n_pending);
+  Slot *find_completed_slot();
+
+  /** Return number of pending slots of the segment */
+  ulint n_pending_slots();
 
   /** This is called from within the IO-thread. If there are no completed
   IO requests in the slot array, the thread calls this function to
@@ -2174,15 +2150,13 @@ dberr_t LinuxAIOHandler::resubmit(Slot *slot) {
 #ifdef UNIV_DEBUG
   /* Bytes already read/written out */
   ulint n_bytes = slot->ptr - slot->buf;
-
-  ut_ad(m_array->is_mutex_owned());
-
   ut_ad(n_bytes < slot->original_len);
   ut_ad(static_cast<ulint>(slot->n_bytes) < slot->original_len - n_bytes);
   /* Partial read or write scenario */
   ut_ad(slot->len >= static_cast<ulint>(slot->n_bytes));
 #endif /* UNIV_DEBUG */
 
+  ut_ad(slot->is_reserved.load());
   slot->len -= slot->n_bytes;
   slot->ptr += slot->n_bytes;
   slot->offset += slot->n_bytes;
@@ -2219,7 +2193,6 @@ dberr_t LinuxAIOHandler::resubmit(Slot *slot) {
 @return DB_SUCCESS, DB_FAIL if the operation should be retried or
         DB_IO_ERROR on all other errors */
 dberr_t LinuxAIOHandler::check_state(Slot *slot) {
-  ut_ad(m_array->is_mutex_owned());
 
   /* Note that it may be that there is more then one completed
   IO requests. We process them one at a time. We may have a case
@@ -2229,7 +2202,7 @@ dberr_t LinuxAIOHandler::check_state(Slot *slot) {
   srv_set_io_thread_op_info(m_global_segment,
                             "processing completed aio requests");
 
-  ut_ad(slot->io_already_done);
+  ut_a(slot->io_already_done);
 
   dberr_t err;
 
@@ -2254,31 +2227,35 @@ dberr_t LinuxAIOHandler::check_state(Slot *slot) {
   return (err);
 }
 
+/** Return number of pending slots of the segment */
+ulint LinuxAIOHandler::n_pending_slots(void) {
+  ulint offset = m_n_slots * m_segment;
+  ulint n_pending = 0;
+
+  Slot *slot = m_array->at(offset);
+  for (ulint i = 0; i < m_n_slots; ++i, ++slot) {
+    if (slot->is_reserved.load()) {
+      ++n_pending;
+    }
+  }
+
+  return (n_pending);
+}
 /** If no slot was found then the m_array->m_mutex will be released.
 @param[out]	n_pending		The number of pending IOs
 @return NULL or a slot that has completed IO */
-Slot *LinuxAIOHandler::find_completed_slot(ulint *n_pending) {
+Slot *LinuxAIOHandler::find_completed_slot() {
   ulint offset = m_n_slots * m_segment;
-
-  *n_pending = 0;
-
-  m_array->acquire();
 
   Slot *slot = m_array->at(offset);
 
   for (ulint i = 0; i < m_n_slots; ++i, ++slot) {
-    if (slot->is_reserved) {
-      ++*n_pending;
-
-      if (slot->io_already_done) {
-        /* Something for us to work on.
-        Note: We don't release the mutex. */
-        return (slot);
-      }
+    if (slot->io_already_done) {
+      ut_a(slot->is_reserved.load(std::memory_order_acquire));
+      /* Something for us to work on. */
+      return (slot);
     }
   }
-
-  m_array->release();
 
   return (NULL);
 }
@@ -2337,7 +2314,7 @@ void LinuxAIOHandler::collect() {
 
       /* Some sanity checks. */
       ut_a(slot != NULL);
-      ut_a(slot->is_reserved);
+      ut_a(slot->is_reserved.load());
 
       /* We are not scribbling previous segment. */
       ut_a(slot->pos >= start_pos);
@@ -2358,10 +2335,10 @@ void LinuxAIOHandler::collect() {
 
       /* Mark this request as completed. The error handling
       will be done in the calling function. */
-      m_array->acquire();
 
       /* events[i].res2 should always be ZERO */
       ut_ad(events[i].res2 == 0);
+      /** Set the flag as finished. */
       slot->io_already_done = true;
 
       /*Even though events[i].res is an unsigned number in libaio, it is
@@ -2378,7 +2355,6 @@ void LinuxAIOHandler::collect() {
         slot->n_bytes = events[i].res;
         slot->ret = 0;
       }
-      m_array->release();
     }
 
     if (srv_shutdown_state.load() == SRV_SHUTDOWN_EXIT_THREADS ||
@@ -2429,12 +2405,9 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
 
   /* Loop until we have found a completed request. */
   for (;;) {
-    ulint n_pending;
-
-    slot = find_completed_slot(&n_pending);
+    slot = find_completed_slot();
 
     if (slot != NULL) {
-      ut_ad(m_array->is_mutex_owned());
 
       err = check_state(slot);
 
@@ -2451,9 +2424,7 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
         break;
       }
 
-      m_array->release();
-
-    } else if (is_shutdown() && n_pending == 0) {
+    } else if (is_shutdown() && n_pending_slots() == 0) {
       /* There is no completed request. If there is
       no pending request at all, and the system is
       being shut down, exit. */
@@ -2489,8 +2460,6 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
   *request = slot->type;
 
   m_array->release(slot);
-
-  m_array->release();
 
   return (err);
 }
@@ -2533,7 +2502,7 @@ static dberr_t os_aio_linux_handler(ulint global_segment, fil_node_t **m1,
 @param[in,out]	slot		an already reserved slot
 @return true on success. */
 bool AIO::linux_dispatch(Slot *slot) {
-  ut_a(slot->is_reserved);
+  ut_a(slot->is_reserved.load(std::memory_order_relaxed));
   ut_ad(slot->type.validate());
 
   /* Find out what we are going to work with.
@@ -6706,61 +6675,58 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
   segment. This can help in merging IO requests when we are
   doing simulated AIO */
   ulint local_seg;
-
+  Slot *slot = NULL;
   local_seg = (offset >> (UNIV_PAGE_SIZE_SHIFT + 6)) % m_n_segments;
 
-  for (;;) {
-    acquire();
-
-    if (m_n_reserved != m_slots.size()) {
-      break;
+  /* Scan in circual mode*/
+  ulint start = local_seg * slots_per_seg;
+  for (ulint i = start; ; ++i) {
+    if (i == m_slots.size()) {
+      i = 0;
     }
-
-    release();
-
-    if (!srv_use_native_aio) {
-      /* If the handler threads are suspended,
-      wake them so that we get more slots */
-
-      os_aio_simulated_wake_handler_threads();
-    }
-
-    os_event_wait(m_not_full);
-  }
-
-  ulint counter = 0;
-  Slot *slot = NULL;
-
-  /* We start our search for an available slot from our preferred
-  local segment and do a full scan of the array. We are
-  guaranteed to find a slot in full scan. */
-  for (ulint i = local_seg * slots_per_seg; counter < m_slots.size();
-       ++i, ++counter) {
-    i %= m_slots.size();
 
     slot = at(i);
 
-    if (slot->is_reserved == false) {
-      break;
+    if (slot->is_reserved.load(std::memory_order_acquire) == true) {
+      if (i == start) {
+        if (!srv_use_native_aio) {
+          /* If the handler threads are suspended,
+          wake them so that we get more slots */
+          os_aio_simulated_wake_handler_threads();
+        }
+
+        os_thread_yield();
+      }
+    } else  {
+
+      if (!srv_use_native_aio) {
+        /* For simulated aio, it needs mutex because the io thread
+        itself will do the io and we must make sure the slot is
+        completely initialized before being accessed by io thread. */
+        acquire();
+      }
+
+      bool old_flag = false;
+      if (slot->is_reserved.compare_exchange_weak(old_flag, true)) {
+        /* success */
+        uint64_t reserved = m_n_reserved.fetch_add(1);
+        if (reserved == 0) {
+          os_event_reset(m_is_empty);
+        }
+
+        break;
+      }
+
+      if (!srv_use_native_aio) {
+        /* Fail to reserve the slot, release the mutex and
+        loop again. */
+        release();
+      }
     }
   }
 
-  /* We MUST always be able to get hold of a reserved slot. */
-  ut_a(counter < m_slots.size());
-
-  ut_a(slot->is_reserved == false);
-
-  ++m_n_reserved;
-
-  if (m_n_reserved == 1) {
-    os_event_reset(m_is_empty);
-  }
-
-  if (m_n_reserved == m_slots.size()) {
-    os_event_reset(m_not_full);
-  }
-
-  slot->is_reserved = true;
+  ut_a(!slot->io_already_done);
+  ut_a(slot->is_reserved.load());
   slot->reservation_time = ut_time_monotonic();
   slot->m1 = m1;
   slot->m2 = m2;
@@ -6787,8 +6753,6 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
 
     ut_ad(!type.is_log());
 
-    release();
-
     void *src_buf = slot->buf;
     slot->buf_block = os_file_compress_page(type, src_buf, &compressed_len);
 
@@ -6800,8 +6764,6 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
     slot->len = static_cast<ulint>(compressed_len);
 #endif /* _WIN32 */
     slot->skip_punch_hole = !type.punch_hole();
-
-    acquire();
   }
 
   /* We do encryption after compression, since if we do encryption
@@ -6812,8 +6774,6 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
     ulint encrypted_len = slot->len;
     Block *encrypted_block;
     byte *encrypt_log_buf;
-
-    release();
 
     void *src_buf = slot->buf;
     if (!type.is_log()) {
@@ -6853,8 +6813,6 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
 #else
     slot->len = static_cast<ulint>(encrypted_len);
 #endif /* _WIN32 */
-
-    acquire();
   }
 
 #ifdef WIN_ASYNC_IO
@@ -6895,8 +6853,9 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
     slot->ret = 0;
   }
 #endif /* LINUX_NATIVE_AIO */
-
-  release();
+  if (!srv_use_native_aio) {
+    release();
+  }
 
   return (slot);
 }
@@ -6929,7 +6888,7 @@ void AIO::wake_simulated_handler_thread(ulint global_segment, ulint segment) {
   const Slot *slot = at(offset);
 
   for (ulint i = 0; i < n; ++i, ++slot) {
-    if (slot->is_reserved) {
+    if (slot->is_reserved.load()) {
       /* Found an i/o request */
 
       release();
@@ -7382,7 +7341,7 @@ class SimulatedAIOHandler {
     slot = m_array->at(offset);
 
     for (ulint i = 0; i < m_n_slots; ++i, ++slot) {
-      if (slot->is_reserved) {
+      if (slot->is_reserved.load()) {
         if (slot->io_already_done) {
           ut_a(slot->is_reserved);
 
@@ -7622,7 +7581,7 @@ class SimulatedAIOHandler {
     slot = m_array->at(offset);
 
     for (ulint i = 0; i < m_n_slots; ++i, ++slot) {
-      if (slot->is_reserved) {
+      if (slot->is_reserved.load()) {
         select_if_older(slot);
       }
     }
@@ -7883,8 +7842,6 @@ void AIO::print(FILE *file) {
   ulint count = 0;
   ulint n_res_seg[SRV_MAX_N_IO_THREADS];
 
-  mutex_enter(&m_mutex);
-
   ut_a(!m_slots.empty());
   ut_a(m_n_segments > 0);
 
@@ -7894,7 +7851,7 @@ void AIO::print(FILE *file) {
     Slot &slot = m_slots[i];
     ulint segment = (i * m_n_segments) / m_slots.size();
 
-    if (slot.is_reserved) {
+    if (slot.is_reserved.load()) {
       ++count;
 
       ++n_res_seg[segment];
@@ -7903,11 +7860,7 @@ void AIO::print(FILE *file) {
     }
   }
 
-  ut_a(m_n_reserved == count);
-
   print_segment_info(file, n_res_seg);
-
-  mutex_exit(&m_mutex);
 }
 
 /** Print all the AIO segments

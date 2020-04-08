@@ -792,7 +792,7 @@ struct os_file_size_t {
 };
 
 /** Win NT does not allow more than 64 */
-static const ulint OS_AIO_N_PENDING_IOS_PER_THREAD = 32;
+#define OS_AIO_N_PENDING_IOS_PER_THREAD (srv_n_pending_ios_per_thread)
 
 /** Modes for aio operations @{ */
 enum class AIO_mode : size_t {
