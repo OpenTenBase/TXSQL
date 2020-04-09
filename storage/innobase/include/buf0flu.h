@@ -145,8 +145,9 @@ bool buf_flush_single_page_from_LRU(buf_pool_t *buf_pool);
 /** Waits until a flush batch of the given type ends */
 void buf_flush_wait_batch_end(
     buf_pool_t *buf_pool, /*!< in: buffer pool instance */
-    buf_flush_t type);    /*!< in: BUF_FLUSH_LRU
+    buf_flush_t type,    /*!< in: BUF_FLUSH_LRU
                           or BUF_FLUSH_LIST */
+    bool sync);          /*!< in: if it should flush tablespaces. */
 
 /** Waits until a flush batch of the given type ends. This is called by a
 thread that only wants to wait for a flush to end but doesn't do any flushing

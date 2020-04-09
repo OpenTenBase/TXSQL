@@ -6678,7 +6678,8 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
   Slot *slot = NULL;
   local_seg = (offset >> (UNIV_PAGE_SIZE_SHIFT + 6)) % m_n_segments;
 
-  /* Scan in circual mode*/
+  /* Scan in cycle mode */
+  bool check_cycle = false;
   ulint start = local_seg * slots_per_seg;
   for (ulint i = start; ; ++i) {
     if (i == m_slots.size()) {
@@ -6687,18 +6688,7 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
 
     slot = at(i);
 
-    if (slot->is_reserved.load(std::memory_order_acquire) == true) {
-      if (i == start) {
-        if (!srv_use_native_aio) {
-          /* If the handler threads are suspended,
-          wake them so that we get more slots */
-          os_aio_simulated_wake_handler_threads();
-        }
-
-        os_thread_yield();
-      }
-    } else  {
-
+    if (slot->is_reserved.load(std::memory_order_acquire) == false) {
       if (!srv_use_native_aio) {
         /* For simulated aio, it needs mutex because the io thread
         itself will do the io and we must make sure the slot is
@@ -6723,6 +6713,18 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
         release();
       }
     }
+    
+    if (i == start && check_cycle) {
+      if (!srv_use_native_aio) {
+        /* If the handler threads are suspended,
+           wake them so that we get more slots */
+        os_aio_simulated_wake_handler_threads();
+      }
+
+      os_thread_yield();
+    }
+
+    check_cycle = true;
   }
 
   ut_a(!slot->io_already_done);

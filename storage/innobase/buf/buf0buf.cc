@@ -1787,7 +1787,7 @@ static bool buf_pool_withdraw_blocks(buf_pool_t *buf_pool) {
       mutex_exit(&buf_pool->free_list_mutex);
 
       buf_flush_do_batch(buf_pool, BUF_FLUSH_LRU, scan_depth, 0, &n_flushed);
-      buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
+      buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU, n_flushed != 0);
 
       if (n_flushed) {
         MONITOR_INC_VALUE_CUMULATIVE(MONITOR_LRU_BATCH_FLUSH_TOTAL_PAGE,
@@ -5411,7 +5411,7 @@ static void buf_pool_invalidate_instance(buf_pool_t *buf_pool) {
       buf_flush_t type = static_cast<buf_flush_t>(i);
 
       mutex_exit(&buf_pool->flush_state_mutex);
-      buf_flush_wait_batch_end(buf_pool, type);
+      buf_flush_wait_batch_end(buf_pool, type, true);
       mutex_enter(&buf_pool->flush_state_mutex);
     }
   }

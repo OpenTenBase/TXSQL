@@ -1,0 +1,37 @@
+--source include/big_test.inc
+
+SHOW VARIABLES LIKE 'innodb_doublewrite';
+SHOW VARIABLES LIKE 'innodb_flush_method';
+
+#Create table for testing
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY, b INT, c VARCHAR(1000)) ENGINE=INNODB;
+
+INSERT INTO t1 VALUES (NULL, RAND()*10000, "hello, world");
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+INSERT INTO t1 SELECT NULL, RAND()*10000, "hello, world" FROM t1;
+SELECT COUNT(*) FROM t1;
+UPDATE t1 SET b = b + 1;
+
+# Give page cleaner a chance to flush dirty pages
+--sleep 1
+
+DROP TABLE t1;

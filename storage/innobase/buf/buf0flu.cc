@@ -2039,8 +2039,10 @@ static void buf_flush_end(buf_pool_t *buf_pool, buf_flush_t flush_type) {
 
 /** Waits until a flush batch of the given type ends */
 void buf_flush_wait_batch_end(buf_pool_t *buf_pool, /*!< buffer pool instance */
-                              buf_flush_t type)     /*!< in: BUF_FLUSH_LRU
+                              buf_flush_t type,     /*!< in: BUF_FLUSH_LRU
                                                     or BUF_FLUSH_LIST */
+                              bool sync)            /*!< in: if it should flush
+                                                    tablespaces */
 {
   ut_ad(type == BUF_FLUSH_LRU || type == BUF_FLUSH_LIST);
 
@@ -2060,6 +2062,12 @@ void buf_flush_wait_batch_end(buf_pool_t *buf_pool, /*!< buffer pool instance */
     thd_wait_begin(NULL, THD_WAIT_DISKIO);
     os_event_wait(buf_pool->no_flush[type]);
     thd_wait_end(NULL);
+  }
+
+  /* If srv_use_doublewrite_buf is on, we already fsync the
+  data to dblwr in buf_flush_end(). */
+  if (!srv_use_doublewrite_buf && sync) {
+    fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE));
   }
 }
 
@@ -2289,7 +2297,7 @@ void buf_flush_wait_FLUSH_batch_end(buf_pool_t *buf_pool) {
   if (buf_pool->n_flush[BUF_FLUSH_LIST] > 0 ||
       buf_pool->init_flush[BUF_FLUSH_LIST]) {
     mutex_exit(&buf_pool->flush_state_mutex);
-    buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LIST);
+    buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LIST, true);
   } else {
     mutex_exit(&buf_pool->flush_state_mutex);
   }
@@ -2307,7 +2315,7 @@ void buf_flush_wait_LRU_batch_end(void) {
     if (buf_pool->n_flush[BUF_FLUSH_LRU] > 0 ||
         buf_pool->init_flush[BUF_FLUSH_LRU]) {
       mutex_exit(&buf_pool->flush_state_mutex);
-      buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
+      buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU, true);
     } else {
       mutex_exit(&buf_pool->flush_state_mutex);
     }
@@ -3253,7 +3261,7 @@ static void buf_flush_page_coordinator_thread(size_t n_page_cleaners) {
     } else if (ret_sleep == OS_SYNC_TIME_EXCEEDED && srv_idle_flush_pct) {
       /* no activity, slept enough */
       buf_flush_lists(PCT_IO(srv_idle_flush_pct), LSN_MAX, &n_flushed);
-      buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST);
+      buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST, n_flushed != 0);
 
       n_flushed_last += n_flushed;
 
@@ -3344,7 +3352,7 @@ static void buf_flush_page_coordinator_thread(size_t n_page_cleaners) {
   considering end of that batch as a finish of our final
   sweep and we'll come out of the loop leaving behind dirty pages
   in the flush_list */
-  buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST);
+  buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST, true);
   ut_ad(buf_flush_active_lru_managers() == 0);
 
   bool success;
@@ -3360,7 +3368,7 @@ static void buf_flush_page_coordinator_thread(size_t n_page_cleaners) {
 
     n_flushed = n_flushed_list;
 
-    buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST);
+    buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST, n_flushed != 0);
 
   } while (!success || n_flushed > 0);
 
@@ -3416,7 +3424,7 @@ void buf_flush_sync_all_buf_pools(void) {
   do {
     n_pages = 0;
     success = buf_flush_lists(ULINT_MAX, LSN_MAX, &n_pages);
-    buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST);
+    buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST, n_pages != 0);
 
     if (!success) {
       MONITOR_INC(MONITOR_FLUSH_SYNC_WAITS);
@@ -3539,7 +3547,7 @@ static void buf_lru_manager_thread(size_t buf_pool_instance) {
 
     lru_n_flushed = buf_flush_LRU_list(buf_pool);
 
-    buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
+    buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU, lru_n_flushed != 0);
 
     if (lru_n_flushed) {
       srv_stats.buf_pool_flushed.add(lru_n_flushed);
