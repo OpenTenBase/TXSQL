@@ -22699,6 +22699,12 @@ static MYSQL_SYSVAR_BOOL(
     "Enable adaptive sleeping. If reaching limitted age of "
     "log space, it'll do more aggressive flushing. ",
     NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+    mtr_check_dirty, opt_mtr_check_dirty,
+    PLUGIN_VAR_OPCMDARG,
+    "True if only adding modified page to flush list",
+    NULL, NULL, false);
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
                          PLUGIN_VAR_RQCMDARG,
@@ -22994,6 +23000,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(pending_ios_per_thread),
     MYSQL_SYSVAR(max_pending_sync_ios),
     MYSQL_SYSVAR(max_tablespace_shards),
+    MYSQL_SYSVAR(mtr_check_dirty),
     NULL};
 
 mysql_declare_plugin(innobase){

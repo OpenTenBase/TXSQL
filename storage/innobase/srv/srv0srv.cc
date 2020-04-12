@@ -446,6 +446,8 @@ int64_t srv_cleaner_sleep_factor = 1;
 
 bool opt_cleaner_adaptive_sleep = false;
 
+bool opt_mtr_check_dirty = false;
+
 const ulong srv_idle_flush_pct_default = 100;
 ulong srv_idle_flush_pct = srv_idle_flush_pct_default;
 

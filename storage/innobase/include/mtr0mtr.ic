@@ -63,6 +63,7 @@ void mtr_t::memo_push(void *object, mtr_memo_type_t type) {
 
   slot->type = type;
   slot->object = object;
+  slot->mark_dirty = false;
 }
 
 /**

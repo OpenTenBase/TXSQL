@@ -223,6 +223,8 @@ byte *mlog_write_initial_log_record_fast(
   space = mach_read_from_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
   offset = mach_read_from_4(page + FIL_PAGE_OFFSET);
 
+  mtr->mark_slot_dirty(page);
+
   /* check whether the page is in the doublewrite buffer;
   the doublewrite buffer is located in pages
   FSP_EXTENT_SIZE, ..., 3 * FSP_EXTENT_SIZE - 1 in the

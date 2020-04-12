@@ -148,6 +148,11 @@ struct Find_page {
     m_slot = slot;
     return (false);
   }
+  
+  mtr_memo_slot_t *get_slot() {
+    ut_ad(m_slot != NULL);
+    return (m_slot);
+  }
 
   /** @return the slot that was found */
   mtr_memo_slot_t *get_slot() const {
@@ -239,7 +244,7 @@ struct Add_dirty_blocks_to_flush_list {
                                   added to REDO by the MTR
   @param[in,out]	observer	flush observer */
   Add_dirty_blocks_to_flush_list(lsn_t start_lsn, lsn_t end_lsn,
-                                 FlushObserver *observer);
+                                 FlushObserver *observer, bool check_dirty);
 
   /** Add the modified page to the buffer flush list. */
   void add_dirty_page_to_flush_list(mtr_memo_slot_t *slot) const {
@@ -260,8 +265,9 @@ struct Add_dirty_blocks_to_flush_list {
     if (slot->object != NULL) {
       if (slot->type == MTR_MEMO_PAGE_X_FIX ||
           slot->type == MTR_MEMO_PAGE_SX_FIX) {
-        add_dirty_page_to_flush_list(slot);
-
+        if (!m_check_dirty || slot->mark_dirty || m_start_lsn == 0) {
+          add_dirty_page_to_flush_list(slot);
+        }
       } else if (slot->type == MTR_MEMO_BUF_FIX) {
         buf_block_t *block;
         block = reinterpret_cast<buf_block_t *>(slot->object);
@@ -283,6 +289,10 @@ struct Add_dirty_blocks_to_flush_list {
 
   /** Flush observer */
   FlushObserver *const m_flush_observer;
+
+  /** Flag to indicate if only modified pages are added
+  to flush list. */
+  bool m_check_dirty;
 };
 
 /** Constructor.
@@ -292,8 +302,9 @@ struct Add_dirty_blocks_to_flush_list {
                                 to REDO by the MTR
 @param[in,out]	observer	flush observer */
 Add_dirty_blocks_to_flush_list::Add_dirty_blocks_to_flush_list(
-    lsn_t start_lsn, lsn_t end_lsn, FlushObserver *observer)
-    : m_end_lsn(end_lsn), m_start_lsn(start_lsn), m_flush_observer(observer) {
+    lsn_t start_lsn, lsn_t end_lsn, FlushObserver *observer, bool check_dirty)
+    : m_end_lsn(end_lsn), m_start_lsn(start_lsn),
+      m_flush_observer(observer), m_check_dirty(check_dirty) {
   /* Do nothing */
 }
 
@@ -440,6 +451,7 @@ void mtr_t::start(bool sync, bool read_only) {
   m_impl.m_state = MTR_STATE_ACTIVE;
   m_impl.m_flush_observer = NULL;
 
+  m_check_dirty = opt_mtr_check_dirty;
   ut_d(m_impl.m_magic_n = MTR_MAGIC_N);
 }
 
@@ -616,7 +628,8 @@ void mtr_t::Command::release_all() {
 void mtr_t::Command::add_dirty_blocks_to_flush_list(lsn_t start_lsn,
                                                     lsn_t end_lsn) {
   Add_dirty_blocks_to_flush_list add_to_flush(start_lsn, end_lsn,
-                                              m_impl->m_flush_observer);
+                                              m_impl->m_flush_observer,
+                                              m_impl->m_mtr->m_check_dirty);
 
   Iterate<Add_dirty_blocks_to_flush_list> iterator(add_to_flush);
 
@@ -668,6 +681,25 @@ void mtr_t::Command::execute() {
   release_all();
   release_resources();
 }
+
+void mtr_t::mark_slot_dirty(const void *ptr) {
+  if (!m_check_dirty) {
+    return;
+  }
+
+  Find_page check(ptr, MTR_MEMO_PAGE_X_FIX | MTR_MEMO_PAGE_SX_FIX);
+  Iterate<Find_page> iterator(check);
+
+  mtr_memo_slot_t *slot =
+              (m_impl.m_memo.for_each_block_in_reverse(iterator)
+              ? nullptr
+              : check.get_slot());
+
+  ut_a(slot != nullptr);
+
+  slot->mark_dirty = true;
+}
+
 
 #ifndef UNIV_HOTBACKUP
 #ifdef UNIV_DEBUG

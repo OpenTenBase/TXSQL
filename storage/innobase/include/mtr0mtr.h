@@ -163,6 +163,9 @@ struct mtr_memo_slot_t {
 
   /** type of the stored object (MTR_MEMO_S_LOCK, ...) */
   ulint type;
+
+  /** True if the page is modified by mtr */
+  bool mark_dirty;
 };
 
 /** Mini-transaction handle and buffer */
@@ -246,6 +249,8 @@ struct mtr_t {
 
     return (m_impl.m_memo.size());
   }
+
+  void mark_slot_dirty(const void *ptr);
 
   /** Release the (index tree) s-latch stored in an mtr memo after a
   savepoint.
@@ -475,6 +480,9 @@ struct mtr_t {
 
   /** true if it is synchronous mini-transaction */
   bool m_sync;
+
+  /** true if it will only add modified page to flush list. */
+  bool m_check_dirty;
 
   class Command;
 
