@@ -437,6 +437,17 @@ class partition_info {
   TDSQL_Shard_Table_Type_Enum m_tdsql_shard_type;
   void computePnoVec();
   void computeShardTableType();
+  inline bool isTDSQLTable() const{ //tdsql' table ,To distinguish it from a normal partition table
+	  return TDSQL_Shard_Table_Type_NormalShard == m_tdsql_shard_type || TDSQL_Shard_Table_Type_ListAndHash == m_tdsql_shard_type;
+  }
+
+  inline bool isNotTDSQLTable() const{ //is not tdsql' table ,To distinguish it from a normal partition table
+	  return TDSQL_Shard_Table_Type_Other == m_tdsql_shard_type ;
+  }
+
+//  inline bool isTDSQLTableOrNotInit() const{ //tdsql' table ,To distinguish it from a normal partition table
+//	  return isTDSQLTable() || TDSQL_Shard_Table_Type_NotInited == m_tdsql_shard_type;
+//  }
 
   inline int getFirstIndexFromPartid(uint partid) const {
     if (likely(TDSQL_Shard_Table_Type_NormalShard == m_tdsql_shard_type)) {
