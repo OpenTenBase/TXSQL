@@ -313,6 +313,7 @@ class Ed_row final {
 };
 
 class Server_side_cursor;
+class Quick_cached_range_info;
 
 /**
   Prepared_statement: a statement that can contain placeholders.
@@ -393,6 +394,7 @@ class Prepared_statement final {
                       PS_PARAM *parameters);
   bool set_parameters(String *expanded_query);
 
+  Quick_cached_range_info *m_cached_info;
  private:
   void cleanup_stmt();
   void setup_set_params();

@@ -951,7 +951,13 @@ bool sp_instr_stmt::exec_core(THD *thd, uint *nextp) {
 
   PSI_statement_locker *statement_psi_saved = thd->m_statement_psi;
 
+  if (g_sp_cache_range) {
+    thd->qck_rows_info = &m_cached_info;
+  } else {
+    m_cached_info.clear();
+  }
   bool rc = mysql_execute_command(thd);
+  thd->qck_rows_info = nullptr;
 
   thd->lex->set_sp_current_parsing_ctx(NULL);
   thd->lex->sphead = NULL;

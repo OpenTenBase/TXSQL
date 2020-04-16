@@ -453,6 +453,164 @@ class sp_lex_instr : public sp_instr {
   SQL_I_List<Item_trigger_field> m_trig_field_list;
 };
 
+extern ulong refresh_version;
+
+/** Collect this many record_in_range() to calculate
+the average value. */
+#define MAX_COLLECT_RANGES 16
+
+/** After using so many times of cached value, it'll
+discard and re-cache. */
+#define MAX_REUSE_CNT 1000000
+class Quick_cache_element {
+public:
+  Quick_cache_element(uint64_t n_rows) {
+    m_total_rows = n_rows;
+    m_collect_cnt = 1;
+    m_used_cnt = 0;
+  }
+
+  ~Quick_cache_element() {};
+
+  uint64_t value() {
+    if (m_collect_cnt < MAX_COLLECT_RANGES) {
+      return 0;
+    }
+
+    m_used_cnt++;
+
+    if (m_used_cnt > MAX_REUSE_CNT) {
+      /* Recalculate the cached value. */
+      return ULONG_MAX;
+    }
+
+    DBUG_ASSERT(m_collect_cnt > 0);
+
+    return (m_total_rows / m_collect_cnt);
+  }
+
+  void add(uint64_t n_rows) {
+    m_collect_cnt++;
+    m_total_rows += n_rows;
+  }
+
+private:
+  /** Counter of collected value. */
+  uint64_t m_collect_cnt;
+
+  /** Accumulated rows */
+  uint64_t m_total_rows;
+
+  /** The counter that value() be used. */
+  uint64_t m_used_cnt;
+};
+
+class Quick_cached_range_info {
+public:
+  Quick_cached_range_info() {
+    clear();
+  }
+
+  ~Quick_cached_range_info() {
+    clear();
+  }
+
+  void clear() {
+    for (auto elem : m_cache) {
+      delete elem.second;
+    }
+
+    m_cache.clear();
+  }
+
+  uint64_t find(uint idx, uint64_t table_version,
+                const char *db_name,
+                const char *table_name) {
+    if (m_cache.empty()) {
+      return 0;
+    } else if (m_refresh_version != refresh_version ||
+               m_table_version != table_version) {
+      /* Clear cached value if version changes due to:
+      table def is changed, or FLUSH TABLES */
+      clear();
+      return 0;
+    }
+
+    if (strcmp(m_dbname.c_str(), db_name) != 0 ||
+        strcmp(m_tablename.c_str(), table_name) != 0) {
+      return 0;
+    }
+    
+    auto res = m_cache.find(idx);
+    if (res == m_cache.end()) {
+      return 0;
+    }
+
+    Quick_cache_element *elem = res->second;
+
+    uint64_t val = elem->value();
+
+    if (val == ULONG_MAX) {
+      /* We have used the cached element for too many
+      times, remove it and recollect . */
+      m_cache.erase(idx);
+      return 0;
+    }
+
+    return val;
+  }
+
+  void insert(uint32_t idx, uint64_t n_rows,
+              uint64_t table_version,
+              const char* db_name, 
+              const char* table_name) {
+    DBUG_ASSERT(n_rows > 0);
+    DBUG_ASSERT(table_version == m_table_version);
+
+    if (m_cache.empty()) {
+      /* Init db name and table name */
+      m_dbname = std::string(db_name);
+      m_tablename = std::string(table_name);
+
+      /* Init the version number in first access */
+      m_refresh_version = refresh_version;
+      m_table_version = table_version;
+
+    } else if ((strcmp(m_dbname.c_str(), db_name) != 0) ||
+               (strcmp(m_tablename.c_str(), table_name) != 0)) {
+      /* Unmatched db/table name, do nothing */
+      return;
+    }
+
+    auto res = m_cache.find(idx);
+
+    if (res == m_cache.end()) {
+      /* Create new element */
+      Quick_cache_element *elem = new Quick_cache_element(n_rows);
+      m_cache[idx] = elem;
+    } else {
+      res->second->add(n_rows);
+    }
+  }
+
+private:
+
+  /** Cache the refresh_version value */
+  uint64_t m_refresh_version;
+
+  /** Table id as version number */
+  uint64_t m_table_version;
+
+  /** Elements and key is index no. */
+  std::map<uint, Quick_cache_element*> m_cache;
+
+  /** Database name */
+  std::string m_dbname;
+
+  /** Table name */
+  std::string m_tablename;
+};
+
 ///////////////////////////////////////////////////////////////////////////
 
 /**
@@ -499,6 +657,8 @@ class sp_instr_stmt : public sp_lex_instr {
     m_valid = true;
     return false;
   }
+
+  Quick_cached_range_info m_cached_info;
 
  private:
   /// Complete query of the SQL-statement.

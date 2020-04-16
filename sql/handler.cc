@@ -117,6 +117,7 @@
 #include "sql/sql_plugin.h"  // plugin_foreach
 #include "sql/sql_select.h"  // actual_key_parts
 #include "sql/sql_table.h"   // build_table_filename
+#include "sql/sp_instr.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"
 #include "sql/tc_log.h"
@@ -6164,6 +6165,17 @@ ha_rows handler::multi_range_read_info_const(
   DBUG_EXECUTE_IF("bug13822652_2", thd->killed = THD::KILL_QUERY;);
 
   seq_it = seq->init(seq_init_param, n_ranges, *flags);
+
+  uint64_t table_version = 0;
+  if (thd->qck_rows_info) {
+    table_version = table->s->get_table_ref_version();
+    total_rows = thd->qck_rows_info->find(keyno, table_version,
+                                          table->s->db.str, table->s->table_name.str);
+    if (total_rows != 0) {
+      goto end;
+    }
+  }
+
   while (!seq->next(seq_it, &range)) {
     if (unlikely(thd->killed != 0)) return HA_POS_ERROR;
 
@@ -6228,6 +6240,15 @@ ha_rows handler::multi_range_read_info_const(
     total_rows += rows;
   }
 
+  if (thd->qck_rows_info
+      && total_rows != HA_POS_ERROR
+      && total_rows > 0) {
+    thd->qck_rows_info->insert(keyno, total_rows, table_version,
+                               table->s->db.str,
+                               table->s->table_name.str);
+  }
+
+end:
   if (total_rows != HA_POS_ERROR) {
     const Cost_model_table *const cost_model = table->cost_model();
 

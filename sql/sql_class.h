@@ -150,6 +150,7 @@ class Reprepare_observer;
 class Rows_log_event;
 class Time_zone;
 class sp_cache;
+class Quick_cached_range_info;
 struct Binlog_user_var_event;
 struct LOG_INFO;
 class Check_constraints_adjusted_names_map;
@@ -2546,6 +2547,8 @@ class THD : public MDL_context_owner,
   sp_rcontext *sp_runtime_ctx;
   sp_cache *sp_proc_cache;
   sp_cache *sp_func_cache;
+
+  Quick_cached_range_info *qck_rows_info;
 
   /** number of name_const() substitutions, see sp_head.cc:subst_spvars() */
   uint query_name_consts;

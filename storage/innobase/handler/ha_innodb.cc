@@ -15833,17 +15833,6 @@ ha_rows ha_innobase::records_in_range(
     goto func_exit;
   }
   
-  /* This is a temp solution to avoid io for estimation of DML
-  with range where condition. If we have plan cache, it should
-  be removed. */
-  if (opt_skip_dml_estimate_range && !thd_is_select(ha_thd())) {
-    if (index->is_clustered()) {
-      return (ha_rows)1;
-    } else {
-      return (ha_rows)10;
-    }
-  }
-  
   heap = mem_heap_create(
       2 * (key->actual_key_parts * sizeof(dfield_t) + sizeof(dtuple_t)));
 
@@ -22682,12 +22671,6 @@ static MYSQL_SYSVAR_BOOL(
     "write gtid.", NULL, NULL, true);
 
 static MYSQL_SYSVAR_BOOL(
-    skip_dml_estimate_range, opt_skip_dml_estimate_range, PLUGIN_VAR_OPCMDARG,
-    "skip estimation of records_in_range for dml statements. This "
-    "is a temp solution, in further we need plan cache to completely "
-    "solve the problem", NULL, NULL, false);
-
-static MYSQL_SYSVAR_BOOL(
     simplify_trx_in_innodb, opt_simplify_trx_in_innodb,
     PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
     "Don't acquire trx_t::mutex in TrxInInnoDB to avoid unnecessary cpu cost.",
@@ -22991,7 +22974,6 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(use_cloned_view),
     MYSQL_SYSVAR(strict_gtid_commit),
     MYSQL_SYSVAR(page_reserve_factor),
-    MYSQL_SYSVAR(skip_dml_estimate_range),
     MYSQL_SYSVAR(simplify_trx_in_innodb),
     MYSQL_SYSVAR(cleaner_lsn_age_factor),
     MYSQL_SYSVAR(page_cleaner_sleep_factor),

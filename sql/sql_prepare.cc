@@ -165,6 +165,7 @@ When one supplies long data for a placeholder:
 #include "sql/sql_query_rewrite.h"
 #include "sql/sql_rewrite.h"  // mysql_rewrite_query
 #include "sql/sql_view.h"     // create_view_precheck
+#include "sql/sp_instr.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"
 #include "sql/thr_malloc.h"
@@ -2305,6 +2306,7 @@ Prepared_statement::Prepared_statement(THD *thd_arg)
                  thd_arg->variables.query_alloc_block_size,
                  thd_arg->variables.query_prealloc_size);
   *last_error = '\0';
+  m_cached_info = new Quick_cached_range_info();
 }
 
 void Prepared_statement::close_cursor() {
@@ -2347,6 +2349,8 @@ Prepared_statement::~Prepared_statement() {
   DBUG_PRINT("enter", ("stmt: %p  cursor: %p", this, cursor));
   destroy(result);
   delete cursor;
+  delete m_cached_info;
+
   /*
     We have to call free on the items even if cleanup is called as some items,
     like Item_param, don't free everything until free_items()
@@ -3223,7 +3227,14 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor) {
       bool switched = mgr_ptr->switch_resource_group_if_needed(
           thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
+      if (g_sp_cache_range) {
+        thd->qck_rows_info = m_cached_info;
+      } else {
+        m_cached_info->clear();
+      }
+
       error = mysql_execute_command(thd, true);
+      thd->qck_rows_info = nullptr;
 
       if (switched)
         mgr_ptr->restore_original_resource_group(thd, src_res_grp,

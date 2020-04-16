@@ -7147,6 +7147,12 @@ static Sys_var_bool Sys_log_prepared_xid_list(
     GLOBAL_VAR(g_log_prepared_xid_list),
     CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_sp_cache_range_info(
+    "sp_cache_range_info",
+    "If the statement of sp used quck select and needs to calculate "
+    "rows of the range, we'll cache the result.",
+    GLOBAL_VAR(g_sp_cache_range), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_uint Sys_prepared_xid_list_instances(
     "log_prepared_xid_list_instances",
     "Instance number of sets for storing prepared xids",

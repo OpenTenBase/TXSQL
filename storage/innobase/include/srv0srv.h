@@ -745,8 +745,6 @@ extern bool srv_print_ddl_logs;
 
 extern bool srv_cmp_per_index_enabled;
 
-extern bool opt_skip_dml_estimate_range;
-
 extern bool opt_simplify_trx_in_innodb;
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;

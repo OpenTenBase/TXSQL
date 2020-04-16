@@ -536,12 +536,6 @@ bool srv_print_ddl_logs = false;
 /** Enable INFORMATION_SCHEMA.innodb_cmp_per_index */
 bool srv_cmp_per_index_enabled = FALSE;
 
-/** Don't estimate record ranges for DML operation and
-it tends to choose primary index. This is a temp solution
-to reduce io for estimation.
-Note: If we have plan cache, this option can be removed later.*/
-bool opt_skip_dml_estimate_range = false;
-
 /** The value of the configuration parameter innodb_fast_shutdown,
 controlling the InnoDB shutdown.
 
