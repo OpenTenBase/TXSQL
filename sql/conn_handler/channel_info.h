@@ -46,6 +46,8 @@ typedef Vio Vio;
 class Channel_info {
   ulonglong prior_thr_create_utime;
 
+  bool m_on_unix_sock;
+
  protected:
   /**
     Create and initialize a Vio object.
@@ -54,7 +56,10 @@ class Channel_info {
   */
   virtual Vio *create_and_init_vio() const = 0;
 
-  Channel_info() : prior_thr_create_utime(0) {}
+  Channel_info() :
+	  prior_thr_create_utime(0),
+	  m_on_unix_sock(false) {
+  }
 
  public:
   virtual ~Channel_info() {}
@@ -90,6 +95,14 @@ class Channel_info {
   }
 
   virtual bool is_admin_connection() const { return false; }
+
+  bool is_on_unix_sock() const
+  { return m_on_unix_sock; }
+
+  void set_on_unix_sock(bool b)
+  {
+      m_on_unix_sock= b;
+  }
 };
 
 #endif  // SQL_CHANNEL_INFO_INCLUDED.

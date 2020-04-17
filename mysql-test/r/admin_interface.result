@@ -81,7 +81,7 @@ connection default;
 # Show how many active connections currently exist
 SHOW STATUS LIKE 'Threads_connected';
 Variable_name	Value
-Threads_connected	1
+Threads_connected	0
 # Test case 10
 # Check that the parameter max_connections does affect to an ordinary
 # connection and doesn't affect to a connection made to admin interface
@@ -90,7 +90,9 @@ connect ordinary_con_1,localhost,u1,,,,,;
 # ordinary_con_1 established
 SHOW STATUS LIKE 'Threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
+connection default;
+set global extra_max_connections=1;
 # Since server was started with the option --max-connections=2 and
 # there are already two active connections (the first one is for
 # the default connection and the second one is for the connection
@@ -98,7 +100,9 @@ Threads_connected	2
 # error ER_CON_COUNT_ERROR
 connect(localhost,u2,,test,MASTER_PORT,MASTER_SOCKET);
 connect ordinary_con_2,localhost,u2,,,,,;
-ERROR 08004: Too many connections
+ERROR HY000: Too many connections
+connection default;
+set global extra_max_connections=32;
 # Check that attempt to establish the third connection to admin interface
 # doesn't result in error
 connect admin_con_3,localhost,u1,,,$ADMIN_PORT,,TCP;

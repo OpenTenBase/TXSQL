@@ -5,6 +5,8 @@
 --echo #                IS POSSIBLE
 --echo #
 
+set @@global.extra_max_connections=128;
+
 # Save the original settings, to be restored at the end of test
 SET @innodb_lock_wait_timeout_saved = @@global.innodb_lock_wait_timeout;
 
@@ -195,3 +197,5 @@ DROP PROCEDURE show_locks;
 DROP TABLE t0;
 # Restore saved settings
 SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved ;
+
+set @@global.extra_max_connections=DEFAULT;

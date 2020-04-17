@@ -14,14 +14,14 @@ COUNT(USER)
 5
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	4
+Threads_connected	0
 SET GLOBAL offline_mode = ON;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 2
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	1
+Threads_connected	0
 error ER_SERVER_OFFLINE_MODE
 connection conu1;
 connection default;
@@ -30,7 +30,7 @@ COUNT(USER)
 2
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	1
+Threads_connected	0
 SET GLOBAL offline_mode = OFF;
 connect conu4,localhost,root;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
@@ -38,7 +38,7 @@ COUNT(USER)
 3
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
 connection default;
 SET GLOBAL offline_mode = OFF;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
@@ -46,7 +46,7 @@ COUNT(USER)
 3
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
 disconnect conu1;
 disconnect conu2;
 disconnect conu3;
@@ -62,14 +62,14 @@ COUNT(USER)
 6
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	5
+Threads_connected	0
 SET GLOBAL offline_mode = ON;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 3
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
 disconnect conu1;
 disconnect conu2;
 disconnect conu3;

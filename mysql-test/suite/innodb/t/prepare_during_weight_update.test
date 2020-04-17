@@ -6,6 +6,9 @@
 --source include/have_debug_sync.inc
 
 --source include/count_sessions.inc
+
+set @@global.extra_max_connections=128;
+
 # We had an assert that the state of transaction has to stay TRX_STATE_ACTIVE
 # while updating its weight in CATS algorithm.
 # The main goal of this scenario is to demonstrate that a transaction can change
@@ -115,3 +118,4 @@ SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved ;
 
 --source include/wait_until_count_sessions.inc
 
+set @@global.extra_max_connections=DEFAULT;

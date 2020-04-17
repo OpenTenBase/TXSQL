@@ -4,6 +4,7 @@
 #                LOCK_GET_TYPE_LOW(LOCK) == 32 IN LOCK0PRIV.IC #
 #                                                              #
 ################################################################
+set @@global.extra_max_connections=128;
 SHOW VARIABLES LIKE 'innodb_autoinc_lock_mode';
 Variable_name	Value
 innodb_autoinc_lock_mode	0
@@ -149,3 +150,4 @@ SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved;
 # End of Bug #27944920 #
 #                      #
 ########################
+set @@global.extra_max_connections=DEFAULT;

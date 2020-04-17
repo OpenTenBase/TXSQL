@@ -648,6 +648,7 @@ select json_extract(j, '$[1541]') from t1 where pkey = 1;
 json_extract(j, '$[1541]')
 "sWq1TmvBp5zfkYcDHtEsG228d0d69Zj06Z1XLui9zhmiEOvVHANVANbmODqVmZVq7UNQP3ZMlL4zhySy6nSGA30WEq21OVpV0BtNERjxkmuSkKOq7q4Gs3k4"
 commit;
+set global extra_max_connections=128;
 # Connection con32:
 start transaction;
 select json_extract(j, '$[0]') from t1 where pkey = 1;
@@ -3137,3 +3138,4 @@ json_extract(j, '$[1541]')
 "rKHmh668WIwCSTBo64er0OTku9DA80TzKklzps7LA4XaVgMbi0QiOrQG0cR8cu5ucptRfymn2HMVwi4ehUN3MlIKNjRxbWpBJgdyfNkfd6BZmFBRiWT2IlMf"
 # Connection default:
 drop table t1;
+set @@global.extra_max_connections=DEFAULT;

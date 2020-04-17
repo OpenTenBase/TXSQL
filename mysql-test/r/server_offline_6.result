@@ -8,14 +8,14 @@ COUNT(USER)
 2
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	1
+Threads_connected	0
 connect conu4,localhost,root;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 3
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
 connection default;
 SET GLOBAL offline_mode = OFF;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
@@ -23,7 +23,7 @@ COUNT(USER)
 3
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
 connect conu1,localhost,user1;
 SELECT * FROM performance_schema.global_variables WHERE variable_name LIKE '%offline_mode%';
 VARIABLE_NAME	VARIABLE_VALUE
@@ -34,7 +34,7 @@ COUNT(USER)
 4
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	3
+Threads_connected	0
 disconnect conu1;
 disconnect conu4;
 DROP USER 'user1'@'localhost';

@@ -2,6 +2,8 @@
 --source include/have_debug_sync.inc
 --source include/count_sessions.inc
 
+set @@global.extra_max_connections=128;
+
 --echo #
 --echo # Bug #21983865  UNEXPECTED DEADLOCK WITH INNODB_AUTOINC_LOCK_MODE=0
 --echo #
@@ -44,3 +46,5 @@ while ($1 < 40) {
 
 drop table t1;
 --source include/wait_until_count_sessions.inc
+
+set @@global.extra_max_connections=DEFAULT;

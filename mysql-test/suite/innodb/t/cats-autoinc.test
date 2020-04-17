@@ -7,6 +7,8 @@
 --echo #                                                              #
 --echo ################################################################
 
+set @@global.extra_max_connections=128;
+
   # We want a situation in which:
   # C1 has a rec lock granted
   # C1 waits for a table lock
@@ -140,3 +142,5 @@
 --echo # End of Bug #27944920 #
 --echo #                      #
 --echo ########################
+
+set @@global.extra_max_connections=DEFAULT;

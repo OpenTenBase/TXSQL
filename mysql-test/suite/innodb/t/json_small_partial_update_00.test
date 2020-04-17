@@ -946,6 +946,8 @@ update t1 set j = json_set(j, '$[4172]',"d5Poeu12FqfN4JxpU5Lh");
 commit;
 
 
+set global extra_max_connections=128;
+
 --echo # Connection con33:
 connect (con33,localhost,root,,);
 start transaction;
@@ -1997,3 +1999,5 @@ disconnect con51;
 --echo # Connection default:
 connection default;
 drop table t1;
+
+set @@global.extra_max_connections=DEFAULT;

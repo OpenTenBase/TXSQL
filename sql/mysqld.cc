@@ -1205,7 +1205,8 @@ ulong delayed_insert_errors, flush_time;
 ulong specialflag = 0;
 ulong binlog_cache_use = 0, binlog_cache_disk_use = 0;
 ulong binlog_stmt_cache_use = 0, binlog_stmt_cache_disk_use = 0;
-ulong max_connections, max_connect_errors;
+long max_connections,extra_max_connections;
+ulong max_connect_errors;
 ulong rpl_stop_slave_timeout = LONG_TIMEOUT;
 bool log_bin_use_v1_row_events = 0;
 bool thread_cache_size_specified = false;
@@ -7599,14 +7600,14 @@ static void adjust_open_files_limit(ulong *requested_open_files) {
   ulong effective_open_files;
 
   /* MyISAM requires two file handles per table. */
-  limit_1 = 10 + max_connections + table_cache_size * 2;
+  limit_1 = 10 + max_connections + extra_max_connections + table_cache_size * 2;
 
   /*
     We are trying to allocate no less than max_connections*5 file
     handles (i.e. we are trying to set the limit so that they will
     be available).
   */
-  limit_2 = max_connections * 5;
+  limit_2 = (max_connections + extra_max_connections) * 5;
 
   /* Try to allocate no less than 5000 by default. */
   limit_3 = open_files_limit ? open_files_limit : 5000;
@@ -7633,7 +7634,7 @@ static void adjust_open_files_limit(ulong *requested_open_files) {
 }
 
 static void adjust_max_connections(ulong requested_open_files) {
-  ulong limit;
+  long limit;
 
   limit = requested_open_files - 10 - TABLE_OPEN_CACHE_MIN * 2;
 
@@ -8671,7 +8672,7 @@ SHOW_VAR status_vars[] = {
      (char *)offsetof(System_status_var, max_execution_time_set_failed),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Max_used_connections",
-     (char *)&Connection_handler_manager::max_used_connections, SHOW_LONG,
+     (char *)&Connection_handler_manager::max_used_connections, SHOW_INT,
      SHOW_SCOPE_GLOBAL},
     {"Max_used_connections_time", (char *)&show_max_used_connections_time,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
@@ -8862,6 +8863,8 @@ SHOW_VAR status_vars[] = {
      SHOW_LONG_NOFLUSH, SHOW_SCOPE_GLOBAL},
     {"Threads_connected", (char *)&Connection_handler_manager::connection_count,
      SHOW_INT, SHOW_SCOPE_GLOBAL},
+	{"Threads_extra_connected", (char *)&Connection_handler_manager::extra_connection_count,
+	     SHOW_INT, SHOW_SCOPE_GLOBAL},
     {"Threads_created", (char *)&show_num_thread_created, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Threads_running", (char *)&show_num_thread_running, SHOW_FUNC,

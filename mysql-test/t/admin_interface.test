@@ -166,6 +166,8 @@ SHOW STATUS LIKE 'Threads_connected';
 --echo # ordinary_con_1 established
 SHOW STATUS LIKE 'Threads_connected';
 
+connection default;
+set global extra_max_connections=1;
 --echo # Since server was started with the option --max-connections=2 and
 --echo # there are already two active connections (the first one is for
 --echo # the default connection and the second one is for the connection
@@ -175,6 +177,8 @@ SHOW STATUS LIKE 'Threads_connected';
 --error ER_CON_COUNT_ERROR
 --connect(ordinary_con_2,localhost,u2,,,,,)
 
+connection default;
+set global extra_max_connections=32;
 --echo # Check that attempt to establish the third connection to admin interface
 --echo # doesn't result in error
 --connect(admin_con_3,localhost,u1,,,$ADMIN_PORT,,TCP)

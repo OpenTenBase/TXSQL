@@ -2,6 +2,7 @@
 # Bug #29882690  UNDETECTED DEADLOCK WITH GAP AND INSERT INTENTION LOCKS
 #                IS POSSIBLE
 #
+set @@global.extra_max_connections=128;
 SET @innodb_lock_wait_timeout_saved = @@global.innodb_lock_wait_timeout;
 SET @@global.innodb_lock_wait_timeout = 20;
 CREATE TABLE t0 (id INT NOT NULL PRIMARY KEY);
@@ -270,3 +271,4 @@ DROP TABLE t1;
 DROP PROCEDURE show_locks;
 DROP TABLE t0;
 SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved ;
+set @@global.extra_max_connections=DEFAULT;

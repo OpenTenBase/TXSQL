@@ -487,6 +487,7 @@ select json_extract(j, '$[3276]') from t1 where pkey = 1;
 json_extract(j, '$[3276]')
 "4FJkkFhNPKebMbXClUkY"
 commit;
+set global extra_max_connections=128;
 # Connection con32:
 start transaction;
 select * from t1;
@@ -2250,3 +2251,4 @@ json_extract(j, '$[3276]')
 "sTwryzwBmCCK5dhhrnzy"
 # Connection default:
 drop table t1;
+set @@global.extra_max_connections=DEFAULT;

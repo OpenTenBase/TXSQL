@@ -40,10 +40,13 @@
 #include "sql/sql_thd_internal_api.h"  // thd_set_thread_stack
 
 bool One_thread_connection_handler::add_connection(Channel_info *channel_info) {
+
+  bool is_admin_connection = channel_info->is_admin_connection();
+
   if (my_thread_init()) {
     connection_errors_internal++;
     channel_info->send_error_and_close_channel(ER_OUT_OF_RESOURCES, 0, false);
-    Connection_handler_manager::dec_connection_count();
+    Connection_handler_manager::dec_connection_count(is_admin_connection);
     return true;
   }
 
@@ -51,7 +54,7 @@ bool One_thread_connection_handler::add_connection(Channel_info *channel_info) {
   if (thd == NULL) {
     connection_errors_internal++;
     channel_info->send_error_and_close_channel(ER_OUT_OF_RESOURCES, 0, false);
-    Connection_handler_manager::dec_connection_count();
+    Connection_handler_manager::dec_connection_count(is_admin_connection);
     return true;
   }
 
@@ -88,7 +91,7 @@ bool One_thread_connection_handler::add_connection(Channel_info *channel_info) {
   close_connection(thd, 0, false, false);
   thd->release_resources();
   thd_manager->remove_thd(thd);
-  Connection_handler_manager::dec_connection_count();
+  Connection_handler_manager::dec_connection_count(is_admin_connection);
   delete thd;
   return error;
 }

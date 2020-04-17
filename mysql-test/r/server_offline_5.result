@@ -1,3 +1,4 @@
+set global extra_max_connections=200;
 SET @global_saved_tmp =  @@global.offline_mode;
 CREATE USER 'user100'@'localhost';
 CREATE USER 'user99'@'localhost';
@@ -104,28 +105,28 @@ COUNT(USER)
 105
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	104
+Threads_connected	0
 SET GLOBAL offline_mode = ON;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 5
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	4
+Threads_connected	0
 SET GLOBAL offline_mode = OFF;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 105
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	104
+Threads_connected	0
 SET GLOBAL offline_mode = ON;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 5
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	4
+Threads_connected	0
 DROP USER 'user100'@'localhost';
 DROP USER 'user99'@'localhost';
 DROP USER 'user98'@'localhost';
@@ -228,3 +229,4 @@ DROP USER 'user2'@'localhost';
 DROP USER 'user1'@'localhost';
 # Restoring the original values.
 SET @@global.offline_mode = @global_saved_tmp;
+SET GLOBAL extra_max_connections = 32;

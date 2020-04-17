@@ -2,6 +2,7 @@
 # Bug #30086559 CATS ASSERTION FAILURE:
 #               NEW_LOCK->TRX->STATE == TRX_STATE_ACTIVE
 #
+set @@global.extra_max_connections=128;
 SET @innodb_lock_wait_timeout_saved = @@global.innodb_lock_wait_timeout;
 SET @@global.innodb_lock_wait_timeout = 20;
 CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR(200)) ENGINE=InnoDB;
@@ -138,3 +139,4 @@ DROP TABLE t1;
 # cleaning up connection cats31
 # cleaning up connection cats32
 SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved ;
+set @@global.extra_max_connections=DEFAULT;

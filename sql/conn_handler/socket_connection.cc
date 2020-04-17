@@ -160,7 +160,9 @@ class Channel_info_local_socket : public Channel_info {
     @param connect_socket set connect socket descriptor.
   */
   Channel_info_local_socket(MYSQL_SOCKET connect_socket)
-      : m_connect_sock(connect_socket) {}
+      : m_connect_sock(connect_socket) {
+	  set_on_unix_sock(true);
+  }
 
   virtual THD *create_thd() {
     THD *thd = Channel_info::create_thd();
@@ -181,6 +183,8 @@ class Channel_info_local_socket : public Channel_info {
     mysql_socket_shutdown(m_connect_sock, SHUT_RDWR);
     mysql_socket_close(m_connect_sock);
   }
+
+  virtual bool is_admin_connection() const { return true; }//all socket connection is admin connection
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1372,7 +1376,7 @@ Channel_info *Mysqld_socket_listener::listen_for_connection_event() {
   if (retval < 0 || connection_events_loop_aborted()) return NULL;
 
   /* Is this a new connection request ? */
-  bool is_unix_socket = false, is_admin_sock;
+  bool is_unix_socket = false, is_admin_sock = false;
   MYSQL_SOCKET listen_sock = get_ready_socket(&is_unix_socket, &is_admin_sock);
   /*
     When poll/select returns control flow then at least one ready server socket

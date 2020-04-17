@@ -620,6 +620,8 @@ select json_extract(j, '$[1541]') from t1 where pkey = 1;
 commit;
 
 
+set global extra_max_connections=128;
+
 --echo # Connection con32:
 connect (con32,localhost,root,,);
 start transaction;
@@ -2742,3 +2744,5 @@ disconnect con79;
 --echo # Connection default:
 connection default;
 drop table t1;
+
+set @@global.extra_max_connections=DEFAULT;

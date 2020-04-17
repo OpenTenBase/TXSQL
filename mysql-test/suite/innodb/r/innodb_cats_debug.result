@@ -1,6 +1,7 @@
 #
 # Bug #91959 UBSAN: signed integer overflow in lock_update_trx_age
 #
+set @@global.extra_max_connections=128;
 CREATE TABLE t1 (
 id INT PRIMARY KEY
 ) Engine=InnoDB;
@@ -985,6 +986,7 @@ ROLLBACK;
 # cleaning up connection cats32
 DROP TABLE t1;
 SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved;
+set @@global.extra_max_connections=DEFAULT;
 #
 # End of Bug #91959
 #

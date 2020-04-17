@@ -3,6 +3,10 @@
 
 -- source include/not_threadpool.inc
 
+let $saved_extra_max_connections = `SELECT @@global.extra_max_connections`;
+
+set global extra_max_connections=200;
+
 # Save the global value to be used to restore the original value.
 SET @global_saved_tmp =  @@global.offline_mode;
 
@@ -103,4 +107,6 @@ while ($nbconn)
 
 --echo # Restoring the original values.
 SET @@global.offline_mode = @global_saved_tmp;
+
+--eval SET GLOBAL extra_max_connections = $saved_extra_max_connections
 

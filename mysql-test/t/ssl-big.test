@@ -8,6 +8,8 @@
 --source include/not_asan.inc
 --source include/not_ubsan.inc
 
+set @@global.extra_max_connections=2560;
+
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
 
@@ -68,3 +70,4 @@ disconnect ssl_con;
 
 ##  This test file is for testing encrypted communication only, not other
 ##  encryption routines that the SSL library happens to provide!
+set @@global.extra_max_connections=DEFAULT;

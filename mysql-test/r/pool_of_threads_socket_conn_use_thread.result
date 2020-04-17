@@ -1,0 +1,81 @@
+# restart:--thread-handling=pool-of-threads --thread-pool-size=2 --thread-pool-max-threads=2000 --admin-address=127.0.0.1 --admin-port=ADMIN_PORT --loose-skip-mysqlx
+call mtr.add_suppression("Threadpool could not create additional thread to handle queries");
+SELECT 'connect normal connection ok';
+connect normal connection ok
+connect normal connection ok
+show global status like 'Threads_connected';
+Variable_name	Value
+Threads_connected	1
+show global status like 'Threads_extra_connected';
+Variable_name	Value
+Threads_extra_connected	0
+SELECT 'connect socket connection ok';
+connect socket connection ok
+connect socket connection ok
+show global status like 'Threads_connected';
+Variable_name	Value
+Threads_connected	1
+show global status like 'Threads_extra_connected';
+Variable_name	Value
+Threads_extra_connected	1
+SELECT 'connect admin connection ok';
+connect admin connection ok
+connect admin connection ok
+show global status like 'Threads_connected';
+Variable_name	Value
+Threads_connected	1
+show global status like 'Threads_extra_connected';
+Variable_name	Value
+Threads_extra_connected	2
+# -- Success: extra_max_connections is 1,can't create socket connection
+ERROR HY000: Too many connections
+# -- Success: extra_max_connections is 1,can't create admin connection
+SELECT 'after forbid socket,connect normal connection ok';
+after forbid socket,connect normal connection ok
+after forbid socket,connect normal connection ok
+SELECT 'after forbid socket,connect normal connection ok';
+after forbid socket,connect normal connection ok
+after forbid socket,connect normal connection ok
+set global max_connections=1;
+select @@global.max_connections;
+@@global.max_connections
+1
+ERROR HY000: Too many connections
+# -- Success: max_connections is 1,can't create normal connection
+set global max_connections=100;
+set global extra_max_connections=100;
+SELECT 'after recorery conf,connect normal connection ok';
+after recorery conf,connect normal connection ok
+after recorery conf,connect normal connection ok
+show global status like 'Threads_connected';
+Variable_name	Value
+Threads_connected	4
+show global status like 'Threads_extra_connected';
+Variable_name	Value
+Threads_extra_connected	2
+SELECT 'after recorery conf,connect socket connection ok';
+after recorery conf,connect socket connection ok
+after recorery conf,connect socket connection ok
+show global status like 'Threads_connected';
+Variable_name	Value
+Threads_connected	4
+show global status like 'Threads_extra_connected';
+Variable_name	Value
+Threads_extra_connected	3
+SELECT 'after recorery conf,connect admin connection ok';
+after recorery conf,connect admin connection ok
+after recorery conf,connect admin connection ok
+show global status like 'Threads_connected';
+Variable_name	Value
+Threads_connected	4
+show global status like 'Threads_extra_connected';
+Variable_name	Value
+Threads_extra_connected	4
+KILL QUERY @id;
+KILL QUERY @id;
+SELECT 'Connection on extra port 2 ok';
+Connection on extra port 2 ok
+Connection on extra port 2 ok
+SELECT 'Connection on extra port 3 ok';
+Connection on extra port 3 ok
+Connection on extra port 3 ok

@@ -34,6 +34,8 @@ default_collation_for_utf8mb4
 default_collation_for_utf8mb4
 disabled_storage_engines
 disabled_storage_engines
+extra_max_connections
+extra_max_connections
 forbid_remote_change_master
 forbid_remote_change_master
 forbid_remote_change_sql_log_bin

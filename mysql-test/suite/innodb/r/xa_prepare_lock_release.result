@@ -2,6 +2,7 @@
 # Bug#27189701 INNODB: EARLY RELEASE OF GAP LOCKS FOR RC
 # ISOLATION [XA PREPARE]
 #
+set @@global.extra_max_connections=128;
 # establishing connection cats0
 # establishing connection cats1
 # establishing connection cats2
@@ -154,3 +155,4 @@ DROP TABLE t1;
 # cleaning up connection cats30
 # cleaning up connection cats31
 # cleaning up connection cats32
+set @@global.extra_max_connections=DEFAULT;

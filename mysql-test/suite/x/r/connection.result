@@ -1383,7 +1383,10 @@ RUN create user mysqlcon1@localhost identified by 'mysqlcon1'
 RUN create user mysqlcon2@localhost identified by 'mysqlcon2'
 
 0 rows affected
-RUN set @@global.max_connections=2
+RUN set @@global.max_connections=1
+
+0 rows affected
+RUN set @@global.extra_max_connections=1
 
 0 rows affected
 Test data
@@ -1444,6 +1447,9 @@ Variable_name	Value
 Mysqlx_connection_accept_errors	0
 0 rows affected
 RUN set @@global.max_connections=150
+
+0 rows affected
+RUN set @@global.extra_max_connections=32
 
 0 rows affected
 Mysqlx.Ok {

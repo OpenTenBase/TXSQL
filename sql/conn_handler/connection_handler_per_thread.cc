@@ -247,13 +247,15 @@ static void *handle_connection(void *arg) {
   Connection_handler_manager *handler_manager =
       Connection_handler_manager::get_instance();
   Channel_info *channel_info = static_cast<Channel_info *>(arg);
+  bool is_admin_conn = channel_info->is_admin_connection();
   bool pthread_reused MY_ATTRIBUTE((unused)) = false;
+
 
   if (my_thread_init()) {
     connection_errors_internal++;
     channel_info->send_error_and_close_channel(ER_OUT_OF_RESOURCES, 0, false);
     handler_manager->inc_aborted_connects();
-    Connection_handler_manager::dec_connection_count();
+    Connection_handler_manager::dec_connection_count(is_admin_conn);
     delete channel_info;
     my_thread_exit(0);
     return NULL;
@@ -264,7 +266,7 @@ static void *handle_connection(void *arg) {
     if (thd == NULL) {
       connection_errors_internal++;
       handler_manager->inc_aborted_connects();
-      Connection_handler_manager::dec_connection_count();
+      Connection_handler_manager::dec_connection_count(is_admin_conn);
       break;  // We are out of resources, no sense in continuing.
     }
 
@@ -313,7 +315,7 @@ static void *handle_connection(void *arg) {
     ERR_remove_thread_state(0);
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
     thd_manager->remove_thd(thd);
-    Connection_handler_manager::dec_connection_count();
+    Connection_handler_manager::dec_connection_count(is_admin_conn);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
     /*
@@ -330,13 +332,14 @@ static void *handle_connection(void *arg) {
 
     channel_info = Per_thread_connection_handler::block_until_new_connection();
     if (channel_info == NULL) break;
+    is_admin_conn = channel_info->is_admin_connection();
     pthread_reused = true;
     if (connection_events_loop_aborted()) {
       // Close the channel and exit as server is undergoing shutdown.
       channel_info->send_error_and_close_channel(ER_SERVER_SHUTDOWN, 0, false);
       delete channel_info;
       channel_info = nullptr;
-      Connection_handler_manager::dec_connection_count();
+      Connection_handler_manager::dec_connection_count(is_admin_conn);
       break;
     }
   }
@@ -420,7 +423,7 @@ handle_error:
       LogErr(ERROR_LEVEL, ER_CONN_PER_THREAD_NO_THREAD, error);
     channel_info->send_error_and_close_channel(ER_CANT_CREATE_THREAD, error,
                                                true);
-    Connection_handler_manager::dec_connection_count();
+    Connection_handler_manager::dec_connection_count(channel_info->is_admin_connection());
     return true;
   }
 

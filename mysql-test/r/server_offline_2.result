@@ -13,14 +13,14 @@ COUNT(USER)
 5
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	4
+Threads_connected	0
 SET GLOBAL offline_mode = ON;
 SELECT COUNT(USER) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(USER)
 2
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	1
+Threads_connected	0
 disconnect default;
 disconnect conu1;
 ERROR HY000: The server is currently in offline mode
@@ -38,7 +38,7 @@ COUNT(USER)
 3
 SHOW STATUS LIKE 'threads_connected';
 Variable_name	Value
-Threads_connected	2
+Threads_connected	0
 DROP USER 'user1'@'localhost';
 DROP USER 'user2'@'localhost';
 DROP USER 'user3'@'localhost';

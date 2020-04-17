@@ -4,6 +4,7 @@
 #             transactions being rolled back                   #
 #                                                              #
 ################################################################
+set @@global.extra_max_connections=128;
 CREATE TABLE t1 (
 id INT PRIMARY KEY,
 val INT NOT NULL
@@ -335,3 +336,4 @@ SET @@global.innodb_lock_wait_timeout = @innodb_lock_wait_timeout_saved;
 # End of Bug #89737 #
 #                   #
 #####################
+set @@global.extra_max_connections=DEFAULT;

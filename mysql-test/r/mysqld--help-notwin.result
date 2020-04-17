@@ -357,6 +357,8 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
+ --extra-max-connections=# 
+ The number of connections on admin port or socket
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
@@ -1634,6 +1636,7 @@ event-scheduler ON
 expire-logs-days 0
 explicit-defaults-for-timestamp TRUE
 external-locking FALSE
+extra-max-connections 32
 flush FALSE
 flush-time 0
 forbid-remote-change-master FALSE

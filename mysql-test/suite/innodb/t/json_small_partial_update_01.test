@@ -585,6 +585,7 @@ update t1 set j = json_set(j, '$[3276]',"4FJkkFhNPKebMbXClUkY") where pkey = 1;
 select json_extract(j, '$[3276]') from t1 where pkey = 1;
 commit;
 
+set global extra_max_connections=128;
 
 --echo # Connection con32:
 connect (con32,localhost,root,,);
@@ -2494,3 +2495,5 @@ disconnect con79;
 --echo # Connection default:
 connection default;
 drop table t1;
+
+set @@global.extra_max_connections=DEFAULT;

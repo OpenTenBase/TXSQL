@@ -63,6 +63,7 @@ class Connection_handler_manager {
 
   // Pointer to current connection handler in use
   Connection_handler *m_connection_handler;
+  Connection_handler *m_extra_connection_handler;
   // Pointer to saved connection handler
   Connection_handler *m_saved_connection_handler;
   // Saved scheduler_type
@@ -76,14 +77,16 @@ class Connection_handler_manager {
   /**
     Constructor to instantiate an instance of this class.
   */
-  Connection_handler_manager(Connection_handler *connection_handler)
+  Connection_handler_manager(Connection_handler *connection_handler,Connection_handler *extra_connection_handler)
       : m_connection_handler(connection_handler),
+		m_extra_connection_handler(extra_connection_handler),
         m_saved_connection_handler(NULL),
         m_saved_thread_handling(0),
         m_aborted_connects(0),
         m_connection_errors_max_connection(0) {}
 
   ~Connection_handler_manager() {
+	delete m_extra_connection_handler;
     delete m_connection_handler;
     if (m_saved_connection_handler) delete m_saved_connection_handler;
   }
@@ -114,8 +117,9 @@ class Connection_handler_manager {
   };
 
   // Status variables. Must be static as they are used by the signal handler.
-  static uint connection_count;            // Protected by LOCK_connection_count
-  static ulong max_used_connections;       // Protected by LOCK_connection_count
+  static int connection_count;            // Protected by LOCK_connection_count
+  static int extra_connection_count;    // Protected by LOCK_connection_count
+  static int max_used_connections;       // Protected by LOCK_connection_count
   static ulong max_used_connections_time;  // Protected by LOCK_connection_count
 
   // System variable
@@ -159,7 +163,7 @@ class Connection_handler_manager {
 
     @return true if a new connection can be accepted, false otherwise.
   */
-  bool valid_connection_count();
+  bool valid_connection_count(bool is_admin_connection);
 
   /**
     Increment connection count if max_connections is not exceeded.
@@ -179,13 +183,24 @@ class Connection_handler_manager {
   /**
     Decrease the number of current connections.
   */
-  static void dec_connection_count() {
+  static void dec_connection_count(bool is_admin_connection) {
     mysql_mutex_lock(&LOCK_connection_count);
-    connection_count--;
+    if(is_admin_connection) {
+        DBUG_ASSERT(extra_connection_count>0);
+    	if(extra_connection_count > 0) {
+    	    extra_connection_count--;
+    	}
+    }else {
+        DBUG_ASSERT(connection_count>0);
+        if(connection_count > 0) {
+            connection_count--;
+        }
+    }
+
     /*
       Notify shutdown thread when last connection is done with its job
     */
-    if (connection_count == 0) mysql_cond_signal(&COND_connection_count);
+    if (connection_count == 0 && extra_connection_count == 0) mysql_cond_signal(&COND_connection_count);
     mysql_mutex_unlock(&LOCK_connection_count);
   }
 

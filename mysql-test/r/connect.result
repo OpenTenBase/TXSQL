@@ -110,6 +110,7 @@ drop table t1;
 CREATE USER mysqltest_u1@localhost;
 
 SET GLOBAL max_connections = 3;
+SET GLOBAL extra_max_connections = 3;
 SELECT COUNT(*) = 1 FROM information_schema.processlist
 WHERE user = 'event_scheduler' AND command = 'Daemon';
 COUNT(*) = 1
@@ -158,6 +159,7 @@ root
 
 # -- Resetting variables...
 SET GLOBAL max_connections = 151;
+SET GLOBAL extra_max_connections = 32;
 
 # -- That's it. Closing connections...
 
@@ -175,7 +177,7 @@ FLUSH STATUS;
 
 SHOW STATUS LIKE 'max_used_connections';
 Variable_name	Value
-Max_used_connections	1
+Max_used_connections	0
 # -- Waiting for Event Scheduler to start...
 
 # -- Opening a new connection to check max_used_connections...
@@ -183,7 +185,7 @@ Max_used_connections	1
 # -- Check that max_used_connections hasn't changed.
 SHOW STATUS LIKE 'max_used_connections';
 Variable_name	Value
-Max_used_connections	2
+Max_used_connections	0
 SELECT COUNT(*) = 1 FROM information_schema.processlist
 WHERE user = 'event_scheduler' AND command = 'Daemon';
 COUNT(*) = 1

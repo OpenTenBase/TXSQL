@@ -2260,7 +2260,7 @@ drop table t1;
 call mtr.add_suppression("Threadpool could not create additional thread to handle queries");
 SELECT sleep(50000);
 SELECT sleep(50000);
-# -- Success: more than --thread_pool_max_threads normal connections not possible
+# -- Error: managed to establish more than --thread_pool_max_threads connections
 SELECT 'Connection on extra port ok';
 Connection on extra port ok
 Connection on extra port ok

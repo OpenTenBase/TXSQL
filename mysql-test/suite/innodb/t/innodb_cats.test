@@ -7,6 +7,8 @@
 --echo #                                                              #
 --echo ################################################################
 
+set @@global.extra_max_connections=128;
+
   # This test case aims to expose the problem in the lock_rec_has_to_wait_cats
   # namely, that it ignores locks held by a transaction which is a victim of
   # a deadlock.
@@ -358,3 +360,5 @@
 --echo # End of Bug #89737 #
 --echo #                   #
 --echo #####################
+
+set @@global.extra_max_connections=DEFAULT;

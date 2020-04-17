@@ -3270,7 +3270,7 @@ static inline bool check_restrictions_for_com_connect_command(THD *thd) {
             .has_global_grant(STRING_WITH_LEN("SERVICE_CONNECTION_ADMIN"))
             .first)) {
     if (!Connection_handler_manager::get_instance()
-             ->valid_connection_count()) {  // too many connections
+             ->valid_connection_count(thd->is_local_or_admin_port())) {  // too many connections
       my_error(ER_CON_COUNT_ERROR, MYF(0));
       return true;
     }

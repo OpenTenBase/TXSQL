@@ -1,0 +1,164 @@
+# Start with thread_handling=pool-of-threads
+# and run a number of tests
+
+-- source include/have_pool_of_threads.inc
+#-- source include/common-tests.inc
+
+# Calculate value for admin port
+--let $PORT_OFFSET = 100
+--expr $ADMIN_PORT = $MASTER_MYPORT + $PORT_OFFSET
+
+--let $restart_parameters=restart:--thread-handling=pool-of-threads --thread-pool-size=2 --thread-pool-max-threads=2000 --admin-address=127.0.0.1 --admin-port=$ADMIN_PORT --loose-skip-mysqlx
+--replace_result $ADMIN_PORT ADMIN_PORT
+--source include/restart_mysqld.inc
+
+# Test that we cannot have more simultaneous connections than
+# --thread-pool-size on the standard port, but _can_ have additional
+# connections on the extra port.
+call mtr.add_suppression("Threadpool could not create additional thread to handle queries");
+
+# First normal conncect
+disconnect default;
+connect(default,"127.0.0.1",root,,test);
+connection default;
+let $default_id = `select connection_id()`;
+SELECT 'connect normal connection ok';
+#send SELECT sleep(50000);
+#--sleep 2.5
+show global status like 'Threads_connected';
+show global status like 'Threads_extra_connected';
+
+
+#use socket mode
+connect(con_socket,localhost,root,,);
+connection con_socket;
+let $con2_id = `select connection_id()`;
+SELECT 'connect socket connection ok';
+#send SELECT sleep(50000);
+#--sleep  2.5
+show global status like 'Threads_connected';
+show global status like 'Threads_extra_connected';
+
+#use admin mode
+# This time use the extra port to successfully connect.
+
+connect(con_admin,127.0.0.1,root,,test,$ADMIN_PORT,);
+connection con_admin;
+let $con2_id = `select connection_id()`;
+SELECT 'connect admin connection ok';
+#send SELECT sleep(50000);
+#--sleep  2.5
+show global status like 'Threads_connected';
+show global status like 'Threads_extra_connected';
+
+--disable_abort_on_error
+--disable_result_log
+--disable_query_log
+
+connection con_socket;
+set global extra_max_connections=1;
+select @@global.extra_max_connections;
+
+
+connect(con3,localhost,root,,);
+--enable_query_log
+--enable_result_log
+--enable_abort_on_error
+
+let $error = $mysql_errno;
+if (!$error)
+{
+  --echo # -- Error: managed to establish more than --thread_pool_max_threads connections
+}
+if ($error)
+{
+  --echo # -- Success: extra_max_connections is 1,can't create socket connection
+}
+
+--disable_abort_on_error
+connect(con_admin_new1,127.0.0.1,root,,test,$ADMIN_PORT,);
+let $error = $mysql_errno;
+if (!$error)
+{
+  --echo # -- Error: managed to establish more than --thread_pool_max_threads connections
+}
+if ($error)
+{
+  --echo # -- Success: extra_max_connections is 1,can't create admin connection
+}
+
+# This time use normal  port to successfully connect.
+connect(con_normal_4,"127.0.0.1",root,,);
+connection con_normal_4;
+let $con2_id = `select connection_id()`;
+SELECT 'after forbid socket,connect normal connection ok';
+
+connect(con_normal_5,"127.0.0.1",root,,);
+connection con_normal_5;
+let $con2_id = `select connection_id()`;
+SELECT 'after forbid socket,connect normal connection ok';
+
+
+set global max_connections=1;
+select @@global.max_connections;
+
+--disable_abort_on_error
+connect(con_normal_new,"127.0.0.1",root,,test);
+let $error = $mysql_errno;
+if (!$error)
+{
+  --echo # -- Error: managed to establish more than --thread_pool_max_threads connections
+}
+if ($error)
+{
+  --echo # -- Success: max_connections is 1,can't create normal connection
+}
+
+connection con_socket;
+set global max_connections=100;
+set global extra_max_connections=100;
+
+--enable_query_log
+--enable_result_log
+--enable_abort_on_error
+
+connect(after_recorvery_conn,"127.0.0.1",root,,test);
+SELECT 'after recorery conf,connect normal connection ok';
+show global status like 'Threads_connected';
+show global status like 'Threads_extra_connected';
+
+
+#use socket mode
+connect(after_recorvery_socket_conn,localhost,root,,);
+SELECT 'after recorery conf,connect socket connection ok';
+show global status like 'Threads_connected';
+show global status like 'Threads_extra_connected';
+
+connect(after_recorvery_con_admin,127.0.0.1,root,,test,$ADMIN_PORT,);
+SELECT 'after recorery conf,connect admin connection ok';
+show global status like 'Threads_connected';
+show global status like 'Threads_extra_connected';
+
+# Kill long queries in other connections
+let @ignore = `select @id := $default_id`;
+KILL QUERY @id;
+let @ignore = `select @id := $con2_id`;
+KILL QUERY @id;
+
+connect(extracon2,127.0.0.1,root,,test,$ADMIN_PORT,);
+connection extracon2;
+SELECT 'Connection on extra port 2 ok';
+
+connect(extracon3,127.0.0.1,root,,test,$ADMIN_PORT,);
+connection extracon3;
+SELECT 'Connection on extra port 3 ok';
+
+
+disconnect extracon2;
+disconnect extracon3;
+
+#connection default;
+#--reap
+#connection con2;
+#--reap
+# MTR will restart the server with default args for us

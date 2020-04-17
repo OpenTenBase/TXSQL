@@ -265,7 +265,7 @@ class Shared_multi_map : public Multi_map_base<T> {
 
   bool pool_capacity_exceeded() const {
     mysql_mutex_assert_owner(&m_lock);
-    return m_element_pool.size() > max_connections;
+    return m_element_pool.size() > (size_t)max_connections;
   }
 
   /**

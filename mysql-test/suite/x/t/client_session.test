@@ -13,7 +13,8 @@ call mtr.add_suppression("Plugin mysqlx reported: ..: Error initializing session
 call mtr.add_suppression("Plugin mysqlx reported: .Kill client: 1040 Too many connections.");
 
 ## Test data
-SET GLOBAL MAX_CONNECTIONS=3;
+SET GLOBAL MAX_CONNECTIONS=2;
+SET global extra_max_connections=2;
 SET GLOBAL MYSQLX_MAX_CONNECTIONS=30;
 CREATE USER xuser@localhost IDENTIFIED BY 'xuser_pwd';
 SHOW GRANTS FOR xuser@localhost;
@@ -22,7 +23,7 @@ SHOW GRANTS FOR xuser@localhost;
 #mysqld permits MAX_CONNECTIONS+1 clients to connect; the extra connection
 #is reserved for use by accounts that have the SUPER privilege
 # 1x MTR connection (open as root/SUPER) + 1x mysqlx default session + 2x new session
-
+show global status like '%Thread_%';
 ## Test starts here
 --write_file $MYSQL_TMP_DIR/clien_session.tmp
 -->newsession second_session	xuser	xuser_pwd
@@ -47,6 +48,7 @@ EOF
 ## Cleanup
 SET @@GLOBAL.MAX_CONNECTIONS= DEFAULT;
 SET @@GLOBAL.MYSQLX_MAX_CONNECTIONS= DEFAULT;
+SET @@GLOBAL.extra_max_connections= DEFAULT;
 DROP USER xuser@localhost;
 --remove_file $MYSQL_TMP_DIR/clien_session.tmp
 

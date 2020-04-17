@@ -593,6 +593,7 @@ commit;
 start transaction;
 update t1 set j = json_set(j, '$[4172]',"d5Poeu12FqfN4JxpU5Lh");
 commit;
+set global extra_max_connections=128;
 # Connection con33:
 start transaction;
 select @var_33 := j from t1;
@@ -1234,3 +1235,4 @@ select @var_51 = @var_end_51;
 commit;
 # Connection default:
 drop table t1;
+set @@global.extra_max_connections=DEFAULT;

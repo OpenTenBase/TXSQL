@@ -173,7 +173,7 @@ disconnect con4c;
 --source ../include/wait_for_pfs_thread_count.inc
 
 set global max_user_connections = 0;
-set global max_connections = 3;
+set global max_connections = 2;
 flush user_resources;
 
 connect (con5a,"127.0.0.1",quota,,test,$MASTER_MYPORT,);
