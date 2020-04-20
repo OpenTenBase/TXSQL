@@ -800,9 +800,8 @@ static void lock_wait_collect_part_ids(
     if (trx->lock.wait_info->is_defined()) {
       ut_a(trx->lock.wait_info->type() == GUARD_RECORD_HASH);
 
-      ids.insert((lock_rec_hash(trx->lock.wait_info->space_id(),
-                               trx->lock.wait_info->page_no())
-                    % LOCK_REC_MUTEX_INSTANCES));
+      ids.insert(LockGuard::get_part(trx->lock.wait_info->space_id(),
+                                     trx->lock.wait_info->page_no()));
     }
     trx_mutex_exit(trx);
   }

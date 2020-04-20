@@ -128,7 +128,7 @@ void LockWaitInfo::set(const lock_t *lock) {
 }
 
 uint32_t LockGuard::get_part(space_id_t space, page_no_t page_no) {
-  return (lock_rec_hash(space, page_no) % LOCK_REC_MUTEX_INSTANCES);
+  return (lock_rec_fold(space, page_no) % LOCK_REC_MUTEX_INSTANCES);
 }
 
 void LockGuard::enter(LockMutex *mutex) {
