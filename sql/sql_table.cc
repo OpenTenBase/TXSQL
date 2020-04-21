@@ -9566,6 +9566,7 @@ void mysql_convert_table_myisam_to_innodb(THD* thd, const char *type,
                             ha_resolve_storage_engine_name(
                               ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB)),
                               table);
+        //fallthrough
       case CONVERSION_MODE_ON:
         db_type= ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
         sql_print_information("%s %s db:[%s],tb[%s]"

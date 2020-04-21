@@ -22,8 +22,6 @@ binlog_encryption
 binlog_encryption
 binlog_rotate_encryption_master_key_at_startup
 binlog_rotate_encryption_master_key_at_startup
-txsql_kill_idle_trans_timeout
-txsql_kill_idle_trans_timeout
 binlog_write_threshold
 binlog_write_threshold
 cdb_skip_event_scheduler
@@ -54,14 +52,14 @@ generated_random_password_length
 generated_random_password_length
 group_replication_consistency
 group_replication_consistency
+hidden_sensitive_variable
+hidden_sensitive_variable
 innodb_async_drop_tmp_dir
 innodb_async_drop_tmp_dir
 innodb_async_table_size
 innodb_async_table_size
 innodb_async_truncate_size
 innodb_async_truncate_size
-hidden_sensitive_variable
-hidden_sensitive_variable
 innodb_cleaner_lsn_age_factor
 innodb_cleaner_lsn_age_factor
 innodb_dedicated_server
@@ -96,8 +94,6 @@ innodb_log_wait_for_flush_spin_delay
 innodb_log_wait_for_flush_spin_delay
 innodb_log_wait_for_flush_spin_hwm
 innodb_log_wait_for_flush_spin_hwm
-innodb_table_drop_mode
-innodb_table_drop_mode
 innodb_log_wait_for_flush_timeout
 innodb_log_wait_for_flush_timeout
 innodb_log_wait_for_write_spin_delay
@@ -140,6 +136,8 @@ innodb_snapshot_spin_loop
 innodb_snapshot_spin_loop
 innodb_strict_gtid_commit
 innodb_strict_gtid_commit
+innodb_table_drop_mode
+innodb_table_drop_mode
 innodb_use_cloned_view
 innodb_use_cloned_view
 keyring_operations
@@ -220,6 +218,12 @@ tls_ciphersuites
 tls_ciphersuites
 tls_version
 tls_version
+txsql_convert_memory_to_innodb
+txsql_convert_memory_to_innodb
+txsql_convert_myisam_to_innodb
+txsql_convert_myisam_to_innodb
+txsql_kill_idle_trans_timeout
+txsql_kill_idle_trans_timeout
 use_secondary_engine
 drop table t1;
 drop table t2;

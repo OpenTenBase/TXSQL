@@ -2865,6 +2865,7 @@ void thd_statistics_io_time(uintmax_t current_io_time) {
   if (thd) {
     thd->cur_query_io_utime+= current_io_time;
   }
+}
 
 void THD::update_slow_query_status() {
   ulonglong exec_time = 0;

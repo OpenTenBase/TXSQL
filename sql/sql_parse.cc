@@ -1501,9 +1501,6 @@ bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *c
 
   thd->rpl_thd_ctx.session_gtids_ctx().notify_after_response_packet(thd);
 
-  clock_gettime(clock_id, &time_end);
-  thd->cur_cpu_nstime= diff_timespec(&time_end, &time_start);
-
   if (!thd->is_error() && !thd->killed)
     mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, NULL,
                        0);
@@ -2287,7 +2284,9 @@ done:
               (thd->locked_tables_mode == LTM_LOCK_TABLES) || thd->m_delay_commit);
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
-  
+  clock_gettime(clock_id, &time_end);
+  thd->cur_cpu_nstime= diff_timespec(&time_end, &time_start);
+
   if (!g_sqlAsyn ||
       !g_thdBottomHalf ||
       thd->is_local_or_admin_port() || clone_cmd != nullptr ||
