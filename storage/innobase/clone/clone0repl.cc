@@ -37,6 +37,16 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "sql/sql_class.h"
 #include "sql/sql_thd_internal_api.h"
 
+/** Time threshold to trigger persisting GTID. Insert GTID once per 1k
+transactions or every 100 millisecond. */
+uint32_t srv_clone_persist_time_threshold_ms = 100;
+
+/** Threshold for the count for compressing GTID. */
+uint32_t srv_clone_persist_compression_threshold = 50;
+
+/** Number of transaction/GTID threshold for writing to disk table. */
+int32_t srv_clone_persist_gtid_threshold = 1024;
+
 /* To get current session thread default THD */
 THD *thd_get_current_thd();
 
@@ -50,7 +60,7 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
     return;
   }
 
-  trx_sys_mutex_enter();
+  lock();
   /* Get active GTID list */
   auto &current_gtids = get_active_list();
 
@@ -59,10 +69,10 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   /* Atomic increment. */
   int current_value = ++m_num_gtid_mem;
 
-  trx_sys_mutex_exit();
+  unlock();
 
   /* Wake up background if GTIDs crossed threshold. */
-  if (current_value == s_gtid_threshold) {
+  if (current_value == srv_clone_persist_gtid_threshold) {
     os_event_set(m_event);
   }
 }
@@ -318,7 +328,7 @@ int Clone_persist_gtid::write_other_gtids() {
 
 bool Clone_persist_gtid::check_compress() {
   /* Check local threshold on number of flush. */
-  if (m_compression_counter >= s_compression_threshold) {
+  if (m_compression_counter >= srv_clone_persist_compression_threshold) {
     return (true);
   }
   /* Check replication global threshold on number of GTIDs. */
@@ -427,18 +437,19 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
 
   bool explicit_request = m_explicit_request.load();
 
-  trx_sys_mutex_enter();
   /* Get oldest transaction number that is yet to be committed. Any transaction
   with lower transaction number is committed and is added to GTID list. */
   auto oldest_trx_no = trx_sys->get_min_trx_no();
   bool compress_recovery = false;
+
+  lock();
   /* Check and write if any GTID is accumulated. */
   if (m_num_gtid_mem.load() != 0) {
     m_flush_in_progress.store(true);
     /* Switch active list and get the previous list to write to disk table. */
     auto flush_list_number = switch_active_list();
     /* Exit trx mutex during write to table. */
-    trx_sys_mutex_exit();
+    unlock();
     err = write_to_table(flush_list_number, table_gtid_set, sid_map);
     m_flush_in_progress.store(false);
     /* Compress always after recovery, if GTIDs are added. */
@@ -447,7 +458,7 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
       ib::info(ER_IB_CLONE_GTID_PERSIST) << "GTID compression after recovery. ";
     }
   } else {
-    trx_sys_mutex_exit();
+    unlock();
   }
 
   if (is_recovery) {
@@ -523,7 +534,7 @@ void Clone_persist_gtid::periodic_write() {
       }
     }
     if (!flush_immediate()) {
-      os_event_wait_time(m_event, s_time_threshold_ms * 1000);
+      os_event_wait_time(m_event, srv_clone_persist_time_threshold_ms * 1000);
     }
     os_event_reset(m_event);
     /* Write accumulated GTIDs to disk table */

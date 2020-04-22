@@ -1248,6 +1248,9 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
   LATCH_ADD_MUTEX(CACHE_LAST_READ, SYNC_TRX_I_S_LAST_READ,
                   cache_last_read_mutex_key);
 
+  LATCH_ADD_MUTEX(CLONE_PERSIST_GTID, SYNC_NO_ORDER_CHECK,
+                  clone_persist_gtid_mutex_key);
+
   LATCH_ADD_MUTEX(DICT_FOREIGN_ERR, SYNC_NO_ORDER_CHECK,
                   dict_foreign_err_mutex_key);
 

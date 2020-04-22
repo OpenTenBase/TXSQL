@@ -630,6 +630,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(buf_pool_zip_hash_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(buf_pool_zip_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(cache_last_read_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(clone_persist_gtid_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(clone_snapshot_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(clone_sys_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(clone_task_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -22623,6 +22624,25 @@ static MYSQL_SYSVAR_UINT(
     "more expensive",
     NULL, NULL, 32, 0,  UINT_MAX32, 0);
 
+static MYSQL_SYSVAR_UINT(
+    clone_persist_time_threshold_ms, srv_clone_persist_time_threshold_ms,
+    PLUGIN_VAR_OPCMDARG,
+    "Time threshold to trigger persisting GTID. Insert GTID once per 1k "
+    "transactions or every 100 millisecond by default",
+    NULL, NULL, 100, 10, 10000, 0);
+
+static MYSQL_SYSVAR_UINT(
+    clone_persist_compression_threshold, srv_clone_persist_compression_threshold,
+    PLUGIN_VAR_OPCMDARG,
+    "Threshold for the count for compressing GTID",
+    NULL, NULL, 50, 1, 1000000, 0);
+
+static MYSQL_SYSVAR_INT(
+    clone_persist_threshold, srv_clone_persist_gtid_threshold,
+    PLUGIN_VAR_OPCMDARG,
+    "Number of transaction/GTID threshold for writing to disk table",
+    NULL, NULL, 1024, 128, 1000000, 0);
+
 static MYSQL_SYSVAR_BOOL(read_only, srv_read_only_mode,
                          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY |
                              PLUGIN_VAR_NOPERSIST,
@@ -22983,6 +23003,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(max_pending_sync_ios),
     MYSQL_SYSVAR(max_tablespace_shards),
     MYSQL_SYSVAR(mtr_check_dirty),
+    MYSQL_SYSVAR(clone_persist_time_threshold_ms),
+    MYSQL_SYSVAR(clone_persist_compression_threshold),
+    MYSQL_SYSVAR(clone_persist_threshold),
     NULL};
 
 mysql_declare_plugin(innobase){
