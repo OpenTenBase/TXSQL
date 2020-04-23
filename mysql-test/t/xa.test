@@ -1,9 +1,15 @@
 #
 # WL#1756
 #
+#
+
 
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
+
+select current_user();
+
+select @@global.txsql_optimize_xa_recover;
 
 --disable_warnings
 drop table if exists t1, t2;
@@ -714,6 +720,13 @@ XA RECOVER;
 --error ER_XAER_RMERR
 XA RECOVER;
 SHOW WARNINGS;
+connection default;
+set global txsql_optimize_xa_recover=true;
+connection con2;
+XA RECOVER;
+connection default;
+set global txsql_optimize_xa_recover=false;
+connection con2;
 --connection con1
 --disconnect con1
 --source include/wait_until_disconnected.inc
@@ -738,6 +751,13 @@ XA PREPARE 'xid2';
 --error ER_XAER_RMERR
 XA RECOVER;
 SHOW WARNINGS;
+connection default;
+set global txsql_optimize_xa_recover=true;
+connection con2;
+XA RECOVER;
+connection default;
+set global txsql_optimize_xa_recover=false;
+connection con2;
 --echo # Although the user u2 can't get a list of prepared XA transaction this user
 --echo # can finalize a prepared XA transaction knowing its XID value.
 XA COMMIT 'xid2';
@@ -760,6 +780,13 @@ XA PREPARE 'xid1';
 
 --error ER_XAER_RMERR
 XA RECOVER;
+connection default;
+set global txsql_optimize_xa_recover=true;
+connection con1;
+XA RECOVER;
+connection default;
+set global txsql_optimize_xa_recover=false;
+connection con1;
 XA COMMIT 'xid1';
 
 --disconnect con1

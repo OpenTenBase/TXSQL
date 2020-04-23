@@ -1530,6 +1530,8 @@ The following options may be given as the first argument:
  --txsql-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
+ --txsql-optimize-xa-recover 
+ optimize xa recover feature
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
@@ -1962,6 +1964,7 @@ transaction-write-set-extraction XXHASH64
 txsql-convert-memory-to-innodb FALSE
 txsql-convert-myisam-to-innodb OFF
 txsql-kill-idle-trans-timeout 0
+txsql-optimize-xa-recover FALSE
 updatable-views-with-limit YES
 upgrade AUTO
 validate-config FALSE

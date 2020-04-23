@@ -1,3 +1,9 @@
+select current_user();
+current_user()
+root@localhost
+select @@global.txsql_optimize_xa_recover;
+@@global.txsql_optimize_xa_recover
+0
 drop table if exists t1, t2;
 create table t1 (a int) engine=innodb;
 xa start 'test1';
@@ -446,6 +452,11 @@ SHOW WARNINGS;
 Level	Code	Message
 Error	1401	XAER_RMERR: Fatal error occurred in the transaction branch - check your data for consistency
 Error	1227	Access denied; you need (at least one of) the XA_RECOVER_ADMIN privilege(s) for this operation
+set global txsql_optimize_xa_recover=true;
+XA RECOVER;
+formatID	gtrid_length	bqual_length	data
+1	4	0	xid1
+set global txsql_optimize_xa_recover=false;
 # The default connection was established on behalf the user root@localhost
 # who has the XA_RECOVER_ADMIN privilege assigned by default.
 # So for the user root@localhost the statement XA RECOVER
@@ -466,6 +477,11 @@ SHOW WARNINGS;
 Level	Code	Message
 Error	1401	XAER_RMERR: Fatal error occurred in the transaction branch - check your data for consistency
 Error	1227	Access denied; you need (at least one of) the XA_RECOVER_ADMIN privilege(s) for this operation
+set global txsql_optimize_xa_recover=true;
+XA RECOVER;
+formatID	gtrid_length	bqual_length	data
+1	4	0	xid2
+set global txsql_optimize_xa_recover=false;
 # Although the user u2 can't get a list of prepared XA transaction this user
 # can finalize a prepared XA transaction knowing its XID value.
 XA COMMIT 'xid2';
@@ -484,6 +500,11 @@ XA END 'xid1';
 XA PREPARE 'xid1';
 XA RECOVER;
 ERROR XAE03: XAER_RMERR: Fatal error occurred in the transaction branch - check your data for consistency
+set global txsql_optimize_xa_recover=true;
+XA RECOVER;
+formatID	gtrid_length	bqual_length	data
+1	4	0	xid1
+set global txsql_optimize_xa_recover=false;
 XA COMMIT 'xid1';
 DROP USER u1;
 # End of tests fro WL#7194

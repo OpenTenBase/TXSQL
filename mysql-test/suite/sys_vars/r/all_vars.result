@@ -230,6 +230,8 @@ txsql_convert_myisam_to_innodb
 txsql_convert_myisam_to_innodb
 txsql_kill_idle_trans_timeout
 txsql_kill_idle_trans_timeout
+txsql_optimize_xa_recover
+txsql_optimize_xa_recover
 use_secondary_engine
 drop table t1;
 drop table t2;

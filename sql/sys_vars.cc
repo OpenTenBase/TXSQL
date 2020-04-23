@@ -7173,3 +7173,10 @@ static Sys_var_uint Sys_tdsql_simple_slow_logging(
     CMD_LINE(OPT_ARG),
     VALID_RANGE(0, 2), DEFAULT(0), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
+extern bool g_txsql_optimize_xa_recover;
+static Sys_var_bool Sys_g_txsql_optimize_xa_recover(
+    "txsql_optimize_xa_recover",
+    "optimize xa recover feature",
+    GLOBAL_VAR(g_txsql_optimize_xa_recover),
+    CMD_LINE(OPT_ARG), DEFAULT(false));

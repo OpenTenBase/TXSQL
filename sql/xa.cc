@@ -1330,7 +1330,21 @@ bool Sql_cmd_xa_recover::trans_xa_recover(THD *thd) {
   @retval true   A user doesn't have a privilege to perform XA RECOVER
 */
 
+extern bool g_txsql_optimize_xa_recover;
 bool Sql_cmd_xa_recover::check_xa_recover_privilege(THD *thd) const {
+
+	if(g_txsql_optimize_xa_recover){
+	/*
+	 *in order to simplify the design of surrounding modules #issue 108
+	 * many normal user  need run xa recorver in tdsql.
+	 * Therefore, in order to simplify the design of surrounding modules,
+	 * let skip this permission directly and keep it compatible with 5.7
+	 */
+
+	  return false;
+	}
+
+  
   Security_context *sctx = thd->security_context();
 
   if (!sctx->has_global_grant(STRING_WITH_LEN("XA_RECOVER_ADMIN")).first) {
