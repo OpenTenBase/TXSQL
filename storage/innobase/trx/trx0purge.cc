@@ -242,8 +242,6 @@ void trx_purge_sys_create(ulint n_purge_threads, purge_pq_t *purge_queue) {
 
   trx_sys->mvcc->clone_oldest_view(&purge_sys->view);
 
-  purge_sys->view_active = true;
-
   purge_sys->rseg_iter = UT_NEW_NOKEY(TrxUndoRsegsIterator(purge_sys));
 
   /* Allocate 8K bytes for the initial heap. */
@@ -2158,8 +2156,7 @@ static void trx_purge_wait_for_workers_to_complete() {
   ulint n_submitted = purge_sys->n_submitted;
 
   /* Ensure that the work queue empties out. */
-  while (!os_compare_and_swap_ulint(&purge_sys->n_completed, n_submitted,
-                                    n_submitted)) {
+  while (purge_sys->n_completed.load() != n_submitted) {
     if (++i < 10) {
       os_thread_yield();
     } else {
@@ -2207,18 +2204,14 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
   srv_dml_needed_delay = trx_purge_dml_delay();
 
   /* The number of tasks submitted should be completed. */
-  ut_a(purge_sys->n_submitted == purge_sys->n_completed);
+  ut_ad(purge_sys->n_submitted.load() == purge_sys->n_completed.load());
 
   ReadView view;
   trx_sys->mvcc->clone_oldest_view(&view);
 
   rw_lock_x_lock(&purge_sys->latch);
 
-  purge_sys->view_active = false;
-
   purge_sys->view.clone(&view);
-
-  purge_sys->view_active = true;
 
   rw_lock_x_unlock(&purge_sys->latch);
 
@@ -2247,6 +2240,8 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
     purge_sys->n_submitted += n_purge_threads - 1;
 
+    srv_release_threads(SRV_WORKER, n_purge_threads - 1);
+
     goto run_synchronously;
 
     /* Do it synchronously. */
@@ -2259,14 +2254,15 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
     que_run_threads(thr);
 
-    os_atomic_inc_ulint(&purge_sys->pq_mutex, &purge_sys->n_completed, 1);
+    purge_sys->n_completed++;
 
     if (n_purge_threads > 1) {
       trx_purge_wait_for_workers_to_complete();
     }
   }
 
-  ut_a(purge_sys->n_submitted == purge_sys->n_completed);
+  ut_a(purge_sys->n_submitted.load(std::memory_order_relaxed)
+        == purge_sys->n_completed.load(std::memory_order_relaxed));
 
 #ifdef UNIV_DEBUG
   rw_lock_x_lock(&purge_sys->latch);

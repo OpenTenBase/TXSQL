@@ -978,10 +978,9 @@ struct trx_purge_t {
                                 parallelized purge operation */
   ReadView view;                /*!< The purge will not remove undo logs
                                 which are >= this view (purge view) */
-  bool view_active;             /*!< true if view is active */
-  volatile ulint n_submitted;   /*!< Count of total tasks submitted
+  std::atomic<uint64_t> n_submitted;   /*!< Count of total tasks submitted
                                 to the task queue */
-  volatile ulint n_completed;   /*!< Count of total tasks completed */
+  std::atomic<uint64_t> n_completed;   /*!< Count of total tasks completed */
 
   /*------------------------------*/
   /* The following two fields form the 'purge pointer' which advances

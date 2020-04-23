@@ -1183,6 +1183,20 @@ struct srv_slot_t {
   /** Thread type: user, utility etc. */
   srv_thread_type type;
 
+  /* Mutex for protecting suspend/release of
+  system thread */
+  ib_mutex_t *mutex {nullptr};
+
+  void lock() {
+    ut_a(mutex);
+    mutex_enter(mutex);
+  }
+
+  void unlock() {
+    ut_a(mutex);
+    mutex_exit(mutex);
+  }
+
   /** TRUE if this slot is in use. */
   bool in_use;
 
