@@ -93,7 +93,7 @@ class ReadView {
      return (state() == READ_VIEW_STATE_OPEN);
   }
 
-  inline void take_snapshot(trx_t *trx);
+  inline bool take_snapshot(trx_t *trx);
   
   /**
   Write the limits to the file.

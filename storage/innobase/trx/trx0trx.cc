@@ -194,7 +194,8 @@ static void trx_init(trx_t *trx) {
 
   trx->in_truncate = false;
   trx->is_dd_trx = false;
-  
+ 
+  trx->wakeup_purge = false;
 #ifdef UNIV_DEBUG
   trx->in_rollback = false;
   trx->lock.in_rollback = false;
@@ -1885,6 +1886,11 @@ written */
     /* Multiple transactions can simultaneously decrement
     the atomic counter. */
     rseg->trx_ref_count--;
+  }
+
+  if (trx->wakeup_purge) {
+    srv_wake_purge_thread_if_not_active();
+    trx->wakeup_purge = false;
   }
 
   /* Reset flag that SE persists GTID. */

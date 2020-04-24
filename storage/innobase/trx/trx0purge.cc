@@ -346,7 +346,7 @@ void trx_purge_add_update_undo_to_history(
 
   if (update_rseg_history_len) {
     os_atomic_increment_ulint(&trx_sys->rseg_history_len, n_added_logs);
-    srv_wake_purge_thread_if_not_active();
+    trx->wakeup_purge = true;
   }
 
   /* Update maximum transaction number for this rollback segment. */

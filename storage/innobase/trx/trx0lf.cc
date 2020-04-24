@@ -185,9 +185,9 @@ void trx_sys_t::register_rw(trx_t *trx) {
   rw_lock_s_lock(lock);
   trx->id = get_new_trx_id_no_refresh();
   rw_trx_hash.insert(trx);
-  mvcc->set_view_flag(false);
   refresh_rw_trx_hash_version();
   rw_lock_s_unlock(lock);
+  mvcc->set_view_flag(false);
 }
 
 void trx_sys_t::deregister_rw(trx_t *trx) {
@@ -204,9 +204,8 @@ trx_t* trx_sys_t::find(trx_t *caller_trx, trx_id_t id, bool do_ref_count) {
 }
 
 void trx_sys_t::assign_new_trx_no(trx_t *trx) {
-  trx->no= get_new_trx_id_no_refresh();
-  trx->rw_trx_hash_element->no= trx->no;
-  mvcc->set_view_flag(false);
+  trx->no = get_new_trx_id_no_refresh();
+  trx->rw_trx_hash_element->no = trx->no;
   refresh_rw_trx_hash_version();
 }
 
@@ -222,11 +221,14 @@ bool trx_sys_t::copy_one_id(rw_trx_hash_element_t *element,
   return (false);
 }
 
-void trx_sys_t::snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_trx_id,
+bool trx_sys_t::snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_trx_id,
                              trx_id_t *min_trx_no) {
   ut_ad(!mutex_own(&mutex));
   snapshot_ids_arg arg(ids);
   uint32_t max_count = srv_snapshot_spin_loop;
+  bool try_clone_global = (opt_use_cloned_view &&
+                    caller_trx && !caller_trx->is_dd_trx &&
+                    !thd_is_log_apply_thread(caller_trx->mysql_thd));
 
   while ((arg.m_id = get_rw_trx_hash_version()) != get_max_trx_id()) {
     /* For background purge thread which has caller_trx = nullptr, we
@@ -240,9 +242,17 @@ void trx_sys_t::snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_tr
       }
 
       max_count--;
+
+      if (try_clone_global && mvcc->is_clone_valid()) {
+        return false;
+      }
     }
     
     ut_delay(1);
+  }
+
+  if (try_clone_global && mvcc->is_clone_valid()) {
+    return false;
   }
 
   arg.m_no = arg.m_id;
@@ -255,6 +265,8 @@ void trx_sys_t::snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_tr
 
   *max_trx_id= arg.m_id;
   *min_trx_no= arg.m_no;
+
+  return true;
 }
 
 void trx_sys_t::flush_max_trx_id() {

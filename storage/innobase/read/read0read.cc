@@ -222,10 +222,27 @@ inline bool ReadView::reuse() {
           m_creator_trx_id == 0);
 }
 
-inline void ReadView::take_snapshot(trx_t *trx) {
-  trx_sys->snapshot_ids(trx, &m_ids, &m_low_limit_id, &m_low_limit_no);
+inline bool ReadView::take_snapshot(trx_t *trx) {
+
+  while (!trx_sys->snapshot_ids(trx, &m_ids,
+                   &m_low_limit_id, &m_low_limit_no)) {
+    /* Try to clone from global view. */
+    trx_sys->mvcc->clone_slock();
+    if (trx_sys->mvcc->global_view()->low_limit_id() > 0) {
+      clone(trx_sys->mvcc->global_view());
+      creator_trx_id(trx->id);
+      trx_sys->mvcc->clone_sunlock();
+
+      return false;
+    }
+    
+    trx_sys->mvcc->clone_sunlock();
+  }
+
   std::sort(m_ids.begin(), m_ids.end());
   m_up_limit_id= m_ids.empty() ? m_low_limit_id : m_ids.front();
+
+  return true;
 }
 
 bool ReadView::changes_visible(trx_id_t id, const table_name_t &name) const {
@@ -279,13 +296,13 @@ void ReadView::snapshot(trx_t *trx) {
       }
       
       if (opt_use_cloned_view &&
-          trx_sys->mvcc->is_clone_valid_relaxed() &&
+          trx_sys->mvcc->is_clone_valid() &&
           !trx->is_dd_trx &&
           !thd_is_log_apply_thread(trx->mysql_thd)) {
         trx_sys->mvcc->clone_slock();
 
         /* Double check */
-        if (trx_sys->mvcc->is_clone_valid()) {
+        if (trx_sys->mvcc->global_view()->low_limit_id() > 0) {
           clone(trx_sys->mvcc->global_view());
           creator_trx_id(trx->id);
           trx_sys->mvcc->clone_sunlock();
@@ -304,9 +321,7 @@ void ReadView::snapshot(trx_t *trx) {
       break;
   }
 
-  take_snapshot(trx);
-
-  new_snapshot = true;
+  new_snapshot = take_snapshot(trx);
 
 reopen:
   m_creator_trx_id = trx->id;
@@ -316,15 +331,14 @@ reopen:
   if (new_snapshot &&
       (opt_use_cloned_view
        || trx_sys->mvcc->global_view()->low_limit_id() > 0) &&
-      (low_limit_id() == trx_sys_get_max_trx_id()) &&
       !trx_sys->mvcc->is_clone_valid() &&
       trx_sys->mvcc->clone_xtrylock()) {
 
     if (!opt_use_cloned_view) {
       trx_sys->mvcc->global_view()->init();
     } else {
+      trx_sys->mvcc->set_view_flag(true);
       trx_sys->mvcc->global_view()->clone(this);
-      trx_sys->mvcc->set_view_flag(low_limit_id() == trx_sys_get_max_trx_id());
     }
     
     trx_sys->mvcc->clone_xunlock();

@@ -841,6 +841,11 @@ struct trx_t {
               this transaction must abort when
               it can */
 
+  /* True if there's update and we need to wakeup purge
+  thread. We added this flag to tell innodb wakuping purge
+  thread after deregister transaction. */
+  bool wakeup_purge;
+
   /** True if it's created for background and not added to
   mysql_trx_list. If it's not added to list, we shouldn't create
   read view for it. As purge thread relies on mysql_trx_list to
