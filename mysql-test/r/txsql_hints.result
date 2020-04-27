@@ -1,0 +1,11 @@
+select /*!80018 1 */;
+1
+1
+select /*!89999 1 */;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+select /*!99000 1 */;
+1
+1
+select /*!99400 1 */;
+1
+1

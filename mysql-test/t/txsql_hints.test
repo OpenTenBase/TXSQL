@@ -1,0 +1,5 @@
+select /*!80018 1 */;
+--error ER_PARSE_ERROR
+select /*!89999 1 */;
+select /*!99000 1 */;
+select /*!99400 1 */;

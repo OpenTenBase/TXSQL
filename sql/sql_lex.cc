@@ -1721,7 +1721,9 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
             ulong version;
             version = strtol(version_str, NULL, 10);
 
-            if (version <= MYSQL_VERSION_ID) {
+            if ((version <= MYSQL_VERSION_ID ||
+                 (version >= TXSQL_VERSION_START_ID && 
+                  version <= TXSQL_VERSION_ID))) {
               /* Accept 'M' 'm' 'm' 'd' 'd' */
               lip->yySkipn(5);
               /* Expand the content of the special comment as real code */
