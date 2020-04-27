@@ -7854,4 +7854,22 @@ void TABLE::update_covering_prefix_keys(Field *field, uint16 key_read_length,
     }
 }
 
+bool TABLE::is_perfix_index(int key, uint key_parts) {
+
+  if (!this->key_info) {
+    return false;
+  }
+  KEY_PART_INFO *key_part = this->key_info[key].key_part;
+  KEY *key_info = this->key_info + key;
+
+  for (uint i = 0; i < key_parts; i++, key_part++) {
+    if (key_part->field &&
+        (key_part->length != this->field[key_part->fieldnr - 1]->key_length() &&
+         !(key_info->flags & (HA_FULLTEXT | HA_SPATIAL)))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 //////////////////////////////////////////////////////////////////////////

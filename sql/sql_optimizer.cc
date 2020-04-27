@@ -2011,6 +2011,11 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
     ref_key = tab->index();
     ref_key_parts = actual_key_parts(&table->key_info[tab->index()]);
   }
+  
+  if (order && table->is_partition() &&
+      table->is_perfix_index(ref_key, ref_key_parts)) {
+    return 0;
+  }
 
   Opt_trace_context *const trace = &thd->opt_trace;
   Opt_trace_object trace_wrapper(trace);
