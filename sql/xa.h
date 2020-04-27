@@ -128,8 +128,10 @@ class Sql_cmd_xa_prepare : public Sql_cmd {
 
 class Sql_cmd_xa_recover : public Sql_cmd {
  public:
-  explicit Sql_cmd_xa_recover(bool print_xid_as_hex)
-      : m_print_xid_as_hex(print_xid_as_hex) {}
+  explicit Sql_cmd_xa_recover(bool print_xid_as_hex, 
+                              bool print_xid_prepare_time)
+      : m_print_xid_as_hex(print_xid_as_hex),
+        m_print_xid_prepare_time(print_xid_prepare_time) {}
 
   virtual enum_sql_command sql_command_code() const {
     return SQLCOM_XA_RECOVER;
@@ -142,6 +144,7 @@ class Sql_cmd_xa_recover : public Sql_cmd {
   bool trans_xa_recover(THD *thd);
 
   bool m_print_xid_as_hex;
+  bool m_print_xid_prepare_time;
 };
 
 class XID_STATE;
@@ -415,6 +418,7 @@ class XID_STATE {
     Checked and reset at XA-commit/rollback.
   */
   bool m_is_binlogged;
+  time_t prepare_state_time;
 
   xa_types m_xa_type;
 
@@ -423,7 +427,9 @@ class XID_STATE {
       : xa_state(XA_NOTR),
         in_recovery(false),
         rm_error(0),
-        m_is_binlogged(false), m_xa_type(XA_INTERNAL) {
+        m_is_binlogged(false),
+        prepare_state_time(0), 
+       	m_xa_type(XA_INTERNAL) {
     m_xid.null();
     m_xid_str[0] = '\0';
   }
@@ -527,7 +533,8 @@ class XID_STATE {
 
   void unset_binlogged() { m_is_binlogged = false; }
 
-  void store_xid_info(Protocol *protocol, bool print_xid_as_hex) const;
+  void store_xid_info(Protocol *protocol, bool print_xid_as_hex,
+                      bool print_xid_prepare_time) const;
 
   /**
      Mark a XA transaction as rollback-only if the RM unilaterally
@@ -582,6 +589,10 @@ class XID_STATE {
   */
 
   bool check_in_xa(bool report_error) const;
+  void set_prepare_state_time(time_t prepaer_time) {
+    prepare_state_time = prepaer_time;
+  }
+  time_t get_prepare_state_time() { return prepare_state_time; }
 };
 
 /**

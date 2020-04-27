@@ -1522,6 +1522,7 @@ void warn_about_deprecated_binary(THD *thd)
         opt_constraint_enforcement
         constraint_enforcement
         opt_not
+        opt_with_time
 
 %type <show_cmd_type> opt_show_cmd_type
 
@@ -16590,10 +16591,10 @@ xa:
             Lex->sql_command = SQLCOM_XA_ROLLBACK;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_rollback($3,$4);
           }
-        | XA_SYM RECOVER_SYM opt_convert_xid
+        | XA_SYM RECOVER_SYM opt_convert_xid opt_with_time
           {
             Lex->sql_command = SQLCOM_XA_RECOVER;
-            Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_recover($3);
+            Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_recover($3, $4);
           }
         | XA_PREPARED_LIST text_string
           {
@@ -16604,6 +16605,11 @@ xa:
 opt_convert_xid:
           /* empty */ { $$= false; }
          | CONVERT_SYM XID_SYM { $$= true; }
+
+opt_with_time:
+          /* empty */     { $$= false; }
+        | WITH TIME_SYM   { $$= true; }
+        ;
 
 xid:
           text_string
