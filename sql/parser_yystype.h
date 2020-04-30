@@ -570,6 +570,7 @@ union YYSTYPE {
   Value_or_default<int> resource_group_priority_type;
   Value_or_default<bool> resource_group_state_type;
   bool resource_group_flag_type;
+  bool xa_rollback_force_type;
   resourcegroups::Type resource_group_type;
   Mem_root_array<ulonglong> *thread_id_list_type;
   Explain_format_type explain_format_type;

@@ -177,7 +177,7 @@ class Sql_cmd_xa_commit : public Sql_cmd {
 
 class Sql_cmd_xa_rollback : public Sql_cmd {
  public:
-  explicit Sql_cmd_xa_rollback(xid_t *xid_arg) : m_xid(xid_arg) {}
+  explicit Sql_cmd_xa_rollback(xid_t *xid_arg,bool force) : m_xid(xid_arg),m_force(force) {}
 
   virtual enum_sql_command sql_command_code() const {
     return SQLCOM_XA_ROLLBACK;
@@ -191,6 +191,7 @@ class Sql_cmd_xa_rollback : public Sql_cmd {
   bool process_internal_xa_rollback(THD *thd, XID_STATE *xid_state);
 
   xid_t *m_xid;
+  bool m_force;
 };
 
 typedef ulonglong my_xid;  // this line is the same as in log_event.h

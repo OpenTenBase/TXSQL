@@ -1444,6 +1444,7 @@ void warn_about_deprecated_binary(THD *thd)
 %type <resource_group_state_type> opt_resource_group_enable_disable
 
 %type <resource_group_flag_type> opt_force
+%type <xa_rollback_force_type> opt_xa_rollback_force
 
 %type <thread_id_list_type> thread_id_list thread_id_list_options
 
@@ -16584,10 +16585,10 @@ xa:
             Lex->sql_command = SQLCOM_XA_COMMIT;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_commit($3, $4);
           }
-        | XA_SYM ROLLBACK_SYM xid
+        | XA_SYM ROLLBACK_SYM xid opt_xa_rollback_force
           {
             Lex->sql_command = SQLCOM_XA_ROLLBACK;
-            Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_rollback($3);
+            Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_rollback($3,$4);
           }
         | XA_SYM RECOVER_SYM opt_convert_xid
           {
@@ -16868,6 +16869,11 @@ opt_resource_group_enable_disable:
         ;
 
 opt_force:
+          /* empty */ { $$= false; }
+        | FORCE_SYM   { $$= true; }
+        ;
+
+opt_xa_rollback_force:
           /* empty */ { $$= false; }
         | FORCE_SYM   { $$= true; }
         ;
