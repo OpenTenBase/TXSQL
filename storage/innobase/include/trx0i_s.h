@@ -172,6 +172,8 @@ struct i_s_trx_row_t {
   ulint trx_is_autocommit_non_locking;
   /*!< trx_is_autocommit_non_locking(trx)
    */
+  char trx_xid[XID::ser_buf_size + 16];
+  const char *trx_xa_type;
 };
 
 /** Cache of INFORMATION_SCHEMA table data */

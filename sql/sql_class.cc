@@ -2895,6 +2895,24 @@ bool is_cloud_internal_user(const THD *thd) {
                       opt_admin_username_prefix.length) == 0);
 }
 
+extern "C"
+const char *thd_trx_xa_type(const MYSQL_THD thd)
+{
+  if (!thd->get_transaction() ||
+      !thd->get_transaction()->xid_state())
+    return NULL;
+  return thd->get_transaction()->xid_state()->get_xa_type_str();
+}
+
+extern "C"
+const char *thd_trx_xa_xid(const MYSQL_THD thd)
+{
+  if (!thd->get_transaction() ||
+      !thd->get_transaction()->xid_state())
+    return NULL;
+  return thd->get_transaction()->xid_state()->get_xa_xid();
+}
+
 std::string THD::toString() const
 {
   char net_str[512];

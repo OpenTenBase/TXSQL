@@ -387,6 +387,9 @@ class XID_STATE {
   static const char *xa_state_names[];
 
   XID m_xid;
+
+  mutable char m_xid_str[XID::ser_buf_size + 16];
+
   /**
     This mutex used for eliminating a possibility to run two
     XA COMMIT/XA ROLLBACK statements concurrently against the same xid value.
@@ -419,11 +422,36 @@ class XID_STATE {
         rm_error(0),
         m_is_binlogged(false), m_xa_type(XA_INTERNAL) {
     m_xid.null();
+    m_xid_str[0] = '\0';
   }
   
   void set_xa_type(xa_types t) { m_xa_type = t; }
 
   xa_types get_xa_type() const { return m_xa_type; }
+
+  const char *get_xa_type_str() const {
+    const char *res = NULL;
+    switch(m_xa_type) {
+      case XID_STATE::XA_INTERNAL:
+        res = "internal";
+        break;
+      case XID_STATE::XA_EXTERNAL:
+        res = "external";
+        break;
+      default:
+        break;
+    }
+
+    return res;
+  }
+
+  const char *get_xa_xid() const {
+    if (m_xid_str[0] == '\0') {
+      m_xid.serialize(m_xid_str);
+    }
+
+    return m_xid_str;
+  }
 
   std::mutex &get_xa_lock() { return m_xa_lock; }
 

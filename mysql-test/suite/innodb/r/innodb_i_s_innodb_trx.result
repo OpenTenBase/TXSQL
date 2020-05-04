@@ -25,6 +25,8 @@ trx_adaptive_hash_latched	int(1)	NO
 trx_adaptive_hash_timeout	bigint(21) unsigned	NO			
 trx_is_read_only	int(1)	NO			
 trx_autocommit_non_locking	int(1)	NO			
+trx_xid	varchar(300)	YES			
+trx_xa_type	varchar(16)	YES			
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
 c01 INT,
