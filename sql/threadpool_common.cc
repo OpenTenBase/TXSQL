@@ -93,12 +93,17 @@ class Worker_thread_context {
 #endif
  public:
   Worker_thread_context() noexcept
-      :
 #ifdef HAVE_PSI_THREAD_INTERFACE
-        psi_thread(PSI_THREAD_CALL(get_thread)())
+    :
+    psi_thread(PSI_THREAD_CALL(get_thread)())
+#ifndef DBUG_OFF
+    ,
+#endif 
 #endif
 #ifndef DBUG_OFF
-        ,
+#ifndef HAVE_PSI_THREAD_INTERFACE
+    :
+#endif
         thread_id(my_thread_var_id())
 #endif
   {

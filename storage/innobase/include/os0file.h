@@ -1570,7 +1570,7 @@ to original un-instrumented file I/O APIs */
   os_file_rename_func(oldpath, newpath)
 
 # define os_file_rename_if_exists(key, oldpath, newpath, exist) \
-  os_file_rename_if_exists_func(oldpath, newpath, exits)
+  os_file_rename_if_exists_func(oldpath, newpath, exist)
 
 #define os_file_delete(key, name) os_file_delete_func(name)
 
