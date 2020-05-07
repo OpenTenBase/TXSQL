@@ -165,6 +165,7 @@ using std::min;
   a parameter of sql_slave_killed() to defer the killed status
 */
 #define SLAVE_WAIT_GROUP_DONE 60
+uint32_t txsql_slave_wait_group_done = SLAVE_WAIT_GROUP_DONE;
 bool use_slave_mask = 0;
 MY_BITMAP slave_error_mask;
 char slave_skip_error_names[SHOW_VAR_FUNC_BUFF_SIZE];
@@ -2144,7 +2145,7 @@ bool sql_slave_killed(THD *thd, Relay_log_info *rli) {
           rli->last_event_start_time = my_time(0);
         rli->sql_thread_kill_accepted =
             difftime(my_time(0), rli->last_event_start_time) <=
-                    SLAVE_WAIT_GROUP_DONE
+            txsql_slave_wait_group_done
                 ? false
                 : true;
 

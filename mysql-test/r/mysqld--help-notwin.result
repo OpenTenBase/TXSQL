@@ -1532,6 +1532,11 @@ The following options may be given as the first argument:
  on an active transaction before closing it
  --txsql-optimize-xa-recover 
  optimize xa recover feature
+ --txsql-slave-wait-group-done[=#] 
+ when run cmd: stop slave, the slave's coordernate thread
+ just received unfinish's trx,it will check whether has
+ new binlog events(for txsql_slave_wait_group_done
+ seconds)
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
@@ -1965,6 +1970,7 @@ txsql-convert-memory-to-innodb FALSE
 txsql-convert-myisam-to-innodb OFF
 txsql-kill-idle-trans-timeout 0
 txsql-optimize-xa-recover FALSE
+txsql-slave-wait-group-done 60
 updatable-views-with-limit YES
 upgrade AUTO
 validate-config FALSE
