@@ -22643,6 +22643,12 @@ static MYSQL_SYSVAR_INT(
     "Number of transaction/GTID threshold for writing to disk table",
     NULL, NULL, 1024, 128, 1000000, 0);
 
+static MYSQL_SYSVAR_UINT(
+    page_hash_cell_factor, srv_page_hash_cell_factor,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    "The cells number of page_hash is factor * curr_size",
+    NULL, NULL, 2, 1, 128, 0);
+
 static MYSQL_SYSVAR_BOOL(read_only, srv_read_only_mode,
                          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY |
                              PLUGIN_VAR_NOPERSIST,
@@ -23006,6 +23012,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(clone_persist_time_threshold_ms),
     MYSQL_SYSVAR(clone_persist_compression_threshold),
     MYSQL_SYSVAR(clone_persist_threshold),
+    MYSQL_SYSVAR(page_hash_cell_factor),
     NULL};
 
 mysql_declare_plugin(innobase){

@@ -467,6 +467,7 @@ ulong srv_read_ahead_threshold = 56;
 of the buffer pool. */
 uint srv_change_buffer_max_size = CHANGE_BUFFER_DEFAULT_SIZE;
 uint srv_rw_trx_hash_size = 256;
+uint srv_page_hash_cell_factor = 2;
 
 #ifndef _WIN32
 enum srv_unix_flush_t srv_unix_file_flush_method = SRV_UNIX_FSYNC;

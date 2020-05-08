@@ -955,13 +955,14 @@ buf_page_t *buf_page_hash_get_low(buf_pool_t *buf_pool,
               ut_ad(bpage->in_page_hash && !bpage->in_zip_hash &&
                     buf_page_in_file(bpage)),
               page_id.equals_to(bpage->id));
+#ifdef UNIV_DEBUG
   if (bpage) {
     ut_a(buf_page_in_file(bpage));
     ut_ad(bpage->in_page_hash);
     ut_ad(!bpage->in_zip_hash);
     ut_ad(buf_pool_from_bpage(bpage) == buf_pool);
   }
-
+#endif
   return (bpage);
 }
 

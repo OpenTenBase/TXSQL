@@ -1303,7 +1303,7 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
     ut_a(srv_n_page_hash_locks <= MAX_PAGE_HASH_LOCKS);
 
     buf_pool->page_hash =
-        ib_create(2 * buf_pool->curr_size, LATCH_ID_HASH_TABLE_RW_LOCK,
+        ib_create(srv_page_hash_cell_factor * buf_pool->curr_size, LATCH_ID_HASH_TABLE_RW_LOCK,
                   srv_n_page_hash_locks, MEM_HEAP_FOR_PAGE_HASH);
 
     buf_pool->page_hash_old = NULL;
@@ -1919,7 +1919,8 @@ static void buf_pool_resize_hash(buf_pool_t *buf_pool) {
   ut_ad(buf_pool->page_hash_old == NULL);
 
   /* recreate page_hash */
-  new_hash_table = ib_recreate(buf_pool->page_hash, 2 * buf_pool->curr_size);
+  new_hash_table = ib_recreate(buf_pool->page_hash,
+                               srv_page_hash_cell_factor * buf_pool->curr_size);
 
   for (ulint i = 0; i < hash_get_n_cells(buf_pool->page_hash); i++) {
     buf_page_t *bpage;
