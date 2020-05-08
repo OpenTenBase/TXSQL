@@ -272,10 +272,16 @@ echo "Start to run cmake at `pwd`..."
 # Disable local infile by default, also see MySQL manual.
 #
 # Disable example storage, it not so useful and affects the tests.
-which cmake3
-check_error "cmake3 not found, make sure it is installed."
 
-cmake3 .. \
+which cmake3
+if [ "$?" -eq 0 ]
+then
+  cmk="cmake3"
+else
+  cmk="cmake"
+fi
+
+$cmk .. \
   -DFORCE_INSOURCE_BUILD=1                    \
   -DCMAKE_BUILD_TYPE="$cmake_build_type"      \
   -DSYSCONFDIR="$dest_dir"                    \
