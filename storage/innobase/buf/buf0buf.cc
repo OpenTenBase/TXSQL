@@ -489,7 +489,7 @@ void buf_get_total_stat(
     buf_pool = buf_pool_from_array(i);
 
     buf_stat = &buf_pool->stat;
-    tot_stat->n_page_gets += buf_stat->n_page_gets;
+    tot_stat->n_page_gets.add(buf_stat->n_page_gets);
     tot_stat->n_pages_read += buf_stat->n_pages_read;
     tot_stat->n_pages_written += buf_stat->n_pages_written;
     tot_stat->n_pages_created += buf_stat->n_pages_created;
@@ -3069,7 +3069,7 @@ buf_page_t *buf_page_get_zip(const page_id_t &page_id,
   ibool must_read;
   buf_pool_t *buf_pool = buf_pool_get(page_id);
 
-  buf_pool->stat.n_page_gets++;
+  buf_pool->stat.n_page_gets.inc();
 
   for (;;) {
   lookup:
@@ -4007,7 +4007,7 @@ template <typename T>
 buf_block_t *Buf_fetch<T>::single_page() {
   buf_block_t *block;
 
-  m_buf_pool->stat.n_page_gets++;
+  m_buf_pool->stat.n_page_gets.inc();
 
   for (;;) {
     if (static_cast<T *>(this)->get(block) == DB_NOT_FOUND) {
@@ -4311,7 +4311,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
 
   {
     auto buf_pool = buf_pool_from_block(block);
-    buf_pool->stat.n_page_gets++;
+    buf_pool->stat.n_page_gets.inc();
   }
 
   return (true);
@@ -4406,7 +4406,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
   ut_a((hint == Cache_hint::KEEP_OLD) || ibuf_count_get(block->page.id) == 0);
 #endif /* UNIV_IBUF_COUNT_DEBUG */
 
-  ++buf_pool->stat.n_page_gets;
+  buf_pool->stat.n_page_gets.inc();
 
   return (true);
 }
@@ -4487,7 +4487,7 @@ const buf_block_t *buf_page_try_get_func(const page_id_t &page_id,
 
   buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
 
-  buf_pool->stat.n_page_gets++;
+  buf_pool->stat.n_page_gets.inc();
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
   ut_a(ibuf_count_get(block->page.id) == 0);
