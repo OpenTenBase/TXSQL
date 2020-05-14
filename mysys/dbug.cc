@@ -340,6 +340,7 @@ static CODE_STATE *code_state(void) {
     cs->m_read_lock_count = 0;
     *cs_ptr = cs;
   }
+
   return cs;
 }
 
@@ -1753,6 +1754,7 @@ FILE *_db_fp_(void) {
  *
  */
 
+
 int _db_keyword_(CODE_STATE *cs, const char *keyword, int strict) {
   bool result;
   get_code_state_if_not_set_or_return false;
@@ -2174,6 +2176,25 @@ void _db_unlock_file_() {
   get_code_state_or_return;
   cs->locked = 0;
   native_mutex_unlock(&THR_LOCK_dbug);
+}
+
+bool _db_reset_cur_thread_setting_point_global_setting() {
+
+  CODE_STATE ** my_dptr_state = my_thread_var_dbug();
+  if(!my_dptr_state) {
+    return false;
+  }
+  CODE_STATE *cs  = *my_dptr_state;
+
+  if(cs->stack != &init_settings) {
+    FreeState(cs,cs->stack,1);
+    cs->stack = &init_settings;
+  }
+
+//  *my_dptr_state = NULL;
+//  free(cs);
+
+  return true;
 }
 
 #endif

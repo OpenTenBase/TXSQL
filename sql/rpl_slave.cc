@@ -4350,7 +4350,9 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
           rli->curr_group_assigned_parts.clear();
           // reset the B-group and Gtid-group marker
           rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+
           rli->last_assigned_worker = nullptr;
+
         }
         /*
            Stroring GAQ index of the group that the event belongs to
@@ -4596,7 +4598,11 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
   mysql_mutex_assert_owner(&rli->data_lock);
   THD *thd = rli->info_thd;
 
+  bool last_start_is_xa_start = rli->m_last_start_is_xa_start;
+
   if (!rli->curr_group_seen_begin) {
+    last_start_is_xa_start = false;
+
     DBUG_PRINT("info", ("Injecting QUERY(BEGIN) to rollback worker"));
     Log_event *begin_event = new Query_log_event(thd, STRING_WITH_LEN("BEGIN"),
                                                  true,  /* using_trans */
@@ -4614,21 +4620,39 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
     begin_event->common_header->log_pos = ev->common_header->log_pos;
     begin_event->future_event_relay_log_pos = ev->future_event_relay_log_pos;
 
+    sql_print_information("before inject begin current rli, curr_group_seen_gtid:%d,curr_group_seen_begin:%d,last_assigned_worker:(%s),mts_group_status:%d",
+                    rli->curr_group_seen_gtid,rli->curr_group_seen_begin,rli->last_assigned_worker?rli->last_assigned_worker->to_id_string().c_str():"",rli->mts_group_status);
     if (apply_event_and_update_pos(&begin_event, thd, rli) !=
         SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK) {
       delete begin_event;
       return true;
     }
+    sql_print_information("end inject begin current rli, curr_group_seen_gtid:%d,curr_group_seen_begin:%d,last_assigned_worker:(%s),mts_group_status:%d",
+                    rli->curr_group_seen_gtid,rli->curr_group_seen_begin,rli->last_assigned_worker?rli->last_assigned_worker->to_id_string().c_str():"",rli->mts_group_status);
+
     mysql_mutex_lock(&rli->data_lock);
   }
 
-  DBUG_PRINT("info", ("Injecting QUERY(XA ROLLBACK '' force ) to rollback worker"));
-  Log_event *rollback_event = new Query_log_event(
-     thd, STRING_WITH_LEN("XA ROLLBACK '' force "), true, /* using_trans */
-     false,                                  /* immediate */
-     true,                                   /* suppress_use */
-     0,                                      /* error */
-     true /* ignore_command */);
+  Log_event * rollback_event = NULL;
+  if(unlikely(last_start_is_xa_start)) {
+    DBUG_PRINT("info", ("Injecting QUERY(XA ROLLBACK '' force ) to rollback worker"));
+    rollback_event = new Query_log_event(
+         thd, STRING_WITH_LEN("XA ROLLBACK '' force "), true, /* using_trans */
+         false,                                  /* immediate */
+         true,                                   /* suppress_use */
+         0,                                      /* error */
+         true /* ignore_command */);
+  }else {
+    DBUG_PRINT("info", ("Injecting QUERY(ROLLBACK) to rollback worker"));
+    rollback_event = new Query_log_event(
+          thd, STRING_WITH_LEN("ROLLBACK"), true, /* using_trans */
+          false,                                  /* immediate */
+          true,                                   /* suppress_use */
+          0,                                      /* error */
+          true /* ignore_command */);
+  }
+  std::string query = ((Query_log_event*)rollback_event)->query;
+
   ((Query_log_event *)rollback_event)->db = "";
   rollback_event->common_header->data_written = 0;
   rollback_event->server_id = ev->server_id;
@@ -4641,37 +4665,18 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
 
   ((Query_log_event *)rollback_event)->rollback_injected_by_coord = true;
 
+  sql_print_information("before inject [%s],current rli, curr_group_seen_gtid:%d,curr_group_seen_begin:%d,last_assigned_worker:(%s),mts_group_status:%d",
+                   query.c_str(),
+                   rli->curr_group_seen_gtid,rli->curr_group_seen_begin,rli->last_assigned_worker?rli->last_assigned_worker->to_id_string().c_str():"",rli->mts_group_status);
   if (apply_event_and_update_pos(&rollback_event, thd, rli) !=
      SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK) {
     delete rollback_event;
     return true;
   }
-  mysql_mutex_lock(&rli->data_lock);
+  sql_print_information("end inject [%s],current rli, curr_group_seen_gtid:%d,curr_group_seen_begin:%d,last_assigned_worker:(%s),mts_group_status:%d",
+                  query.c_str(),
+                   rli->curr_group_seen_gtid,rli->curr_group_seen_begin,rli->last_assigned_worker?rli->last_assigned_worker->to_id_string().c_str():"",rli->mts_group_status);
 
-  DBUG_PRINT("info", ("Injecting QUERY(ROLLBACK) to rollback worker"));
-  rollback_event = new Query_log_event(
-      thd, STRING_WITH_LEN("ROLLBACK"), true, /* using_trans */
-      false,                                  /* immediate */
-      true,                                   /* suppress_use */
-      0,                                      /* error */
-      true /* ignore_command */);
-  ((Query_log_event *)rollback_event)->db = "";
-  rollback_event->common_header->data_written = 0;
-  rollback_event->server_id = ev->server_id;
-  /*
-    We must be careful to avoid SQL thread increasing its position
-    farther than the event that triggered this QUERY(ROLLBACK).
-  */
-  rollback_event->common_header->log_pos = ev->common_header->log_pos;
-  rollback_event->future_event_relay_log_pos = ev->future_event_relay_log_pos;
-
-  ((Query_log_event *)rollback_event)->rollback_injected_by_coord = true;
-
-  if (apply_event_and_update_pos(&rollback_event, thd, rli) !=
-      SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK) {
-    delete rollback_event;
-    return true;
-  }
   mysql_mutex_lock(&rli->data_lock);
 
   return false;
@@ -5579,6 +5584,95 @@ ignore_log_space_limit=%d",
                 !debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
           }
         });
+
+        DBUG_EXECUTE_IF("crash_when_iothread_check_gtid",{
+            if (event_buf[EVENT_TYPE_OFFSET] == binary_log::GTID_LOG_EVENT) {
+              mysql_mutex_t *log_lock = rli->relay_log.get_log_lock();
+              mysql_mutex_lock(log_lock);
+              rli->relay_log.flush_and_sync(true);
+              mysql_mutex_unlock(log_lock);
+//              DBUG_ASSERT(0);//force crash
+              DBUG_SET_INITIAL("-d,crash_when_iothread_check_gtid");
+              _db_reset_cur_thread_setting_point_global_setting();
+              LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_FORCING_TO_RECONNECT_IO_THREAD,
+                             mi->get_for_channel_str());
+              if (try_to_reconnect(thd, mysql, mi, &retry_count, suppress_warnings,
+                         reconnect_messages[SLAVE_RECON_ACT_REG]))
+                    goto err;
+              goto connected;
+            }
+        };);
+        DBUG_EXECUTE_IF("crash_when_iothread_check_xa_start",{
+          if (event_buf[EVENT_TYPE_OFFSET] == binary_log::QUERY_EVENT) {
+            size_t qlen = 0;
+            const char *query = nullptr;
+            /* Get the query to let us check for BEGIN/COMMIT/ROLLBACK */
+            mysql_mutex_t *log_lock = rli->relay_log.get_log_lock();
+            mysql_mutex_lock(log_lock);
+            qlen = Query_log_event::get_query(event_buf, event_len, mi->get_mi_description_event(), &query);
+            if (qlen > 0) {
+              if(!strncmp(query, STRING_WITH_LEN("XA START"))) {
+                rli->relay_log.flush_and_sync(true);
+                mysql_mutex_unlock(log_lock);
+//                DBUG_ASSERT(0);//force crash
+                DBUG_SET_INITIAL("-d,crash_when_iothread_check_xa_start");
+                _db_reset_cur_thread_setting_point_global_setting();
+                LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_FORCING_TO_RECONNECT_IO_THREAD,
+                               mi->get_for_channel_str());
+                if (try_to_reconnect(thd, mysql, mi, &retry_count, suppress_warnings,
+                                    reconnect_messages[SLAVE_RECON_ACT_REG]))
+                     goto err;
+                goto connected;
+              }
+            }
+            mysql_mutex_unlock(log_lock);
+          }
+        };);
+        DBUG_EXECUTE_IF("crash_when_iothread_check_xa_end",{
+        if (event_buf[EVENT_TYPE_OFFSET] == binary_log::QUERY_EVENT) {
+          size_t qlen = 0;
+          const char *query = nullptr;
+          /* Get the query to let us check for BEGIN/COMMIT/ROLLBACK */
+          mysql_mutex_t *log_lock = rli->relay_log.get_log_lock();
+          mysql_mutex_lock(log_lock);
+          qlen = Query_log_event::get_query(event_buf, event_len, mi->get_mi_description_event(), &query);
+          if (qlen > 0) {
+            if(!strncmp(query, STRING_WITH_LEN("XA END"))) {
+              rli->relay_log.flush_and_sync(true);
+              mysql_mutex_unlock(log_lock);
+//                DBUG_ASSERT(0);//force crash
+              LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_FORCING_TO_RECONNECT_IO_THREAD,
+                             mi->get_for_channel_str());
+              DBUG_SET_INITIAL("-d,crash_when_iothread_check_xa_end");
+              _db_reset_cur_thread_setting_point_global_setting();
+              if (try_to_reconnect(thd, mysql, mi, &retry_count, suppress_warnings,
+                                  reconnect_messages[SLAVE_RECON_ACT_REG]))
+                   goto err;
+              goto connected;
+            }
+          }
+          mysql_mutex_unlock(log_lock);
+        }
+      };);
+        DBUG_EXECUTE_IF("crash_when_iothread_check_dml",{
+            if (event_buf[EVENT_TYPE_OFFSET] == binary_log::WRITE_ROWS_EVENT ||
+                event_buf[EVENT_TYPE_OFFSET] == binary_log::UPDATE_ROWS_EVENT ||
+                event_buf[EVENT_TYPE_OFFSET] == binary_log::DELETE_ROWS_EVENT ) {
+                   mysql_mutex_t *log_lock = rli->relay_log.get_log_lock();
+                   mysql_mutex_lock(log_lock);
+                   rli->relay_log.flush_and_sync(true);
+                   mysql_mutex_unlock(log_lock);
+                   DBUG_SET_INITIAL("-d,crash_when_iothread_check_dml");
+                   _db_reset_cur_thread_setting_point_global_setting();
+                   LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_FORCING_TO_RECONNECT_IO_THREAD,
+                                                  mi->get_for_channel_str());
+                   if (try_to_reconnect(thd, mysql, mi, &retry_count, suppress_warnings,
+                                                       reconnect_messages[SLAVE_RECON_ACT_REG]))
+                         goto err;
+                   goto connected;
+            }
+        };);
+
         DBUG_EXECUTE_IF(
             "stop_io_after_reading_gtid_log_event",
             if (event_buf[EVENT_TYPE_OFFSET] == binary_log::GTID_LOG_EVENT)

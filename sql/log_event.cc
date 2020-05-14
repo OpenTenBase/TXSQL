@@ -2605,9 +2605,13 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
   DBUG_TRACE;
 
   /* checking partioning properties and perform corresponding actions */
+  is_s_event = starts_group();
+  if(is_s_event) {
+      rli->m_last_start_is_xa_start = ((Query_log_event*)this)->is_xa_start();
+  }
 
   // Beginning of a group designated explicitly with BEGIN or GTID
-  if ((is_s_event = starts_group()) || is_gtid_event(this) ||
+  if ( is_s_event  || is_gtid_event(this) ||
       // or DDL:s or autocommit queries possibly associated with own p-events
       (!rli->curr_group_seen_begin && !rli->curr_group_seen_gtid &&
        /*
@@ -2644,7 +2648,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
 
         DBUG_ASSERT(rli->curr_group_da.size() == 1);
 
-        if (starts_group()) {
+        if (is_s_event) {
           // mark the current group as started with explicit B-event
           rli->mts_end_group_sets_max_dbs = true;
           rli->curr_group_seen_begin = true;
@@ -4722,7 +4726,9 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
           query_start_status = thd->status_var;
         }
 
+        thd->rollback_injected_by_coord = rollback_injected_by_coord;//binlog_gtid_end_transaction will use the variable
         mysql_parse(thd, &parser_state);
+        thd->rollback_injected_by_coord = false;//reset
 
         enum_sql_command command = thd->lex->sql_command;
 

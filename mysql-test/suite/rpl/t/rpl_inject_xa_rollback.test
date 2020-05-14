@@ -1,0 +1,116 @@
+#TEST iSsue #124 injection xa rollback,Serialization is required to execute the gtid
+#txsql test case
+--source include/not_group_replication_plugin.inc
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+call mtr.add_suppression("Slave I/O for channel '': Master command COM_REGISTER_SLAVE failed: failed registering on master, reconnecting to try *");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format *");
+
+--disable_warnings
+
+connection master;
+
+CREATE TABLE `t` (
+  `id` int NOT NULL PRIMARY KEY AUTO_INCREMENT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--source include/sync_slave_io_with_master.inc
+
+connection slave;
+show create table t;
+
+connection slave;
+set global debug='+d,crash_when_iothread_check_gtid';
+
+
+connection master;
+xa begin 'xa_id';
+insert into t values(0);
+insert into t values(0);
+xa end 'xa_id';
+xa commit  'xa_id' one phase;
+--source include/sync_slave_io_with_master.inc
+
+#the slave will check crash_when_iothread_check_gtid
+connection slave;
+--echo "slave will get 2 rows"
+select * from t;
+
+set global debug='+d,crash_when_iothread_check_xa_start';
+
+connection master;
+xa begin 'xid';
+insert into t values(0);
+insert into t values(0);
+xa end 'xid';
+xa commit 'xid' one phase;
+--source include/sync_slave_io_with_master.inc
+
+connection slave;
+#show slave status;
+--echo "slave will get 4 rows"
+select * from t;
+
+set global debug='+d,crash_when_iothread_check_xa_end';
+
+connection master;
+xa begin 'xid';
+insert into t values(0);
+insert into t values(0);
+xa end 'xid';
+xa commit 'xid' one phase;
+--source include/sync_slave_io_with_master.inc
+
+connection slave;
+--echo "slave will get 6 rows"
+select * from t;
+set global debug='+d,crash_when_iothread_check_dml';
+
+connection master;
+xa begin 'xid';
+insert into t values(0);
+insert into t values(0);
+xa end 'xid';
+xa commit 'xid' one phase;
+--source include/sync_slave_io_with_master.inc
+
+connection slave;
+--echo "slave will get 8 rows"
+select * from t;
+set global debug='+d,crash_when_iothread_check_gtid';
+
+
+connection master;
+begin;
+insert into t values(0);
+insert into t values(0);
+commit;
+--source include/sync_slave_io_with_master.inc
+
+connection slave;
+--echo "slave will get 10 rows"
+select * from t;
+
+set global debug='+d,crash_when_iothread_check_dml';
+
+
+connection master;
+begin;
+insert into t values(0);
+insert into t values(0);
+commit;
+--source include/sync_slave_io_with_master.inc
+
+connection slave;
+--echo "slave will get 12 rows"
+select * from t;
+
+--enable_warnings
+
+connection slave;
+set global debug='';
+connection master;
+drop table t;
+source include/rpl_end.inc;

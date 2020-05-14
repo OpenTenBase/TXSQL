@@ -453,12 +453,13 @@ err:
 
 static inline int add_relay_log(Relay_log_info *rli, LOG_INFO *linfo) {
   MY_STAT s;
+  bzero(&s,sizeof(s));
   DBUG_TRACE;
   mysql_mutex_assert_owner(&rli->log_space_lock);
   if (!mysql_file_stat(key_file_relaylog, linfo->log_file_name, &s, MYF(0))) {
     LogErr(ERROR_LEVEL, ER_RPL_FAILED_TO_STAT_LOG_IN_INDEX,
            linfo->log_file_name);
-    return 1;
+//    return 1; //tolerate this,just print error msg
   }
   rli->log_space_total += s.st_size;
 #ifndef DBUG_OFF

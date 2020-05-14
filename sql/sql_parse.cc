@@ -2712,7 +2712,8 @@ static inline void binlog_gtid_end_transaction(THD *thd) {
   if (thd->lex->sql_command == SQLCOM_COMMIT ||
       thd->lex->sql_command == SQLCOM_XA_PREPARE ||
       thd->lex->sql_command == SQLCOM_XA_COMMIT ||
-      thd->lex->sql_command == SQLCOM_XA_ROLLBACK ||
+              //if the xa rollback is injected by coordinate ,should not call gtid_end_transaction to  insert trx into binlog(gtid)
+      ( (thd->lex->sql_command == SQLCOM_XA_ROLLBACK) && ( (!thd->rli_slave)  || (!thd->rollback_injected_by_coord)) ) ||
       stmt_causes_implicit_commit(thd, CF_IMPLICIT_COMMIT_END) ||
       ((thd->lex->sql_command == SQLCOM_CREATE_TABLE ||
         thd->lex->sql_command == SQLCOM_DROP_TABLE) &&

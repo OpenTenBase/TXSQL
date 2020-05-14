@@ -185,6 +185,8 @@ class Sql_cmd_xa_rollback : public Sql_cmd {
 
   virtual bool execute(THD *thd);
 
+  bool clean_state_from_coord_inject(THD *thd);
+
  private:
   bool trans_xa_rollback(THD *thd);
   bool process_external_xa_rollback(THD *thd, xid_t *xid, XID_STATE *xid_state);
@@ -192,6 +194,7 @@ class Sql_cmd_xa_rollback : public Sql_cmd {
 
   xid_t *m_xid;
   bool m_force;
+  bool m_clear_state_from_inject = false;
 };
 
 typedef ulonglong my_xid;  // this line is the same as in log_event.h

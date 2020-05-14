@@ -616,6 +616,12 @@ class Slave_worker : public Relay_log_info {
         4  // is set by worker upon completing job when STOP SLAVE is issued
   };
 
+  std::string to_id_string(){
+    char buf[256];
+    snprintf(buf,sizeof(buf),"work id:%lu,thread_id:%u",id,info_thd?info_thd->thread_id():0);
+    return buf;
+  }
+
   /*
     This function is used to make a copy of the worker object before we
     destroy it on STOP SLAVE. This new object is then used to report the

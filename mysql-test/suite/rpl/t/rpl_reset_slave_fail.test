@@ -6,6 +6,7 @@
 # If you have a relay log index file that has ended up with
 # some relay log files that do not exists, then RESET SLAVE
 # ALL is not enough to get back to a clean state.
+# but now,reset slave all can clean all status.
 ###############################################################################
 # Remove all slave-relay-bin.0* files (do not remove slave-relay-bin.index)
 # During server restart rli initialization will fail as there are no
@@ -58,12 +59,13 @@ call mtr.add_suppression("Error counting relay log space");
 --source include/rpl_start_server.inc
 
 # Start slave must fail because of the removed file(s).
---error ER_SLAVE_RLI_INIT_REPOSITORY
+#--error ER_SLAVE_RLI_INIT_REPOSITORY
 START SLAVE;
 
 # Try a second time, it must fail again.
---error ER_SLAVE_RLI_INIT_REPOSITORY
+#--error ER_SLAVE_RLI_INIT_REPOSITORY
 START SLAVE;
+STOP SLAVE;
 
 # Retrieve master executed position before reset slave.
 --let $master_exec_file= query_get_value("SHOW SLAVE STATUS", Relay_Master_Log_File, 1)

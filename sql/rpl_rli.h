@@ -1760,6 +1760,8 @@ class Relay_log_info : public Rpl_info {
   Until_option *until_option;
 
  public:
+  bool m_last_start_is_xa_start = false;//record the last start is xa start
+
   /*
     The boolean is set to true when the binlog (rli_fake) or slave
     (rli_slave) applier thread detaches any engine ha_data
