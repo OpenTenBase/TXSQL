@@ -3094,12 +3094,26 @@ static void buf_flush_page_coordinator_thread(size_t n_page_cleaners) {
       break;
     }
 
+loop:
     /* Flush all pages */
     do {
       pc_request(ULINT_MAX, LSN_MAX);
       while (pc_flush_slot() > 0) {
       }
     } while (!pc_wait_finished(&n_flushed_list));
+
+    /* All dirty pages should be flushed */
+    for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+      buf_pool_t *bp = buf_pool_from_array(i);
+
+      buf_flush_list_mutex_enter(bp);
+      if (bp->flush_list.count > 0) {
+        buf_flush_list_mutex_exit(bp);
+        goto loop;
+      }
+
+      buf_flush_list_mutex_exit(bp);
+    }
 
     os_event_reset(recv_sys->flush_start);
     os_event_set(recv_sys->flush_end);
