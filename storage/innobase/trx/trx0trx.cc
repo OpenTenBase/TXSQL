@@ -1733,9 +1733,7 @@ static void trx_erase_lists(trx_t *trx, bool serialised, Gtid_desc &gtid_desc) {
     2.Before it is removed from serialization list. Otherwise the transaction
       undo could get purged before persisting GTID on disk table. */
 
-    if (gtid_desc.m_is_set && (opt_strict_gtid_commit ||
-                               thd_is_log_apply_thread(trx->mysql_thd) ||
-                               !gtid_desc.is_automatic_gtid)) {
+    if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
       auto &gtid_persistor = clone_sys->get_gtid_persistor();
       gtid_persistor.add(gtid_desc);
     }
@@ -2302,8 +2300,10 @@ dberr_t trx_commit_for_mysql(trx_t *trx) /*!< in/out: transaction */
         return (db_err);
       }
 
-      /* Flush prepare GTID for XA prepared transactions. */
-      trx_undo_gtid_flush_prepare(trx);
+      if (opt_strict_gtid_commit) {
+        /* Flush prepare GTID for XA prepared transactions. */
+        trx_undo_gtid_flush_prepare(trx);
+      }
 
       if (trx->id != 0) {
         trx_update_mod_tables_timestamp(trx);
@@ -2692,7 +2692,7 @@ static void trx_prepare(trx_t *trx) /*!< in/out: transaction */
   trx_mutex_exit(trx);
   trx_sys->n_prepared_trx++;
   /* Add GTID to be persisted to disk table, if needed. */
-  if (gtid_desc.m_is_set) {
+  if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
     gtid_persistor.add(gtid_desc);
   }
   /*--------------------------------------*/
