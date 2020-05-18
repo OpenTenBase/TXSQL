@@ -671,6 +671,7 @@ inline void trx_disconnect_from_mysql(trx_t *trx, bool prepared) {
 
   UT_LIST_REMOVE(trx_sys->mysql_trx_list, trx);
 
+  trx_mutex_enter(trx);
   if (trx->register_view) {
     trx_sys->mvcc->view_close(trx);
   }
@@ -683,6 +684,7 @@ inline void trx_disconnect_from_mysql(trx_t *trx, bool prepared) {
     /* todo/fixme: suggest to do it at innodb prepare */
     trx->will_lock = 0;
   }
+  trx_mutex_exit(trx);
 
   trx_sys_mutex_exit();
 }
