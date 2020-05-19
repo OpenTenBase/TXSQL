@@ -3284,8 +3284,7 @@ static void srv_shutdown_page_cleaners() {
   ut_a(srv_shutdown_state.load() == SRV_SHUTDOWN_MASTER_STOP);
   ut_a(!srv_master_thread_is_active());
 
-  ut_ad(buf_flush_active_lru_managers() == srv_buf_pool_instances ||
-      buf_flush_active_lru_managers() == 0);
+  ut_ad(buf_flush_active_lru_managers() <= srv_buf_pool_instances);
 
   srv_shutdown_state.store(SRV_SHUTDOWN_FLUSH_PHASE);
 

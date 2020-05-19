@@ -3371,6 +3371,7 @@ loop:
 
   bool success;
 
+loop_flush:
   do {
     pc_request(ULINT_MAX, LSN_MAX);
 
@@ -3388,7 +3389,9 @@ loop:
 
   for (ulint i = 0; i < srv_buf_pool_instances; i++) {
     buf_pool_t *buf_pool = buf_pool_from_array(i);
-    ut_a(UT_LIST_GET_LEN(buf_pool->flush_list) == 0);
+    if (UT_LIST_GET_LEN(buf_pool->flush_list) > 0) {
+      goto loop_flush;
+    }
   }
 
   /* We have lived our life. Time to die. */

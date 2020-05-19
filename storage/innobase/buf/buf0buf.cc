@@ -5394,6 +5394,7 @@ static void buf_pool_invalidate_instance(buf_pool_t *buf_pool) {
 
   ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
 
+loop_flush:
   mutex_enter(&buf_pool->flush_state_mutex);
 
   for (i = BUF_FLUSH_LRU; i < BUF_FLUSH_N_TYPES; i++) {
@@ -5401,8 +5402,12 @@ static void buf_pool_invalidate_instance(buf_pool_t *buf_pool) {
     during redo application phase during recovery, InnoDB
     is single threaded (apart from IO helper threads) at
     this stage. No new write batch can be in intialization
-    stage at this point. */
-    ut_ad(buf_pool->init_flush[i] == FALSE);
+    stage at this point.
+    
+    But as we have lru manager thread running in background,
+    it's possible that init_flush is set by them. */
+    
+    ut_ad(buf_pool->init_flush[i] == FALSE || i == BUF_FLUSH_LRU);
 
     /* However, it is possible that a write batch that has
     been posted earlier is still not complete. For buffer
@@ -5426,8 +5431,12 @@ static void buf_pool_invalidate_instance(buf_pool_t *buf_pool) {
 
   mutex_enter(&buf_pool->LRU_list_mutex);
 
-  ut_ad(UT_LIST_GET_LEN(buf_pool->LRU) == 0);
-  ut_ad(UT_LIST_GET_LEN(buf_pool->unzip_LRU) == 0);
+  if (UT_LIST_GET_LEN(buf_pool->LRU) != 0 ||
+      UT_LIST_GET_LEN(buf_pool->unzip_LRU) != 0) {
+    
+    mutex_exit(&buf_pool->LRU_list_mutex);
+    goto loop_flush;
+  }
 
   buf_pool->freed_page_clock = 0;
   buf_pool->LRU_old = NULL;
