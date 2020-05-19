@@ -585,6 +585,7 @@ struct trx_sys_t {
   TrxSysMutex mutex; /*!< mutex protecting most fields in
                      this structure except when noted
                      otherwise */
+  TrxSysMutex resurrect_mutex;
   rw_lock_t* lock; /*!< lock to avoid ongoing registering trx
                    while taking snapshot. */
 

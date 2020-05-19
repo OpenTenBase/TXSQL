@@ -80,6 +80,7 @@ typedef std::map<trx_t *, table_id_set, std::less<trx_t *>,
 
 /** Map of resurrected transactions to affected table_id */
 static trx_table_map resurrected_trx_tables;
+static std::atomic<bool> resurrected_trx_done {false};
 
 /** Dummy session used currently in MySQL interface */
 sess_t *trx_dummy_sess = NULL;
@@ -528,6 +529,14 @@ static void trx_free(trx_t *&trx) {
 
   trx->mysql_thd = 0;
 
+  trx_mutex_enter(trx);
+  if (trx->recover_mysql_thd) {
+    dd_mdl_release_transactional(trx->recover_mysql_thd);
+    destroy_thd(trx->recover_mysql_thd);
+    trx->recover_mysql_thd = nullptr;
+  }
+  trx_mutex_exit(trx);
+
   // FIXME: We need to avoid this heap free/alloc for each commit.
   if (trx->lock.autoinc_locks != NULL) {
     ut_ad(ib_vector_is_empty(trx->lock.autoinc_locks));
@@ -765,10 +774,26 @@ static void trx_resurrect_table_ids(trx_t *trx, const trx_undo_ptr_t *undo_ptr,
 }
 
 void trx_resurrect_erase(trx_t* trx) {
-  resurrected_trx_tables.erase(trx);
+  if (!resurrected_trx_done.load()) {
+    mutex_enter(&trx_sys->resurrect_mutex);
+    resurrected_trx_tables.erase(trx);
+
+    if (resurrected_trx_tables.empty()) {
+      resurrected_trx_done = true;
+    }
+
+    mutex_exit(&trx_sys->resurrect_mutex);
+  }
+#ifdef UNIV_DEBUG
+  mutex_enter(&trx_sys->resurrect_mutex);
+  ut_ad(resurrected_trx_tables.find(trx)
+          == resurrected_trx_tables.end());
+  mutex_exit(&trx_sys->resurrect_mutex);
+#endif
 }
 
 void trx_resurrect_modified_tables() {
+  mutex_enter(&trx_sys->resurrect_mutex);
   for (trx_table_map::const_iterator t = resurrected_trx_tables.begin();
       t != resurrected_trx_tables.end(); t++) {
     trx_t *trx = t->first;
@@ -803,10 +828,13 @@ void trx_resurrect_modified_tables() {
       }
     }
   }
+  
+  mutex_exit(&trx_sys->resurrect_mutex);
 }
 
 /** Resurrect table locks for resurrected transactions. */
 void trx_resurrect_locks() {
+  mutex_enter(&trx_sys->resurrect_mutex);
   for (trx_table_map::const_iterator t = resurrected_trx_tables.begin();
        t != resurrected_trx_tables.end(); t++) {
     trx_t *trx = t->first;
@@ -815,7 +843,7 @@ void trx_resurrect_locks() {
     ut_a(!trx->mysql_thd);
     ut_a(!trx->recover_mysql_thd);
 
-    trx->recover_mysql_thd = create_thd(false, true, false , 0);
+    THD *recover_mysql_thd = create_thd(false, true, false , 0);
 
     for (table_id_set::const_iterator i = tables.begin(); i != tables.end();
          i++) {
@@ -836,18 +864,25 @@ void trx_resurrect_locks() {
         char tbl_buf[NAME_LEN + 1];
         dd_parse_tbl_name(table->name.m_name, db_buf, tbl_buf,
                           nullptr, nullptr, nullptr);
-        bool ret = dd_mdl_acquire(trx->recover_mysql_thd, nullptr, db_buf, tbl_buf, true);
+        bool ret = dd_mdl_acquire(recover_mysql_thd, nullptr, db_buf, tbl_buf, true);
         ut_a(!ret);
 
         DBUG_PRINT("ib_trx", ("resurrect" TRX_ID_FMT "  table '%s' IX lock",
                               trx_get_id_for_print(trx), table->name.m_name));
 
         dd_table_close(table, NULL, NULL, false);
+
+        trx_mutex_enter(trx);
+        trx->recover_mysql_thd = recover_mysql_thd;
+        trx_mutex_exit(trx);
       }
     }
   }
 
   resurrected_trx_tables.clear();
+
+  resurrected_trx_done = true;
+  mutex_exit(&trx_sys->resurrect_mutex);
 }
 
 /** Resurrect the transactions that were doing inserts at the time of the

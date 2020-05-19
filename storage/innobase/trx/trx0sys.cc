@@ -506,6 +506,8 @@ void trx_sys_create(void) {
 
   mutex_create(LATCH_ID_TRX_SYS, &trx_sys->mutex);
 
+  mutex_create(LATCH_ID_TRX_SYS_RESURRECT, &trx_sys->resurrect_mutex);
+
   UT_LIST_INIT(trx_sys->mysql_trx_list, &trx_t::mysql_trx_list);
 
   trx_sys->mvcc = UT_NEW_NOKEY(MVCC());
@@ -586,6 +588,7 @@ void trx_sys_close(void) {
 
   /* We used placement new to create this mutex. Call the destructor. */
   mutex_free(&trx_sys->mutex);
+  mutex_free(&trx_sys->resurrect_mutex);
 
   ut_free(trx_sys);
 

@@ -709,6 +709,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(rtr_path_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(rtr_ssn_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_sys_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(trx_sys_resurrect_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(zip_pad_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(master_key_id_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(sync_array_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -19527,9 +19528,8 @@ static xa_status_code innobase_commit_by_xid(
     ut_ad(!trx->will_lock); /* trx cache requirement */
     TrxInInnoDB::end_stmt(trx);
 
-    trx_free_for_background(trx);
-
     trx_resurrect_erase(trx);
+    trx_free_for_background(trx);
 
     return (XA_OK);
   } else {
@@ -19550,15 +19550,16 @@ static xa_status_code innobase_rollback_by_xid(
   trx_t *trx = trx_get_trx_by_xid(xid);
 
   if (trx != NULL) {
-    TrxInInnoDB trx_in_innodb(trx);
+    TrxInInnoDB::begin_stmt(trx);
 
     int ret = innobase_rollback_trx(trx);
 
     trx_deregister_from_2pc(trx);
     ut_ad(!trx->will_lock);
-    trx_free_for_background(trx);
+    TrxInInnoDB::end_stmt(trx);
 
     trx_resurrect_erase(trx);
+    trx_free_for_background(trx);
 
     return (ret != 0 ? XAER_RMERR : XA_OK);
   } else {
