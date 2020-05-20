@@ -46,6 +46,7 @@ Query_event::Query_event(Log_event_type type_arg)
       error_code(0),
       status_vars_len(0),
       q_len(0),
+      flags2_inited(0),
       sql_mode_inited(0),
       charset_inited(0),
       m_release_query_buf(0),
