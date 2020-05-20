@@ -1253,7 +1253,8 @@ void srv_free(void) {
     for (size_t i = 0; i < srv_threads.m_lru_managers_n; ++i) {
       srv_threads.m_lru_managers[i] = {};
     }    
-    ut_free(srv_threads.m_lru_managers);
+
+    UT_DELETE_ARRAY(srv_threads.m_lru_managers);
     srv_threads.m_lru_managers = nullptr;
   }
 
@@ -1261,7 +1262,7 @@ void srv_free(void) {
     for (size_t i = 0; i < srv_threads.m_page_cleaner_workers_n; ++i) {
       srv_threads.m_page_cleaner_workers[i] = {};
     }
-    ut_free(srv_threads.m_page_cleaner_workers);
+    UT_DELETE_ARRAY(srv_threads.m_page_cleaner_workers);
     srv_threads.m_page_cleaner_workers = nullptr;
   }
 
@@ -1269,7 +1270,7 @@ void srv_free(void) {
     for (size_t i = 0; i < srv_threads.m_purge_workers_n; ++i) {
       srv_threads.m_purge_workers[i] = {};
     }
-    ut_free(srv_threads.m_purge_workers);
+    UT_DELETE_ARRAY(srv_threads.m_purge_workers);
     srv_threads.m_purge_workers = nullptr;
   }
 

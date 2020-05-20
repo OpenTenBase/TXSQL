@@ -51,8 +51,12 @@ namespace meb {
 const std::string logmsgpfx("innodb_redo_log_archive: ");
 constexpr size_t QUEUE_BLOCK_SIZE = 4096;
 constexpr size_t QUEUE_SIZE_MAX = 16384;
+#ifdef UNIV_PFS_THREAD
 mysql_pfs_key_t redo_log_archive_consumer_thread_key;
+#endif
+#ifdef UNIV_PFS_IO
 mysql_pfs_key_t redo_log_archive_file_key;
+#endif
 
 /** Encapsulates a log block of size QUEUE_BLOCK_SIZE, enqueued by the
     producer, dequeued by the consumer and written into the redo log
