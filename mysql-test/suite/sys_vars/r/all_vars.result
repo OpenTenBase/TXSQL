@@ -142,6 +142,8 @@ innodb_simplify_trx_in_innodb
 innodb_simplify_trx_in_innodb
 innodb_snapshot_spin_loop
 innodb_snapshot_spin_loop
+innodb_space_extend_fill_zero
+innodb_space_extend_fill_zero
 innodb_strict_gtid_commit
 innodb_strict_gtid_commit
 innodb_table_drop_mode

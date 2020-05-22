@@ -181,6 +181,7 @@ a freshly read page)
 @param[in,out]	block	buffer block */
 #define recv_recover_page(jri, block) recv_recover_page_func(jri, block)
 
+bool recv_page_has_init_log(const page_id_t &page_id);
 /** Frees the recovery system. */
 void recv_sys_free();
 

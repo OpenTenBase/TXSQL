@@ -6213,6 +6213,7 @@ bool Fil_shard::space_extend(fil_space_t *space, page_no_t size) {
 
     ut_ad(len > 0);
 
+    bool fill_zero = !file->atomic_write;
 #if !defined(NO_FALLOCATE) && defined(UNIV_LINUX)
     /* This is required by FusionIO HW/Firmware */
 
@@ -6248,11 +6249,14 @@ bool Fil_shard::space_extend(fil_space_t *space, page_no_t size) {
                "operating-system-error-codes.html";
       }
 
+      fill_zero = true;
       err = DB_IO_ERROR;
+    } else if (!opt_space_extend_fill_zero) {
+      fill_zero = false;
     }
 #endif /* NO_FALLOCATE || !UNIV_LINUX */
 
-    if (!file->atomic_write || err == DB_IO_ERROR) {
+    if (fill_zero) {
       bool read_only_mode;
 
       read_only_mode =

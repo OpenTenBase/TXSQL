@@ -599,6 +599,7 @@ extern ulong srv_empty_free_list_algorithm;
 extern int64_t srv_cleaner_sleep_factor;
 extern bool opt_cleaner_adaptive_sleep;
 extern bool opt_mtr_check_dirty;
+extern bool opt_space_extend_fill_zero;
 
 extern ulong srv_page_flush_strategy;
 

@@ -2355,6 +2355,28 @@ static void recv_data_copy_to_buf(byte *buf, recv_t *recv) {
   }
 }
 
+bool recv_page_has_init_log(const page_id_t &page_id) {
+  mutex_enter(&recv_sys->mutex);
+  recv_addr_t *recv_addr = recv_get_rec(page_id.space(), page_id.page_no());
+
+  if (recv_addr == nullptr ||
+      recv_addr->state == RECV_PROCESSED) {
+    mutex_exit(&recv_sys->mutex);
+
+    return (false);
+  }
+
+  /* Check type of first log entry */
+  auto recv = UT_LIST_GET_FIRST(recv_addr->rec_list);
+
+  bool ret = (recv->type == MLOG_INIT_FILE_PAGE ||
+      recv->type == MLOG_INIT_FILE_PAGE2);
+
+  mutex_exit(&recv_sys->mutex);
+
+  return (ret);
+}
+
 /** Applies the hashed log records to the page, if the page lsn is less than the
 lsn of a log record. This can be called when a buffer page has just been
 read in, or also for a page already in the buffer pool.

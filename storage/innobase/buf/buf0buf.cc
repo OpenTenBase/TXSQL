@@ -5123,6 +5123,7 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
     byte *frame;
     bool compressed_page;
 
+retry_check:   
     if (bpage->size.is_compressed()) {
       frame = bpage->zip.data;
       os_atomic_increment_ulint(&buf_pool->n_pend_unzip, 1);
@@ -5197,6 +5198,14 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
                       goto page_not_corrupt;);
 
     corrupt:
+      if (recv_recovery_is_on() && recv_page_has_init_log(bpage->id)) {
+        ib::error()
+              << "Page " << bpage->id << " is corrupt but having init log";
+        /* Memset the page */
+        memset(frame, 0, bpage->size.logical());
+        goto retry_check;
+      }
+
       /* Compressed pages are basically gibberish avoid
       printing the contents. */
       if (!compressed_page) {

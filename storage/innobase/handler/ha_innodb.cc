@@ -22717,6 +22717,14 @@ static MYSQL_SYSVAR_BOOL(
     PLUGIN_VAR_OPCMDARG,
     "True if only adding modified page to flush list",
     NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+  space_extend_fill_zero, opt_space_extend_fill_zero,
+  PLUGIN_VAR_OPCMDARG,
+  "Always fill zero while extending tablespace even "
+  "posix_fallocate is success",
+  NULL, NULL, true);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
                          PLUGIN_VAR_RQCMDARG,
@@ -23016,6 +23024,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(clone_persist_compression_threshold),
     MYSQL_SYSVAR(clone_persist_threshold),
     MYSQL_SYSVAR(page_hash_cell_factor),
+    MYSQL_SYSVAR(space_extend_fill_zero),
     NULL};
 
 mysql_declare_plugin(innobase){

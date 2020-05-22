@@ -537,10 +537,11 @@ static void buf_dblwr_recover_page(page_no_t page_no_dblwr, fil_space_t *space,
 
         buf_page_print(page, page_size, BUF_PAGE_PRINT_NO_CRASH);
 
-        ib::fatal(ER_IB_MSG_109) << "The page in the"
+        ib::error(ER_IB_MSG_109) << "The page in the"
                                     " doublewrite buffer is"
-                                    " corrupt. Cannot continue"
-                                    " operation. You can try to"
+                                    " corrupt. But continue"
+                                    " operation and let crash recovery handle this. "
+                                    "You can try to"
                                     " recover the database with"
                                     " innodb_force_recovery=6";
       }

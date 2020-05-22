@@ -448,6 +448,8 @@ bool opt_cleaner_adaptive_sleep = false;
 
 bool opt_mtr_check_dirty = false;
 
+bool opt_space_extend_fill_zero = true;
+
 const ulong srv_idle_flush_pct_default = 100;
 ulong srv_idle_flush_pct = srv_idle_flush_pct_default;
 
