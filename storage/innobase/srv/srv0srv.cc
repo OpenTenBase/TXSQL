@@ -747,10 +747,7 @@ in a traditional Unix implementation. */
 
 /** The server system struct */
 struct srv_sys_t {
-  ib_mutex_t tasks_mutex; /*!< variable protecting the
-                          tasks queue */
-  UT_LIST_BASE_NODE_T(que_thr_t)
-  tasks; /*!< task queue */
+  std::atomic<que_thr_t*> tasks[MAX_PURGE_THREADS];
 
   ib_mutex_t mutex;    /*!< variable protecting the
                        fields below. */
@@ -1156,8 +1153,6 @@ static void srv_init(void) {
   {
     mutex_create(LATCH_ID_SRV_SYS, &srv_sys->mutex);
 
-    mutex_create(LATCH_ID_SRV_SYS_TASKS, &srv_sys->tasks_mutex);
-
     srv_sys->sys_threads = (srv_slot_t *)&srv_sys[1];
 
     srv_sys->sys_mutexs = (ib_mutex_t *)ut_malloc_nokey(
@@ -1184,7 +1179,9 @@ static void srv_init(void) {
 
     buf_flush_event = os_event_create("buf_flush_event");
 
-    UT_LIST_INIT(srv_sys->tasks, &que_thr_t::queue);
+    for (ulint i = 0; i < MAX_PURGE_THREADS; i++) {
+      srv_sys->tasks[i] = nullptr;
+    }
   }
 
   srv_buf_resize_event = os_event_create(0);
@@ -1220,7 +1217,6 @@ void srv_free(void) {
 
   {
     mutex_free(&srv_sys->mutex);
-    mutex_free(&srv_sys->tasks_mutex);
 
     for (ulint i = 0; i < srv_sys->n_sys_threads; ++i) {
       srv_slot_t *slot = &srv_sys->sys_threads[i];
@@ -2782,36 +2778,28 @@ static bool srv_purge_should_exit(
   return (false);
 }
 
-/** Fetch and execute a task from the work queue.
- @return true if all task is done */
-static bool srv_task_execute(void) {
-  que_thr_t *thr = NULL;
+/** Fetch and execute a task from the work queue. */
+static void srv_task_execute(void) {
+  que_thr_t *thr = nullptr;
 
   ut_ad(!srv_read_only_mode);
   ut_a(srv_force_recovery < SRV_FORCE_NO_BACKGROUND);
 
-  bool done = true;
-  mutex_enter(&srv_sys->tasks_mutex);
+  for (ulint i = 0; i < srv_threads.m_purge_workers_n; i++) {
+retry:
+    thr = srv_sys->tasks[i].load();
+    if (thr == nullptr) {
+      continue;
+    }
 
-  if (UT_LIST_GET_LEN(srv_sys->tasks) > 0) {
-    thr = UT_LIST_GET_FIRST(srv_sys->tasks);
-
-    ut_a(que_node_get_type(thr->child) == QUE_NODE_PURGE);
-
-    UT_LIST_REMOVE(srv_sys->tasks, thr);
-
-    done = (UT_LIST_GET_LEN(srv_sys->tasks) == 0);
+    if (!srv_sys->tasks[i].compare_exchange_weak(thr, nullptr)) {
+      goto retry;
+    } else {
+      ut_a(thr != nullptr);
+      que_run_threads(thr);
+      purge_sys->n_completed++;
+    }
   }
-
-  mutex_exit(&srv_sys->tasks_mutex);
-
-  if (thr != NULL) {
-    que_run_threads(thr);
-
-    purge_sys->n_completed++;
-  }
-
-  return (done);
 }
 
 /** Worker thread that reads tasks from the work queue and executes them. */
@@ -2841,7 +2829,7 @@ void srv_worker_thread() {
 
     os_event_wait(slot->event);
 
-    while (!srv_task_execute()) {};
+    srv_task_execute();
 
     /* Note: we are checking the state without holding the
     purge_sys->latch here. */
@@ -3160,28 +3148,29 @@ void srv_purge_coordinator_thread() {
 
 /** Enqueues a task to server task queue and releases a worker thread, if there
  is a suspended one. */
-void srv_que_task_enqueue_low(que_thr_t *thr) /*!< in: query thread */
+void srv_que_task_enqueue_low(que_thr_t *thr, /*!< in: query thread */
+                              ulint slot_no) /*!< in: slot no to put thr */
 {
   ut_ad(!srv_read_only_mode);
-  mutex_enter(&srv_sys->tasks_mutex);
 
-  UT_LIST_ADD_LAST(srv_sys->tasks, thr);
+  ut_a(srv_sys->tasks[slot_no].load(std::memory_order_relaxed)
+                  == nullptr);
 
-  mutex_exit(&srv_sys->tasks_mutex);
+  srv_sys->tasks[slot_no] = thr;
 }
 
 /** Get count of tasks in the queue.
  @return number of tasks in queue */
 ulint srv_get_task_queue_length(void) {
-  ulint n_tasks;
+  ulint n_tasks = 0;
 
   ut_ad(!srv_read_only_mode);
 
-  mutex_enter(&srv_sys->tasks_mutex);
-
-  n_tasks = UT_LIST_GET_LEN(srv_sys->tasks);
-
-  mutex_exit(&srv_sys->tasks_mutex);
+  for (ulint i = 0; i < srv_threads.m_purge_workers_n; i++) {
+    if (srv_sys->tasks[i].load(std::memory_order_relaxed) != nullptr) {
+      n_tasks++;
+    }
+  }
 
   return (n_tasks);
 }

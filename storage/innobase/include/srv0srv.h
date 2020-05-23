@@ -1000,7 +1000,8 @@ void srv_inc_activity_count(void);
 
 /** Enqueues a task to server task queue and releases a worker thread, if there
  is a suspended one. */
-void srv_que_task_enqueue_low(que_thr_t *thr); /*!< in: query thread */
+void srv_que_task_enqueue_low(que_thr_t *thr, /*!< in: query thread */
+                              ulint slot_no); /*!< in: slot no to put thr */
 
 /** A thread which prints the info output by various InnoDB monitors. */
 void srv_monitor_thread();

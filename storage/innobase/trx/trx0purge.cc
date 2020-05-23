@@ -2232,7 +2232,7 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
       ut_a(thr != NULL);
 
-      srv_que_task_enqueue_low(thr);
+      srv_que_task_enqueue_low(thr, i);
     }
 
     thr = que_fork_scheduler_round_robin(purge_sys->query, thr);
