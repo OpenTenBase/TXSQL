@@ -5262,23 +5262,25 @@ retry_check:
     }
   }
 
-  mutex_enter(&buf_pool->LRU_list_mutex);
 
-  BPageMutex *page_mutex = buf_page_get_mutex(bpage);
-  mutex_enter(page_mutex);
+  auto page_mutex = buf_page_get_mutex(bpage);
 
-  if (io_type == BUF_IO_WRITE &&
-      (
+  if (io_type == BUF_IO_WRITE) {
+    if (
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
-          /* to keep consistency at buf_LRU_insert_zip_clean() */
-          buf_page_get_state(bpage) == BUF_BLOCK_ZIP_DIRTY ||
+        /* to keep consistency at buf_LRU_insert_zip_clean() */
+        buf_page_get_state(bpage) == BUF_BLOCK_ZIP_DIRTY ||
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
-          buf_page_get_flush_type(bpage) == BUF_FLUSH_LRU ||
-          buf_page_get_flush_type(bpage) == BUF_FLUSH_SINGLE_PAGE)) {
-
-    have_LRU_mutex = true; /* optimistic */
+        buf_page_get_flush_type(bpage) == BUF_FLUSH_LRU ||
+        buf_page_get_flush_type(bpage) == BUF_FLUSH_SINGLE_PAGE) {
+      mutex_enter(&buf_pool->LRU_list_mutex);
+      mutex_enter(page_mutex);
+      have_LRU_mutex = true; /* optimistic */
+    } else {
+      mutex_enter(page_mutex);
+    }
   } else {
-    mutex_exit(&buf_pool->LRU_list_mutex);
+    mutex_enter(page_mutex);
   }
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
@@ -5312,7 +5314,7 @@ retry_check:
         rw_lock_x_unlock_gen(&((buf_block_t *)bpage)->lock, BUF_IO_READ);
       }
 
-      mutex_exit(buf_page_get_mutex(bpage));
+      mutex_exit(page_mutex);
 
       ut_ad(buf_pool->n_pend_reads > 0);
       os_atomic_decrement_ulint(&buf_pool->n_pend_reads, 1);
@@ -5346,7 +5348,7 @@ retry_check:
       if (evict && buf_LRU_free_page(bpage, true)) {
         have_LRU_mutex = false;
       } else {
-        mutex_exit(buf_page_get_mutex(bpage));
+        mutex_exit(page_mutex);
       }
       if (have_LRU_mutex) {
         mutex_exit(&buf_pool->LRU_list_mutex);
