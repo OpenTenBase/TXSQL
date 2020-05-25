@@ -1449,7 +1449,7 @@ int ha_prepare(THD *thd) {
                   ha_flush_logs();
                   DBUG_SUICIDE();});
         }
-        
+
         error = prepare_one_ht(thd, xa_binlog_ht);
       }
     }

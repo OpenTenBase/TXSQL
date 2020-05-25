@@ -1,0 +1,130 @@
+--source include/not_group_replication_plugin.inc
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+select @@global.gtid_mode;
+set global gtid_mode = 'off_permissive';
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'ON';
+set gtid_next='automatic';
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+call mtr.add_suppression("Slave I/O for channel '': Master command COM_REGISTER_SLAVE failed: failed registering on master, reconnecting to try *");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format *");
+
+--disable_warnings
+
+connection master;
+
+connection slave;
+
+connection master;
+
+CREATE TABLE `t` (
+  `id` int NOT NULL PRIMARY KEY AUTO_INCREMENT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+#show global variables like '%gtid%';
+
+--source include/sync_slave_sql_with_master.inc
+#--source include/sync_slave_io_with_master.inc
+
+connection slave;
+show create table t;
+
+connection master;
+xa begin 'xa_id';
+insert into t values(0);
+xa end 'xa_id';
+xa prepare 'xa_id';
+xa commit  'xa_id' ;
+--source include/sync_slave_sql_with_master.inc
+
+#test xa commit
+connection slave;
+--echo "select slave,get one line"
+select * from t;
+set global debug="+d,xa_commit_rollback_wait10sec";
+
+connection master;
+xa begin 'xa_id';
+insert into t values(0);
+xa end 'xa_id';
+xa prepare 'xa_id';
+xa commit  'xa_id' ;
+
+#now slave is sleeping
+--sleep 1
+connection slave;
+#show processlist;
+set sql_log_bin=0;
+xa commit 'xa_id';
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+--echo "select slave,get two lines"
+select * from t;
+
+
+connection master;
+let $master_gtid=`select @@global.gtid_executed`;
+connection slave;
+let $slave_gtid=`select @@global.gtid_executed`;
+if($master_gtid != $slave_gtid) {
+	--echo "master gtid:$master_gtid != slave gtid:$slave_gtid"
+}
+
+--echo "master gtid == slave gtid:,so it is fixed issue_141"
+#--echo "master gtid:$master_gtid == slave gtid:$slave_gtid,so it is fixed issue_141"
+
+#test xa rollback
+connection slave;
+set global debug="+d,xa_commit_rollback_wait10sec";
+
+connection master;
+xa begin 'xa_id';
+insert into t values(0);
+xa end 'xa_id';
+xa prepare 'xa_id';
+xa rollback  'xa_id' ;
+
+#now slave is sleeping
+--sleep 1
+connection slave;
+#show processlist;
+set sql_log_bin=0;
+xa rollback 'xa_id';
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+--echo "because rollback,so select slave,get two lines"
+select * from t;
+
+
+connection master;
+let $master_gtid=`select @@global.gtid_executed`;
+connection slave;
+let $slave_gtid=`select @@global.gtid_executed`;
+if($master_gtid != $slave_gtid) {
+	--echo "master gtid:$master_gtid != slave gtid:$slave_gtid"
+}
+
+--echo "master gtid == slave gtid:,so it is fixed issue_141"
+#--echo "master gtid:$master_gtid == slave gtid:$slave_gtid,so it is fixed issue_141"
+
+connection slave;
+set global debug='';
+#show slave status \G;
+
+connection master ;
+--enable_warnings
+drop table t;
+source include/rpl_end.inc;
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'OFF_PERMISSIVE';
+
+

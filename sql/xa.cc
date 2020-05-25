@@ -844,6 +844,13 @@ inline static std::string get_xa_txnid(const xid_t *xid) {
 }
 
 bool Sql_cmd_xa_commit::execute(THD *thd) {
+
+  DBUG_EXECUTE_IF("xa_commit_rollback_wait10sec",{
+      DBUG_SET_INITIAL("-d,xa_commit_rollback_wait10sec");
+      _db_reset_cur_thread_setting_point_global_setting();
+      sleep(10);
+  };);
+
   std::string xa_txnid(get_xa_txnid(m_xid));
 
   bool st = trans_xa_commit(thd);
@@ -1060,6 +1067,12 @@ bool Sql_cmd_xa_rollback::process_internal_xa_rollback(THD *thd,
 }
 
 bool Sql_cmd_xa_rollback::execute(THD *thd) {
+
+  DBUG_EXECUTE_IF("xa_commit_rollback_wait10sec",{
+      DBUG_SET_INITIAL("-d,xa_commit_rollback_wait10sec");
+      _db_reset_cur_thread_setting_point_global_setting();
+      sleep(10);
+  };);
 
   std::string xa_txnid(get_xa_txnid(m_xid));
   if(m_force) {

@@ -1,0 +1,5 @@
+--gtid-mode=1
+--enforce-gtid_consistency=1
+--master-info-repository=table
+--relay-log-info_repository=table
+--slave-skip-errors=1397

@@ -884,6 +884,55 @@ void Gtid_state::update_gtids_impl_own_gtid(THD *thd, bool is_commit) {
   }
 }
 
+void Gtid_state::update_gtids_specific(THD *thd, const Gtid &gtid, bool is_commit)
+{
+  rpl_sidno sidno= gtid.sidno;
+  global_sid_lock->rdlock();
+  update_gtids_impl_lock_sidno(sidno);
+  //DBUG_ASSERT(!executed_gtids.contains_gtid(gtid)); periodically loaded from
+  // gtid_executed table
+  owned_gtids.remove_gtid(gtid, thd->thread_id());
+
+  if (is_commit)
+  {
+     /*
+       Add specified GTID into global executed_gtids, this happens so far for XA
+       COMMIT/XA ROLLBACK event groups which are alrady executed for the prepared
+       XA txn before the same XA COMMIT/ROLLBACK event group comes from master.
+       In this case we must store the gtid into gtid_executed table permanantly
+       and also store it in executed_gtids.
+
+       If binlog is enabled and log_slave_updates is disabled, slave
+       SQL thread or slave worker thread adds transaction owned GTID
+       into global executed_gtids, lost_gtids and gtids_only_in_table.
+     */
+     executed_gtids._add_gtid(gtid);
+     thd->rpl_thd_ctx.session_gtids_ctx().notify_after_gtid_executed_update(thd);
+     if (thd->slave_thread && opt_bin_log && !opt_log_slave_updates) {
+       lost_gtids._add_gtid(gtid);
+       gtids_only_in_table._add_gtid(gtid);
+    }
+  }
+
+  thd->clear_owned_gtids();
+
+  if (thd->variables.gtid_next.type == ASSIGNED_GTID) {
+   DBUG_ASSERT(!thd->is_commit_in_middle_of_statement);
+   thd->variables.gtid_next.set_undefined();
+  }else {
+   /*
+     Can be UNDEFINED for statements where
+     gtid_pre_statement_checks skips the test for undefined,
+     e.g. ROLLBACK.
+   */
+   DBUG_ASSERT(thd->variables.gtid_next.type == AUTOMATIC_GTID ||
+               thd->variables.gtid_next.type == UNDEFINED_GTID);
+  }
+
+  update_gtids_impl_broadcast_and_unlock_sidno(sidno);
+  global_sid_lock->unlock();
+}
+
 void Gtid_state::update_gtids_impl_broadcast_and_unlock_sidno(rpl_sidno sidno) {
   DBUG_PRINT("info", ("Unlocking sidno %d", sidno));
   broadcast_sidno(sidno);

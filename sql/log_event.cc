@@ -75,6 +75,8 @@
 #include "sql_string.h"
 #include "template_utils.h"
 
+#include "sql/rpl_gtid_persist.h"
+
 #ifndef MYSQL_SERVER
 #include "client/mysqlbinlog.h"
 #include "sql/json_binary.h"
@@ -2640,6 +2642,12 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       DBUG_ASSERT(rli->last_assigned_worker == nullptr ||
                   !is_mts_db_partitioned(rli));
 
+//      now comment,we will reuse those lines to print log when have problems,so don't delete
+//      if(is_gtid_event(this)) {
+//        Gtid_log_event * g_ev = (Gtid_log_event*)this;
+//        sql_print_information("Log_event::get_slave_worker slave rli:%p, %d-%lld",rli,g_ev->spec.gtid.sidno,g_ev->spec.gtid.gno);
+//      }
+
       if (is_s_event || is_gtid_event(this)) {
         Slave_job_item job_item = {this, rli->get_event_relay_log_number(),
                                    rli->get_event_start_pos()};
@@ -4386,6 +4394,59 @@ static bool is_silent_error(THD *thd) {
   return false;
 }
 
+/*
+ * although the xa commit/ xa rollback fail,but we still have to persist gtid
+ *
+*/
+bool persist_gtid_when_xa_commmit_or_rollback_fail(THD * thd) {
+  DBUG_TRACE;
+  DBUG_ASSERT(thd != NULL);
+//  DBUG_ASSERT(thd->owned_gtid.sidno > 0);
+  DBUG_ASSERT(gtid_table_persistor != NULL);
+
+  Gtid & gtid0= thd->variables.gtid_next.gtid;
+  if(gtid0.is_empty()) { //if the binlog does't use gtid,don't persist gtid informaiton
+    return true;
+  }
+
+  DBUG_ASSERT(!gtid0.is_empty());
+
+  const rpl_sid & sid =  global_sid_map->sidno_to_sid(gtid0.sidno,true);
+
+  char sidbuf[64] ={0};
+  sid.to_string(sidbuf);
+
+  DBUG_ASSERT(!thd->rollback_injected_by_coord);
+  if(thd->rollback_injected_by_coord) {
+    //can't reach here,so give an fatal error information
+    sql_print_information("fatal error,persist_gtid_when_xa_commmit_or_rollback_fail gtid:%s-%lld,is rollback_injected_by_coord,don't need save gtid,sql:%s \n",
+        sidbuf,gtid0.gno,thd->query().str);
+    return true;
+
+  }else {
+    THD *tmp_thd= NULL;
+    if (gtid_table_persistor->save(tmp_thd, &gtid0) != 0)
+    {
+      // tls vars changed during persister->save() call since it used a tmp thd.
+      thd->store_globals();
+      gtid_state->update_gtids_specific(thd, gtid0, false);
+      thd->is_slave_error= 1;
+      return false;
+    }
+    else {
+      // tls vars changed during persister->save() call since it used a tmp thd.
+      thd->store_globals();
+
+      gtid_state->update_gtids_specific(thd, gtid0, true);
+    }
+
+
+    sql_print_information("persist_gtid_when_xa_commmit_or_rollback_fail gtid:%s-%lld,sql:%s\n",sidbuf,gtid0.gno,thd->query().str);
+
+    return true;
+  }
+}
+
 /**
   @todo
   Compare the values of "affected rows" around here. Something
@@ -4944,6 +5005,24 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
       }
       thd->is_slave_error = 1;
     }
+
+    /*
+        Although not executing the XA COMMIT event group, we must permanantly store its gtid
+        here because the gtid is not in binlog, and if the slave later reconnect
+        to the master again and the master doesn't have the target binlogs,
+        replication will fail at slave io connection.
+        #issue 141
+      */
+    if (actual_error == ER_XAER_NOTA && ignored_error_code(actual_error) ) {
+      //thd->owned_gtid.sidno > 0 && this gtid isn't executed so sidno is 0.
+      if (strncasecmp(thd->query().str, STRING_WITH_LEN("XA COMMIT")) == 0 ||
+          strncasecmp(thd->query().str, STRING_WITH_LEN("XA ROLLBACK")) == 0)
+      {
+       persist_gtid_when_xa_commmit_or_rollback_fail(thd);
+      }
+
+    }
+
 
     /*
       TODO: compare the values of "affected rows" around here. Something
@@ -12784,6 +12863,8 @@ int Gtid_log_event::do_apply_event(Relay_log_info const *rli) {
   DBUG_TRACE;
   DBUG_ASSERT(rli->info_thd == thd);
 
+  //now comment,we will reuse those lines to print log when have problems,so don't delete
+  //sql_print_information("slave rli:%p,Gtid_log_event::do_apply_event:%d-%lld",rli,spec.gtid.sidno,spec.gtid.gno);
   /*
     In rare cases it is possible that we already own a GTID (either
     ANONYMOUS or ASSIGNED_GTID). This can happen if a transaction was truncated

@@ -2670,6 +2670,8 @@ class Gtid_state {
   */
   void update_on_rollback(THD *thd);
 
+  void update_gtids_specific(THD *thd, const Gtid &gtid, bool is_commit);
+
   /**
     Acquire anonymous ownership.
 
