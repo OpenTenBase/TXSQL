@@ -166,8 +166,8 @@ inline void log_block_store_checksum(byte *log_block) {
 #ifndef UNIV_HOTBACKUP
 
 inline bool log_needs_free_check(const log_t &log) {
-  const sn_t sn = log.sn.load();
-  return (sn > log.free_check_limit_sn.load());
+  const sn_t sn = log.sn.load(std::memory_order_relaxed);
+  return (sn > log.free_check_limit_sn.load(std::memory_order_relaxed));
 }
 
 inline bool log_needs_free_check() { return (log_needs_free_check(*log_sys)); }

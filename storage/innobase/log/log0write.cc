@@ -787,7 +787,7 @@ static Wait_stats log_wait_for_write(const log_t &log, lsn_t lsn) {
       srv_log_wait_for_write_spin_delay);
 
   auto stop_condition = [&log, lsn](bool wait) {
-    if (log.write_lsn.load() >= lsn) {
+    if (log.write_lsn.load(std::memory_order_acquire) >= lsn) {
       return (true);
     }
 
@@ -831,7 +831,7 @@ static Wait_stats log_wait_for_flush(const log_t &log, lsn_t lsn) {
   auto stop_condition = [&log, lsn](bool wait) {
     LOG_SYNC_POINT("log_wait_for_flush_before_flushed_to_disk_lsn");
 
-    if (log.flushed_to_disk_lsn.load() >= lsn) {
+    if (log.flushed_to_disk_lsn.load(std::memory_order_acquire) >= lsn) {
       return (true);
     }
 
@@ -897,16 +897,16 @@ Wait_stats log_write_up_to(log_t &log, lsn_t end_lsn, bool flush_to_disk) {
 
   ut_a(end_lsn != LSN_MAX);
 
-  ut_a(end_lsn % OS_FILE_LOG_BLOCK_SIZE == 0 ||
+  ut_ad(end_lsn % OS_FILE_LOG_BLOCK_SIZE == 0 ||
        end_lsn % OS_FILE_LOG_BLOCK_SIZE >= LOG_BLOCK_HDR_SIZE);
 
-  ut_a(end_lsn % OS_FILE_LOG_BLOCK_SIZE <=
+  ut_ad(end_lsn % OS_FILE_LOG_BLOCK_SIZE <=
        OS_FILE_LOG_BLOCK_SIZE - LOG_BLOCK_TRL_SIZE);
 
   ut_ad(end_lsn <= log_get_lsn(log));
 
   if (flush_to_disk) {
-    if (log.flushed_to_disk_lsn.load() >= end_lsn) {
+    if (log.flushed_to_disk_lsn.load(std::memory_order_acquire) >= end_lsn) {
       return (Wait_stats{0});
     }
 
@@ -925,7 +925,7 @@ Wait_stats log_write_up_to(log_t &log, lsn_t end_lsn, bool flush_to_disk) {
       data which was ready for lsn values smaller than end_lsn and
       return to sleeping for next 1 second. */
 
-      if (log.write_lsn.load() < end_lsn) {
+      if (log.write_lsn.load(std::memory_order_acquire) < end_lsn) {
         wait_stats = log_wait_for_write(log, end_lsn);
       }
     }
@@ -934,7 +934,7 @@ Wait_stats log_write_up_to(log_t &log, lsn_t end_lsn, bool flush_to_disk) {
     return (wait_stats + log_wait_for_flush(log, end_lsn));
 
   } else {
-    if (log.write_lsn.load() >= end_lsn) {
+    if (log.write_lsn.load(std::memory_order_acquire) >= end_lsn) {
       return (Wait_stats{0});
     }
 
@@ -1176,7 +1176,7 @@ static inline void validate_start_lsn(const log_t &log, lsn_t start_lsn,
 
   /* There are no holes. Note that possibly start_lsn is smaller,
   because it always points to the beginning of log block. */
-  ut_a(start_lsn <= log.write_lsn.load());
+  ut_ad(start_lsn <= log.write_lsn.load());
 }
 
 static inline uint64_t compute_real_offset(const log_t &log, lsn_t start_lsn) {
@@ -1855,10 +1855,10 @@ static void log_writer_write_buffer(log_t &log, lsn_t next_write_lsn) {
 
   const lsn_t last_write_lsn = log.write_lsn.load();
 
-  ut_a(log_lsn_validate(last_write_lsn) ||
+  ut_ad(log_lsn_validate(last_write_lsn) ||
        last_write_lsn % OS_FILE_LOG_BLOCK_SIZE == 0);
 
-  ut_a(log_lsn_validate(next_write_lsn) ||
+  ut_ad(log_lsn_validate(next_write_lsn) ||
        next_write_lsn % OS_FILE_LOG_BLOCK_SIZE == 0);
 
   ut_a(next_write_lsn - last_write_lsn <= log.buf_size);
@@ -1906,7 +1906,7 @@ static void log_writer_write_buffer(log_t &log, lsn_t next_write_lsn) {
     ut_a(end_offset % OS_FILE_LOG_BLOCK_SIZE == 0 ||
          end_offset % OS_FILE_LOG_BLOCK_SIZE >= LOG_BLOCK_HDR_SIZE);
 
-    ut_a(log_lsn_validate(next_write_lsn) ||
+    ut_ad(log_lsn_validate(next_write_lsn) ||
          next_write_lsn % OS_FILE_LOG_BLOCK_SIZE == 0);
   }
 
@@ -1958,7 +1958,8 @@ void log_writer(log_t *log_ptr) {
               1) There is some unwritten data in log buffer
               2) We should close threads. */
 
-      if (log.write_lsn.load() < ready_lsn || log.should_stop_threads.load()) {
+      if (log.write_lsn.load(std::memory_order_acquire) < ready_lsn
+            || log.should_stop_threads.load(std::memory_order_relaxed)) {
         return (true);
       }
 
@@ -1975,8 +1976,9 @@ void log_writer(log_t *log_ptr) {
 
     MONITOR_INC_WAIT_STATS(MONITOR_LOG_WRITER_, wait_stats);
 
-    /* Do the actual work. */
-    if (log.write_lsn.load() < ready_lsn) {
+    /* Do the actual work. Using relaxed mb as write_lsn
+    is only modified by current thread */
+    if (log.write_lsn.load(std::memory_order_relaxed) < ready_lsn) {
       log_writer_write_buffer(log, ready_lsn);
 
       if (step % 1024 == 0) {
@@ -2116,9 +2118,9 @@ static void log_flush_low(log_t &log) {
 
   log.last_flush_start_time = Log_clock::now();
 
-  const lsn_t last_flush_lsn = log.flushed_to_disk_lsn.load();
+  const lsn_t last_flush_lsn = log.flushed_to_disk_lsn.load(std::memory_order_relaxed);
 
-  const lsn_t flush_up_to_lsn = log.write_lsn.load();
+  const lsn_t flush_up_to_lsn = log.write_lsn.load(std::memory_order_acquire);
 
   ut_a(flush_up_to_lsn > last_flush_lsn);
 
@@ -2196,11 +2198,11 @@ void log_flusher(log_t *log_ptr) {
 
       LOG_SYNC_POINT("log_flusher_before_should_flush");
 
-      const lsn_t last_flush_lsn = log.flushed_to_disk_lsn.load();
+      const lsn_t last_flush_lsn = log.flushed_to_disk_lsn.load(std::memory_order_relaxed);
 
-      ut_a(last_flush_lsn <= log.write_lsn.load());
+      ut_a(last_flush_lsn <= log.write_lsn.load(std::memory_order_acquire));
 
-      if (last_flush_lsn < log.write_lsn.load()) {
+      if (last_flush_lsn < log.write_lsn.load(std::memory_order_acquire)) {
         /* Flush and stop waiting. */
         log_flush_low(log);
 
@@ -2216,7 +2218,7 @@ void log_flusher(log_t *log_ptr) {
       }
 
       /* Stop waiting if writer thread is dead. */
-      if (log.should_stop_threads.load()) {
+      if (log.should_stop_threads.load(std::memory_order_relaxed)) {
         if (!log_writer_is_active()) {
           return (true);
         }
@@ -2261,7 +2263,7 @@ void log_flusher(log_t *log_ptr) {
 
         /* When we are asked to stop threads, do not respect the limit
         for flushes per second. */
-        if (!log.should_stop_threads.load()) {
+        if (!log.should_stop_threads.load(std::memory_order_relaxed)) {
           os_event_wait_time_low(log.flusher_event,
                                  flush_every_us - time_elapsed_us, 0);
         }
@@ -2333,7 +2335,7 @@ void log_write_notifier(log_t *log_ptr) {
         return (true);
       }
 
-      if (log.should_stop_threads.load()) {
+      if (log.should_stop_threads.load(std::memory_order_relaxed)) {
         if (!log_writer_is_active()) {
           return (true);
         }
@@ -2354,7 +2356,7 @@ void log_write_notifier(log_t *log_ptr) {
 
     LOG_SYNC_POINT("log_write_notifier_before_write_lsn");
 
-    const lsn_t write_lsn = log.write_lsn.load();
+    const lsn_t write_lsn = log.write_lsn.load(std::memory_order_acquire);
 
     const lsn_t notified_up_to_lsn =
         ut_uint64_align_up(write_lsn, OS_FILE_LOG_BLOCK_SIZE);
@@ -2367,7 +2369,9 @@ void log_write_notifier(log_t *log_ptr) {
 
       LOG_SYNC_POINT("log_write_notifier_before_notify");
 
-      os_event_set(log.write_events[slot]);
+      if (!os_event_is_set(log.write_events[slot])) {
+        os_event_set(log.write_events[slot]);
+      }
     }
 
     lsn = write_lsn + 1;
@@ -2410,7 +2414,7 @@ void log_flush_notifier(log_t *log_ptr) {
     if (log.should_stop_threads.load()) {
       if (!log_flusher_is_active()) {
         if (lsn > log.flushed_to_disk_lsn.load()) {
-          ut_a(lsn == log.flushed_to_disk_lsn.load() + 1);
+          ut_ad(lsn == log.flushed_to_disk_lsn.load() + 1);
           break;
         }
       }
@@ -2429,11 +2433,11 @@ void log_flush_notifier(log_t *log_ptr) {
 
       LOG_SYNC_POINT("log_flush_notifier_before_check");
 
-      if (log.flushed_to_disk_lsn.load() >= lsn) {
+      if (log.flushed_to_disk_lsn.load(std::memory_order_acquire) >= lsn) {
         return (true);
       }
 
-      if (log.should_stop_threads.load()) {
+      if (log.should_stop_threads.load(std::memory_order_relaxed)) {
         if (!log_flusher_is_active()) {
           return (true);
         }
@@ -2454,7 +2458,7 @@ void log_flush_notifier(log_t *log_ptr) {
 
     LOG_SYNC_POINT("log_flush_notifier_before_flushed_to_disk_lsn");
 
-    const lsn_t flush_lsn = log.flushed_to_disk_lsn.load();
+    const lsn_t flush_lsn = log.flushed_to_disk_lsn.load(std::memory_order_acquire);
 
     const lsn_t notified_up_to_lsn =
         ut_uint64_align_up(flush_lsn, OS_FILE_LOG_BLOCK_SIZE);
@@ -2467,7 +2471,9 @@ void log_flush_notifier(log_t *log_ptr) {
 
       LOG_SYNC_POINT("log_flush_notifier_before_notify");
 
-      os_event_set(log.flush_events[slot]);
+      if (!os_event_is_set(log.flush_events[slot])) {
+        os_event_set(log.flush_events[slot]);
+      }
     }
 
     lsn = flush_lsn + 1;
@@ -2526,7 +2532,7 @@ void log_closer(log_t *log_ptr) {
         return (true);
       }
 
-      if (log.should_stop_threads.load()) {
+      if (log.should_stop_threads.load(std::memory_order_relaxed)) {
         return (true);
       }
 

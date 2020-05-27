@@ -6676,7 +6676,16 @@ Slot *AIO::reserve_slot(IORequest &type, fil_node_t *m1, void *m2,
   doing simulated AIO */
   ulint local_seg;
   Slot *slot = NULL;
-  local_seg = (offset >> (UNIV_PAGE_SIZE_SHIFT + 6)) % m_n_segments;
+
+  /** We'll try to let same aio thread serve for same buffer pool*/
+  if ((m1->space->purpose == FIL_TYPE_TABLESPACE)
+      && m2
+      && srv_buf_pool_instances >= m_n_segments) {
+    buf_page_t *bpage = static_cast<buf_page_t *>(m2);
+    local_seg = (buf_pool_get(bpage->id)->instance_no) % m_n_segments;
+  } else {
+    local_seg = (offset >> (UNIV_PAGE_SIZE_SHIFT + 6)) % m_n_segments;
+  }
 
   /* Scan in cycle mode */
   bool check_cycle = false;

@@ -1188,6 +1188,7 @@ struct srv_slot_t {
   /** Thread type: user, utility etc. */
   srv_thread_type type;
 
+  uint32_t worker_id;
   /* Mutex for protecting suspend/release of
   system thread */
   ib_mutex_t *mutex {nullptr};

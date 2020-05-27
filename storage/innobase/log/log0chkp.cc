@@ -244,7 +244,7 @@ static lsn_t log_compute_available_for_checkpoint_lsn(const log_t &log) {
   ut_ad(lsn >= log.last_checkpoint_lsn.load() ||
         !log_checkpointer_mutex_own(log));
 
-  ut_a(lsn <= log.flushed_to_disk_lsn.load());
+  ut_ad(lsn <= log.flushed_to_disk_lsn.load());
 
   return (lsn);
 }
@@ -550,9 +550,9 @@ static void log_checkpoint(log_t &log) {
     log_test->fsync_written_pages();
   }
 
-  ut_a(checkpoint_lsn >= log.last_checkpoint_lsn.load());
+  ut_ad(checkpoint_lsn >= log.last_checkpoint_lsn.load());
 
-  ut_a(checkpoint_lsn <= log_buffer_dirty_pages_added_up_to_lsn(log));
+  ut_ad(checkpoint_lsn <= log_buffer_dirty_pages_added_up_to_lsn(log));
 
 #ifdef UNIV_DEBUG
   if (checkpoint_lsn > log.flushed_to_disk_lsn.load()) {
@@ -563,7 +563,7 @@ static void log_checkpoint(log_t &log) {
   }
 #endif
 
-  ut_a(log.flushed_to_disk_lsn.load() >= checkpoint_lsn);
+  ut_ad(log.flushed_to_disk_lsn.load() >= checkpoint_lsn);
 
   const auto current_time = std::chrono::high_resolution_clock::now();
 
@@ -662,7 +662,7 @@ static void log_wait_for_checkpoint(const log_t &log, lsn_t requested_lsn) {
   ut_d(log_background_threads_active_validate(log));
 
   auto stop_condition = [&log, requested_lsn](bool) {
-    return (log.last_checkpoint_lsn.load() >= requested_lsn);
+    return (log.last_checkpoint_lsn.load(std::memory_order_acquire) >= requested_lsn);
   };
 
   ut_wait_for(0, 100, stop_condition);

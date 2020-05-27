@@ -1072,7 +1072,7 @@ struct dict_index_t {
   /* Check whether the index is the clustered index
   @return nonzero for clustered index, zero for other indexes */
 
-  bool is_clustered() const {
+  inline bool is_clustered() const {
     ut_ad(magic_n == DICT_INDEX_MAGIC_N);
 
     return (type & DICT_CLUSTERED);
@@ -1150,7 +1150,7 @@ struct dict_index_t {
   /** Gets the nth field of an index.
   @param[in] pos	position of field
   @return pointer to field object */
-  dict_field_t *get_field(ulint pos) const {
+  inline dict_field_t *get_field(ulint pos) const {
     ut_ad(pos < n_def);
     ut_ad(magic_n == DICT_INDEX_MAGIC_N);
 
@@ -1160,7 +1160,7 @@ struct dict_index_t {
   /** Gets pointer to the nth column in an index.
   @param[in] pos	position of the field
   @return column */
-  const dict_col_t *get_col(ulint pos) const { return (get_field(pos)->col); }
+  const inline dict_col_t *get_col(ulint pos) const { return (get_field(pos)->col); }
 
   /** Gets the column number the nth field in an index.
   @param[in] pos	position of the field

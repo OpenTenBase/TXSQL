@@ -3411,7 +3411,7 @@ struct Buf_fetch {
 
   buf_block_t *is_on_watch();
 
-  void read_page();
+  buf_block_t* read_page();
 
   dberr_t zip_page_handler(buf_block_t *&fix_block);
 
@@ -3468,7 +3468,7 @@ dberr_t Buf_fetch_normal::get(buf_block_t *&block) {
     }
 
     /* Page not in buf_pool: needs to be read from file */
-    read_page();
+    m_guess = read_page();
   }
 
   return (DB_SUCCESS);
@@ -3519,7 +3519,7 @@ dberr_t Buf_fetch_other::get(buf_block_t *&block) {
     }
 
     /* Page not in buf_pool: needs to be read from file */
-    read_page();
+    m_guess = read_page();
   }
 
   return (DB_SUCCESS);
@@ -3812,12 +3812,14 @@ dberr_t Buf_fetch<T>::check_state(buf_block_t *&block) {
 }
 
 template <typename T>
-void Buf_fetch<T>::read_page() {
+buf_block_t* Buf_fetch<T>::read_page() {
   bool success{};
   auto sync = m_mode != Page_fetch::SCAN;
 
+  buf_block_t *ret_block = nullptr;
+
   if (sync) {
-    success = buf_read_page(m_page_id, m_page_size);
+    success = buf_read_page(m_page_id, m_page_size, &ret_block);
   } else {
     dberr_t err;
 
@@ -3863,6 +3865,8 @@ void Buf_fetch<T>::read_page() {
   ut_ad(fsp_skip_sanity_check(m_page_id.space()) || ++buf_dbg_counter % 5771 ||
         buf_validate());
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
+
+  return ret_block;
 }
 
 template <typename T>
@@ -4265,9 +4269,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
   }
 
   if (!success) {
-    buf_page_mutex_enter(block);
     buf_block_buf_fix_dec(block);
-    buf_page_mutex_exit(block);
 
     return (false);
   }
@@ -4281,9 +4283,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
       rw_lock_x_unlock(&block->lock);
     }
 
-    buf_page_mutex_enter(block);
     buf_block_buf_fix_dec(block);
-    buf_page_mutex_exit(block);
 
     return (false);
   }
@@ -4373,9 +4373,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
   }
 
   if (!success) {
-    buf_page_mutex_enter(block);
     buf_block_buf_fix_dec(block);
-    buf_page_mutex_exit(block);
 
     return (false);
   }
@@ -4466,9 +4464,7 @@ const buf_block_t *buf_page_try_get_func(const page_id_t &page_id,
   }
 
   if (!success) {
-    buf_page_mutex_enter(block);
     buf_block_buf_fix_dec(block);
-    buf_page_mutex_exit(block);
 
     return (NULL);
   }

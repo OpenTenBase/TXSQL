@@ -927,6 +927,7 @@ static srv_slot_t *srv_reserve_slot(
     srv_thread_type type) /*!< in: type of the thread */
 {
   srv_slot_t *slot = 0;
+  uint32_t worker_id = 0;
 
   srv_sys_mutex_enter();
 
@@ -943,7 +944,7 @@ static srv_slot_t *srv_reserve_slot(
 
     case SRV_WORKER:
       /* Find an empty slot, skip the master and purge slots. */
-      for (slot = &srv_sys->sys_threads[2]; slot->in_use; ++slot) {
+      for (slot = &srv_sys->sys_threads[2]; slot->in_use; ++slot, ++worker_id) {
         ut_a(slot < &srv_sys->sys_threads[srv_sys->n_sys_threads]);
       }
       break;
@@ -954,6 +955,12 @@ static srv_slot_t *srv_reserve_slot(
 
   slot->lock();
   ut_a(!slot->in_use);
+
+  if (type == SRV_WORKER) {
+    slot->worker_id = worker_id;
+  } else {
+    slot->worker_id = UINT32_MAX;
+  }
 
   slot->in_use = TRUE;
   slot->suspended = FALSE;
@@ -2787,15 +2794,28 @@ static bool srv_purge_should_exit(
 }
 
 /** Fetch and execute a task from the work queue. */
-static void srv_task_execute(void) {
+static void srv_task_execute(uint32_t start_pos) {
   que_thr_t *thr = nullptr;
 
   ut_ad(!srv_read_only_mode);
   ut_a(srv_force_recovery < SRV_FORCE_NO_BACKGROUND);
+  ut_a(start_pos != UINT32_MAX);
+  ut_a(start_pos < srv_threads.m_purge_workers_n);
 
-  for (ulint i = 0; i < srv_threads.m_purge_workers_n; i++) {
+  bool first_loop = true;
+  for (uint32_t i = start_pos; ; i++) {
+    if (i == srv_threads.m_purge_workers_n) {
+      i = 0;
+    }
+
+    if (!first_loop && i == start_pos) {
+      /* Already iterate all slots. */
+      break;
+    }
+
+    first_loop = false;
 retry:
-    thr = srv_sys->tasks[i].load();
+    thr = srv_sys->tasks[i].load(std::memory_order_acquire);
     if (thr == nullptr) {
       continue;
     }
@@ -2806,6 +2826,9 @@ retry:
       ut_a(thr != nullptr);
       que_run_threads(thr);
       purge_sys->n_completed++;
+
+      /* Only do one job */
+      break;
     }
   }
 }
@@ -2837,7 +2860,7 @@ void srv_worker_thread() {
 
     os_event_wait(slot->event);
 
-    srv_task_execute();
+    srv_task_execute(slot->worker_id);
 
     /* Note: we are checking the state without holding the
     purge_sys->latch here. */
@@ -3164,7 +3187,7 @@ void srv_que_task_enqueue_low(que_thr_t *thr, /*!< in: query thread */
   ut_a(srv_sys->tasks[slot_no].load(std::memory_order_relaxed)
                   == nullptr);
 
-  srv_sys->tasks[slot_no] = thr;
+  srv_sys->tasks[slot_no].store(thr, std::memory_order_release);
 }
 
 /** Get count of tasks in the queue.

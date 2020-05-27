@@ -61,7 +61,7 @@ static constexpr size_t BUF_READ_AHEAD_PEND_LIMIT = 2;
 
 ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                         const page_id_t &page_id, const page_size_t &page_size,
-                        bool unzip) {
+                        bool unzip, buf_block_t **ret_block) {
   buf_page_t *bpage;
 
   *err = DB_SUCCESS;
@@ -139,6 +139,11 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
     if (!buf_page_io_complete(bpage)) {
       return (0);
     }
+  }
+
+  if (ret_block &&
+      buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE) {
+    *ret_block = (buf_block_t *)bpage; 
   }
 
   return (1);
@@ -277,12 +282,12 @@ read_ahead:
   return (count);
 }
 
-bool buf_read_page(const page_id_t &page_id, const page_size_t &page_size) {
+bool buf_read_page(const page_id_t &page_id, const page_size_t &page_size, buf_block_t **ret_block) {
   ulint count;
   dberr_t err;
 
   count = buf_read_page_low(&err, true, 0, BUF_READ_ANY_PAGE, page_id,
-                            page_size, false);
+                            page_size, false, ret_block);
 
   srv_stats.buf_pool_reads.add(count);
 
