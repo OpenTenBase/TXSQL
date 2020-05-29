@@ -17,6 +17,8 @@ CREATE TABLE `t` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 connection slave;
 show create table t;
@@ -32,6 +34,8 @@ insert into t values(0);
 xa end 'xa_id';
 xa commit  'xa_id' one phase;
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 #the slave will check crash_when_iothread_check_gtid
 connection slave;
@@ -47,6 +51,8 @@ insert into t values(0);
 xa end 'xid';
 xa commit 'xid' one phase;
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 connection slave;
 #show slave status;
@@ -62,6 +68,8 @@ insert into t values(0);
 xa end 'xid';
 xa commit 'xid' one phase;
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 connection slave;
 --echo "slave will get 6 rows"
@@ -75,6 +83,8 @@ insert into t values(0);
 xa end 'xid';
 xa commit 'xid' one phase;
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 connection slave;
 --echo "slave will get 8 rows"
@@ -88,6 +98,8 @@ insert into t values(0);
 insert into t values(0);
 commit;
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 connection slave;
 --echo "slave will get 10 rows"
@@ -102,6 +114,8 @@ insert into t values(0);
 insert into t values(0);
 commit;
 --source include/sync_slave_io_with_master.inc
+connection master;
+--source include/sync_slave_sql_with_master.inc
 
 connection slave;
 --echo "slave will get 12 rows"
