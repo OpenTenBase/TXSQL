@@ -1443,6 +1443,13 @@ int ha_prepare(THD *thd) {
 
       /** Write binlog */
       if (!error && xa_binlog_ht != nullptr) {
+        if(thd->is_system_thread()) {
+           DBUG_EXECUTE_IF("crash_before_write_binlog",
+               {  sleep(1);
+                  ha_flush_logs();
+                  DBUG_SUICIDE();});
+        }
+        
         error = prepare_one_ht(thd, xa_binlog_ht);
       }
     }

@@ -1168,6 +1168,8 @@ struct trx_t {
   /** Transaction persists GTID. */
   bool persists_gtid;
 
+  bool skip_persist_gtid;
+
 #ifdef UNIV_DEBUG
   ulint start_line;       /*!< Track where it was started from */
   const char *start_file; /*!< Filename where it was started */

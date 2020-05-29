@@ -629,7 +629,7 @@ void trx_undo_gtid_set(trx_t *trx, trx_undo_t *undo) {
   /* Reset GTID flag */
   undo->flag &= ~TRX_UNDO_FLAG_GTID;
 
-  if (!trx->persists_gtid) {
+  if (!trx->persists_gtid || trx->skip_persist_gtid) {
     return;
   }
 

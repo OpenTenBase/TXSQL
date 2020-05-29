@@ -85,7 +85,7 @@ static std::atomic<bool> resurrected_trx_done {false};
 /** Dummy session used currently in MySQL interface */
 sess_t *trx_dummy_sess = NULL;
 
-bool opt_strict_gtid_commit = true;
+bool opt_strict_gtid_commit = false;
 /** Constructor */
 TrxVersion::TrxVersion(trx_t *trx) : m_trx(trx), m_version(trx->version) {
   /* No op */
@@ -151,6 +151,8 @@ static void trx_init(trx_t *trx) {
   trx->persists_gtid = false;
 
   trx->skip_lock_inheritance = false;
+
+  trx->skip_persist_gtid = false;
 
   trx->is_recovered = false;
 
@@ -1359,6 +1361,8 @@ static void trx_start_low(
 
   if (trx->mysql_thd != nullptr && !trx->ddl_operation) {
     trx->ddl_operation = thd_is_dd_update_stmt(trx->mysql_thd);
+    trx->skip_persist_gtid = !(opt_strict_gtid_commit
+                                || !thd_has_binlog(trx->mysql_thd));
   }
 
   /* The initial value for trx->no: TRX_ID_MAX is used in
@@ -1768,7 +1772,7 @@ static void trx_erase_lists(trx_t *trx, bool serialised, Gtid_desc &gtid_desc) {
     2.Before it is removed from serialization list. Otherwise the transaction
       undo could get purged before persisting GTID on disk table. */
 
-    if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
+    if (gtid_desc.m_is_set && !trx->skip_persist_gtid) {
       auto &gtid_persistor = clone_sys->get_gtid_persistor();
       gtid_persistor.add(gtid_desc);
     }
@@ -2335,7 +2339,7 @@ dberr_t trx_commit_for_mysql(trx_t *trx) /*!< in/out: transaction */
         return (db_err);
       }
 
-      if (opt_strict_gtid_commit) {
+      if (!trx->skip_persist_gtid) {
         /* Flush prepare GTID for XA prepared transactions. */
         trx_undo_gtid_flush_prepare(trx);
       }
@@ -2727,7 +2731,7 @@ static void trx_prepare(trx_t *trx) /*!< in/out: transaction */
   trx_mutex_exit(trx);
   trx_sys->n_prepared_trx++;
   /* Add GTID to be persisted to disk table, if needed. */
-  if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
+  if (gtid_desc.m_is_set && !trx->skip_persist_gtid) {
     gtid_persistor.add(gtid_desc);
   }
   /*--------------------------------------*/

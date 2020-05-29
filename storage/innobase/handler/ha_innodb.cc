@@ -1571,6 +1571,10 @@ bool thd_is_log_apply_thread(THD *thd) {
       (thd_slave_thread(thd) || thd_is_binlog_applier(thd)));
 }
 
+bool thd_has_binlog(THD *thd) {
+  return (thd_binlog_format(thd) != BINLOG_FORMAT_UNSPEC);
+}
+
 /** Gets information on the durability property requested by thread.
  Used when writing either a prepare or commit record to the log
  buffer. @return the durability property. */
@@ -22697,7 +22701,7 @@ static MYSQL_SYSVAR_BOOL(
     strict_gtid_commit, opt_strict_gtid_commit, PLUGIN_VAR_OPCMDARG,
     "Strictly write gtid to clone gtid persister if true, else only "
     "when thread is apply thread or explicitly set gtid_next, it'll "
-    "write gtid.", NULL, NULL, true);
+    "write gtid.", NULL, NULL, false);
 
 static MYSQL_SYSVAR_BOOL(
     simplify_trx_in_innodb, opt_simplify_trx_in_innodb,
