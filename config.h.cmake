@@ -215,6 +215,7 @@
 #cmakedefine HAVE_LSAN
 #cmakedefine HAVE_UBSAN
 #cmakedefine HAVE_TSAN
+#cmakedefine HAVE_PPOLL
 #cmakedefine ENABLED_LOCAL_INFILE 1
 #cmakedefine KERBEROS_LIB_CONFIGURED
 #cmakedefine SCRAM_LIB_CONFIGURED
