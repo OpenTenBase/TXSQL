@@ -22624,6 +22624,13 @@ static MYSQL_SYSVAR_ULONG(
     "Max shards of tablespace", 
     NULL, NULL, 64, 16, 1024, 0);
 
+static MYSQL_SYSVAR_ULONG(
+    i_s_cache_min_idle_us, srv_i_s_cache_min_idle_us,
+    PLUGIN_VAR_OPCMDARG,
+    "The minimum time that a cache must not be updated after it has been"
+    " read for the last time",
+    NULL, NULL, 100000, 0, 10000000/*10s*/, 0);
+
 static MYSQL_SYSVAR_UINT(
     snapshot_spin_loop, srv_snapshot_spin_loop, PLUGIN_VAR_OPCMDARG,
     "Max count of ut_delay in snapshot_ids function, if exceeding this "
@@ -23029,6 +23036,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(clone_persist_threshold),
     MYSQL_SYSVAR(page_hash_cell_factor),
     MYSQL_SYSVAR(space_extend_fill_zero),
+    MYSQL_SYSVAR(i_s_cache_min_idle_us),
     NULL};
 
 mysql_declare_plugin(innobase){

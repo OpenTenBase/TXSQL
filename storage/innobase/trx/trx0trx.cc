@@ -224,6 +224,10 @@ static void trx_init(trx_t *trx) {
 
   trx->recover_mysql_thd = nullptr;
 
+  if (trx->xid) {
+    trx->xid->reset();
+  }
+
   /* During asynchronous rollback, we should reset forced rollback flag
   only after rollback is complete to avoid race with the thread owning
   the transaction. */

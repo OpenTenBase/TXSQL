@@ -487,7 +487,10 @@ class XID_STATE {
       rollback it explicitly, so don't start a new distributed XA until
       then.
     */
-    if (!rm_error) m_xid.null();
+    if (!rm_error) {
+      m_xid.null();
+      m_xid_str[0] = '\0';
+    }
   }
 
   void reset() {
@@ -495,6 +498,7 @@ class XID_STATE {
     m_xid.null();
     in_recovery = false;
     m_is_binlogged = false;
+    m_xid_str[0] = '\0';
   }
 
   void start_normal_xa(const XID *xid) {
@@ -503,6 +507,7 @@ class XID_STATE {
     m_xid.set(xid);
     in_recovery = false;
     rm_error = 0;
+    m_xid_str[0] = '\0';
   }
 
   void start_recovery_xa(const XID *xid, bool binlogged_arg = false) {
@@ -511,6 +516,7 @@ class XID_STATE {
     in_recovery = true;
     rm_error = 0;
     m_is_binlogged = binlogged_arg;
+    m_xid_str[0] = '\0';
   }
 
   bool is_in_recovery() const { return in_recovery; }

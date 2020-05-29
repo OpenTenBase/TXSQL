@@ -1,0 +1,78 @@
+-- disable_warnings
+DROP TABLE IF EXISTS t1;
+-- enable_warnings
+
+set global innodb_i_s_cache_min_idle_us = 0;
+
+create table t1(a int) engine=innodb;
+
+-- source include/count_sessions.inc
+-- connect (con_trx1,localhost,root,,)
+-- connect (con_trx2,localhost,root,,)
+-- connect (con_verify_innodb_trx,localhost,root,,)
+
+-- connection con_trx1
+xa begin 'abc';
+insert into t1 values (1);
+
+-- connection con_verify_innodb_trx
+select trx_state, trx_xa_type, trx_xid from information_schema.innodb_trx where trx_xa_type is not null;
+
+-- connection con_trx1
+xa end 'abc';
+xa prepare 'abc';
+
+-- connection con_verify_innodb_trx
+select trx_state, trx_xa_type, trx_xid from information_schema.innodb_trx where trx_xa_type is not null;
+
+
+-- connection default
+-- disconnect con_trx1
+
+-- connection con_trx2
+xa recover;
+
+-- connection con_verify_innodb_trx
+select trx_state, trx_xa_type, trx_xid from information_schema.innodb_trx where trx_xa_type is not null;
+-- connection con_trx2
+xa commit 'abc';
+
+xa begin 'xa_id';
+insert into t1 values (2);
+insert into t1 values (3);
+xa end 'xa_id';
+xa prepare 'xa_id';
+
+-- connection con_verify_innodb_trx
+select trx_state, trx_xa_type, trx_xid from information_schema.innodb_trx where trx_xa_type is not null;
+
+-- connection con_trx2
+xa commit 'xa_id';
+xa begin '2-15-806e5f24-5ecf9afb-22';
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t1 values(6);
+
+-- connection con_verify_innodb_trx
+select trx_state, trx_xa_type, trx_xid from information_schema.innodb_trx where trx_xa_type is not null;
+
+
+-- connection con_trx2
+xa end '2-15-806e5f24-5ecf9afb-22';
+xa prepare '2-15-806e5f24-5ecf9afb-22';
+
+--sleep 2
+-- connection con_verify_innodb_trx
+select trx_state, trx_xa_type, trx_xid from information_schema.innodb_trx where trx_xa_type is not null;
+
+
+-- connection con_trx2
+xa commit '2-15-806e5f24-5ecf9afb-22';
+
+-- connection default
+-- disconnect con_trx2
+-- disconnect con_verify_innodb_trx
+drop table t1;
+
+set global innodb_i_s_cache_min_idle_us=default;
+-- source include/wait_until_count_sessions.inc

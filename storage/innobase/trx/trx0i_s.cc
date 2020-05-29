@@ -464,6 +464,19 @@ static ibool fill_trx_row(
     row->trx_query = NULL;
     row->trx_xid[0] = '\0';
     row->trx_xa_type = NULL;
+    
+    if (trx_is_started(trx) && trx->xid && 
+        !trx->xid->is_null() &&
+        !trx->is_background) {
+      trx->xid->serialize(row->trx_xid);
+
+      if (trx->xid->get_my_xid() == 0) {
+        row->trx_xa_type = "external";
+      } else {
+        row->trx_xa_type = "internal";
+      }
+    }
+
     goto thd_done;
   }
 
@@ -832,12 +845,6 @@ static ibool add_trx_relevant_locks_to_cache(
   return (TRUE);
 }
 
-/** The minimum time that a cache must not be updated after it has been
-read for the last time; measured in microseconds. We use this technique
-to ensure that SELECTs which join several INFORMATION SCHEMA tables read
-the same version of the cache. */
-#define CACHE_MIN_IDLE_TIME_US 100000 /* 0.1 sec */
-
 /** Checks if the cache can safely be updated.
  @return true if can be updated */
 static ibool can_cache_be_updated(trx_i_s_cache_t *cache) /*!< in: cache */
@@ -852,7 +859,7 @@ static ibool can_cache_be_updated(trx_i_s_cache_t *cache) /*!< in: cache */
   ut_ad(rw_lock_own(cache->rw_lock, RW_LOCK_X));
 
   const auto now = ut_time_monotonic_us();
-  if (now - cache->last_read > CACHE_MIN_IDLE_TIME_US) {
+  if (now - cache->last_read > (int64_t)srv_i_s_cache_min_idle_us) {
     return (TRUE);
   }
 

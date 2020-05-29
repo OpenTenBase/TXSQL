@@ -111,6 +111,12 @@ uint64_t srv_max_pending_sync_ios = 100;
 uint64_t srv_n_pending_ios_per_thread = 32;
 uint64_t srv_max_space_shards = 64;
 
+/** The minimum time that a cache must not be updated after it has been
+read for the last time; measured in microseconds. We use this technique
+to ensure that SELECTs which join several INFORMATION SCHEMA tables read
+the same version of the cache. */
+uint64_t srv_i_s_cache_min_idle_us = 100000;
+
 /* The following is the maximum allowed duration of a lock wait. */
 ulong srv_fatal_semaphore_wait_threshold = 600;
 
