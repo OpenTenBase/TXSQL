@@ -467,7 +467,7 @@ static ibool fill_trx_row(
     
     if (trx_is_started(trx) && trx->xid && 
         !trx->xid->is_null() &&
-        !trx->is_background) {
+        (!trx->is_background || trx->is_recovered)) {
       trx->xid->serialize(row->trx_xid);
 
       if (trx->xid->get_my_xid() == 0) {
