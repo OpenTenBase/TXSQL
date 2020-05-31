@@ -843,7 +843,8 @@ slot. This is done by checking trx->lock.wait_lock under lock_sys mutex.
 @return true if all given transactions are still waiting for locks*/
 static bool lock_wait_trxs_are_still_waiting(
     const ut::vector<uint> &cycle_ids,
-    const ut::vector<waiting_trx_info_t> &infos) {
+    const ut::vector<waiting_trx_info_t> &infos,
+    PartIds &part_ids) {
   ut_ad(lock_wait_mutex_own());
   /* We are iterating over various transaction which may have locks in different
   tables/rows, thus we need exclusive latch on the whole lock_sys to make sure
@@ -851,14 +852,33 @@ static bool lock_wait_trxs_are_still_waiting(
   ut_ad(lock_mutex_own());
 
   for (auto id : cycle_ids) {
-    const auto trx = infos[id].trx;
-    if (trx->lock.wait_lock == nullptr) {
+    auto trx = infos[id].trx;
+    const auto slot = infos[id].slot;
+
+    ut_a(slot->in_use &&
+          (slot->reservation_no == infos[id].reservation_no));
+
+    trx_mutex_enter(trx);
+    if (trx->lock.wait_lock == nullptr
+        || !trx->lock.wait_info->is_defined()) {
       /* trx is on its way to being woken up, so this cycle is a false positive.
       As this particular cycle will resolve itself, we ignore it. */
+      trx_mutex_exit(trx);
       return false;
     }
     ut_a(trx->lock.que_state == TRX_QUE_LOCK_WAIT);
+
+    uint32_t part_id = (LockGuard::get_part(trx->lock.wait_info->space_id(),
+                                     trx->lock.wait_info->page_no()));
+ 
+    if (part_ids.find(part_id) == part_ids.end()) {
+      trx_mutex_exit(trx);
+      return false;
+    }
+
+    trx_mutex_exit(trx);
   }
+
   return true;
 }
 
@@ -980,7 +1000,7 @@ static bool lock_wait_check_candidate_cycle(
 
   LockGuard guard(part_ids);
 
-  if (!lock_wait_trxs_are_still_waiting(cycle_ids, infos)) {
+  if (!lock_wait_trxs_are_still_waiting(cycle_ids, infos, part_ids)) {
     lock_wait_mutex_exit();
     return false;
   }
