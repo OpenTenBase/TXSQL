@@ -9595,7 +9595,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     thd_db.str = table->s->db.str;
     thd_db.length = table->s->db.length;
     thd->reset_db(thd_db);
-    thd->set_command(COM_QUERY);
+//    thd->set_command(COM_QUERY);
     PSI_stage_info *stage = nullptr;
 
     /*

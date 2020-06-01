@@ -7113,6 +7113,7 @@ extern "C" void *handle_slave_sql(void *arg) {
     mysql_mutex_unlock(&rli->data_lock);
 
     /* Read queries from the IO/THREAD until this thread is killed */
+    thd->set_command(COM_CONNECT);
 
     while (!sql_slave_killed(thd, rli)) {
       THD_STAGE_INFO(thd, stage_reading_event_from_the_relay_log);
