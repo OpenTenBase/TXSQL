@@ -4800,6 +4800,13 @@ static Sys_var_transaction_isolation Sys_transaction_isolation(
     tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_transaction_isolation));
 
+// NO_CMD_LINE
+static Sys_var_transaction_isolation Sys_tx_isolation(
+    "tx_isolation", "Default transaction isolation level",
+    UNTRACKED_DEFAULT SESSION_VAR(transaction_isolation), NO_CMD_LINE,
+    tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_transaction_isolation));
+
 /**
   Function to check if the state of 'transaction_read_only' can be changed.
   The state cannot be changed if there is already a transaction in progress.

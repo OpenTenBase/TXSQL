@@ -230,6 +230,8 @@ tls_ciphersuites
 tls_ciphersuites
 tls_version
 tls_version
+tx_isolation
+tx_isolation
 txsql_convert_memory_to_innodb
 txsql_convert_memory_to_innodb
 txsql_convert_myisam_to_innodb

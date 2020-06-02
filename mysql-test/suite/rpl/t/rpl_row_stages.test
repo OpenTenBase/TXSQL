@@ -82,7 +82,7 @@ while($i)
 
   --let $state_stage= $state_progress
   --let $state_db= $db
-  --let $state_command= Query
+  --let $state_command= Connect
   --let $state_info= $info
   --source ../include/rpl_row_stages_validate.inc
 
@@ -153,7 +153,7 @@ while($i)
 
   --let $state_stage= $state_progress
   --let $state_db= $db
-  --let $state_command= Query
+  --let $state_command= Connect
   --let $state_info= $info
   --source ../include/rpl_row_stages_validate.inc
 
@@ -515,7 +515,7 @@ while($i)
 
   --let $state_stage= $state_progress
   --let $state_db= $db
-  --let $state_command= Query
+  --let $state_command= Connect
   --let $state_info= $info
   --source ../include/rpl_row_stages_validate.inc
 
