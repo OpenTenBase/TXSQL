@@ -2738,3 +2738,15 @@ USE test;
 
 --error 1
 --exec $MYSQL_DUMP --comments=0 --compatible=randomtext test
+
+--echo #
+--echo # Dump all databases except certain databases using --ignore-database
+--echo #
+--exec $MYSQL_DUMP --all-databases --ignore-database=test > $MYSQLTEST_VARDIR/tmp/mysqldump-ignore-db.sql
+DROP DATABASE IF EXISTS test;
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqldump-ignore-db.sql
+SHOW DATABASES LIKE 'test';
+CREATE DATABASE test;
+
+#Clean up
+--remove_file $MYSQLTEST_VARDIR/tmp/mysqldump-ignore-db.sql

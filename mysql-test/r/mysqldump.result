@@ -5432,3 +5432,10 @@ DROP DATABASE bug26171967;
 # WL#9465 & WL#8383 coverage tests
 #
 USE test;
+#
+# Dump all databases except certain databases using --ignore-database
+#
+DROP DATABASE IF EXISTS test;
+SHOW DATABASES LIKE 'test';
+Database (test)
+CREATE DATABASE test;

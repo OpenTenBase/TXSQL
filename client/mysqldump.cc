@@ -207,6 +207,8 @@ bool seen_views = 0;
 
 collation_unordered_set<string> *ignore_table;
 
+collation_unordered_set<string> *ignore_database = nullptr;
+
 static struct my_option my_long_options[] = {
     {"all-databases", 'A',
      "Dump all the databases. This will be same as --databases with all "
@@ -366,6 +368,11 @@ static struct my_option my_long_options[] = {
      "error numbers to be ignored if encountered during dump.",
      &opt_ignore_error, &opt_ignore_error, 0, GET_STR_ALLOC, REQUIRED_ARG, 0, 0,
      0, 0, 0, 0},
+    {"ignore-database", OPT_IGNORE_DATABASE,
+     "Do not dump the specified database. To specify more than one database to "
+     "ignore, use the directive multiple times, once for each database. "
+     "Only takes effect when used together with --all-databases|-A",
+     0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
     {"ignore-table", OPT_IGNORE_TABLE,
      "Do not dump the specified table. To specify more than one table to "
      "ignore, "
@@ -870,6 +877,9 @@ static bool get_one_option(int optid, const struct my_option *opt,
     case (int)OPT_TABLES:
       opt_databases = 0;
       break;
+    case (int)OPT_IGNORE_DATABASE:
+      ignore_database->insert(argument);
+      break;
     case (int)OPT_IGNORE_TABLE: {
       if (!strchr(argument, '.')) {
         fprintf(stderr,
@@ -944,6 +954,9 @@ static int get_options(int *argc, char ***argv) {
   ignore_table->insert("mysql.general_log");
   ignore_table->insert("mysql.slow_log");
 
+  ignore_database =
+      new collation_unordered_set<string>(charset_info, PSI_NOT_INSTRUMENTED);
+
   if ((ho_error = handle_options(argc, argv, my_long_options, get_one_option)))
     return (ho_error);
 
@@ -996,6 +1009,13 @@ static int get_options(int *argc, char ***argv) {
   if ((opt_databases || opt_alldbs) && path) {
     fprintf(stderr,
             "%s: --databases or --all-databases can't be used with --tab.\n",
+            my_progname);
+    return (EX_USAGE);
+  }
+  if (!ignore_database->empty() && !opt_alldbs) {
+    fprintf(stderr,
+            "%s: --ignore-database can only be used together with "
+            "--all-databases.\n",
             my_progname);
     return (EX_USAGE);
   }
@@ -1389,6 +1409,10 @@ static void free_resources() {
   if (ignore_table != nullptr) {
     delete ignore_table;
     ignore_table = nullptr;
+  }
+  if (ignore_database != nullptr) {
+    delete ignore_database;
+    ignore_database = nullptr;
   }
   if (insert_pat_inited) dynstr_free(&insert_pat);
   if (opt_ignore_error) my_free(opt_ignore_error);
@@ -4197,6 +4221,10 @@ static int is_ndbinfo(MYSQL *mysql, const char *dbname) {
   return 0;
 }
 
+static bool include_database(const char *hash_key, size_t len) {
+  return ignore_database->count(string(hash_key, len)) == 0;
+}
+
 static int dump_all_databases() {
   MYSQL_ROW row;
   MYSQL_RES *tableres;
@@ -4219,7 +4247,8 @@ static int dump_all_databases() {
 
     if (is_ndbinfo(mysql, row[0])) continue;
 
-    if (dump_all_tables_in_db(row[0])) result = 1;
+    if (include_database(row[0], strlen(row[0])))
+      if (dump_all_tables_in_db(row[0])) result = 1;
   }
   mysql_free_result(tableres);
   if (seen_views) {
@@ -4246,7 +4275,8 @@ static int dump_all_databases() {
 
       if (is_ndbinfo(mysql, row[0])) continue;
 
-      if (dump_all_views_in_db(row[0])) result = 1;
+      if (include_database(row[0], strlen(row[0])))
+        if (dump_all_views_in_db(row[0])) result = 1;
     }
     mysql_free_result(tableres);
   }
