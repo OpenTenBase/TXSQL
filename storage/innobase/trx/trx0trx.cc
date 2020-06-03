@@ -2848,15 +2848,15 @@ dberr_t trx_prepare_for_mysql(trx_t *trx) {
 static bool get_table_name_info(st_handler_tablename *table,
                                 const dict_table_t *dd_table,
                                 MEM_ROOT *mem_root) {
-  const char *ptr;
+  char db_buf[NAME_LEN + 1] = {'\0'};
+  char tbl_buf[NAME_LEN + 1] = {'\0'};
 
-  size_t len = dict_get_db_name_len(dd_table->name.m_name);
-  table->db = strmake_root(mem_root, dd_table->name.m_name, len);
+  dd_parse_tbl_name(dd_table->name.m_name, db_buf, tbl_buf,
+      nullptr, nullptr, nullptr);
+  table->db = strmake_root(mem_root, db_buf, strlen(db_buf));
   if (table->db == nullptr) return true;
 
-  ptr = dict_remove_db_name(dd_table->name.m_name);
-  len = ut_strlen(ptr);
-  table->tablename = strmake_root(mem_root, ptr, len);
+  table->tablename = strmake_root(mem_root, tbl_buf, strlen(tbl_buf));
   if (table->tablename == nullptr) return true;
 
   return false;

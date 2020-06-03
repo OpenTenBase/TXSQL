@@ -1,0 +1,20 @@
+call mtr.add_suppression("Found .* prepared XA transactions");
+create  table t1(a int primary key, b int) PARTITION BY HASH(a) PARTITIONS 4;
+connect (con1,localhost,root);
+
+--connection con1
+xa begin '123';
+insert into t1 values(1,2);
+xa end '123';
+xa prepare '123';
+
+--connection default
+#restart
+--source include/restart_mysqld.inc
+
+disconnect con1;
+
+--connection default
+xa recover;
+xa commit '123';
+drop table t1;
