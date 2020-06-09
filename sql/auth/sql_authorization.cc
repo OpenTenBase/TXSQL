@@ -2018,7 +2018,8 @@ bool check_one_table_access(THD *thd, ulong privilege, TABLE_LIST *all_tables) {
 
 bool check_single_table_access(THD *thd, ulong privilege,
                                TABLE_LIST *all_tables, bool no_errors) {
-  if (all_tables->is_internal()) {
+  
+  if (all_tables->is_internal() || thd->skip_acl_checking) {
     // Optimizer internal tables does not need any privilege checking.
     all_tables->set_privileges(privilege);
     return false;
@@ -2412,6 +2413,8 @@ bool check_table_access(THD *thd, ulong requirements, TABLE_LIST *tables,
   uint i = 0;
   Security_context *sctx = thd->security_context();
   Security_context *backup_ctx = thd->security_context();
+
+  if (thd->skip_acl_checking) return false;
 
   /*
     The check that first_not_own_table is not reached is for the case when

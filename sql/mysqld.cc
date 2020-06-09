@@ -1050,7 +1050,7 @@ uint g_log_prepared_xid_list_instances = 8;
 uint g_simple_slow_logging = 0;
 
 bool g_txsql_optimize_xa_recover = false;
-
+bool g_simplify_priv_check = false;
 CThdBottomHalf *g_thdBottomHalf = nullptr;
 #if defined(_WIN32)
 /*

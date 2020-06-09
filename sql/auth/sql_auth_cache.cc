@@ -3125,7 +3125,7 @@ void Acl_cache::return_acl_map(Acl_map *map) {
   iterating the Acl_map hash in Acl_cache::flush_cache
   @see Acl_cache::flush_cache
 */
-uint64 l_cache_flusher_global_version;
+volatile uint64_t l_cache_flusher_global_version;
 
 /**
   Utility function for removing all items from the hash.

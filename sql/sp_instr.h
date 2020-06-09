@@ -624,6 +624,7 @@ class sp_instr_stmt : public sp_lex_instr {
  public:
   sp_instr_stmt(uint ip, LEX *lex, LEX_CSTRING query)
       : sp_lex_instr(ip, lex->get_sp_current_parsing_ctx(), lex, true),
+        m_acl_cache_version(0),
         m_query(query),
         m_valid(true) {}
 
@@ -660,6 +661,7 @@ class sp_instr_stmt : public sp_lex_instr {
 
   Quick_cached_range_info m_cached_info;
 
+  uint64_t m_acl_cache_version;
  private:
   /// Complete query of the SQL-statement.
   LEX_CSTRING m_query;

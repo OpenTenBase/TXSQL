@@ -172,6 +172,7 @@ When one supplies long data for a placeholder:
 #include "sql/transaction.h"  // trans_rollback_implicit
 #include "sql/window.h"
 #include "sql_string.h"
+#include "sql/auth/sql_auth_cache.h"
 #include "violite.h"
 
 namespace resourcegroups {
@@ -2307,6 +2308,7 @@ Prepared_statement::Prepared_statement(THD *thd_arg)
                  thd_arg->variables.query_prealloc_size);
   *last_error = '\0';
   m_cached_info = new Quick_cached_range_info();
+  m_acl_cache_version = 0;
 }
 
 void Prepared_statement::close_cursor() {
@@ -3233,8 +3235,20 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor) {
         m_cached_info->clear();
       }
 
+      if (g_simplify_priv_check &&
+          m_acl_cache_version > 0 &&
+          m_acl_cache_version == l_cache_flusher_global_version) {
+        thd->skip_acl_checking = true;
+      }
+
       error = mysql_execute_command(thd, true);
       thd->qck_rows_info = nullptr;
+      
+      if (!error) {
+        m_acl_cache_version = l_cache_flusher_global_version;
+      }
+
+      thd->skip_acl_checking = false;
 
       if (switched)
         mgr_ptr->restore_original_resource_group(thd, src_res_grp,

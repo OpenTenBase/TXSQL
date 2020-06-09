@@ -7189,6 +7189,12 @@ static Sys_var_bool Sys_g_txsql_optimize_xa_recover(
     GLOBAL_VAR(g_txsql_optimize_xa_recover),
     CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_simplify_priv_check(
+    "simplify_priv_check",
+    "Simplify privilege checking for SP",
+    GLOBAL_VAR(g_simplify_priv_check),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
 extern uint32_t txsql_slave_wait_group_done;
 static Sys_var_uint Sys_txsql_slave_wait_group_done(
     "txsql_slave_wait_group_done",

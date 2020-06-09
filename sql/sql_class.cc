@@ -578,6 +578,8 @@ THD::THD(bool enable_plugins)
   prepared_lsn = 0;
 
   qck_rows_info = nullptr;
+
+  skip_acl_checking = false;
 #ifndef DBUG_OFF
   debug_binlog_xid_last.reset();
 #endif

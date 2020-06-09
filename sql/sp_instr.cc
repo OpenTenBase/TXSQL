@@ -73,6 +73,7 @@
 #include "sql/transaction_info.h"
 #include "sql/trigger.h"  // Trigger
 #include "sql/trigger_def.h"
+#include "sql/auth/sql_auth_cache.h"
 #include "unsafe_string_append.h"
 
 class Cmp_splocal_locations {
@@ -956,8 +957,22 @@ bool sp_instr_stmt::exec_core(THD *thd, uint *nextp) {
   } else {
     m_cached_info.clear();
   }
+
+  if (g_simplify_priv_check &&
+      m_acl_cache_version > 0 &&
+      m_acl_cache_version == l_cache_flusher_global_version) {
+    thd->skip_acl_checking = true;
+  }
+
   bool rc = mysql_execute_command(thd);
+
+  if (!rc) {
+    //no error happens
+    m_acl_cache_version = l_cache_flusher_global_version;
+  }
+
   thd->qck_rows_info = nullptr;
+  thd->skip_acl_checking = false;
 
   thd->lex->set_sp_current_parsing_ctx(NULL);
   thd->lex->sphead = NULL;

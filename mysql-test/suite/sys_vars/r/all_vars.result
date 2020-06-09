@@ -178,6 +178,8 @@ relay_log_sync_timeout
 relay_log_sync_txn_count
 relay_log_sync_txn_count
 resultset_metadata
+simplify_priv_check
+simplify_priv_check
 sp_cache_range_info
 sp_cache_range_info
 sql_require_primary_key

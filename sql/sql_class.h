@@ -2558,6 +2558,8 @@ class THD : public MDL_context_owner,
 
   Quick_cached_range_info *qck_rows_info;
 
+  bool skip_acl_checking;
+
   /** number of name_const() substitutions, see sp_head.cc:subst_spvars() */
   uint query_name_consts;
 

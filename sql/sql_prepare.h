@@ -395,6 +395,8 @@ class Prepared_statement final {
   bool set_parameters(String *expanded_query);
 
   Quick_cached_range_info *m_cached_info;
+
+  uint64_t m_acl_cache_version;
  private:
   void cleanup_stmt();
   void setup_set_params();

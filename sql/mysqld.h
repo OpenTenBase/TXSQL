@@ -417,6 +417,8 @@ extern bool g_reliable_relaylog;
 extern bool tdsql_allow_async;
 extern bool g_log_prepared_xid_list;
 extern bool g_sp_cache_range;
+extern bool g_simplify_priv_check;
+
 extern ulong g_relaylog_sync_threshold;
 extern ulong g_relaylog_fsync_ack_timeout;
 extern ulong g_relaylog_fsync_txn_count;

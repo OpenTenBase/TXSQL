@@ -657,4 +657,5 @@ class Acl_restrictions {
   malloc_unordered_map<std::string, Restrictions> m_restrictions_map;
 };
 
+extern volatile uint64_t l_cache_flusher_global_version;
 #endif /* SQL_USER_CACHE_INCLUDED */
