@@ -509,6 +509,7 @@ INCLUDE(mysql_add_executable)
 INCLUDE(mysqlgcs)
 INCLUDE(curl)
 INCLUDE(rapidjson)
+INCLUDE(fprofile)
 
 OPTION(WITH_JEMALLOC "Use jemalloc rather than builtin malloc/free etc." OFF)
 IF(WITH_JEMALLOC)
@@ -1049,17 +1050,23 @@ INCLUDE_DIRECTORIES(
   )
 
 
-SET(WITH_SYSTEM_LIBS_DEFAULT OFF)
+IF(DEFINED WITH_LTO_DEFAULT)
+  SET(WITH_LTO_DEFAULT ${WITH_LTO_DEFAULT})
+ELSE()
+  SET(WITH_LTO_DEFAULT OFF)
+ENDIF()
 
 OPTION(WITH_LTO
-  "Enable the link-time optimizer. Currently works for gcc7/gcc8 only." OFF)
+  "Enable the link-time optimizer. Currently works for gcc7/gcc8 only."
+  ${WITH_LTO_DEFAULT}
+  )
 IF(WITH_LTO)
   MY_CHECK_CXX_COMPILER_FLAG("-flto" CXX_LTO_RESULT)
   IF(NOT CXX_LTO_RESULT)
     MESSAGE(FATAL_ERROR "Compiler does not support -flto")
   ENDIF()
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto")
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
+  STRING_APPEND(CMAKE_C_FLAGS   " -flto")
+  STRING_APPEND(CMAKE_CXX_FLAGS " -flto")
 
   # Test for parallel linking.
   SET(NUM_PROCESSING_UNITS 4)
@@ -1076,14 +1083,11 @@ IF(WITH_LTO)
         SET(NUM_PROCESSING_UNITS ${NPROC_NUM})
       ENDIF()
     ENDIF()
-    SET(CMAKE_CXX_LINK_FLAGS
-      "${CMAKE_CXX_LINK_FLAGS} -flto=${NUM_PROCESSING_UNITS}")
-    SET(CMAKE_SHARED_LINKER_FLAGS
-      "${CMAKE_SHARED_LINKER_FLAGS} -flto=${NUM_PROCESSING_UNITS}")
+    STRING_APPEND(CMAKE_CXX_LINK_FLAGS      " -flto=${NUM_PROCESSING_UNITS}")
+    STRING_APPEND(CMAKE_SHARED_LINKER_FLAGS " -flto=${NUM_PROCESSING_UNITS}")
   ELSE()
-    SET(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -flto")
-    SET(CMAKE_SHARED_LINKER_FLAGS
-      "${CMAKE_SHARED_LINKER_FLAGS} -flto")
+    STRING_APPEND(CMAKE_CXX_LINK_FLAGS      " -flto")
+    STRING_APPEND(CMAKE_SHARED_LINKER_FLAGS " -flto")
   ENDIF()
 
   # On some platforms (Fedora) we *must* use gcc-ar / gcc-ranlib
@@ -1117,11 +1121,7 @@ IF(WITH_LTO)
       SET(CMAKE_RANLIB ${GCC_RANLIB_EXECUTABLE})
     ENDIF()
   ENDIF()
-
-  # We must use -DWITH_PROTOBUF=system.
-  # There are also bugs exposed by LTO in the bundled ICU and editline sources.
-  SET(WITH_SYSTEM_LIBS_DEFAULT ON)
-ENDIF()
+ENDIF(WITH_LTO)
 
 # Explicit list of all -DWITH_XXX=system possibilities
 # *except* boost, which requires one specific version to be downloaded.
@@ -1142,6 +1142,7 @@ SET(SYSTEM_LIBRARIES
   ZSTD
   )
 
+SET(WITH_SYSTEM_LIBS_DEFAULT OFF)
 OPTION(WITH_SYSTEM_LIBS
   "Use -DWITH_XXX=system for ${SYSTEM_LIBRARIES}" ${WITH_SYSTEM_LIBS_DEFAULT})
 
