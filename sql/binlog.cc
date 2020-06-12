@@ -7851,6 +7851,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
     if ((ev = binlog_file_reader.read_event_object()) &&
         ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT &&
         (ev->common_header->flags & LOG_EVENT_BINLOG_IN_USE_F ||
+         g_log_prepared_xid_list ||
          DBUG_EVALUATE_IF("eval_force_bin_log_recovery", true, false))) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
