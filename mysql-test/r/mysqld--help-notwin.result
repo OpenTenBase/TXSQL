@@ -550,8 +550,8 @@ The following options may be given as the first argument:
  --log-error-verbosity=# 
  How detailed the error log should be. 1, log errors only.
  2, log errors and warnings. 3, log errors, warnings, and
- notes. Messages sent to the client are unaffected by this
- setting.
+ notes. 4, log errors, warnings, notes and tips Messages
+ sent to the client are unaffected by this setting.
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE

@@ -628,21 +628,21 @@ UNINSTALL COMPONENT "file://component_log_filter_dragnet";
      if ($line =~ /\[Note\]/) {
        $result=0;
        }
-     if ($line =~ /\[Warning\].*'log_error_verbosity': unsigned value 7 adjusted to 3/) {
+     if ($line =~ /\[Warning\].*'log_error_verbosity': unsigned value 7 adjusted to 4/) {
        $verbosity_adjust_message_logged= 1;
        }
      }
    close(FILE);
 
    if($result) {
-     print "[ FAIL ] Error log does not include NOTE's with --log-error-verbosity=7 (adjusted to 3) during initialization.\n";
+     print "[ FAIL ] Error log does not include NOTE's with --log-error-verbosity=7 (adjusted to 4) during initialization.\n";
      }
    else {
      if ($verbosity_adjust_message_logged) {
-       print "[ PASS ] Error log contains NOTE's with --log-error-verbosity=7 (adjusted to 3) during initialization.\n";
+       print "[ PASS ] Error log contains NOTE's with --log-error-verbosity=7 (adjusted to 4) during initialization.\n";
        }
      else {
-       print "[ FAIL ] Error log does not contain a warning that log_error_verbosity is adjusted to 3 from 7\n";
+       print "[ FAIL ] Error log does not contain a warning that log_error_verbosity is adjusted to 4 from 7\n";
        }
      }
 

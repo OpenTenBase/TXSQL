@@ -126,7 +126,7 @@ Reading error logs for validation
 [ PASS ] Error log does not contain NOTE's or WARNING's with --log-error-verbosity=-1 (adjusted to 1) during initialization
 [ PASS ] Error log does not contain WARNING's/NOTE's with --log-error-verbosity=1  during initialization
 [ PASS ] Error log does not contain NOTE's with --log-error-verbosity=2  during initialization
-[ PASS ] Error log contains NOTE's with --log-error-verbosity=7 (adjusted to 3) during initialization.
+[ PASS ] Error log contains NOTE's with --log-error-verbosity=7 (adjusted to 4) during initialization.
 [ PASS ] Error log contains a NOTE with compiled-in message 'Access denied' when lc_messages_dir does not contain error messages
 [ PASS ] Error log successfully parsed as a json document
 [ PASS ] Expected entry found in the json error log: ER_STARTING_AS

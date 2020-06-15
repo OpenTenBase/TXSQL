@@ -6249,7 +6249,7 @@ bool mts_recovery_groups(Relay_log_info *rli) {
           flag_group_seen_begin = false;
           recovery_group_cnt++;
 
-          LogErr(INFORMATION_LEVEL, ER_RPL_MTS_GROUP_RECOVERY_RELAY_LOG_INFO,
+          LogErr(TIPS_LEVEL, ER_RPL_MTS_GROUP_RECOVERY_RELAY_LOG_INFO,
                  rli->get_group_master_log_name(), ev->common_header->log_pos);
           if ((ret = mts_event_coord_cmp(&ev_coord, &w_last)) == 0) {
 #ifndef DBUG_OFF
