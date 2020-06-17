@@ -455,6 +455,8 @@ const char *ut_strerr(dberr_t num) {
       return (
           "Failed to find a doublewrite buffer "
           "in the system tablespace");
+    case DB_LOCK_WAIT_HOT_ROW_UPDATE:
+      return ("Lock wait in hot row update queue");
     case DB_INVALID_ENCRYPTION_META:
       return ("Invalid encryption meta-data information");
     case DB_ABORT_INCOMPLETE_CLONE:

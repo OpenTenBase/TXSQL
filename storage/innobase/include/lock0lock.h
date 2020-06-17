@@ -509,6 +509,50 @@ enum class lock_duration_t {
   AT_LEAST_STATEMENT = 1,
 };
 
+
+/** Checks if need to wait in hot row update queue.
+@param[in,out]	trx		trx obj
+@param[in]	rec		record
+@return DB_SUCCESS, DB_LOCK_WAIT_HOT_ROW_UPDATE */
+dberr_t lock_clust_check_hot_row_update(
+  trx_t       *trx,
+  const rec_t *rec);
+/** 
+ * Retrive the stats of all hot update rows in the system.
+ * We expect the total number of hot rows to be reasonbaly small
+ * since it's hard to be qualified as a hot row.
+ * Therefore, we extract information of all the hot rows in a single call.
+@param[in,out]	hot_row_space_id_col		column vector to hold the 
+										  	space_id of all hot rows.
+@param[in,out]	hot_row_page_no_col			column vector to hold the 
+											page_no of all hot rows.
+@param[in,out]	hot_row_heap_no_col			column vector to hold the 
+											heap_no of all hot rows.
+@param[in,out]	hot_row_running_trxs_col	column vector to hold the 
+											# running trxs in the lock_sys 
+											of all hot rows.
+@param[in,out]	hot_row_waiting_trxs_col	column vector to hold the 
+											# waiting trxs queued in the 
+											hot_update module of all hot rows.
+@return true if success, false otherwise 
+*/
+bool lock_get_hot_row_update_stats( std::vector<ulint> & 
+                                      hot_row_space_id_col,
+                                    std::vector<ulint> & 
+                                      hot_row_page_no_col,
+                                    std::vector<ulint> & 
+                                      hot_row_heap_no_col,
+                                    std::vector<ulint> & 
+                                      hot_row_running_trxs_col,
+                                    std::vector<ulint> & 
+                                      hot_row_waiting_trxs_col);
+
+/** Puts a user OS thread to wait for a hot row update lock to be released. */
+void lock_wait_in_hot_row_update_queue(
+    que_thr_t *thr); /*!< in: query thread associated with the
+                     user OS thread */
+
+
 /** Like lock_clust_rec_read_check_and_lock(), but reads a
 secondary index record.
 @param[in]      duration        If equal to AT_LEAST_STATEMENT, then makes sure
@@ -1059,6 +1103,11 @@ struct lock_sys_t {
   of 0 means the thread is not active */
   os_event_t timeout_event;
 
+  hash_table_t* hot_update_hash;/*!< hash table of the hot update
+                                row */
+  Lock_mutex  hot_update_mutex;  /*!< Mutex protecting the hot update
+                                row info */
+
 #ifdef UNIV_DEBUG
   /** Lock timestamp counter, used to assign lock->m_seq on creation. */
   std::atomic<uint64_t> m_seq;
@@ -1073,6 +1122,12 @@ set on the record, sets one for it.
 @param[in]  offsets   rec_get_offsets(rec, index) */
 void lock_rec_convert_impl_to_expl(const buf_block_t *block, const rec_t *rec,
                                    dict_index_t *index, const ulint *offsets);
+
+
+/*********************************************************************//**
+Reset the hot update items in lock sys.  */
+void
+lock_sys_reset_hot_update();
 
 /** Removes a record lock request, waiting or granted, from the queue. */
 void lock_rec_discard(lock_t *in_lock); /*!< in: record lock object: all

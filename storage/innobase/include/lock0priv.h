@@ -47,6 +47,7 @@ those functions in lock/ */
 
 #include <scope_guard.h>
 #include <utility>
+#include <deque>
 
 /** A table lock */
 struct lock_table_t {
@@ -636,7 +637,19 @@ struct RecID {
   @return true if <space, page_no, heap_no> matches the lock. */
   inline bool matches(const lock_t *lock) const;
 
+  /* Check if the rec id matches the input rec id.
+  @param[i]  rec_id    record id
+  @return true if <space, page_no, heap_no> matches the input. */
+  inline bool matches(const RecID& rec_id) const
+  {
+    return(m_page_id.space() == rec_id.get_page_id().space()
+           && m_page_id.page_no() == rec_id.get_page_id().page_no()
+           && m_heap_no == rec_id.m_heap_no);
+  }
+
   const page_id_t &get_page_id() const { return m_page_id; }
+
+  page_id_t &get_page_id_non_const() { return m_page_id; }
 
   /** Tablespace ID and page number within space  */
   page_id_t m_page_id;
@@ -877,6 +890,31 @@ class RecLock {
 /** The count of the types of locks. */
 static const ulint lock_types = UT_ARR_SIZE(lock_compatibility_matrix);
 #endif /* UNIV_DEBUG */
+
+/** Hot update trx struct; protected by lock_sys->hot_update_mutex */
+typedef struct hot_update {
+  trx_t*      m_trx;    /*!< Waiting trx. */
+} hot_update_t;
+
+typedef std::deque<hot_update_t, ut::allocator<hot_update_t> > hot_update_queue;
+
+/** Hot update item struct; protected by lock_sys->hot_update_mutex */
+struct hot_update_item_t {
+  RecID      m_rec_id;  /*!< The record lock tuple
+                        {space, page_no, heap_no} */
+
+  hot_update_item_t*  hash; /*!< hash chain node for a
+                            record lock.  The link node
+                            in a singly linked list,
+                            used during hashing. */
+
+  ulint      n_running;  /*!< number of waiting
+                         threads. */
+
+  hot_update_queue*  waiting_updates;
+            /*!< waiting updates. */
+};
+
 
 /** Gets the type of a lock.
  @return LOCK_TABLE or LOCK_REC */

@@ -871,6 +871,15 @@ and/or load it during startup. */
 bool srv_buffer_pool_dump_at_shutdown = true;
 bool srv_buffer_pool_load_at_startup = true;
 
+/* Boolean config knobs that tell InnoDB to detect the hot update. */
+bool srv_hot_update_detect = false;
+
+/* Maximum number of concurrent hot update threads. */
+ulint srv_max_concurrent_hot_update = 1;
+
+/* Timeout value of hot update wait for. */
+ulint srv_hot_update_wait_timeout = 1000000;
+
 /** Slot index in the srv_sys->sys_threads array for the purge thread. */
 static const ulint SRV_PURGE_SLOT = 1;
 

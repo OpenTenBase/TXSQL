@@ -338,6 +338,15 @@ and/or load it during startup. */
 extern bool srv_buffer_pool_dump_at_shutdown;
 extern bool srv_buffer_pool_load_at_startup;
 
+/* Boolean config knobs that tell InnoDB to detect the hot update. */
+extern bool  srv_hot_update_detect;
+
+/* Maximum number of concurrent hot update threads. */
+extern ulint  srv_max_concurrent_hot_update;
+
+/* Timeout value of hot update wait for. */
+extern ulint  srv_hot_update_wait_timeout;
+
 /* Whether to disable file system cache if it is defined */
 extern bool srv_disable_sort_file_cache;
 

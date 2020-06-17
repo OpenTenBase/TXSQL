@@ -247,6 +247,7 @@ and the insert buffer must be empty when the database is started */
                                    info output and code coverage */
 #ifdef UNIV_DEBUG
 #define UNIV_DEBUG_PARALLEL_DDL
+#define UNIV_DEBUG_HOT_UPDATE
 #endif
 #endif
 

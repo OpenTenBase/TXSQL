@@ -1,0 +1,977 @@
+USE test;
+SET @@global.innodb_hot_update_detect=true;
+CREATE TABLE hotupdates (id int PRIMARY KEY, counter int) Engine=InnoDB;
+INSERT INTO hotupdates VALUES (1,0);
+########################################################
+#                                                      #
+# Scenario 1 test basic function of hot update feature #
+#                                                      #
+########################################################
+SET GLOBAL DEBUG='+d,hot_update_add_new_item';
+DROP PROCEDURE IF EXISTS update_hold_test;
+Warnings:
+Note	1305	PROCEDURE test.update_hold_test does not exist
+CREATE PROCEDURE update_hold_test()
+BEGIN
+START TRANSACTION;
+UPDATE hotupdates SET counter=counter+1 WHERE id = 1;
+select sleep(0.3);
+COMMIT;
+END//
+# establishing connection hotupdate0
+BEGIN;
+UPDATE hotupdates SET counter=counter+1 WHERE id = 1;
+# establishing connection hotupdate1
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate1';
+call update_hold_test();;
+# establishing connection hotupdate2
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate2';
+call update_hold_test();;
+# establishing connection hotupdate3
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate3';
+call update_hold_test();;
+# establishing connection hotupdate4
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate4';
+call update_hold_test();;
+# establishing connection hotupdate5
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate5';
+call update_hold_test();;
+# establishing connection hotupdate6
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate6';
+call update_hold_test();;
+# establishing connection hotupdate7
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate7';
+call update_hold_test();;
+# establishing connection hotupdate8
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate8';
+call update_hold_test();;
+# establishing connection hotupdate9
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate9';
+call update_hold_test();;
+# establishing connection hotupdate10
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate10';
+call update_hold_test();;
+# establishing connection hotupdate11
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate11';
+call update_hold_test();;
+# establishing connection hotupdate12
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate12';
+call update_hold_test();;
+# establishing connection hotupdate13
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate13';
+call update_hold_test();;
+# establishing connection hotupdate14
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate14';
+call update_hold_test();;
+# establishing connection hotupdate15
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate15';
+call update_hold_test();;
+# establishing connection hotupdate16
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate16';
+call update_hold_test();;
+# establishing connection hotupdate17
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate17';
+call update_hold_test();;
+# establishing connection hotupdate18
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate18';
+call update_hold_test();;
+# establishing connection hotupdate19
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate19';
+call update_hold_test();;
+# establishing connection hotupdate20
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate20';
+call update_hold_test();;
+# establishing connection hotupdate21
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate21';
+call update_hold_test();;
+# establishing connection hotupdate22
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate22';
+call update_hold_test();;
+# establishing connection hotupdate23
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate23';
+call update_hold_test();;
+# establishing connection hotupdate24
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate24';
+call update_hold_test();;
+# establishing connection hotupdate25
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate25';
+call update_hold_test();;
+# establishing connection hotupdate26
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate26';
+call update_hold_test();;
+# establishing connection hotupdate27
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate27';
+call update_hold_test();;
+# establishing connection hotupdate28
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate28';
+call update_hold_test();;
+# establishing connection hotupdate29
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate29';
+call update_hold_test();;
+# establishing connection hotupdate30
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate30';
+call update_hold_test();;
+# establishing connection hotupdate31
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate31';
+call update_hold_test();;
+# establishing connection hotupdate32
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate32';
+call update_hold_test();;
+# establishing connection hotupdate33
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate33';
+call update_hold_test();;
+# establishing connection hotupdate34
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate34';
+call update_hold_test();;
+# establishing connection hotupdate35
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate35';
+call update_hold_test();;
+# establishing connection hotupdate36
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate36';
+call update_hold_test();;
+# establishing connection hotupdate37
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate37';
+call update_hold_test();;
+# establishing connection hotupdate38
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate38';
+call update_hold_test();;
+# establishing connection hotupdate39
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate39';
+call update_hold_test();;
+COMMIT;
+# establishing connection hotupdate40
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate40';
+call update_hold_test();;
+# establishing connection hotupdate41
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate41';
+call update_hold_test();;
+# establishing connection hotupdate42
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate42';
+call update_hold_test();;
+# establishing connection hotupdate43
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate43';
+call update_hold_test();;
+# establishing connection hotupdate44
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate44';
+call update_hold_test();;
+# establishing connection hotupdate45
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate45';
+call update_hold_test();;
+# establishing connection hotupdate46
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate46';
+call update_hold_test();;
+# establishing connection hotupdate47
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate47';
+call update_hold_test();;
+# establishing connection hotupdate48
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate48';
+call update_hold_test();;
+# establishing connection hotupdate49
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate49';
+call update_hold_test();;
+# establishing connection hotupdate50
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate50';
+call update_hold_test();;
+# cleaning up connection hotupdate1
+sleep(0.3)
+0
+# cleaning up connection hotupdate2
+sleep(0.3)
+0
+# cleaning up connection hotupdate3
+sleep(0.3)
+0
+# cleaning up connection hotupdate4
+sleep(0.3)
+0
+# cleaning up connection hotupdate5
+sleep(0.3)
+0
+# cleaning up connection hotupdate6
+sleep(0.3)
+0
+# cleaning up connection hotupdate7
+sleep(0.3)
+0
+# cleaning up connection hotupdate8
+sleep(0.3)
+0
+# cleaning up connection hotupdate9
+sleep(0.3)
+0
+# cleaning up connection hotupdate10
+sleep(0.3)
+0
+# cleaning up connection hotupdate11
+sleep(0.3)
+0
+# cleaning up connection hotupdate12
+sleep(0.3)
+0
+# cleaning up connection hotupdate13
+sleep(0.3)
+0
+# cleaning up connection hotupdate14
+sleep(0.3)
+0
+# cleaning up connection hotupdate15
+sleep(0.3)
+0
+# cleaning up connection hotupdate16
+sleep(0.3)
+0
+# cleaning up connection hotupdate17
+sleep(0.3)
+0
+# cleaning up connection hotupdate18
+sleep(0.3)
+0
+# cleaning up connection hotupdate19
+sleep(0.3)
+0
+# cleaning up connection hotupdate20
+sleep(0.3)
+0
+# cleaning up connection hotupdate21
+sleep(0.3)
+0
+# cleaning up connection hotupdate22
+sleep(0.3)
+0
+# cleaning up connection hotupdate23
+sleep(0.3)
+0
+# cleaning up connection hotupdate24
+sleep(0.3)
+0
+# cleaning up connection hotupdate25
+sleep(0.3)
+0
+# cleaning up connection hotupdate26
+sleep(0.3)
+0
+# cleaning up connection hotupdate27
+sleep(0.3)
+0
+# cleaning up connection hotupdate28
+sleep(0.3)
+0
+# cleaning up connection hotupdate29
+sleep(0.3)
+0
+# cleaning up connection hotupdate30
+sleep(0.3)
+0
+# cleaning up connection hotupdate31
+sleep(0.3)
+0
+# cleaning up connection hotupdate32
+sleep(0.3)
+0
+# cleaning up connection hotupdate33
+sleep(0.3)
+0
+# cleaning up connection hotupdate34
+sleep(0.3)
+0
+# cleaning up connection hotupdate35
+sleep(0.3)
+0
+# cleaning up connection hotupdate36
+sleep(0.3)
+0
+# cleaning up connection hotupdate37
+sleep(0.3)
+0
+# cleaning up connection hotupdate38
+sleep(0.3)
+0
+# cleaning up connection hotupdate39
+sleep(0.3)
+0
+# cleaning up connection hotupdate40
+sleep(0.3)
+0
+# cleaning up connection hotupdate41
+sleep(0.3)
+0
+# cleaning up connection hotupdate42
+sleep(0.3)
+0
+# cleaning up connection hotupdate43
+sleep(0.3)
+0
+# cleaning up connection hotupdate44
+sleep(0.3)
+0
+# cleaning up connection hotupdate45
+sleep(0.3)
+0
+# cleaning up connection hotupdate46
+sleep(0.3)
+0
+# cleaning up connection hotupdate47
+sleep(0.3)
+0
+# cleaning up connection hotupdate48
+sleep(0.3)
+0
+# cleaning up connection hotupdate49
+sleep(0.3)
+0
+# cleaning up connection hotupdate50
+sleep(0.3)
+0
+DROP PROCEDURE IF EXISTS update_hold_test;
+########################################################
+#                                                      #
+# Scenario 2 test hot update wait timeout              #
+#                                                      #
+########################################################
+SET GLOBAL DEBUG='+d,hot_update_time_out';
+DROP PROCEDURE IF EXISTS update_hold_test;
+Warnings:
+Note	1305	PROCEDURE test.update_hold_test does not exist
+CREATE PROCEDURE update_hold_test()
+BEGIN
+START TRANSACTION;
+UPDATE hotupdates SET counter=counter+1 WHERE id = 1;
+select sleep(0.3);
+COMMIT;
+END//
+# establishing connection hotupdate0
+BEGIN;
+UPDATE hotupdates SET counter=counter+1 WHERE id = 1;
+# establishing connection hotupdate1
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate1';
+call update_hold_test();;
+# establishing connection hotupdate2
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate2';
+call update_hold_test();;
+# establishing connection hotupdate3
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate3';
+call update_hold_test();;
+# establishing connection hotupdate4
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate4';
+call update_hold_test();;
+# establishing connection hotupdate5
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate5';
+call update_hold_test();;
+# establishing connection hotupdate6
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate6';
+call update_hold_test();;
+# establishing connection hotupdate7
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate7';
+call update_hold_test();;
+# establishing connection hotupdate8
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate8';
+call update_hold_test();;
+# establishing connection hotupdate9
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate9';
+call update_hold_test();;
+# establishing connection hotupdate10
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate10';
+call update_hold_test();;
+# establishing connection hotupdate11
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate11';
+call update_hold_test();;
+# establishing connection hotupdate12
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate12';
+call update_hold_test();;
+# establishing connection hotupdate13
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate13';
+call update_hold_test();;
+# establishing connection hotupdate14
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate14';
+call update_hold_test();;
+# establishing connection hotupdate15
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate15';
+call update_hold_test();;
+# establishing connection hotupdate16
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate16';
+call update_hold_test();;
+# establishing connection hotupdate17
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate17';
+call update_hold_test();;
+# establishing connection hotupdate18
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate18';
+call update_hold_test();;
+# establishing connection hotupdate19
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate19';
+call update_hold_test();;
+# establishing connection hotupdate20
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate20';
+call update_hold_test();;
+# establishing connection hotupdate21
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate21';
+call update_hold_test();;
+# establishing connection hotupdate22
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate22';
+call update_hold_test();;
+# establishing connection hotupdate23
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate23';
+call update_hold_test();;
+# establishing connection hotupdate24
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate24';
+call update_hold_test();;
+# establishing connection hotupdate25
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate25';
+call update_hold_test();;
+# establishing connection hotupdate26
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate26';
+call update_hold_test();;
+# establishing connection hotupdate27
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate27';
+call update_hold_test();;
+# establishing connection hotupdate28
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate28';
+call update_hold_test();;
+# establishing connection hotupdate29
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate29';
+call update_hold_test();;
+# establishing connection hotupdate30
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate30';
+call update_hold_test();;
+# establishing connection hotupdate31
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate31';
+call update_hold_test();;
+# establishing connection hotupdate32
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate32';
+call update_hold_test();;
+# establishing connection hotupdate33
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate33';
+call update_hold_test();;
+# establishing connection hotupdate34
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate34';
+call update_hold_test();;
+# establishing connection hotupdate35
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate35';
+call update_hold_test();;
+# establishing connection hotupdate36
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate36';
+call update_hold_test();;
+# establishing connection hotupdate37
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate37';
+call update_hold_test();;
+# establishing connection hotupdate38
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate38';
+call update_hold_test();;
+# establishing connection hotupdate39
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate39';
+call update_hold_test();;
+COMMIT;
+# establishing connection hotupdate40
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate40';
+call update_hold_test();;
+# establishing connection hotupdate41
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate41';
+call update_hold_test();;
+# establishing connection hotupdate42
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate42';
+call update_hold_test();;
+# establishing connection hotupdate43
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate43';
+call update_hold_test();;
+# establishing connection hotupdate44
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate44';
+call update_hold_test();;
+# establishing connection hotupdate45
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate45';
+call update_hold_test();;
+# establishing connection hotupdate46
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate46';
+call update_hold_test();;
+# establishing connection hotupdate47
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate47';
+call update_hold_test();;
+# establishing connection hotupdate48
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate48';
+call update_hold_test();;
+# establishing connection hotupdate49
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate49';
+call update_hold_test();;
+# establishing connection hotupdate50
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate50';
+call update_hold_test();;
+# cleaning up connection hotupdate1
+sleep(0.3)
+0
+# cleaning up connection hotupdate2
+sleep(0.3)
+0
+# cleaning up connection hotupdate3
+sleep(0.3)
+0
+# cleaning up connection hotupdate4
+sleep(0.3)
+0
+# cleaning up connection hotupdate5
+sleep(0.3)
+0
+# cleaning up connection hotupdate6
+sleep(0.3)
+0
+# cleaning up connection hotupdate7
+sleep(0.3)
+0
+# cleaning up connection hotupdate8
+sleep(0.3)
+0
+# cleaning up connection hotupdate9
+sleep(0.3)
+0
+# cleaning up connection hotupdate10
+sleep(0.3)
+0
+# cleaning up connection hotupdate11
+sleep(0.3)
+0
+# cleaning up connection hotupdate12
+sleep(0.3)
+0
+# cleaning up connection hotupdate13
+sleep(0.3)
+0
+# cleaning up connection hotupdate14
+sleep(0.3)
+0
+# cleaning up connection hotupdate15
+sleep(0.3)
+0
+# cleaning up connection hotupdate16
+sleep(0.3)
+0
+# cleaning up connection hotupdate17
+sleep(0.3)
+0
+# cleaning up connection hotupdate18
+sleep(0.3)
+0
+# cleaning up connection hotupdate19
+sleep(0.3)
+0
+# cleaning up connection hotupdate20
+sleep(0.3)
+0
+# cleaning up connection hotupdate21
+sleep(0.3)
+0
+# cleaning up connection hotupdate22
+sleep(0.3)
+0
+# cleaning up connection hotupdate23
+sleep(0.3)
+0
+# cleaning up connection hotupdate24
+sleep(0.3)
+0
+# cleaning up connection hotupdate25
+sleep(0.3)
+0
+# cleaning up connection hotupdate26
+sleep(0.3)
+0
+# cleaning up connection hotupdate27
+sleep(0.3)
+0
+# cleaning up connection hotupdate28
+sleep(0.3)
+0
+# cleaning up connection hotupdate29
+sleep(0.3)
+0
+# cleaning up connection hotupdate30
+sleep(0.3)
+0
+# cleaning up connection hotupdate31
+sleep(0.3)
+0
+# cleaning up connection hotupdate32
+sleep(0.3)
+0
+# cleaning up connection hotupdate33
+sleep(0.3)
+0
+# cleaning up connection hotupdate34
+sleep(0.3)
+0
+# cleaning up connection hotupdate35
+sleep(0.3)
+0
+# cleaning up connection hotupdate36
+sleep(0.3)
+0
+# cleaning up connection hotupdate37
+sleep(0.3)
+0
+# cleaning up connection hotupdate38
+sleep(0.3)
+0
+# cleaning up connection hotupdate39
+sleep(0.3)
+0
+# cleaning up connection hotupdate40
+sleep(0.3)
+0
+# cleaning up connection hotupdate41
+sleep(0.3)
+0
+# cleaning up connection hotupdate42
+sleep(0.3)
+0
+# cleaning up connection hotupdate43
+sleep(0.3)
+0
+# cleaning up connection hotupdate44
+sleep(0.3)
+0
+# cleaning up connection hotupdate45
+sleep(0.3)
+0
+# cleaning up connection hotupdate46
+sleep(0.3)
+0
+# cleaning up connection hotupdate47
+sleep(0.3)
+0
+# cleaning up connection hotupdate48
+sleep(0.3)
+0
+# cleaning up connection hotupdate49
+sleep(0.3)
+0
+# cleaning up connection hotupdate50
+sleep(0.3)
+0
+DROP PROCEDURE IF EXISTS update_hold_test;
+########################################################
+#                                                      #
+# Scenario 3 test hot update wait with row updated     #
+#                                                      #
+########################################################
+UPDATE hotupdates set id = 2 WHERE id = 1;
+DROP PROCEDURE IF EXISTS update_hold_test;
+Warnings:
+Note	1305	PROCEDURE test.update_hold_test does not exist
+CREATE PROCEDURE update_hold_test()
+BEGIN
+START TRANSACTION;
+UPDATE hotupdates SET counter=counter+1 WHERE id = 1;
+select sleep(0.3);
+COMMIT;
+END//
+# establishing connection hotupdate0
+BEGIN;
+UPDATE hotupdates SET counter=counter+1 WHERE id = 1;
+# establishing connection hotupdate1
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate1';
+call update_hold_test();;
+# establishing connection hotupdate2
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate2';
+call update_hold_test();;
+# establishing connection hotupdate3
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate3';
+call update_hold_test();;
+# establishing connection hotupdate4
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate4';
+call update_hold_test();;
+# establishing connection hotupdate5
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate5';
+call update_hold_test();;
+# establishing connection hotupdate6
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate6';
+call update_hold_test();;
+# establishing connection hotupdate7
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate7';
+call update_hold_test();;
+# establishing connection hotupdate8
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate8';
+call update_hold_test();;
+# establishing connection hotupdate9
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate9';
+call update_hold_test();;
+# establishing connection hotupdate10
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate10';
+call update_hold_test();;
+# establishing connection hotupdate11
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate11';
+call update_hold_test();;
+# establishing connection hotupdate12
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate12';
+call update_hold_test();;
+# establishing connection hotupdate13
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate13';
+call update_hold_test();;
+# establishing connection hotupdate14
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate14';
+call update_hold_test();;
+# establishing connection hotupdate15
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate15';
+call update_hold_test();;
+# establishing connection hotupdate16
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate16';
+call update_hold_test();;
+# establishing connection hotupdate17
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate17';
+call update_hold_test();;
+# establishing connection hotupdate18
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate18';
+call update_hold_test();;
+# establishing connection hotupdate19
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate19';
+call update_hold_test();;
+# establishing connection hotupdate20
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate20';
+call update_hold_test();;
+# establishing connection hotupdate21
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate21';
+call update_hold_test();;
+# establishing connection hotupdate22
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate22';
+call update_hold_test();;
+# establishing connection hotupdate23
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate23';
+call update_hold_test();;
+# establishing connection hotupdate24
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate24';
+call update_hold_test();;
+# establishing connection hotupdate25
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate25';
+call update_hold_test();;
+# establishing connection hotupdate26
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate26';
+call update_hold_test();;
+# establishing connection hotupdate27
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate27';
+call update_hold_test();;
+# establishing connection hotupdate28
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate28';
+call update_hold_test();;
+# establishing connection hotupdate29
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate29';
+call update_hold_test();;
+# establishing connection hotupdate30
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate30';
+call update_hold_test();;
+# establishing connection hotupdate31
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate31';
+call update_hold_test();;
+# establishing connection hotupdate32
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate32';
+call update_hold_test();;
+# establishing connection hotupdate33
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate33';
+call update_hold_test();;
+# establishing connection hotupdate34
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate34';
+call update_hold_test();;
+# establishing connection hotupdate35
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate35';
+call update_hold_test();;
+# establishing connection hotupdate36
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate36';
+call update_hold_test();;
+# establishing connection hotupdate37
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate37';
+call update_hold_test();;
+# establishing connection hotupdate38
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate38';
+call update_hold_test();;
+# establishing connection hotupdate39
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate39';
+call update_hold_test();;
+COMMIT;
+# establishing connection hotupdate40
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate40';
+call update_hold_test();;
+# establishing connection hotupdate41
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate41';
+call update_hold_test();;
+# establishing connection hotupdate42
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate42';
+call update_hold_test();;
+# establishing connection hotupdate43
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate43';
+call update_hold_test();;
+# establishing connection hotupdate44
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate44';
+call update_hold_test();;
+# establishing connection hotupdate45
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate45';
+call update_hold_test();;
+# establishing connection hotupdate46
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate46';
+call update_hold_test();;
+# establishing connection hotupdate47
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate47';
+call update_hold_test();;
+# establishing connection hotupdate48
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate48';
+call update_hold_test();;
+# establishing connection hotupdate49
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate49';
+call update_hold_test();;
+# establishing connection hotupdate50
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL hotupdate50';
+call update_hold_test();;
+# cleaning up connection hotupdate1
+sleep(0.3)
+0
+# cleaning up connection hotupdate2
+sleep(0.3)
+0
+# cleaning up connection hotupdate3
+sleep(0.3)
+0
+# cleaning up connection hotupdate4
+sleep(0.3)
+0
+# cleaning up connection hotupdate5
+sleep(0.3)
+0
+# cleaning up connection hotupdate6
+sleep(0.3)
+0
+# cleaning up connection hotupdate7
+sleep(0.3)
+0
+# cleaning up connection hotupdate8
+sleep(0.3)
+0
+# cleaning up connection hotupdate9
+sleep(0.3)
+0
+# cleaning up connection hotupdate10
+sleep(0.3)
+0
+# cleaning up connection hotupdate11
+sleep(0.3)
+0
+# cleaning up connection hotupdate12
+sleep(0.3)
+0
+# cleaning up connection hotupdate13
+sleep(0.3)
+0
+# cleaning up connection hotupdate14
+sleep(0.3)
+0
+# cleaning up connection hotupdate15
+sleep(0.3)
+0
+# cleaning up connection hotupdate16
+sleep(0.3)
+0
+# cleaning up connection hotupdate17
+sleep(0.3)
+0
+# cleaning up connection hotupdate18
+sleep(0.3)
+0
+# cleaning up connection hotupdate19
+sleep(0.3)
+0
+# cleaning up connection hotupdate20
+sleep(0.3)
+0
+# cleaning up connection hotupdate21
+sleep(0.3)
+0
+# cleaning up connection hotupdate22
+sleep(0.3)
+0
+# cleaning up connection hotupdate23
+sleep(0.3)
+0
+# cleaning up connection hotupdate24
+sleep(0.3)
+0
+# cleaning up connection hotupdate25
+sleep(0.3)
+0
+# cleaning up connection hotupdate26
+sleep(0.3)
+0
+# cleaning up connection hotupdate27
+sleep(0.3)
+0
+# cleaning up connection hotupdate28
+sleep(0.3)
+0
+# cleaning up connection hotupdate29
+sleep(0.3)
+0
+# cleaning up connection hotupdate30
+sleep(0.3)
+0
+# cleaning up connection hotupdate31
+sleep(0.3)
+0
+# cleaning up connection hotupdate32
+sleep(0.3)
+0
+# cleaning up connection hotupdate33
+sleep(0.3)
+0
+# cleaning up connection hotupdate34
+sleep(0.3)
+0
+# cleaning up connection hotupdate35
+sleep(0.3)
+0
+# cleaning up connection hotupdate36
+sleep(0.3)
+0
+# cleaning up connection hotupdate37
+sleep(0.3)
+0
+# cleaning up connection hotupdate38
+sleep(0.3)
+0
+# cleaning up connection hotupdate39
+sleep(0.3)
+0
+# cleaning up connection hotupdate40
+sleep(0.3)
+0
+# cleaning up connection hotupdate41
+sleep(0.3)
+0
+# cleaning up connection hotupdate42
+sleep(0.3)
+0
+# cleaning up connection hotupdate43
+sleep(0.3)
+0
+# cleaning up connection hotupdate44
+sleep(0.3)
+0
+# cleaning up connection hotupdate45
+sleep(0.3)
+0
+# cleaning up connection hotupdate46
+sleep(0.3)
+0
+# cleaning up connection hotupdate47
+sleep(0.3)
+0
+# cleaning up connection hotupdate48
+sleep(0.3)
+0
+# cleaning up connection hotupdate49
+sleep(0.3)
+0
+# cleaning up connection hotupdate50
+sleep(0.3)
+0
+DROP PROCEDURE IF EXISTS update_hold_test;
+SET GLOBAL DEBUG='-d,hot_update_add_new_item';
+SET GLOBAL DEBUG='-d,hot_update_time_out';
+SET DEBUG_SYNC = 'RESET';
+DROP TABLE hotupdates;
+SET @@global.innodb_hot_update_detect=false;
+#####################
+#                   #
+# End of            #
+#                   #
+#####################

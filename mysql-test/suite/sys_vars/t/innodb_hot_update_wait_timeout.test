@@ -1,0 +1,26 @@
+--source include/have_innodb_16k.inc
+
+# Check the default value
+SELECT  @@global.innodb_hot_update_wait_timeout;
+
+SET GLOBAL innodb_hot_update_wait_timeout = 1000000;
+SELECT @@global.innodb_hot_update_wait_timeout;
+
+SET GLOBAL innodb_hot_update_wait_timeout = 1000;
+SELECT @@global.innodb_hot_update_wait_timeout;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL innodb_hot_update_wait_timeout = 'abck';
+SELECT @@global.innodb_hot_update_wait_timeout;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL innodb_hot_update_wait_timeout = 'foobar';
+SELECT @@global.innodb_hot_update_wait_timeout;
+
+SET GLOBAL innodb_hot_update_wait_timeout = 0;
+SELECT @@global.innodb_hot_update_wait_timeout;
+
+SET GLOBAL innodb_hot_update_wait_timeout = 100000000000;
+SELECT @@global.innodb_hot_update_wait_timeout;
+
+SET GLOBAL innodb_hot_update_wait_timeout = default;

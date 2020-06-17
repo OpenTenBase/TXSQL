@@ -1,0 +1,36 @@
+--source include/have_innodb_16k.inc
+
+# Check the default value
+SELECT  @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = true;
+SELECT @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = false;
+SELECT @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = on;
+SELECT @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = off;
+SELECT @@global.innodb_hot_update_detect;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_hot_update_detect = 'abck';
+SELECT @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = 0;
+SELECT @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = 1;
+SELECT @@global.innodb_hot_update_detect;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_hot_update_detect = 2;
+SELECT @@global.innodb_hot_update_detect;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_hot_update_detect = 123;
+SELECT @@global.innodb_hot_update_detect;
+
+SET GLOBAL innodb_hot_update_detect = default;

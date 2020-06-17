@@ -326,9 +326,11 @@ void lock_sys_create(
 
   lock_sys->timeout_event = os_event_create();
 
+  mutex_create(LATCH_ID_TRX, &lock_sys->hot_update_mutex);
   lock_sys->rec_hash = ut::new_<hash_table_t>(n_cells);
   lock_sys->prdt_hash = ut::new_<hash_table_t>(n_cells);
   lock_sys->prdt_page_hash = ut::new_<hash_table_t>(n_cells);
+  lock_sys->hot_update_hash = ut::new_<hash_table_t>(n_cells);
 
   if (!srv_read_only_mode) {
     lock_latest_err_file = os_file_create_tmpfile();
@@ -395,9 +397,19 @@ void lock_sys_close(void) {
   ut::delete_(lock_sys->prdt_hash);
   ut::delete_(lock_sys->prdt_page_hash);
 
+  {
+    locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
+    mutex_enter(&lock_sys->hot_update_mutex);
+    lock_sys_reset_hot_update();
+    mutex_exit(&lock_sys->hot_update_mutex);
+  }
+
+  ut::delete_(lock_sys->hot_update_hash);
+
   os_event_destroy(lock_sys->timeout_event);
 
   mutex_destroy(&lock_sys->wait_mutex);
+  mutex_destroy(&lock_sys->hot_update_mutex);
 
   srv_slot_t *slot = lock_sys->waiting_threads;
 
@@ -433,6 +445,16 @@ static inline void lock_set_lock_and_trx_wait(lock_t *lock) {
   trx->lock.wait_lock = lock;
   trx->lock.wait_lock_type = lock_get_type_low(lock);
   lock->type_mode |= LOCK_WAIT;
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " was set wait_lock = "
+    << trx->lock.wait_lock << ".";
+
+  if (trx->hot_update_status == HOT_UPDATE_STATUS_WAITING) {
+    ib::info() << "trx " << trx->id
+      << " set wait_lock incorrectly.";
+  }
+#endif
 }
 
 /** Gets the gap flag of a record lock.
@@ -2015,6 +2037,72 @@ static const lock_t *lock_rec_has_to_wait_in_queue(
   return (nullptr);
 }
 
+/**
+ * Retrive the stats of all hot update rows in the system.
+ * We expect the total number of hot rows to be reasonbaly small
+ * since it's hard to be qualified as a hot row.
+ * Therefore, we extract information of all the hot rows in a single call.
+@param[in,out]  hot_row_space_id_col     column vector to hold the
+                        space_id of all hot rows.
+@param[in,out]  hot_row_page_no_col      column vector to hold the
+                      page_no of all hot rows.
+@param[in,out]  hot_row_heap_no_col      column vector to hold the
+                      heap_no of all hot rows.
+@param[in,out]  hot_row_running_trxs_col column vector to hold the
+                      # running trxs in the lock_sys
+                      of all hot rows.
+@param[in,out]  hot_row_waiting_trxs_col column vector to hold the
+                      # waiting trxs queued in the
+                      hot_update module of all hot rows.
+@return true if success, false otherwise
+*/
+bool lock_get_hot_row_update_stats(std::vector<ulint> & hot_row_space_id_col,
+                   std::vector<ulint> & hot_row_page_no_col,
+                   std::vector<ulint> & hot_row_heap_no_col,
+                   std::vector<ulint> & hot_row_running_trxs_col,
+                   std::vector<ulint> & hot_row_waiting_trxs_col)
+{
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  for (ulint i = 0; i < hash_get_n_cells(lock_sys->hot_update_hash); ++i) {
+    const hot_update_item_t*  item;
+
+    for ( item = static_cast<const hot_update_item_t*>(
+          hash_get_first(lock_sys->hot_update_hash, i));
+          item != NULL; ) {
+      hot_row_space_id_col.push_back(item->m_rec_id.get_page_id().space());
+      hot_row_page_no_col.push_back(item->m_rec_id.get_page_id().page_no());
+      hot_row_heap_no_col.push_back(item->m_rec_id.m_heap_no);
+      hot_row_running_trxs_col.push_back(item->n_running);
+      hot_row_waiting_trxs_col.push_back(item->waiting_updates->size());
+      const hot_update_item_t * next_item = static_cast<const hot_update_item_t*>(
+        HASH_GET_NEXT(hash, item));
+      item = next_item;
+    }
+  }
+  mutex_exit(&lock_sys->hot_update_mutex);
+  return true;
+}
+
+
+/** Check if a hot update need to be notified.
+@param[in]  lock    lock object 
+@param[in]  heap_no    record heap number
+*/
+static
+void
+lock_grant_hot_update(
+  lock_t*    in_lock,
+  ulint    heap_no);
+
+/** Find the hot update item which is in lock_sys->hot_row_update.
+@param[in]  rec_id    record ID
+@return the hot_update_item or NULL */
+static
+hot_update_item_t*
+lock_rec_find_hot_update_item(
+  const RecID&    rec_id);
+
 /** Grants a lock to a waiting lock request and releases the waiting
 transaction. The caller must hold lock_sys latch for the shard containing the
 lock, but not the lock->trx->mutex.
@@ -2194,6 +2282,17 @@ static const lock_t *lock_rec_has_to_wait_for_granted(
   return (nullptr);
 }
 
+/** Add a new item to the hot update list
+@param[in]  trx    trx obj
+@param[in]  rec_id    record id
+@param[in]  n_running  running trx counter. */
+static
+void
+lock_clust_add_or_update_hot_update_item(
+  trx_t    *trx,
+  const RecID&    rec_id,
+  ulint    n_running);
+
 /** Grant a lock to waiting transactions. This function scans the queue of locks
 in which in_lock resides (or resided) paying attention only to locks on
 heap_no-th bit. For each waiting lock which was blocked by in_lock->trx it
@@ -2290,6 +2389,19 @@ static void lock_rec_grant_by_heap_no(lock_t *in_lock, ulint heap_no) {
     /* Nothing to grant. */
     return;
   }
+
+  ulint total_waiting = waiting.size() + low_priority_heavier.size() +
+         low_priority_light.size();
+  /* If this a point update, and hot update detect is enable, and the hot
+  update counter exceeded the threshold, then add a new hot update item
+  to the hot update list. */
+  if (srv_hot_update_detect && in_lock->trx->is_point_update
+      && in_lock->index->is_clustered()
+      && total_waiting > 32) {
+    lock_clust_add_or_update_hot_update_item(
+      const_cast<trx_t*>(in_trx), rec_id, total_waiting);
+  }
+
   /* We want high schedule weight to be in front, and break ties by position */
   std::stable_sort(low_priority_heavier.begin(), low_priority_heavier.end(),
                    [](const LockDescriptorEx &a, const LockDescriptorEx &b) {
@@ -2300,6 +2412,16 @@ static void lock_rec_grant_by_heap_no(lock_t *in_lock, ulint heap_no) {
   }
   waiting.insert(waiting.end(), low_priority_light.begin(),
                  low_priority_light.end());
+
+  /* If this a point update, and hot update detect is enable, and the hot
+  update counter exceeded the threshold, then add a new hot update item
+  to the hot update list. */
+  if (srv_hot_update_detect && in_lock->trx->is_point_update
+      && in_lock->index->is_clustered()
+      && waiting.size() > 32) {
+    lock_clust_add_or_update_hot_update_item(
+      const_cast<trx_t*>(in_trx), rec_id, waiting.size());
+  }
 
   /* New granted locks will be added from this index. */
   const auto new_granted_index = granted.size();
@@ -2326,6 +2448,248 @@ static void lock_rec_grant_by_heap_no(lock_t *in_lock, ulint heap_no) {
       granted.push_back(wait_lock);
     } else {
       lock_update_wait_for_edge(wait_lock, blocking_lock);
+    }
+  }
+}
+
+/** Find the hot update item which is in lock_sys->hot_row_update.
+@param[in]  rec_id    record ID
+@return the hot_update_item or NULL */
+static
+hot_update_item_t*
+lock_rec_find_hot_update_item(
+  const RecID&    rec_id)
+{
+  hot_update_item_t*  item = NULL;
+
+  ut_ad(lock_sys->hot_update_mutex.is_owned());
+
+  HASH_SEARCH(hash, lock_sys->hot_update_hash, rec_id.hash_value(),
+        hot_update_item_t*,
+        item, ut_ad(true), item->m_rec_id.matches(rec_id));
+
+  return(item);
+}
+
+
+/**
+A record could be moved to a new location due to page split/merge etc.
+This function makes sure the corresponding hot update item point to the
+updated location.
+@param[in]  old_block    old block
+@param[in]  old_heap_no  old heap no of rec
+@param[in]  new_block    new block
+@param[in]  new_heap_no  new heap no of rec */
+static
+void
+lock_rec_move_hot_update(
+  const buf_block_t*  old_block,
+  ulint               old_heap_no,
+  const buf_block_t*  new_block,
+  ulint               new_heap_no)
+{
+  RecID  rec_id(old_block, old_heap_no);
+  hot_update_item_t*  item;
+
+  mutex_enter(&lock_sys->hot_update_mutex);
+  item = lock_rec_find_hot_update_item(rec_id);
+
+  if (item) {
+    RecID new_rec_id(new_block, new_heap_no);
+    // Remove the old mapping of rec_id -> item
+    HASH_DELETE(hot_update_item_t, hash, lock_sys->hot_update_hash,
+          rec_id.hash_value(), item);
+    /** Install a new mapping of new_rec_id -> item */
+    HASH_INSERT(hot_update_item_t, hash, lock_sys->hot_update_hash,
+          new_rec_id.hash_value(), item);
+
+    item->m_rec_id = new_rec_id;
+
+    /** For test add new item */
+    DBUG_EXECUTE_IF("hot_update_move_item",
+      ib::info() << "update hot update item from ("
+      << rec_id.get_page_id().space() << ","
+      << rec_id.get_page_id().page_no() << ","
+      << rec_id.m_heap_no << ") to ("
+      << new_block->page.id.space() << ","
+      << new_block->page.id.page_no() << ","
+      << new_heap_no << ")."; );
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "update hot update item from ("
+      << rec_id.get_page_id().space() << ","
+      << rec_id.get_page_id().page_no() << ","
+      << rec_id.m_heap_no << ") to ("
+      << new_block->page.id.space() << ","
+      << new_block->page.id.page_no() << ","
+      << new_heap_no << ").";
+#endif
+  }
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
+/** Notify a hot update waiting trx to continue.
+@param[in]  trx    trx object */
+static
+bool
+lock_rec_grant_hot_update_low(trx_t*  trx, bool owns_trx_mutex)
+{
+  que_thr_t*  thr;
+
+  if (!owns_trx_mutex) {
+    trx_mutex_enter(trx);
+  }
+  thr = trx->lock.hot_update_wait_thr;
+
+  if (thr != NULL) {
+    trx->lock.hot_update_wait_thr = NULL;
+
+    if (thr->slot != NULL && thr->slot->in_use
+        && thr->slot->thr == thr) {
+      os_event_set(thr->slot->event);
+      trx->hot_update_status = HOT_UPDATE_STATUS_RUNNING;
+      if (!owns_trx_mutex) {
+        trx_mutex_exit(trx);
+      }
+      return (true);
+    }
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    else {
+      ib::info() << "trx " << trx->id
+        << " has no waiting slot yet.";
+    }
+#endif
+  }
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  else {
+    ib::info() << "trx " << trx->id
+      << " has no waiting slot yet since thr is null.";
+  }
+#endif
+  if (!owns_trx_mutex) {
+    trx_mutex_exit(trx);
+  }
+  return (false);
+}
+
+
+/** Check if a hot update need to be notified.
+@param[in]  lock    lock object
+@param[in]  heap_no    record heap number */
+static
+void
+lock_grant_hot_update(
+  lock_t*     in_lock,
+  ulint       heap_no)
+{
+  hot_update_item_t*  item;
+  RecID      rec_id(in_lock, heap_no);
+
+  /* Find the hot update item */
+  mutex_enter(&lock_sys->hot_update_mutex);
+  item = lock_rec_find_hot_update_item(rec_id);
+
+  /* If there's no item, return immediatly. */
+  if (item == NULL) {
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "trx " << in_lock->trx->id
+      << " release lock on rec(" << rec_id.m_space_id 
+      << "," << rec_id.m_page_no << "," 
+      << rec_id.m_heap_no << ") but can't find item to continue.";
+#endif
+    mutex_exit(&lock_sys->hot_update_mutex);
+    return;
+  }
+
+  ut_ad(item->n_running > 0);
+  item->n_running--;
+
+  if (!item->waiting_updates->empty()) {
+    hot_update_t  next_update =
+      item->waiting_updates->front();
+    for (ulint i = item->n_running;
+         i <  srv_max_concurrent_hot_update; i++) {
+
+      item->n_running++;
+
+      if (lock_rec_grant_hot_update_low(next_update.m_trx, true)) {
+
+        item->waiting_updates->pop_front();
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+        ib::info() << "trx " << in_lock->trx->id
+          << " release the lock on item(" << item->m_rec_id.m_space_id
+          << "," << item->m_rec_id.m_page_no << "," << item->m_rec_id.m_heap_no
+          << ") and notify trx "
+          << next_update.m_trx->id
+          << " to continue.";
+        ib::info() << "hot update item has "
+          << item->n_running << " running ";
+#endif
+      } else {
+        // Grant failed because the head trx in
+        // waiting_updates queue timed-out during the wait and
+        // started to run. In this case, we remove the next_update 
+        // from the waiting_updates queue directly.
+        item->waiting_updates->pop_front();
+      }
+
+      if (item->waiting_updates->empty())
+        break;
+
+      next_update = item->waiting_updates->front();
+    }
+  }
+
+  /* If it's the latest waiting trx, remove the
+        item. */
+  if (item->n_running == 0 && item->waiting_updates->empty()) {
+    ut::delete_(item->waiting_updates);
+    HASH_DELETE(hot_update_item_t, hash,
+        lock_sys->hot_update_hash,
+        item->m_rec_id.hash_value(),
+        item);
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "hot update item has "
+      << item->n_running << " running."
+      << " The waiting_updates is empty, "
+      <<"removing hot_update_item.";
+#endif
+    my_free(item);
+  }
+
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
+
+/**
+Reset the hot update items in lock sys.  
+*/
+void
+lock_sys_reset_hot_update()
+{
+  ut_ad(lock_sys->hot_update_mutex.is_owned());
+
+  for (ulint i = 0; i < hash_get_n_cells(lock_sys->hot_update_hash); i++) {
+    const hot_update_item_t*  item;
+    for (item = static_cast<const hot_update_item_t*>(
+        hash_get_first(lock_sys->hot_update_hash, i));
+         item != NULL; ) {
+
+      for (ulint j = 0; j < item->waiting_updates->size();
+           j++) {
+        lock_rec_grant_hot_update_low(
+          item->waiting_updates->at(j).m_trx, false);
+      }
+
+      item->waiting_updates->clear();
+      ut::delete_(item->waiting_updates);
+      HASH_DELETE(hot_update_item_t, hash, lock_sys->hot_update_hash,
+            item->m_rec_id.hash_value(), item);
+      const hot_update_item_t * next_item = static_cast<const hot_update_item_t*>(
+        HASH_GET_NEXT(hash, item));
+      my_free(const_cast<hot_update_item_t*>(item));
+      item = next_item;
     }
   }
 }
@@ -2374,6 +2738,31 @@ in_lock, and only locks waiting for those heap_no's will be checked.
 static void lock_rec_grant(lock_t *in_lock) {
   const auto page_id = in_lock->rec_lock.page_id;
   auto lock_hash = in_lock->hash_table();
+
+  if (srv_hot_update_detect
+      && in_lock->trx->is_point_update
+      && in_lock->index->is_clustered()) {
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ulint hot_update_granted = 0;
+#endif
+    for (ulint heap_no = 0;
+         heap_no < lock_rec_get_n_bits(in_lock);
+         ++heap_no) {
+      if (lock_rec_get_nth_bit(in_lock, heap_no)) {
+        /* For hot update, notify a waiting thread to continue.*/
+        lock_grant_hot_update(in_lock, heap_no);
+#ifdef UNIV_DEBUG_HOT_UPDATE
+        hot_update_granted++;
+#endif
+      }
+    }
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    if (hot_update_granted == 0) {
+      ib::info() << "trx " << in_lock->trx->id
+        << " release the lock but not notify any other trxs.";
+    }
+#endif
+  }
 
   /* In some scenarios, in particular in replication appliers, it is often the
   case, that there are no WAITING locks, and in such situation iterating over
@@ -2525,6 +2914,52 @@ static void lock_rec_reset_and_release_wait(
                                       PAGE_HEAP_NO_INFIMUM);
 }
 
+
+/** Resets the hot update item for a single record. Releases transactions waiting
+for hot update here. 
+@param[in]	block		buffer block containing the record
+@param[in]	heap_no heap number of record  */
+static
+void
+lock_rec_reset_and_release_hot_update(
+	const buf_block_t*	block,
+	ulint			          heap_no)
+{
+  RecID	rec_id(block, heap_no);
+  hot_update_item_t*	item;
+
+  mutex_enter(&lock_sys->hot_update_mutex);
+  item = lock_rec_find_hot_update_item(rec_id);
+
+  if (item) {
+    for (ulint j = 0; j < item->waiting_updates->size();
+         j++) {
+      lock_rec_grant_hot_update_low(
+        item->waiting_updates->at(j).m_trx, false);
+    }
+    item->waiting_updates->clear();
+    ut::delete_(item->waiting_updates);
+    HASH_DELETE(hot_update_item_t, hash, lock_sys->hot_update_hash,
+          item->m_rec_id.hash_value(), item);
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "removed hot update item from ("
+      << rec_id.get_page_id().space() << ","
+      << rec_id.get_page_id().page_no() << ","
+      << rec_id.m_heap_no << ").";
+#endif
+    /* For test add new item */
+    DBUG_EXECUTE_IF("hot_update_with_delete",
+        ib::info() << "removed hot update item from ("
+          << rec_id.get_page_id().space()<< ","
+          << rec_id.get_page_id().page_no() << ","
+          << rec_id.m_heap_no << ").";);
+    my_free(item);
+  }
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
+
 void lock_on_statement_end(trx_t *trx) { trx->lock.inherit_all.store(false); }
 
 /* Used to store information that `thr` requested a lock asking for protection
@@ -2670,6 +3105,16 @@ static void lock_rec_move_low(
 
     lock_rec_add_to_queue(type_mode, receiver, receiver_heap_no, lock->index,
                           lock->trx);
+
+    /* If hot update detect is enabled, update
+    the item. */
+    if (srv_hot_update_detect
+        && lock->index->is_clustered()) {
+      lock_rec_move_hot_update(donator,
+              donator_heap_no,
+              receiver,
+              receiver_heap_no);
+    }
   }
 
   ut_ad(lock_rec_get_first(lock_sys->rec_hash, donator, donator_heap_no) ==
@@ -2807,6 +3252,16 @@ void lock_move_reorganize_page(
 
           lock_rec_add_to_queue(lock->type_mode, block, new_heap_no,
                                 lock->index, lock->trx);
+
+          /* If hot update detect is enabled, update
+          the item. */
+          if (srv_hot_update_detect
+              && lock->index->is_clustered()) {
+            lock_rec_move_hot_update(block,
+                    old_heap_no,
+                    block,
+                    new_heap_no);
+          }
         }
 
         if (new_heap_no == PAGE_HEAP_NO_SUPREMUM) {
@@ -2904,6 +3359,16 @@ void lock_move_rec_list_end(const buf_block_t *new_block,
 
           lock_rec_add_to_queue(type_mode, new_block, rec2_heap_no, lock->index,
                                 lock->trx);
+
+          /* If hot update detect is enabled, update
+          the item. */
+          if (srv_hot_update_detect
+              && lock->index->is_clustered()) {
+            lock_rec_move_hot_update(block,
+                    rec1_heap_no,
+                    new_block,
+                    rec2_heap_no);
+          }
         }
       }
     }
@@ -2982,6 +3447,16 @@ void lock_move_rec_list_start(const buf_block_t *new_block,
 
           lock_rec_add_to_queue(type_mode, new_block, rec2_heap_no, lock->index,
                                 lock->trx);
+
+          /* If hot update detect is enabled, update
+          the item. */
+          if (srv_hot_update_detect
+              && lock->index->is_clustered()) {
+            lock_rec_move_hot_update(block,
+                    rec1_heap_no,
+                    new_block,
+                    rec2_heap_no);
+          }
         }
       }
 
@@ -3360,6 +3835,13 @@ void lock_update_delete(const buf_block_t *block, const rec_t *rec) {
   /* Reset the lock bits on rec and release waiting transactions */
 
   lock_rec_reset_and_release_wait(block, heap_no);
+
+  /* Reset the hot update item and release waiting transactions */
+  if (srv_hot_update_detect
+      && block->index != NULL
+      && block->index->is_clustered()) {
+    lock_rec_reset_and_release_hot_update(block, heap_no);
+  }
 }
 
 /** Stores on the page infimum record the explicit locks of another record.
@@ -3989,6 +4471,32 @@ static void lock_rec_release(lock_t *lock, ulint heap_no) {
   ut_ad(!lock_get_wait(lock));
   ut_ad(lock_get_type_low(lock) == LOCK_REC);
   ut_ad(lock_rec_get_nth_bit(lock, heap_no));
+
+  /* For hot update, notify a waiting thread to continue.*/
+  if (srv_hot_update_detect
+      && heap_no < lock_rec_get_n_bits(lock)
+      && lock->index->is_clustered()
+      && lock->trx->is_point_update) {
+    lock_grant_hot_update(lock, heap_no);
+  }
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  else {
+    ib::info() << "trx " << lock->trx->id
+      << " release the lock but not notify any other trx.";
+    hot_update_item_t*  item;
+    ulint  space = lock->rec_lock.space;
+    ulint  page_no = lock->rec_lock.page_no;
+    RecID  rec_id(space, page_no, heap_no);
+    mutex_enter(&lock_sys->hot_update_mutex);
+    item = lock_rec_find_hot_update_item(rec_id);
+    if (item != NULL && !item->waiting_updates->empty()) {
+      ib::info() << " release lock but waiting update is not empty.";
+    }
+    mutex_exit(&lock_sys->hot_update_mutex);
+  }
+#endif
+
+
   lock_rec_reset_nth_bit(lock, heap_no);
 
   lock_rec_grant_by_heap_no(lock, heap_no);
@@ -5773,6 +6281,165 @@ dberr_t lock_clust_rec_read_check_and_lock(
         err == DB_LOCK_NOWAIT);
   return (err);
 }
+
+/** Checks if need to wait in hot row update queue.
+@param[in,out]	trx		trx obj
+@param[in]	rec		record
+@return DB_SUCCESS, DB_LOCK_WAIT_HOT_ROW_UPDATE */
+dberr_t
+lock_clust_check_hot_row_update(
+	trx_t       *trx,
+	const rec_t *rec)
+{
+  hot_update_item_t*  item;
+  ulint               space_id;
+  ulint               page_no;
+  ulint               heap_no;
+
+  /* If disable hot update detection, skip check and return. */
+  if (!srv_hot_update_detect) {
+    return (DB_SUCCESS);
+  }
+
+  trx_mutex_enter(trx);
+  /* If the trx has already in runnning or waiting hot row update mutex,
+  return immediately. */
+  if (trx->hot_update_status == HOT_UPDATE_STATUS_RUNNING) {
+    trx_mutex_exit(trx);
+    return (DB_SUCCESS);
+  }
+
+  trx_mutex_exit(trx);
+
+  /* Check the hot update hash, if it is in the hot update hash,
+  wait for other hot row update complete. */
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  /* If found the hot_update_item, and n_runing is < 4, it don't
+  need to wait. Otherwise, wait for free slot. */
+  space_id  = page_get_space_id(page_align(rec));
+  page_no   = page_get_page_no(page_align(rec));
+  const page_id_t page_id(space_id, page_no);
+  heap_no   = page_rec_get_heap_no(rec);
+
+  RecID      rec_id(page_id, heap_no);
+
+  item = lock_rec_find_hot_update_item(rec_id);
+
+  if (item) {
+    if (item->n_running >= srv_max_concurrent_hot_update) {
+      if (trx->hot_update_status == HOT_UPDATE_STATUS_WAITING) {
+        mutex_exit(&lock_sys->hot_update_mutex);
+        return (DB_LOCK_WAIT_HOT_ROW_UPDATE);
+      }
+
+      ut_ad(trx->hot_update_status == HOT_UPDATE_STATUS_NONE);
+      hot_update_t new_wait_hot_update;
+
+      new_wait_hot_update.m_trx = trx;
+      item->waiting_updates->push_back(new_wait_hot_update);
+      trx_mutex_enter(trx);
+      trx->hot_update_status = HOT_UPDATE_STATUS_WAITING;
+      trx_mutex_exit(trx);
+      mutex_exit(&lock_sys->hot_update_mutex);
+#ifdef UNIV_DEBUG_HOT_UPDATE
+      ib::info() << "trx" << trx->id
+        << " has to wait for hot update on item("
+        << item->m_rec_id.m_space_id << ","
+        << item->m_rec_id.m_page_no << ","
+        << item->m_rec_id.m_heap_no << ") which has "
+        << item->n_running << " running "
+        ", waiting size "
+        << item->waiting_updates->size() << ".";
+#endif
+      return (DB_LOCK_WAIT_HOT_ROW_UPDATE);
+    } else {
+      item->n_running++;
+    }
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "item has " << item->n_running << " running "
+      "waiting size "
+      << item->waiting_updates->size() << ".";
+#endif
+  }
+
+  /* Set the flag in trx. */
+  trx_mutex_enter(trx);
+
+  trx->hot_update_status = HOT_UPDATE_STATUS_RUNNING;
+
+  trx_mutex_exit(trx);
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " continue to run after waiting.";
+#endif
+  return (DB_SUCCESS);
+}
+
+extern PSI_memory_key key_memory_hot_update_metadata;
+
+/** Add a new item to the hot update list
+@param[in]	trx		trx obj
+@param[in]	rec_id		record id */
+static
+void
+lock_clust_add_or_update_hot_update_item(
+	trx_t*          trx,
+	const RecID&		rec_id,
+	ulint		        n_running)
+{
+  hot_update_item_t*  item;
+
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  /* If found an existed item, return. */
+  if (srv_hot_update_detect == false) {
+    mutex_exit(&lock_sys->hot_update_mutex);
+    return;
+  }
+
+  /* If found the item, but there're lots of existed waiting
+  lock in lock_sys, then we need set the stop grant flag
+  for hot update item. */
+  item = lock_rec_find_hot_update_item(rec_id);
+  if (item != NULL) {
+    item->n_running = n_running;
+    mutex_exit(&lock_sys->hot_update_mutex);
+    return;
+  }
+
+  /* Add a new item to the hot update list. */
+  item = reinterpret_cast<hot_update_item_t*>
+        (my_malloc(key_memory_hot_update_metadata, sizeof(hot_update_item_t),
+        MYF(MY_WME)));
+
+  item->m_rec_id.get_page_id_non_const().reset(rec_id.get_page_id().space(),
+                                               rec_id.get_page_id().page_no());
+  item->m_rec_id.m_heap_no = rec_id.m_heap_no;
+  item->m_rec_id.m_hash_value = rec_id.m_hash_value;
+  item->n_running = n_running;
+  item->waiting_updates =
+    ut::new_withkey<hot_update_queue>(UT_NEW_THIS_FILE_PSI_KEY);
+
+  ulint    key = item->m_rec_id.hash_value();
+  HASH_INSERT(hot_update_item_t, hash, lock_sys->hot_update_hash, key, item);
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " added a new hot update item for rec("
+    << item->m_rec_id.m_space_id << "," << item->m_rec_id.m_page_no << ","
+    << item->m_rec_id.m_heap_no << ")";
+#endif
+  /* For test add new item */
+  DBUG_EXECUTE_IF("hot_update_add_new_item",
+      ib::info() << "trx " << trx->id
+        << " added a new hot update item.";);
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
 /** Checks if locks of other transactions prevent an immediate read, or passing
  over by a read cursor, of a clustered index record. If they do, first tests
  if the query thread should anyway be suspended for some reason; if not, then

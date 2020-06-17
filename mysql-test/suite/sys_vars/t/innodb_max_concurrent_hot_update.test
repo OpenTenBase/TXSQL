@@ -1,0 +1,26 @@
+--source include/have_innodb_16k.inc
+
+# Check the default value
+SELECT  @@global.innodb_max_concurrent_hot_update;
+
+SET GLOBAL innodb_max_concurrent_hot_update = 16;
+SELECT @@global.innodb_max_concurrent_hot_update;
+
+SET GLOBAL innodb_max_concurrent_hot_update = 32;
+SELECT @@global.innodb_max_concurrent_hot_update;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL innodb_max_concurrent_hot_update = 'abck';
+SELECT @@global.innodb_max_concurrent_hot_update;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL innodb_max_concurrent_hot_update = 'foobar';
+SELECT @@global.innodb_max_concurrent_hot_update;
+
+SET GLOBAL innodb_max_concurrent_hot_update = 0;
+SELECT @@global.innodb_max_concurrent_hot_update;
+
+SET GLOBAL innodb_max_concurrent_hot_update = 100;
+SELECT @@global.innodb_max_concurrent_hot_update;
+
+SET GLOBAL innodb_max_concurrent_hot_update = default;

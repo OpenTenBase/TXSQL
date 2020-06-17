@@ -1,0 +1,108 @@
+# This test case aims to test hot update optimization feature.
+# In this feature, we create a wait queue to avoid too many
+# rec lock put into lock system, which will cause performance
+# drop down especially in high concurrrent scenario.
+# In the case, we will test:
+# 1: Hot update during deadlock trnasactions
+
+--source include/have_debug_sync.inc
+
+USE test;
+SET @@global.innodb_hot_update_detect=true;
+SET @@global.innodb_hot_update_wait_timeout=1000000;
+--disable_warnings
+DROP TABLE IF EXISTS cats;
+DROP TABLE IF EXISTS hotupdates;
+DROP PROCEDURE IF EXISTS deadlock_test;
+--enable_warnings
+
+let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+
+--connection default
+CREATE TABLE hotupdates (id int PRIMARY KEY, balance int) Engine=InnoDB;
+
+start transaction;
+insert into hotupdates(id, balance) values (0, 50);
+insert into hotupdates(id, balance) values (1, 50);
+commit;
+
+
+DELIMITER //;
+
+CREATE PROCEDURE deadlock_test()
+BEGIN
+    DECLARE row_id INT DEFAULT 0;
+    DECLARE op_row_id INT DEFAULT 0;
+
+    SELECT FLOOR(RAND()*(1-0+1))+0 into row_id;
+    SET op_row_id = 1 - row_id;
+    START TRANSACTION;
+    UPDATE hotupdates set balance = balance - 1 where id = row_id;
+    UPDATE hotupdates set balance = balance + 1 where id = op_row_id;
+    COMMIT;
+END//
+
+DELIMITER ;//
+
+
+
+--echo ########################################################
+--echo #                                                      #
+--echo # Scenario: Hot Update During Deadlocks                #
+--echo #                                                      #
+--echo ########################################################
+--let CONCURRENT_CONNS = 80
+
+--let $j = 0
+while ($j < $CONCURRENT_CONNS) {
+    --let hotupdate_connection_name = hotupdate$j
+    --connect ($hotupdate_connection_name, localhost, root,,)
+    --inc $j
+}
+
+
+--disable_abort_on_error
+--disable_query_log
+--disable_info
+--disable_result_log
+--let $ITERS = 100
+--let $i = 0
+while ($i < $ITERS) {
+    
+    --let $j = 0
+
+    while ($j < $CONCURRENT_CONNS) {
+        --let $hotupdate_connection_name = hotupdate$j
+        --connection $hotupdate_connection_name
+        --send call deadlock_test()
+        --inc $j
+    }
+
+    --let $j = 0
+    while ($j < $CONCURRENT_CONNS) {
+        --let $hotupdate_connection_name = hotupdate$j
+        --connection $hotupdate_connection_name
+        --reap
+        --inc $j
+    }
+    --inc $i
+}
+
+--enable_result_log
+--enable_info
+--enable_query_log
+--enable_abort_on_error
+
+--connection default
+--let result_sum = `select sum(balance) from hotupdates`
+--echo $result_sum
+DROP TABLE hotupdates;
+
+SET @@global.innodb_hot_update_detect=false;
+
+DROP PROCEDURE IF EXISTS deadlock_test;
+--echo #####################
+--echo #                   #
+--echo # End of            #
+--echo #                   #
+--echo #####################

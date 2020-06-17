@@ -516,6 +516,11 @@ struct trx_lock_t {
   */
   que_thr_t *wait_thr;
 
+  que_thr_t *hot_update_wait_thr;
+  /*!< query thread belonging to this
+  trx that is waiting in the hot update waiting queue.
+  Protected by lock_sys->mutex. */
+
   /** Pre-allocated record locks. Protected by trx->mutex. */
   lock_pool_t rec_pool;
 
@@ -680,6 +685,13 @@ enum trx_rseg_type_t {
   TRX_RSEG_TYPE_NOREDO    /*!< non-redo rollback segment. */
 };
 
+
+enum hot_update_status_t{
+  HOT_UPDATE_STATUS_NONE = 0, /*!< no status. */
+  HOT_UPDATE_STATUS_WAITING,  /*!< waiting status. */
+  HOT_UPDATE_STATUS_RUNNING   /*!< running status. */
+};
+
 struct trx_t {
   enum isolation_level_t {
 
@@ -741,6 +753,15 @@ struct trx_t {
                Protected by trx_sys_t::mutex
                when trx->in_rw_trx_list. Initially
                set to TRX_ID_MAX. */
+
+  hot_update_status_t
+      hot_update_status;
+          /*!<  hot update status. */
+
+  bool    is_point_update;
+          /*!< if this flag is set then this
+          transaction must be doing an update
+          on a unique row.*/
 
   /** State of the trx from the point of view of concurrency control
   and the valid state transitions.
