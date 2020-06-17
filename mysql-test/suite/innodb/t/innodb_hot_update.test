@@ -1,0 +1,65 @@
+# This test case aims to test hot update optimization feature.
+# In this feature, we create a wait queue to avoid too many
+# rec lock put into lock system, which will cause performance
+# drop down especially in high concurrrent scenario.
+# In the case, we will test:
+# 1: Basic functional test of this feature.
+# 2: Test for the record is moving/deleting.
+# 3: Test for timeout happens.
+
+--source include/have_debug_sync.inc
+
+USE test;
+SET @@global.innodb_hot_update_detect=true;
+
+let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+
+--connection default
+CREATE TABLE hotupdates (id int PRIMARY KEY, counter int) Engine=InnoDB;
+INSERT INTO hotupdates VALUES (1,0);
+
+--echo ########################################################
+--echo #                                                      #
+--echo # Scenario 1 test basic function of hot update feature #
+--echo #                                                      #
+--echo ########################################################
+SET GLOBAL DEBUG='+d,hot_update_add_new_item';
+--source suite/innodb/include/hot_update.inc
+--let SEARCH_PATTERN=added a new hot update item
+--source include/search_pattern_in_file.inc
+
+--echo ########################################################
+--echo #                                                      #
+--echo # Scenario 2 test hot update wait timeout              #
+--echo #                                                      #
+--echo ########################################################
+--connection default
+SET GLOBAL DEBUG='+d,hot_update_time_out';
+--source suite/innodb/include/hot_update.inc
+--let SEARCH_PATTERN=wait hot update timeout
+--source include/search_pattern_in_file.inc
+
+--echo ########################################################
+--echo #                                                      #
+--echo # Scenario 3 test hot update wait with row updated     #
+--echo #                                                      #
+--echo ########################################################
+--connection default
+UPDATE hotupdates set id = 2 WHERE id = 1;
+--source suite/innodb/include/hot_update.inc
+
+--connection default
+SET GLOBAL DEBUG='-d,hot_update_add_new_item';
+SET GLOBAL DEBUG='-d,hot_update_time_out';
+
+SET DEBUG_SYNC = 'RESET';
+
+DROP TABLE hotupdates;
+
+SET @@global.innodb_hot_update_detect=false;
+
+--echo #####################
+--echo #                   #
+--echo # End of            #
+--echo #                   #
+--echo #####################

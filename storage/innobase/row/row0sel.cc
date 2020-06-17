@@ -73,6 +73,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 #include "ut0ut.h"
 
+#include "mysql/plugin.h"
+
 #include "my_dbug.h"
 
 /** Maximum number of rows to prefetch; MySQL interface has another parameter */
@@ -4634,6 +4636,8 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   bool spatial_search = false;
   ulint end_loop = 0;
 
+  bool skip_hot_row_update_check = false;
+
   rec_offs_init(offsets_);
 
   ut_ad(index && pcur && search_tuple);
@@ -5391,6 +5395,20 @@ rec_loop:
         goto normal_return;
       }
     }
+    /* Check if it's a hot row update, if it is, let it wait in
+    hot row update queue. */
+    if (index == clust_index && unique_search
+        && trx->mysql_thd != NULL
+        && thd_sql_command(trx->mysql_thd) == SQLCOM_UPDATE
+        && !skip_hot_row_update_check) {
+      err = lock_clust_check_hot_row_update(trx, rec);
+      if (err != DB_SUCCESS) {
+        goto lock_wait_or_error;
+      }
+      trx_mutex_enter(trx);
+      trx->is_point_update = true;
+      trx_mutex_exit(trx);
+    }
     /* in case of semi-consistent read, we use SELECT_SKIP_LOCKED, so we don't
     waste time on creating a WAITING lock, as we won't wait on it anyway */
     const bool use_semi_consistent =
@@ -5445,6 +5463,12 @@ rec_loop:
                  &prev_rec_debug_buf, &prev_rec_debug_buf_size));
         break;
       case DB_LOCK_WAIT:
+        /* If it's already in lock waiting queue, then skip
+        hot row update check. */
+        if (index == clust_index && unique_search &&
+            thd_sql_command(trx->mysql_thd) == SQLCOM_UPDATE) {
+          skip_hot_row_update_check = true;
+        }
         /* Lock wait for R-tree should already
         be handled in sel_set_rtr_rec_lock() */
         ut_ad(!dict_index_is_spatial(index));

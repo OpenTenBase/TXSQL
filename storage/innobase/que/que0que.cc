@@ -692,7 +692,8 @@ void que_thr_stop_for_mysql(que_thr_t *thr) /*!< in: query thread */
   trx_mutex_enter(trx);
 
   if (thr->state == QUE_THR_RUNNING) {
-    if (trx->error_state != DB_SUCCESS && trx->error_state != DB_LOCK_WAIT) {
+    if (trx->error_state != DB_SUCCESS && trx->error_state != DB_LOCK_WAIT &&
+        trx->error_state != DB_LOCK_WAIT_HOT_ROW_UPDATE) {
       /* Error handling built for the MySQL interface */
       thr->state = QUE_THR_COMPLETED;
     } else {

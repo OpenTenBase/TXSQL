@@ -92,6 +92,10 @@ innodb_fast_ddl
 innodb_fast_ddl
 innodb_log_dummy_cache
 innodb_log_dummy_cache
+innodb_hot_update_detect
+innodb_hot_update_detect
+innodb_hot_update_wait_timeout
+innodb_hot_update_wait_timeout
 innodb_log_spin_cpu_abs_lwm
 innodb_log_spin_cpu_abs_lwm
 innodb_log_spin_cpu_pct_hwm
@@ -110,6 +114,8 @@ innodb_txsql_ddl_threads
 innodb_txsql_ddl_threads
 innodb_txsql_deadlock_h_size
 innodb_txsql_deadlock_h_size
+innodb_max_concurrent_hot_update
+innodb_max_concurrent_hot_update
 keyring_operations
 keyring_operations
 log_replica_updates

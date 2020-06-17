@@ -222,6 +222,9 @@ enum dberr_t {
   /** Column update or read failed because the types mismatch */
   DB_DATA_MISMATCH = 2000,
   /* Too many nested sub expression in full-text search string */
-  DB_FTS_TOO_MANY_NESTED_EXP
+  DB_FTS_TOO_MANY_NESTED_EXP,
+
+  /* The following are txsql failure codes */
+  DB_LOCK_WAIT_HOT_ROW_UPDATE = 5000
 };
 #endif

@@ -21408,6 +21408,40 @@ exit:
   return;
 }
 
+/****************************************************************//**
+Update the system variable innodb_hot_update_detect . */
+static
+void
+hot_update_detect_update(
+/*======================*/
+	THD*				thd,	/*!< in: thread handle */
+	SYS_VAR*	var,	/*!< in: pointer to
+						system variable */
+	void*				var_ptr,  /*!< out: where the
+						formal string goes */
+	const void*			save)	/*!< in: immediate result
+						from check function */
+{
+  locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+	if (*reinterpret_cast<bool*>(const_cast<void*>(save)) == true) {
+		srv_hot_update_detect = *reinterpret_cast<bool*>(const_cast<void*>(save));
+		mutex_exit(&lock_sys->hot_update_mutex);
+		return;
+	}
+
+	/* Wake up all waiting updates and free all hot update items in
+	lock_sys. */
+	if (srv_hot_update_detect == true) {
+		lock_sys_reset_hot_update();
+	}
+
+
+	srv_hot_update_detect = *reinterpret_cast<bool*>(const_cast<void*>(save));
+	mutex_exit(&lock_sys->hot_update_mutex);
+}
+
 /** Validate if passed-in "value" is a valid value for
 innodb_buffer_pool_filename. On Windows, file names with colon (:)
 are not allowed.
@@ -23843,6 +23877,20 @@ static MYSQL_SYSVAR_ULONG(
     "Recover this % of each buffer pool at most during BP recover", NULL, NULL,
     60, 1, 100, 0);
 
+static MYSQL_SYSVAR_BOOL(hot_update_detect, srv_hot_update_detect,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Enable the hot update detect. Default is FALSE", NULL,
+                         hot_update_detect_update, false);
+
+static MYSQL_SYSVAR_ULONG(
+    max_concurrent_hot_update, srv_max_concurrent_hot_update,
+    PLUGIN_VAR_RQCMDARG, "The maximum number of concurrent hot update threads.",
+    NULL, NULL, 1, 1, 32, 0);
+
+static MYSQL_SYSVAR_ULONG(hot_update_wait_timeout, srv_hot_update_wait_timeout,
+                          PLUGIN_VAR_RQCMDARG,
+                          "The timeout value of hot update waiting.", NULL,
+                          NULL, 1000000, 1000, 100000000, 0);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -24052,6 +24100,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(redo_log_encrypt),
     MYSQL_SYSVAR(print_ddl_logs),
     MYSQL_SYSVAR(fast_ddl),
+    MYSQL_SYSVAR(hot_update_detect),
+    MYSQL_SYSVAR(max_concurrent_hot_update),
+    MYSQL_SYSVAR(hot_update_wait_timeout),
 #ifdef UNIV_DEBUG
     MYSQL_SYSVAR(trx_rseg_n_slots_debug),
     MYSQL_SYSVAR(limit_optimistic_insert_debug),
@@ -24121,7 +24172,8 @@ mysql_declare_plugin(innobase){
     i_s_innodb_ft_index_cache, i_s_innodb_ft_index_table, i_s_innodb_tables,
     i_s_innodb_tablestats, i_s_innodb_indexes, i_s_innodb_tablespaces,
     i_s_innodb_columns, i_s_innodb_virtual, i_s_innodb_cached_indexes,
-    i_s_innodb_session_temp_tablespaces
+    i_s_innodb_session_temp_tablespaces,
+    i_s_innodb_hot_row_update_stats
 
     mysql_declare_plugin_end;
 

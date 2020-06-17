@@ -69,6 +69,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0i_s.h"
 #include "trx0trx.h"
 #include "ut0new.h"
+#include "lock0lock.h"
 
 #include "my_dbug.h"
 
@@ -816,6 +817,205 @@ static int trx_i_s_common_fill_table(
   return 0;
 #endif
 }
+
+
+
+/* Fields of the dynamic table INFORMATION_SCHEMA.innodb_hot_row_update */
+static ST_FIELD_INFO  innodb_hot_row_update_stats_fields_info[] =
+{
+#define IDX_HOT_ROW_UPDATE_SPACE_ID    0
+  {STRUCT_FLD(field_name,    "hot_row_space_id"),
+   STRUCT_FLD(field_length,  MY_INT64_NUM_DECIMAL_DIGITS),
+   STRUCT_FLD(field_type,    MYSQL_TYPE_LONGLONG),
+   STRUCT_FLD(value,    0),
+   STRUCT_FLD(field_flags,  MY_I_S_UNSIGNED),
+   STRUCT_FLD(old_name,    ""),
+   STRUCT_FLD(open_method,  0)},
+
+#define IDX_HOT_ROW_UPDATE_PAGE_NO    1
+  {STRUCT_FLD(field_name,    "hot_row_page_no"),
+   STRUCT_FLD(field_length,  MY_INT64_NUM_DECIMAL_DIGITS),
+   STRUCT_FLD(field_type,    MYSQL_TYPE_LONGLONG),
+   STRUCT_FLD(value,    0),
+   STRUCT_FLD(field_flags,  MY_I_S_UNSIGNED),
+   STRUCT_FLD(old_name,    ""),
+   STRUCT_FLD(open_method,  0)},
+
+#define IDX_HOT_ROW_UPDATE_HEAP_NO    2
+  {STRUCT_FLD(field_name,    "hot_row_heap_no"),
+   STRUCT_FLD(field_length,  MY_INT64_NUM_DECIMAL_DIGITS),
+   STRUCT_FLD(field_type,    MYSQL_TYPE_LONGLONG),
+   STRUCT_FLD(value,    0),
+   STRUCT_FLD(field_flags,  MY_I_S_UNSIGNED),
+   STRUCT_FLD(old_name,    ""),
+   STRUCT_FLD(open_method,  0)},
+
+#define IDX_HOT_ROW_UPDATE_RUNNING_TRXS    3
+  {STRUCT_FLD(field_name,    "running_trxs"),
+   STRUCT_FLD(field_length,  MY_INT64_NUM_DECIMAL_DIGITS),
+   STRUCT_FLD(field_type,    MYSQL_TYPE_LONGLONG),
+   STRUCT_FLD(value,    0),
+   STRUCT_FLD(field_flags,  MY_I_S_UNSIGNED),
+   STRUCT_FLD(old_name,    ""),
+   STRUCT_FLD(open_method,  0)},
+
+#define IDX_HOT_ROW_UPDATE_WAITING_TRXS    4
+  {STRUCT_FLD(field_name,    "waiting_trxs"),
+   STRUCT_FLD(field_length,  MY_INT64_NUM_DECIMAL_DIGITS),
+   STRUCT_FLD(field_type,    MYSQL_TYPE_LONGLONG),
+   STRUCT_FLD(value,    0),
+   STRUCT_FLD(field_flags,  MY_I_S_UNSIGNED),
+   STRUCT_FLD(old_name,    ""),
+   STRUCT_FLD(open_method,  0)},
+
+  END_OF_ST_FIELD_INFO
+};
+
+
+/*******************************************************************//**
+Function to fill INFORMATION_SCHEMA.innodb_hot_row_update dynamic tables:
+@return 0 on success */
+static
+int
+trx_i_s_innodb_hot_row_update_fill_table(
+/*======================*/
+  THD*    thd,  /*!< in: thread */
+  TABLE_LIST*  tables,  /*!< in/out: tables to fill */
+  Item*    )  /*!< in: condition (not used) */
+{
+  int     status = 0;
+  TABLE*  table  = tables->table;
+  Field** fields = table->field;
+
+  DBUG_ENTER("trx_i_s_innodb_hot_row_update_fill_table");
+
+  /* deny access to non-superusers */
+  if (check_global_access(thd, PROCESS_ACL)) {
+    DBUG_RETURN(0);
+  }
+
+  std::vector<ulint> hot_row_space_id_col;
+  std::vector<ulint> hot_row_page_no_col;
+  std::vector<ulint> hot_row_heap_no_col;
+  std::vector<ulint> hot_row_running_trxs_col;
+  std::vector<ulint> hot_row_waiting_trxs_col;
+
+  bool succeeded = lock_get_hot_row_update_stats(hot_row_space_id_col,
+                         hot_row_page_no_col,
+                         hot_row_heap_no_col,
+                         hot_row_running_trxs_col,
+                        hot_row_waiting_trxs_col);
+
+  if (succeeded == false) {
+    DBUG_RETURN(1);
+  }
+
+  ut_ad(hot_row_space_id_col.size()
+      == hot_row_page_no_col.size());
+  ut_ad(hot_row_space_id_col.size()
+      == hot_row_heap_no_col.size());
+  ut_ad(hot_row_space_id_col.size()
+      == hot_row_running_trxs_col.size());
+  ut_ad(hot_row_space_id_col.size()
+      == hot_row_waiting_trxs_col.size());
+
+  for (size_t i = 0; i < hot_row_space_id_col.size(); ++i) {
+    fields[IDX_HOT_ROW_UPDATE_SPACE_ID]
+          ->store(hot_row_space_id_col[i], true);
+    fields[IDX_HOT_ROW_UPDATE_PAGE_NO]
+          ->store(hot_row_page_no_col[i], true);
+    fields[IDX_HOT_ROW_UPDATE_HEAP_NO]
+          ->store(hot_row_heap_no_col[i], true);
+    fields[IDX_HOT_ROW_UPDATE_RUNNING_TRXS]
+          ->store(hot_row_running_trxs_col[i], true);
+    fields[IDX_HOT_ROW_UPDATE_WAITING_TRXS]
+          ->store(hot_row_waiting_trxs_col[i], true);
+    if (schema_table_store_record(thd, table)) {
+      status = 1;
+      break;
+    }
+  }
+
+  DBUG_RETURN(status);
+}
+
+/*******************************************************************//**
+Bind the dynamic table INFORMATION_SCHEMA.innodb_hot_row_update
+@return 0 on success */
+static
+int
+innodb_hot_row_update_init(
+/*===================*/
+  void*  p)  /*!< in/out: table schema object */
+{
+  ST_SCHEMA_TABLE*  schema;
+
+  DBUG_ENTER("innodb_hot_row_update_init");
+
+  schema = (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info = innodb_hot_row_update_stats_fields_info;
+  schema->fill_table = trx_i_s_innodb_hot_row_update_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+struct st_mysql_plugin  i_s_innodb_hot_row_update_stats =
+{
+  /* the plugin type (a MYSQL_XXX_PLUGIN value) */
+  /* int */
+  STRUCT_FLD(type, MYSQL_INFORMATION_SCHEMA_PLUGIN),
+
+  /* pointer to type-specific plugin descriptor */
+  /* void* */
+  STRUCT_FLD(info, &i_s_info),
+
+  /* plugin name */
+  /* const char* */
+  STRUCT_FLD(name, "INNODB_HOT_ROW_UPDATE_STATS"),
+
+  /* plugin author (for SHOW PLUGINS) */
+  /* const char* */
+  STRUCT_FLD(author, plugin_author),
+
+  /* general descriptive text (for SHOW PLUGINS) */
+  /* const char* */
+  STRUCT_FLD(descr, "InnoDB which are the hot rows"),
+
+  /* the plugin license (PLUGIN_LICENSE_XXX) */
+  /* int */
+  STRUCT_FLD(license, PLUGIN_LICENSE_GPL),
+
+  /* the function to invoke when plugin is loaded */
+  /* int (*)(void*); */
+  STRUCT_FLD(init, innodb_hot_row_update_init),
+
+  /* the function to invoke when plugin is un installed */
+  /* int (*)(void*); */
+  NULL,
+
+  /* the function to invoke when plugin is unloaded */
+  /* int (*)(void*); */
+  STRUCT_FLD(deinit, i_s_common_deinit),
+
+  /* plugin version (for SHOW PLUGINS) */
+  /* unsigned int */
+  STRUCT_FLD(version, i_s_innodb_plugin_version),
+
+  /* struct st_mysql_show_var* */
+  STRUCT_FLD(status_vars, NULL),
+
+  /* struct st_mysql_sys_var** */
+  STRUCT_FLD(system_vars, NULL),
+
+  /* reserved for dependency checking */
+  /* void* */
+  STRUCT_FLD(__reserved1, NULL),
+
+  /* Plugin flags */
+  /* unsigned long */
+  STRUCT_FLD(flags, 0UL),
+};
 
 /* Fields of the dynamic table information_schema.innodb_cmp.
 Every time any column gets changed, added or removed, please remember

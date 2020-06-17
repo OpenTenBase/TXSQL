@@ -192,6 +192,129 @@ static srv_slot_t *lock_wait_table_reserve_slot(
 
   ut_error;
 }
+/** Find the hot update item by trx in lock_sys->hot_row_update->waiting_updates,
+and increase the running counter after event wait timeout.
+@param[in]	trx		trx obj */
+static
+void
+lock_wait_update_hot_update_item_after_timeout(
+  trx_t*    trx)
+{
+  hot_update_item_t*	item = NULL;
+
+  /* For test timeout */
+  DBUG_EXECUTE_IF("hot_update_time_out",
+      ib::info() << "trx " << trx->id
+      << " wait hot update timeout.";);
+
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  for (ulint i = 0; i < hash_get_n_cells(lock_sys->hot_update_hash); i++) {
+    for (item = static_cast<hot_update_item_t*>(
+         hash_get_first(lock_sys->hot_update_hash, i));
+         item != NULL;
+         item = static_cast<hot_update_item_t*>(
+         HASH_GET_NEXT(hash, item))) {
+      for (hot_update_queue::iterator it =
+           item->waiting_updates->begin();
+           it != item->waiting_updates->end(); ++it) {
+        if (trx == (*it).m_trx) {
+          item->n_running++;
+          // Remove the hot_update_t from the queue
+          item->waiting_updates->erase(it);
+          mutex_exit(&lock_sys->hot_update_mutex);
+          return;
+        }
+      }
+    }
+  }
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
+/** Puts a user OS thread to wait for a hot row update lock to be released. 
+@param[in]	thr		query thread associated with the user OS thread  */
+void
+lock_wait_in_hot_row_update_queue(que_thr_t *thr)
+{
+  srv_slot_t*   slot;
+  trx_t*        trx;
+
+  trx = thr_get_trx(thr);
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " start waiting.";
+#endif
+  lock_wait_mutex_enter();
+
+  trx_mutex_enter(trx);
+
+  trx->error_state = DB_SUCCESS;
+
+  slot = lock_wait_table_reserve_slot(thr, std::chrono::seconds{100000000});
+
+  lock_wait_mutex_exit();
+
+  ut_ad(trx->hot_update_status == HOT_UPDATE_STATUS_WAITING);
+  ut_ad(!trx->lock.hot_update_wait_thr);
+
+  trx->lock.hot_update_wait_thr = thr;
+
+  trx_mutex_exit(trx);
+
+  DEBUG_SYNC_C("hot_update_wait_will_wait");
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " waiting for slot.";
+#endif
+  if (srv_hot_update_wait_timeout > 100000000) {
+    os_event_wait(slot->event);
+  } else {
+    os_event_wait_time(slot->event,
+      std::chrono::milliseconds{srv_hot_update_wait_timeout});
+  }
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " waiting for slot finished.";
+#endif
+  DEBUG_SYNC_C("hot_update_wait_has_finished_waiting");
+
+  /** We use lock_sys->hot_update_mutex to serialize 
+    the reads of thr->slot in lock_rec_grant_hot_update_low
+    and writes to thr->slot in the lock_wait_table_release_slot */
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  /* Release the slot for others to use */
+  lock_wait_table_release_slot(slot);
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+
+  /* For test timeout */
+  DBUG_EXECUTE_IF("hot_update_time_out",
+      trx_mutex_enter(trx);
+      trx->hot_update_status = HOT_UPDATE_STATUS_WAITING;
+      trx_mutex_exit(trx);
+      );
+
+  trx_mutex_enter(trx);
+  /* We need to update the n_running after timeout of hot
+  update wait timeout. */
+  if (trx->hot_update_status == HOT_UPDATE_STATUS_WAITING) {
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "trx " << trx->id << " wait timeout.";
+#endif
+    trx_mutex_exit(trx);
+    lock_wait_update_hot_update_item_after_timeout(trx);
+    trx_mutex_enter(trx);
+  }
+
+  trx->lock.hot_update_wait_thr = NULL;
+  trx->hot_update_status = HOT_UPDATE_STATUS_RUNNING;
+  trx_mutex_exit(trx);
+  if (trx_is_interrupted(trx)) {
+    trx->error_state = DB_INTERRUPTED;
+  }
+}
 
 void lock_wait_request_check_for_cycles() { lock_set_timeout_event(); }
 

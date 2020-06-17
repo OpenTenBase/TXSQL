@@ -239,6 +239,10 @@ static void trx_init(trx_t *trx) {
   ++trx->version;
 
   trx->connect_broken = false;
+
+  trx->hot_update_status = HOT_UPDATE_STATUS_NONE;
+
+  trx->is_point_update = false;
 }
 
 /** For managing the life-cycle of the trx_t instance that we get
