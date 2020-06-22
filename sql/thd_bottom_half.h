@@ -195,7 +195,12 @@ public:
         }
     }
 
+    void pop_all();
+
     void stop_all() {
+      //Pop out all tasks before stopping answer threads
+      pop_all();
+
       // stop all answering threads.
       for (int i = 0; i < m_threadNum; ++i) {
         m_ansThread[i].stop();

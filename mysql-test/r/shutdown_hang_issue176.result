@@ -1,0 +1,12 @@
+select @@sqlasyn;
+@@sqlasyn
+0
+select @@thread_handling;
+@@thread_handling
+pool-of-threads
+call mtr.add_suppression("connection_should_abort is true");
+set global sqlasyn = 1;
+set global sqlasynwarntimeout = 120;
+create table t1 (a int);;
+# restart
+drop table t1;

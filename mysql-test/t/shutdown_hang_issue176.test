@@ -1,0 +1,19 @@
+select @@sqlasyn;
+select @@thread_handling;
+
+call mtr.add_suppression("connection_should_abort is true");
+set global sqlasyn = 1;
+set global sqlasynwarntimeout = 120;
+
+--connect(con1,127.0.0.1,root,,,,,TCP)
+
+--connection con1
+--error 2013
+--send create table t1 (a int);
+
+--connection default
+--source include/restart_mysqld.inc
+
+
+--connection default
+drop table t1;

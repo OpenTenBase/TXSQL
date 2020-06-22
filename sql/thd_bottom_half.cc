@@ -287,6 +287,23 @@ size_t CThdBottomHalf::pop_processed() {
   return cnt;
 }
 
+void CThdBottomHalf::pop_all() {
+
+  CTGuard<CTMutex> gaurd(m_mutex);
+
+  for (ThdQueue_t::iterator iter = m_thdContainer.begin();
+      iter != m_thdContainer.end(); ++iter) {
+    if (iter->is_processed())
+      continue;
+
+    iter->mark_processed();
+    THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
+    m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);
+  }
+
+  pop_processed();
+}
+
 void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
     int num_processed = 0;
     while (m_threadstate) {
@@ -421,8 +438,8 @@ int CThdBottomHalfAnsThread::run() {
     my_thread_init();
 
     CThdKey thdKey;
-    while (m_threadstate) {
-        const bool got_msg = m_queue.getmsg(2000, thdKey);
+    while (true) {
+        bool got_msg = m_queue.getmsg(2000, thdKey);
         /*
           If notified to exit, we will finish processing all bottom-half work
           before exiting this thread, so that all work in queue are processed,
@@ -432,8 +449,13 @@ int CThdBottomHalfAnsThread::run() {
         if (!got_msg) {
             if (m_threadstate)
                 continue;
-            else
+            else {
+              /* double check */
+              got_msg = m_queue.getmsg(2000, thdKey);
+              if (!got_msg) {
                 break;
+              }
+            }
         }
 
         THD *the_thd= thdKey.getThd();
@@ -455,7 +477,7 @@ int CThdBottomHalfAnsThread::run() {
           here, if so, abort it.
         */
         lock_conn_sqlasync(connection);
-        if (connection_should_abort(connection)) {
+        if (connection_should_abort(connection) || !m_threadstate) {
           // Must unlock the mutex before destroying it
           // otherwise pthread causes undefined behavior.
           unlock_conn_sqlasync(connection);
