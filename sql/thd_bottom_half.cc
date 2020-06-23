@@ -451,7 +451,7 @@ int CThdBottomHalfAnsThread::run() {
                 continue;
             else {
               /* double check */
-              got_msg = m_queue.getmsg(2000, thdKey);
+              got_msg = m_queue.getmsg(0, thdKey);
               if (!got_msg) {
                 break;
               }
