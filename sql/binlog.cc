@@ -7856,6 +7856,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
       valid_pos = binlog_file_reader.position();
+      sql_print_information("binlog_recover will analyze file:%s,pos:%lu\n",log_name,valid_pos);
       error = binlog_recover(&binlog_file_reader, &valid_pos);
       binlog_size = binlog_file_reader.ifile()->length();
     } else
@@ -9191,6 +9192,8 @@ static int binlog_recover(Binlog_file_reader *binlog_file_reader,
   bool in_transaction = false;
   int memory_page_size = my_getpagesize();
 
+  std::string readed_xa_prepare_list;
+
   {
     std::set<std::string> xa_prepared, xa_cop, xa_committed, xa_aborted;
     xa_prepared.clear();
@@ -9224,6 +9227,7 @@ static int binlog_recover(Binlog_file_reader *binlog_file_reader,
         if (!strcmp(qstr, "BEGIN") || !strncasecmp(qstr, "XA START", 8)) {
           in_transaction = true;
         } else if (!strncasecmp(qstr, "XA_PREPARED_LIST", 16)) {
+          readed_xa_prepare_list = ((Query_log_event*)ev)->query + 17;
           if (Prepared_xa_txnids::parse(((Query_log_event*)ev)->query + 17, xa_prepared)) {
             goto err1;
           }
@@ -9339,6 +9343,15 @@ static int binlog_recover(Binlog_file_reader *binlog_file_reader,
 
       delete ev;
     }
+
+    sql_print_information("readed_xa_prepare_list string size:%zd",readed_xa_prepare_list.size());
+
+
+    sql_print_information("after analyze binlog,last prepare list size:%zd",xa_prepared.size());
+    sql_print_information("after analyze binlog,last xa_cop list size:%zd",xa_cop.size());
+    sql_print_information("after analyze binlog,last xa_committed list  size:%zd",xa_committed.size());
+    sql_print_information("after analyze binlog,last xa_aborted list size:%zd",xa_aborted.size());
+
 
     /*
       Call ha_recover if and only if there is a registered engine that
