@@ -316,7 +316,12 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
                    update_value_list);
   if (update.add_function_default_columns(table, table->write_set)) return true;
 
+  List<Item> *returning_list = select_lex->returning_list;
+
   const bool safe_update = thd->variables.option_bits & OPTION_SAFE_UPDATES;
+
+  const bool returning_result = (returning_list && returning_list->elements > 0 &&
+                                thd->system_thread == NON_SYSTEM_THREAD);
 
   QEP_TAB_standalone qep_tab_st;
   QEP_TAB &qep_tab = qep_tab_st.as_QEP_TAB();
@@ -775,7 +780,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     /// read_removal is only used by NDB storage engine
     bool read_removal = false;
 
-    if (has_after_triggers) {
+    if (has_after_triggers || returning_result) {
       /*
         The table has AFTER UPDATE triggers that might access to subject
         table and therefore might need update to be done immediately.
@@ -797,6 +802,14 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     if (will_batch) table->cleanup_partial_update(); /* purecov: inspected */
 
     uint dup_key_found;
+
+    Query_result *qres = select_lex->query_result();
+    DBUG_ASSERT((!qres && !returning_result) || (qres && returning_result));
+    if (returning_result) {
+      select_lex->prepare(thd);
+      qres->send_result_set_metadata(thd, *select_lex->returning_list,
+          Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+    }
 
     while (true) {
       error = iterator->Read();
@@ -919,6 +932,10 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           // The error can have been downgraded to warning by IGNORE.
           if (thd->is_error()) break;
         }
+
+        if (error == 0 && returning_result) {
+          qres->send_data(thd, *select_lex->returning_list);
+        }
       }
 
       if (!error && has_after_triggers &&
@@ -1022,6 +1039,8 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
       if (!records_are_comparable(table)) found_rows = updated_rows;
     }
 
+    if (returning_result)
+      select_lex->query_result()->send_eof(thd);
   }  // End of scope for Modification_plan
 
   if (!transactional_table && updated_rows > 0)
@@ -1069,11 +1088,13 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     snprintf(buff, sizeof(buff), ER_THD(thd, ER_UPDATE_INFO), (long)found_rows,
              (long)updated_rows,
              (long)thd->get_stmt_da()->current_statement_cond_count());
-    my_ok(thd,
-          thd->get_protocol()->has_client_capability(CLIENT_FOUND_ROWS)
-              ? found_rows
-              : updated_rows,
-          id, buff);
+    if (!returning_result) {
+        my_ok(thd,
+              thd->get_protocol()->has_client_capability(CLIENT_FOUND_ROWS)
+                  ? found_rows
+                  : updated_rows,
+             id, buff);
+    }
     DBUG_PRINT("info", ("%ld records updated", (long)updated_rows));
   }
   thd->check_for_truncated_fields = CHECK_FIELD_IGNORE;
@@ -1345,6 +1366,20 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
 
   if (select->top_join_list.elements > 0)
     propagate_nullability(&select->top_join_list, false);
+ 
+  List<Item> *returning_list = select->returning_list;
+  const bool returning_result = (returning_list && returning_list->elements > 0 &&
+      thd->system_thread == NON_SYSTEM_THREAD);
+  
+  if (returning_list && returning_list->elements > 0) {
+    Query_result_send *qrs= new Query_result_send;
+    select->set_query_result(qrs);
+  }
+
+  if (returning_result &&
+      select->with_wild &&
+      select->setup_wild_in_returning(thd))
+    return true;
 
   if (select->setup_tables(thd, table_list, false))
     return true; /* purecov: inspected */
@@ -1438,6 +1473,11 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
                    false, false))
     return true; /* purecov: inspected */
 
+  if (select->returning_list &&
+      setup_fields(thd, Ref_item_array(), *select->returning_list, SELECT_ACL,
+        NULL, false, false))
+    return (true);                     /* purecov: inspected */
+  
   thd->mark_used_columns = mark_used_columns_saved;
 
   if (select->master_unit()->prepare_limit(thd, select)) return true;

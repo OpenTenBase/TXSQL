@@ -2002,6 +2002,7 @@ SELECT_LEX_UNIT::SELECT_LEX_UNIT(enum_parsing_context parsing_context)
     case CTX_INSERT_UPDATE:
     case CTX_WHERE:
     case CTX_DERIVED:
+    case CTX_RETURNING_LIST:
     case CTX_NONE:  // A subquery in a non-select
       explain_marker = parsing_context;
       break;
@@ -2047,6 +2048,7 @@ SELECT_LEX::SELECT_LEX(Item *where, Item *having)
       group_list_ptrs(NULL),
       item_list(),
       is_item_list_lookup(false),
+      returning_list(NULL),
       fields_list(item_list),
       all_fields(),
       ftfunc_list(&ftfunc_list_alloc),
@@ -2481,7 +2483,8 @@ bool SELECT_LEX::setup_base_ref_items(THD *thd) {
   Query_arena *arena = thd->stmt_arena;
   const uint n_elems =
       (n_sum_items + n_child_sum_items + item_list.elements +
-       select_n_having_items + select_n_where_fields + order_group_num);
+       select_n_having_items + select_n_where_fields + order_group_num +
+       (returning_list != nullptr ? returning_list->elements : 0));
   DBUG_PRINT("info",
              ("setup_ref_array this %p %4u : %4u %4u %4u %4u %4u %4u", this,
               n_elems,  // :

@@ -1168,6 +1168,8 @@ class SELECT_LEX {
   /// Number of GROUP BY expressions added to all_fields
   int hidden_group_field_count;
 
+  List<Item> *returning_list;
+
   List<Item> &fields_list;  ///< hold field list
   List<Item> all_fields;    ///< to store all expressions used in query
   /**
@@ -1844,6 +1846,7 @@ class SELECT_LEX {
   /// Merge derived table into query block
  public:
   bool merge_derived(THD *thd, TABLE_LIST *derived_table);
+  bool setup_wild_in_returning(THD*);
   /// Remove semijoin condition for this query block
   void clear_sj_expressions(NESTED_JOIN *nested_join);
   ///  Build semijoin condition for th query block

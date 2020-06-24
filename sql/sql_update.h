@@ -148,7 +148,8 @@ class Query_result_update final : public Query_result_interceptor {
 class Sql_cmd_update final : public Sql_cmd_dml {
  public:
   Sql_cmd_update(bool multitable_arg, List<Item> *update_values)
-      : multitable(multitable_arg), update_value_list(update_values) {}
+      : multitable(multitable_arg),
+        update_value_list(update_values) {}
 
   enum_sql_command sql_command_code() const override {
     return multitable ? SQLCOM_UPDATE_MULTI : SQLCOM_UPDATE;

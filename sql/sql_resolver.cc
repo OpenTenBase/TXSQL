@@ -235,7 +235,7 @@ bool SELECT_LEX::prepare(THD *thd) {
   // Initially, "all_fields" is the select list (after expansion of *).
   all_fields = fields_list;
 
-  if (setup_fields(thd, base_ref_items, fields_list, thd->want_privilege,
+  if (!returning_list && setup_fields(thd, base_ref_items, fields_list, thd->want_privilege,
                    &all_fields, true, false))
     return true;
 
@@ -424,7 +424,7 @@ bool SELECT_LEX::prepare(THD *thd) {
   // Setup full-text functions after resolving HAVING
   if (has_ft_funcs() && setup_ftfuncs(thd, this)) return true;
 
-  if (query_result() && query_result()->prepare(thd, fields_list, unit))
+  if (query_result() && query_result()->prepare(thd, (returning_list != nullptr ? *returning_list : fields_list), unit))
     return true;
 
   if (has_sj_candidates() && flatten_subqueries(thd)) return true;
@@ -1249,6 +1249,71 @@ bool SELECT_LEX::resolve_subquery(THD *thd) {
 
   return false;
 }
+
+bool SELECT_LEX::setup_wild_in_returning(THD *thd)
+{
+  DBUG_ENTER("SELECT_LEX::setup_wild_in_returning");
+
+  DBUG_ASSERT(with_wild);
+
+  // PS/SP uses arena so that changes are made permanently.
+  Prepared_stmt_arena_holder ps_arena_holder(thd);
+
+  Item *item;
+  List_iterator<Item> it(*returning_list);
+
+  while (with_wild && (item= it++))
+  {
+    Item_field *item_field;
+    if (item->type() == Item::FIELD_ITEM &&
+        (item_field= (Item_field *) item) &&
+        item_field->field_name &&
+        item_field->field_name[0] == '*' &&
+        !item_field->field)
+    {
+      const uint elem= fields_list.elements;
+      const bool any_privileges= item_field->any_privileges;
+      Item_subselect *subsel= master_unit()->item;
+
+      /*
+         In case of EXISTS(SELECT * ... HAVING ...), don't use this
+         transformation. The columns in HAVING will need to resolve to the
+         select list. Replacing * with 1 effectively eliminates this
+         possibility.
+       */
+
+      if (subsel && subsel->substype() == Item_subselect::EXISTS_SUBS &&
+          !having_cond())
+      {
+        /*
+           It is EXISTS(SELECT * ...) and we can replace * by any constant.
+
+           Item_int do not need fix_fields() because it is basic constant.
+         */
+        it.replace(new Item_int(NAME_STRING("Not_used"), (longlong) 1,
+              MY_INT64_NUM_DECIMAL_DIGITS));
+      }
+      else
+      {
+        if (insert_fields(thd, item_field->context,
+              item_field->db_name, item_field->table_name,
+              &it, any_privileges))
+          DBUG_RETURN(true);
+      }
+      /*
+         all_fields is a list that has the fields list as a tail.
+         Because of this we have to update the element count also for this
+         list after expanding the '*' entry.
+       */
+      all_fields.elements+= fields_list.elements - elem;
+
+      with_wild--;
+    }
+  }
+
+  DBUG_RETURN(false);
+}
+
 
 /**
   Expand all '*' in list of expressions with the matching column references

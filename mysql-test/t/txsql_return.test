@@ -1,0 +1,90 @@
+create table t1(a int primary key, b int, c varchar(100));
+
+insert into t1 values (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+
+update t1 set b = b + 1 where a = 2 txsql_returning a;
+update t1 set b = b + 1 where a = 2 txsql_returning a, b;
+update t1 set b = b + 1 where a = 2 txsql_returning a, b, c;
+update t1 set b = b + 1 where a = 2 txsql_returning a+1, b, c;
+update t1 set b = b + 1 where a = 2 txsql_returning *;
+update t1 set b = b + 1 txsql_returning *;
+update t1 set b = b + 1 where a = 2 and c = 'bcd' txsql_returning *;
+
+delete from t1 where a = 2 txsql_returning b+1,c;
+delete from t1 where a = 1 txsql_returning *;
+delete from t1 where a = 3 and b = 4 txsql_returning *;
+delete from t1 txsql_returning *;
+
+drop table t1;
+
+create table t1 (a int primary key, b int, c int);
+insert into t1 values(1,2,3),(3,4, 7),(5,6, 11);
+select*from t1;
+
+create table t2 (a int primary key, b int, c int as (a+b));
+insert into t2(a,b) values(1,2),(3,4),(5,6);
+select*from t2;
+
+update t1 set b=3 where a=1 txsql_returning c;
+select*from t1;
+update t1 set b=2 where a=1 txsql_returning *;
+select*from t1;
+update t1 set b=b*2 txsql_returning b, c+b as d;
+select*from t1;
+update t1 set b=b+2 txsql_returning *, c+b as d;
+select*from t1;
+--error ER_BAD_TABLE_ERROR
+update t1 set c=c+1 where 1 txsql_returning a,t.*,a,b,c;
+# use subquery in txsql_returning clause. we can't use t1 here otherwise we get
+# ER_UPDATE_TABLE_USED error.
+update t1 set b=b*2 txsql_returning a, c+b as d, (select count(*) from t2) as x;
+select*from t1;
+select*from t2;
+
+select a,t2.*,b from t2;
+--error ER_PARSE_ERROR
+select a,*,b from t2;
+update t2 set b=b+2 where a=5 and b>2 txsql_returning c,b,a;
+select*from t1;
+select*from t2;
+
+--error ER_PARSE_ERROR
+update t2 set b=b*c txsql_returning t2.a, *, b, c+b as d;
+select*from t2;
+update t2 set b=b*c txsql_returning t2.a, t2.*, b, c+b as d;
+select*from t2;
+update t2 set b=b*2 txsql_returning a, b, c+b as d, t2.*, (select t1.b + t1.c from t1 where t1.a=t2.a) as x;
+select*from t1;
+select*from t2;
+update t2 set b=b/2 limit 2 txsql_returning sqrt(a+sqrt(a)) as s,t2.*, (select count(*) from t1) as x;
+select*from t1;
+select*from t2;
+update t1 set c=c+1 where 1 or (a=6 and b>4) txsql_returning a;
+select*from t1;
+select*from t2;
+explain update t2 set b=b*2 txsql_returning a, b, c+b as d, t2.*, (select t1.b + t1.c from t1 where t1.a=t2.a) as x;
+
+
+# delete txsql_returning
+select*from t1;
+delete from t1 where a=1 txsql_returning *;
+select*from t1;
+
+delete from t1 where a=3 txsql_returning a+b, b-c as m;
+select*from t1;
+select*from t2;
+delete from t1 where a=6 and b>4 txsql_returning sqrt(a+sqrt(b)) as s, t1.*, (select count(*) from t2) as x;
+select*from t1;
+select*from t2;
+delete from t2 limit 2 txsql_returning *,a-b;
+--error ER_BAD_TABLE_ERROR
+delete from t1 limit 1 txsql_returning a,t.*,a,b,c;
+select*from t1;
+select*from t2;
+delete from t1 where 1 or (a=6 and b>4) txsql_returning a;
+select*from t1;
+
+explain format=json delete from t1 where a=6 and b>4 txsql_returning sqrt(a+sqrt(b)) as s, t1.*, (select count(*) from t2) as x;
+
+drop table t1;
+drop table t2;

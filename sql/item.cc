@@ -2466,8 +2466,10 @@ bool Item_field::itemize(Parse_context *pc, Item **res) {
   SELECT_LEX *const select = pc->select;
   if (select->parsing_place != CTX_HAVING) select->select_n_where_fields++;
 
-  if (select->parsing_place == CTX_SELECT_LIST && field_name &&
-      field_name[0] == '*' && field_name[1] == 0)
+  if ((select->parsing_place == CTX_SELECT_LIST ||
+        select->parsing_place == CTX_UPDATE_VALUE ||
+        select->parsing_place == CTX_RETURNING_LIST) &&
+      field_name && field_name[0] == '*' && field_name[1] == 0)
     select->with_wild++;
   return false;
 }

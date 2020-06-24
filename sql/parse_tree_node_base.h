@@ -81,7 +81,8 @@ enum enum_parsing_context {
   CTX_OPTIMIZED_AWAY_SUBQUERY,  ///< Subquery executed once during optimization
   CTX_UNION,
   CTX_UNION_RESULT,  ///< Pseudo-table context for UNION result
-  CTX_QUERY_SPEC     ///< Inner SELECTs of UNION expression
+  CTX_QUERY_SPEC,     ///< Inner SELECTs of UNION expression
+  CTX_RETURNING_LIST /// RETURNING clause of update/delete stmt
 };
 
 /*

@@ -1246,6 +1246,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> MASTER_ZSTD_COMPRESSION_LEVEL_SYM  /* MYSQL */
 %token<lexer.keyword> PRIVILEGE_CHECKS_USER_SYM     /* MYSQL */
 
+%token  RETURNING_SYM   /* MYSQL */
 %token XA_PREPARED_LIST /* MYSQL */
 %token THREADPOOL_SYM     /* MYSQL */
 /*
@@ -1408,7 +1409,7 @@ void warn_about_deprecated_binary(THD *thd)
         expr_list udf_expr_list opt_udf_expr_list opt_expr_list select_item_list
         opt_paren_expr_list ident_list_arg ident_list values opt_values row_value fields
         fields_or_vars
-        opt_field_or_var_spec
+        opt_field_or_var_spec returning_clause
 
 %type <var_type>
         option_type opt_var_type opt_var_ident_type opt_set_var_ident_type
@@ -12395,9 +12396,10 @@ update_stmt:
           opt_where_clause      /* #7 */
           opt_order_clause      /* #8 */
           opt_simple_limit      /* #9 */
+          returning_clause      /* #10 */
           {
             $$= NEW_PTN PT_update($1, $2, $3, $4, $5, $7.column_list, $7.value_list,
-                                  $8, $9, $10);
+                                  $8, $9, $10, $11);
           }
         ;
 
@@ -12438,6 +12440,17 @@ opt_low_priority:
         | LOW_PRIORITY { $$= TL_WRITE_LOW_PRIORITY; }
         ;
 
+returning_clause:
+         /* EMPTY */
+         {
+            $$ = NULL;
+         }
+        | RETURNING_SYM select_item_list
+         {
+            $$ = $2;
+         }
+        ;
+
 /* Delete rows from a table */
 
 delete_stmt:
@@ -12451,8 +12464,9 @@ delete_stmt:
           opt_where_clause
           opt_order_clause
           opt_simple_limit
+          returning_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
           }
         | opt_with_clause
           DELETE_SYM
@@ -12461,8 +12475,9 @@ delete_stmt:
           FROM
           table_reference_list
           opt_where_clause
+          returning_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $4, $6, $7);
+            $$= NEW_PTN PT_delete($1, $2, $3, $4, $6, $7, $8);
           }
         | opt_with_clause
           DELETE_SYM
@@ -12472,8 +12487,9 @@ delete_stmt:
           USING
           table_reference_list
           opt_where_clause
+          returning_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, $7, $8);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, $7, $8, $9);
           }
         ;
 

@@ -52,6 +52,7 @@
 #include "sql/opt_explain_format.h"
 #include "sql/opt_range.h"  // prune_partitions
 #include "sql/opt_trace.h"  // Opt_trace_object
+#include "sql/protocol.h"
 #include "sql/query_options.h"
 #include "sql/records.h"  // unique_ptr_destroy_only<RowIterator>
 #include "sql/row_iterator.h"
@@ -162,6 +163,10 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
   THD::enum_binlog_query_type query_type = THD::ROW_QUERY_TYPE;
 
   const bool safe_update = thd->variables.option_bits & OPTION_SAFE_UPDATES;
+
+  const bool returning_result = (select_lex->returning_list &&
+                                 select_lex->returning_list->elements > 0 &&
+                                 thd->system_thread == NON_SYSTEM_THREAD);
 
   TABLE_LIST *const delete_table_ref = table_list->updatable_base_table();
   TABLE *const table = delete_table_ref->table;
@@ -487,7 +492,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     THD_STAGE_INFO(thd, stage_updating);
 
-    if (has_after_triggers) {
+    if (has_after_triggers || returning_result) {
       /*
         The table has AFTER DELETE triggers that might access to subject table
         and therefore might need delete to be done immediately. So we turn-off
@@ -508,6 +513,15 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
       read_removal = table->check_read_removal(qep_tab.quick()->index);
 
     DBUG_ASSERT(limit > 0);
+
+    Query_result* qres= select_lex->query_result();
+    DBUG_ASSERT((!qres && !returning_result) || (qres && returning_result));
+    if (returning_result)
+    {
+      select_lex->prepare(thd);
+      qres->send_result_set_metadata(thd, *select_lex->returning_list,
+          Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+    }
 
     // The loop that reads rows and delete those that qualify
 
@@ -559,11 +573,18 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         error = 1;
         break;
       }
+
+      if (error == 0 && returning_result)
+        qres->send_data(thd, *select_lex->returning_list);
+
       if (!--limit && using_limit) {
         error = -1;
         break;
       }
     }
+
+    if (returning_result)
+      qres->send_eof(thd);
 
     killed_status = thd->killed;
     if (killed_status != THD::NOT_KILLED || thd->is_error())
@@ -624,7 +645,9 @@ cleanup:
       transactional_table || deleted_rows == 0 ||
       thd->get_transaction()->cannot_safely_rollback(Transaction_ctx::STMT));
   if (error < 0) {
-    my_ok(thd, deleted_rows);
+    if (!returning_result) {
+      my_ok(thd, deleted_rows);
+    }
     DBUG_PRINT("info", ("%ld records deleted", (long)deleted_rows));
   }
   return error > 0;
@@ -676,8 +699,28 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
     apply_semijoin = false;
   }
 
+  List<Item> *returning_list = select->returning_list;
+
+  const bool returning_result = (returning_list && returning_list->elements > 0 &&
+      thd->system_thread == NON_SYSTEM_THREAD);
+  
+  if (returning_list && returning_list->elements > 0) {
+    Query_result_send *qrs= new Query_result_send;
+    select->set_query_result(qrs);
+  }
+
+  if (returning_result &&
+      select->with_wild &&
+      select->setup_wild_in_returning(thd))
+    return true;
+
   if (select->setup_tables(thd, table_list, false))
     return true; /* purecov: inspected */
+
+  if (returning_list &&
+      setup_fields(thd, Ref_item_array(), *returning_list, SELECT_ACL,
+        NULL, false, false))
+    return true;
 
   ulong want_privilege_saved = thd->want_privilege;
   thd->want_privilege = SELECT_ACL;

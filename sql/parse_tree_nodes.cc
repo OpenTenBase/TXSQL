@@ -650,6 +650,14 @@ Sql_cmd *PT_delete::make_cmd(THD *thd) {
         pc.select->context.first_name_resolution_table =
             pc.select->table_list.first;
   }
+  
+  select->parsing_place = CTX_RETURNING_LIST;
+  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
+    return NULL;
+  if (opt_returning_clause)
+    select->returning_list = &opt_returning_clause->value;
+
+  select->parsing_place = CTX_NONE;
 
   if (opt_where_clause != NULL &&
       opt_where_clause->itemize(&pc, &opt_where_clause))
@@ -690,12 +698,20 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
     return NULL; /* purecov: inspected */
 
   if (contextualize_array(&pc, &join_table_list)) return NULL;
+  
+  select->parsing_place = CTX_RETURNING_LIST;
+  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
+    return NULL;
+
   select->parsing_place = CTX_UPDATE_VALUE;
 
   if (column_list->contextualize(&pc) || value_list->contextualize(&pc)) {
     return NULL;
   }
   select->item_list = column_list->value;
+  if (opt_returning_clause) {
+    select->returning_list= &opt_returning_clause->value;
+  }
 
   // Ensure we're resetting parsing context of the right select
   DBUG_ASSERT(select->parsing_place == CTX_UPDATE_VALUE);
@@ -728,6 +744,8 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
   }
 
   if (opt_hints != NULL && opt_hints->contextualize(&pc)) return NULL;
+
+  select->parsing_place= CTX_NONE;
 
   return new (thd->mem_root) Sql_cmd_update(is_multitable, &value_list->value);
 }
