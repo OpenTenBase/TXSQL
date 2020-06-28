@@ -2504,7 +2504,7 @@ static size_t parse_client_handshake_packet(THD *thd, MPVIO_EXT *mpvio,
     unsigned char * reserver_end = (unsigned char *)end;
     unsigned char * reserver_cur = (unsigned char *)reserver_begin;
 
-    char fromaddr[24] = {0};
+    char fromaddr[50] = {0};
     const char * fromptr = NULL;
     uint16 from_port = 0;
 
@@ -2537,6 +2537,21 @@ static size_t parse_client_handshake_packet(THD *thd, MPVIO_EXT *mpvio,
         // Get client's port and set to session info. the port is encoded in
         // little endian, i.e. mysql's datum endian.
         from_port= uint2korr(reserver_cur + 1);
+
+      } else if(3 == type) { 	    
+        // Type 3 is specially for IPv6 reserved. (Type 2 has other uses) 
+        // The next 16 bytes save the IPv6 address.
+        if(len != 16){
+           break;
+        }
+
+        sockaddr_in6 ipv6Addr;
+        memcpy(&ipv6Addr.sin6_addr,reserver_cur+1,16);
+        fromptr = inet_ntop(AF_INET6,&ipv6Addr.sin6_addr,fromaddr,sizeof(fromaddr));
+            
+        if(!fromptr){
+			break;
+        }
       }
 
       reserver_cur=reserver_cur+1+len;

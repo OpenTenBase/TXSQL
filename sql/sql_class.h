@@ -1140,7 +1140,7 @@ class THD : public MDL_context_owner,
   Security_context m_main_security_ctx;
   Security_context *m_security_ctx;
 
-  char m_ipfromproxy[24];// tdsql, source ip address in string.
+  char m_ipfromproxy[50];// tdsql, source ip address in string.
 
   void updateFromProxyIp(const char *ip) {
     strncpy(m_ipfromproxy,ip,sizeof(m_ipfromproxy)-1);
