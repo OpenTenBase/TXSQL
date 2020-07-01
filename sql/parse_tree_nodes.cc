@@ -652,10 +652,28 @@ Sql_cmd *PT_delete::make_cmd(THD *thd) {
   }
   
   select->parsing_place = CTX_RETURNING_LIST;
-  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
-    return NULL;
-  if (opt_returning_clause)
+  if (unlikely(opt_returning_clause)) {
+    if(is_multitable()) {//mult delete,can't support txsql_returing
+      my_error(ER_FEATURE_UNSUPPORTED,MYF(0),"txsql_returning with mult table","");
+      return NULL;
+    }
+    if(opt_returning_clause->contextualize(&pc)) {
+      return NULL;
+    }
     select->returning_list = &opt_returning_clause->value;
+  }
+
+  if (unlikely(select_var_list)) {
+    if(!opt_returning_clause) {//dont' have returning,will report error
+      my_error(ER_WRONG_NUMBER_OF_COLUMNS_IN_SELECT, MYF(0));
+      return NULL;
+    }
+    if(select_var_list->contextualize(&pc)) {
+      return NULL;
+    }
+
+  }
+
 
   select->parsing_place = CTX_NONE;
 
@@ -699,9 +717,33 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
 
   if (contextualize_array(&pc, &join_table_list)) return NULL;
   
+  const bool is_multitable = select->table_list.elements > 1;
+
   select->parsing_place = CTX_RETURNING_LIST;
-  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
-    return NULL;
+  if (unlikely(opt_returning_clause)) {
+    if(unlikely(is_multitable)) { //don't support mult table update
+      my_error(ER_FEATURE_UNSUPPORTED,MYF(0),"txsql_returning with mult table","");
+      return NULL;
+    }
+
+    if(opt_returning_clause->contextualize(&pc)) {
+      return NULL;
+    }
+    select->returning_list= &opt_returning_clause->value;
+  }
+
+  if (unlikely(select_var_list)) {
+    if(!opt_returning_clause) {//dont' have returning,will report error
+      thd->current_found_rows = 0;
+      my_error(ER_WRONG_NUMBER_OF_COLUMNS_IN_SELECT, MYF(0));
+      return NULL;
+    }
+    if(select_var_list->contextualize(&pc)) {
+      return NULL;
+    }
+
+  }
+
 
   select->parsing_place = CTX_UPDATE_VALUE;
 
@@ -709,14 +751,12 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
     return NULL;
   }
   select->item_list = column_list->value;
-  if (opt_returning_clause) {
-    select->returning_list= &opt_returning_clause->value;
-  }
+
 
   // Ensure we're resetting parsing context of the right select
   DBUG_ASSERT(select->parsing_place == CTX_UPDATE_VALUE);
   select->parsing_place = CTX_NONE;
-  const bool is_multitable = select->table_list.elements > 1;
+
   lex->sql_command = is_multitable ? SQLCOM_UPDATE_MULTI : SQLCOM_UPDATE;
 
   /*

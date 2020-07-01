@@ -566,6 +566,13 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         }
       }
 
+      if (error == 0 && returning_result) {
+        error = qres->send_data(thd, *select_lex->returning_list);
+        if(error) {
+          break;
+        }
+      }
+
       deleted_rows++;
       if (has_after_triggers &&
           table->triggers->process_triggers(thd, TRG_EVENT_DELETE,
@@ -573,9 +580,6 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         error = 1;
         break;
       }
-
-      if (error == 0 && returning_result)
-        qres->send_data(thd, *select_lex->returning_list);
 
       if (!--limit && using_limit) {
         error = -1;
@@ -644,12 +648,18 @@ cleanup:
   DBUG_ASSERT(
       transactional_table || deleted_rows == 0 ||
       thd->get_transaction()->cannot_safely_rollback(Transaction_ctx::STMT));
-  if (error < 0) {
-    if (!returning_result) {
+  if ( likely(error < 0)) {
+    if (unlikely(!returning_result)) {
       my_ok(thd, deleted_rows);
     }
     DBUG_PRINT("info", ("%ld records deleted", (long)deleted_rows));
   }
+  if( likely(error <= 0) ) {
+    thd->current_found_rows = deleted_rows;
+  }else {
+    thd->current_found_rows = 0;
+  }
+
   return error > 0;
 }
 
@@ -704,9 +714,14 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
   const bool returning_result = (returning_list && returning_list->elements > 0 &&
       thd->system_thread == NON_SYSTEM_THREAD);
   
-  if (returning_list && returning_list->elements > 0) {
-    Query_result_send *qrs= new Query_result_send;
-    select->set_query_result(qrs);
+  if (unlikely(returning_list && returning_list->elements > 0)) {
+      if(unlikely(lex->result)) {
+        select->set_query_result(lex->result);
+      }
+      else {
+        Query_result_send *qrs= new (thd->mem_root) Query_result_send; //should use new place syntax
+        select->set_query_result(qrs);
+      }
   }
 
   if (returning_result &&

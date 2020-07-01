@@ -1642,7 +1642,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <select_var_ident> select_var_ident
 
-%type <select_var_list> select_var_list
+%type <select_var_list> select_var_list into_var_clause
 
 %type <query_primary> query_primary  query_specification
 
@@ -11776,6 +11776,14 @@ into_destination:
         | select_var_list { $$= $1; }
         ;
 
+into_var_clause:
+	  { $$ = NULL; /*empty rule*/ }
+	  | INTO select_var_list 
+          {
+            $$= $2;
+          }
+        ;
+
 /*
   DO statement
 */
@@ -12386,20 +12394,21 @@ opt_insert_update_list:
 /* Update rows in a table */
 
 update_stmt:
-          opt_with_clause
-          UPDATE_SYM            /* #1 */
-          opt_low_priority      /* #2 */
-          opt_ignore            /* #3 */
-          table_reference_list  /* #4 */
-          SET_SYM               /* #5 */
-          update_list           /* #6 */
-          opt_where_clause      /* #7 */
-          opt_order_clause      /* #8 */
-          opt_simple_limit      /* #9 */
-          returning_clause      /* #10 */
+          opt_with_clause	/* #1 */
+          UPDATE_SYM            
+          opt_low_priority      /* #3 */
+          opt_ignore            /* #4 */
+          table_reference_list  /* #5 */
+          SET_SYM               /* #6 */
+          update_list           /* #7 */
+          opt_where_clause      /* #8 */
+          opt_order_clause      /* #9 */
+          opt_simple_limit      /* #10 */
+          returning_clause      /* #11 */
+          into_var_clause       /* #12 */
           {
             $$= NEW_PTN PT_update($1, $2, $3, $4, $5, $7.column_list, $7.value_list,
-                                  $8, $9, $10, $11);
+                                  $8, $9, $10, $11,$12);
           }
         ;
 
@@ -12465,8 +12474,9 @@ delete_stmt:
           opt_order_clause
           opt_simple_limit
           returning_clause
+          into_var_clause       /* #12 */
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10, $11,$12);
           }
         | opt_with_clause
           DELETE_SYM

@@ -2132,6 +2132,7 @@ class PT_delete final : public Parse_tree_root {
   Item *opt_delete_limit_clause;
   SQL_I_List<TABLE_LIST> delete_tables;
   PT_item_list *opt_returning_clause; 
+  PT_select_var_list * select_var_list;
 
  public:
   // single-table DELETE node constructor:
@@ -2140,7 +2141,8 @@ class PT_delete final : public Parse_tree_root {
             const LEX_CSTRING &opt_table_alias_arg,
             List<String> *opt_use_partition_arg, Item *opt_where_clause_arg,
             PT_order *opt_order_clause_arg, Item *opt_delete_limit_clause_arg,
-            PT_item_list *returning_clause_arg)
+            PT_item_list *returning_clause_arg,
+            PT_select_var_list * select_var_list_arg)
       : m_with_clause(with_clause_arg),
         opt_hints(opt_hints_arg),
         opt_delete_options(opt_delete_options_arg),
@@ -2150,7 +2152,8 @@ class PT_delete final : public Parse_tree_root {
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(opt_order_clause_arg),
         opt_delete_limit_clause(opt_delete_limit_clause_arg),
-        opt_returning_clause(returning_clause_arg) {
+        opt_returning_clause(returning_clause_arg),
+        select_var_list(select_var_list_arg){
     table_list.init_empty_const();
     join_table_list.init_empty_const();
   }
@@ -2173,7 +2176,8 @@ class PT_delete final : public Parse_tree_root {
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(NULL),
         opt_delete_limit_clause(NULL),
-        opt_returning_clause(returning_clause_arg) {}
+        opt_returning_clause(returning_clause_arg),
+        select_var_list(NULL){}
 
   Sql_cmd *make_cmd(THD *thd) override;
 
@@ -2203,6 +2207,7 @@ class PT_update : public Parse_tree_root {
   PT_order *opt_order_clause;
   Item *opt_limit_clause;
   PT_item_list *opt_returning_clause;
+  PT_select_var_list * select_var_list;
 
  public:
   PT_update(PT_with_clause *with_clause_arg, PT_hint_list *opt_hints_arg,
@@ -2211,7 +2216,8 @@ class PT_update : public Parse_tree_root {
             PT_item_list *column_list_arg, PT_item_list *value_list_arg,
             Item *opt_where_clause_arg, PT_order *opt_order_clause_arg,
             Item *opt_limit_clause_arg,
-            PT_item_list *returning_clause_arg)
+            PT_item_list *returning_clause_arg,
+	    PT_select_var_list * select_var_list_arg)
       : m_with_clause(with_clause_arg),
         opt_hints(opt_hints_arg),
         opt_low_priority(opt_low_priority_arg),
@@ -2222,7 +2228,8 @@ class PT_update : public Parse_tree_root {
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(opt_order_clause_arg),
         opt_limit_clause(opt_limit_clause_arg),
-        opt_returning_clause(returning_clause_arg){}
+        opt_returning_clause(returning_clause_arg),
+        select_var_list(select_var_list_arg){}
 
   Sql_cmd *make_cmd(THD *thd) override;
 };

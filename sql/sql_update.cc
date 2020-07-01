@@ -920,6 +920,14 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           error =
               table->file->ha_update_row(table->record[1], table->record[0]);
         }
+
+        if (error == 0 && returning_result) {
+          if(qres->send_data(thd, *select_lex->returning_list) ){
+            found_rows = 0;
+            error = 1;
+          }
+        }
+
         if (error == 0)
           updated_rows++;
         else if (error == HA_ERR_RECORD_IS_THE_SAME)
@@ -933,9 +941,6 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           if (thd->is_error()) break;
         }
 
-        if (error == 0 && returning_result) {
-          qres->send_data(thd, *select_lex->returning_list);
-        }
       }
 
       if (!error && has_after_triggers &&
@@ -1039,7 +1044,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
       if (!records_are_comparable(table)) found_rows = updated_rows;
     }
 
-    if (returning_result)
+    if (unlikely(returning_result))
       select_lex->query_result()->send_eof(thd);
   }  // End of scope for Modification_plan
 
@@ -1371,9 +1376,13 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
   const bool returning_result = (returning_list && returning_list->elements > 0 &&
       thd->system_thread == NON_SYSTEM_THREAD);
   
-  if (returning_list && returning_list->elements > 0) {
-    Query_result_send *qrs= new Query_result_send;
-    select->set_query_result(qrs);
+  if (unlikely(returning_list && returning_list->elements > 0)) {
+    if(unlikely(lex->result)){
+      select->set_query_result(lex->result);
+    }else{
+      Query_result_send *qrs= new (thd->mem_root) Query_result_send; //should use new place syntax
+      select->set_query_result(qrs);
+    }
   }
 
   if (returning_result &&
@@ -1631,8 +1640,8 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
   if (select->has_ft_funcs() && setup_ftfuncs(thd, select))
     return true; /* purecov: inspected */
 
-  if (select->query_result() &&
-      select->query_result()->prepare(thd, select->fields_list, lex->unit))
+  if (unlikely(select->query_result() &&
+      select->query_result()->prepare(thd, returning_list ? *returning_list : select->fields_list, lex->unit)))
     return true; /* purecov: inspected */
 
   Opt_trace_array trace_steps(trace, "steps");
