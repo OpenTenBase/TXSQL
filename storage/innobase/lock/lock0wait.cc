@@ -868,6 +868,8 @@ static bool lock_wait_trxs_are_still_waiting(
     }
     ut_a(trx->lock.que_state == TRX_QUE_LOCK_WAIT);
 
+    /* The part id may get changed for same page,
+    for example: buffer pool resizing. So we need to recheck. */
     uint32_t part_id = (LockGuard::get_part(trx->lock.wait_info->space_id(),
                                      trx->lock.wait_info->page_no()));
  

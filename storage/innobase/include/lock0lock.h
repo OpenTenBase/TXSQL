@@ -921,7 +921,9 @@ public:
   }
 
   void enter(LockMutex *mutex);
-  
+
+  void enter_with_confirm(space_id_t space, page_no_t page_no);
+
   bool try_enter(LockMutex *mutex);
 
   void exit(LockMutex *mutex);
@@ -948,7 +950,10 @@ public:
   
   void release();
 
+  static uint32_t get_part_with_fold(uint64_t fold);
+
   static uint32_t get_part(space_id_t space, page_no_t page_no);
+
 private:
 
   /** Store pointers of acquired mutex */

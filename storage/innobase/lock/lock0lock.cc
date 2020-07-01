@@ -127,13 +127,37 @@ void LockWaitInfo::set(const lock_t *lock) {
   m_defined = true;
 }
 
+uint32_t LockGuard::get_part_with_fold(uint64_t fold) {
+  return (hash_calc_hash(fold, lock_sys->rec_hash) % LOCK_REC_MUTEX_INSTANCES);
+}
+
 uint32_t LockGuard::get_part(space_id_t space, page_no_t page_no) {
-  return (lock_rec_fold(space, page_no) % LOCK_REC_MUTEX_INSTANCES);
+  uint64_t fold = lock_rec_fold(space, page_no);
+
+  return get_part_with_fold(fold);
 }
 
 void LockGuard::enter(LockMutex *mutex) {
   mutex_enter(mutex);
   m_mutexs.push_back(mutex);
+}
+
+void LockGuard::enter_with_confirm(space_id_t space, page_no_t page_no) {
+  ut_ad(m_mutexs.empty());
+  uint64_t fold = lock_rec_fold(space, page_no);
+  while (true) {
+    auto idx = get_part_with_fold(fold);
+    enter(&lock_sys->rec_mutex[idx]);
+
+    /* Reconfirm as it's possible that the hash cell
+     may get changed if bp is just resized. */
+
+    if (idx != get_part_with_fold(fold)) {
+      release();
+    } else {
+      break;
+    }
+  }
 }
 
 bool LockGuard::try_enter(LockMutex *mutex) {
@@ -189,8 +213,7 @@ fail:
 void LockGuard::acquire(space_id_t space, page_no_t page_no) {
   m_mutexs.clear();
 
-  auto idx = get_part(space, page_no);
-  enter(&lock_sys->rec_mutex[idx]);
+  enter_with_confirm(space,  page_no);
 }
 
 void LockGuard::acquire(const buf_block_t *block) {
@@ -217,13 +240,29 @@ void LockGuard::acquire(const buf_block_t *block1, const buf_block_t *block2) {
   }
     
   PartIds idxs;
+  uint32_t idx1, idx2;
+
+  uint64_t fold1 = lock_rec_fold(block1->get_space_id(), block1->get_page_no());
+  uint64_t fold2 = lock_rec_fold(block2->get_space_id(), block2->get_page_no());
+
+retry:
   idxs.clear();
 
-  idxs.insert(get_part(block1->get_space_id(), block1->get_page_no()));
-  idxs.insert(get_part(block2->get_space_id(), block2->get_page_no()));
+  idx1 = get_part_with_fold(fold1);
+  idx2 = get_part_with_fold(fold2);
+
+  idxs.insert(idx1);
+  idxs.insert(idx2);
 
   for (auto idx : idxs) {
     enter(&lock_sys->rec_mutex[idx]);
+  }
+
+  if (idx1 != get_part_with_fold(fold1) ||
+      idx2 != get_part_with_fold(fold2)) {
+    release();
+
+    goto retry;
   }
 
   ut_ad(!m_mutexs.empty());
@@ -237,8 +276,7 @@ void LockGuard::acquire(const lock_t *lock) {
   } else if (lock->is_predicate()) {
     enter(&lock_sys->prdt_mutex);
   } else {
-    auto idx = get_part(lock->space_id(), lock->page_no());
-    enter(&lock_sys->rec_mutex[idx]);
+    enter_with_confirm(lock->space_id(), lock->page_no());
   }
 
   ut_ad(!m_mutexs.empty());
@@ -298,16 +336,21 @@ void LockGuard::acquire(LockWaitInfo &wait_info) {
 
 void LockGuard::acquire_switch(const lock_t *lock) {
   LockMutex* mutex;
+  bool is_rec_lock = false;
   if (lock_get_type_low(lock) == LOCK_TABLE) {
     mutex = &lock_sys->table_mutex;
   } else if (lock->is_predicate()) {
     mutex = &lock_sys->prdt_mutex;
   } else {
+    is_rec_lock = true;
     auto idx = get_part(lock->space_id(), lock->page_no());
     mutex = &lock_sys->rec_mutex[idx];
   }
 
   if (!m_mutexs.empty()) {
+    /* If the mutex array is not empty, the lock_sys
+    resize won't happen as that requires holding all
+    mutexs. */
     ut_ad(m_mutexs.size() == 1);
 
     LockMutex *holded = *(m_mutexs.begin());
@@ -319,7 +362,11 @@ void LockGuard::acquire_switch(const lock_t *lock) {
     release();
   }
 
-  enter(mutex);
+  if (is_rec_lock) {
+    enter_with_confirm(lock->space_id(), lock->page_no());
+  } else {
+    enter(mutex);
+  }
 }
 
 void LockGuard::release() {
