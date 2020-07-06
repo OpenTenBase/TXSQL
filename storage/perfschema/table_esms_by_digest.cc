@@ -227,7 +227,8 @@ int table_esms_by_digest::make_row(PFS_statements_digest_stat *digest_stat) {
   ulong index;
   ulonglong count_star = 0;
 
-  for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
+  for (index = 0; index < pfs_param.m_events_statements_histogram_bucket_number;
+       index++) {
     count_star += histogram->read_bucket(index);
   }
 
@@ -255,7 +256,9 @@ int table_esms_by_digest::make_row(PFS_statements_digest_stat *digest_stat) {
     bool index_999_set = false;
     ulonglong count = 0;
 
-    for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
+    for (index = 0;
+         index < pfs_param.m_events_statements_histogram_bucket_number;
+         index++) {
       count += histogram->read_bucket(index);
 
       if ((count >= count_95) && !index_95_set) {

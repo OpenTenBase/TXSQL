@@ -881,6 +881,14 @@ The following options may be given as the first argument:
  --performance-schema-events-stages-history-size=# 
  Number of rows per thread in EVENTS_STAGES_HISTORY. Use 0
  to disable, -1 for automated sizing.
+ --performance-schema-events-statements-histogram-base-factor=# 
+ Bucket factor. Used for bucket timer value increase in in
+ table EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+ EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.
+ --performance-schema-events-statements-histogram-bucket-number=# 
+ Number of buckets in table
+ EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+ EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.
  --performance-schema-events-statements-history-long-size=# 
  Number of rows in EVENTS_STATEMENTS_HISTORY_LONG. Use 0
  to disable, -1 for automated sizing.
@@ -1814,6 +1822,8 @@ performance-schema-digests-size -1
 performance-schema-error-size ####
 performance-schema-events-stages-history-long-size -1
 performance-schema-events-stages-history-size -1
+performance-schema-events-statements-histogram-base-factor 2
+performance-schema-events-statements-histogram-bucket-number 32
 performance-schema-events-statements-history-long-size -1
 performance-schema-events-statements-history-size -1
 performance-schema-events-transactions-history-long-size -1

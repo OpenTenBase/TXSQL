@@ -72,8 +72,6 @@ void pre_initialize_performance_schema() {
   global_idle_stat.reset();
   global_table_io_stat.reset();
   global_table_lock_stat.reset();
-  g_histogram_pico_timers.init();
-  global_statements_histogram.reset();
 
   /*
     There is no automatic cleanup. Please either use:
@@ -126,6 +124,9 @@ int initialize_performance_schema(
   init_timers();
   init_event_name_sizing(param);
   register_global_classes();
+
+  global_statements_histogram.init();
+  global_statements_histogram.reset();
 
   if (init_sync_class(param->m_mutex_class_sizing, param->m_rwlock_class_sizing,
                       param->m_cond_class_sizing) ||

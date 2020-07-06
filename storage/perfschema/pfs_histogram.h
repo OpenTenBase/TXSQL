@@ -24,18 +24,25 @@
 #define PFS_HISTOGRAM_H
 
 #include <atomic>
+#include <vector>
 #include "my_compiler.h"
 #include "my_inttypes.h"
+#include "storage/perfschema/pfs_server.h"
 
 /**
   @file storage/perfschema/pfs_histogram.h
 */
 
-/** Number of buckets used in histograms. */
-#define NUMBER_OF_BUCKETS 450
+/** Maximum number of buckets used in histograms. */
+#define MAX_NUMBER_OF_BUCKETS 450
 
 struct PFS_histogram {
  public:
+  void init() {
+    m_bucket = std::vector<std::atomic<ulonglong>>(
+        pfs_param.m_events_statements_histogram_bucket_number);
+  }
+
   void reset();
 
   void increment_bucket(uint bucket_index) { m_bucket[bucket_index]++; }
@@ -43,11 +50,11 @@ struct PFS_histogram {
   ulonglong read_bucket(uint bucket_index) { return m_bucket[bucket_index]; }
 
  private:
-  std::atomic<ulonglong> m_bucket[NUMBER_OF_BUCKETS];
+  std::vector<std::atomic<ulonglong>> m_bucket;
 };
 
 struct PFS_histogram_timers {
-  ulonglong m_bucket_timer[NUMBER_OF_BUCKETS + 1];
+  ulonglong m_bucket_timer[MAX_NUMBER_OF_BUCKETS + 1];
 
   void init();
 };

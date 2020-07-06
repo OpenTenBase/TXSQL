@@ -115,7 +115,8 @@ table_esmh_by_digest::table_esmh_by_digest()
     : PFS_engine_table(&m_share, &m_pos),
       m_materialized_digest(NULL),
       m_pos(),
-      m_next_pos() {}
+      m_next_pos(),
+      m_num_buckets(pfs_param.m_events_statements_histogram_bucket_number) {}
 
 void table_esmh_by_digest::reset_position(void) {
   m_pos.reset();
@@ -134,7 +135,7 @@ int table_esmh_by_digest::rnd_next(void) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index_1];
     if (digest_stat->m_lock.is_populated()) {
       if (digest_stat->m_first_seen != 0) {
-        if (m_pos.m_index_2 < NUMBER_OF_BUCKETS) {
+        if (m_pos.m_index_2 < m_num_buckets) {
           make_row(digest_stat, m_pos.m_index_2);
           m_next_pos.set_after(&m_pos);
           return 0;
@@ -215,7 +216,7 @@ void table_esmh_by_digest::materialize(
     ulonglong count = 0;
     ulonglong count_and_lower = 0;
 
-    for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
+    for (index = 0; index < m_num_buckets; index++) {
       count = histogram->read_bucket(index);
       count_and_lower += count;
 
@@ -232,7 +233,8 @@ void table_esmh_by_digest::materialize(
 
 int table_esmh_by_digest::make_row(PFS_statements_digest_stat *digest_stat,
                                    ulong bucket_index) {
-  DBUG_ASSERT(bucket_index < NUMBER_OF_BUCKETS);
+  DBUG_ASSERT(m_num_buckets > 0 && m_num_buckets <= MAX_NUMBER_OF_BUCKETS);
+  DBUG_ASSERT(bucket_index < m_num_buckets);
 
   materialize(digest_stat);
 
@@ -248,7 +250,7 @@ int table_esmh_by_digest::make_row(PFS_statements_digest_stat *digest_stat,
       m_materialized_histogram.m_buckets[bucket_index].m_count_bucket_and_lower;
 
   ulonglong count_star =
-      m_materialized_histogram.m_buckets[NUMBER_OF_BUCKETS - 1]
+      m_materialized_histogram.m_buckets[m_num_buckets - 1]
           .m_count_bucket_and_lower;
 
   if (count_star > 0) {

@@ -125,7 +125,7 @@ struct time_normalizer {
   /** Conversion factor from timer values to pico seconds. */
   ulonglong m_factor;
   /** Histogram bucket timers, expressed in timer unit. */
-  ulonglong m_bucket_timer[NUMBER_OF_BUCKETS + 1];
+  ulonglong m_bucket_timer[MAX_NUMBER_OF_BUCKETS + 1];
 
   /**
     Convert a wait from timer units to pico seconds.

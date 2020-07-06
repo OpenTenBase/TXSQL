@@ -284,5 +284,7 @@ void pfs_automated_sizing(PFS_global_param *param) {
     param->m_metadata_lock_sizing = 0;
     param->m_max_digest_length = 0;
     param->m_max_sql_text_length = 0;
+    param->m_events_statements_histogram_bucket_number = 0;
+    param->m_events_statements_histogram_bucket_base_factor = 0;
   }
 }
