@@ -4648,7 +4648,7 @@ static void lock_trx_release_read_locks_in_x_mode(trx_t *trx, bool only_gap) {
     trx_mutex_enter(trx);
 
     if (lock->discard) {
-      if (next_lock->discard) {
+      if (next_lock && next_lock->discard) {
         lock = UT_LIST_GET_FIRST(trx->lock.trx_locks);
       } else {
         lock = next_lock;
