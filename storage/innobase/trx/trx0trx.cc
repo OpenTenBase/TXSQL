@@ -1365,9 +1365,9 @@ static void trx_start_low(
 
   if (trx->mysql_thd != nullptr && !trx->ddl_operation) {
     trx->ddl_operation = thd_is_dd_update_stmt(trx->mysql_thd);
-    trx->skip_persist_gtid = !(opt_strict_gtid_commit
-                                || !thd_has_binlog(trx->mysql_thd));
   }
+  trx->skip_persist_gtid = !(opt_strict_gtid_commit
+                              || !thd_has_binlog(trx->mysql_thd));
 
   /* The initial value for trx->no: TRX_ID_MAX is used in
   read_view_open_now: */

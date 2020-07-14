@@ -1575,6 +1575,14 @@ bool thd_is_log_apply_thread(THD *thd) {
 }
 
 bool thd_has_binlog(THD *thd) {
+  if (thd == nullptr) {
+    thd = current_thd;
+  }
+
+  if (thd == nullptr) {
+    return false;
+  }
+
   return (thd_binlog_format(thd) != BINLOG_FORMAT_UNSPEC);
 }
 
@@ -19526,8 +19534,9 @@ static xa_status_code innobase_commit_by_xid(
   trx_t *trx = trx_get_trx_by_xid(xid);
 
   if (trx != NULL) {
-
     TrxInInnoDB::begin_stmt(trx);
+    trx->skip_persist_gtid = !(opt_strict_gtid_commit
+        || !thd_has_binlog(trx->mysql_thd));
     innobase_commit_low(trx);
     ut_ad(trx->mysql_thd == NULL);
     /* use cases are: disconnected xa, slave xa, recovery */
@@ -19558,6 +19567,8 @@ static xa_status_code innobase_rollback_by_xid(
 
   if (trx != NULL) {
     TrxInInnoDB::begin_stmt(trx);
+    trx->skip_persist_gtid = !(opt_strict_gtid_commit
+        || !thd_has_binlog(trx->mysql_thd));
 
     int ret = innobase_rollback_trx(trx);
 
