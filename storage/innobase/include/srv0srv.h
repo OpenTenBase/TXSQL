@@ -1135,6 +1135,7 @@ struct export_var_t {
   ulint innodb_buffer_pool_read_ahead_rnd; /*!< srv_read_ahead_rnd */
   ulint innodb_buffer_pool_read_ahead;     /*!< srv_read_ahead */
   ulint innodb_buffer_pool_read_ahead_evicted; /*!< srv_read_ahead evicted*/
+  uint32_t  innodb_change_buffer_state;
   ulint innodb_dblwr_pages_written;            /*!< srv_dblwr_pages_written */
   ulint innodb_dblwr_writes;                   /*!< srv_dblwr_writes */
   ulint innodb_log_waits;                      /*!< srv_log_waits */
