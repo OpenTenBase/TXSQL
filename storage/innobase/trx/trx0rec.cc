@@ -2319,6 +2319,11 @@ dberr_t trx_undo_report_row_operation(
       undo->top_undo_no = trx->undo_no;
       undo->guess_block = undo_block;
 
+      if (page_no == undo->hdr_page_no) {
+        undo->withdraw_hdr_clock = buf_withdraw_clock;
+        undo->guess_hdr_block = undo_block;
+      }
+
       trx->undo_no++;
       trx->undo_rseg_space = undo_ptr->rseg->space_id;
 

@@ -125,8 +125,10 @@ roll_ptr_t trx_read_roll_ptr(
 @return pointer to page x-latched */
 UNIV_INLINE
 page_t *trx_undo_page_get(const page_id_t &page_id,
-                          const page_size_t &page_size, mtr_t *mtr) {
-  buf_block_t *block = buf_page_get(page_id, page_size, RW_X_LATCH, mtr);
+                          const page_size_t &page_size, mtr_t *mtr, buf_block_t *guess) {
+  buf_block_t *block = buf_page_get_gen(page_id, page_size, RW_X_LATCH, guess,
+                                Page_fetch::NORMAL, __FILE__, __LINE__, mtr);
+
   buf_block_dbg_add_level(block, SYNC_TRX_UNDO_PAGE);
 
   return (buf_block_get_frame(block));

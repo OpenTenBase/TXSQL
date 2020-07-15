@@ -880,7 +880,8 @@ buf_block_t *trx_undo_add_page(
   }
 
   header_page = trx_undo_page_get(page_id_t(undo->space, undo->hdr_page_no),
-                                  undo->page_size, mtr);
+                                  undo->page_size, mtr,
+                                  buf_pool_is_obsolete(undo->withdraw_hdr_clock) ? NULL : undo->guess_hdr_block);
 
   if (!fsp_reserve_free_extents(&n_reserved, undo->space, 1, FSP_UNDO, mtr)) {
     return (NULL);
@@ -1168,7 +1169,8 @@ static void trx_undo_seg_free(const trx_undo_t *undo, bool noredo) {
     mutex_enter(&(rseg->mutex));
 
     seg_header = trx_undo_page_get(page_id_t(undo->space, undo->hdr_page_no),
-                                   undo->page_size, &mtr) +
+                                   undo->page_size, &mtr,
+                                   buf_pool_is_obsolete(undo->withdraw_hdr_clock) ? NULL : undo->guess_hdr_block) +
                  TRX_UNDO_SEG_HDR;
 
     file_seg = seg_header + TRX_UNDO_FSEG_HEADER;
@@ -1408,6 +1410,8 @@ static trx_undo_t *trx_undo_mem_create(trx_rseg_t *rseg, ulint id, ulint type,
   undo->empty = TRUE;
   undo->top_page_no = page_no;
   undo->guess_block = NULL;
+  undo->guess_hdr_block = NULL;
+  undo->withdraw_hdr_clock = 0;
   undo->withdraw_clock = 0;
 
   return (undo);
@@ -1554,7 +1558,8 @@ static trx_undo_t *trx_undo_reuse_cached(trx_t *trx, trx_rseg_t *rseg,
   ut_a(undo->id < TRX_RSEG_N_SLOTS);
 
   auto undo_page = trx_undo_page_get(page_id_t(undo->space, undo->hdr_page_no),
-                                     undo->page_size, mtr);
+                                     undo->page_size, mtr,
+                                     buf_pool_is_obsolete(undo->withdraw_hdr_clock) ? NULL : undo->guess_hdr_block);
 
   bool add_space_gtid = false;
   ulint offset;
@@ -1591,7 +1596,8 @@ static void trx_undo_mark_as_dict_operation(
   page_t *hdr_page;
 
   hdr_page = trx_undo_page_get(page_id_t(undo->space, undo->hdr_page_no),
-                               undo->page_size, mtr);
+                               undo->page_size, mtr,
+                               buf_pool_is_obsolete(undo->withdraw_hdr_clock) ? NULL : undo->guess_hdr_block);
 
   mlog_write_ulint(hdr_page + undo->hdr_offset + TRX_UNDO_DICT_TRANS, TRUE,
                    MLOG_1BYTE, mtr);
@@ -1727,7 +1733,8 @@ page_t *trx_undo_set_state_at_finish(
   ut_a(undo->id < TRX_RSEG_N_SLOTS);
 
   undo_page = trx_undo_page_get(page_id_t(undo->space, undo->hdr_page_no),
-                                undo->page_size, mtr);
+                                undo->page_size, mtr,
+                                buf_pool_is_obsolete(undo->withdraw_hdr_clock) ? NULL : undo->guess_hdr_block);
 
   seg_hdr = undo_page + TRX_UNDO_SEG_HDR;
   page_hdr = undo_page + TRX_UNDO_PAGE_HDR;
@@ -1767,7 +1774,8 @@ page_t *trx_undo_set_state_at_prepare(trx_t *trx, trx_undo_t *undo,
   ut_a(undo->id < TRX_RSEG_N_SLOTS);
 
   undo_page = trx_undo_page_get(page_id_t(undo->space, undo->hdr_page_no),
-                                undo->page_size, mtr);
+                                undo->page_size, mtr,
+                                buf_pool_is_obsolete(undo->withdraw_hdr_clock) ? NULL : undo->guess_hdr_block);
 
   seg_hdr = undo_page + TRX_UNDO_SEG_HDR;
 

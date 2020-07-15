@@ -78,7 +78,7 @@ roll_ptr_t trx_read_roll_ptr(
 @return pointer to page x-latched */
 UNIV_INLINE
 page_t *trx_undo_page_get(const page_id_t &page_id,
-                          const page_size_t &page_size, mtr_t *mtr);
+                          const page_size_t &page_size, mtr_t *mtr, buf_block_t *guess = nullptr);
 
 /** Gets an undo log page and s-latches it.
 @param[in]	page_id		page id
@@ -389,6 +389,9 @@ struct trx_undo_t {
   undo_no_t top_undo_no;    /*!< undo number of the latest record */
   buf_block_t *guess_block; /*!< guess for the buffer block where
                             the top page might reside */
+  buf_block_t *guess_hdr_block; /*!< header block of undo */
+  ulint withdraw_hdr_clock; /*!< withdraw clock while setting
+                             guess_hdr_block */
   ulint withdraw_clock;     /*!< the withdraw clock value of the
                             buffer pool when guess_block was stored */
   /*-----------------------------*/
