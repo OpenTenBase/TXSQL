@@ -234,18 +234,17 @@ void LockGuard::acquire(const buf_block_t *block1, const buf_block_t *block2) {
   ut_a(block1->get_page_type() == block2->get_page_type());
   ut_ad(!lock_mutex_own());
   m_mutexs.clear();
-  
+  PartIds idxs;
+  uint32_t idx1, idx2;
+  uint64_t fold1, fold2;
+  fold1 = lock_rec_fold(block1->get_space_id(), block1->get_page_no());
+  fold2 = lock_rec_fold(block2->get_space_id(), block2->get_page_no());
+
+retry:
   if (block1->get_page_type() == FIL_PAGE_RTREE) {
     enter(&lock_sys->prdt_mutex);
   }
-    
-  PartIds idxs;
-  uint32_t idx1, idx2;
 
-  uint64_t fold1 = lock_rec_fold(block1->get_space_id(), block1->get_page_no());
-  uint64_t fold2 = lock_rec_fold(block2->get_space_id(), block2->get_page_no());
-
-retry:
   idxs.clear();
 
   idx1 = get_part_with_fold(fold1);
