@@ -1,0 +1,89 @@
+--source include/not_group_replication_plugin.inc
+#--source include/have_debug.inc
+--source include/master-slave.inc
+
+select @@global.gtid_mode;
+set global gtid_mode = 'off_permissive';
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'ON';
+set gtid_next='automatic';
+
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+call mtr.add_suppression("Slave I/O for channel '': Master command COM_REGISTER_SLAVE failed: failed registering on master, reconnecting to try *");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format *");
+
+--disable_warnings
+
+connection master;
+
+select @@global.gtid_mode;
+select @@global.binlog_format;
+select @@global.binlog_transaction_dependency_tracking;
+select @@global.transaction_write_set_extraction;
+
+connection slave;
+
+select @@global.gtid_mode;
+select @@global.binlog_format;
+select @@global.binlog_transaction_dependency_tracking;
+select @@global.transaction_write_set_extraction;
+
+connection master;
+
+create table t2(
+  `id` int NOT NULL PRIMARY KEY AUTO_INCREMENT ,
+  i_info varchar(12800),
+  i_dummy varchar(128)
+);
+
+CREATE TABLE `t` (
+  `id` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  i_info varchar(28800),
+  j_array json,
+  i_dummy varchar(128),
+  j_array_one varchar(120) GENERATED ALWAYS AS (json_extract(j_array, '$[0]')),
+  unique index u_i_info(i_info(2880),j_array_one),
+  FOREIGN KEY fk_cat(id)  REFERENCES t2(id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ; 
+
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+
+insert into t(id,i_info,j_array,i_dummy) values(0,'short_1','["one","two"]','dummy_info');
+insert into t(id,i_info,j_array,i_dummy) values(0,repeat('1',12800),'["one","two","three"]','dummy_info');
+insert into t(id,i_info,j_array,i_dummy) values(0,repeat('2',12800),'["one","two","three"]','dummy_info');
+
+select id,md5(i_info),j_array,i_dummy from t;
+
+
+
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+show create table t;
+select id,md5(i_info),j_array,i_dummy from t;
+
+connection master;
+update t set i_dummy = 'xx';
+select id,md5(i_info),j_array,i_dummy from t;
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select id,md5(i_info),j_array,i_dummy from t;
+
+connection slave;
+
+
+connection master ;
+--enable_warnings
+drop table t,t2;
+
+source include/rpl_end.inc;
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'OFF_PERMISSIVE';
+
+

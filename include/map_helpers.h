@@ -309,10 +309,10 @@ class memroot_unordered_map
           Key, Value, Hash, KeyEqual,
           Memroot_allocator<std::pair<const Key, Value>>> {
  public:
-  memroot_unordered_map(MEM_ROOT *mem_root)
+  memroot_unordered_map(MEM_ROOT *mem_root,size_t bucket=10)
       : std::unordered_map<Key, Value, Hash, KeyEqual,
                            Memroot_allocator<std::pair<const Key, Value>>>(
-            /*bucket_count=*/10, Hash(), KeyEqual(),
+            /*bucket_count=*/bucket, Hash(), KeyEqual(),
             Memroot_allocator<std::pair<const Key, Value>>(mem_root)) {}
 };
 

@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "buffer.hpp"
+
 #include "../extra/lz4/my_xxhash.h"  // IWYU pragma: keep
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -50,7 +52,6 @@
 #include "sql/transaction_info.h"
 #include "sql_string.h"
 
-#define HASH_STRING_SEPARATOR "½"
 
 const char *transaction_write_set_hashing_algorithms[] = {"OFF", "MURMUR32",
                                                           "XXHASH64", 0};
@@ -400,11 +401,12 @@ static void debug_check_for_write_sets(
   Function to generate the hash of the string passed to this function.
 
   @param[in] pke - the string to be hashed.
+  @param[in] pke_length - pke's length.
   @param[in] thd - THD object pointing to current thread.
   @param[in] write_sets - list of all write sets
 */
 
-static void generate_hash_pke(const std::string &pke, THD *thd
+static void generate_hash_pke(const char * pke, size_t pke_length, THD *thd
 #ifndef DBUG_OFF
                               ,
                               std::vector<std::string> &write_sets
@@ -415,25 +417,47 @@ static void generate_hash_pke(const std::string &pke, THD *thd
               HASH_ALGORITHM_OFF);
 
   uint64 hash = calc_hash<const char *>(
-      thd->variables.transaction_write_set_extraction, pke.c_str(), pke.size());
+      thd->variables.transaction_write_set_extraction, pke, pke_length);
   thd->get_transaction()->get_transaction_write_set_ctx()->add_write_set(hash);
 
 #ifndef DBUG_OFF
   write_sets.push_back(pke);
 #endif
-  DBUG_PRINT("info", ("pke: %s; hash: %" PRIu64, pke.c_str(), hash));
+  DBUG_PRINT("info", ("pke: %s; hash: %" PRIu64, pke, hash));
+}
+
+/**
+  Function to generate the hash of the string passed to this function.
+
+  @param[in] pke - the string to be hashed.
+  @param[in] thd - THD object pointing to current thread.
+  @param[in] write_sets - list of all write sets
+*/
+
+static void generate_hash_pke(const std::string &pke, THD *thd
+#ifndef DBUG_OFF
+                              ,
+                              std::vector<std::string> &write_sets
+#endif
+) {
+  return generate_hash_pke(pke.c_str(),pke.length(),thd
+#ifndef DBUG_OFF
+      ,write_sets
+#endif
+      );
 }
 
 /**
   Function to generate set of hashes for a multi-valued key
 
   @param[in] prefix_pke  - stringified non-multi-valued prefix of key
+  @param[in] pke_length  - prefix_pke' lenght
   @param[in] thd         - THD object pointing to current thread.
   @param[in] fld         - multi-valued keypart's field
   @param[in] write_sets  - DEBUG ONLY, vector of added PKEs
 */
 
-static void generate_mv_hash_pke(const std::string &prefix_pke, THD *thd,
+static void generate_mv_hash_pke(const char * prefix_pke, size_t pke_length, THD *thd,
                                  Field *fld
 #ifndef DBUG_OFF
                                  ,
@@ -456,7 +480,7 @@ static void generate_mv_hash_pke(const std::string &prefix_pke, THD *thd,
     DBUG_ASSERT(v.type() == json_binary::Value::ARRAY);
 
     for (uint i = 0; i < elems; i++) {
-      std::string pke = prefix_pke;
+      std::string pke(prefix_pke, pke_length);
       json_binary::Value elt = v.element(i);
       Json_wrapper wr(elt);
       /*
@@ -522,6 +546,8 @@ void add_pke(TABLE *table, THD *thd, uchar *record) {
 
   if (table->key_info && (table->s->primary_key < MAX_KEY)) {
     ptrdiff_t ptrdiff = record - table->record[0];
+
+#ifndef DBUG_OFF
     std::string pke_schema_table;
     pke_schema_table.reserve(NAME_LEN * 3);
     pke_schema_table.append(HASH_STRING_SEPARATOR);
@@ -533,8 +559,12 @@ void add_pke(TABLE *table, THD *thd, uchar *record) {
     pke_schema_table.append(HASH_STRING_SEPARATOR);
     pke_schema_table.append(std::to_string(table->s->table_name.length));
 
-    std::string pke;
-    pke.reserve(NAME_LEN * 5);
+    DBUG_ASSERT(table->s->pke_schema_table == pke_schema_table);//the algorithm is correct
+
+#endif
+
+    ardb::Buffer pke;
+    pke.EnsureWritableBytes(NAME_LEN * 5);
 
 #ifndef DBUG_OFF
     std::vector<std::string> write_sets;
@@ -545,9 +575,9 @@ void add_pke(TABLE *table, THD *thd, uchar *record) {
       if (!((table->key_info[key_number].flags & (HA_NOSAME)) == HA_NOSAME))
         continue;
 
-      pke.clear();
-      pke.append(table->key_info[key_number].name);
-      pke.append(pke_schema_table);
+      pke.Clear();
+      pke.Write(table->key_info[key_number].name,strlen(table->key_info[key_number].name));
+      pke.Write(table->s->pke_schema_table.c_str(),table->s->pke_schema_table.length());
 
       uint i = 0;
       // Whether the key has mv keypart which have to be handled separately
@@ -575,18 +605,20 @@ void add_pke(TABLE *table, THD *thd, uchar *record) {
         field->move_field_offset(ptrdiff);
         const CHARSET_INFO *cs = field->charset();
         int max_length = cs->coll->strnxfrmlen(cs, field->pack_length());
-        std::unique_ptr<uchar[]> pk_value(new uchar[max_length + 1]());
+//        std::unique_ptr<uchar[]> pk_value(new uchar[max_length + 1]());
+        ardb::Buffer pk_value_buff;
+        pk_value_buff.EnsureWritableBytes(max_length + 1);
 
         /*
           convert to normalized string and store so that it can be
           sorted using binary comparison functions like memcmp.
         */
-        size_t length = field->make_sort_key(pk_value.get(), max_length);
-        pk_value[length] = 0;
+        size_t length = field->make_sort_key((uchar*)pk_value_buff.GetRawWriteBuffer(), max_length);
+//        pk_value[length] = 0;
 
-        pke.append(pointer_cast<char *>(pk_value.get()), length);
-        pke.append(HASH_STRING_SEPARATOR);
-        pke.append(std::to_string(length));
+        pke.Write(pk_value_buff.GetRawWriteBuffer(), length);
+        pke.Write(HASH_STRING_SEPARATOR,sizeof(HASH_STRING_SEPARATOR)-1);
+        pke.Write(&length,sizeof(length));//change the algorithm,for more efficient
 
         field->move_field_offset(-ptrdiff);
       }
@@ -601,7 +633,7 @@ void add_pke(TABLE *table, THD *thd, uchar *record) {
       if (i == table->key_info[key_number].user_defined_key_parts) {
         if (mv_field) {
           mv_field->move_field_offset(ptrdiff);
-          generate_mv_hash_pke(pke, thd, mv_field
+          generate_mv_hash_pke(pke.GetRawReadBuffer(),pke.ReadableBytes(), thd, mv_field
 #ifndef DBUG_OFF
                                ,
                                write_sets
@@ -609,7 +641,7 @@ void add_pke(TABLE *table, THD *thd, uchar *record) {
           );
           mv_field->move_field_offset(-ptrdiff);
         } else {
-          generate_hash_pke(pke, thd
+          generate_hash_pke(pke.GetRawReadBuffer(),pke.ReadableBytes(), thd
 #ifndef DBUG_OFF
                             ,
                             write_sets

@@ -145,6 +145,8 @@ bool assert_ref_count_is_locked(const TABLE_SHARE *);
 #define TMP_TABLE_KEY_EXTRA 8
 #define PLACEHOLDER_TABLE_ROW_ESTIMATE 2
 
+#define HASH_STRING_SEPARATOR "½"
+
 /**
   Enumerate possible types of a table from re-execution
   standpoint.
@@ -734,6 +736,8 @@ struct TABLE_SHARE {
   LEX_CSTRING normalized_path{nullptr, 0}; /* unpack_filename(path) */
   LEX_STRING connect_string{nullptr, 0};
 
+  std::string pke_schema_table; //for write set add_pke
+
   /**
     The set of indexes that are not disabled for this table. I.e. it excludes
     indexes disabled by `ALTER TABLE ... DISABLE KEYS`, however it does
@@ -964,6 +968,19 @@ struct TABLE_SHARE {
       appropriate values by using table cache key as their source.
   */
 
+  //those function's code are come from function add_pke
+  void compute_pke_schema_table() {
+    pke_schema_table = "";
+    pke_schema_table.reserve(NAME_LEN * 3);
+    pke_schema_table.append(HASH_STRING_SEPARATOR);
+    pke_schema_table.append(db.str, db.length);
+    pke_schema_table.append(HASH_STRING_SEPARATOR);
+    pke_schema_table.append(std::to_string(db.length));
+    pke_schema_table.append(table_name.str,table_name.length);
+    pke_schema_table.append(HASH_STRING_SEPARATOR);
+    pke_schema_table.append(std::to_string(table_name.length));
+  }
+
   void set_table_cache_key(char *key_buff, size_t key_length) {
     table_cache_key.str = key_buff;
     table_cache_key.length = key_length;
@@ -975,6 +992,8 @@ struct TABLE_SHARE {
     db.length = strlen(db.str);
     table_name.str = db.str + db.length + 1;
     table_name.length = strlen(table_name.str);
+
+    compute_pke_schema_table();
   }
 
   /**

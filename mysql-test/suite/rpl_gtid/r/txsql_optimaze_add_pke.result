@@ -1,0 +1,100 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+select @@global.gtid_mode;
+@@global.gtid_mode
+OFF_PERMISSIVE
+set global gtid_mode = 'off_permissive';
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'ON';
+set gtid_next='automatic';
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+call mtr.add_suppression("Slave I/O for channel '': Master command COM_REGISTER_SLAVE failed: failed registering on master, reconnecting to try *");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format *");
+select @@global.gtid_mode;
+@@global.gtid_mode
+ON
+select @@global.binlog_format;
+@@global.binlog_format
+ROW
+select @@global.binlog_transaction_dependency_tracking;
+@@global.binlog_transaction_dependency_tracking
+WRITESET
+select @@global.transaction_write_set_extraction;
+@@global.transaction_write_set_extraction
+XXHASH64
+select @@global.gtid_mode;
+@@global.gtid_mode
+OFF_PERMISSIVE
+select @@global.binlog_format;
+@@global.binlog_format
+ROW
+select @@global.binlog_transaction_dependency_tracking;
+@@global.binlog_transaction_dependency_tracking
+WRITESET
+select @@global.transaction_write_set_extraction;
+@@global.transaction_write_set_extraction
+XXHASH64
+create table t2(
+`id` int NOT NULL PRIMARY KEY AUTO_INCREMENT ,
+i_info varchar(12800),
+i_dummy varchar(128)
+);
+CREATE TABLE `t` (
+`id` int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+i_info varchar(28800),
+j_array json,
+i_dummy varchar(128),
+j_array_one varchar(120) GENERATED ALWAYS AS (json_extract(j_array, '$[0]')),
+unique index u_i_info(i_info(2880),j_array_one),
+FOREIGN KEY fk_cat(id)  REFERENCES t2(id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ;
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t2 value(0,'short','');
+insert into t(id,i_info,j_array,i_dummy) values(0,'short_1','["one","two"]','dummy_info');
+insert into t(id,i_info,j_array,i_dummy) values(0,repeat('1',12800),'["one","two","three"]','dummy_info');
+insert into t(id,i_info,j_array,i_dummy) values(0,repeat('2',12800),'["one","two","three"]','dummy_info');
+select id,md5(i_info),j_array,i_dummy from t;
+id	md5(i_info)	j_array	i_dummy
+1	0c0989c9c414bde7e66e91da6d8d28ba	["one", "two"]	dummy_info
+2	3d475718b481a414e4e38e5b213d864f	["one", "two", "three"]	dummy_info
+3	49e715fe487ea5cec0dab4098ac9b1c7	["one", "two", "three"]	dummy_info
+include/sync_slave_sql_with_master.inc
+show create table t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `i_info` varchar(28800) DEFAULT NULL,
+  `j_array` json DEFAULT NULL,
+  `i_dummy` varchar(128) DEFAULT NULL,
+  `j_array_one` varchar(120) GENERATED ALWAYS AS (json_extract(`j_array`,_utf8mb4'$[0]')) VIRTUAL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `u_i_info` (`i_info`(2880),`j_array_one`),
+  CONSTRAINT `t_ibfk_1` FOREIGN KEY (`id`) REFERENCES `t2` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1
+select id,md5(i_info),j_array,i_dummy from t;
+id	md5(i_info)	j_array	i_dummy
+1	0c0989c9c414bde7e66e91da6d8d28ba	["one", "two"]	dummy_info
+2	3d475718b481a414e4e38e5b213d864f	["one", "two", "three"]	dummy_info
+3	49e715fe487ea5cec0dab4098ac9b1c7	["one", "two", "three"]	dummy_info
+update t set i_dummy = 'xx';
+select id,md5(i_info),j_array,i_dummy from t;
+id	md5(i_info)	j_array	i_dummy
+1	0c0989c9c414bde7e66e91da6d8d28ba	["one", "two"]	xx
+2	3d475718b481a414e4e38e5b213d864f	["one", "two", "three"]	xx
+3	49e715fe487ea5cec0dab4098ac9b1c7	["one", "two", "three"]	xx
+include/sync_slave_sql_with_master.inc
+select id,md5(i_info),j_array,i_dummy from t;
+id	md5(i_info)	j_array	i_dummy
+1	0c0989c9c414bde7e66e91da6d8d28ba	["one", "two"]	xx
+2	3d475718b481a414e4e38e5b213d864f	["one", "two", "three"]	xx
+3	49e715fe487ea5cec0dab4098ac9b1c7	["one", "two", "three"]	xx
+drop table t,t2;
+include/rpl_end.inc
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'OFF_PERMISSIVE';

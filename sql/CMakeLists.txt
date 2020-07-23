@@ -537,6 +537,7 @@ SET(SQL_SHARED_SOURCES
   table_trigger_dispatcher.cc
   tc_log.cc
   thr_malloc.cc 
+  buffer.cpp
   threadpool_common.cc
   thd_bottom_half.cc
   udpsvr.cc

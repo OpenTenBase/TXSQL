@@ -288,13 +288,17 @@ void Writeset_trx_dependency_tracker::get_dependency(THD *thd,
 
   if (exceeds_capacity || !can_use_writesets) {
     m_writeset_history_start = sequence_number;
-    m_writeset_history.clear();
+    if(m_writeset_history.size() > 0) {//if the binlog format is statement,will run here every trx,m_writeset_history.clear will memset bucket,it is slow.
+      m_writeset_history.clear();
+    }
   }
 }
 
 void Writeset_trx_dependency_tracker::rotate(int64 start) {
   m_writeset_history_start = start;
-  m_writeset_history.clear();
+  if(m_writeset_history.size() > 0) {
+      m_writeset_history.clear();
+  }
 }
 
 /**
