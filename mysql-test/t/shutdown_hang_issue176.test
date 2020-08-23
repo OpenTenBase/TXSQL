@@ -1,7 +1,13 @@
+--source include/have_debug.inc
+
 select @@sqlasyn;
 select @@thread_handling;
 
 call mtr.add_suppression("connection_should_abort is true");
+call mtr.add_suppression("saveThd before sleep");
+call mtr.add_suppression("saveThd after sleep");
+call mtr.add_suppression("CThdBottomHalf::set_thd_error_server_stop");
+
 set global sqlasyn = 1;
 set global sqlasynwarntimeout = 120;
 
@@ -11,9 +17,20 @@ set global sqlasynwarntimeout = 120;
 --error 2013
 --send create table t1 (a int);
 
+
+--connect(con2,127.0.0.1,root,,,,,TCP)
+--connection con2
+SET  debug = '+d,stop_before_saveThd';
+--error 2013
+--send create table t2 (a int);
+
 --connection default
 --source include/restart_mysqld.inc
 
 
 --connection default
 drop table t1;
+drop table t2;
+
+set global sqlasyn=default;
+set global sqlasynwarntimeout=default;

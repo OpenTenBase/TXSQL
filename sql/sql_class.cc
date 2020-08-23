@@ -2928,7 +2928,8 @@ std::string THD::toString() const
 //    m_stmt_da->toString(da_buff, sizeof(da_buff));
   const Security_context *sctx= &m_main_security_ctx;
   snprintf(buff, sizeof(buff),
-              "thd info: net:{%s},security_ctx:{%s},m_ipfromproxy:%s,peerport:%d,proc_info:%s,client_capabilities:%#lX,max_client_packet_length:%lu,conn_broken_cmd:%d, m_command:%d, killed: %d, db:%s,start_time:%lu,query_id:%ld,thread_id:%u,os_thread_id:%d,no_errors:%d,is_fatal_error:%d,current_connect_time:%s,Diagnostics_area:{%s}",
+              "thd info,thread_id:%u: net:{%s},security_ctx:{%s},m_ipfromproxy:%s,peerport:%d,proc_info:%s,client_capabilities:%#lX,max_client_packet_length:%lu,conn_broken_cmd:%d, m_command:%d, killed: %d, db:%s,start_time:%lu,query_id:%ld,thread_id:%u,os_thread_id:%d,no_errors:%d,is_fatal_error:%d,current_connect_time:%s,Diagnostics_area:{%s}",
+              thread_id(),
               net_str,
               sctx? sctx->toString().c_str():"<null>",
               m_ipfromproxy,peer_port,

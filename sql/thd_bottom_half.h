@@ -178,7 +178,7 @@ class CThdBottomHalf: public CUdpServer, public CLocalMysqlThread {
 public:
     CThdBottomHalf(const char*ip, unsigned short localPort, int threadnum)
                    :m_ip(ip), m_port(localPort), m_threadNum(threadnum > 16 ? 16 : threadnum),
-                   timeout_thrdid(0), m_ansThread(NULL) {
+                   timeout_thrdid(0),m_stop_all(false), m_ansThread(NULL) {
         /*
           The same number of CThdBottomHalfAnsThread threads as the NO. of
           worker threads in thread pool, but these answering threads work for
@@ -270,6 +270,8 @@ public:
 
     ~CThdBottomHalf() {}
 
+    void set_thd_error_server_stop(THD *thd);
+
 private:
     // ipV4 address
     const std::string m_ip;
@@ -280,6 +282,7 @@ private:
     pthread_t timeout_thrdid;
     CTMutex m_mutex;
     Thd_Trans_binlog_info m_newstBinlogInfoAns;
+    bool m_stop_all;//weather stop mysqld
     typedef std::deque<CThdKey> ThdQueue_t;
     ThdQueue_t m_thdContainer;
 

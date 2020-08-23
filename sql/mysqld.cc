@@ -7164,9 +7164,6 @@ int mysqld_main(int argc, char **argv)
 #endif  // !_WIN32
   if (g_thdBottomHalf) {
     g_thdBottomHalf->stop_all();
-
-    delete g_thdBottomHalf;
-    g_thdBottomHalf = nullptr;
   }
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /*
@@ -7191,6 +7188,11 @@ int mysqld_main(int argc, char **argv)
   if (0 != ret)
     LogErr(WARNING_LEVEL, ER_CANT_JOIN_SHUTDOWN_THREAD, "signal_", ret);
 #endif  // _WIN32
+
+  if (g_thdBottomHalf) {//run this,all thd have been destored,so we can safely delete g_thdBottomHalf
+    delete g_thdBottomHalf;
+    g_thdBottomHalf = nullptr;
+  }
 
   clean_up(1);
   sysd::notify("STATUS=Server shutdown complete");

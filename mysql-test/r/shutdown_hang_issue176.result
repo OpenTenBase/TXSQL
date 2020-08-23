@@ -5,8 +5,16 @@ select @@thread_handling;
 @@thread_handling
 pool-of-threads
 call mtr.add_suppression("connection_should_abort is true");
+call mtr.add_suppression("saveThd before sleep");
+call mtr.add_suppression("saveThd after sleep");
+call mtr.add_suppression("CThdBottomHalf::set_thd_error_server_stop");
 set global sqlasyn = 1;
 set global sqlasynwarntimeout = 120;
 create table t1 (a int);;
+SET  debug = '+d,stop_before_saveThd';
+create table t2 (a int);;
 # restart
 drop table t1;
+drop table t2;
+set global sqlasyn=default;
+set global sqlasynwarntimeout=default;

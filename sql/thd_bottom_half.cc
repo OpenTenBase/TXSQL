@@ -129,8 +129,23 @@ bool CThdBottomHalf::saveThd(enum enum_server_command command, THD *thd, bool er
 
     THD_STAGE_INFO(thd, stage_waiting_for_sqlasyn_ack_from_slave);
 
+    DBUG_EXECUTE_IF("stop_before_saveThd",
+            {
+                    sql_print_warning("saveThd before sleep,thd:%s",thd->toString().c_str());
+                    sleep(10);
+                    sql_print_warning("saveThd after sleep,thd:%s",thd->toString().c_str());
+            };
+    );
+
     do {
         CTGuard<CTMutex> gaurd(m_mutex);
+
+        if(m_stop_all) {
+          set_thd_error_server_stop(thd);//dba stop mysqld,set error and return directly
+          haveGetAns = true;
+          result = false;
+          break;
+        }
 
         if (m_newstBinlogInfoAns < thd->ack_binlog_pos()) {
             m_thdContainer.push_back(key);
@@ -270,6 +285,18 @@ void CThdBottomHalf::dealBinlogPosAns(BinlogPosAns* binlogAns) {
     } while (0);
 }
 
+void CThdBottomHalf::set_thd_error_server_stop(THD *thd) {
+
+  //set error information
+  thd->get_stmt_da()->set_overwrite_status(true);
+  my_error(ER_SESSION_WAS_KILLED, MYF(0));
+  thd->get_stmt_da()->set_overwrite_status(false);
+
+  //print this error information,That means stop does enter here, so make sure you do it in the right order.
+  sql_print_error("CThdBottomHalf::set_thd_error_server_stop thd thread, reason: %s",thd->toString().c_str());
+
+}
+
 /*
   Pop out processed items until the 1st item is not processed, or until the
   container is empty. This function assumes the 'm_mutex' is locked.
@@ -290,6 +317,8 @@ size_t CThdBottomHalf::pop_processed() {
 void CThdBottomHalf::pop_all() {
 
   CTGuard<CTMutex> gaurd(m_mutex);
+
+  m_stop_all = true;
 
   for (ThdQueue_t::iterator iter = m_thdContainer.begin();
       iter != m_thdContainer.end(); ++iter) {
