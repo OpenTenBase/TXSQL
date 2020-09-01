@@ -404,29 +404,33 @@ ibool rw_lock_x_lock_func_nowait(
 #endif
   if (success) {
     rw_lock_set_writer_id_and_recursion_flag(lock, true);
-
-  } else if (lock->recursive &&
-             os_thread_eq(lock->writer_thread, os_thread_get_curr_id())) {
-    /* Relock: this lock_word modification is safe since no other
-    threads can modify (lock, unlock, or reserve) lock_word while
-    there is an exclusive writer and this is the writer thread. */
-    if (lock->lock_word == 0 || lock->lock_word == -X_LOCK_HALF_DECR) {
-      /* There are 1 x-locks */
-      lock->lock_word -= X_LOCK_DECR;
-    } else if (lock->lock_word <= -X_LOCK_DECR) {
-      /* There are 2 or more x-locks */
-      lock->lock_word--;
-    } else {
-      /* Failure */
-      return (FALSE);
-    }
-
-    /* Watch for too many recursive locks */
-    ut_ad(lock->lock_word < 0);
-
   } else {
-    /* Failure */
-    return (FALSE);
+    os_thread_id_t   thread_id = os_thread_get_curr_id();
+    bool recursive = lock->recursive;
+    os_rmb;//control the order
+    os_thread_id_t writer_thread = lock->writer_thread;
+    if (recursive && os_thread_eq(writer_thread, thread_id)) {
+       /* Relock: this lock_word modification is safe since no other
+       threads can modify (lock, unlock, or reserve) lock_word while
+       there is an exclusive writer and this is the writer thread. */
+       if (lock->lock_word == 0 || lock->lock_word == -X_LOCK_HALF_DECR) {
+         /* There are 1 x-locks */
+         lock->lock_word -= X_LOCK_DECR;
+       } else if (lock->lock_word <= -X_LOCK_DECR) {
+         /* There are 2 or more x-locks */
+         lock->lock_word--;
+       } else {
+         /* Failure */
+         return (FALSE);
+       }
+
+       /* Watch for too many recursive locks */
+       ut_ad(lock->lock_word < 0);
+
+    } else {
+     /* Failure */
+     return (FALSE);
+    }
   }
 
   ut_d(rw_lock_add_debug_info(lock, 0, RW_LOCK_X, file_name, line));
@@ -499,6 +503,10 @@ void rw_lock_x_unlock_func(
       ut_error;
     }
 
+  #ifndef __x86_64__
+    os_wmb;//For non-x86(arm,power pc..) platforms,need add memory barrier，forbid reorder the rw_lock_lock_word_incr and lock->waiters
+    os_rmb;
+  #endif
     /* This no longer has an X-lock but it may still have
     an SX-lock. So it is now free for S-locks by other threads.
     We need to signal read/write waiters.
@@ -547,6 +555,12 @@ void rw_lock_sx_unlock_func(
       if (rw_lock_lock_word_incr(lock, X_LOCK_HALF_DECR) <= X_LOCK_HALF_DECR) {
         ut_error;
       }
+
+  #ifndef __x86_64__
+      os_wmb;//For non-x86(arm,power pc..) platforms,need add memory barrier，forbid reorder the rw_lock_lock_word_incr and lock->waiters
+      os_rmb;
+  #endif
+
       /* Lock is now free. May have to signal read/write
       waiters. We do not need to signal wait_ex waiters,
       since they cannot exist when there is an sx-lock
