@@ -772,9 +772,13 @@ struct trx_sys_t {
     @param[out]    ids        array to store registered transaction identifiers
     @param[out]    max_trx_id variable to store m_max_trx_id value
     @param[out]    mix_trx_no variable to store min(trx->no) value
+    @param[in]     try_clone_global true if it allows to clone from global view
+
+    @retval   true: the caller got a new read view
+              false: the caller could try to clone from global view,
     */
   bool snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_trx_id,
-                    trx_id_t *min_trx_no);
+                    trx_id_t *min_trx_no, bool try_clone_global);
 };
 
 #endif /* !UNIV_HOTBACKUP */

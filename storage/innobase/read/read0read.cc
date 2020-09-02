@@ -184,7 +184,7 @@ static const ulint MIN_TRX_IDS = 32;
 
 /** If set to true, it'll make use of global view to take snapshot
 without iterating lf_hash */
-bool opt_use_cloned_view = true;
+bool opt_use_cloned_view = false;
 /**
 ReadView constructor */
 ReadView::ReadView()
@@ -223,12 +223,17 @@ inline bool ReadView::reuse() {
 }
 
 inline bool ReadView::take_snapshot(trx_t *trx) {
+  bool try_clone_global = (opt_use_cloned_view &&
+                          trx && !trx->is_dd_trx &&
+                          !thd_is_log_apply_thread(trx->mysql_thd));
 
   while (!trx_sys->snapshot_ids(trx, &m_ids,
-                   &m_low_limit_id, &m_low_limit_no)) {
+                   &m_low_limit_id, &m_low_limit_no, try_clone_global)) {
     /* Try to clone from global view. */
     trx_sys->mvcc->clone_slock();
-    if (trx_sys->mvcc->global_view()->low_limit_id() > 0) {
+    if (try_clone_global &&
+        trx_sys->mvcc->global_view()->low_limit_id() > 0 &&
+        trx_sys->mvcc->is_clone_valid()) {
       clone(trx_sys->mvcc->global_view());
       creator_trx_id(trx->id);
       trx_sys->mvcc->clone_sunlock();
@@ -237,6 +242,10 @@ inline bool ReadView::take_snapshot(trx_t *trx) {
     }
     
     trx_sys->mvcc->clone_sunlock();
+
+    /* Only try once, otherwise it may loop too many times under
+    heavy write workload. */
+    try_clone_global = false;
   }
 
   std::sort(m_ids.begin(), m_ids.end());
@@ -302,7 +311,8 @@ void ReadView::snapshot(trx_t *trx) {
         trx_sys->mvcc->clone_slock();
 
         /* Double check */
-        if (trx_sys->mvcc->global_view()->low_limit_id() > 0) {
+        if (trx_sys->mvcc->global_view()->low_limit_id() > 0 &&
+            trx_sys->mvcc->is_clone_valid()) {
           clone(trx_sys->mvcc->global_view());
           creator_trx_id(trx->id);
           trx_sys->mvcc->clone_sunlock();
@@ -427,10 +437,20 @@ void MVCC::clone_oldest_view(ReadView *view) {
   view->snapshot(nullptr);
   
   clone_slock();
-  if (is_clone_valid()) {
+  if (trx_sys->mvcc->global_view()->low_limit_id() > 0) {
      view->subset(m_clone_view);
   }
   clone_sunlock();
+
+  /** Help invalidating the clone view if needed */
+  if (!trx_sys->mvcc->is_clone_valid() &&
+      trx_sys->mvcc->global_view()->low_limit_id() > 0 &&
+      trx_sys->mvcc->clone_xtrylock()) {
+    if (!trx_sys->mvcc->is_clone_valid()) {
+      trx_sys->mvcc->global_view()->init();
+    }
+    clone_xunlock();
+  }
   
   trx_sys_mutex_enter();
 

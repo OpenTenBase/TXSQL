@@ -207,6 +207,7 @@ void trx_sys_t::assign_new_trx_no(trx_t *trx) {
   trx->no = get_new_trx_id_no_refresh();
   trx->rw_trx_hash_element->no = trx->no;
   refresh_rw_trx_hash_version();
+  mvcc->set_view_flag(false);
 }
 
 bool trx_sys_t::copy_one_id(rw_trx_hash_element_t *element,
@@ -222,14 +223,10 @@ bool trx_sys_t::copy_one_id(rw_trx_hash_element_t *element,
 }
 
 bool trx_sys_t::snapshot_ids(trx_t *caller_trx, trx_ids_t *ids, trx_id_t *max_trx_id,
-                             trx_id_t *min_trx_no) {
+                             trx_id_t *min_trx_no, bool try_clone_global) {
   ut_ad(!mutex_own(&mutex));
   snapshot_ids_arg arg(ids);
   uint32_t max_count = srv_snapshot_spin_loop;
-  bool try_clone_global = (opt_use_cloned_view &&
-                    caller_trx && !caller_trx->is_dd_trx &&
-                    !thd_is_log_apply_thread(caller_trx->mysql_thd));
-
   while ((arg.m_id = get_rw_trx_hash_version()) != get_max_trx_id()) {
     /* For background purge thread which has caller_trx = nullptr, we
     always let it spins. */

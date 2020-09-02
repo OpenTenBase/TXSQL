@@ -22716,7 +22716,7 @@ static MYSQL_SYSVAR_BOOL(
 
 static MYSQL_SYSVAR_BOOL(
     use_cloned_view, opt_use_cloned_view, PLUGIN_VAR_OPCMDARG,
-    "Cache the created view and reuse it if true", NULL, NULL, true);
+    "Cache the created view and reuse it if true", NULL, NULL, false);
 
 static MYSQL_SYSVAR_BOOL(
     strict_gtid_commit, opt_strict_gtid_commit, PLUGIN_VAR_OPCMDARG,
