@@ -6681,9 +6681,12 @@ static bool check_default_collation_for_utf8mb4(sys_var *self, THD *thd,
     var->save_result.ptr = reinterpret_cast<void *>(self->get_default());
 
   auto cs = static_cast<const CHARSET_INFO *>(var->save_result.ptr);
-  if (cs == &my_charset_utf8mb4_0900_ai_ci ||
-      cs == &my_charset_utf8mb4_general_ci)
+//  if (cs == &my_charset_utf8mb4_0900_ai_ci ||
+//      cs == &my_charset_utf8mb4_general_ci)
+//    return false;
+  if (!strcmp(MY_UTF8MB4,cs->csname)) {//add more collation
     return false;
+  }
 
   my_error(ER_INVALID_DEFAULT_UTF8MB4_COLLATION, MYF(0), cs->name);
   return true;

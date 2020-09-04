@@ -971,6 +971,7 @@ char *my_admin_bind_addr_str;
 uint mysqld_admin_port;
 bool listen_admin_interface_in_separate_thread;
 static const char *default_collation_name;
+static const char *default_collation_for_utf8mb4_str;
 const char *default_storage_engine;
 const char *default_tmp_storage_engine;
 ulonglong temptable_max_ram;
@@ -4632,8 +4633,23 @@ int init_common_variables() {
   /* Set collactions that depends on the default collation */
   global_system_variables.collation_server = default_charset_info;
   global_system_variables.collation_database = default_charset_info;
-  global_system_variables.default_collation_for_utf8mb4 =
-      &my_charset_utf8mb4_0900_ai_ci;
+  if (!default_collation_for_utf8mb4_str) {
+    global_system_variables.default_collation_for_utf8mb4 = &my_charset_utf8mb4_0900_ai_ci;
+  } else {
+    CHARSET_INFO * tmp_collation = get_charset_by_name(default_collation_for_utf8mb4_str, MYF(0));
+    if (!tmp_collation) {
+      sql_print_error("default_collation_for_utf8mb4:%s can't be loaded",default_collation_for_utf8mb4_str);
+      return 1;
+    }
+    if (strcmp(MY_UTF8MB4, tmp_collation->csname)) {
+      LogErr(ERROR_LEVEL, ER_INVALID_COLLATION_FOR_CHARSET,
+          default_collation_for_utf8mb4_str, tmp_collation->csname);
+      return 1;
+    }
+    global_system_variables.default_collation_for_utf8mb4 = tmp_collation;
+  }
+
+  sql_print_information("global_system_variables.default_collation_for_utf8mb4 is:%s",global_system_variables.default_collation_for_utf8mb4->name);
 
   if (is_supported_parser_charset(default_charset_info)) {
     global_system_variables.collation_connection = default_charset_info;
@@ -7809,6 +7825,11 @@ struct my_option my_long_options[] = {
     {"collation-server", 0, "Set the default collation.",
      &default_collation_name, &default_collation_name, 0, GET_STR, REQUIRED_ARG,
      0, 0, 0, 0, 0, 0},
+
+    {"default_collation_for_utf8mb4", 0, "Controls default collation for utf8mb4 while replicating implicit utf8mb4 collations.",
+      &default_collation_for_utf8mb4_str, &default_collation_for_utf8mb4_str, 0, GET_STR, REQUIRED_ARG,
+      0, 0, 0, 0, 0, 0},
+
     {"console", OPT_CONSOLE,
      "Write error output on screen; don't remove the console window on "
      "windows.",

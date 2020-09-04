@@ -30,6 +30,22 @@ SET @@default_collation_for_utf8mb4 = latin2_general_ci;
 
 SET @@default_collation_for_utf8mb4 = utf8mb4_general_ci;
 
+set @@default_collation_for_utf8mb4 = utf8mb4_bin;
+select @@default_collation_for_utf8mb4;
+
+set global default_collation_for_utf8mb4 = utf8mb4_spanish_ci;
+select @@global.default_collation_for_utf8mb4;
+select @@default_collation_for_utf8mb4;
+
+
+set @@default_collation_for_utf8mb4 = utf8mb4_is_0900_ai_ci;
+select @@default_collation_for_utf8mb4;
+
+set global default_collation_for_utf8mb4 = utf8mb4_persian_ci;
+select @@global.default_collation_for_utf8mb4;
+select @@default_collation_for_utf8mb4;
+
+
 --echo #
 --echo # String literals
 --echo #
@@ -300,5 +316,6 @@ DROP DATABASE db1;
 USE test;
 
 SET @@default_collation_for_utf8mb4 = DEFAULT;
+SET @@global.default_collation_for_utf8mb4 = 'utf8mb4_general_ci';
 
 --echo #
