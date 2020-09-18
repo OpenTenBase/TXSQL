@@ -6027,6 +6027,9 @@ space_id_t fil_space_get_id_by_name(const char *name) {
 @param[in] read_only_mode
                         if true, then read only mode checks are enforced.
 @return DB_SUCCESS or error code */
+static const size_t static_fill_write_zerod_buf_len = 1024*1024*10;
+static const byte static_fill_write_zerod_buf[static_fill_write_zerod_buf_len] = {0};
+
 static dberr_t fil_write_zeros(const fil_node_t *file, ulint page_size,
                                os_offset_t start, ulint len,
                                bool read_only_mode) {
@@ -6035,9 +6038,12 @@ static dberr_t fil_write_zeros(const fil_node_t *file, ulint page_size,
   /* Extend at most 1M at a time */
   ulint n_bytes = ut_min(static_cast<ulint>(1024 * 1024), len);
 
-  byte *ptr = reinterpret_cast<byte *>(ut_zalloc_nokey(n_bytes + page_size));
+  const byte *ptr = static_fill_write_zerod_buf;
+  if (unlikely(n_bytes + page_size >= static_fill_write_zerod_buf_len)) {
+    ptr = reinterpret_cast<byte *>(ut_zalloc_nokey(n_bytes + page_size));
+  }
 
-  byte *buf = reinterpret_cast<byte *>(ut_align(ptr, page_size));
+  const byte *buf = reinterpret_cast<byte *>(ut_align(ptr, page_size));
 
   os_offset_t offset = start;
   dberr_t err = DB_SUCCESS;
@@ -6049,7 +6055,7 @@ static dberr_t fil_write_zeros(const fil_node_t *file, ulint page_size,
     err =
         os_file_write(request, file->name, file->handle, buf, offset, n_bytes);
 #else  /* UNIV_HOTBACKUP */
-    err = os_aio_func(request, AIO_mode::SYNC, file->name, file->handle, buf,
+    err = os_aio_func(request, AIO_mode::SYNC, file->name, file->handle, (void*)buf,
                       offset, n_bytes, read_only_mode, nullptr, nullptr);
 #endif /* UNIV_HOTBACKUP */
 
@@ -6064,7 +6070,10 @@ static dberr_t fil_write_zeros(const fil_node_t *file, ulint page_size,
     DBUG_EXECUTE_IF("ib_crash_during_tablespace_extension", DBUG_SUICIDE(););
   }
 
-  ut_free(ptr);
+  if (unlikely(ptr != static_fill_write_zerod_buf)) {
+    ut_free((void*)ptr);
+  }
+
 
   return (err);
 }
