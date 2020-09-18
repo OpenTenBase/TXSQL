@@ -124,7 +124,7 @@ class Writeset_trx_dependency_tracker {
  public:
   Writeset_trx_dependency_tracker(ulong max_history_size)
       : m_opt_max_history_size(max_history_size), m_writeset_history_start(0),
-        m_writeset_history(&writeset_history_mem_root,(size_t)max_history_size/2) {}
+        m_writeset_history(std::less<uint64_t>(),Memroot_allocator<std::pair<const uint64_t, uint64_t>>(&writeset_history_mem_root)) {}
 
   /**
     Main function that gets the dependencies using the WRITESET tracker.
@@ -157,9 +157,8 @@ class Writeset_trx_dependency_tracker {
     Track the last transaction sequence number that changed each row
     in the database, using row hashes from the writeset as the index.
   */
-//  typedef std::map<uint64, int64> Writeset_history;
+  typedef std::map<uint64, int64,std::less<uint64_t>,Memroot_allocator<std::pair<const uint64_t, uint64_t>>> Writeset_history;
   MEM_ROOT writeset_history_mem_root;
-  typedef memroot_unordered_map<uint64, int64> Writeset_history;
   Writeset_history m_writeset_history;
 };
 

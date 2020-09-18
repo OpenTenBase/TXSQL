@@ -290,6 +290,7 @@ void Writeset_trx_dependency_tracker::get_dependency(THD *thd,
     m_writeset_history_start = sequence_number;
     if(m_writeset_history.size() > 0) {//if the binlog format is statement,will run here every trx,m_writeset_history.clear will memset bucket,it is slow.
       m_writeset_history.clear();
+      writeset_history_mem_root.ClearForReuse();//when clean all nodes,we should clear the memory
     }
   }
 }
@@ -298,6 +299,7 @@ void Writeset_trx_dependency_tracker::rotate(int64 start) {
   m_writeset_history_start = start;
   if(m_writeset_history.size() > 0) {
       m_writeset_history.clear();
+      writeset_history_mem_root.ClearForReuse();//when clean all nodes,we should clear the memory
   }
 }
 
