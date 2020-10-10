@@ -2880,7 +2880,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
   CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_execute_command");
 
   /* cdb_sql_filter: store matched rules */
-  std::vector<Rule*> matched_rules;
+  std::vector<cdb_sql_filter::Rule*> matched_rules;
 
   /*
     If there is a CREATE TABLE...START TRANSACTION command which

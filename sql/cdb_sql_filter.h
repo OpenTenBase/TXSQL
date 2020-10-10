@@ -30,7 +30,6 @@ struct display_result{
   std::string origin_rule_str;
   std::string key_string;
 };
-} // namespace cdb_sql_filter
 
 class Rule
 {
@@ -171,4 +170,7 @@ public:
   void get_all_rules_for_display(std::vector< cdb_sql_filter::display_result> &ret);
 
 };
-extern Cdb_Sql_Filter_Manager cdb_sql_filter_manager;
+
+} // namespace cdb_sql_filter
+
+extern cdb_sql_filter::Cdb_Sql_Filter_Manager cdb_sql_filter_manager;
