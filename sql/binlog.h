@@ -827,7 +827,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void stop_union_events(THD *thd);
   bool is_query_in_union(THD *thd, query_id_t query_id_param);
 
-  bool write_buffer(const char *buf, uint len, Master_info *mi, bool sync_rl);
+  bool write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl);
   bool write_event(Log_event *ev, Master_info *mi);
 
  private:
@@ -905,6 +905,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   inline mysql_mutex_t *get_log_lock() { return &LOCK_log; }
   inline mysql_cond_t *get_log_cond() { return &update_cond; }
   inline Binlog_ofile *get_binlog_file() { return m_binlog_file; }
+  my_off_t get_binlog_file_position() ;
 
   inline void lock_index() { mysql_mutex_lock(&LOCK_index); }
   inline void unlock_index() { mysql_mutex_unlock(&LOCK_index); }

@@ -124,6 +124,8 @@
 #include "sql_partition.h"
 #include "thr_lock.h"
 
+extern bool txsql_slave_io_optimaze_write;
+
 class Item;
 
 using binary_log::checksum_crc32;
@@ -1537,20 +1539,22 @@ bool MYSQL_BIN_LOG::write_gtid(THD *thd, binlog_cache_data *cache_data,
     thd->variables.original_commit_timestamp = UNDEFINED_COMMIT_TIMESTAMP;
   }
 
-  if (thd->slave_thread) {
-    // log warning if the replication timestamps are invalid
-    if (original_commit_timestamp > immediate_commit_timestamp &&
-        !thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged) {
-      LogErr(WARNING_LEVEL, ER_INVALID_REPLICATION_TIMESTAMPS);
-      thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged = true;
-    } else {
-      if (thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged &&
-          original_commit_timestamp <= immediate_commit_timestamp) {
-        LogErr(WARNING_LEVEL, ER_RPL_TIMESTAMPS_RETURNED_TO_NORMAL);
-        thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged = false;
-      }
-    }
-  }
+  //There is a time error at the millisecond level on the source and replication machines
+  //those warnings don't have meaning
+//  if (thd->slave_thread) {
+//    // log warning if the replication timestamps are invalid
+//    if (original_commit_timestamp > immediate_commit_timestamp &&
+//        !thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged) {
+//      LogErr(WARNING_LEVEL, ER_INVALID_REPLICATION_TIMESTAMPS);
+//      thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged = true;
+//    } else {
+//      if (thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged &&
+//          original_commit_timestamp <= immediate_commit_timestamp) {
+//        LogErr(WARNING_LEVEL, ER_RPL_TIMESTAMPS_RETURNED_TO_NORMAL);
+//        thd->rli_slave->get_c_rli()->gtid_timestamps_warning_logged = false;
+//      }
+//    }
+//  }
 
   uint32_t trx_immediate_server_version =
       do_server_version_int(::server_version);
@@ -6865,7 +6869,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   return error;
 }
 
-bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, bool sync_rl) {
+bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl) {
   DBUG_TRACE;
 
   // check preconditions
@@ -6876,7 +6880,9 @@ bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, boo
   bool error = false;
   if (m_binlog_file->write(pointer_cast<const uchar *>(buf), len) == 0) {
     bytes_written += len;
-    error = after_write_to_relay_log(mi, sync_rl);
+    if((!txsql_slave_io_optimaze_write) || need_write || sync_rl) {
+      error = after_write_to_relay_log(mi, sync_rl);
+    }
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -7283,6 +7289,15 @@ end:
   mysql_mutex_unlock(&mysql_bin_log.LOCK_commit);
 
   return error;
+}
+
+my_off_t MYSQL_BIN_LOG::get_binlog_file_position() {
+  if(m_binlog_file) {
+    return m_binlog_file->position();
+  } else {
+    return 0;
+  }
+
 }
 
 /**

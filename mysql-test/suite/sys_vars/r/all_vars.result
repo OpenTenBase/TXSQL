@@ -242,6 +242,8 @@ txsql_kill_idle_trans_timeout
 txsql_kill_idle_trans_timeout
 txsql_optimize_xa_recover
 txsql_optimize_xa_recover
+txsql_slave_io_optimaze_write
+txsql_slave_io_optimaze_write
 txsql_slave_wait_group_done
 txsql_slave_wait_group_done
 use_secondary_engine

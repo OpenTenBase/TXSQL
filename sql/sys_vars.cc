@@ -7207,3 +7207,10 @@ static Sys_var_uint Sys_txsql_slave_wait_group_done(
     CMD_LINE(OPT_ARG),
     VALID_RANGE(1, 200), DEFAULT(60), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
+extern bool txsql_slave_io_optimaze_write;
+static Sys_var_bool Sys_g_txsql_slave_io_optimaze_write(
+    "txsql_slave_io_optimaze_write",
+    "optimize slave io thread to reduce write",
+    GLOBAL_VAR(txsql_slave_io_optimaze_write),
+    CMD_LINE(OPT_ARG), DEFAULT(false));

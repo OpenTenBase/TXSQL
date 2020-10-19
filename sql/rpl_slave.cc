@@ -170,6 +170,8 @@ bool use_slave_mask = 0;
 MY_BITMAP slave_error_mask;
 char slave_skip_error_names[SHOW_VAR_FUNC_BUFF_SIZE];
 
+bool txsql_slave_io_optimaze_write = false;
+
 char *slave_load_tmpdir = nullptr;
 bool replicate_same_server_id;
 ulonglong relay_log_space_limit = 0;
@@ -7465,6 +7467,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
   ulong s_id;
   int lock_count = 0;
   needAck = false;
+  bool need_write = false;//need call write relay to relay log(when trx ends)
   rl_synced= false;
 
   DBUG_EXECUTE_IF("wait_in_the_middle_of_trx", {
@@ -8114,15 +8117,19 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
          (ulong)mi->get_master_log_pos(), uint4korr(buf + SERVER_ID_OFFSET)));
   } else {
     bool is_error = false;
+
+    need_write = checkNeedAck(mi,event_type);
+    if (!need_write && event_type == QUERY_EVENT) {
+     Query_log_event qe(buf, mi->get_mi_description_event(), event_type);
+     need_write = qe.ends_group();
+     mi->setLastGtidIsDdl((qe.header()->flags) & LOG_EVENT_DDL_F);
+    }
+
     bool is_default_channel =
       strcmp(mi->get_channel(), channel_map.get_default_channel()) == 0;
+
     if (g_sqlAsyn && likely(is_default_channel)) {
-      needAck = checkNeedAck(mi,event_type);
-      if (!needAck && event_type == QUERY_EVENT) {
-        Query_log_event qe(buf, mi->get_mi_description_event(), event_type);
-        needAck= qe.ends_group();
-        mi->setLastGtidIsDdl((qe.header()->flags) & LOG_EVENT_DDL_F);
-      }
+      needAck = need_write;
     }
 
     /*
@@ -8142,7 +8149,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       rl_synced= true; // we must sync relay log now.
 
     /* write the event to the relay log */
-    if (likely(rli->relay_log.write_buffer(buf, event_len, mi, rl_synced) == 0)) {
+    if (likely(rli->relay_log.write_buffer(buf, event_len, mi, need_write, rl_synced) == 0)) {
       DBUG_SIGNAL_WAIT_FOR(current_thd,
                            "pause_on_queue_event_after_write_buffer",
                            "receiver_reached_pause_on_queue_event",
@@ -8173,6 +8180,16 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
                               mi->get_queueing_trx_gtid()->gno));
         }
       }
+
+      DBUG_EXECUTE_IF("check_have_write_partiton_relaylog", {
+          class Binlog_ofile;
+          //now file size >= buf_len ,but file size < buf_len before write
+          if(!need_write && !rl_synced && rli->relay_log.get_binlog_file_position() > IO_SIZE * 2
+              && rli->relay_log.get_binlog_file_position() - event_len < IO_SIZE * 2 ) {
+            DBUG_SUICIDE();//kill myself
+          }
+      };);
+
 #endif
 
       /*
