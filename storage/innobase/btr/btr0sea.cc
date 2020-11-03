@@ -668,6 +668,15 @@ void btr_search_info_update_slow(btr_search_t *info, btr_cur_t *cursor) {
   btr_search_info_update_hash(info, cursor);
 
   build_index = btr_search_update_block_hash_info(info, block, cursor);
+  /** If the AHI partition latch is currently X-locked by another writer, 
+    * we avoid contending on this latch as this function is on the critical
+    * btree search path.
+    * Since we do not clear any search stats on this block, the hash index 
+    * will eventually be built when accessing this page later again. */
+  if (build_index && rw_lock_get_writer(btr_get_search_latch(cursor->index))
+    != RW_LOCK_NOT_LOCKED) {
+    return;
+  }
 
   if (build_index || (cursor->flag == BTR_CUR_HASH_FAIL)) {
     btr_search_check_free_space_in_heap(cursor->index);
