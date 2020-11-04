@@ -4362,6 +4362,7 @@ class THD : public MDL_context_owner,
   void set_system_user(bool system_user_flag);
 
   std::string toString() const;
+  bool cdb_sql_rejected_by_firewall;
 };
 
 /**

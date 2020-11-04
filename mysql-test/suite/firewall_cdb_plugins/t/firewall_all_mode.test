@@ -1,0 +1,52 @@
+--disable_ps_protocol
+--source suite/firewall_cdb_plugins/include/install_firewall_cdb.inc
+--source suite/firewall_cdb_plugins/include/firewall_test_init.inc
+
+#PROTECT
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
+set global firewall_cdb_mode = ON;
+select load_cdb_firewall_whitelist();
+connect(conn_firewall, localhost, firewalltest,,test);
+select * from t1;
+--error ER_REJECT_BY_CDB_FIREWALL
+select * from t2;
+
+#RECORDING
+connection default;
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'RECORDING');
+call mysql.sp_set_cdb_firewall_mode('root', 'localhost', 'PROTECT');
+select 1;
+connection conn_firewall;
+# thd->normalized_query() will return 'select ' for query 'use information_schema'
+use test;
+select * from t1;
+select * from t2;
+insert into t1 values(1);
+use information_schema;
+select * from cdb_firewall_whitelist;
+
+# test RECORDING sql can be executed
+connection default;
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
+connection conn_firewall;
+use test;
+select * from t1;
+select * from t2;
+insert into t1 values(1);
+--error ER_REJECT_BY_CDB_FIREWALL
+insert into t2 values(1);
+use information_schema;
+select * from cdb_firewall_whitelist;
+
+# test Detect
+connection default;
+# compatible for warnings
+call mtr.add_suppression('Rejected by cdb firewall');
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'DETECT');
+connection conn_firewall;
+select * from test.t1;
+insert into test.t2 values(1);
+
+--source suite/firewall_cdb_plugins/include/firewall_test_deinit.inc
+--source suite/firewall_cdb_plugins/include/uninstall_firewall_cdb.inc
+--enable_ps_protocol

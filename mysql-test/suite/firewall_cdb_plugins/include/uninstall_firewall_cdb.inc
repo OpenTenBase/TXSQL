@@ -1,0 +1,20 @@
+disable_query_log;
+disable_warnings;
+select flush_cdb_firewall_whitelist();
+drop table if exists mysql.cdb_firewall_users;
+drop table if exists mysql.cdb_firewall_whitelist;
+DROP FUNCTION load_cdb_firewall_userhost_mode;
+DROP FUNCTION flush_cdb_firewall_whitelist;
+DROP FUNCTION load_cdb_firewall_whitelist;
+DROP FUNCTION reload_cdb_firewall_user_rules;
+DROP FUNCTION cdb_firewall_flush_status;
+DROP FUNCTION cdb_normalize_statement;
+DROP FUNCTION set_cdb_firewall_userhost_mode;
+DROP PROCEDURE mysql.sp_reload_cdb_firewall_user_rules;
+DROP PROCEDURE mysql.sp_set_cdb_firewall_mode;
+
+UNINSTALL PLUGIN FIREWALL_CDB;
+UNINSTALL PLUGIN CDB_FIREWALL_WHITELIST;
+UNINSTALL PLUGIN CDB_FIREWALL_USERS;
+enable_warnings;
+enable_query_log;

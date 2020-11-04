@@ -172,6 +172,7 @@
 #include "sql_string.h"
 #include "thr_lock.h"
 #include "violite.h"
+#include "sql/sql_cdb_firewall.h" // cdb_firewall_check_sql
 
 #ifdef WITH_LOCK_ORDER
 #include "sql/debug_lock_order.h"
@@ -2988,6 +2989,12 @@ int mysql_execute_command(THD *thd, bool first_level) {
     }
   } /* endif unlikely slave */
 
+  thd->cdb_sql_rejected_by_firewall = false;
+  cdb_firewall_check_sql(thd);
+  if (thd->cdb_sql_rejected_by_firewall) {
+    my_error(ER_REJECT_BY_CDB_FIREWALL, MYF(0));
+    return -1;
+  }
   thd->status_var.com_stat[lex->sql_command]++;
 
   Opt_trace_start ots(thd, all_tables, lex->sql_command, &lex->var_list,
