@@ -289,6 +289,8 @@ extern os_event_t srv_buf_dump_event;
 extern os_event_t srv_buf_resize_event;
 #endif /* !UNIV_HOTBACKUP */
 
+extern bool  srv_temp_tablespace_fast_cleanup;
+
 /** The buffer pool dump/load file name */
 #define SRV_BUF_DUMP_FILENAME_DEFAULT "ib_buffer_pool"
 extern char *srv_buf_dump_filename;

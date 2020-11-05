@@ -22840,6 +22840,13 @@ static MYSQL_SYSVAR_BOOL(ddl_log_crash_reset_debug,
                          ddl_log_crash_reset, FALSE);
 #endif /* UNIV_DEBUG */
 
+static MYSQL_SYSVAR_BOOL(temp_tablespace_fast_cleanup,
+                         srv_temp_tablespace_fast_cleanup,
+                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+                         "Enable the temp tablespace fast cleanup. "
+                         "Disabled by default",
+                         NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_STR(directories, innobase_directories,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY |
                             PLUGIN_VAR_NOPERSIST,
@@ -23045,6 +23052,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(redo_log_archive_dirs),
     MYSQL_SYSVAR(redo_log_encrypt),
     MYSQL_SYSVAR(print_ddl_logs),
+    MYSQL_SYSVAR(temp_tablespace_fast_cleanup),
 #ifdef UNIV_DEBUG
     MYSQL_SYSVAR(trx_rseg_n_slots_debug),
     MYSQL_SYSVAR(limit_optimistic_insert_debug),

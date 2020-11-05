@@ -786,6 +786,9 @@ os_event_t srv_buf_dump_event;
 /** Event to signal the buffer pool resize thread */
 os_event_t srv_buf_resize_event;
 
+/* whether fast temp tablespace cleanup is enabled */
+bool srv_temp_tablespace_fast_cleanup = false;
+
 /** The buffer pool dump/load file name */
 char *srv_buf_dump_filename;
 
@@ -1533,6 +1536,15 @@ ibool srv_printf_innodb_monitor(
   srv_n_rows_updated_old = srv_stats.n_rows_updated;
   srv_n_rows_deleted_old = srv_stats.n_rows_deleted;
   srv_n_rows_read_old = srv_stats.n_rows_read;
+
+  if (srv_temp_tablespace_fast_cleanup) {
+      fputs(
+          "-----------------------------\n"
+          "TEMP TABLE FAST CLEANUP STATS\n"
+          "-----------------------------\n",
+          file);
+      temp_tablespace_pages_print_stats(file);
+  }
 
   fputs(
       "----------------------------\n"

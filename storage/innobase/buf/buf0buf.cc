@@ -1354,6 +1354,10 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
   /* Initialize the iterator for single page scan search */
   new (&buf_pool->single_scan_itr) LRUItr(buf_pool, &buf_pool->LRU_list_mutex);
 
+  if (srv_temp_tablespace_fast_cleanup) {
+    buf_pool->temp_tablespace_pages =
+      new std::unordered_set<buf_page_t*>[TEMP_TABLESPACE_PAGES_MAP_PARTS];
+  }
   err = DB_SUCCESS;
 }
 
@@ -1421,6 +1425,11 @@ static void buf_pool_free_instance(buf_pool_t *buf_pool) {
   hash_table_free(buf_pool->zip_hash);
 
   buf_pool->allocator.~ut_allocator();
+
+  if (srv_temp_tablespace_fast_cleanup) {
+    delete []buf_pool->temp_tablespace_pages;
+    buf_pool->temp_tablespace_pages = nullptr;
+  }
 }
 
 /** Frees the buffer pool global data structures. */
@@ -1573,10 +1582,22 @@ static bool buf_page_realloc(buf_pool_t *buf_pool, buf_block_t *block) {
     buf_page_t *prev_b = UT_LIST_GET_PREV(LRU, &block->page);
     UT_LIST_REMOVE(buf_pool->LRU, &block->page);
 
+    if (srv_temp_tablespace_fast_cleanup &&
+        fsp_is_system_temporary(block->page.id.space())) {
+      ut_ad(in_temp_tablespace_pages_map(buf_pool, &block->page));
+      temp_tablespace_pages_map_remove(buf_pool, &block->page);
+    }
+
     if (prev_b != NULL) {
       UT_LIST_INSERT_AFTER(buf_pool->LRU, prev_b, &new_block->page);
     } else {
       UT_LIST_ADD_FIRST(buf_pool->LRU, &new_block->page);
+    }
+
+    if (srv_temp_tablespace_fast_cleanup &&
+        fsp_is_system_temporary(block->page.id.space())) {
+      ut_ad(!in_temp_tablespace_pages_map(buf_pool, &new_block->page));
+      temp_tablespace_pages_map_add(buf_pool, &new_block->page);
     }
 
     if (buf_pool->LRU_old == &block->page) {
@@ -2638,10 +2659,22 @@ static void buf_relocate(buf_page_t *bpage, buf_page_t *dpage) {
   b = UT_LIST_GET_PREV(LRU, bpage);
   UT_LIST_REMOVE(buf_pool->LRU, bpage);
 
+  if (srv_temp_tablespace_fast_cleanup &&
+      fsp_is_system_temporary(bpage->id.space())) {
+    ut_ad(in_temp_tablespace_pages_map(buf_pool, bpage));
+    temp_tablespace_pages_map_remove(buf_pool, bpage);
+  }
+
   if (b != NULL) {
     UT_LIST_INSERT_AFTER(buf_pool->LRU, b, dpage);
   } else {
     UT_LIST_ADD_FIRST(buf_pool->LRU, dpage);
+  }
+
+  if (srv_temp_tablespace_fast_cleanup &&
+      fsp_is_system_temporary(bpage->id.space())) {
+    ut_ad(!in_temp_tablespace_pages_map(buf_pool, dpage));
+    temp_tablespace_pages_map_add(buf_pool, dpage);
   }
 
   if (buf_pool->LRU_old == bpage) {
@@ -4721,6 +4754,11 @@ buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
       buf_unzip_LRU_add_block(block, TRUE);
     }
 
+    if (srv_temp_tablespace_fast_cleanup &&
+        fsp_is_system_temporary(page_id.space())) {
+      temp_tablespace_pages_map_add(buf_pool, bpage);
+    }
+
     mutex_exit(&buf_pool->LRU_list_mutex);
 
     /* We set a pass-type x-lock on the frame because then
@@ -4789,6 +4827,10 @@ buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
     buf_LRU_insert_zip_clean(bpage);
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
+    if (srv_temp_tablespace_fast_cleanup &&
+        fsp_is_system_temporary(page_id.space())) {
+      temp_tablespace_pages_map_add(buf_pool, bpage);
+    }
     mutex_exit(&buf_pool->LRU_list_mutex);
 
     buf_page_set_io_fix(bpage, BUF_IO_READ);
@@ -4884,6 +4926,11 @@ buf_block_t *buf_page_create(const page_id_t &page_id,
 
   /* The block must be put to the LRU list */
   buf_LRU_add_block(&block->page, FALSE);
+
+  if (srv_temp_tablespace_fast_cleanup &&
+      fsp_is_system_temporary(page_id.space())) {
+    temp_tablespace_pages_map_add(buf_pool, &block->page);
+  }
 
   os_atomic_increment_ulint(&buf_pool->stat.n_pages_created, 1);
 
@@ -6427,3 +6474,89 @@ void buf_pool_free_all() {
   buf_pool_free();
 }
 #endif /* !UNIV_HOTBACKUP */
+
+
+bool
+in_temp_tablespace_pages_map(buf_pool_t * buf_pool,
+                             buf_page_t * page) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ulint part_no =
+    page->id.space() % TEMP_TABLESPACE_PAGES_MAP_PARTS;
+  return buf_pool->temp_tablespace_pages[part_no].find(page) !=
+         buf_pool->temp_tablespace_pages[part_no].end();
+}
+
+void
+temp_tablespace_pages_map_add(buf_pool_t * buf_pool,
+                              buf_page_t * page) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ulint part_no =
+    page->id.space() % TEMP_TABLESPACE_PAGES_MAP_PARTS;
+  buf_pool->temp_tablespace_pages[part_no].insert(page);
+}
+
+void
+temp_tablespace_pages_map_remove(buf_pool_t * buf_pool,
+                                 buf_page_t * page) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ulint part_no =
+    page->id.space() % TEMP_TABLESPACE_PAGES_MAP_PARTS;
+  buf_pool->temp_tablespace_pages[part_no].erase(page);
+}
+
+
+std::unordered_set<buf_page_t*>::const_iterator
+temp_tablespace_pages_map_find(buf_pool_t * buf_pool,
+                               buf_page_t * bpage) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ulint part_no =
+    bpage->id.space() % TEMP_TABLESPACE_PAGES_MAP_PARTS;
+  return buf_pool->temp_tablespace_pages[part_no].find(bpage);
+}
+
+std::unordered_set<buf_page_t*>::const_iterator
+temp_tablespace_pages_map_iter_begin(buf_pool_t * buf_pool,
+                                     space_id_t id) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ulint part_no =
+    id % TEMP_TABLESPACE_PAGES_MAP_PARTS;
+  return buf_pool->temp_tablespace_pages[part_no].begin();
+}
+
+std::unordered_set<buf_page_t*>::const_iterator
+temp_tablespace_pages_map_iter_end(buf_pool_t * buf_pool,
+                                   space_id_t id) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ulint part_no =
+    id % TEMP_TABLESPACE_PAGES_MAP_PARTS;
+  return buf_pool->temp_tablespace_pages[part_no].end();
+}
+
+
+void temp_tablespace_pages_print_stats(FILE* file) {
+  ulint total_temp_pages = 0;
+  for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+    buf_pool_t *buf_pool;
+
+    buf_pool = buf_pool_from_array(i);
+
+    mutex_enter(&buf_pool->LRU_list_mutex);
+
+    ulint instance_total_temp_pages = 0;
+    for (ulint part_no = 0; part_no < TEMP_TABLESPACE_PAGES_MAP_PARTS;
+         ++part_no) {
+      instance_total_temp_pages +=
+        buf_pool->temp_tablespace_pages[part_no].size();
+    }
+
+    mutex_exit(&buf_pool->LRU_list_mutex);
+
+    fprintf(file, "Buffer Pool Instance %lu: %lu temp table pages\n",
+            i, instance_total_temp_pages);
+    total_temp_pages += instance_total_temp_pages;
+  }
+
+  fprintf(file, "\nTotal buffered temp table pages: %lu,"
+                " approximated memory overhead: %lu bytes\n",
+                total_temp_pages, total_temp_pages * 24);
+}

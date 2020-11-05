@@ -238,6 +238,144 @@ static void buf_LRU_drop_page_hash_batch(space_id_t space_id,
   }
 }
 
+
+/** When doing a DROP TABLE/DISCARD TABLESPACE we have to drop all page
+hash index entries belonging to that table. This function tries to
+do that in batch. Note that this is a 'best effort' attempt and does
+not guarantee that ALL hash entries will be removed.
+@param[in]	buf_pool	buffer pool instance
+@param[in]	space_id	space id */
+static void buf_LRU_drop_page_hash_for_temp_tablespace(buf_pool_t *buf_pool,
+                                                      space_id_t space_id) {
+  bool found;
+  const page_size_t page_size(fil_space_get_page_size(space_id, &found));
+  ut_a(fsp_is_system_temporary(space_id));
+
+  if (!found) {
+    /* Somehow, the tablespace does not exist.  Nothing to drop. */
+    ut_ad(0);
+    return;
+  }
+
+  page_no_t *page_arr = static_cast<page_no_t *>(
+      ut_malloc_nokey(sizeof(page_no_t) * BUF_LRU_DROP_SEARCH_SIZE));
+
+  ulint num_entries = 0;
+
+  mutex_enter(&buf_pool->LRU_list_mutex);
+
+scan_again:
+    std::unordered_set<buf_page_t*>::const_iterator it;
+    std::unordered_set<buf_page_t*>::const_iterator next_it;
+    buf_page_t* bpage = nullptr;
+    for (it = temp_tablespace_pages_map_iter_begin(buf_pool, space_id);
+         it != temp_tablespace_pages_map_iter_end(buf_pool, space_id);
+        /* No op */) {
+
+      bpage = *it;
+      next_it = it;
+      ++next_it;
+
+      ut_ad(fsp_is_system_temporary(bpage->id.space()));
+      ut_a(buf_page_in_file(bpage));
+
+      if (buf_page_get_state(bpage) != BUF_BLOCK_FILE_PAGE ||
+          bpage->id.space() != space_id || bpage->io_fix != BUF_IO_NONE) {
+        /* Compressed pages are never hashed.
+        Skip blocks of other tablespaces.
+        Skip I/O-fixed blocks (to be dealt with later). */
+      next_page:
+        it = next_it;
+        continue;
+      }
+
+      buf_block_t *block = reinterpret_cast<buf_block_t *>(bpage);
+
+      mutex_enter(&block->mutex);
+
+      /* This debug check uses a dirty read that could
+      theoretically cause false positives while
+      buf_pool_clear_hash_index() is executing.
+      (Other conflicting access paths to the adaptive hash
+      index should not be possible, because when a
+      tablespace is being discarded or dropped, there must
+      be no concurrect access to the contained tables.) */
+      assert_block_ahi_valid(block);
+
+      bool skip = bpage->buf_fix_count > 0 || !block->index;
+
+      mutex_exit(&block->mutex);
+
+      if (skip) {
+        /* Skip this block, because there are
+        no adaptive hash index entries
+        pointing to it, or because we cannot
+        drop them due to the buffer-fix. */
+        goto next_page;
+      }
+
+      /* Store the page number so that we can drop the hash
+      index in a batch later. */
+      page_arr[num_entries] = bpage->id.page_no();
+      ut_a(num_entries < BUF_LRU_DROP_SEARCH_SIZE);
+      ++num_entries;
+
+      if (num_entries < BUF_LRU_DROP_SEARCH_SIZE) {
+        goto next_page;
+      }
+
+      /* Array full. We release the LRU list mutex to obey
+      the latching order. */
+      mutex_exit(&buf_pool->LRU_list_mutex);
+
+      buf_LRU_drop_page_hash_batch(space_id, page_size, page_arr, num_entries);
+
+      num_entries = 0;
+
+      mutex_enter(&buf_pool->LRU_list_mutex);
+
+      /* Note that we released the buf_pool->LRU_list_mutex above
+      after reading the prev_bpage during processing of a
+      page_hash_batch (i.e.: when the array was full).
+      Because prev_bpage could belong to a compressed-only
+      block, it may have been relocated, and thus the
+      pointer cannot be trusted. Because bpage is of type
+      buf_block_t, it is safe to dereference.
+
+      bpage can change in the LRU list. This is OK because
+      this function is a 'best effort' to drop as many
+      search hash entries as possible and it does not
+      guarantee that ALL such entries will be dropped. */
+
+      /* If, however, bpage has been removed from LRU list
+      to the free list then we should restart the scan. */
+      if (bpage != NULL && buf_page_get_state(bpage) != BUF_BLOCK_FILE_PAGE) {
+        goto scan_again;
+      } else {
+        /* bpage did not get removed from LRU list.
+
+           However, the iterator `it` might be invalidated due to
+           a pair of removal and re-addition of the bpage during the
+           of time where LRU_list_mutex is not held. (ABA problem)
+
+           To play safe here, we re-search the bpage in the hashmap to get a
+           new iterator. Similarly, this scan might skip some pages because
+           the iterator returned might point to a node different from the
+           the one before the release of LRU_list_mutex.
+           This is OK because this function is a 'best effort' to drop
+           as many search hash entries as possible and it does not guarantee
+           that ALL such entries will be dropped.
+         */
+          it = temp_tablespace_pages_map_find(buf_pool, bpage);
+      }
+    }
+
+    mutex_exit(&buf_pool->LRU_list_mutex);
+    /* Drop any remaining batch of search hashed pages. */
+    buf_LRU_drop_page_hash_batch(space_id, page_size, page_arr, num_entries);
+    ut_free(page_arr);
+}
+
 /** When doing a DROP TABLE/DISCARD TABLESPACE we have to drop all page
 hash index entries belonging to that table. This function tries to
 do that in batch. Note that this is a 'best effort' attempt and does
@@ -246,6 +384,11 @@ not guarantee that ALL hash entries will be removed.
 @param[in]	space_id	space id */
 static void buf_LRU_drop_page_hash_for_tablespace(buf_pool_t *buf_pool,
                                                   space_id_t space_id) {
+  if (srv_temp_tablespace_fast_cleanup && fsp_is_system_temporary(space_id)) {
+    buf_LRU_drop_page_hash_for_temp_tablespace(buf_pool, space_id);
+    return;
+  }
+
   bool found;
   const page_size_t page_size(fil_space_get_page_size(space_id, &found));
 
@@ -264,7 +407,7 @@ static void buf_LRU_drop_page_hash_for_tablespace(buf_pool_t *buf_pool,
 
 scan_again:
   for (buf_page_t *bpage = UT_LIST_GET_LAST(buf_pool->LRU); bpage != NULL;
-       /* No op */) {
+      /* No op */) {
     buf_page_t *prev_bpage = UT_LIST_GET_PREV(LRU, bpage);
 
     ut_a(buf_page_in_file(bpage));
@@ -345,7 +488,6 @@ scan_again:
   }
 
   mutex_exit(&buf_pool->LRU_list_mutex);
-
   /* Drop any remaining batch of search hashed pages. */
   buf_LRU_drop_page_hash_batch(space_id, page_size, page_arr, num_entries);
   ut_free(page_arr);
@@ -694,14 +836,165 @@ static void buf_flush_dirty_pages(buf_pool_t *buf_pool, space_id_t id,
         buf_pool_get_dirty_pages_count(buf_pool, id, observer) == 0);
 }
 
+
+/** Remove all pages that belong to a given temp tablespace inside a specific
+buffer pool instance when we are DISCARDing the tablespace.
+@param[in,out]	buf_pool	buffer pool instance
+@param[in]	id		space id */
+static void buf_LRU_remove_all_pages_temp(buf_pool_t *buf_pool, ulint id) {
+  ut_a(fsp_is_system_or_temp_tablespace(id));
+  buf_page_t *bpage;
+  ibool all_freed;
+
+  DBUG_EXECUTE_IF("temp_tablespace_page_scan_test", {
+    ib::info() << "temp_tablespace_page_scan on tablespace "
+                << id;
+  });
+
+scan_again:
+  mutex_enter(&buf_pool->LRU_list_mutex);
+
+  all_freed = TRUE;
+  std::unordered_set<buf_page_t*>::const_iterator it;
+  std::unordered_set<buf_page_t*>::const_iterator next_it;
+  for (it = temp_tablespace_pages_map_iter_begin(buf_pool, id);
+       it != temp_tablespace_pages_map_iter_end(buf_pool, id);
+      /* No op */) {
+    rw_lock_t *hash_lock;
+    BPageMutex *block_mutex;
+
+    bpage = *it;
+    next_it = it;
+    ++next_it;
+
+    ut_ad(fsp_is_system_temporary(bpage->id.space()));
+    ut_a(buf_page_in_file(bpage));
+    ut_ad(bpage->in_LRU_list);
+
+    /* It is safe to check bpage->id.space() and bpage->io_fix
+    while holding buf_pool->LRU_list_mutex only and later recheck
+    while holding the buf_page_get_mutex() mutex.  */
+
+    if (bpage->id.space() != id) {
+      /* Skip this block, as it does not belong to
+      the space that is being invalidated. */
+      goto next_page;
+    } else if (buf_page_get_io_fix_unlocked(bpage) != BUF_IO_NONE) {
+      /* We cannot remove this page during this scan
+      yet; maybe the system is currently reading it
+      in, or flushing the modifications to the file */
+
+      all_freed = FALSE;
+      goto next_page;
+    } else {
+      hash_lock = buf_page_hash_lock_get(buf_pool, bpage->id);
+
+      rw_lock_x_lock(hash_lock);
+
+      block_mutex = buf_page_get_mutex(bpage);
+
+      mutex_enter(block_mutex);
+
+      if (bpage->id.space() != id || bpage->buf_fix_count > 0 ||
+          (buf_page_get_io_fix(bpage) != BUF_IO_NONE)) {
+        mutex_exit(block_mutex);
+
+        rw_lock_x_unlock(hash_lock);
+
+        /* We cannot remove this page during
+        this scan yet; maybe the system is
+        currently reading it in, or flushing
+        the modifications to the file */
+
+        all_freed = FALSE;
+
+        goto next_page;
+      }
+    }
+
+    ut_ad(mutex_own(block_mutex));
+
+    DBUG_PRINT("ib_buf",
+              ("evict page " UINT32PF ":" UINT32PF " state %u",
+                bpage->id.space(), bpage->id.page_no(), bpage->state));
+
+    if (buf_page_get_state(bpage) != BUF_BLOCK_FILE_PAGE) {
+      /* Do nothing, because the adaptive hash index
+      covers uncompressed pages only. */
+    } else if (((buf_block_t *)bpage)->index) {
+      mutex_exit(&buf_pool->LRU_list_mutex);
+
+      rw_lock_x_unlock(hash_lock);
+
+      mutex_exit(block_mutex);
+
+      /* Note that the following call will acquire
+      and release block->lock X-latch.
+      Note that the table cannot be evicted during
+      the execution of ALTER TABLE...DISCARD TABLESPACE
+      because MySQL is keeping the table handle open. */
+
+      btr_search_drop_page_hash_when_freed(bpage->id, bpage->size);
+
+      goto scan_again;
+    } else {
+      /* This debug check uses a dirty read that could
+      theoretically cause false positives while
+      buf_pool_clear_hash_index() is executing,
+      if the writes to block->index=NULL and
+      block->n_pointers=0 are reordered.
+      (Other conflicting access paths to the adaptive hash
+      index should not be possible, because when a
+      tablespace is being discarded or dropped, there must
+      be no concurrect access to the contained tables.) */
+      assert_block_ahi_empty((buf_block_t *)bpage);
+    }
+
+    if (bpage->oldest_modification != 0) {
+      buf_flush_remove(bpage);
+    }
+
+    ut_ad(!bpage->in_flush_list);
+
+    /* Remove from the LRU list. */
+
+    if (buf_LRU_block_remove_hashed(bpage, true, false)) {
+      buf_LRU_block_free_hashed_page((buf_block_t *)bpage);
+    } else {
+      ut_ad(block_mutex == &buf_pool->zip_mutex);
+    }
+
+    ut_ad(!mutex_own(block_mutex));
+
+    /* buf_LRU_block_remove_hashed() releases the hash_lock */
+    ut_ad(!rw_lock_own(hash_lock, RW_LOCK_X));
+    ut_ad(!rw_lock_own(hash_lock, RW_LOCK_S));
+
+    next_page:
+    it = next_it;
+  }
+
+  mutex_exit(&buf_pool->LRU_list_mutex);
+
+  if (!all_freed) {
+    os_thread_sleep(20000);
+
+    goto scan_again;
+  }
+}
+
 /** Remove all pages that belong to a given tablespace inside a specific
 buffer pool instance when we are DISCARDing the tablespace.
 @param[in,out]	buf_pool	buffer pool instance
 @param[in]	id		space id */
 static void buf_LRU_remove_all_pages(buf_pool_t *buf_pool, ulint id) {
+  if (srv_temp_tablespace_fast_cleanup && fsp_is_system_temporary(id)) {
+      buf_LRU_remove_all_pages_temp(buf_pool, id);
+      return;
+  }
+
   buf_page_t *bpage;
   ibool all_freed;
-
 scan_again:
   mutex_enter(&buf_pool->LRU_list_mutex);
 
@@ -1931,6 +2224,11 @@ bool buf_LRU_free_page(buf_page_t *bpage, bool zip) {
       buf_LRU_add_block_low(b, buf_page_is_old(b));
     }
 
+    if (srv_temp_tablespace_fast_cleanup &&
+        fsp_is_system_temporary(b->id.space())) {
+      temp_tablespace_pages_map_add(buf_pool, b);
+    }
+
     mutex_enter(&buf_pool->zip_mutex);
     rw_lock_x_unlock(hash_lock);
     if (b->state == BUF_BLOCK_ZIP_PAGE) {
@@ -2100,6 +2398,12 @@ static bool buf_LRU_block_remove_hashed(buf_page_t *bpage, bool zip,
   ut_a(bpage->buf_fix_count == 0);
 
   buf_LRU_remove_block(bpage);
+
+  if(srv_temp_tablespace_fast_cleanup &&
+    fsp_is_system_temporary(bpage->id.space())) {
+    ut_ad(in_temp_tablespace_pages_map(buf_pool, bpage));
+    temp_tablespace_pages_map_remove(buf_pool, bpage);
+  }
 
   buf_pool->freed_page_clock += 1;
 

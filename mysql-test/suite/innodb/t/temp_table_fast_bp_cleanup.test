@@ -1,0 +1,64 @@
+--source include/have_debug_sync.inc
+
+
+
+let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+
+
+# Case 1: Implicit temporary tables
+SET GLOBAL DEBUG='+d,temp_tablespace_page_scan_test';
+--connect (conn1, localhost, root,,)
+--disable_result_log
+# select from processlist generates a temporary table
+select * from information_schema.processlist;
+--enable_result_log
+--disconnect conn1
+--connection default
+--sleep 1 # sleep a while to wait for the session conn1 to fully disconnect.
+SET GLOBAL DEBUG='-d,temp_tablespace_page_scan_test';
+
+--let SEARCH_PATTERN=temp_tablespace_page_scan on tablespace
+--source include/search_pattern_in_file.inc
+
+
+
+# Empty the error log
+--disable_result_log
+--exec echo > $SEARCH_FILE
+--enable_result_log
+
+
+# Case 2: Explicit temporary tables
+--connect (conn2, localhost, root,,)
+CREATE TEMPORARY TABLE t1 (a int not null, b char (10) not null);
+insert into t1 values(4,"e"),(5,"f"),(6,"g");
+SET GLOBAL DEBUG='+d,temp_tablespace_page_scan_test';
+--disconnect conn2
+--connection default
+--sleep 1
+SET GLOBAL DEBUG='-d,temp_tablespace_page_scan_test';
+--source include/search_pattern_in_file.inc
+
+
+# Empty the error log
+--disable_result_log
+--exec echo > $SEARCH_FILE
+--enable_result_log
+
+
+# Case 3: Explicit compressed temporary tables
+SET @innodb_strict_mode_value = @@global.innodb_strict_mode;
+SET @@global.innodb_strict_mode=OFF;
+# Case 3: Explicit compressed temporary tables
+--connect (conn3, localhost, root,,)
+--disable_warnings
+CREATE TEMPORARY TABLE t1 (a int not null, b char (10) not null) ROW_FORMAT=COMPRESSED;
+--enable_warnings
+insert into t1 values(4,"e"),(5,"f"),(6,"g");
+SET GLOBAL DEBUG='+d,temp_tablespace_page_scan_test';
+--disconnect conn3
+--connection default
+--sleep 1
+SET GLOBAL DEBUG='-d,temp_tablespace_page_scan_test';
+--source include/search_pattern_in_file.inc
+SET @@global.innodb_strict_mode=@innodb_strict_mode_value;

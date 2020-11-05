@@ -152,6 +152,8 @@ innodb_strict_gtid_commit
 innodb_strict_gtid_commit
 innodb_table_drop_mode
 innodb_table_drop_mode
+innodb_temp_tablespace_fast_cleanup
+innodb_temp_tablespace_fast_cleanup
 innodb_use_cloned_view
 innodb_use_cloned_view
 innodb_zlib_column_compression_level

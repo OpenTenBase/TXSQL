@@ -1,0 +1,48 @@
+SELECT COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup);
+COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup)
+1
+1 Expected
+SET @@GLOBAL.innodb_temp_tablespace_fast_cleanup=1;
+ERROR HY000: Variable 'innodb_temp_tablespace_fast_cleanup' is a read only variable
+Expected error 'Read only variable'
+SELECT COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup);
+COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup)
+1
+1 Expected
+SELECT IF(@@GLOBAL.innodb_temp_tablespace_fast_cleanup, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_temp_tablespace_fast_cleanup';
+IF(@@GLOBAL.innodb_temp_tablespace_fast_cleanup, "ON", "OFF") = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup);
+COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_temp_tablespace_fast_cleanup';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+SELECT @@innodb_temp_tablespace_fast_cleanup = @@GLOBAL.innodb_temp_tablespace_fast_cleanup;
+@@innodb_temp_tablespace_fast_cleanup = @@GLOBAL.innodb_temp_tablespace_fast_cleanup
+1
+1 Expected
+SELECT COUNT(@@innodb_temp_tablespace_fast_cleanup);
+COUNT(@@innodb_temp_tablespace_fast_cleanup)
+1
+1 Expected
+SELECT COUNT(@@local.innodb_temp_tablespace_fast_cleanup);
+ERROR HY000: Variable 'innodb_temp_tablespace_fast_cleanup' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.innodb_temp_tablespace_fast_cleanup);
+ERROR HY000: Variable 'innodb_temp_tablespace_fast_cleanup' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup);
+COUNT(@@GLOBAL.innodb_temp_tablespace_fast_cleanup)
+1
+1 Expected
+SELECT innodb_temp_tablespace_fast_cleanup = @@SESSION.innodb_temp_tablespace_fast_cleanup;
+ERROR 42S22: Unknown column 'innodb_temp_tablespace_fast_cleanup' in 'field list'
+Expected error 'Readonly variable'

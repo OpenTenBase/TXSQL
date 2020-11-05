@@ -48,7 +48,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "buf/buf.h"
 
 #include <ostream>
-
+#include <unordered_set>
 // Forward declaration
 struct fil_addr_t;
 
@@ -1921,6 +1921,12 @@ struct buf_pool_t {
   unzip_LRU list. The list is protected
   by LRU_list_mutex. */
 
+  #define TEMP_TABLESPACE_PAGES_MAP_PARTS 8
+
+  std::unordered_set<buf_page_t*> *temp_tablespace_pages;
+  /*!< set containing all the buffered temp tablespace pages.
+  The set is protected by LRU_list_mutex. */
+
   /* @} */
   /** @name Buddy allocator fields
   The buddy allocator is used for allocating compressed page
@@ -2146,6 +2152,31 @@ struct CheckUnzipLRUAndLRUList {
 #endif /* !UNIV_HOTBACKUP */
 #endif /* UNIV_DEBUG || defined UNIV_BUF_DEBUG */
 
+bool
+in_temp_tablespace_pages_map(buf_pool_t * buf_pool,
+                             buf_page_t * page);
+
+void
+temp_tablespace_pages_map_add(buf_pool_t * buf_pool,
+                              buf_page_t * page);
+
+void
+temp_tablespace_pages_map_remove(buf_pool_t * buf_pool,
+                                 buf_page_t * page);
+
+std::unordered_set<buf_page_t*>::const_iterator
+temp_tablespace_pages_map_find(buf_pool_t * buf_pool,
+                               buf_page_t * bpage);
+
+std::unordered_set<buf_page_t*>::const_iterator
+temp_tablespace_pages_map_iter_begin(buf_pool_t * buf_pool,
+                                     space_id_t id);
+
+std::unordered_set<buf_page_t*>::const_iterator
+temp_tablespace_pages_map_iter_end(buf_pool_t * buf_pool,
+                                   space_id_t id);
+
+void temp_tablespace_pages_print_stats(FILE* file);
 #include "buf0buf.ic"
 
 #endif /* !buf0buf_h */
