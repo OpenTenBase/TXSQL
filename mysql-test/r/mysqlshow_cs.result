@@ -79,6 +79,7 @@ Database: information_schema
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| CDB_SLAVE_THREAD_STATUS               |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -151,6 +152,7 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| CDB_SLAVE_THREAD_STATUS               |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |

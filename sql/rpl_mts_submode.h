@@ -45,7 +45,9 @@ enum enum_mts_parallel_type {
   /* Parallel slave based on Database name */
   MTS_PARALLEL_TYPE_DB_NAME = 0,
   /* Parallel slave based on group information from Binlog group commit */
-  MTS_PARALLEL_TYPE_LOGICAL_CLOCK = 1
+  MTS_PARALLEL_TYPE_LOGICAL_CLOCK = 1,
+  /* Parallel slave based on table name */
+  MTS_PARALLEL_TYPE_TABLE_NAME= 2
 };
 
 // Extend the following class as per requirement for each sub mode
@@ -101,6 +103,20 @@ class Mts_submode_database : public Mts_submode {
   ~Mts_submode_database() {}
   int wait_for_workers_to_finish(Relay_log_info *rli,
                                  Slave_worker *ignore = nullptr);
+};
+
+/**
+  Table partitioned submode
+  For significance of each method check definition of Mts_submode
+*/
+class Mts_submode_table: public Mts_submode_database
+{
+public:
+  Mts_submode_table()
+  {
+    type= MTS_PARALLEL_TYPE_TABLE_NAME;
+  }
+  ~Mts_submode_table(){};
 };
 
 /**

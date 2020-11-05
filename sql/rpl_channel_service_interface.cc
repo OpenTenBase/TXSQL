@@ -124,9 +124,10 @@ static void set_mi_settings(Master_info *mi,
     else
       mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
   } else {
-    if (channel_info->channel_mts_parallel_type ==
-        CHANNEL_MTS_PARALLEL_TYPE_DB_NAME)
+    if (channel_info->channel_mts_parallel_type == CHANNEL_MTS_PARALLEL_TYPE_DB_NAME)
       mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
+    else if (channel_info->channel_mts_parallel_type == CHANNEL_MTS_PARALLEL_TYPE_TABLE_NAME)
+      mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_TABLE_NAME;
     else
       mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
   }

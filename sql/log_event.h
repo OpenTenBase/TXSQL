@@ -1024,7 +1024,7 @@ class Log_event {
   /**
      @return true  if events carries partitioning data (database names).
   */
-  bool contains_partition_info(bool);
+  bool contains_partition_info(bool, bool);
 
   /*
     @return  the number of updated by the event databases.
