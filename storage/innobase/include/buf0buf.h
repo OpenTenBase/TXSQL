@@ -349,6 +349,13 @@ UNIV_INLINE
 void buf_block_free(buf_block_t *block); /*!< in, own: block to be freed */
 #endif                                   /* !UNIV_HOTBACKUP */
 
+/**
+Initializes mutex and rwlock of a buffer control block
+@param[in]	block	buffer control block */
+void
+buf_block_init_locks(
+	buf_block_t*	block);
+
 /** Copies contents of a buffer frame to a given buffer.
 @param[in]	buf	buffer to copy to
 @param[in]	frame	buffer frame
@@ -1481,6 +1488,8 @@ struct buf_block_t {
 
   /** Get the space id of the current buffer block. */
   space_id_t get_space_id() const { return (page.id.space()); }
+  /** Mark if this block's locks has been inited. */
+  bool locks_inited;
 
   /** Get the page number of the current buffer block.
   @return page number of the current buffer block. */
@@ -2002,6 +2011,7 @@ Use these instead of accessing buffer pool mutexes directly. */
 /** Acquire the block->mutex. */
 #define buf_page_mutex_enter(b) \
   do {                          \
+    ut_ad(b->locks_inited);     \
     mutex_enter(&(b)->mutex);   \
   } while (0)
 

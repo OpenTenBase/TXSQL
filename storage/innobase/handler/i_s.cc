@@ -4531,10 +4531,12 @@ static int i_s_innodb_fill_buffer_pool(
 
       /* GO through each block in the chunk */
       for (n_blocks = num_to_process; n_blocks--; block++) {
-        i_s_innodb_buffer_page_get_info(&block->page, pool_id, block_id,
-                                        info_buffer + num_page);
-        block_id++;
-        num_page++;
+        if (block->locks_inited) {
+          i_s_innodb_buffer_page_get_info(&block->page, pool_id, block_id,
+                                          info_buffer + num_page);
+          block_id++;
+          num_page++;
+        }
       }
 
       /* Fill in information schema table with information

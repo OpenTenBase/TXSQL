@@ -731,6 +731,37 @@ static void pfs_register_buffer_block(
 }
 #endif /* PFS_GROUP_BUFFER_SYNC */
 
+/**
+Initializes mutex and rwlock of a buffer control block
+@param[in]	block	buffer control block */
+void
+buf_block_init_locks(
+	buf_block_t*	block)
+{
+  mutex_create(LATCH_ID_BUF_BLOCK_MUTEX, &block->mutex);
+
+#if defined PFS_SKIP_BUFFER_MUTEX_RWLOCK || defined PFS_GROUP_BUFFER_SYNC
+  /* If PFS_SKIP_BUFFER_MUTEX_RWLOCK is defined, skip registration
+  of buffer block rwlock with performance schema.
+
+  If PFS_GROUP_BUFFER_SYNC is defined, skip the registration
+  since buffer block rwlock will be registered later in
+  pfs_register_buffer_block(). */
+
+  rw_lock_create(PFS_NOT_INSTRUMENTED, &block->lock, SYNC_LEVEL_VARYING);
+  ut_d(rw_lock_create(PFS_NOT_INSTRUMENTED, &block->debug_latch,
+		      SYNC_NO_ORDER_CHECK));
+#else /* PFS_SKIP_BUFFER_MUTEX_RWLOCK || PFS_GROUP_BUFFER_SYNC */
+  rw_lock_create(buf_block_lock_key, &block->lock, SYNC_LEVEL_VARYING);
+  ut_d(rw_lock_create(buf_block_debug_latch_key, &block->debug_latch,
+		      SYNC_NO_ORDER_CHECK));
+#endif /* PFS_SKIP_BUFFER_MUTEX_RWLOCK || PFS_GROUP_BUFFER_SYNC */
+
+  ut_ad(rw_lock_validate(&(block->lock)));
+  block->locks_inited = true;
+  block->lock.is_block_lock = 1;
+}
+
 /** Initializes a buffer control block when the buf_pool is created. */
 static void buf_block_init(
     buf_pool_t *buf_pool, /*!< in: buffer pool instance */
@@ -768,33 +799,7 @@ static void buf_block_init(
 
   page_zip_des_init(&block->page.zip);
 
-  mutex_create(LATCH_ID_BUF_BLOCK_MUTEX, &block->mutex);
-
-#if defined PFS_SKIP_BUFFER_MUTEX_RWLOCK || defined PFS_GROUP_BUFFER_SYNC
-  /* If PFS_SKIP_BUFFER_MUTEX_RWLOCK is defined, skip registration
-  of buffer block rwlock with performance schema.
-
-  If PFS_GROUP_BUFFER_SYNC is defined, skip the registration
-  since buffer block rwlock will be registered later in
-  pfs_register_buffer_block(). */
-
-  rw_lock_create(PFS_NOT_INSTRUMENTED, &block->lock, SYNC_LEVEL_VARYING);
-
-  ut_d(rw_lock_create(PFS_NOT_INSTRUMENTED, &block->debug_latch,
-                      SYNC_NO_ORDER_CHECK));
-
-#else /* PFS_SKIP_BUFFER_MUTEX_RWLOCK || PFS_GROUP_BUFFER_SYNC */
-
-  rw_lock_create(buf_block_lock_key, &block->lock, SYNC_LEVEL_VARYING);
-
-  ut_d(rw_lock_create(buf_block_debug_latch_key, &block->debug_latch,
-                      SYNC_NO_ORDER_CHECK));
-
-#endif /* PFS_SKIP_BUFFER_MUTEX_RWLOCK || PFS_GROUP_BUFFER_SYNC */
-
-  block->lock.is_block_lock = 1;
-
-  ut_ad(rw_lock_validate(&(block->lock)));
+  block->locks_inited = false;
 }
 /* We maintain our private view of innobase_should_madvise_buf_pool() which we
 initialize at the beginning of buf_pool_init() and then update when the
@@ -1267,10 +1272,11 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
           buf_block_t *block = chunk->blocks;
 
           for (i = chunk->size; i--; block++) {
-            mutex_free(&block->mutex);
-            rw_lock_free(&block->lock);
-
-            ut_d(rw_lock_free(&block->debug_latch));
+            if (block->locks_inited) {
+              mutex_free(&block->mutex);
+              rw_lock_free(&block->lock);
+              ut_d(rw_lock_free(&block->debug_latch));
+            }
           }
           buf_pool->deallocate_chunk(chunk);
         }
@@ -1393,12 +1399,13 @@ static void buf_pool_free_instance(buf_pool_t *buf_pool) {
     buf_block_t *block = chunk->blocks;
 
     for (ulint i = chunk->size; i--; block++) {
-      mutex_free(&block->mutex);
-      rw_lock_free(&block->lock);
+      if (block->locks_inited) {
+        mutex_free(&block->mutex);
+        rw_lock_free(&block->lock);
 
-      ut_d(rw_lock_free(&block->debug_latch));
+        ut_d(rw_lock_free(&block->debug_latch));
+      }
     }
-
     buf_pool->deallocate_chunk(chunk);
   }
 
@@ -2265,10 +2272,12 @@ withdraw_retry:
         buf_block_t *block = chunk->blocks;
 
         for (ulint j = chunk->size; j--; block++) {
-          mutex_free(&block->mutex);
-          rw_lock_free(&block->lock);
+          if (block->locks_inited) {
+            mutex_free(&block->mutex);
+            rw_lock_free(&block->lock);
 
-          ut_d(rw_lock_free(&block->debug_latch));
+            ut_d(rw_lock_free(&block->debug_latch));
+          }
         }
 
         buf_pool->deallocate_chunk(chunk);
