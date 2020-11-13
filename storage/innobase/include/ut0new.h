@@ -139,6 +139,7 @@ InnoDB:
 #include "mysql/psi/mysql_memory.h"
 #include "mysql/psi/psi_base.h"
 #include "mysql/psi/psi_memory.h"
+#include "sql/mysqld.h"
 
 #include "os0proc.h"
 #include "os0thread.h"
@@ -939,6 +940,9 @@ class ut_allocator {
     }
 
     pfx->m_key = PSI_MEMORY_CALL(memory_alloc)(key, size, &pfx->m_owner);
+#ifndef UNIV_INNOCHECKSUM
+    update_thread_stats(INNODB_MEMORY_ALLOC, size);
+#endif
 
     pfx->m_size = size;
   }
@@ -947,6 +951,9 @@ class ut_allocator {
   @param[in]	pfx	info for the deallocation */
   void deallocate_trace(const ut_new_pfx_t *pfx) {
     PSI_MEMORY_CALL(memory_free)(pfx->m_key, pfx->m_size, pfx->m_owner);
+#ifndef UNIV_INNOCHECKSUM
+    update_thread_stats(INNODB_MEMORY_FREE, pfx->m_size);
+#endif
   }
 #endif /* UNIV_PFS_MEMORY */
 

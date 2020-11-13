@@ -716,6 +716,8 @@ The documentation is based on the source files such as:
 #include "typelib.h"
 #include "violite.h"
 
+#include "storage/innobase/include/srv0srv.h"
+
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_server.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
@@ -981,6 +983,15 @@ static bool binlog_format_used = false;
 
 bool cdb_skip_event_scheduler = false;
 bool txsql_convert_memory_to_innodb = false;
+bool txsql_enable_resource_statistics = true;
+
+/**
+  Total memory used in server layer and innodb layer.
+*/
+typedef ib_counter_t<std::atomic<int64>, 64, default_indexer_t, int64> atomic_int64_t;
+atomic_int64_t total_server_memory_used;
+atomic_int64_t total_innodb_memory_used;
+atomic_int64_t total_pfs_memory_used;
 
 LEX_STRING opt_init_connect, opt_init_slave;
 
@@ -4148,6 +4159,117 @@ SHOW_VAR com_status_vars[] = {
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
+/**
+  The thread statistics are summarized as follows:
+  1. sync/async io stats
+  2. redo/undo/binary log stats
+  3. cpu time stats
+*/
+inline void update_thread_stats(int type, ulonglong size) {
+  if (!txsql_enable_resource_statistics)
+    return;
+
+  THD *thd= current_thd;
+  if (thd)
+  {
+    switch (type) {
+      case SYNC_READ_START:
+        thd->status_var.sync_read_counts += 1;
+        thd->status_var.sync_read_running = true;;
+        thd->set_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        break;
+      case SYNC_READ_END:
+        thd->status_var.sync_read_time +=
+          thd->diff_with_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        thd->status_var.sync_read_running = false;
+        thd->status_var.sync_read_bytes += size;
+        break;
+      case SYNC_WRITE_START:
+        thd->status_var.sync_write_counts += 1;
+        thd->status_var.sync_write_running = true;;
+        thd->set_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        break;
+      case SYNC_WRITE_END:
+        thd->status_var.sync_write_time
+          += thd->diff_with_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        thd->status_var.sync_write_running = false;
+        thd->status_var.sync_write_bytes += size;
+        break;
+      case ASYNC_READ:
+        thd->status_var.async_read_counts += 1;
+        thd->status_var.async_read_bytes += size;
+        break;
+      case ASYNC_WRITE:
+        thd->status_var.async_write_counts += 1;
+        thd->status_var.async_write_bytes += size;
+        break;
+      case REDO_TYPE:
+        thd->status_var.redo_log_size += size;
+        break;
+      case UNDO_TYPE:
+        thd->status_var.undo_log_size += size;
+        break;
+      case ROLLBACK_TYPE:
+        if (thd->status_var.undo_log_size >= size)
+          thd->status_var.undo_log_size -= size;
+        break;
+      case BINARY_TYPE:
+        thd->status_var.binary_log_size += size;
+        break;
+      case CPU_TIME_START:
+        thd->set_start_time(CLOCK_THREAD_CPUTIME_ID, &thd->start_cpu_time);
+        break;
+      case CPU_TIME_END:
+        thd->status_var.cpu_time +=
+          thd->diff_with_start_time(CLOCK_THREAD_CPUTIME_ID, &thd->start_cpu_time);
+        break;
+      case SERVER_MEMORY_ALLOC:
+        thd->status_var.server_memory_used += size;
+        total_server_memory_used.atomic_add(thd_get_thread_id(thd), size);
+        break;
+      case SERVER_MEMORY_FREE:
+        if (thd->status_var.server_memory_used >= size)
+          thd->status_var.server_memory_used -= size;
+        total_server_memory_used.atomic_sub(thd_get_thread_id(thd), size);
+        break;
+      case INNODB_MEMORY_ALLOC:
+        thd->status_var.innodb_memory_used += size;
+        total_innodb_memory_used.atomic_add(thd_get_thread_id(thd), size);
+        break;
+      case INNODB_MEMORY_FREE:
+        if (thd->status_var.innodb_memory_used >= size)
+          thd->status_var.innodb_memory_used -= size;
+        total_innodb_memory_used.atomic_sub(thd_get_thread_id(thd), size);
+        break;
+      case PFS_MEMORY_ALLOC:
+        thd->status_var.pfs_memory_used+= size;
+        total_pfs_memory_used.atomic_add(thd_get_thread_id(thd), size);
+        break;
+      case PFS_MEMORY_FREE:
+        if (thd->status_var.pfs_memory_used >= size)
+          thd->status_var.pfs_memory_used -= size;
+        total_pfs_memory_used.atomic_sub(thd_get_thread_id(thd), size);
+        break;
+    }
+  }
+  else
+  {
+    /* No specific thread. */
+    if (type == SERVER_MEMORY_ALLOC)
+      total_server_memory_used.atomic_add(size);
+    else if (type == SERVER_MEMORY_FREE)
+      total_server_memory_used.atomic_sub(size);
+    else if (type == INNODB_MEMORY_ALLOC)
+      total_innodb_memory_used.atomic_add(size);
+    else if (type == INNODB_MEMORY_FREE)
+      total_innodb_memory_used.atomic_sub(size);
+    else if (type == PFS_MEMORY_ALLOC)
+      total_pfs_memory_used.atomic_add(size);
+    else if (type == PFS_MEMORY_FREE)
+      total_pfs_memory_used.atomic_sub(size);
+  }
+}
+
 LEX_CSTRING sql_statement_names[(uint)SQLCOM_END + 1];
 
 static void init_sql_statement_names() {
@@ -6115,6 +6237,8 @@ int mysqld_main(int argc, char **argv)
     to be able to read defaults files and parse options.
   */
   my_progname = argv[0];
+  update_thread_stats_in_mysys_ptr = update_thread_stats;
+  update_thread_stats_in_pfs_ptr = update_thread_stats;
 
 #ifndef _WIN32
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
@@ -8543,6 +8667,27 @@ static int show_slave_open_temp_tables(THD *, SHOW_VAR *var, char *buf) {
   return 0;
 }
 
+longlong show_total_server_memory_used(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *(longlong*)buff = total_server_memory_used.atomic_total();
+  return 0;
+}
+
+longlong show_total_innodb_memory_used(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type= SHOW_LONGLONG;
+  var->value= buff;
+  *(longlong*)buff = total_innodb_memory_used.atomic_total();
+  return 0;
+}
+
+longlong show_total_pfs_memory_used(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type= SHOW_LONGLONG;
+  var->value= buff;
+  *(longlong*)buff = total_pfs_memory_used.atomic_total();
+  return 0;
+}
+
 /*
   Variables shown by SHOW STATUS in alphabetical order
 */
@@ -8912,6 +9057,11 @@ SHOW_VAR status_vars[] = {
     {"sqlasyn_acks_to_master", (char*) &sqlasyn_sendto_master, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"sqlasyn_slave_recv_txns", (char*) &sqlasyn_slave_recv_txns, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"sqlasyn_slave_relaylog_syncs", (char*) &sqlasyn_slave_relaylog_syncs, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+
+    /* Memory used */
+    {"Total_server_memory_used", (char*) &show_total_server_memory_used, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Total_innodb_memory_used", (char*) &show_total_innodb_memory_used, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Total_pfs_memory_used", (char*) &show_total_pfs_memory_used, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {

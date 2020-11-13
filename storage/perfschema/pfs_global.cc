@@ -35,6 +35,7 @@
 #include "my_sys.h"
 #include "sql/log.h"
 #include "storage/perfschema/pfs_builtin_memory.h"
+#include "sql/mysqld.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -50,6 +51,13 @@
 #endif
 
 bool pfs_initialized = false;
+
+void (*update_thread_stats_in_pfs_ptr)(int type, ulonglong size) = NULL;
+void update_thread_stats_in_pfs(int type, ulonglong size)
+{
+  if (update_thread_stats_in_pfs_ptr)
+    update_thread_stats_in_pfs_ptr(type, size);
+}
 
 /**
   Memory allocation for the performance schema.
@@ -96,6 +104,7 @@ void *pfs_malloc(PFS_builtin_memory_class *klass, size_t size, myf flags) {
 #endif
 
   klass->count_alloc(size);
+  update_thread_stats_in_pfs(PFS_MEMORY_ALLOC, size);
 
   if (flags & MY_ZEROFILL) {
     memset(ptr, 0, size);
@@ -127,6 +136,7 @@ void pfs_free(PFS_builtin_memory_class *klass, size_t size, void *ptr) {
 #endif /* HAVE_POSIX_MEMALIGN */
 
   klass->count_free(size);
+  update_thread_stats_in_pfs(PFS_MEMORY_FREE, size);
 }
 
 /**

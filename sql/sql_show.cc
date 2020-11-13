@@ -94,6 +94,8 @@ bool iterate_all_dynamic_privileges(THD *thd,
 using std::max;
 using std::min;
 
+#define BUF_SIZE 512
+
 /**
   @class CSET_STRING
   @brief Character set armed LEX_CSTRING
@@ -1792,15 +1794,15 @@ static void view_store_create_info(const THD *thd, TABLE_LIST *table,
 class thread_info {
  public:
   thread_info()
-      : thread_id(0),
-        start_time_in_secs(0),
-        command(0),
-        user(NULL),
-        host(NULL),
-        db(NULL),
-        proc_info(NULL),
-        state_info(NULL),
-        system_thread(NON_SYSTEM_THREAD) {}
+      : thread_id(0), start_time_in_secs(0), command(0), user(NULL),
+        host(NULL), db(NULL), proc_info(NULL), state_info(NULL),system_thread(NON_SYSTEM_THREAD),
+        sync_read_counts(0), sync_read_bytes(0), sync_read_time(0),
+        sync_read_running(false), sync_write_counts(0), sync_write_bytes(0),
+        sync_write_time(0), sync_write_running(false), async_read_counts(0),
+        async_read_bytes(0), async_write_counts(0), async_write_bytes(0),
+        redo_log_size(0), undo_log_size(0), binary_log_size(0),
+        cpu_time(0), server_memory_used(0), innodb_memory_used(0),
+        pfs_memory_used(0) {}
 
   my_thread_id thread_id;
   time_t start_time_in_secs;
@@ -1808,6 +1810,25 @@ class thread_info {
   const char *user, *host, *db, *proc_info, *state_info;
   CSET_STRING query_string;
   enum enum_thread_type system_thread;
+  ulonglong sync_read_counts;
+  ulonglong sync_read_bytes;
+  ulonglong sync_read_time;
+  bool sync_read_running;
+  ulonglong sync_write_counts;
+  ulonglong sync_write_bytes;
+  ulonglong sync_write_time;
+  bool sync_write_running;
+  ulonglong async_read_counts;
+  ulonglong async_read_bytes;
+  ulonglong async_write_counts;
+  ulonglong async_write_bytes;
+  ulonglong redo_log_size;
+  ulonglong undo_log_size;
+  ulonglong binary_log_size;
+  ulonglong cpu_time;
+  ulonglong server_memory_used;
+  ulonglong innodb_memory_used;
+  ulonglong pfs_memory_used;
 };
 
 // For sorting by thread_id.
@@ -1877,6 +1898,33 @@ class List_process_list : public Do_THD_Impl {
     mysql_mutex_unlock(&inspect_thd->LOCK_thd_protocol);
 
     thread_info *thd_info = new (m_client_thd->mem_root) thread_info;
+
+    /* IO stats */
+    thd_info->sync_read_counts = inspect_thd->status_var.sync_read_counts;
+    thd_info->sync_read_bytes = inspect_thd->status_var.sync_read_bytes;
+    thd_info->sync_read_time = inspect_thd->status_var.sync_read_time;
+    thd_info->sync_read_running = inspect_thd->status_var.sync_read_running;
+    thd_info->sync_write_counts = inspect_thd->status_var.sync_write_counts;
+    thd_info->sync_write_bytes = inspect_thd->status_var.sync_write_bytes;
+    thd_info->sync_write_time = inspect_thd->status_var.sync_write_time;
+    thd_info->sync_write_running = inspect_thd->status_var.sync_write_running;
+    thd_info->async_read_counts = inspect_thd->status_var.async_read_counts;
+    thd_info->async_read_bytes = inspect_thd->status_var.async_read_bytes;
+    thd_info->async_write_counts = inspect_thd->status_var.async_write_counts;
+    thd_info->async_write_bytes = inspect_thd->status_var.async_write_bytes;
+
+    /* LOG stats */
+    thd_info->redo_log_size = inspect_thd->status_var.redo_log_size;
+    thd_info->undo_log_size = inspect_thd->status_var.undo_log_size;
+    thd_info->binary_log_size = inspect_thd->status_var.binary_log_size;
+
+    /* CPU stats */
+    thd_info->cpu_time = inspect_thd->status_var.cpu_time;
+
+    /* MEMORY stats */
+    thd_info->server_memory_used = inspect_thd->status_var.server_memory_used;
+    thd_info->innodb_memory_used = inspect_thd->status_var.innodb_memory_used;
+    thd_info->pfs_memory_used = inspect_thd->status_var.pfs_memory_used;
 
     /* ID */
     thd_info->thread_id = inspect_thd->thread_id();
@@ -1966,13 +2014,15 @@ class List_process_list : public Do_THD_Impl {
   }
 };
 
-void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
+void mysqld_list_processes(THD *thd, const char *user,
+                           bool verbose, bool detail) {
   Item *field;
   List<Item> field_list;
   Thread_info_array thread_infos(thd->mem_root);
   size_t max_query_length =
       (verbose ? thd->variables.max_allowed_packet : PROCESS_LIST_WIDTH);
   Protocol *protocol = thd->get_protocol();
+  char buf[BUF_SIZE]= "";
   DBUG_TRACE;
 
   field_list.push_back(
@@ -1988,6 +2038,33 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   field->maybe_null = 1;
   field_list.push_back(field = new Item_empty_string("Info", max_query_length));
   field->maybe_null = 1;
+  if (detail) {
+    field_list.push_back(field=new Item_empty_string("Sync_read", BUF_SIZE));
+    field_list.push_back(field=new Item_empty_string("Sync_write", BUF_SIZE));
+    field_list.push_back(field=new Item_empty_string("Async_read", BUF_SIZE));
+    field_list.push_back(field=new Item_empty_string("Async_write", BUF_SIZE));
+    field_list.push_back(field=new Item_return_int("Redo_log_size",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field=new Item_return_int("Undo_log_size",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field=new Item_return_int("Binary_log_size",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field=new Item_return_int("Cpu_time(ms)",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field=new Item_return_int("Server_memory_used",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field=new Item_return_int("Innodb_memory_used",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field=new Item_return_int("Pfs_memory_used",
+                                                   MY_INT64_NUM_DECIMAL_DIGITS,
+                                                   MYSQL_TYPE_LONGLONG));
+  }
   if (thd->send_result_metadata(&field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return;
@@ -2031,6 +2108,38 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
     protocol->store(thd_info->state_info, system_charset_info);
     protocol->store(thd_info->query_string.str(),
                     thd_info->query_string.charset());
+    if (detail) {
+      snprintf(buf, BUF_SIZE, "Sync_read_counts=%llu, Sync_read_bytes=%llu, "
+          "Sync_read_time(ms)=%llu, Sync_read_running=%s",
+          thd_info->sync_read_counts, thd_info->sync_read_bytes,
+          thd_info->sync_read_time / 1000000,
+          thd_info->sync_read_running ? "YES" : "NO");
+      protocol->store(buf, system_charset_info);
+
+      snprintf(buf, BUF_SIZE, "Sync_write_counts=%llu, Sync_write_bytes=%llu, "
+          "Sync_write_time(ms)=%llu, Sync_write_running=%s",
+          thd_info->sync_write_counts, thd_info->sync_write_bytes,
+          thd_info->sync_write_time / 1000000,
+          thd_info->sync_write_running ? "YES" : "NO");
+      protocol->store(buf, system_charset_info);
+
+      snprintf(buf, BUF_SIZE, "Async_read_counts=%llu, Async_read_bytes=%llu",
+          thd_info->async_read_counts, thd_info->async_read_bytes);
+      protocol->store(buf, system_charset_info);
+
+      snprintf(buf, BUF_SIZE, "Async_write_counts=%llu, Async_write_bytes=%llu",
+          thd_info->async_write_counts, thd_info->async_write_bytes);
+      protocol->store(buf, system_charset_info);
+
+      protocol->store(thd_info->redo_log_size);
+      protocol->store(thd_info->undo_log_size);
+      protocol->store(thd_info->binary_log_size);
+      protocol->store(thd_info->cpu_time / 1000000);
+      protocol->store(thd_info->server_memory_used);
+      protocol->store(thd_info->innodb_memory_used);
+      protocol->store(thd_info->pfs_memory_used);
+    }
+
     if (protocol->end_row()) break; /* purecov: inspected */
   }
   my_eof(thd);

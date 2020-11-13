@@ -51,6 +51,12 @@
 
 #include <algorithm>
 
+void (*update_thread_stats_in_mysys_ptr)(int type, ulonglong size) = NULL;
+void update_thread_stats_in_mysys(int type, ulonglong size) {
+  if (update_thread_stats_in_mysys_ptr)
+    update_thread_stats_in_mysys_ptr(type, size);
+}
+
 extern PSI_stage_info stage_waiting_for_disk_space;
 
 #ifndef _WIN32
@@ -107,6 +113,7 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags) {
           ToWriteCount = std::min(Count, 1 + (Count * (rand() % 100) / 100));
       }
     });
+    update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
 #ifdef _WIN32
     writtenbytes = my_win_write(Filedes, Buffer, ToWriteCount);
 #else
@@ -115,6 +122,7 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags) {
     else
       writtenbytes = write(Filedes, Buffer, ToWriteCount);
 #endif
+    update_thread_stats_in_mysys(SYNC_WRITE_END, writtenbytes);
     DBUG_EXECUTE_IF("simulate_file_write_error", {
       errno = ENOSPC;
       writtenbytes = (size_t)-1;

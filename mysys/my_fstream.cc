@@ -73,7 +73,10 @@ size_t my_fread(FILE *stream, uchar *Buffer, size_t Count, myf MyFlags) {
   DBUG_PRINT("my", ("stream: %p  Buffer: %p  Count: %u  MyFlags: %d", stream,
                     Buffer, (uint)Count, MyFlags));
 
-  if ((readbytes = fread(Buffer, sizeof(char), Count, stream)) != Count) {
+  update_thread_stats_in_mysys(SYNC_READ_START, 0);
+  readbytes= fread(Buffer, sizeof(char), Count, stream);
+  update_thread_stats_in_mysys(SYNC_READ_END, readbytes);
+  if (readbytes != Count) {
     DBUG_PRINT("error", ("Read only %d bytes", (int)readbytes));
     if (MyFlags & (MY_WME | MY_FAE | MY_FNABP)) {
       if (ferror(stream)) {
@@ -119,8 +122,10 @@ size_t my_fwrite(FILE *stream, const uchar *Buffer, size_t Count, myf MyFlags) {
 
   seekptr = ftell(stream);
   for (;;) {
+    update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
     size_t written =
         fwrite(pointer_cast<const char *>(Buffer), sizeof(char), Count, stream);
+    update_thread_stats_in_mysys(SYNC_WRITE_END, written);
     if (written != Count) {
       DBUG_PRINT("error", ("Write only %d bytes", (int)writtenbytes));
       set_my_errno(errno);

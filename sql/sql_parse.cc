@@ -1631,6 +1631,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   clock_gettime(clock_id, &time_start);
   thd->set_ns_time();
   thd->cur_query_io_utime = 0;
+  update_thread_stats(CPU_TIME_START);
 
   thd->set_time();
   if (is_time_t_valid_for_timestamp(thd->query_start_in_secs()) == false) {
@@ -2223,7 +2224,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       mysqld_list_processes(
           thd, global_access ? NullS : thd->security_context()->priv_user().str,
-          0);
+          0, 0);
 
       DBUG_EXECUTE_IF("force_db_name_to_null", thd->reset_db(db_saved););
       break;
@@ -2285,7 +2286,8 @@ done:
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
   clock_gettime(clock_id, &time_end);
-  thd->cur_cpu_nstime= diff_timespec(&time_end, &time_start);
+  thd->cur_cpu_nstime = diff_timespec(&time_end, &time_start);
+  update_thread_stats(CPU_TIME_END);
 
   if (!g_sqlAsyn ||
       !g_thdBottomHalf ||
@@ -2722,6 +2724,24 @@ static inline void binlog_gtid_end_transaction(THD *thd) {
 }
 
 /**
+ Set status variables except memory_used.
+ memory_used needs to be persistent.
+
+ @param current         status_var to set
+ @param old             status_var source
+
+*/
+
+void set_status_vars(System_status_var& current, System_status_var& old)
+{
+  old.server_memory_used = current.server_memory_used;
+  old.innodb_memory_used = current.innodb_memory_used;
+  old.pfs_memory_used = current.pfs_memory_used;
+
+  current = old;
+}
+
+/**
   Execute command saved in thd and lex->sql_command.
 
   @param thd                       Thread handle
@@ -3126,7 +3146,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
       */
       mysql_mutex_lock(&LOCK_status);
       add_diff_to_status(&global_status_var, &thd->status_var, &old_status_var);
-      thd->status_var = old_status_var;
+      set_status_vars(thd->status_var, old_status_var);
       thd->initial_status_var = NULL;
       mysql_mutex_unlock(&LOCK_status);
       break;
@@ -3618,7 +3638,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
                             (thd->security_context()->check_access(PROCESS_ACL)
                                  ? NullS
                                  : thd->security_context()->priv_user().str),
-                            lex->verbose);
+                            lex->verbose, lex->detail);
       break;
     case SQLCOM_SHOW_ENGINE_LOGS: {
       if (check_access(thd, FILE_ACL, any_db, NULL, NULL, 0, 0)) goto error;

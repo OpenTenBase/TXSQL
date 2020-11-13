@@ -1532,6 +1532,9 @@ The following options may be given as the first argument:
  memory storage convert innodb
  --txsql-convert-myisam-to-innodb=name 
  myisam conversion innodb mode,Can be ON/OFF/WARN/TRY
+ --txsql-enable-resource-statistics 
+ enable_resource_statistics.
+ (Defaults to on; use --skip-txsql-enable-resource-statistics to disable.)
  --txsql-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
@@ -1977,6 +1980,7 @@ transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
 txsql-convert-memory-to-innodb FALSE
 txsql-convert-myisam-to-innodb OFF
+txsql-enable-resource-statistics TRUE
 txsql-kill-idle-trans-timeout 0
 txsql-optimize-xa-recover FALSE
 txsql-slave-io-optimaze-write FALSE

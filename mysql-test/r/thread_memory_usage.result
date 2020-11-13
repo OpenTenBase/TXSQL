@@ -1,0 +1,16 @@
+create table test.t1(id int);
+insert into test.t1 values(1);
+select * from test.t1;
+id
+1
+show detail processlist;
+Id	User	Host	db	Command	Time	State	Info	Sync_read	Sync_write	Async_read	Async_write	Redo_log_size	Undo_log_size	Binary_log_size	Cpu_time(ms)	Server_memory_used	Innodb_memory_used	Pfs_memory_used
+#	event_scheduler	localhost	NULL	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#
+#	root	localhost	test	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#
+#	root	localhost	test	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#
+show status like "%memory_used";
+Variable_name	Value
+Total_innodb_memory_used	#
+Total_pfs_memory_used	#
+Total_server_memory_used	#
+drop table test.t1;

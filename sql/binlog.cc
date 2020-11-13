@@ -8316,6 +8316,7 @@ std::pair<int, my_off_t> MYSQL_BIN_LOG::flush_thread_caches(THD *thd) {
       inc_prep_xids(thd);
     }
   }
+  update_thread_stats(BINARY_TYPE, bytes);
   DBUG_PRINT("debug", ("bytes: %llu", bytes));
   return std::make_pair(error, bytes);
 }

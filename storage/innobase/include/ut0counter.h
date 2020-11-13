@@ -141,9 +141,10 @@ struct single_indexer_t {
 /** Class for using fuzzy counters. The counter is not protected by any
 mutex and the results are not guaranteed to be 100% accurate but close
 enough. Creates an array of counters and separates each element by the
-INNOBASE_CACHE_LINE_SIZE bytes */
+INNOBASE_CACHE_LINE_SIZE bytes. Realtype is the typename inside std::atomic. */
 template <typename Type, int N = IB_N_SLOTS,
-          template <typename, int> class Indexer = default_indexer_t>
+          template <typename, int> class Indexer = default_indexer_t,
+          typename Realtype = int64>
 class ib_counter_t {
  public:
   ib_counter_t() { memset(m_counter, 0x0, sizeof(m_counter)); }
@@ -233,6 +234,49 @@ class ib_counter_t {
     ut_ad(i < UT_ARR_SIZE(m_counter));
 
     return (m_counter[i]);
+  }
+
+  /* The following functions are for std::atomic value. */
+  void atomic_add(Realtype n) UNIV_NOTHROW {
+    size_t i = m_policy.offset(m_policy.get_rnd_index());
+
+    ut_ad(i < UT_ARR_SIZE(m_counter));
+
+    m_counter[i] += n;
+  }
+
+  void atomic_add(size_t index, Realtype n) UNIV_NOTHROW {
+    size_t i = m_policy.offset(index);
+
+    ut_ad(i < UT_ARR_SIZE(m_counter));
+
+    m_counter[i] += n;
+  }
+
+  void atomic_sub(size_t index, Realtype n) UNIV_NOTHROW {
+    size_t i = m_policy.offset(index);
+
+    ut_ad(i < UT_ARR_SIZE(m_counter));
+
+    m_counter[i] -= n;
+  }
+
+  void atomic_sub(Realtype n) UNIV_NOTHROW {
+    size_t i = m_policy.offset(m_policy.get_rnd_index());
+
+    ut_ad(i < UT_ARR_SIZE(m_counter));
+
+    m_counter[i] -= n;
+  }
+
+  Realtype atomic_total() UNIV_NOTHROW {
+    Realtype total = 0;
+
+    for (size_t i = 0; i < N; ++i) {
+      total += m_counter[m_policy.offset(i)];
+    }
+
+    return (total);
   }
 
  private:

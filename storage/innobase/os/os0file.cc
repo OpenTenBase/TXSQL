@@ -3368,7 +3368,9 @@ bool os_file_delete_if_exists_func(const char *name, bool *exist) {
 @param[in]	name		file path as a null-terminated string
 @return true if success */
 bool os_file_delete_func(const char *name) {
+  update_thread_stats(SYNC_WRITE_START);
   int ret = unlink(name);
+  update_thread_stats(SYNC_WRITE_END);
 
   if (ret != 0) {
     os_file_handle_error_no_exit(name, "delete", false);
@@ -4518,7 +4520,9 @@ bool os_file_delete_if_exists_func(const char *name, bool *exist) {
     /* In Windows, deleting an .ibd file may fail if mysqlbackup
     is copying it */
 
+    update_thread_stats(SYNC_WRITE_START);
     bool ret = DeleteFile((LPCTSTR)name);
+    update_thread_stats(SYNC_WRITE_END);
 
     if (ret) {
       return (true);
@@ -5643,11 +5647,15 @@ bool os_file_truncate(const char *pathname, pfs_os_file_t file,
     return (true);
   }
 
+  bool ret = false;
+  update_thread_stats(SYNC_WRITE_START);
 #ifdef _WIN32
-  return (os_file_truncate_win32(pathname, file, size));
+  ret = os_file_truncate_win32(pathname, file, size);
 #else  /* _WIN32 */
-  return (os_file_truncate_posix(pathname, file, size));
+  ret = os_file_truncate_posix(pathname, file, size);
 #endif /* _WIN32 */
+  update_thread_stats(SYNC_WRITE_END, size_bytes - size);
+  return(ret);
 }
 
 /** Set read/write position of a file handle to specific offset.
@@ -5699,9 +5707,13 @@ dberr_t os_file_read_func(IORequest &type, const char *file_name,
   ut_ad(type.is_read());
 
   const auto start_time = ut_time_monotonic_us();
+  update_thread_stats(SYNC_READ_START);
+
   dberr_t ret = os_file_read_page(type, file_name, file, buf,
                                   offset, n, NULL, true);
+
   const auto end_time = ut_time_monotonic_us();
+  update_thread_stats(SYNC_READ_END, n);
   thd_statistics_io_time(end_time - start_time);
   return ret;
 }
@@ -5720,15 +5732,19 @@ dberr_t os_file_read_first_page_func(IORequest &type, const char *file_name,
                                      os_file_t file, void *buf, ulint n) {
   ut_ad(type.is_read());
 
+  update_thread_stats(SYNC_READ_START);
   dberr_t err = os_file_read_page(type, file_name, file, buf, 0,
                                   UNIV_ZIP_SIZE_MIN, NULL, true);
+  update_thread_stats(SYNC_READ_END, UNIV_ZIP_SIZE_MIN);
 
   if (err == DB_SUCCESS) {
     uint32_t flags = fsp_header_get_flags(static_cast<byte *>(buf));
     const page_size_t page_size(flags);
     ut_ad(page_size.physical() <= n);
+    update_thread_stats(SYNC_READ_START);
     err = os_file_read_page(type, file_name, file, buf, 0, page_size.physical(),
                             NULL, true);
+    update_thread_stats(SYNC_READ_END, page_size.physical());
   }
   return (err);
 }
@@ -5879,8 +5895,12 @@ dberr_t os_file_read_no_error_handling_func(IORequest &type,
   ut_ad(type.is_read());
 
   const auto start_time = ut_time_monotonic_us();
+  update_thread_stats(SYNC_READ_START);
+
   dberr_t ret = os_file_read_page(type, file_name, file, buf,
                                   offset, n, o, false);
+
+  update_thread_stats(SYNC_READ_END, n);
   const auto end_time = ut_time_monotonic_us();
   thd_statistics_io_time(end_time - start_time);
   return ret;
@@ -5910,7 +5930,11 @@ dberr_t os_file_write_func(IORequest &type, const char *name, os_file_t file,
   const byte *ptr = reinterpret_cast<const byte *>(buf);
 
   const auto start_time = ut_time_monotonic_us();
+  update_thread_stats(SYNC_WRITE_START);
+
   dberr_t ret = os_file_write_page(type, name, file, ptr, offset, n);
+
+  update_thread_stats(SYNC_WRITE_END, n);
   const auto end_time = ut_time_monotonic_us();
   thd_statistics_io_time(end_time - start_time);
   return ret;
@@ -7206,6 +7230,8 @@ dberr_t os_aio_func(IORequest &type, AIO_mode aio_mode, const char *name,
   }
 
 try_again:
+  /*use async i/o, record the size of async i/o*/
+  update_thread_stats(type.is_read() ? ASYNC_READ : ASYNC_WRITE, n);
 
   AIO *array;
 

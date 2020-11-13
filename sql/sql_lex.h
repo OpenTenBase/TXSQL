@@ -3404,7 +3404,7 @@ struct LEX : public Query_tables_list {
   bool drop_if_exists;
   bool drop_temporary;
   bool autocommit;
-  bool verbose, no_write_to_binlog;
+  bool verbose, no_write_to_binlog, detail;
   // For show commands to show hidden columns and indexes.
   bool m_extended_show;
 

@@ -1078,6 +1078,9 @@ void trx_undo_truncate_end_func(
 
 function_exit:
   if (trunc_here) {
+    ulint old = mach_read_from_2(undo_page + TRX_UNDO_PAGE_HDR +
+                                 TRX_UNDO_PAGE_FREE);
+    update_thread_stats(ROLLBACK_TYPE, undo_page + old - trunc_here);
     mlog_write_ulint(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_FREE,
                      trunc_here - undo_page, MLOG_2BYTES, &mtr);
   }

@@ -47,6 +47,7 @@ int my_delete(const char *name, myf MyFlags) {
   DBUG_TRACE;
   DBUG_PRINT("my", ("name %s MyFlags %d", name, MyFlags));
 
+  update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
   if ((err = unlink(name)) == -1) {
     set_my_errno(errno);
     if (MyFlags & (MY_FAE + MY_WME)) {
@@ -56,6 +57,7 @@ int my_delete(const char *name, myf MyFlags) {
     }
   } else if ((MyFlags & MY_SYNC_DIR) && my_sync_dir_by_file(name, MyFlags))
     err = -1;
+  update_thread_stats_in_mysys(SYNC_WRITE_END, 0);
   return err;
 } /* my_delete */
 

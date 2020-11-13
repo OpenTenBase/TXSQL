@@ -1404,16 +1404,19 @@ class THD : public MDL_context_owner,
   struct timeval user_time;
   ulonglong start_utime, utime_after_lock;
 
-  struct timespec start_nstime;
-  ulonglong cur_cpu_nstime;
-  ulonglong cur_query_io_utime;
-  ulonglong start_trx_utime;
-
   /**
     TDSQL: microseconds the thd has been waiting in threadpool req queue before
     its query is processed.
   */
   ulonglong usecs_in_q;
+
+
+  struct timespec start_nstime;
+  ulonglong cur_cpu_nstime;
+  ulonglong cur_query_io_utime;
+  ulonglong start_trx_utime;
+  struct timespec start_io_time;
+  struct timespec start_cpu_time;
 
   /**
     Type of lock to be used for all DML statements, except INSERT, in cases
@@ -2884,6 +2887,16 @@ class THD : public MDL_context_owner,
   void update_slow_query_status();
 
   ulonglong found_rows() const { return previous_found_rows; }
+
+  inline void set_start_time(clockid_t clk_id, timespec* start_time) {
+    clock_gettime(clk_id, start_time);
+  }
+
+  inline ulonglong diff_with_start_time(clockid_t clk_id, timespec* start_time) {
+    struct timespec end_time;
+    clock_gettime(clk_id, &end_time);
+    return(diff_timespec(&end_time, start_time));
+  }
 
   /*
     Call when it is clear that the query is ended and we have collected the

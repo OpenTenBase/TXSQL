@@ -78,6 +78,7 @@ size_t my_read(File Filedes, uchar *Buffer, size_t Count, myf MyFlags) {
 
   for (;;) {
     errno = 0; /* Linux, Windows don't reset this on EOF/success */
+    update_thread_stats_in_mysys(SYNC_READ_START, 0);
 #ifdef _WIN32
     readbytes = my_win_read(Filedes, Buffer, Count);
 #else
@@ -86,6 +87,7 @@ size_t my_read(File Filedes, uchar *Buffer, size_t Count, myf MyFlags) {
     else
       readbytes = read(Filedes, Buffer, Count);
 #endif
+    update_thread_stats_in_mysys(SYNC_READ_END, readbytes);
     DBUG_EXECUTE_IF("simulate_file_read_error", {
       errno = ENOSPC;
       readbytes = (size_t)-1;

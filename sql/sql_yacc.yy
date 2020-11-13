@@ -1249,6 +1249,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token  RETURNING_SYM   /* MYSQL */
 %token XA_PREPARED_LIST /* MYSQL */
 %token THREADPOOL_SYM     /* MYSQL */
+%token<lexer.keyword> DETAIL
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
@@ -12836,10 +12837,9 @@ show_param:
                 MYSQL_YYABORT;
             }
           }
-        | opt_full PROCESSLIST_SYM
+        | opt_detail PROCESSLIST_SYM
           {
             Lex->sql_command= SQLCOM_SHOW_PROCESSLIST;
-            Lex->verbose= $1;
           }
         | opt_var_type VARIABLES opt_wild_or_where
           {
@@ -13027,6 +13027,12 @@ opt_db:
 opt_full:
           /* empty */ { $$= 0; }
         | FULL        { $$= 1; }
+        ;
+
+opt_detail:
+          /* empty */ { Lex->verbose=0; Lex->detail=0; }
+        | FULL        { Lex->verbose=1; Lex->detail=0; }
+        | DETAIL      { Lex->verbose=0; Lex->detail=1; }
         ;
 
 opt_extended:
@@ -14292,6 +14298,7 @@ ident_keywords_unambiguous:
         | DEFINITION_SYM
         | DELAY_KEY_WRITE_SYM
         | DESCRIPTION_SYM
+        | DETAIL
         | DIAGNOSTICS_SYM
         | DIRECTORY_SYM
         | DISABLE_SYM

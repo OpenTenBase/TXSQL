@@ -88,11 +88,13 @@ size_t my_pread(File Filedes, uchar *Buffer, size_t Count, my_off_t offset,
                     Filedes, (ulonglong)offset, Buffer, (ulong)Count, MyFlags));
   for (;;) {
     errno = 0; /* Linux, Windows don't reset this on EOF/success */
+    update_thread_stats_in_mysys(SYNC_READ_START, 0);
 #if defined(_WIN32)
     readbytes = my_win_pread(Filedes, Buffer, Count, offset);
 #else
     readbytes = pread(Filedes, Buffer, Count, offset);
 #endif
+    update_thread_stats_in_mysys(SYNC_READ_END, readbytes);
     error = (readbytes != Count);
     if (error) {
       set_my_errno(errno ? errno : -1);
@@ -170,6 +172,7 @@ size_t my_pwrite(File Filedes, const uchar *Buffer, size_t Count,
 
   for (;;) {
     errno = 0;
+    update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
 #if defined(_WIN32)
     writtenbytes = my_win_pwrite(Filedes, Buffer, Count, offset);
 #else
@@ -178,6 +181,7 @@ size_t my_pwrite(File Filedes, const uchar *Buffer, size_t Count,
     else
       writtenbytes = pwrite(Filedes, Buffer, Count, offset);
 #endif
+    update_thread_stats_in_mysys(SYNC_WRITE_END, writtenbytes);
     if (writtenbytes == Count) {
       sum_written += writtenbytes;
       break;

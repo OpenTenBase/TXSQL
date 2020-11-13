@@ -139,6 +139,15 @@ extern CHARSET_INFO *character_set_filesystem;
 
 extern bool cdb_skip_event_scheduler;
 extern bool txsql_convert_memory_to_innodb;
+extern bool txsql_enable_resource_statistics;
+
+/**
+  The thread statistics are summarized as follows:
+  1. sync/async io stats
+  2. redo/undo/binary log stats
+  3. cpu time stats
+*/
+extern void update_thread_stats(int type, ulonglong size = 0);
 
 enum enum_server_operational_state {
   SERVER_BOOTING,      /* Server is not operational. It is starting */

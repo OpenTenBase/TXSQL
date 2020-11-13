@@ -2310,6 +2310,8 @@ dberr_t trx_undo_report_row_operation(
       mtr_commit(&mtr);
     } else {
       /* Success */
+      update_thread_stats(UNDO_TYPE,
+                          mach_read_from_2(undo_page + offset) - offset);
       undo->withdraw_clock = buf_withdraw_clock;
       mtr_commit(&mtr);
 

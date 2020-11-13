@@ -7214,3 +7214,8 @@ static Sys_var_bool Sys_g_txsql_slave_io_optimaze_write(
     "optimize slave io thread to reduce write",
     GLOBAL_VAR(txsql_slave_io_optimaze_write),
     CMD_LINE(OPT_ARG), DEFAULT(false));
+static Sys_var_bool Sys_txsql_enable_resource_statistics(
+    "txsql_enable_resource_statistics",
+    "enable_resource_statistics.",
+    GLOBAL_VAR(txsql_enable_resource_statistics),
+    CMD_LINE(OPT_ARG), DEFAULT(true));

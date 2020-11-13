@@ -1,0 +1,19 @@
+connect (conn1, localhost, root,,);
+
+connection conn1;
+create table test.t1(id int);
+insert into test.t1 values(1);
+select * from test.t1;
+
+connection default;
+
+--replace_column 1 #  5 # 6 # 7 # 8 # 9 # 10 # 11 # 12 # 13 # 14 # 15 # 16 # 17 # 18 # 19 #
+show detail processlist;
+
+--replace_column 2 #
+show status like "%memory_used";
+
+connection conn1;
+drop table test.t1;
+
+disconnect conn1;

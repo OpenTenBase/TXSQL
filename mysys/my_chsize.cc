@@ -70,6 +70,7 @@
 */
 int my_chsize(File fd, my_off_t newlength, int filler, myf MyFlags) {
   my_off_t oldsize;
+  my_off_t fill_size;
   uchar buff[IO_SIZE];
   DBUG_TRACE;
   DBUG_PRINT("my", ("fd: %d  length: %lu  MyFlags: %d", fd, (ulong)newlength,
@@ -81,6 +82,7 @@ int my_chsize(File fd, my_off_t newlength, int filler, myf MyFlags) {
 
   DBUG_PRINT("info", ("old_size: %ld", (ulong)oldsize));
 
+  update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
   if (oldsize > newlength) {
 #ifdef _WIN32
     if (my_win_chsize(fd, newlength)) {
@@ -93,6 +95,7 @@ int my_chsize(File fd, my_off_t newlength, int filler, myf MyFlags) {
       set_my_errno(errno);
       goto err;
     }
+    update_thread_stats_in_mysys(SYNC_WRITE_END, oldsize - newlength);
     return 0;
 #else
     /*
@@ -109,11 +112,13 @@ int my_chsize(File fd, my_off_t newlength, int filler, myf MyFlags) {
 
   /* Full file with 'filler' until it's as big as requested */
   memset(buff, filler, IO_SIZE);
+  fill_size = newlength - oldsize;
   while (newlength - oldsize > IO_SIZE) {
     if (my_write(fd, buff, IO_SIZE, MYF(MY_NABP))) goto err;
     oldsize += IO_SIZE;
   }
   if (my_write(fd, buff, (size_t)(newlength - oldsize), MYF(MY_NABP))) goto err;
+  update_thread_stats_in_mysys(SYNC_WRITE_END, fill_size);
   return 0;
 
 err:
@@ -123,5 +128,7 @@ err:
     my_error(EE_CANT_CHSIZE, MYF(0), my_errno(),
              my_strerror(errbuf, sizeof(errbuf), my_errno()));
   }
+  update_thread_stats_in_mysys(SYNC_WRITE_END, oldsize > newlength ?
+      oldsize - newlength : newlength - oldsize);
   return 1;
 } /* my_chsize */

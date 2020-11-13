@@ -485,6 +485,36 @@ struct System_status_var {
   */
   double last_query_cost;
   ulonglong last_query_partial_plans;
+
+  /* Thread IO stats */
+  volatile ulonglong sync_read_counts;
+  volatile ulonglong sync_read_bytes;
+  volatile ulonglong sync_read_time;
+  volatile bool sync_read_running;
+
+  volatile ulonglong sync_write_counts;
+  volatile ulonglong sync_write_bytes;
+  volatile ulonglong sync_write_time;
+  volatile bool sync_write_running;
+
+  volatile ulonglong async_read_counts;
+  volatile ulonglong async_read_bytes;
+
+  volatile ulonglong async_write_counts;
+  volatile ulonglong async_write_bytes;
+
+  /* Thread LOG stats */
+  volatile ulonglong redo_log_size;
+  volatile ulonglong undo_log_size;
+  volatile ulonglong binary_log_size;
+
+  /* Thread CPU stats */
+  volatile ulonglong cpu_time;
+
+  /* Thread MEMORY stats */
+  volatile ulonglong server_memory_used;
+  volatile ulonglong innodb_memory_used;
+  volatile ulonglong pfs_memory_used;
 };
 
 /*

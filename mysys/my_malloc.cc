@@ -84,6 +84,7 @@ void *my_malloc(PSI_memory_key key, size_t size, myf flags) {
     mh->m_magic = MAGIC;
     mh->m_size = size;
     mh->m_key = PSI_MEMORY_CALL(memory_alloc)(key, size, &mh->m_owner);
+    update_thread_stats_in_mysys(SERVER_MEMORY_ALLOC, mh->m_size);
     user_ptr = HEADER_TO_USER(mh);
     MEM_MALLOCLIKE_BLOCK(user_ptr, size, 0, (flags & MY_ZEROFILL));
     return user_ptr;
@@ -147,6 +148,7 @@ void my_free(void *ptr) {
   mh = USER_TO_HEADER(ptr);
   DBUG_ASSERT(mh->m_magic == MAGIC);
   PSI_MEMORY_CALL(memory_free)(mh->m_key, mh->m_size, mh->m_owner);
+  update_thread_stats_in_mysys(SERVER_MEMORY_FREE, mh->m_size);
   /* Catch double free */
   mh->m_magic = 0xDEAD;
   MEM_FREELIKE_BLOCK(ptr, 0);
