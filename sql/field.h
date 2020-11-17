@@ -191,7 +191,15 @@ enum Derivation {
 enum column_format_type {
   COLUMN_FORMAT_TYPE_DEFAULT = 0, /* Not specified (use engine default) */
   COLUMN_FORMAT_TYPE_FIXED = 1,   /* FIXED format */
-  COLUMN_FORMAT_TYPE_DYNAMIC = 2  /* DYNAMIC format */
+  COLUMN_FORMAT_TYPE_DYNAMIC = 2,  /* DYNAMIC format */
+  COLUMN_FORMAT_TYPE_COMPRESSED = 3 /* COMPRESSED format */
+};
+
+/* Specifies which algorithm to use in compressed columns */
+enum compressed_column_algo_type {
+  COMP_COL_ALGO_TYPE_ZLIB = 0,    /* ZLIB algorithm */
+  COMP_COL_ALGO_TYPE_LZ4 = 1,     /* LZ4 algorithm */
+  COMP_COL_ALGO_TYPE_ZSTD = 2     /* ZSTD algorithm */
 };
 
 /**
@@ -845,6 +853,7 @@ class Field {
   virtual void set_field_length(uint32 length) { field_length = length; }
 
   uint32 flags;
+  compressed_column_algo_type comp_col_algo;// algorithm for the compressed column
   uint16 field_index;  // field number in fields array
   uchar null_bit;      // Bit used to test null bit
   /**
@@ -1283,6 +1292,14 @@ class Field {
   bool is_temporal_with_date_and_time() const {
     return is_temporal_type_with_date_and_time(real_type_to_type(type()));
   }
+
+  /**
+    Check whether the the Field is with COLUMN_FORMAT compressed.
+
+    @return    true if the field is with COLUMN_FORMAT compressed.
+               false otherwise
+  */
+  bool is_column_compressed() const { return column_format() == COLUMN_FORMAT_TYPE_COMPRESSED; }
 
   /**
     Check whether the full table's row is NULL or the Field has value NULL.
@@ -1890,6 +1907,20 @@ class Field {
 
   const uchar *unpack_int64(uchar *to, const uchar *from,
                             bool low_byte_first_from) const;
+
+ public:
+  /**
+    Checks if the current field definition and provided create field
+    definition have different compression attributes.
+
+    @param   new_field   create field definition to compare with
+
+    @return
+      true  - if compression attributes are different
+      false - if compression attributes are identical.
+  */
+  bool has_different_compression_attributes_with(
+      const Create_field &new_field) const noexcept;
 };
 
 /**

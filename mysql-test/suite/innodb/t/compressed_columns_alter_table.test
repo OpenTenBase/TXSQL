@@ -1,0 +1,69 @@
+# First, Test ALTER TABLE ADD COLUMN (BLOB and VARCHAR)
+--let $table_name = t1
+--let $new_column_name = c
+--let $new_column_type = BLOB
+
+--let $alter_table_algorithm = DEFAULT
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $alter_table_algorithm = INSTANT
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $alter_table_algorithm = INPLACE
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $alter_table_algorithm = COPY
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $new_column_type = VARCHAR(1000)
+--let $alter_table_algorithm = DEFAULT
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $alter_table_algorithm = INSTANT
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $alter_table_algorithm = INPLACE
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+--let $alter_table_algorithm = COPY
+--source suite/innodb/include/compressed_columns_alter_table_add_col.inc
+
+# Second, Test ALTER TABLE MODIFY NON-COMPRESSED => COMPRESSED
+--let $table_name = t1
+--let $column_name = c
+
+--let $original_column_type = BLOB
+--let $new_column_type = BLOB COMPRESSED
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+--let $original_column_type = TEXT
+--let $new_column_type = TEXT COMPRESSED
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+--let $original_column_type = VARCHAR(1000)
+--let $new_column_type = VARCHAR(1000) COMPRESSED
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+--let $original_column_type = VARBINARY(1000)
+--let $new_column_type = VARBINARY(1000) COMPRESSED
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+# Third, Test ALTER TABLE MODIFY COMPRESSED => NON-COMPRESSED
+--let $table_name = t1
+--let $column_name = c
+
+--let $original_column_type = BLOB COMPRESSED
+--let $new_column_type = BLOB
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+--let $original_column_type = TEXT COMPRESSED
+--let $new_column_type = TEXT
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+--let $original_column_type = VARCHAR(1000) COMPRESSED
+--let $new_column_type = VARCHAR(1000)
+--source suite/innodb/include/compressed_columns_alter_type.inc
+
+--let $original_column_type = VARBINARY(1000) COMPRESSED
+--let $new_column_type = VARBINARY(1000)
+--source suite/innodb/include/compressed_columns_alter_type.inc

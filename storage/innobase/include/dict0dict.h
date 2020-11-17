@@ -172,7 +172,12 @@ UNIV_INLINE
 ulint dict_max_v_field_len_store_undo(dict_table_t *table, ulint col_no);
 
 #endif /* !UNIV_HOTBACKUP */
-/** Gets the column number.
+
+UNIV_INLINE
+ibool dict_col_is_compressed(
+    /*============*/
+    const dict_col_t *col); /*!< in: column */
+/* Gets the column number.
  @return col->ind, table column position (starting from 0) */
 UNIV_INLINE
 ulint dict_col_get_no(const dict_col_t *col) /*!< in: column */

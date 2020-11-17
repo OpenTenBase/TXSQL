@@ -221,6 +221,9 @@ temporary table */
                        for shorter VARCHARs MySQL uses only 1 byte */
 #define DATA_VIRTUAL 8192      /* Virtual column */
 #define DATA_MULTI_VALUE 16384 /* Multi-value Virtual column */
+#define DATA_COMPRESSED 32768 /* this is ORed to the precise data      \
+        type when the column has COLUMN_FORMAT = \
+        COMPRESSED attribute*/
 
 /*-------------------------------------------*/
 

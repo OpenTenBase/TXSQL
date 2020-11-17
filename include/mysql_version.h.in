@@ -26,7 +26,7 @@
 /* TXSQL start version,Should never change it! */
 #define TXSQL_VERSION_START_ID	99000
 /* current TXSQL version, may change with TXSQL version: 5 numbers start from 99000 */
-#define TXSQL_VERSION_ID  99400
+#define TXSQL_VERSION_ID  99401
 
 #ifndef LICENSE
 #define LICENSE                     GPL

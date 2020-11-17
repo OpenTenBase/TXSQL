@@ -111,6 +111,7 @@ class Create_field {
   enum_field_types sql_type;
   uint decimals;
   uint flags{0};
+  uint flags2{0}; /* now, it is only used for compressed column algorithms */
   /**
     Bitmap of flags indicating if field value should be auto-generated
     by default and/or on update, and in which way.
@@ -179,6 +180,9 @@ class Create_field {
   // Whether the field is actually an array of the field's type;
   bool is_array{false};
 
+  // Which compression algorithm to use, in COLUMN_FORMAT COMPRESSED
+  uint comp_col_algo{COMP_COL_ALGO_TYPE_ZLIB};
+
   Create_field()
       : after(NULL),
         is_explicit_collation(false),
@@ -213,7 +217,7 @@ class Create_field {
                           const char *field_name = "");
 
   bool init(THD *thd, const char *field_name, enum_field_types type,
-            const char *length, const char *decimals, uint type_modifier,
+            const char *length, const char *decimals, uint type_modifier, uint type_modifier2,
             Item *default_value, Item *on_update_value, LEX_CSTRING *comment,
             const char *change, List<String> *interval_list,
             const CHARSET_INFO *cs, bool has_explicit_collation,
@@ -223,6 +227,10 @@ class Create_field {
 
   ha_storage_media field_storage_type() const {
     return (ha_storage_media)((flags >> FIELD_FLAGS_STORAGE_MEDIA) & 3);
+  }
+
+  void set_column_format(column_format_type column_format_arg) {
+    flags |= (column_format_arg << FIELD_FLAGS_COLUMN_FORMAT);
   }
 
   column_format_type column_format() const {

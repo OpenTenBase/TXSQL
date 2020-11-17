@@ -68,6 +68,7 @@ class PT_column_attr_base : public Parse_tree_node_tmpl<Column_parse_context> {
   typedef decltype(Alter_info::flags) alter_info_flags_t;
 
   virtual void apply_type_flags(ulong *) const {}
+  virtual void apply_type_flags2(ulong *) const {}
   virtual void apply_alter_info_flags(ulonglong *) const {}
   virtual void apply_comment(LEX_CSTRING *) const {}
   virtual void apply_default_value(Item **) const {}
@@ -390,14 +391,20 @@ class PT_column_format_column_attr : public PT_column_attr_base {
   typedef PT_column_attr_base super;
 
   column_format_type format;
+  compressed_column_algo_type algorithm;
 
  public:
-  explicit PT_column_format_column_attr(column_format_type format)
-      : format(format) {}
+  explicit PT_column_format_column_attr(
+      column_format_type format, compressed_column_algo_type algorithm)
+      : format(format), algorithm(algorithm) {}
 
   void apply_type_flags(ulong *type_flags) const override {
     *type_flags &= ~(FIELD_FLAGS_COLUMN_FORMAT_MASK);
     *type_flags |= format << FIELD_FLAGS_COLUMN_FORMAT;
+  }
+  void apply_type_flags2(ulong *type_flags2) const override {
+    *type_flags2 &= ~(FIELD_FLAGS_COL_COMPRESS_ALGO_MASK);
+    *type_flags2 |= algorithm << FIELD_FLAGS_COL_COMPRESS_ALGO;
   }
   bool contextualize(Column_parse_context *pc) override {
     if (pc->is_generated) {
@@ -497,6 +504,7 @@ class PT_type : public Parse_tree_node {
 
  public:
   virtual ulong get_type_flags() const { return 0; }
+  virtual ulong get_type_flags2() const { return 0; }
   virtual const char *get_length() const { return NULL; }
   virtual const char *get_dec() const { return NULL; }
   virtual const CHARSET_INFO *get_charset() const { return NULL; }
@@ -838,6 +846,7 @@ class PT_field_def_base : public Parse_tree_node {
  public:
   enum_field_types type;
   ulong type_flags;
+  ulong type_flags2;
   const char *length;
   const char *dec;
   const CHARSET_INFO *charset;
@@ -874,6 +883,7 @@ class PT_field_def_base : public Parse_tree_node {
 
     type = type_node->type;
     type_flags = type_node->get_type_flags();
+    type_flags2 = type_node->get_type_flags2();
     length = type_node->get_length();
     dec = type_node->get_dec();
     charset = type_node->get_charset();
@@ -893,6 +903,7 @@ class PT_field_def_base : public Parse_tree_node {
       for (auto attr : *attrs) {
         if (attr->contextualize(pc)) return true;
         attr->apply_type_flags(&type_flags);
+        attr->apply_type_flags2(&type_flags2);
         attr->apply_alter_info_flags(&alter_info_flags);
         attr->apply_comment(&comment);
         attr->apply_default_value(&default_value);

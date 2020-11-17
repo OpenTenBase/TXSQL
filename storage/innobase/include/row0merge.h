@@ -231,6 +231,7 @@ this function and it will be passed to other functions for further accounting.
 @param[in]	add_v		new virtual columns added along with indexes
 @param[in]	eval_table	mysql table used to evaluate virtual column
                                 value, see innobase_get_computed_value().
+@param[in]	prebuilt	compress_heap must be taken from here
 @return DB_SUCCESS or error code */
 dberr_t row_merge_build_indexes(
     trx_t *trx, dict_table_t *old_table, dict_table_t *new_table, bool online,
@@ -238,7 +239,7 @@ dberr_t row_merge_build_indexes(
     struct TABLE *table, const dtuple_t *add_cols, const ulint *col_map,
     ulint add_autoinc, ib_sequence_t &sequence, bool skip_pk_sort,
     ut_stage_alter_t *stage, const dict_add_v_col_t *add_v,
-    struct TABLE *eval_table) MY_ATTRIBUTE((warn_unused_result));
+    struct TABLE *eval_table, row_prebuilt_t *prebuilt) MY_ATTRIBUTE((warn_unused_result));
 
 /** Write a buffer to a block.
 @param[in]	buf	sorted buffer

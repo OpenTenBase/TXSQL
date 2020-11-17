@@ -9200,6 +9200,27 @@ reserved-error-section 5000 5999
 
 ################################################################################
 #
+# Start of TXSQL error messages
+#
+
+start-error-number 6000
+
+ER_COMPRESSED_COLUMN_USED_AS_KEY
+  eng "Compressed column '%-.192s' is not allowed in the key list"
+
+ER_UNSUPPORTED_COMPRESSED_COLUMN_TYPE
+  eng "Can not define column '%-.192s' in compressed format"
+
+ER_THREAD_IN_USE_OR_TRANSACTION
+  eng "Thread %lu is in use or in transaction, can't be killed safely."
+
+#
+# End of TXSQL error messages
+#
+
+
+################################################################################
+#
 # Start of 8.0 error messages (error log).
 #
 # DO NOT add server-to-client here;

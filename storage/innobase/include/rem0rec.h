@@ -338,11 +338,12 @@ clustered index, which has some instantly added columns.
                         if the record doesn't have instantly added columns
                         for sure
 @param[out]	len	length of the field, UNIV_SQL_NULL if SQL null
+@param[out]	is_default  whether data comes from instant add column default
 @return	value of the field, could be either pointer to rec or default value */
 UNIV_INLINE
 const byte *rec_get_nth_field_instant(const rec_t *rec, const ulint *offsets,
                                       ulint n, const dict_index_t *index,
-                                      ulint *len);
+                                      ulint *len, uint *is_default=NULL);
 
 /** Determine if the field is not NULL and not having default value
 after instant ADD COLUMN

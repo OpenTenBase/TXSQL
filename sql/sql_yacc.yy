@@ -1251,6 +1251,13 @@ void warn_about_deprecated_binary(THD *thd)
 %token THREADPOOL_SYM     /* MYSQL */
 %token<lexer.keyword> DETAIL
 /*
+  Tokens for compressed column
+*/
+%token<lexer.keyword> LZ4_SYM
+%token<lexer.keyword> ZLIB_SYM
+%token<lexer.keyword> ZSTD_SYM
+
+/*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
 */
@@ -1811,6 +1818,8 @@ void warn_about_deprecated_binary(THD *thd)
 %type <col_attr> column_attribute
 
 %type <column_format> column_format
+
+%type <compressed_column_algorithm> compressed_column_algorithm
 
 %type <storage_media> storage_media
 
@@ -3363,6 +3372,7 @@ sp_fdparam:
             if (spvar->field_def.init(thd, "", field_type,
                                       $2->get_length(), $2->get_dec(),
                                       $2->get_type_flags(),
+                                      $2->get_type_flags2(),
                                       NULL, NULL, &NULL_CSTR, 0,
                                       $2->get_interval_list(),
                                       cs ? cs : thd->variables.collation_database,
@@ -3424,6 +3434,7 @@ sp_pdparam:
             if (spvar->field_def.init(thd, "", field_type,
                                       $3->get_length(), $3->get_dec(),
                                       $3->get_type_flags(),
+                                      $3->get_type_flags2(),
                                       NULL, NULL, &NULL_CSTR, 0,
                                       $3->get_interval_list(),
                                       cs ? cs : thd->variables.collation_database,
@@ -3554,6 +3565,7 @@ sp_decl:
               if (spvar->field_def.init(thd, "", var_type,
                                         $3->get_length(), $3->get_dec(),
                                         $3->get_type_flags(),
+                                        $3->get_type_flags2(),
                                         NULL, NULL, &NULL_CSTR, 0,
                                         $3->get_interval_list(),
                                         cs ? cs : thd->variables.collation_database,
@@ -6786,9 +6798,17 @@ column_attribute:
           {
             $$= NEW_PTN PT_collate_column_attr(@2, $2);
           }
+        | COMPRESSED_SYM compressed_column_algorithm
+          {
+            $$= NEW_PTN PT_column_format_column_attr(COLUMN_FORMAT_TYPE_COMPRESSED, $2);
+          }
         | COLUMN_FORMAT_SYM column_format
           {
-            $$= NEW_PTN PT_column_format_column_attr($2);
+            $$= NEW_PTN PT_column_format_column_attr($2, COMP_COL_ALGO_TYPE_ZLIB);
+          }
+        | COLUMN_FORMAT_SYM COMPRESSED_SYM compressed_column_algorithm
+          {
+            $$= NEW_PTN PT_column_format_column_attr(COLUMN_FORMAT_TYPE_COMPRESSED, $3);
           }
         | STORAGE_SYM storage_media
           {
@@ -6822,6 +6842,12 @@ column_attribute:
             $$ = NEW_PTN PT_constraint_enforcement_attr($1);
           }
         ;
+
+compressed_column_algorithm:
+          /* empty */ { $$= COMP_COL_ALGO_TYPE_ZLIB; }
+        | ALGORITHM_SYM EQ ZLIB_SYM { $$= COMP_COL_ALGO_TYPE_ZLIB; }
+        | ALGORITHM_SYM EQ LZ4_SYM { $$= COMP_COL_ALGO_TYPE_LZ4; }
+        | ALGORITHM_SYM EQ ZSTD_SYM { $$= COMP_COL_ALGO_TYPE_ZSTD; }
 
 column_format:
           DEFAULT_SYM { $$= COLUMN_FORMAT_TYPE_DEFAULT; }
@@ -14374,6 +14400,7 @@ ident_keywords_unambiguous:
         | LOCKS_SYM
         | LOGFILE_SYM
         | LOGS_SYM
+        | LZ4_SYM
         | MASTER_AUTO_POSITION_SYM
         | MASTER_COMPRESSION_ALGORITHM_SYM
         | MASTER_CONNECT_RETRY_SYM
@@ -14601,6 +14628,8 @@ ident_keywords_unambiguous:
         | XID_SYM
         | XML_SYM
         | YEAR_SYM
+        | ZLIB_SYM
+        | ZSTD_SYM
         ;
 
 /*
@@ -16461,7 +16490,8 @@ sf_tail:
 
             if (sp->m_return_field_def.init(YYTHD, "", field_type,
                                             $9->get_length(), $9->get_dec(),
-                                            $9->get_type_flags(), NULL, NULL, &NULL_CSTR, 0,
+                                            $9->get_type_flags(), $9->get_type_flags2(),
+                                            NULL, NULL, &NULL_CSTR, 0,
                                             $9->get_interval_list(),
                                             cs ? cs : YYTHD->variables.collation_database,
                                             $10 != nullptr, $9->get_uint_geom_type(),

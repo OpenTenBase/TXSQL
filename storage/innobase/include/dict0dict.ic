@@ -38,6 +38,15 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "srv0srv.h"
 #include "sync0rw.h"
 
+UNIV_INLINE
+ibool
+dict_col_is_compressed(
+/*============*/
+	const dict_col_t*	col)	/*!< in: column */
+{
+    return (col->prtype & DATA_COMPRESSED) ? TRUE : FALSE;
+}
+
 /** Gets the column number.
  @return col->ind, table column position (starting from 0) */
 UNIV_INLINE

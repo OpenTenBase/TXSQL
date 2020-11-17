@@ -1,0 +1,255 @@
+CREATE TABLE t1(
+f1 INT PRIMARY KEY,
+f2 BLOB COLUMN_FORMAT COMPRESSED ALGORITHM = ZSTD,
+f3 BLOB GENERATED ALWAYS AS (f2) VIRTUAL,
+INDEX(f3(200))
+) ROW_FORMAT=COMPRESSED, ENGINE=InnoDB;
+INSERT INTO t1 (f1, f2) VALUES (1, REPEAT('a', 256));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int(11) NOT NULL,
+  `f2` blob /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZSTD */,
+  `f3` blob GENERATED ALWAYS AS (`f2`) VIRTUAL,
+  PRIMARY KEY (`f1`),
+  KEY `f3` (`f3`(200))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
+ALTER TABLE t1 ROW_FORMAT=COMPACT;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int(11) NOT NULL,
+  `f2` blob /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZSTD */,
+  `f3` blob GENERATED ALWAYS AS (`f2`) VIRTUAL,
+  PRIMARY KEY (`f1`),
+  KEY `f3` (`f3`(200))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPACT
+DROP TABLE t1;
+CREATE TABLE t1(
+id INT,
+a BLOB COMPRESSED algorithm = ZLIB
+) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int(11) DEFAULT NULL,
+  `a` blob /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZLIB */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES(1, REPEAT('bar', 250));
+INSERT INTO t1 VALUES(2, REPEAT('foo', 260));
+INSERT INTO t1 VALUES(3, REPEAT('xyz', 300));
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+2	foofoofoofoofoofoofoofoofoofoo	780
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('xyz', 300));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+UPDATE t1 SET a = REPEAT('opq', 100) WHERE id = 2;
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	opqopqopqopqopqopqopqopqopqopq	300
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('opq', 100));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+DROP TABLE t1;
+CREATE TABLE t1(
+id INT,
+a BLOB COMPRESSED algorithm = LZ4
+) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int(11) DEFAULT NULL,
+  `a` blob /*!99104 COMPRESSED *//*!99401 ALGORITHM=LZ4 */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES(1, REPEAT('bar', 250));
+INSERT INTO t1 VALUES(2, REPEAT('foo', 260));
+INSERT INTO t1 VALUES(3, REPEAT('xyz', 300));
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+2	foofoofoofoofoofoofoofoofoofoo	780
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('xyz', 300));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+UPDATE t1 SET a = REPEAT('opq', 100) WHERE id = 2;
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	opqopqopqopqopqopqopqopqopqopq	300
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('opq', 100));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+DROP TABLE t1;
+CREATE TABLE t1(
+id INT,
+a BLOB COMPRESSED algorithm = ZSTD
+) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int(11) DEFAULT NULL,
+  `a` blob /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZSTD */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES(1, REPEAT('bar', 250));
+INSERT INTO t1 VALUES(2, REPEAT('foo', 260));
+INSERT INTO t1 VALUES(3, REPEAT('xyz', 300));
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+2	foofoofoofoofoofoofoofoofoofoo	780
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('xyz', 300));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+UPDATE t1 SET a = REPEAT('opq', 100) WHERE id = 2;
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	opqopqopqopqopqopqopqopqopqopq	300
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('opq', 100));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+DROP TABLE t1;
+CREATE TABLE t1(
+id INT,
+a VARCHAR(1000) COMPRESSED algorithm = ZLIB
+) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int(11) DEFAULT NULL,
+  `a` varchar(1000) /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZLIB */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES(1, REPEAT('bar', 250));
+INSERT INTO t1 VALUES(2, REPEAT('foo', 260));
+INSERT INTO t1 VALUES(3, REPEAT('xyz', 300));
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+2	foofoofoofoofoofoofoofoofoofoo	780
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('xyz', 300));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+UPDATE t1 SET a = REPEAT('opq', 100) WHERE id = 2;
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	opqopqopqopqopqopqopqopqopqopq	300
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('opq', 100));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+DROP TABLE t1;
+CREATE TABLE t1(
+id INT,
+a VARCHAR(1000) COMPRESSED algorithm = LZ4
+) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int(11) DEFAULT NULL,
+  `a` varchar(1000) /*!99104 COMPRESSED *//*!99401 ALGORITHM=LZ4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES(1, REPEAT('bar', 250));
+INSERT INTO t1 VALUES(2, REPEAT('foo', 260));
+INSERT INTO t1 VALUES(3, REPEAT('xyz', 300));
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+2	foofoofoofoofoofoofoofoofoofoo	780
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('xyz', 300));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+UPDATE t1 SET a = REPEAT('opq', 100) WHERE id = 2;
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	opqopqopqopqopqopqopqopqopqopq	300
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('opq', 100));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+DROP TABLE t1;
+CREATE TABLE t1(
+id INT,
+a VARCHAR(1000) COMPRESSED algorithm = ZSTD
+) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int(11) DEFAULT NULL,
+  `a` varchar(1000) /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZSTD */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES(1, REPEAT('bar', 250));
+INSERT INTO t1 VALUES(2, REPEAT('foo', 260));
+INSERT INTO t1 VALUES(3, REPEAT('xyz', 300));
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+2	foofoofoofoofoofoofoofoofoofoo	780
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('xyz', 300));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	foofoofoofoofoofoofoofoofoofoo	780
+UPDATE t1 SET a = REPEAT('opq', 100) WHERE id = 2;
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1;
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+2	opqopqopqopqopqopqopqopqopqopq	300
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a = REPEAT('foo', 260);
+id	LEFT(a, 30)	LENGTH(a)
+SELECT id, LEFT(a, 30), LENGTH(a) FROM t1 WHERE a not in (REPEAT('opq', 100));
+id	LEFT(a, 30)	LENGTH(a)
+1	barbarbarbarbarbarbarbarbarbar	750
+3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
+DROP TABLE t1;

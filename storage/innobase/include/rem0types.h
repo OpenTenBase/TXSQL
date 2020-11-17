@@ -79,4 +79,14 @@ enum rec_format_enum {
 };
 typedef enum rec_format_enum rec_format_t;
 
+/** Compressed field header size in bytes */
+#define COLUMN_COMPRESS_HEADER_LENGTH 1
+
+/** Algorithms for column compression */
+enum column_compression_algo_type {
+    ZLIB_COL_COMP = 0, /* zlib algorithm */
+    LZ4_COL_COMP  = 1, /* lz4 algorithm */
+    ZSTD_COL_COMP = 2  /* zstd algorithm */
+};
+
 #endif

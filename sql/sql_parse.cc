@@ -5581,7 +5581,7 @@ bool mysql_test_parse_for_slave(THD *thd) {
 */
 bool Alter_info::add_field(
     THD *thd, const LEX_STRING *field_name, enum_field_types type,
-    const char *length, const char *decimals, uint type_modifier,
+    const char *length, const char *decimals, uint type_modifier, uint type_modifier2,
     Item *default_value, Item *on_update_value, LEX_CSTRING *comment,
     const char *change, List<String> *interval_list, const CHARSET_INFO *cs,
     bool has_explicit_collation, uint uint_geom_type,
@@ -5679,8 +5679,8 @@ bool Alter_info::add_field(
   Create_field *new_field = new (thd->mem_root) Create_field();
   if ((new_field == nullptr) ||
       new_field->init(thd, field_name->str, type, length, decimals,
-                      type_modifier, default_value, on_update_value, comment,
-                      change, interval_list, cs, has_explicit_collation,
+                      type_modifier, type_modifier2, default_value, on_update_value,
+                      comment, change, interval_list, cs, has_explicit_collation,
                       uint_geom_type, gcol_info, default_val_expr, srid, hidden,
                       is_array))
     return 1;

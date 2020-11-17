@@ -387,8 +387,10 @@ UNIV_INLINE MY_ATTRIBUTE((warn_unused_result)) ulint
     }
 
     ut_ad(len <= col->len || DATA_LARGE_MTYPE(col->mtype) ||
+        (dict_col_is_compressed(col) &&
+         (col->len == 0U || len <= static_cast<ulint>(col->len + COLUMN_COMPRESS_HEADER_LENGTH))) ||
           (DATA_POINT_MTYPE(col->mtype) && len == DATA_MBR_LEN) ||
-          (col->len == 0 && col->mtype == DATA_VARCHAR));
+          (col->len == 0U && col->mtype == DATA_VARCHAR));
 
     fixed_len = field->fixed_len;
     if (temp && fixed_len && !col->get_fixed_size(temp)) {
@@ -847,6 +849,9 @@ bool rec_convert_dtuple_to_rec_comp(rec_t *rec, const dict_index_t *index,
       ut_ad(dtype_get_mtype(type) != DATA_POINT);
 #ifndef UNIV_HOTBACKUP
       ut_ad(len <= dtype_get_len(type) ||
+            (dict_col_is_compressed(col) &&
+             (col->len == 0U ||
+              len <= static_cast<ulint>(col->len + COLUMN_COMPRESS_HEADER_LENGTH))) ||
             DATA_LARGE_MTYPE(dtype_get_mtype(type)) ||
             !strcmp(index->name, FTS_INDEX_TABLE_IND_NAME));
 #endif /* !UNIV_HOTBACKUP */

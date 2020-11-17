@@ -344,7 +344,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
 
   update = row_upd_build_difference_binary(cursor->index, entry, rec, NULL,
                                            true, thr_get_trx(thr), heap,
-                                           mysql_table, &err);
+                                           mysql_table, thr->prebuilt, &err);
   if (err != DB_SUCCESS) {
     return (err);
   }
@@ -851,6 +851,8 @@ static void row_ins_foreign_fill_virtual(trx_t *trx, upd_node_t *cascade,
   ulint n_diff;
   upd_field_t *upd_field;
   dict_vcol_set *v_cols = foreign->v_cols;
+  row_prebuilt_t *prebuilt =
+      static_cast<que_thr_t *>(node->common.parent)->prebuilt;
 
   update->old_vrow = row_build(ROW_COPY_POINTERS, index, rec, offsets,
                                index->table, NULL, NULL, &ext, cascade->heap);
@@ -875,7 +877,8 @@ static void row_ins_foreign_fill_virtual(trx_t *trx, upd_node_t *cascade,
 
     dfield_t *vfield = innobase_get_computed_value(update->old_vrow, col, index,
                                                    &v_heap, update->heap, NULL,
-                                                   thd, NULL, NULL, NULL, NULL);
+                                                   thd, NULL, NULL, NULL, NULL,
+                                                   prebuilt);
 
     if (vfield == NULL) {
       *err = DB_COMPUTE_VALUE_FAILED;
@@ -899,7 +902,7 @@ static void row_ins_foreign_fill_virtual(trx_t *trx, upd_node_t *cascade,
     if (!node->is_delete && (foreign->type & DICT_FOREIGN_ON_UPDATE_CASCADE)) {
       dfield_t *new_vfield = innobase_get_computed_value(
           update->old_vrow, col, index, &v_heap, update->heap, NULL, thd, NULL,
-          NULL, node->update, foreign);
+          NULL, node->update, foreign, prebuilt);
 
       if (new_vfield == NULL) {
         *err = DB_COMPUTE_VALUE_FAILED;

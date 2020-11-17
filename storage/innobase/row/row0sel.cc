@@ -240,7 +240,7 @@ static dberr_t row_sel_sec_rec_is_for_clust_rec(
       vfield = innobase_get_computed_value(row, v_col, clust_index, &heap, heap,
                                            NULL, thr_get_trx(thr)->mysql_thd,
                                            thr->prebuilt->m_mysql_table, NULL,
-                                           NULL, NULL);
+                                           NULL, NULL, thr->prebuilt);
 
       if (vfield == NULL) {
         /* This may happen e.g. when this statement is executed in
@@ -2449,7 +2449,8 @@ void row_sel_convert_mysql_key_to_innobase(
     if (UNIV_LIKELY(!is_null)) {
       buf = row_mysql_store_col_in_innobase_format(
           dfield, buf, FALSE, /* MySQL key value format col */
-          key_ptr + data_offset, data_len, dict_table_is_comp(index->table));
+          key_ptr + data_offset, data_len, dict_table_is_comp(index->table),
+          false, 0, nullptr);
       ut_a(buf <= original_buf + buf_len);
     }
 
@@ -2532,16 +2533,18 @@ static void row_sel_store_row_id_to_prebuilt(
 
 #ifdef UNIV_DEBUG
 /** Convert a non-SQL-NULL field from Innobase format to MySQL format. */
-#define row_sel_field_store_in_mysql_format(dest, templ, idx, field, src, len, \
-                                            sec)                               \
-  row_sel_field_store_in_mysql_format_func(dest, templ, idx, field, src, len,  \
-                                           sec)
+#define row_sel_field_store_in_mysql_format(dest, templ, instant_default, idx, \
+                                            field, src, len, prebuilt, sec)    \
+  row_sel_field_store_in_mysql_format_func(dest, templ, instant_default, idx,  \
+                                            field, src, len, prebuilt, sec)
 #else /* UNIV_DEBUG */
 /** Convert a non-SQL-NULL field from Innobase format to MySQL format. */
-#define row_sel_field_store_in_mysql_format(dest, templ, idx, field, src, len, \
-                                            sec)                               \
-  row_sel_field_store_in_mysql_format_func(dest, templ, idx, src, len)
+#define row_sel_field_store_in_mysql_format(dest, templ, instant_default, idx, \
+                                            field, src, len, prebuilt, sec)    \
+  row_sel_field_store_in_mysql_format_func(dest, templ, instant_default, idx,  \
+                                            src, len, prebuilt)
 #endif /* UNIV_DEBUG */
+
 
 /** Stores a non-SQL-NULL field in the MySQL format. The counterpart of this
 function is row_mysql_store_col_in_innobase_format() in row0mysql.cc.
@@ -2552,23 +2555,27 @@ function is row_mysql_store_col_in_innobase_format() in row0mysql.cc.
                                 the pointer to the BLOB in 'data'
 @param[in]	templ		MySQL column template. Its following fields
                                 are referenced: type, is_unsigned,
+@param[in]	instant_default		if data is from instant add column default
 mysql_col_len, mbminlen, mbmaxlen
 @param[in]	index		InnoDB index
 @param[in]	field_no	templ->rec_field_no or templ->clust_rec_field_no
                                 or templ->icp_rec_field_no
 @param[in]	data		data to store
 @param[in]	len		length of the data
+@param[in]	prebuilt	use prebuilt->compress_heap only here
 @param[in]	sec_field	secondary index field no if the secondary index
                                 record but the prebuilt template is in
                                 clustered index format and used only for end
                                 range comparison. */
 void row_sel_field_store_in_mysql_format_func(byte *dest,
                                               const mysql_row_templ_t *templ,
+                                              const uint instant_default,
                                               const dict_index_t *index,
 #ifdef UNIV_DEBUG
                                               ulint field_no,
 #endif /* UNIV_DEBUG */
-                                              const byte *data, ulint len
+                                              const byte *data, ulint len,
+                                              row_prebuilt_t *prebuilt
 #ifdef UNIV_DEBUG
                                               ,
                                               ulint sec_field
@@ -2624,6 +2631,8 @@ void row_sel_field_store_in_mysql_format_func(byte *dest,
         /* This is a >= 5.0.3 type true VARCHAR. Store the
         length of the data to the first byte or the first
         two bytes of dest. */
+        if (templ->is_compressed && (instant_default == 0))
+          data = row_decompress_column(data, &len, prebuilt);
 
         dest =
             row_mysql_store_true_var_len(dest, len, templ->mysql_length_bytes);
@@ -2670,7 +2679,8 @@ void row_sel_field_store_in_mysql_format_func(byte *dest,
       /* Store a pointer to the BLOB buffer to dest: the BLOB was
       already copied to the buffer in row_sel_store_mysql_rec */
 
-      row_mysql_store_blob_ref(dest, templ->mysql_col_len, data, len);
+      row_mysql_store_blob_ref(dest, templ->mysql_col_len, data, len,
+                               templ->is_compressed, prebuilt);
       break;
 
     case DATA_POINT:
@@ -2882,17 +2892,18 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_sel_store_mysql_field_func(
     ut_a(rec_field_not_null_not_add_col_def(len));
 
     row_sel_field_store_in_mysql_format(mysql_rec + templ->mysql_col_offset,
-                                        templ, index, field_no, data, len,
-                                        ULINT_UNDEFINED);
+                                        templ, 0, index, field_no, data, len,
+                                        prebuilt, ULINT_UNDEFINED);
 
     if (heap != blob_heap && heap != prebuilt->blob_heap) {
       mem_heap_free(heap);
     }
   } else {
     /* Field is stored in the row. */
-
-    data = rec_get_nth_field_instant(rec, offsets, field_no, index, &len);
-
+    uint is_instant_default = 0;
+    data = rec_get_nth_field_instant(rec, offsets, field_no, index, &len,
+                                     &is_instant_default);
+    
     if (len == UNIV_SQL_NULL) {
       /* MySQL assumes that the field for an SQL
       NULL value is set to the default value. */
@@ -2936,13 +2947,17 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_sel_store_mysql_field_func(
       data = static_cast<byte *>(mem_heap_dup(heap, data, len));
     }
 
+    if (UNIV_LIKELY_NULL(prebuilt->compress_heap))
+      mem_heap_empty(prebuilt->compress_heap);
+
     /* Reassign the clustered index field no. */
     if (clust_templ_for_sec) {
       field_no = clust_field_no;
     }
 
     row_sel_field_store_in_mysql_format(mysql_rec + templ->mysql_col_offset,
-                                        templ, index, field_no, data, len,
+                                        templ, is_instant_default, index,
+                                        field_no, data, len, prebuilt,
                                         sec_field_no);
   }
 
@@ -2975,6 +2990,9 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
   } else if (prebuilt->blob_heap != nullptr) {
     mem_heap_empty(prebuilt->blob_heap);
   }
+
+  if (UNIV_LIKELY_NULL(prebuilt->compress_heap))
+    mem_heap_empty(prebuilt->compress_heap);
 
   if (clust_templ_for_sec) {
     /* Store all clustered index column of secondary index record. */
@@ -3036,9 +3054,9 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
                templ->mysql_col_len);
       } else {
         row_sel_field_store_in_mysql_format(
-            mysql_rec + templ->mysql_col_offset, templ, index,
+            mysql_rec + templ->mysql_col_offset, templ, 0, index,
             templ->clust_rec_field_no, (const byte *)dfield->data, dfield->len,
-            ULINT_UNDEFINED);
+            prebuilt, ULINT_UNDEFINED);
         if (templ->mysql_null_bit_mask) {
           mysql_rec[templ->mysql_null_byte_offset] &=
               ~(byte)templ->mysql_null_bit_mask;

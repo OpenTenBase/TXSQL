@@ -905,6 +905,8 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
   Field *reg_field;
   ha_storage_media field_storage;
   column_format_type field_column_format;
+  compressed_column_algo_type column_compress_algorithm = 
+                              COMP_COL_ALGO_TYPE_ZLIB;
 
   //
   // Read column details from dd table
@@ -963,6 +965,16 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
     field_column_format = static_cast<column_format_type>(option_value);
   } else
     field_column_format = COLUMN_FORMAT_TYPE_DEFAULT;
+
+  // Read algorithm for column compression
+  if (field_column_format == COLUMN_FORMAT_TYPE_COMPRESSED) {
+    if (column_options->exists("compressed_algo")) {
+      uint32 option_value = 0;
+      column_options->get("compressed_algo", &option_value);
+      column_compress_algorithm =
+          static_cast<compressed_column_algo_type>(option_value);
+    }
+  }
 
   // Read Interval TYPELIB
   TYPELIB *interval = NULL;
@@ -1077,6 +1089,7 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
 
   reg_field->set_storage_type(field_storage);
   reg_field->set_column_format(field_column_format);
+  reg_field->comp_col_algo = column_compress_algorithm;
 
   // Comments
   dd::String_type comment = col_obj->comment();

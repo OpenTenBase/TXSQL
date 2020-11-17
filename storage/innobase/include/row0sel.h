@@ -434,15 +434,16 @@ enum row_sel_match_mode {
 
 #ifdef UNIV_DEBUG
 /** Convert a non-SQL-NULL field from Innobase format to MySQL format. */
-#define row_sel_field_store_in_mysql_format(dest, templ, idx, field, src, len, \
-                                            sec)                               \
-  row_sel_field_store_in_mysql_format_func(dest, templ, idx, field, src, len,  \
-                                           sec)
+#define row_sel_field_store_in_mysql_format(dest, templ, instant_default, idx, \
+                                            field, src, len, prebuilt, sec)    \
+  row_sel_field_store_in_mysql_format_func(dest, templ, instant_default, idx,  \
+                                            field, src, len, prebuilt, sec)
 #else /* UNIV_DEBUG */
 /** Convert a non-SQL-NULL field from Innobase format to MySQL format. */
-#define row_sel_field_store_in_mysql_format(dest, templ, idx, field, src, len, \
-                                            sec)                               \
-  row_sel_field_store_in_mysql_format_func(dest, templ, idx, src, len)
+#define row_sel_field_store_in_mysql_format(dest, templ, instant_default, idx, \
+                                            field, src, len, prebuilt, sec)    \
+  row_sel_field_store_in_mysql_format_func(dest, templ, instant_default, idx,  \
+                                            src, len, prebuilt)
 #endif /* UNIV_DEBUG */
 
 /** Stores a non-SQL-NULL field in the MySQL format. The counterpart of this
@@ -454,23 +455,27 @@ function is row_mysql_store_col_in_innobase_format() in row0mysql.cc.
                                 the pointer to the BLOB in 'data'
 @param[in]	templ		MySQL column template. Its following fields
                                 are referenced: type, is_unsigned,
+@param[in]	instant_default		if data is from instant add column default
 mysql_col_len, mbminlen, mbmaxlen
 @param[in]	index		InnoDB index
 @param[in]	field_no	templ->rec_field_no or templ->clust_rec_field_no
                                 or templ->icp_rec_field_no
 @param[in]	data		data to store
 @param[in]	len		length of the data
+@param[in]	prebuilt	use prebuilt->compress_heap only here
 @param[in]	sec_field	secondary index field no if the secondary index
                                 record but the prebuilt template is in
                                 clustered index format and used only for end
                                 range comparison. */
 void row_sel_field_store_in_mysql_format_func(byte *dest,
                                               const mysql_row_templ_t *templ,
+                                              const uint instant_default,
                                               const dict_index_t *index,
 #ifdef UNIV_DEBUG
                                               ulint field_no,
 #endif /* UNIV_DEBUG */
-                                              const byte *data, ulint len
+                                              const byte *data, ulint len,
+                                              row_prebuilt_t *prebuilt
 #ifdef UNIV_DEBUG
                                               ,
                                               ulint sec_field

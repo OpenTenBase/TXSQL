@@ -1162,6 +1162,7 @@ ulong binlog_row_metadata;
 bool opt_master_verify_checksum = 0;
 bool opt_slave_sql_verify_checksum = 1;
 const char *binlog_format_names[] = {"MIXED", "STATEMENT", "ROW", NullS};
+const char *column_compression_algo_names[] = {"ZLIB", "LZ4", "ZSTD", NullS};
 bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
 const char *binlog_error_action_list[] = {"IGNORE_ERROR", "ABORT_SERVER",

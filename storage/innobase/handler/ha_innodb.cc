@@ -4819,7 +4819,7 @@ static int innodb_init(void *p) {
   innobase_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS |
                          HTON_SUPPORTS_FOREIGN_KEYS | HTON_SUPPORTS_ATOMIC_DDL |
                          HTON_CAN_RECREATE | HTON_SUPPORTS_SECONDARY_ENGINE |
-                         HTON_SUPPORTS_TABLE_ENCRYPTION;
+                         HTON_SUPPORTS_TABLE_ENCRYPTION | HTON_SUPPORTS_COMPRESSED_COLUMNS;
 
   innobase_hton->replace_native_transaction_in_thd = innodb_replace_trx_in_thd;
   innobase_hton->file_extensions = ha_innobase_exts;
@@ -6427,6 +6427,8 @@ static void innobase_vcol_build_templ(const TABLE *table,
   templ->mbminlen = col->get_mbminlen();
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
+  templ->col_comp_algorithm = field->comp_col_algo;
+  templ->is_compressed = (field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED);
 }
 
 /** callback used by MySQL server layer to initialize
@@ -8029,6 +8031,8 @@ static mysql_row_templ_t *build_template_field(
   templ->mbminlen = col->get_mbminlen();
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
+  templ->col_comp_algorithm = field->comp_col_algo;
+  templ->is_compressed = (field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED);
 
   if (!index->is_clustered() && templ->rec_field_no == ULINT_UNDEFINED) {
     prebuilt->need_to_access_clustered = TRUE;
@@ -8561,7 +8565,7 @@ static void innobase_store_multi_value_low(json_binary::Value *bv,
         mysql_data = data;
       }
       row_mysql_store_col_in_innobase_format(dfield, buf, true, mysql_data,
-                                             col_len, comp);
+                                             col_len, comp, false, 0, nullptr);
     } else if (type == DATA_CHAR || type == DATA_VARCHAR ||
                type == DATA_VARMYSQL) {
       mysql_data = (byte *)elt.get_data();
@@ -8916,7 +8920,7 @@ static byte *innodb_fill_old_vcol_val(row_prebuilt_t *prebuilt,
   if (o_len != UNIV_SQL_NULL) {
     buf = row_mysql_store_col_in_innobase_format(
         vfield, buf, TRUE, old_mysql_row_col, col_pack_len,
-        dict_table_is_comp(prebuilt->table));
+        dict_table_is_comp(prebuilt->table), false, 0, nullptr);
   } else {
     dfield_set_null(vfield);
   }
@@ -9091,8 +9095,8 @@ static dberr_t calc_row_difference(
       case DATA_POINT:
       case DATA_VAR_POINT:
       case DATA_GEOMETRY:
-        o_ptr = row_mysql_read_blob_ref(&o_len, o_ptr, o_len);
-        n_ptr = row_mysql_read_blob_ref(&n_len, n_ptr, n_len);
+        o_ptr = row_mysql_read_blob_ref(&o_len, o_ptr, o_len, false, 0, nullptr);
+        n_ptr = row_mysql_read_blob_ref(&n_len, n_ptr, n_len, false, 0, nullptr);
 
         break;
 
@@ -9244,7 +9248,10 @@ static dberr_t calc_row_difference(
         } else {
           buf = row_mysql_store_col_in_innobase_format(&dfield, (byte *)buf,
                                                        TRUE, new_mysql_row_col,
-                                                       col_pack_len, comp);
+                                                       col_pack_len, comp,
+                                                       field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED,
+                                                       field->comp_col_algo,
+                                                       prebuilt);
         }
 
         if (multi_value_calc_by_diff) {
@@ -9282,7 +9289,8 @@ static dberr_t calc_row_difference(
           } else {
             buf = row_mysql_store_col_in_innobase_format(
                 &dfield, (byte *)buf, TRUE, old_mysql_row_col, col_pack_len,
-                comp);
+                comp, field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED,
+                field->comp_col_algo, prebuilt);
           }
 
           if (multi_value_calc_by_diff) {
@@ -11000,6 +11008,7 @@ inline MY_ATTRIBUTE((warn_unused_result)) int create_table_info_t::
     ulint charset_no;
     ulint is_virtual;
     ulint is_multi_val;
+    ulint is_compressed;
     bool is_stored = false;
 
     Field *field = m_form->field[i];
@@ -11084,6 +11093,7 @@ inline MY_ATTRIBUTE((warn_unused_result)) int create_table_info_t::
 
     is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
     is_stored = innobase_is_s_fld(field);
+    is_compressed = field->is_column_compressed() ? DATA_COMPRESSED : 0;
 
     is_multi_val = innobase_is_multi_value_fld(field) ? DATA_MULTI_VALUE : 0;
 
@@ -11102,8 +11112,9 @@ inline MY_ATTRIBUTE((warn_unused_result)) int create_table_info_t::
     if (!is_virtual) {
       dict_mem_table_add_col(
           table, heap, field_name, col_type,
-          dtype_form_prtype((ulint)field->type() | nulls_allowed |
-                                unsigned_type | binary_type | long_true_varchar,
+          dtype_form_prtype((ulint)field->type() | nulls_allowed | 
+                                unsigned_type | binary_type |
+                                long_true_varchar | is_compressed,
                             charset_no),
           col_len);
     } else {
@@ -11114,7 +11125,8 @@ inline MY_ATTRIBUTE((warn_unused_result)) int create_table_info_t::
           table, heap, field_name, col_type,
           dtype_form_prtype((ulint)field->type() | nulls_allowed |
                                 unsigned_type | binary_type |
-                                long_true_varchar | is_virtual | is_multi_val,
+                                long_true_varchar | is_virtual | is_multi_val |
+                                is_compressed,
                             charset_no),
           col_len, i, field->gcol_info->non_virtual_base_columns());
     }
@@ -21529,6 +21541,24 @@ static MYSQL_SYSVAR_BOOL(
     "Whether to compute and require checksums for InnoDB redo log blocks", NULL,
     innodb_log_checksums_update, TRUE);
 
+static MYSQL_SYSVAR_UINT(zlib_column_compression_level, zlib_compression_level,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Zlib compression level used for compressed columns."
+                         "Ranging from 0 to 9. (0 ==> no compression, 1 ==> fastest, "
+                         "9 ==> strongest). The default value is 6.",
+                         nullptr, nullptr, DEFAULT_COMPRESSION_LEVEL, 0, 9, 0);
+
+static MYSQL_SYSVAR_UINT(zstd_column_compression_level, zstd_compression_level,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Zstandard(zstd) compression level used for compressed columns."
+                         "Ranging from 1 to 22. (1 ==> fastest, 22 ==> strongest). The default value is 3.",
+                         nullptr, nullptr, 3, 1, 22, 0);
+
+static MYSQL_SYSVAR_UINT(min_column_compress_length, column_compress_length,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Minimum length to enable column compress",
+                          NULL, NULL, 256, 1, UINT_MAX32, 0);
+
 static MYSQL_SYSVAR_STR(data_home_dir, innobase_data_home_dir,
                         PLUGIN_VAR_READONLY | PLUGIN_VAR_NOPERSIST,
                         "The common part for InnoDB table spaces.", NULL, NULL,
@@ -23051,6 +23081,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(page_hash_cell_factor),
     MYSQL_SYSVAR(space_extend_fill_zero),
     MYSQL_SYSVAR(i_s_cache_min_idle_us),
+    MYSQL_SYSVAR(min_column_compress_length),
+    MYSQL_SYSVAR(zlib_column_compression_level),
+    MYSQL_SYSVAR(zstd_column_compression_level),
     NULL};
 
 mysql_declare_plugin(innobase){
@@ -23301,13 +23334,14 @@ static dfield_t *innobase_get_field_from_update_vector(dict_foreign_t *foreign,
                                 or NULL.
 @param[in]	parent_update	update vector for the parent row
 @param[in]	foreign		foreign key information
+@param[in]	prebuilt	compress_heap must be taken from here
 @return the field filled with computed value, or NULL if just want
 to store the value in passed in "my_rec" */
 dfield_t *innobase_get_computed_value(
     const dtuple_t *row, const dict_v_col_t *col, const dict_index_t *index,
     mem_heap_t **local_heap, mem_heap_t *heap, const dict_field_t *ifield,
     THD *thd, TABLE *mysql_table, const dict_table_t *old_table,
-    upd_t *parent_update, dict_foreign_t *foreign) {
+    upd_t *parent_update, dict_foreign_t *foreign, row_prebuilt_t *prebuilt) {
   byte rec_buf1[REC_VERSION_56_MAX_INDEX_COL_LEN];
   byte rec_buf2[REC_VERSION_56_MAX_INDEX_COL_LEN];
   byte *mysql_rec;
@@ -23390,8 +23424,9 @@ dfield_t *innobase_get_computed_value(
              templ->mysql_col_len);
     } else {
       row_sel_field_store_in_mysql_format(
-          mysql_rec + templ->mysql_col_offset, templ, index,
-          templ->clust_rec_field_no, (const byte *)data, len, ULINT_UNDEFINED);
+          mysql_rec + templ->mysql_col_offset, templ, 0, index,
+          templ->clust_rec_field_no, (const byte *)data, len,
+          prebuilt, ULINT_UNDEFINED);
 
       if (templ->mysql_null_bit_mask) {
         /* It is a nullable column with a
@@ -23429,7 +23464,8 @@ dfield_t *innobase_get_computed_value(
       byte *blob_mem = static_cast<byte *>(mem_heap_alloc(heap, max_len));
 
       row_mysql_store_blob_ref(mysql_rec + vctempl->mysql_col_offset,
-                               vctempl->mysql_col_len, blob_mem, max_len);
+                               vctempl->mysql_col_len, blob_mem, max_len,
+                               false, nullptr);
     }
 
     ret = handler::my_eval_gcolumn_expr_with_open(
@@ -23482,7 +23518,8 @@ dfield_t *innobase_get_computed_value(
   } else {
     row_mysql_store_col_in_innobase_format(
         field, buf, TRUE, mysql_rec + vctempl->mysql_col_offset,
-        vctempl->mysql_col_len, dict_table_is_comp(index->table));
+        vctempl->mysql_col_len, dict_table_is_comp(index->table),
+        false, 0, nullptr);
   }
   field->type.prtype |= DATA_VIRTUAL;
 

@@ -379,6 +379,7 @@ static const SYMBOL symbols[] = {
     {SYM("LONGTEXT", LONGTEXT_SYM)},
     {SYM("LOOP", LOOP_SYM)},
     {SYM("LOW_PRIORITY", LOW_PRIORITY)},
+    {SYM("LZ4", LZ4_SYM)},  /* LZ4 COMPRESSION ALGORITHM */
     {SYM("MASTER", MASTER_SYM)},
     {SYM("MASTER_AUTO_POSITION", MASTER_AUTO_POSITION_SYM)},
     {SYM("MASTER_BIND", MASTER_BIND_SYM)},
@@ -764,6 +765,8 @@ static const SYMBOL symbols[] = {
     {SYM("YEAR", YEAR_SYM)},
     {SYM("YEAR_MONTH", YEAR_MONTH_SYM)},
     {SYM("ZEROFILL", ZEROFILL_SYM)},
+    {SYM("ZLIB", ZLIB_SYM)},  /* ZLIB COMPRESSION ALGORITHM */
+    {SYM("ZSTD", ZSTD_SYM)},  /* ZSTD COMPRESSION ALGORITHM */
     {SYM("||", OR_OR_SYM)},
     /*
       Place keywords that accept optimizer hints below this comment.

@@ -64,6 +64,7 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
       sql_type(old_field->real_type()),
       decimals(old_field->decimals()),
       flags(old_field->flags),
+      flags2(old_field->comp_col_algo),
       auto_flags(old_field->auto_flags),
       charset(old_field->charset()),  // May be NULL ptr
       is_explicit_collation(false),
@@ -79,6 +80,7 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
       stored_in_db(old_field->stored_in_db),
       m_default_val_expr(old_field->m_default_val_expr),
       is_array(old_field->is_array()),
+      comp_col_algo(old_field->comp_col_algo),
       m_max_display_width_in_codepoints(old_field->char_length()) {
   switch (sql_type) {
     case MYSQL_TYPE_TINY_BLOB:
@@ -190,7 +192,8 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
 bool Create_field::init(
     THD *thd, const char *fld_name, enum_field_types fld_type,
     const char *display_width_in_codepoints, const char *fld_decimals,
-    uint fld_type_modifier, Item *fld_default_value, Item *fld_on_update_value,
+    uint fld_type_modifier, uint fld_type_modifier2,
+    Item *fld_default_value, Item *fld_on_update_value,
     LEX_CSTRING *fld_comment, const char *fld_change,
     List<String> *fld_interval_list, const CHARSET_INFO *fld_charset,
     bool has_explicit_collation, uint fld_geom_type,
@@ -207,7 +210,10 @@ bool Create_field::init(
   field = nullptr;
   field_name = fld_name;
   flags = fld_type_modifier;
+  flags2 = fld_type_modifier2;
   is_explicit_collation = (fld_charset != nullptr);
+  /* Get compression algorithm for compressed columns from fld_type_modifier2 */
+  comp_col_algo = ((flags2 >> FIELD_FLAGS_COL_COMPRESS_ALGO) & FIELD_FLAGS_COL_COMPRESS_ALGO_MASK);
 
   if (!has_explicit_collation && fld_charset == &my_charset_utf8mb4_0900_ai_ci)
     charset = thd->variables.default_collation_for_utf8mb4;

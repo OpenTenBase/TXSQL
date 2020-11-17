@@ -1,0 +1,51 @@
+# BUG `ALTER TABLE ROW_FORMAT` cause algorithm to change 
+CREATE TABLE t1(
+  f1 INT PRIMARY KEY,
+  f2 BLOB COLUMN_FORMAT COMPRESSED ALGORITHM = ZSTD,
+  f3 BLOB GENERATED ALWAYS AS (f2) VIRTUAL,
+  INDEX(f3(200))
+) ROW_FORMAT=COMPRESSED, ENGINE=InnoDB;
+
+INSERT INTO t1 (f1, f2) VALUES (1, REPEAT('a', 256));
+SHOW CREATE TABLE t1;
+
+# rebuild table
+ALTER TABLE t1 ROW_FORMAT=COMPACT;
+SHOW CREATE TABLE t1;
+DROP TABLE t1;
+
+# insert, update, select test on multiple algorithms
+--let table_name = t1
+--let column_name = a
+--let column_type = BLOB COMPRESSED
+--let $algorithm_type = ZLIB
+--source suite/innodb/include/compressed_columns_multi_algo.inc
+
+--let $algorithm_type = LZ4
+--source suite/innodb/include/compressed_columns_multi_algo.inc
+
+--let $algorithm_type = ZSTD
+--source suite/innodb/include/compressed_columns_multi_algo.inc
+
+--let column_type = VARCHAR(1000) COMPRESSED
+--let $algorithm_type = ZLIB
+--source suite/innodb/include/compressed_columns_multi_algo.inc
+
+--let $algorithm_type = LZ4
+--source suite/innodb/include/compressed_columns_multi_algo.inc
+
+--let $algorithm_type = ZSTD
+--source suite/innodb/include/compressed_columns_multi_algo.inc
+
+# multiple algorithm alteration tests
+# ZLIB to LZ4
+
+# ZLIB to ZSTD
+
+# LZ4 to ZLIB
+
+# LZ4 to ZSTD
+
+# ZSTD to ZLIB
+
+# ZSTD to LZ4

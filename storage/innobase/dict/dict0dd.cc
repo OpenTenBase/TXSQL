@@ -1757,11 +1757,14 @@ void dd_add_instant_columns(const TABLE *old_table, const TABLE *altered_table,
     ulint binary_type;
     ulint long_true_varchar;
     ulint charset_no;
+    ulint is_compressed;
     ulint mtype = get_innobase_type_from_mysql_type(&unsigned_type, field);
 
     nulls_allowed = field->real_maybe_null() ? 0 : DATA_NOT_NULL;
 
     binary_type = field->binary() ? DATA_BINARY_TYPE : 0;
+
+    is_compressed = field->is_column_compressed() ? DATA_COMPRESSED : 0;
 
     charset_no = 0;
     if (dtype_is_string_type(mtype)) {
@@ -1779,7 +1782,7 @@ void dd_add_instant_columns(const TABLE *old_table, const TABLE *altered_table,
 
     prtype =
         dtype_form_prtype((ulint)field->type() | nulls_allowed | unsigned_type |
-                              binary_type | long_true_varchar,
+                              binary_type | long_true_varchar | is_compressed,
                           charset_no);
 
     dict_col_t col;
@@ -1795,7 +1798,7 @@ void dd_add_instant_columns(const TABLE *old_table, const TABLE *altered_table,
 
     row_mysql_store_col_in_innobase_format(
         &dfield, reinterpret_cast<byte *>(&buf), true, mysql_data, size,
-        dict_table_is_comp(new_table));
+        dict_table_is_comp(new_table), false, 0, nullptr);
 
     size_t length = 0;
     const char *value = coder.encode(reinterpret_cast<byte *>(dfield.data),
@@ -2988,6 +2991,7 @@ static inline dict_table_t *dd_fill_dict_table(const Table *dd_tab,
     ulint unsigned_type;
     ulint binary_type;
     ulint long_true_varchar;
+    ulint is_compressed;
     ulint charset_no;
     ulint mtype = get_innobase_type_from_mysql_type(&unsigned_type, field);
 
@@ -3015,6 +3019,8 @@ static inline dict_table_t *dd_fill_dict_table(const Table *dd_tab,
 
     binary_type = field->binary() ? DATA_BINARY_TYPE : 0;
 
+    is_compressed = field->is_column_compressed() ? DATA_COMPRESSED : 0;
+
     charset_no = 0;
     if (dtype_is_string_type(mtype)) {
       charset_no = static_cast<ulint>(field->charset()->number);
@@ -3032,7 +3038,7 @@ static inline dict_table_t *dd_fill_dict_table(const Table *dd_tab,
     ulint is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
 
     ulint is_multi_val =
-        innobase_is_multi_value_fld(field) ? DATA_MULTI_VALUE : 0;
+        innobase_is_multi_value_fld(field) ? DATA_MULTI_VALUE : 0; 
 
     bool is_stored = innobase_is_s_fld(field);
 
@@ -3043,14 +3049,15 @@ static inline dict_table_t *dd_fill_dict_table(const Table *dd_tab,
     if (!is_virtual) {
       prtype =
           dtype_form_prtype((ulint)field->type() | nulls_allowed |
-                                unsigned_type | binary_type | long_true_varchar,
+                                     unsigned_type | binary_type |
+                                     long_true_varchar | is_compressed,
                             charset_no);
       dict_mem_table_add_col(m_table, heap, field->field_name, mtype, prtype,
                              col_len);
     } else {
       prtype = dtype_form_prtype(
           (ulint)field->type() | nulls_allowed | unsigned_type | binary_type |
-              long_true_varchar | is_virtual | is_multi_val,
+              long_true_varchar | is_virtual | is_multi_val | is_compressed,
           charset_no);
       dict_mem_table_add_v_col(m_table, heap, field->field_name, mtype, prtype,
                                col_len, i,

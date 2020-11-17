@@ -1230,19 +1230,26 @@ clustered index, which has some instantly add columns
 @param[in]	n	index of the field
 @param[in]	index	clustered index where the record resides
 @param[in,out]	len	length of the field, UNIV_SQL_NULL if SQL null
+@param[out]	is_default  whether data comes from instant add column default
 @return	value of the field, could be either pointer to rec or default value */
 UNIV_INLINE
 const byte *rec_get_nth_field_instant(const rec_t *rec, const ulint *offsets,
                                       ulint n, const dict_index_t *index,
-                                      ulint *len) {
+                                      ulint *len, uint *is_default) {
   ulint off = rec_get_nth_field_offs(offsets, n, len);
 
   if (*len != UNIV_SQL_ADD_COL_DEFAULT) {
+    if (is_default != nullptr) {
+      *is_default = 0;
+    }
     return (rec + off);
   }
 
   ut_a(index != nullptr);
   ut_ad(index->has_instant_cols());
+  if (is_default != nullptr) {
+    *is_default = 1;
+  }
 
   return (index->get_nth_default(n, len));
 }

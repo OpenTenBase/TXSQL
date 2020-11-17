@@ -1291,9 +1291,29 @@ bool store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       case COLUMN_FORMAT_TYPE_DYNAMIC:
         packet->append(STRING_WITH_LEN(" /*!50606 COLUMN_FORMAT DYNAMIC */"));
         break;
+      case COLUMN_FORMAT_TYPE_COMPRESSED:
+        packet->append(STRING_WITH_LEN(" /*!99104 COMPRESSED */"));
+        break;
       default:
         DBUG_ASSERT(0);
         break;
+    }
+
+    if (field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED) {
+      switch(field->comp_col_algo) {
+        case COMP_COL_ALGO_TYPE_ZLIB:
+          packet->append(STRING_WITH_LEN("/*!99401 ALGORITHM=ZLIB */"));
+          break;
+        case COMP_COL_ALGO_TYPE_LZ4:
+          packet->append(STRING_WITH_LEN("/*!99401 ALGORITHM=LZ4 */"));
+          break;
+        case COMP_COL_ALGO_TYPE_ZSTD:
+          packet->append(STRING_WITH_LEN("/*!99401 ALGORITHM=ZSTD */"));
+          break;
+        default:
+          DBUG_ASSERT(0);
+          break;
+      }
     }
 
     if (print_default_clause(thd, field, &def_value, true)) {

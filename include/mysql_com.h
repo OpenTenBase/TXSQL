@@ -185,6 +185,10 @@
 /** Field will not be loaded in secondary engine. */
 #define NOT_SECONDARY_FLAG (1 << 29)
 
+/** Flags in type_flags2 */
+#define FIELD_FLAGS_COL_COMPRESS_ALGO 0 /* Field column compression algorithm, bit 0-1 */
+#define FIELD_FLAGS_COL_COMPRESS_ALGO_MASK (3 << FIELD_FLAGS_COL_COMPRESS_ALGO)
+
 /** @}*/
 
 /**
