@@ -2293,8 +2293,7 @@ static int fill_schema_processlist(THD *thd, TABLE_LIST *tables, Item *) {
   return 0;
 }
 
-int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)))
-{
+int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused))) {
   DBUG_ENTER("fill_slave_status");
   DBUG_ASSERT((thd != NULL) && (tables != NULL));
 
@@ -2305,14 +2304,12 @@ int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)
 
   channel_map.rdlock();
 
-  if (!is_slave_configured())
-  {
+  if (!is_slave_configured()) {
     channel_map.unlock();
     DBUG_RETURN(0);
   }
 
-  for (mi_map::iterator it= channel_map.begin(); it!=channel_map.end(); it++)
-  {
+  for (mi_map::iterator it= channel_map.begin(); it!=channel_map.end(); it++) {
     mi= it->second;
     if (!mi
         || !mi->rli->slave_running
@@ -2320,8 +2317,7 @@ int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)
       continue;
 
     mysql_mutex_lock(&mi->rli->data_lock);
-    for (Slave_worker **w_it= mi->rli->workers.begin(); w_it != mi->rli->workers.end(); ++w_it)
-    {
+    for (Slave_worker **w_it= mi->rli->workers.begin(); w_it != mi->rli->workers.end(); ++w_it) {
       char gtid_str[Gtid::MAX_TEXT_LENGTH + 1]= {0};
       worker= *w_it;
 
@@ -2335,8 +2331,7 @@ int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)
       table->field[6]->store(worker->get_group_master_log_pos(), true);
 
       Gtid* last_exec_gtid= worker->get_last_gtid();
-      if (!last_exec_gtid->is_empty())
-      {
+      if (!last_exec_gtid->is_empty()) {
         global_sid_lock->rdlock();
         last_exec_gtid->to_string(global_sid_map, gtid_str);
         global_sid_lock->unlock();
@@ -2344,8 +2339,7 @@ int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)
       table->field[7]->store(gtid_str, strlen(gtid_str), cs);
       worker->trx_executed_before= worker->trx_executed;
 
-      if (schema_table_store_record(thd, table))
-      {
+      if (schema_table_store_record(thd, table)) {
         mysql_mutex_unlock(&mi->rli->data_lock);
         channel_map.unlock();
         DBUG_RETURN(1);

@@ -2473,12 +2473,13 @@ int slave_worker_exec_job_group(Slave_worker *worker, Relay_log_info *rli) {
     */
     worker_curr_ev.set_current_event(ev);
 
-    if (is_gtid_event(ev))
-    {
+    if (is_gtid_event(ev)) {
       seen_gtid = true;
-      Gtid_log_event* gtid_ev= (Gtid_log_event*)ev;
-      if (gtid_ev->get_sidno(true) > 0 && gtid_ev->get_gno() > 0)
-        worker->get_last_gtid()->set(gtid_ev->get_sidno(true), gtid_ev->get_gno());
+      if (is_mts_table_partitioned(rli) == true) {
+        Gtid_log_event* gtid_ev= (Gtid_log_event*)ev;
+        if (gtid_ev->get_sidno(true) > 0 && gtid_ev->get_gno() > 0)
+          worker->get_last_gtid()->set(gtid_ev->get_sidno(true), gtid_ev->get_gno());
+      }
     }
     if (!seen_begin && ev->starts_group()) {
       seen_begin = true;  // The current group is started with B-event

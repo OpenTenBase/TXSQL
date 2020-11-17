@@ -2791,15 +2791,13 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       char mapkey[NAME_LEN * 2 + 1] = { 0 };
 
       Log_event_type event_type = get_type_code();
-      if ((event_type == binary_log::TABLE_MAP_EVENT) && is_mts_table_partitioned(rli))
-      {
+      if ((event_type == binary_log::TABLE_MAP_EVENT) && is_mts_table_partitioned(rli)) {
         Table_map_log_event *ev = (Table_map_log_event *)this;
         strcpy(mapkey, ev->get_db_name());
         strcat(mapkey, ev->get_table_name());
       }
       else if (is_mts_db_partitioned(rli) &&
-               (mts_dbs.num != OVER_MAX_DBS_IN_EVENT_MTS))
-      {
+               (mts_dbs.num != OVER_MAX_DBS_IN_EVENT_MTS)) {
         strcpy(mapkey, mts_dbs.name[i]);
       }
 

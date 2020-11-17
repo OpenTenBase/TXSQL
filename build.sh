@@ -152,10 +152,10 @@ check_options() {
     exit 1
   fi
 
-  if [ ! -d "$boost_dir/include" -o ! -d "$boost_dir/lib" ]; then
-    echo "Boost directory $boost_dir doesn't have subdir lib or include."
-    exit 1
-  fi
+#  if [ ! -d "$boost_dir/include" -o ! -d "$boost_dir/lib" ]; then
+#    echo "Boost directory $boost_dir doesn't have subdir lib or include."
+#    exit 1
+#  fi
 
   if [ x"$build_action" != x"1" -a x"$build_action" != x"0" ]; then
     echo "Invalid build_action value, it must be 1 or 0."
@@ -296,7 +296,7 @@ $cmk .. \
   -DWITH_KMS=$kms_action                      \
   -DWITH_SSL_PATH=/usr/local/ssl              \
   -DWITH_ZLIB=bundled                         \
-  -DWITH_BOOST="$boost_dir/include"           \
+  -DWITH_BOOST="$boost_dir"                   \
   -DWITH_INNOBASE_STORAGE_ENGINE=1            \
   -DWITH_ARCHIVE_STORAGE_ENGINE=1             \
   -DWITH_BLACKHOLE_STORAGE_ENGINE=1           \
