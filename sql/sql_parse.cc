@@ -4447,6 +4447,11 @@ int mysql_execute_command(THD *thd, bool first_level) {
         initialize this variable because RESET shares the same code as FLUSH
       */
       lex->no_write_to_binlog = true;
+
+      /* Reset master is disallowed to users without super privileges. */
+      if ((lex->type & REFRESH_MASTER) && check_global_access(thd, SUPER_ACL))
+        goto error;
+
       if ((lex->type & REFRESH_PERSIST) && (lex->option_type == OPT_PERSIST)) {
         Persisted_variables_cache *pv =
             Persisted_variables_cache::get_instance();
