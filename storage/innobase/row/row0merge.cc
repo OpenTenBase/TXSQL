@@ -770,7 +770,7 @@ add_next:
     }
 
     ut_ad(len <= col->len || DATA_LARGE_MTYPE(col->mtype) ||
-      (col->len == 0 ||
+      (col->len == 0U ||
               len <= static_cast<ulint>(col->len) + COLUMN_COMPRESS_HEADER_LENGTH) ||
           (col->mtype == DATA_POINT && len == DATA_MBR_LEN));
 

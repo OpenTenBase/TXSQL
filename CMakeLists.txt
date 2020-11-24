@@ -20,6 +20,28 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=char-subscripts \
+-Werror=comments \
+-Werror=conversion-null \
+-Werror=empty-body \
+-Werror=endif-labels \
+-Werror=format \
+-Werror=missing-include-dirs \
+-Werror=overflow \
+-Werror=parentheses \
+-Werror=reorder \
+-Werror=return-type \
+-Werror=sequence-point \
+-Werror=sign-compare \
+-Werror=switch \
+-Werror=type-limits \
+-Werror=unused-function \
+-Werror=unused-label \
+-Werror=unused-result \
+-Werror=unused-value \
+-Werror=unused-variable \
+-Werror=write-strings")
+
 MESSAGE(STATUS "Running cmake version ${CMAKE_VERSION}")
 
 ## if you want to use ccache to speed up compile, install ccache and then, uncomment below cmake lines

@@ -2291,7 +2291,7 @@ void Rows_log_event::change_to_flashback_event(
   Table_map_log_event *map;
   table_def *td;
   std::vector<LEX_STRING> rows_arr;
-  uchar *swap_buff1, *swap_buff2;
+  uchar *swap_buff1 = NULL, *swap_buff2 = NULL;
   uchar *rows_pos = rows_buff + m_rows_before_size;
 
   enum_row_image_type row_image_type =
