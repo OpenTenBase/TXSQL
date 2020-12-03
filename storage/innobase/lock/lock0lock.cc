@@ -326,7 +326,9 @@ void lock_sys_create(
 
   lock_sys->timeout_event = os_event_create();
 
-  mutex_create(LATCH_ID_TRX, &lock_sys->hot_update_mutex);
+  mutex_create(LATCH_ID_HOT_UDPATE_MUTEX, &lock_sys->hot_update_mutex);
+  mutex_create(LATCH_ID_HOT_UDPATE_WAIT_SLOT_MUTEX, 
+               &lock_sys->hot_update_wait_slot_mutex);
   lock_sys->rec_hash = ut::new_<hash_table_t>(n_cells);
   lock_sys->prdt_hash = ut::new_<hash_table_t>(n_cells);
   lock_sys->prdt_page_hash = ut::new_<hash_table_t>(n_cells);
@@ -410,6 +412,7 @@ void lock_sys_close(void) {
 
   mutex_destroy(&lock_sys->wait_mutex);
   mutex_destroy(&lock_sys->hot_update_mutex);
+  mutex_destroy(&lock_sys->hot_update_wait_slot_mutex);
 
   srv_slot_t *slot = lock_sys->waiting_threads;
 
@@ -2542,7 +2545,7 @@ lock_rec_grant_hot_update_low(trx_t*  trx, bool owns_trx_mutex)
 
   if (thr != NULL) {
     trx->lock.hot_update_wait_thr = NULL;
-
+    mutex_enter(&lock_sys->hot_update_wait_slot_mutex);
     if (thr->slot != NULL && thr->slot->in_use
         && thr->slot->thr == thr) {
       os_event_set(thr->slot->event);
@@ -2550,6 +2553,7 @@ lock_rec_grant_hot_update_low(trx_t*  trx, bool owns_trx_mutex)
       if (!owns_trx_mutex) {
         trx_mutex_exit(trx);
       }
+      mutex_exit(&lock_sys->hot_update_wait_slot_mutex);
       return (true);
     }
 #ifdef UNIV_DEBUG_HOT_UPDATE
@@ -2558,6 +2562,7 @@ lock_rec_grant_hot_update_low(trx_t*  trx, bool owns_trx_mutex)
         << " has no waiting slot yet.";
     }
 #endif
+    mutex_exit(&lock_sys->hot_update_wait_slot_mutex);
   }
 #ifdef UNIV_DEBUG_HOT_UPDATE
   else {

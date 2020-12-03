@@ -180,6 +180,8 @@ extern mysql_pfs_key_t clone_snapshot_mutex_key;
 extern mysql_pfs_key_t parallel_read_mutex_key;
 extern mysql_pfs_key_t dblwr_mutex_key;
 extern mysql_pfs_key_t row_truncate_list_mutex_key;
+extern mysql_pfs_key_t	hot_update_mutex_key; 
+extern mysql_pfs_key_t	hot_update_wait_slot_mutex_key;
 #endif /* UNIV_PFS_MUTEX */
 
 #ifdef UNIV_PFS_RWLOCK
