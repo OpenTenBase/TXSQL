@@ -1503,6 +1503,12 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
   LATCH_ADD_MUTEX(ROW_TRUNCATE_LIST, SYNC_NO_ORDER_CHECK,
                   row_truncate_list_mutex_key);
 
+  LATCH_ADD_MUTEX(HOT_UDPATE_MUTEX, SYNC_NO_ORDER_CHECK,
+      hot_update_mutex_key);
+
+  LATCH_ADD_MUTEX(HOT_UDPATE_WAIT_SLOT_MUTEX, SYNC_NO_ORDER_CHECK,
+      hot_update_wait_slot_mutex_key);
+
   latch_id_t id = LATCH_ID_NONE;
 
   /* The array should be ordered on latch ID.We need to

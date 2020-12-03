@@ -1105,9 +1105,15 @@ struct lock_sys_t {
 
   hash_table_t* hot_update_hash;/*!< hash table of the hot update
                                 row */
+  
+  char pad0[ut::INNODB_CACHE_LINE_SIZE];
+
   Lock_mutex  hot_update_mutex;  /*!< Mutex protecting the hot update
                                 row info */
 
+  Lock_mutex	hot_update_wait_slot_mutex;	/*!< Mutex for serializing 
+				  the reads of thr->slot in lock_rec_grant_hot_update_low
+	  			and writes to thr->slot in lock_wait_table_release_slot.  */
 #ifdef UNIV_DEBUG
   /** Lock timestamp counter, used to assign lock->m_seq on creation. */
   std::atomic<uint64_t> m_seq;

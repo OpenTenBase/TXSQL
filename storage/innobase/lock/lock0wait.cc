@@ -73,13 +73,24 @@ static void lock_wait_table_print(void) {
 /** Release a slot in the lock_sys_t::waiting_threads. Adjust the array last
  pointer if there are empty slots towards the end of the table. */
 static void lock_wait_table_release_slot(
-    srv_slot_t *slot) /*!< in: slot to release */
+  srv_slot_t*	slot, 		/*!< in: slot to release */
+  bool hot_update_release) /* !< in: if this is called from lock_wait_in_hot_row_update_queue */
 {
+  ut_ad(!mutex_own(&lock_sys->hot_update_wait_slot_mutex));
 #ifdef UNIV_DEBUG
   srv_slot_t *upper = lock_sys->waiting_threads + srv_max_n_threads;
 #endif /* UNIV_DEBUG */
 
   lock_wait_mutex_enter();
+
+
+  if (hot_update_release) {
+    /** We use lock_sys->hot_update_mutex to serialize
+    the reads of thr->slot in lock_rec_grant_hot_update_low
+    and writes to thr->slot below */
+		mutex_enter(&lock_sys->hot_update_wait_slot_mutex);
+	}
+
   /* We omit trx_mutex_enter and a lock_sys latches here, because we are only
   going to touch thr->slot, which is a member used only by lock0wait.cc and is
   sufficiently protected by lock_wait_mutex. Yes, there are readers who read
@@ -99,6 +110,10 @@ static void lock_wait_table_release_slot(
   slot->thr->slot = nullptr;
   slot->thr = nullptr;
   slot->in_use = false;
+
+  if (hot_update_release) {
+    mutex_exit(&lock_sys->hot_update_wait_slot_mutex);
+  }
 
   /* Scan backwards and adjust the last free slot pointer. */
   for (slot = lock_sys->last_slot;
@@ -279,15 +294,8 @@ lock_wait_in_hot_row_update_queue(que_thr_t *thr)
 #endif
   DEBUG_SYNC_C("hot_update_wait_has_finished_waiting");
 
-  /** We use lock_sys->hot_update_mutex to serialize 
-    the reads of thr->slot in lock_rec_grant_hot_update_low
-    and writes to thr->slot in the lock_wait_table_release_slot */
-  mutex_enter(&lock_sys->hot_update_mutex);
-
   /* Release the slot for others to use */
-  lock_wait_table_release_slot(slot);
-
-  mutex_exit(&lock_sys->hot_update_mutex);
+  lock_wait_table_release_slot(slot, true);
 
   /* For test timeout */
   DBUG_EXECUTE_IF("hot_update_time_out",
@@ -440,7 +448,7 @@ void lock_wait_suspend_thread(que_thr_t *thr) {
 
   /* Release the slot for others to use */
 
-  lock_wait_table_release_slot(slot);
+  lock_wait_table_release_slot(slot, false);
 
   if (thr->lock_state == QUE_THR_LOCK_ROW) {
     const auto diff_time = std::chrono::steady_clock::now() - start_time;
