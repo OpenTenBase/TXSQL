@@ -1,0 +1,60 @@
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+
+
+--echo # init ===================================================================
+connection master;
+show variables like 'slave_rows_search_algorithms';
+
+CREATE TABLE t1 (
+  a bigint unsigned not null,
+  b bigint unsigned not null
+) ENGINE=InnoDB;
+
+# The two row have the same crc value
+--echo # crc32(0xffa87ced4c74eee8a8ede45e459e115068)= crc32(0xff10b90d175cd25c1396c7927505c51669)
+insert into t1 values(0xa8e8ee744ced7ca8, 0x6850119e455ee4ed),(0x135cd25c170db910, 0x6916c5057592c796);
+
+
+--sync_slave_with_master
+connection slave;
+show variables like 'slave_rows_search_algorithms';
+select * from t1;
+
+
+
+--echo # phrase 1 ===================================================================
+--echo # The log of the second record is applied to the first record
+connection master;
+update t1 set a=1 where a=0x135cd25c170db910 and b=0x6916c5057592c796;
+select * from t1;
+
+
+--echo # slave========================================
+--sync_slave_with_master
+connection slave;
+select * from t1;
+
+
+--echo # phrase 2 ===================================================================
+--echo # HA_ERR_KEY_NOT_FOUND error!
+connection master;
+update t1 set a=2 where a=1;
+select * from t1;
+
+
+--echo # slave========================================
+--sync_slave_with_master
+connection slave;
+select * from t1;
+
+
+--echo # cleanup ===================================================================
+connection master;
+drop table t1;
+
+--sync_slave_with_master
+connection slave;
+
+
+--source include/rpl_end.inc
