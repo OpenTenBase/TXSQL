@@ -1385,8 +1385,8 @@ class THD : public MDL_context_owner,
   enum enum_server_command m_command;
 
  private:
-  bool m_is_admin_conn;
-  bool m_is_local_or_admin_port;
+  bool m_is_admin_conn = false;
+  bool m_is_local_or_admin_port = false;
 
  public:
   void set_admin_connection(bool admin) { m_is_admin_conn = admin; }
