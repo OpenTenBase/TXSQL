@@ -12,7 +12,7 @@ count(*)
 0
 select count(*) from performance_schema.events_statements_histogram_global;
 count(*)
-450
+32
 select * from performance_schema.events_statements_histogram_global
 where COUNT_BUCKET > 0;
 BUCKET_NUMBER	BUCKET_TIMER_LOW	BUCKET_TIMER_HIGH	COUNT_BUCKET	COUNT_BUCKET_AND_LOWER	BUCKET_QUANTILE
@@ -22,44 +22,34 @@ where BUCKET_NUMBER <= 10
 order by BUCKET_NUMBER;
 BUCKET_NUMBER	BUCKET_TIMER_LOW	BUCKET_TIMER_HIGH
 0	0	10000000
-1	10000000	10471285
-2	10471285	10964781
-3	10964781	11481536
-4	11481536	12022644
-5	12022644	12589254
-6	12589254	13182567
-7	13182567	13803842
-8	13803842	14454397
-9	14454397	15135612
-10	15135612	15848931
+1	10000000	20000000
+2	20000000	40000000
+3	40000000	80000000
+4	80000000	160000000
+5	160000000	320000000
+6	320000000	640000000
+7	640000000	1280000000
+8	1280000000	2560000000
+9	2560000000	5120000000
+10	5120000000	10240000000
 select BUCKET_NUMBER, BUCKET_TIMER_LOW, BUCKET_TIMER_HIGH
 from performance_schema.events_statements_histogram_global
 where BUCKET_NUMBER >= 440
 order by BUCKET_NUMBER;
 BUCKET_NUMBER	BUCKET_TIMER_LOW	BUCKET_TIMER_HIGH
-440	6025595860743779	6309573444802144
-441	6309573444802144	6606934480076182
-442	6606934480076182	6918309709189598
-443	6918309709189598	7244359600750145
-444	7244359600750145	7585775750292094
-445	7585775750292094	7943282347243084
-446	7943282347243084	8317637711026992
-447	8317637711026992	8709635899561102
-448	8709635899561102	9120108393559408
-449	9120108393559408	18446744073709551615
 select min(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW),
 max(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW)
 from performance_schema.events_statements_histogram_global
 where (BUCKET_NUMBER > 0) and (BUCKET_NUMBER < 449);
 min(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW)	max(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW)
-1.0471	1.0471
+2.0000	1717.9869
 select "A 1st statement" as marker_one;
 marker_one
 A 1st statement
 select count(*)
 from performance_schema.events_statements_histogram_by_digest;
 count(*)
-450
+32
 select count(*)
 from performance_schema.events_statements_histogram_by_digest
 where COUNT_BUCKET > 0;
@@ -73,7 +63,7 @@ select count(*)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_one;
 count(*)
-450
+32
 select BUCKET_NUMBER, BUCKET_TIMER_LOW, BUCKET_TIMER_HIGH
 from performance_schema.events_statements_histogram_by_digest
 where (BUCKET_NUMBER <= 10)
@@ -81,39 +71,29 @@ and (DIGEST = @digest_one)
 order by BUCKET_NUMBER;
 BUCKET_NUMBER	BUCKET_TIMER_LOW	BUCKET_TIMER_HIGH
 0	0	10000000
-1	10000000	10471285
-2	10471285	10964781
-3	10964781	11481536
-4	11481536	12022644
-5	12022644	12589254
-6	12589254	13182567
-7	13182567	13803842
-8	13803842	14454397
-9	14454397	15135612
-10	15135612	15848931
+1	10000000	20000000
+2	20000000	40000000
+3	40000000	80000000
+4	80000000	160000000
+5	160000000	320000000
+6	320000000	640000000
+7	640000000	1280000000
+8	1280000000	2560000000
+9	2560000000	5120000000
+10	5120000000	10240000000
 select BUCKET_NUMBER, BUCKET_TIMER_LOW, BUCKET_TIMER_HIGH
 from performance_schema.events_statements_histogram_by_digest
 where (BUCKET_NUMBER >= 440)
 and (DIGEST = @digest_one)
 order by BUCKET_NUMBER;
 BUCKET_NUMBER	BUCKET_TIMER_LOW	BUCKET_TIMER_HIGH
-440	6025595860743779	6309573444802144
-441	6309573444802144	6606934480076182
-442	6606934480076182	6918309709189598
-443	6918309709189598	7244359600750145
-444	7244359600750145	7585775750292094
-445	7585775750292094	7943282347243084
-446	7943282347243084	8317637711026992
-447	8317637711026992	8709635899561102
-448	8709635899561102	9120108393559408
-449	9120108393559408	18446744073709551615
 select min(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW),
 max(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW)
 from performance_schema.events_statements_histogram_by_digest
 where (BUCKET_NUMBER > 0) and (BUCKET_NUMBER < 449)
 and (DIGEST = @digest_one);
 min(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW)	max(BUCKET_TIMER_HIGH/BUCKET_TIMER_LOW)
-1.0471	1.0471
+2.0000	1717.9869
 select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_one;
@@ -225,7 +205,7 @@ select count(*)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_one;
 count(*)
-450
+32
 select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_one;
@@ -235,7 +215,7 @@ select count(*)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_two;
 count(*)
-450
+32
 select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_two;
@@ -319,7 +299,7 @@ A 1st statement, another time
 select count(*)
 from performance_schema.events_statements_histogram_by_digest;
 count(*)
-450
+32
 select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_one;
@@ -338,7 +318,7 @@ truncate table performance_schema.events_statements_summary_global_by_event_name
 select count(*)
 from performance_schema.events_statements_histogram_by_digest;
 count(*)
-450
+32
 select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_by_digest
 where DIGEST = @digest_one;

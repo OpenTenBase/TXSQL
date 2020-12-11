@@ -185,7 +185,7 @@ COUNT(*)
 select count(*)
 from performance_schema.events_statements_histogram_by_digest;
 count(*)
-900
+64
 select SCHEMA_NAME, DIGEST IS NULL, BUCKET_NUMBER
 from performance_schema.events_statements_histogram_by_digest
 where BUCKET_NUMBER= 1;
