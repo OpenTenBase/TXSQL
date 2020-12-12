@@ -8,23 +8,6 @@ CREATE USER xuser@localhost IDENTIFIED BY 'xuser_pwd';
 SHOW GRANTS FOR xuser@localhost;
 Grants for xuser@localhost
 GRANT USAGE ON *.* TO `xuser`@`localhost`
-show global status like '%Thread_%';
-Variable_name	Value
-Com_show_threadpool_status	0
-Delayed_insert_threads	0
-Iothreadreport_newsttime	0
-Mysqlx_worker_threads	2
-Mysqlx_worker_threads_active	0
-Performance_schema_thread_classes_lost	0
-Performance_schema_thread_instances_lost	0
-Slow_launch_threads	0
-Threadpool_idle_threads	0
-Threadpool_threads	0
-Threads_cached	0
-Threads_connected	0
-Threads_created	1
-Threads_extra_connected	1
-Threads_running	2
 connecting...
 active session is now 'second_session'
 connecting...
