@@ -267,6 +267,12 @@ void buf_pool_update_madvise();
 /** Clears the adaptive hash index on all pages in the buffer pool. */
 void buf_pool_clear_hash_index(void);
 
+/********************************************************************//**
+Clears the adaptive hash index on pages that are mapped 
+to the given hash index partitions mask. */
+void
+buf_pool_clear_hash_index_by_mask(bool *affected_parts_mask);
+
 /** Gets the current size of buffer buf_pool in bytes.
  @return size in bytes */
 static inline ulint buf_pool_get_curr_size(void);

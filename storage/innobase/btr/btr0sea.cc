@@ -58,6 +58,11 @@ this program; if not, write to the Free Software Foundation, Inc.,
 Search system is protected by array of latches. */
 bool btr_search_enabled = true;
 
+
+bool        btr_fast_ahi_cleanup_drop_table = false;
+double      btr_fast_ahi_cleanup_ratio_thres = 0.7;
+ulong       btr_fast_ahi_cleanup_num_entries_thres = 10000000;
+
 /** Number of adaptive hash index partition. */
 ulong btr_ahi_parts = 8;
 ut::fast_modulo_t btr_ahi_parts_fast_modulo(8);
@@ -285,6 +290,7 @@ static void btr_search_disable_ref_count(dict_table_t *table) {
     ut_ad(rw_lock_own(btr_get_search_latch(index), RW_LOCK_X));
 
     index->search_info->ref_count = 0;
+    index->search_info->n_recs = 0;
   }
 }
 
@@ -333,6 +339,144 @@ void btr_search_disable(bool need_mutex) {
   btr_search_x_unlock_all();
 }
 
+/** Compute approximate # hash entries for 
+    each ahi partitions on the given table.
+@param[in]    table    table to compute # hash entries on
+@param[out]    ahi_part_sizes    array that holds the result
+*/
+static
+void
+btr_search_compute_ahi_part_sizes_by_table(
+    dict_table_t*    table,
+    ulint * ahi_part_sizes)
+{
+  dict_index_t*  index;
+
+  ut_ad(mutex_own(&dict_sys->mutex));
+
+  for (index = table->first_index(); index != nullptr;
+       index = index->next()) {
+
+    if (!index->disable_ahi) {
+      const ulint    ahi_slot
+          = btr_get_search_slot(index->id, index->space)  % btr_ahi_parts;
+      ahi_part_sizes[ahi_slot] += index->search_info->n_recs;
+    }
+  }
+}
+
+/** Compute # hash entries for each ahi partitions
+    on all tables in the system
+    @param[out]    ahi_part_sizes    array that holds the result */
+void
+btr_search_compute_ahi_part_sizes(
+    ulint * ahi_part_sizes)
+{
+  dict_table_t*  table;
+
+  ut_ad(mutex_own(&dict_sys->mutex));
+
+  if (!btr_search_enabled) {
+
+    return;
+  }
+
+  for (table = UT_LIST_GET_FIRST(dict_sys->table_LRU); table;
+       table = UT_LIST_GET_NEXT(table_LRU, table)) {
+
+    btr_search_compute_ahi_part_sizes_by_table(table, ahi_part_sizes);
+  }
+
+  for (table = UT_LIST_GET_FIRST(dict_sys->table_non_LRU); table;
+       table = UT_LIST_GET_NEXT(table_LRU, table)) {
+
+    btr_search_compute_ahi_part_sizes_by_table(table, ahi_part_sizes);
+  }
+}
+
+/** Set index->ref_count = 0 on indexes mapped to 
+    the given AHI partitions mask of a table.
+    @param[in,out]    table    table handler */
+static void
+btr_search_disable_ref_count_by_mask(
+    dict_table_t*    table,
+    bool * affected_ahi_parts_mask)
+{
+  dict_index_t*  index;
+
+  ut_ad(mutex_own(&dict_sys->mutex));
+
+  for (index = table->first_index(); index != nullptr;
+       index = index->next()){
+
+    ut_ad(rw_lock_own(btr_get_search_latch(index), RW_LOCK_X));
+
+    const ulint    ahi_slot
+        = btr_get_search_slot(index->id, index->space) % btr_ahi_parts;
+    if (affected_ahi_parts_mask[ahi_slot]) {
+      index->search_info->ref_count = 0;
+      index->search_info->n_recs = 0;
+    }
+  }
+}
+
+
+/** Disable the adaptive hash search system and empty parts 
+ * of the hash tables.
+ @param[in]    need_mutex    need to acquire dict_sys->mutex */
+void
+btr_search_clear_by_partition_mask(
+    bool    need_mutex,
+    bool * affected_ahi_parts_mask)
+{
+  dict_table_t*  table;
+
+  if (need_mutex) {
+    mutex_enter(&dict_sys->mutex);
+  }
+
+  ut_ad(mutex_own(&dict_sys->mutex));
+  btr_search_x_lock_all(UT_LOCATION_HERE);
+
+  if (!btr_search_enabled) {
+    if (need_mutex) {
+      mutex_exit(&dict_sys->mutex);
+    }
+
+    btr_search_x_unlock_all();
+    return;
+  }
+
+  /* Clear the index->search_info->ref_count of every affected index in
+     the data dictionary cache. */
+  for (table = UT_LIST_GET_FIRST(dict_sys->table_LRU); table;
+       table = UT_LIST_GET_NEXT(table_LRU, table)) {
+    btr_search_disable_ref_count_by_mask(table, affected_ahi_parts_mask);
+  }
+
+  for (table = UT_LIST_GET_FIRST(dict_sys->table_non_LRU); table;
+       table = UT_LIST_GET_NEXT(table_LRU, table)) {
+    btr_search_disable_ref_count_by_mask(table, affected_ahi_parts_mask);
+  }
+
+  if (need_mutex) {
+    mutex_exit(&dict_sys->mutex);
+  }
+
+  /* Set all affected block->index = NULL. */
+  buf_pool_clear_hash_index_by_mask(affected_ahi_parts_mask);
+
+  /* Clear the affected parts of the adaptive hash index. */
+  for (ulint i = 0; i < btr_ahi_parts; ++i) {
+    if (affected_ahi_parts_mask[i]) {
+      hash_table_clear(btr_search_sys->hash_tables[i]);
+      mem_heap_empty(btr_search_sys->hash_tables[i]->heap);
+    }
+  }
+
+  btr_search_x_unlock_all();
+}
+
 void btr_search_enable() {
   os_rmb;
   /* Don't allow enabling AHI if buffer pool resize is happening.
@@ -352,6 +496,7 @@ btr_search_t *btr_search_info_create(mem_heap_t *heap) {
   ut_d(info->magic_n = BTR_SEARCH_MAGIC_N);
 
   info->ref_count = 0;
+  info->n_recs = 0;
   info->root_guess = nullptr;
 
   info->hash_analysis = 0;
@@ -634,7 +779,17 @@ void btr_search_info_update_slow(btr_search_t *info, btr_cur_t *cursor) {
   }
 #endif /* UNIV_SEARCH_PERF_STAT */
 
-  if (btr_search_update_block_hash_info(info, block, cursor)) {
+  bool build_index = btr_search_update_block_hash_info(info, block, cursor);
+  /** If the AHI partition latch is currently X-locked by another writer, 
+   * we avoid contending on this latch as this function is on the critical
+   * btree search path.
+   * Since we do not clear any search stats on this block, the hash index 
+   * will eventually be built when accessing this page later again. */
+  if (build_index && rw_lock_get_writer(btr_get_search_latch(cursor->index))
+      != RW_LOCK_NOT_LOCKED) {
+    return;
+  }
+  if (build_index) {
     /* Note that since we did not protect block->n_fields etc.
     with any semaphore, the values can be inconsistent. We have
     to check inside the function call that they make sense. */
@@ -1118,6 +1273,7 @@ void btr_search_drop_page_hash_index(buf_block_t *block) {
     be completed before any other thread start to free the index or table
     structure. */
     auto old_ref_count = info->ref_count.fetch_sub(1);
+    info->n_recs -= n_cached;
     ut_a(old_ref_count > 0);
   }
   block->index = nullptr;
@@ -1217,11 +1373,113 @@ static void btr_drop_next_batch(const page_size_t &page_size,
   }
 }
 
+
+/** Drop any adaptive hash index entries for a table by
+ *  directly clearing the affected ahi hash table partitions.
+ @param[in,out]    table    to drop indexes of this table */
+void btr_fast_ahi_cleanup_for_table(dict_table_t* table) {
+  ut_ad(mutex_own(&dict_sys->mutex));
+  ut_ad(!table->is_intrinsic());
+  /** # entries in AHI that point to indices in this table. */
+  ulint num_hash_probes = 0;
+
+  /** Compute # entries for each AHI partition on all tables. */
+  ulint * ahi_part_sizes = (ulint*)malloc(sizeof(ulint) * btr_ahi_parts);
+  memset(ahi_part_sizes, 0, sizeof(ulint) * btr_ahi_parts);
+  btr_search_compute_ahi_part_sizes(ahi_part_sizes);
+
+  bool * affected_ahi_parts_mask = (bool*)malloc(sizeof(char) * btr_ahi_parts);
+  for (ulong i = 0; i < btr_ahi_parts; i++) affected_ahi_parts_mask[i] = false;
+
+  for (dict_index_t *index = table->first_index(); index != nullptr;
+       index = index->next()) {
+    rw_lock_s_lock(dict_index_get_lock(index), UT_LOCATION_HERE);
+    btr_search_t * info = btr_search_get_info(index);
+    if (index->disable_ahi == false) {
+      const ulint    ahi_slot
+          = btr_get_search_slot(index->id, index->space) % btr_ahi_parts;
+
+      affected_ahi_parts_mask[ahi_slot] = true;
+      /** We tolerate this dirty read 
+       *  since approximation is good enough. */
+      num_hash_probes += info->n_recs;
+    }
+    rw_lock_s_unlock(dict_index_get_lock(index));
+  }
+
+  /* Calculate # hash entries in the affected partitions of 
+   * AHI. */
+  ulint num_ahi_hash_entries = 0;
+  ulint num_ahi_cells = 0;
+  for (ulint i = 0; i < btr_ahi_parts; ++i) {
+    if (affected_ahi_parts_mask[i]) {
+      num_ahi_hash_entries += ahi_part_sizes[i];
+      rw_lock_s_lock(btr_search_latches[i], UT_LOCATION_HERE);
+      num_ahi_cells += btr_search_sys->hash_tables[i]->get_n_cells();
+      rw_lock_s_unlock(btr_search_latches[i]);
+    }
+  }
+  
+  DBUG_EXECUTE_IF("fast_ahi_cleanup_trigger1",
+                  {
+                    num_hash_probes  = btr_fast_ahi_cleanup_num_entries_thres + 1;
+                  });
+  DBUG_EXECUTE_IF("fast_ahi_cleanup_trigger2",
+                  {
+    num_hash_probes  = 1 + num_ahi_hash_entries *
+        btr_fast_ahi_cleanup_ratio_thres;
+                  });
+  if (num_hash_probes >= btr_fast_ahi_cleanup_num_entries_thres ||
+    num_hash_probes >= num_ahi_hash_entries *
+      btr_fast_ahi_cleanup_ratio_thres) {
+    DBUG_EXECUTE_IF("fast_ahi_cleanup_test",
+                    {
+                      ib::info() << "fast_ahi_cleanup triggered. "
+                                 << "num_ahi_cells " << num_ahi_cells
+                                 << ", num_ahi_hash_entries " << num_ahi_hash_entries
+                                 << ", num_hash_probes " << num_hash_probes << "\n";
+                    }
+                    );
+
+
+    btr_search_s_lock_all(UT_LOCATION_HERE);
+    if (btr_search_enabled) {
+      btr_search_s_unlock_all();
+      /** Clear the affected AHI partitions only. */
+      btr_search_clear_by_partition_mask(false,
+                                         affected_ahi_parts_mask);
+    } else {
+      /* Somehow the ahi is already disabled before reaching here.*/
+      btr_search_s_unlock_all();
+    }
+  }
+  free(affected_ahi_parts_mask);
+  free(ahi_part_sizes);
+}
+
 void btr_drop_ahi_for_table(dict_table_t *table) {
   const ulint len = UT_LIST_GET_LEN(table->indexes);
 
   if (len == 0) {
     return;
+  }
+
+  /*
+   * Eager AHI cleanup optimization:
+   * If the table being dropped takes majority of the space
+   * in the AHI system, then we are better off doing a complete 
+   * cleanup of the affected partitions of the AHI system 
+   * as opposed to individually removing entries from AHI 
+   * system. This is because bulk hash table deletions are 
+   * very inefficient due to random memory access pattern. 
+   * Whereas for AHI cleanup, the memory access pattern
+   * is mostly linear which is super fast. 
+   */ 
+  if (btr_search_enabled 
+         && btr_fast_ahi_cleanup_drop_table
+      && !table->is_intrinsic()) {
+    // Perform fast cleanup first.
+    btr_fast_ahi_cleanup_for_table(table);
   }
 
   const dict_index_t *indexes[MAX_INDEXES];
@@ -1445,6 +1703,7 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
   block->curr_left_side = left_side;
   block->index = index;
 
+  index->search_info->n_recs += n_cached;
   for (size_t i = 0; i < n_cached; i++) {
     ha_insert_for_hash(table, hashes[i], block, recs[i]);
   }
@@ -1554,6 +1813,7 @@ void btr_search_update_hash_on_delete(btr_cur_t *cursor) {
     ut_a(block->index == index);
 
     if (ha_search_and_delete_if_found(table, hash_value, rec)) {
+      index->search_info->n_recs -= 1;
       MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_REMOVED);
     } else {
       MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_REMOVE_NOT_FOUND);
@@ -1704,6 +1964,9 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor) {
       }
 
       ha_insert_for_hash(table, ins_hash, block, ins_rec);
+      //here has difference from 8.0.22 which is ha_insert_for_fold. and so on for
+      //the rest n_recs += 1;
+      index->search_info->n_recs += 1;
     }
 
     goto check_next_rec;
@@ -1723,6 +1986,7 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor) {
     } else {
       ha_insert_for_hash(table, ins_hash, block, ins_rec);
     }
+    index->search_info->n_recs += 1;
   }
 
 check_next_rec:
@@ -1737,6 +2001,7 @@ check_next_rec:
       }
 
       ha_insert_for_hash(table, ins_hash, block, ins_rec);
+      index->search_info->n_recs += 1;
     }
 
     goto function_exit;
@@ -1756,6 +2021,7 @@ check_next_rec:
     } else {
       ha_insert_for_hash(table, next_hash, block, next_rec);
     }
+    index->search_info->n_recs += 1;
   }
 
 function_exit:

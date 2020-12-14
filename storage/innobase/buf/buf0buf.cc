@@ -2522,6 +2522,68 @@ void buf_resize_thread() {
   }
 }
 
+/********************************************************************//**
+Clears the adaptive hash index on pages that are mapped 
+to the given hash index partitions mask. */
+void
+buf_pool_clear_hash_index_by_mask(bool *affected_parts_mask)
+/*===========================*/
+{
+  ulint  p;
+
+  ut_ad(btr_search_own_all(RW_LOCK_X));
+  ut_ad(!buf_pool_resizing);
+
+  for (p = 0; p < srv_buf_pool_instances; p++) {
+    buf_pool_t*  buf_pool = buf_pool_from_array(p);
+    buf_chunk_t* chunks   = buf_pool->chunks;
+    buf_chunk_t* chunk    = chunks + buf_pool->n_chunks;
+
+    while (--chunk >= chunks) {
+      buf_block_t*  block  = chunk->blocks;
+      ulint             i  = chunk->size;
+
+      for (; i--; block++) {
+        dict_index_t*  index  = block->index;
+        assert_block_ahi_valid(block);
+
+        /* We can set block->index = NULL
+        and block->n_pointers = 0
+        when btr_search_own_all(RW_LOCK_X);
+        see the comments in buf0buf.h */
+
+        if (!index ||
+            !affected_parts_mask[btr_get_search_slot(index->id, index->space)
+                % btr_ahi_parts]) {
+          continue;
+        }
+
+        switch (buf_block_get_state(block)) {
+          case BUF_BLOCK_FILE_PAGE:
+            break;
+          case BUF_BLOCK_REMOVE_HASH:
+            /* It is possible that a parallel thread
+            might have set this state. It means AHI
+            for this block is being removed. After
+            this function, AHI entries would anyway
+            be removed. So its Ok to reset block
+            index/pointers here otherwise it would
+            be pointing to removed AHI entries. */
+            break;
+          default:
+            /* No other state should have AHI */
+            ut_ad(block->index == nullptr);
+            ut_ad(block->n_pointers == 0);
+        }
+# if defined UNIV_AHI_DEBUG || defined UNIV_DEBUG
+        block->n_pointers = 0;
+# endif /* UNIV_AHI_DEBUG || UNIV_DEBUG */
+        block->index = NULL;
+      }
+    }
+  }
+}
+
 /** Clears the adaptive hash index on all pages in the buffer pool. */
 void buf_pool_clear_hash_index(void) {
   ulint p;
