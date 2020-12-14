@@ -162,6 +162,7 @@ PSI_memory_key key_memory_warning_info_warn_root;
 PSI_memory_key key_memory_sp_cache;
 PSI_memory_key key_memory_write_set_extraction;
 PSI_memory_key key_memory_thread_pool_connection;
+PSI_memory_key key_memory_hot_update_metadata;
 
 #ifdef HAVE_PSI_INTERFACE
 
@@ -404,7 +405,8 @@ static PSI_memory_info all_server_memory[] = {
     {&key_memory_histograms, "histograms", 0, 0, PSI_DOCUMENT_ME},
     {&key_memory_hash_join, "hash_join", 0, 0, PSI_DOCUMENT_ME},
     {&key_memory_thread_pool_connection, "thread_pool_connection", 0, 0,
-      PSI_DOCUMENT_ME}};
+      PSI_DOCUMENT_ME},
+    {&key_memory_hot_update_metadata, "hot_update_metadata", 0, 0, PSI_DOCUMENT_ME}};
 
 void register_server_memory_keys() {
   const char *category = "sql";

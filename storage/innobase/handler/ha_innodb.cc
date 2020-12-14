@@ -714,7 +714,9 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(master_key_id_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(sync_array_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(row_drop_list_mutex, 0, 0, PSI_DOCUMENT_ME),
-    PSI_MUTEX_KEY(row_truncate_list_mutex, 0, 0, PSI_DOCUMENT_ME)};
+    PSI_MUTEX_KEY(row_truncate_list_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(hot_update_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(hot_update_wait_slot_mutex, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_MUTEX */
 
 #ifdef UNIV_PFS_RWLOCK
@@ -22855,6 +22857,51 @@ static MYSQL_SYSVAR_STR(directories, innobase_directories,
                         "'innodb-data-home-dir;innodb-undo-directory;datadir'",
                         NULL, NULL, NULL);
 
+static void
+hot_update_detect_update(
+/*======================*/
+    THD*        thd,  /*!< in: thread handle */
+    SYS_VAR*  var,  /*!< in: pointer to
+                      system variable */
+    void*       var_ptr,  /*!< out: where the
+                            formal string goes */
+    const void*     save) /*!< in: immediate result
+                            from check function */
+{
+  LockGuard guard;
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  if (*reinterpret_cast<bool*>(const_cast<void*>(save)) == TRUE) {
+    srv_hot_update_detect = *reinterpret_cast<bool*>(const_cast<void*>(save));
+    mutex_exit(&lock_sys->hot_update_mutex);
+    return;
+  }
+
+  /* Wake up all waiting updates and free all hot update items in
+  lock_sys. */
+  if (srv_hot_update_detect == TRUE) {
+    lock_sys_reset_hot_update();
+  }
+
+  srv_hot_update_detect = *reinterpret_cast<bool*>(const_cast<void*>(save));
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
+static MYSQL_SYSVAR_BOOL(hot_update_detect, srv_hot_update_detect,
+    PLUGIN_VAR_OPCMDARG,
+    "Enable the hot update detect. Default is FALSE",
+    NULL, hot_update_detect_update, FALSE);
+
+static MYSQL_SYSVAR_ULONG(max_concurrent_hot_update,
+    srv_max_concurrent_hot_update, PLUGIN_VAR_RQCMDARG,
+    "The maximum number of concurrent hot update threads.",
+    NULL, NULL, 1, 1, 32, 0);
+
+static MYSQL_SYSVAR_ULONG(hot_update_wait_timeout,
+    srv_hot_update_wait_timeout, PLUGIN_VAR_RQCMDARG,
+    "The timeout value of hot update waiting.",
+    NULL, NULL, 1000000, 1000, 100000000, 0);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -23092,6 +23139,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(min_column_compress_length),
     MYSQL_SYSVAR(zlib_column_compression_level),
     MYSQL_SYSVAR(zstd_column_compression_level),
+    MYSQL_SYSVAR(hot_update_detect),
+    MYSQL_SYSVAR(max_concurrent_hot_update),
+    MYSQL_SYSVAR(hot_update_wait_timeout),
     NULL};
 
 mysql_declare_plugin(innobase){

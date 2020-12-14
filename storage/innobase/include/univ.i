@@ -244,6 +244,9 @@ and the insert buffer must be empty when the database is started */
                                    info output */
 #define UNIV_DEBUG_DEDICATED       /* dedicated server debugging \
                                    info output and code coverage */
+#ifdef UNIV_DEBUG
+#define UNIV_DEBUG_HOT_UPDATE
+#endif
 #endif
 
 #define UNIV_BTR_DEBUG       /* check B-tree links */

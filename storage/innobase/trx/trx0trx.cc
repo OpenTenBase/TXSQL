@@ -168,6 +168,8 @@ static void trx_init(trx_t *trx) {
 
   trx->lock.blocking_trx.store(nullptr);
 
+  trx->lock.hot_update_wait_thr = nullptr;
+
   ut_a(trx->lock.wait_info);
   trx->lock.wait_info->set_undefined();
 
@@ -223,6 +225,10 @@ static void trx_init(trx_t *trx) {
   trx->error_index = nullptr;
 
   trx->recover_mysql_thd = nullptr;
+
+  trx->hot_update_status = HOT_UPDATE_STATUS_NONE;
+
+  trx->is_point_update = false;
 
   if (trx->xid) {
     trx->xid->reset();

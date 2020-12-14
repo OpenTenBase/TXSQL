@@ -1157,6 +1157,9 @@ handle_new_error:
 
       return (true);
 
+    case DB_LOCK_WAIT_HOT_ROW_UPDATE:
+      lock_wait_in_hot_row_update_queue(thr);
+      return (true);
     case DB_DEADLOCK:
     case DB_LOCK_TABLE_FULL:
       /* Roll back the whole transaction; this resolution was added

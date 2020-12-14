@@ -639,6 +639,10 @@ struct trx_lock_t {
                        only be modified by the thread that is
                        serving the running transaction. */
 
+  que_thr_t *hot_update_wait_thr;
+
+  page_id_t hot_page;
+
   /** Pre-allocated record locks. Protected by trx->mutex. */
   lock_pool_t rec_pool;
 
@@ -788,6 +792,12 @@ enum trx_rseg_type_t {
 struct rw_trx_hash_element_t;
 struct LF_PINS;
 
+enum hot_update_status_t {
+  HOT_UPDATE_STATUS_NONE = 0, /*!< no status. */
+  HOT_UPDATE_STATUS_WAITING,  /*!< waiting status. */
+  HOT_UPDATE_STATUS_RUNNING   /*!< running status. */
+};
+
 struct trx_t {
   enum isolation_level_t {
 
@@ -859,6 +869,10 @@ struct trx_t {
                transaction is moved to
                COMMITTED_IN_MEMORY state.
                Initially set to TRX_ID_MAX. */
+
+  hot_update_status_t hot_update_status;
+
+  bool is_point_update;
 
   /** State of the trx from the point of view of concurrency control
   and the valid state transitions.

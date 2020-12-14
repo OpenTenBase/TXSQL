@@ -273,6 +273,22 @@ enum class lock_duration_t {
   AT_LEAST_STATEMENT = 1,
 };
 
+/** Checks if need to wait in hot row update queue.
+@param[in,out]  trx   trx obj
+@param[in]  rec   record
+@return DB_SUCCESS, DB_LOCK_WAIT_HOT_ROW_UPDATE */
+dberr_t lock_clust_check_hot_row_update(
+    trx_t       *trx,
+    const rec_t *rec);
+
+/** Puts a user OS thread to wait for a hot row update lock to be released. */
+void lock_wait_in_hot_row_update_queue(
+    que_thr_t *thr); /*!< in: query thread associated with the
+                       user OS thread */
+
+/* Reset the hot update items in lock sys.  */
+void lock_sys_reset_hot_update();
+
 /** Like lock_clust_rec_read_check_and_lock(), but reads a
 secondary index record.
 @param[in]	duration	If equal to AT_LEAST_STATEMENT, then makes sure
@@ -286,7 +302,7 @@ secondary index record.
 @param[in]	index		secondary index
 @param[in]	offsets		rec_get_offsets(rec, index)
 @param[in]	sel_mode	select mode: SELECT_ORDINARY,
-                                SELECT_SKIP_LOKCED, or SELECT_NO_WAIT
+                                 SELECT_SKIP_LOKCED, or SELECT_NO_WAIT
 @param[in]	mode		mode of the lock which the read cursor should
                                 set on records: LOCK_S or LOCK_X; the latter is
                                 possible in SELECT FOR UPDATE
@@ -750,7 +766,7 @@ struct lock_op_t {
 
 typedef ib_mutex_t LockMutex;
 
-#define LOCK_REC_MUTEX_INSTANCES 128 
+#define LOCK_REC_MUTEX_INSTANCES 128
 /** The lock system struct */
 struct lock_sys_t {
   char pad1[INNOBASE_CACHE_LINE_SIZE];
@@ -770,7 +786,21 @@ struct lock_sys_t {
   hash_table_t *prdt_hash;      /*!< hash table of the predicate
                                 lock */
   hash_table_t *prdt_page_hash; /*!< hash table of the page
-                                lock */
+                                  lock */
+
+  hash_table_t* hot_update_hash;/*!< hash table of the hot update
+                                  row */
+  char pad0[INNOBASE_CACHE_LINE_SIZE];
+
+  LockMutex  hot_update_mutex;  /*!< Mutex protecting the hot update
+                                  row info */
+  char pad001[INNOBASE_CACHE_LINE_SIZE];
+
+  LockMutex hot_update_wait_slot_mutex; /*!< Mutex for serializing
+                                        the reads of thr->slot
+                                        in lock_rec_grant_hot_update_low
+                                        and writes to thr->slot in
+                                        lock_wait_table_release_slot.  */
 
   char pad2[INNOBASE_CACHE_LINE_SIZE]; /*!< Padding */
   LockMutex wait_mutex;                /*!< Mutex protecting the
@@ -891,7 +921,7 @@ public:
   }
 
   explicit LockGuard(const buf_block_t *block) {
-    acquire(block);  
+    acquire(block);
   }
 
   explicit LockGuard(const buf_block_t *block1, const buf_block_t *block2) {
@@ -947,7 +977,7 @@ public:
   void acquire(LockWaitInfo &wait_info);
 
   void acquire_switch(const lock_t *lock);
-  
+
   void release();
 
   static uint32_t get_part_with_fold(uint64_t fold);

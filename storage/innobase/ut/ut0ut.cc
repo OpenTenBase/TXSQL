@@ -500,6 +500,9 @@ const char *ut_strerr(dberr_t num) {
     case DB_BTREE_LEVEL_LIMIT_EXCEEDED:
       return ("Btree level limit exceeded");
 
+    case DB_LOCK_WAIT_HOT_ROW_UPDATE:
+      return ("Lock wait in hot row update queue");
+
     case DB_ERROR_UNSET:;
       /* Fall through. */
 

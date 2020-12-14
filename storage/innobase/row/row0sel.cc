@@ -71,6 +71,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0trx.h"
 #include "trx0undo.h"
 #include "ut0new.h"
+#include "mysql/plugin.h"
 
 #include "my_dbug.h"
 
@@ -4481,6 +4482,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   byte *next_buf = 0;
   bool spatial_search = false;
   ulint end_loop = 0;
+  bool skip_hot_row_update_check = false;
 
   rec_offs_init(offsets_);
 
@@ -5227,6 +5229,21 @@ rec_loop:
       }
     }
 
+    /* Check if it's a hot row update, if it is, let it wait in
+     *     hot row update queue. */
+    if (index == clust_index && unique_search
+        && trx->mysql_thd != nullptr
+        && thd_sql_command(trx->mysql_thd) == SQLCOM_UPDATE
+        && !skip_hot_row_update_check) {
+      err = lock_clust_check_hot_row_update(trx, rec);
+      if (err != DB_SUCCESS) {
+        goto lock_wait_or_error;
+      }
+      trx_mutex_enter(trx);
+      trx->is_point_update = true;
+      trx_mutex_exit(trx);
+    }
+
     err = sel_set_rec_lock(pcur, rec, index, offsets, prebuilt->select_mode,
                            prebuilt->select_lock_type, lock_type, thr, &mtr);
 
@@ -5249,6 +5266,11 @@ rec_loop:
       case DB_SKIP_LOCKED:
         goto next_rec;
       case DB_LOCK_WAIT:
+        if (index == clust_index && unique_search &&
+            thd_sql_command(trx->mysql_thd) == SQLCOM_UPDATE) {
+          skip_hot_row_update_check = true;
+        }
+
         /* Lock wait for R-tree should already
         be handled in sel_set_rtr_rec_lock() */
         ut_ad(!dict_index_is_spatial(index));

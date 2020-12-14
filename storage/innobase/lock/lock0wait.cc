@@ -65,13 +65,22 @@ static void lock_wait_table_print(void) {
 /** Release a slot in the lock_sys_t::waiting_threads. Adjust the array last
  pointer if there are empty slots towards the end of the table. */
 static void lock_wait_table_release_slot(
-    srv_slot_t *slot) /*!< in: slot to release */
+    srv_slot_t *slot, bool hot_update_release) /*!< in: slot to release */
 {
+  ut_ad(!mutex_own(&lock_sys->hot_update_wait_slot_mutex));
 #ifdef UNIV_DEBUG
   srv_slot_t *upper = lock_sys->waiting_threads + srv_max_n_threads;
 #endif /* UNIV_DEBUG */
 
   lock_wait_mutex_enter();
+
+  if (hot_update_release) {
+    /** We use lock_sys->hot_update_mutex to serialize
+    the reads of thr->slot in lock_rec_grant_hot_update_low
+    and writes to thr->slot below */
+    mutex_enter(&lock_sys->hot_update_wait_slot_mutex);
+  }
+
   /* We omit trx_mutex_enter and lock_mutex_enter here, because we are only
   going to touch thr->slot, which is a member used only by lock0wait.cc and is
   sufficiently protected by lock_wait_mutex. Yes, there are readers who read
@@ -91,6 +100,10 @@ static void lock_wait_table_release_slot(
   slot->thr->slot = NULL;
   slot->thr = NULL;
   slot->in_use = FALSE;
+
+  if (hot_update_release) {
+    mutex_exit(&lock_sys->hot_update_wait_slot_mutex);
+  }
 
   /* This operation is guarded by lock_wait_mutex_enter/exit and we don't care
   about its relative ordering with other operations in this critical section. */
@@ -185,6 +198,125 @@ static srv_slot_t *lock_wait_table_reserve_slot(
   lock_wait_table_print();
 
   ut_error;
+}
+
+/** Find the hot update item by trx in lock_sys->hot_row_update->waiting_updates,
+ * and increase the running counter after event wait timeout.
+ * @param[in]  trx   trx obj */
+static void
+lock_wait_update_hot_update_item_after_timeout(trx_t* trx) {
+  hot_update_item_t *item = nullptr;
+
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  for (ulint i = 0; i < hash_get_n_cells(lock_sys->hot_update_hash); i++) {
+    for (item = static_cast<hot_update_item_t*>(
+          HASH_GET_FIRST(lock_sys->hot_update_hash, i));
+        item != NULL;
+        item = static_cast<hot_update_item_t*>(
+          HASH_GET_NEXT(hash, item))) {
+      for (auto it = item->waiting_updates->begin();
+          it != item->waiting_updates->end(); ++it) {
+        if (trx == (*it).m_trx) {
+          item->n_running++;
+          item->waiting_updates->erase(it);
+          mutex_exit(&lock_sys->hot_update_mutex);
+          return;
+        }
+      }
+    }
+  }
+
+  mutex_exit(&lock_sys->hot_update_mutex);
+}
+
+void
+lock_wait_in_hot_row_update_queue(que_thr_t *thr)
+{
+  srv_slot_t*   slot;
+  trx_t*        trx;
+
+  trx = thr_get_trx(thr);
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " start waiting.";
+#endif
+  lock_wait_mutex_enter();
+
+  trx_mutex_enter(trx);
+
+  trx->error_state = DB_SUCCESS;
+
+  slot = lock_wait_table_reserve_slot(thr, 100000000);
+
+  lock_wait_mutex_exit();
+  trx_mutex_exit(trx);
+
+  LockGuard guard(true);
+
+  space_id_t hot_space = trx->lock.hot_page.space();
+  page_no_t hot_page_no = trx->lock.hot_page.page_no();
+
+  guard.acquire(hot_space, hot_page_no);
+
+  trx_mutex_enter(trx);
+
+  ut_ad(trx->hot_update_status == HOT_UPDATE_STATUS_WAITING);
+  ut_ad(!trx->lock.hot_update_wait_thr);
+
+  ++lock_sys->n_waiting;
+
+  trx->lock.hot_update_wait_thr = thr;
+
+  guard.release();
+
+  trx_mutex_exit(trx);
+  DEBUG_SYNC_C("hot_update_wait_will_wait");
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " waiting for slot.";
+#endif
+  if (srv_hot_update_wait_timeout > 100000000) {
+    os_event_wait(slot->event);
+  } else {
+    os_event_wait_time(slot->event, srv_hot_update_wait_timeout);
+  }
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+  ib::info() << "trx " << trx->id << " waiting for slot finished.";
+#endif
+  DEBUG_SYNC_C("hot_update_wait_has_finished_waiting");
+
+  /* Release the slot for others to use */
+  lock_wait_table_release_slot(slot, true);
+
+  /* For test timeout */
+  DBUG_EXECUTE_IF("hot_update_time_out",
+      trx_mutex_enter(trx);
+      trx->hot_update_status = HOT_UPDATE_STATUS_WAITING;
+      trx_mutex_exit(trx);
+      );
+
+  guard.acquire(hot_space, hot_page_no);
+  trx_mutex_enter(trx);
+  /* We need to update the n_running after timeout of hot
+  update wait timeout. */
+  if (trx->hot_update_status == HOT_UPDATE_STATUS_WAITING) {
+    trx_mutex_exit(trx);
+    guard.release();
+    lock_wait_update_hot_update_item_after_timeout(trx);
+    guard.acquire(hot_space, hot_page_no);
+    trx_mutex_enter(trx);
+  }
+
+  trx->lock.hot_update_wait_thr = nullptr;
+  trx->hot_update_status = HOT_UPDATE_STATUS_RUNNING;
+  trx_mutex_exit(trx);
+  guard.release();
+
+  if (trx_is_interrupted(trx)) {
+    trx->error_state = DB_INTERRUPTED;
+  }
 }
 
 void lock_wait_request_check_for_cycles() { lock_set_timeout_event(); }
@@ -324,7 +456,7 @@ void lock_wait_suspend_thread(que_thr_t *thr) /*!< in: query thread associated
 
   /* Release the slot for others to use */
 
-  lock_wait_table_release_slot(slot);
+  lock_wait_table_release_slot(slot, false);
 
   if (thr->lock_state == QUE_THR_LOCK_ROW) {
     const auto finish_time = ut_time_monotonic_us();

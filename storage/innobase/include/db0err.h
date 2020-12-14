@@ -202,7 +202,10 @@ enum dberr_t {
   /** Column update or read failed because the types mismatch */
   DB_DATA_MISMATCH = 2000,
   /** Request the caller to cache records. */
-  DB_CACHE_RECORDS
+  DB_CACHE_RECORDS,
+
+  /*!< Need to wait in hot row update queue. */
+  DB_LOCK_WAIT_HOT_ROW_UPDATE = 5000
 };
 
 #endif
