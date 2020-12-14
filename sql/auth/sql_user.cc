@@ -3590,11 +3590,6 @@ bool check_reserved_account(THD *thd, List<LEX_USER> &list) {
   String wrong_users;
   const char *current_user = thd->security_context()->priv_user().str;
 
-  /* The tencentroot has permission to modify reserved users */
-  if (thd->is_tencent_root) {
-    return false;
-  }
-
   /* Check whether it is performed by MySQL itself. */
   if (!current_user || !*current_user)
     return false;

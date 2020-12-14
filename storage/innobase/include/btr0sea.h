@@ -55,6 +55,22 @@ void btr_search_sys_free();
 /** Disable the adaptive hash search system and empty the index.
 @param[in]      need_mutex      Need to acquire dict_sys->mutex */
 void btr_search_disable(bool need_mutex);
+
+/** Clear the adaptive hash search system and empty parts 
+ * of the hash tables.
+@param[in]	need_mutex	need to acquire dict_sys->mutex */
+void
+btr_search_clear_by_partition_mask(
+	bool	need_mutex,
+	char * affected_ahi_parts_mask);
+
+/** Compute # hash entries for each ahi partitions
+    on all tables in the system
+@param[out]	ahi_part_sizes	array that holds the result */
+void
+btr_search_compute_ahi_part_sizes(
+	ulint * ahi_part_sizes);
+
 /** Enable the adaptive hash search system. */
 void btr_search_enable();
 
@@ -251,6 +267,11 @@ struct btr_search_t {
   /** Number of blocks in this index tree that have search index built i.e.
   block->index points to this index. */
   std::atomic<ulint> ref_count;
+
+	ulint   n_recs; /*!< Approximate # records indexed by AHI for this index.
+						Protected by search latch except
+  					when during initialization in
+						btr_search_info_create(). */
 
   /** @{ The following fields are not protected by any latch.
   Unfortunately, this means that they must be aligned to the machine word, i.e.,

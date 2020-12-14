@@ -8610,9 +8610,9 @@ class alter_part_normal : public alter_part {
                  dd::Partition *new_part [[maybe_unused]]) override {
     ut_ad(m_old != nullptr);
 
+    dict_sys_mutex_enter();
     btr_drop_ahi_for_table(*m_old);
 
-    dict_sys_mutex_enter();
     dd_table_close(*m_old, nullptr, nullptr, true);
     dict_table_remove_from_cache(*m_old);
     *m_old = nullptr;

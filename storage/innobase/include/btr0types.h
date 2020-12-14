@@ -52,6 +52,12 @@ struct btr_search_t;
 Search system is protected by array of latches. */
 extern bool btr_search_enabled;
 
+extern bool btr_fast_ahi_cleanup_drop_table;
+
+extern double   btr_fast_ahi_cleanup_ratio_thres;
+
+extern ulong	btr_fast_ahi_cleanup_num_entries_thres;
+
 /** Number of adaptive hash index partition. */
 extern ulong btr_ahi_parts;
 

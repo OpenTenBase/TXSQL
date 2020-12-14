@@ -20695,6 +20695,24 @@ static void innodb_adaptive_hash_index_update(
   }
 }
 
+/****************************************************************//**
+Update the system variable innodb_fast_ahi_cleanup_for_drop_table using the "saved"
+value. This function is registered as a callback with MySQL. */
+static
+void
+innodb_fast_ahi_cleanup_for_drop_table_update(
+/*==============================*/
+	THD*				thd,	/*!< in: thread handle */
+	SYS_VAR *var,	/*!< in: pointer to
+						system variable */
+	void*				var_ptr,/*!< out: where the
+						formal string goes */
+	const void*			save)	/*!< in: immediate result
+						from check function */
+{
+	btr_fast_ahi_cleanup_drop_table = *(char*) save;
+}
+
 /** Update the system variable innodb_cmp_per_index using the "saved"
  value. This function is registered as a callback with MySQL. */
 static void innodb_cmp_per_index_update(
@@ -22236,6 +22254,19 @@ static MYSQL_SYSVAR_BOOL(
     " Disable with --skip-innodb-adaptive-hash-index.",
     nullptr, innodb_adaptive_hash_index_update, true);
 
+static MYSQL_SYSVAR_BOOL(
+    fast_ahi_cleanup_for_drop_table, btr_fast_ahi_cleanup_drop_table,
+    PLUGIN_VAR_OPCMDARG,
+    "Enable fast adaptive hash index cleanup during drop table (enabled by default). ",
+    nullptr, innodb_fast_ahi_cleanup_for_drop_table_update, false);
+
+static MYSQL_SYSVAR_ULONG(
+    fast_ahi_cleanup_num_entries_thres, btr_fast_ahi_cleanup_num_entries_thres,
+    PLUGIN_VAR_OPCMDARG,
+    "Threshold for triggering fast ahi cleanup in terms of # records indexed by AHI"
+    " on the table being dropped (default = 10000000). ",
+    nullptr, nullptr, 10000000, 0, ~0UL, 0);
+
 /** Number of distinct partitions of AHI.
 Each partition is protected by its own latch and so we have parts number
 of latches protecting complete search system. */
@@ -23594,6 +23625,8 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(stats_auto_recalc),
     MYSQL_SYSVAR(adaptive_hash_index),
     MYSQL_SYSVAR(adaptive_hash_index_parts),
+    MYSQL_SYSVAR(fast_ahi_cleanup_for_drop_table),
+    MYSQL_SYSVAR(fast_ahi_cleanup_num_entries_thres),
     MYSQL_SYSVAR(stats_method),
     MYSQL_SYSVAR(replication_delay),
     MYSQL_SYSVAR(status_file),

@@ -1,0 +1,108 @@
+--source include/have_innodb_16k.inc
+--source include/have_debug.inc
+
+let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+
+SET @start_ahi_value = @@global.innodb_adaptive_hash_index;
+SET @start_fast_drop_ahi_value = @@global.innodb_fast_ahi_cleanup_for_drop_table;
+SET @start_fast_drop_ahi_num_entries_thres_value = @@global.innodb_fast_ahi_cleanup_num_entries_thres;
+
+SET @@global.innodb_adaptive_hash_index = ON;
+SET @@global.innodb_fast_ahi_cleanup_for_drop_table = ON;
+
+create table t1 (f1 int primary key AUTO_INCREMENT, f2 int, f3 int, pad char(20) default '00000000000000000000', key(f2)) engine=innodb;
+create table t2 (f1 int primary key AUTO_INCREMENT, f2 int, f3 int, pad char(20) default '00000000000000000000', key(f2)) engine=innodb;
+create table t3 (f1 int primary key AUTO_INCREMENT, f2 int, f3 int, pad char(20) default '00000000000000000000', key(f2)) engine=innodb;
+
+--disable_query_log
+--disable_result_log
+--let $i = 0
+while ($i < 1024) {
+    --eval insert into t1 (f2, f3) values ($i,$i);
+    --inc $i
+}
+
+insert into t2 select * from t1;
+insert into t3 select * from t1;
+
+--let $j = 0
+while ($j < 1024) {
+    --let $i = 0
+    while ($i < 10) {
+        --eval select * from t1 where f1 = $j
+        --inc $i
+    }
+    --inc $j
+}
+--enable_query_log
+--enable_result_log
+
+SET GLOBAL DEBUG = "+d,fast_ahi_cleanup_test";
+
+SET GLOBAL DEBUG = "+d,fast_ahi_cleanup_trigger1";
+drop table t1;
+--let SEARCH_PATTERN=fast_ahi_cleanup triggered
+--source include/search_pattern_in_file.inc
+SET GLOBAL DEBUG = "-d,fast_ahi_cleanup_trigger1";
+
+
+
+# First empty the error log
+--disable_result_log
+--exec echo > $SEARCH_FILE
+--enable_result_log
+
+--disable_query_log
+--disable_result_log
+--let $j = 0
+while ($j < 1024) {
+    --let $i = 0
+    while ($i < 10) {
+        --eval select * from t2 where f1 = $j
+        --inc $i
+    }
+    --inc $j
+}
+--enable_query_log
+--enable_result_log
+
+
+SET GLOBAL DEBUG = "+d,fast_ahi_cleanup_trigger2";
+drop table t2;
+--let SEARCH_PATTERN=fast_ahi_cleanup triggered
+--source include/search_pattern_in_file.inc
+SET GLOBAL DEBUG = "-d,fast_ahi_cleanup_trigger2";
+
+# First empty the error log
+--disable_result_log
+--exec echo > $SEARCH_FILE
+--enable_result_log
+
+# clear AHI
+SET @@global.innodb_adaptive_hash_index = OFF;
+SET @@global.innodb_adaptive_hash_index = ON;
+
+--disable_query_log
+--disable_result_log
+--let $j = 0
+while ($j < 1024) {
+    --let $i = 0
+    while ($i < 10) {
+        --eval select * from t3 where f1 = $j
+        --inc $i
+    }
+    --inc $j
+}
+--enable_query_log
+--enable_result_log
+
+
+# This should trigger the optimization by ratio-based rule
+drop table t3;
+--let SEARCH_PATTERN=fast_ahi_cleanup triggered
+--source include/search_pattern_in_file.inc
+
+SET GLOBAL DEBUG = "-d,fast_ahi_cleanup_test";
+SET @@global.innodb_adaptive_hash_index = @start_ahi_value;
+SET @@global.innodb_fast_ahi_cleanup_for_drop_table = @start_fast_drop_ahi_value;
+SET @@global.innodb_fast_ahi_cleanup_num_entries_thres = @start_fast_drop_ahi_num_entries_thres_value;
