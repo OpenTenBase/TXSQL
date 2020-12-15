@@ -2905,9 +2905,16 @@ static bool network_init(void) {
       g_thdBottomHalf = new CThdBottomHalf(my_bind_addr_str, mysqld_port, threadpool_size);
 
       if (!g_thdBottomHalf->init()) {
-        sql_print_error("CThdBottomHalf listen(%s : %d) on UDP failed with error %s",
-            my_bind_addr_str, mysqld_port,g_thdBottomHalf->getErrMsg());
-        return true;
+        if( !atoi(my_bind_addr_str) ) { //don't support ipv6/local host etc...,mtr may use thouse ip,which can init fail,we can accpet it
+          sql_print_information("CThdBottomHalf listen(%s : %d) on UDP failed with error %s,can skip",
+              my_bind_addr_str, mysqld_port,g_thdBottomHalf->getErrMsg());
+          delete g_thdBottomHalf;
+          g_thdBottomHalf = NULL;
+        } else {
+          sql_print_error("CThdBottomHalf listen(%s : %d) on UDP failed with error %s",
+              my_bind_addr_str, mysqld_port,g_thdBottomHalf->getErrMsg());
+          return true;
+        }
       }
     }
   }

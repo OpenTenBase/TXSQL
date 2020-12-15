@@ -190,9 +190,6 @@ public:
           threads serve client connections.
         */
         m_ansThread = new CThdBottomHalfAnsThread[m_threadNum];
-        for (int i = 0; i < m_threadNum; ++i) {
-            m_ansThread[i].start();
-        }
     }
 
     void pop_all();
@@ -229,6 +226,10 @@ public:
     bool init() {
         if (open(m_ip.c_str(), m_port) < 0) {
             return false;
+        }
+
+        for (int i = 0; i < m_threadNum; ++i) {
+            m_ansThread[i].start();
         }
 
         start(); 
