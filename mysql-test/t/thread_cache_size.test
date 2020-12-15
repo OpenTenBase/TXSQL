@@ -1,3 +1,4 @@
+--source include/not_threadpool.inc
 
 --echo #
 --echo # BUG28508923 - SETTING THREAD_CACHE_SIZE TO 0 DOES NOT EMPTY THE THREAD CACHE.

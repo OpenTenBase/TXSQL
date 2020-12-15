@@ -1,2 +1,3 @@
+--source include/not_threadpool.inc
 --source include/resource_group_init.inc
 --source include/resource_group_binlog.inc
