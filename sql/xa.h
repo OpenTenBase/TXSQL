@@ -278,6 +278,7 @@ typedef struct xid_t {
   void set(long f, const char *g, long gl, const char *b, long bl) {
     DBUG_TRACE;
     DBUG_PRINT("debug", ("SETTING XID_STATE formatID: %ld", f));
+    memset(data, 0, XIDDATASIZE);
     formatID = f;
     memcpy(data, g, gtrid_length = gl);
     bqual_length = bl;
