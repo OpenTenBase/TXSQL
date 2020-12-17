@@ -7238,3 +7238,10 @@ static Sys_var_bool Sys_txsql_enable_resource_statistics(
     "enable_resource_statistics.",
     GLOBAL_VAR(txsql_enable_resource_statistics),
     CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_cdb_fire_wall_enabled(
+    "cdb_fire_wall_enabled",
+    "CDB fire wall switch. Can be ON/OFF.",
+    GLOBAL_VAR(cdb_fire_wall_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));

@@ -2989,11 +2989,13 @@ int mysql_execute_command(THD *thd, bool first_level) {
     }
   } /* endif unlikely slave */
 
-  thd->cdb_sql_rejected_by_firewall = false;
-  cdb_firewall_check_sql(thd);
-  if (thd->cdb_sql_rejected_by_firewall) {
-    my_error(ER_REJECT_BY_CDB_FIREWALL, MYF(0));
-    return -1;
+  if (cdb_fire_wall_enabled) {
+    thd->cdb_sql_rejected_by_firewall = false;
+    cdb_firewall_check_sql(thd);
+    if (thd->cdb_sql_rejected_by_firewall) {
+      my_error(ER_REJECT_BY_CDB_FIREWALL, MYF(0));
+      return -1;
+    }
   }
   thd->status_var.com_stat[lex->sql_command]++;
 

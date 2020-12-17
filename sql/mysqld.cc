@@ -984,6 +984,7 @@ static bool binlog_format_used = false;
 bool cdb_skip_event_scheduler = false;
 bool txsql_convert_memory_to_innodb = false;
 bool txsql_enable_resource_statistics = true;
+bool cdb_fire_wall_enabled= false;
 
 /**
   Total memory used in server layer and innodb layer.

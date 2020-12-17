@@ -25,6 +25,7 @@
   CDB_Firewall_Manager::check_sql() if it is set.
 */
 
+extern bool cdb_fire_wall_enabled;
 static mysql_rwlock_t LOCK_table;
 
 static SERVICE_TYPE(registry) *reg_srv = nullptr;
@@ -221,6 +222,7 @@ static int firewall_cdb_plugin_init(void *arg MY_ATTRIBUTE((unused))) {
   init_firewall_cdb_psi_keys();
 #endif
 
+  cdb_fire_wall_enabled= true;
   return 0;
 }
 
@@ -231,6 +233,7 @@ static int firewall_cdb_plugin_init(void *arg MY_ATTRIBUTE((unused))) {
 static int firewall_cdb_plugin_deinit(void *arg MY_ATTRIBUTE((unused))) {
   mysql_rwlock_destroy(&LOCK_table);
   deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
+  cdb_fire_wall_enabled= false;
   return cdb_firewall_manager.deinit();
 }
 
