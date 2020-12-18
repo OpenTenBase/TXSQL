@@ -223,6 +223,8 @@ The following options may be given as the first argument:
  --caching-sha2-password-public-key-path=name 
  A fully qualified path to the public RSA key used for
  authentication.
+ --cdb-fire-wall-enabled 
+ CDB fire wall switch. Can be ON/OFF.
  --cdb-skip-event-scheduler 
  Enable the event scheduler.Possible values are ON,OFF
  --character-set-client-handshake 
@@ -1624,6 +1626,7 @@ block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
 caching-sha2-password-private-key-path private_key.pem
 caching-sha2-password-public-key-path public_key.pem
+cdb-fire-wall-enabled FALSE
 cdb-skip-event-scheduler FALSE
 character-set-client-handshake TRUE
 character-set-filesystem binary

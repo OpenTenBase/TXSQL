@@ -24,6 +24,8 @@ binlog_rotate_encryption_master_key_at_startup
 binlog_rotate_encryption_master_key_at_startup
 binlog_write_threshold
 binlog_write_threshold
+cdb_fire_wall_enabled
+cdb_fire_wall_enabled
 cdb_skip_event_scheduler
 cdb_skip_event_scheduler
 cte_max_recursion_depth
