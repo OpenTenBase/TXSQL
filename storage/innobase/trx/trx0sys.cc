@@ -35,6 +35,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "current_thd.h"
 #include "ha_prototypes.h"
+#include "mysql/plugin.h"
 #include "sql_error.h"
 #include "trx0sys.h"
 
@@ -568,6 +569,7 @@ void trx_sys_close(void) {
   trx_dummy_sess = NULL;
 
   trx_purge_sys_close();
+  trx_sys_after_background_threads_shutdown_validate();
 
   /* Free the double write data structures. */
   buf_dblwr_free();
@@ -595,82 +597,64 @@ void trx_sys_close(void) {
   trx_sys = NULL;
 }
 
-/** @brief Convert an undo log to TRX_UNDO_PREPARED state on shutdown.
-
-If any prepared ACTIVE transactions exist, and their rollback was
-prevented by innodb_force_recovery, we convert these transactions to
-XA PREPARE state in the main-memory data structures, so that shutdown
-will proceed normally. These transactions will again recover as ACTIVE
-on the next restart, and they will be rolled back unless
-innodb_force_recovery prevents it again.
-
-@param[in]	trx	transaction
-@param[in,out]	undo	undo log to convert to TRX_UNDO_PREPARED */
-static void trx_undo_fake_prepared(const trx_t *trx, trx_undo_t *undo) {
-  ut_ad(srv_force_recovery >= SRV_FORCE_NO_TRX_UNDO);
-  ut_ad(trx_state_eq(trx, TRX_STATE_ACTIVE));
-  ut_ad(trx->is_recovered);
-
-  if (undo != NULL) {
-    ut_ad(undo->state == TRX_UNDO_ACTIVE);
-    undo->state = TRX_UNDO_PREPARED;
+void trx_sys_after_pre_dd_shutdown_validate() {
+  trx_sys_mutex_enter();
+  /** At this point we check the mysql_trx_list again, now we don't expect purge
+  thread transactions in the list */
+  for (trx_t *trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list); trx != nullptr;
+      trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+    ut_a(trx->state == TRX_STATE_NOT_STARTED);
   }
+  trx_sys_mutex_exit();
+
+  /* We assert that all transactions are rolled back if
+  [1] Not force recovery mode.
+  [2] Not fast shutdown
+  [3] The rollback thread has started and stopped gracefully.
+
+  The only left transactions are those that have state == TRX_STATE_PREPARED.
+
+  Above, [3] could be false during error exit, when the rollback thread might
+  never have started and we don't rollback the recovered transactions in that
+  case. */
+
+  const auto active_recovered_trxs = trx_sys_recovered_active_trxs_count();
+  if (srv_shutdown_waits_for_rollback_of_recovered_transactions() &&
+      srv_thread_is_stopped(srv_threads.m_trx_recovery_rollback)) {
+    ut_a(active_recovered_trxs == 0);
+  }
+
+  ut_a(trx_sys->rw_trx_hash.size() ==
+      trx_sys->n_prepared_trx + active_recovered_trxs);
 }
 
-static bool trx_undo_fake_prepared_callback(
-    rw_trx_hash_element_t *element, void* arg) {
+void trx_sys_after_background_threads_shutdown_validate() {
+  trx_sys_after_pre_dd_shutdown_validate();
+
+  trx_sys_mutex_enter();
+  ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
+  trx_sys_mutex_exit();
+}
+
+static bool trx_count_active_recovered_callback(
+    rw_trx_hash_element_t *element, size_t *total_trx) {
   mutex_enter(&element->mutex);
 
   trx_t* trx = element->trx;
 
-  if (!trx_state_eq(trx, TRX_STATE_ACTIVE) || !trx->is_recovered) {
-    mutex_exit(&element->mutex);
-
-    return (false);
+  if (trx && trx_state_eq(trx, TRX_STATE_ACTIVE) && trx->is_recovered) {
+    *total_trx += 1;
   }
-
-  /* This was a recovered transaction
-  whose rollback was disabled by
-  the innodb_force_recovery setting.
-  Pretend that it is in XA PREPARE
-  state so that shutdown will work. */
-  trx_undo_fake_prepared(trx, trx->rsegs.m_redo.insert_undo);
-  trx_undo_fake_prepared(trx, trx->rsegs.m_redo.update_undo);
-  trx_undo_fake_prepared(trx, trx->rsegs.m_noredo.insert_undo);
-  trx_undo_fake_prepared(trx, trx->rsegs.m_noredo.update_undo);
-  trx->state = TRX_STATE_PREPARED;
-  trx_sys->n_prepared_trx++;
 
   mutex_exit(&element->mutex);
 
   return (false);
 }
 
-/*********************************************************************
-Check if there are any active (non-prepared) transactions.
-@return total number of active transactions or 0 if none */
-ulint trx_sys_any_active_transactions(void) {
-  trx_sys_mutex_enter();
-
-  ulint total_trx = UT_LIST_GET_LEN(trx_sys->mysql_trx_list);
-
-  if (total_trx == 0) {
-    total_trx = trx_sys->rw_trx_hash.size();
-    ut_a(total_trx >= trx_sys->n_prepared_trx);
-
-    if (total_trx > trx_sys->n_prepared_trx &&
-        srv_force_recovery >= SRV_FORCE_NO_TRX_UNDO) {
-
-      trx_sys->rw_trx_hash.iterate_no_dups(NULL,
-                                   reinterpret_cast<my_hash_walk_action>
-                                   (trx_undo_fake_prepared_callback), NULL);
-    }
-
-    ut_a(total_trx >= trx_sys->n_prepared_trx);
-    total_trx -= trx_sys->n_prepared_trx;
-  }
-
-  trx_sys_mutex_exit();
+size_t trx_sys_recovered_active_trxs_count() {
+  size_t total_trx = 0;
+  trx_sys->rw_trx_hash.iterate_no_dups(NULL,
+      reinterpret_cast<my_hash_walk_action>(trx_count_active_recovered_callback), &total_trx);
 
   return (total_trx);
 }

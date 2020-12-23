@@ -240,10 +240,24 @@ struct Srv_threads {
   waiting procedure used in the pre_dd_shutdown. */
   os_event_t shutdown_cleanup_dbg;
 #endif /* UNIV_DEBUG */
+
+  /** When the master thread notices that shutdown has started (by noticing
+  srv_shutdown_state >= SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS), it exits
+  its main loop. Then the master thread proceeds with actions related to tasks:
+  - which it has been responsible for,
+  - and which might depend on DD objects.
+  After finishing them, the master thread sets this event.
+  @remarks We use this event to wait in srv_pre_dd_shutdown before we enter
+  next phase (SRV_SHUTDOWN_PURGE) in which master thread is not allowed to
+  use system transactions or touch DD objects. */
+  os_event_t m_master_ready_for_dd_shutdown;
 };
 
 /** Check if given thread is still active. */
 bool srv_thread_is_active(const IB_thread &thread);
+
+/** Check if given thread is cleaned-up and stopped. */
+bool srv_thread_is_stopped(const IB_thread &thread);
 
 /** Delay the thread after it discovered that the shutdown_state
 is greater or equal to SRV_SHUTDOWN_CLEANUP, before it proceeds

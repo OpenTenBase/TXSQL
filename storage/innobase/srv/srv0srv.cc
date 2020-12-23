@@ -1138,6 +1138,8 @@ static void srv_init(void) {
 
   ut_d(srv_threads.shutdown_cleanup_dbg = os_event_create(nullptr));
 
+  srv_threads.m_master_ready_for_dd_shutdown = os_event_create(nullptr);
+
   srv_threads.m_purge_coordinator = {};
 
   srv_threads.m_purge_workers_n = srv_n_purge_threads;
@@ -1293,6 +1295,8 @@ void srv_free(void) {
   }
 
   ut_d(os_event_destroy(srv_threads.shutdown_cleanup_dbg));
+
+  os_event_destroy(srv_threads.m_master_ready_for_dd_shutdown);
 
   srv_threads = {};
 }
@@ -1811,7 +1815,7 @@ loop:
     }
   }
 
-  if (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
     goto loop;
   }
 }
@@ -1886,7 +1890,7 @@ loop:
 
   os_event_wait_time_low(srv_error_event, 1000000, sig_count);
 
-  if (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
     goto loop;
   }
 }
@@ -2038,7 +2042,7 @@ static void srv_master_do_disabled_loop(void) {
 
   while (srv_master_thread_disabled_debug) {
     os_event_set(srv_master_thread_disabled_event);
-    if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+    if (srv_shutdown_state.load() >= SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
       break;
     }
     os_thread_sleep(100000);
@@ -2314,9 +2318,11 @@ static void srv_master_do_active_tasks(void) {
 
   ut_d(srv_master_do_disabled_loop());
 
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >=
+      SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
     return;
   }
+
 
   srv_main_thread_op_info = "doing background file truncate";
   row_truncate_file_for_mysql_in_background_if_needed();
@@ -2330,8 +2336,8 @@ static void srv_master_do_active_tasks(void) {
 
   /* Now see if various tasks that are performed at defined
   intervals need to be performed. */
-
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >=
+      SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
     return;
   }
 
@@ -2373,7 +2379,8 @@ static void srv_master_do_idle_tasks(void) {
 
   ut_d(srv_master_do_disabled_loop());
 
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >=
+      SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
     return;
   }
 
@@ -2387,7 +2394,8 @@ static void srv_master_do_idle_tasks(void) {
   MONITOR_INC_TIME_IN_MICRO_SECS(MONITOR_SRV_IBUF_MERGE_MICROSECOND,
                                  counter_time);
 
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >=
+      SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
     return;
   }
 
@@ -2402,6 +2410,40 @@ static void srv_master_do_idle_tasks(void) {
                                  counter_time);
 }
 
+static bool srv_master_do_pre_dd_shutdown_tasks(
+    ib_time_monotonic_t *last_print_time) /*!< last time the function
+                                            print the message */
+{
+  ulint n_tables_to_drop = 0;
+
+  ut_ad(!srv_read_only_mode);
+
+  ++srv_main_shutdown_loops;
+
+  ut_a(srv_shutdown_state_matches([](auto state) {
+        return state == SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS ||
+        state == SRV_SHUTDOWN_EXIT_THREADS;
+        }));
+
+  /* In very fast shutdown none of the following is necessary */
+  if (srv_fast_shutdown == 2) {
+    return (false);
+  }
+
+  /* ALTER TABLE in MySQL requires on Unix that the table handler
+  can drop tables lazily after there no longer are SELECT
+  queries to them. */
+  if (srv_force_recovery < SRV_FORCE_NO_BACKGROUND) {
+    srv_main_thread_op_info = "doing background drop tables";
+    n_tables_to_drop = row_drop_tables_for_mysql_in_background();
+  }
+
+  /* Print progress message every 60 seconds during shutdown */
+  srv_shutdown_print_master_pending(last_print_time, n_tables_to_drop, 0);
+
+  return (n_tables_to_drop != 0);
+}
+
 /** Perform the tasks during shutdown. The tasks that we do at shutdown
  depend on srv_fast_shutdown:
  2 => very fast shutdown => do no book keeping
@@ -2414,49 +2456,38 @@ static ibool srv_master_do_shutdown_tasks(
                                           print the message */
 {
   ulint n_bytes_merged = 0;
-  ulint n_tables_to_drop = 0;
 
   ut_ad(!srv_read_only_mode);
 
   ++srv_main_shutdown_loops;
 
-  ut_a(srv_shutdown_state.load() != SRV_SHUTDOWN_NONE);
+  ut_a(srv_shutdown_state_matches([](auto state) {
+        return state == SRV_SHUTDOWN_MASTER_STOP ||
+        state == SRV_SHUTDOWN_EXIT_THREADS;
+        }));
 
   /* In very fast shutdown none of the following is necessary */
-  if (srv_fast_shutdown == 2) {
-    return (FALSE);
+  if (srv_fast_shutdown >= 1) {
+    return (false);
   }
 
-  /* ALTER TABLE in MySQL requires on Unix that the table handler
-  can drop tables lazily after there no longer are SELECT
-  queries to them. */
-  srv_main_thread_op_info = "doing background drop tables";
-  n_tables_to_drop = row_drop_tables_for_mysql_in_background();
-
-  srv_main_thread_op_info = "doing background file truncate";
-  row_truncate_file_for_mysql_in_background_shutdown_if_needed();
-
-  /* In case of normal shutdown we don't do ibuf merge or purge */
-  if (srv_fast_shutdown == 1) {
-    goto func_exit;
+  /* In case of slow shutdown we do ibuf merge (unless innodb_force_recovery
+   *   is greater or equal to SRV_FORCE_NO_IBUF_MERGE). */
+  if (srv_force_recovery < SRV_FORCE_NO_IBUF_MERGE) {
+    srv_main_thread_op_info = "doing insert buffer merge";
+    n_bytes_merged = ibuf_merge_in_background(true);
   }
 
-  /* Do an ibuf merge */
-  srv_main_thread_op_info = "doing insert buffer merge";
-  n_bytes_merged = ibuf_merge_in_background(true);
-
-func_exit:
   /* Print progress message every 60 seconds during shutdown */
-  srv_shutdown_print_master_pending(last_print_time, n_tables_to_drop,
-                                    n_bytes_merged);
+  srv_shutdown_print_master_pending(last_print_time, 0, n_bytes_merged);
 
-  return (n_bytes_merged || n_tables_to_drop);
+  return (n_bytes_merged != 0);
 }
 
 void undo_rotate_default_master_key() {
   fil_space_t *space;
 
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >= SRV_SHUTDOWN_CLEANUP) {
     return;
   }
 
@@ -2693,37 +2724,39 @@ static void srv_sys_check_set_encryption() {
   mutex_exit(&(undo::ddl_mutex));
 }
 
-/** The master thread controlling the server. */
-void srv_master_thread() {
-  DBUG_TRACE;
+/** Waits on event in provided slot.
+ * @param[in]   slot     slot reserved as SRV_MASTER */
+static void srv_master_wait(srv_slot_t *slot) {
+  srv_main_thread_op_info = "suspending";
 
-  srv_slot_t *slot;
-  ulint old_activity_count = srv_get_activity_count();
+  srv_suspend_thread(slot);
 
-  THD *thd = create_thd(false, true, true, 0);
+  /* DO NOT CHANGE THIS STRING. innobase_start_or_create_for_mysql()
+  waits for database activity to die down when converting < 4.1.x
+  databases, and relies on this string being exactly as it is. InnoDB
+  manual also mentions this string in several places. */
+  srv_main_thread_op_info = "waiting for server activity";
 
-  ut_ad(!srv_read_only_mode);
+  os_event_wait(slot->event);
+}
 
-  srv_main_thread_process_no = os_proc_get_number();
-  srv_main_thread_id = os_thread_get_curr_id();
-
-  slot = srv_reserve_slot(SRV_MASTER);
-  ut_a(slot == srv_sys->sys_threads);
-
-  auto last_print_time = ut_time_monotonic();
-loop:
+static void srv_master_main_loop(srv_slot_t *slot) {
   if (srv_force_recovery >= SRV_FORCE_NO_BACKGROUND) {
-    goto suspend_thread;
+    while (srv_shutdown_state.load() <
+        SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
+      srv_master_wait(slot);
+    }
+    return;
   }
 
-  while (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+  ulint old_activity_count = srv_get_activity_count();
+
+  while (srv_shutdown_state.load() <
+      SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
     srv_master_sleep();
 
     MONITOR_INC(MONITOR_MASTER_THREAD_SLEEP);
 
-    /* Just in case - if there is not much free space in redo,
-    try to avoid asking for troubles because of extra work
-    performed in such background thread. */
     srv_main_thread_op_info = "checking free log space";
     log_free_check();
 
@@ -2751,32 +2784,66 @@ loop:
     /* Allow any blocking clone to progress. */
     clone_mark_free();
   }
+}
+
+/** Executes pre_dd_shutdown tasks in the master thread. */
+static void srv_master_pre_dd_shutdown_loop() {
+  ut_a(srv_shutdown_state_matches([](auto state) {
+        return state == SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS ||
+        state == SRV_SHUTDOWN_EXIT_THREADS;
+        }));
+  auto last_print_time = ut_time_monotonic();
+  while (srv_shutdown_state.load() < SRV_SHUTDOWN_EXIT_THREADS &&
+      srv_master_do_pre_dd_shutdown_tasks(&last_print_time)) {
+    /* Shouldn't loop here in case of very fast shutdown */
+    ut_ad(srv_fast_shutdown < 2);
+  }
+}
+
+/** Executes shutdown tasks in the master thread. */
+static void srv_master_shutdown_loop() {
+  ut_a(srv_shutdown_state_matches([](auto state) {
+        return state == SRV_SHUTDOWN_MASTER_STOP ||
+        state == SRV_SHUTDOWN_EXIT_THREADS;
+        }));
+  auto last_print_time = ut_time_monotonic();
+  while (srv_shutdown_state.load() < SRV_SHUTDOWN_EXIT_THREADS &&
+      srv_master_do_shutdown_tasks(&last_print_time)) {
+    /* Shouldn't loop here in case of very fast shutdown */
+    ut_ad(srv_fast_shutdown < 2);
+  }
+}
+
+/** The master thread controlling the server. */
+void srv_master_thread() {
+  DBUG_TRACE;
+
+  srv_slot_t *slot;
+
+  THD *thd = create_thd(false, true, true, 0);
+
+  ut_ad(!srv_read_only_mode);
+
+  srv_main_thread_process_no = os_proc_get_number();
+  srv_main_thread_id = os_thread_get_curr_id();
+
+  slot = srv_reserve_slot(SRV_MASTER);
+  ut_a(slot == srv_sys->sys_threads);
+
+  srv_master_main_loop(slot);
+
+  srv_master_pre_dd_shutdown_loop();
+
+  os_event_set(srv_threads.m_master_ready_for_dd_shutdown);
 
   /* This is just for test scenarios. */
   srv_thread_delay_cleanup_if_needed(true);
 
-  while (srv_shutdown_state.load() != SRV_SHUTDOWN_MASTER_STOP &&
-         srv_master_do_shutdown_tasks(&last_print_time)) {
-    /* Shouldn't loop here in case of very fast shutdown */
-    ut_ad(srv_fast_shutdown < 2);
+  while (srv_shutdown_state.load() < SRV_SHUTDOWN_MASTER_STOP) {
+    srv_master_wait(slot);
   }
 
-suspend_thread:
-  srv_main_thread_op_info = "suspending";
-
-  srv_suspend_thread(slot);
-
-  /* DO NOT CHANGE THIS STRING. innobase_start_or_create_for_mysql()
-  waits for database activity to die down when converting < 4.1.x
-  databases, and relies on this string being exactly as it is. InnoDB
-  manual also mentions this string in several places. */
-  srv_main_thread_op_info = "waiting for server activity";
-
-  os_event_wait(slot->event);
-
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_MASTER_STOP) {
-    goto loop;
-  }
+  srv_master_shutdown_loop();
 
   srv_main_thread_op_info = "exiting";
   destroy_thd(thd);
@@ -2790,10 +2857,12 @@ static bool srv_purge_should_exit(
 {
   switch (srv_shutdown_state.load()) {
     case SRV_SHUTDOWN_NONE:
+    case SRV_SHUTDOWN_RECOVERY_ROLLBACK:
+    case SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS:
       /* Normal operation. */
       break;
 
-    case SRV_SHUTDOWN_CLEANUP:
+    case SRV_SHUTDOWN_PURGE:
       /* Exit unless slow shutdown requested or all done. */
       return (srv_fast_shutdown != 0 || n_purged == 0);
 
@@ -2803,6 +2872,8 @@ static bool srv_purge_should_exit(
     case SRV_SHUTDOWN_LAST_PHASE:
     case SRV_SHUTDOWN_FLUSH_PHASE:
     case SRV_SHUTDOWN_MASTER_STOP:
+    case SRV_SHUTDOWN_CLEANUP:
+    case SRV_SHUTDOWN_DD:
       ut_error;
   }
 
@@ -2888,7 +2959,7 @@ void srv_worker_thread() {
 
   ut_a(!purge_sys->running);
   ut_a(purge_sys->state == PURGE_STATE_EXIT);
-  ut_a(srv_shutdown_state.load() != SRV_SHUTDOWN_NONE);
+  ut_a(srv_shutdown_state.load() >= SRV_SHUTDOWN_PURGE);
 
   rw_lock_x_unlock(&purge_sys->latch);
 
@@ -3027,14 +3098,14 @@ static void srv_purge_coordinator_suspend(
 
     rw_lock_x_lock(&purge_sys->latch);
 
-    stop = (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE &&
+    stop = (srv_shutdown_state.load() < SRV_SHUTDOWN_PURGE &&
             purge_sys->state == PURGE_STATE_STOP);
 
     if (!stop) {
       bool check = true;
       DBUG_EXECUTE_IF(
           "skip_purge_check_shutdown",
-          if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE &&
+          if (srv_shutdown_state.load() >= SRV_SHUTDOWN_PURGE &&
               purge_sys->state == PURGE_STATE_STOP &&
               srv_fast_shutdown != 0) { check = false; };);
 
@@ -3109,7 +3180,7 @@ void srv_purge_coordinator_thread() {
     /* If there are no records to purge or the last
     purge didn't purge any records then wait for activity. */
 
-    if (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE &&
+    if (srv_shutdown_state.load() < SRV_SHUTDOWN_PURGE &&
         (purge_sys->state == PURGE_STATE_STOP || n_total_purged == 0)) {
       srv_purge_coordinator_suspend(slot, rseg_history_len);
     }
@@ -3264,6 +3335,10 @@ bool srv_purge_threads_active() {
 
 bool srv_thread_is_active(const IB_thread &thread) {
   return (thread_is_active(thread));
+}
+
+bool srv_thread_is_stopped(const IB_thread &thread) {
+    return (thread_is_stopped(thread));
 }
 
 #endif /* !UNIV_HOTBACKUP */

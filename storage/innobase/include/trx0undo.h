@@ -272,9 +272,8 @@ the data can be discarded.
 @param[in]	noredo		whether the undo tablespace is redo logged */
 void trx_undo_insert_cleanup(trx_undo_ptr_t *undo_ptr, bool noredo);
 
-/** At shutdown, frees the undo logs of a PREPARED transaction. */
-void trx_undo_free_prepared(trx_t *trx) /*!< in/out: PREPARED transaction */
-    UNIV_COLD;
+void trx_undo_free_trx_with_prepared_or_active_logs(
+    trx_t *trx, ulint expected_undo_state) UNIV_COLD;
 
 /* Forward declaration. */
 namespace undo {

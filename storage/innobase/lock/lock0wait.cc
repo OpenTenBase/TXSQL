@@ -1306,5 +1306,5 @@ void lock_wait_timeout_thread() {
     os_event_wait_time_low(event, 1000000, sig_count);
     sig_count = os_event_reset(event);
 
-  } while (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE);
+  } while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP);
 }

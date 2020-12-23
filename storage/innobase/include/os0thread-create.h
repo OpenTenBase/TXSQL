@@ -170,6 +170,10 @@ class Runnable {
   void init() { m_thread.init(m_promise); }
 };
 
+inline bool thread_is_stopped(const IB_thread &thread) {
+    return (thread.state() == IB_thread::State::STOPPED);
+}
+
 /** Create a detached thread
 @param[in]	thread Thread handle.
 @return true if the thread is active. */

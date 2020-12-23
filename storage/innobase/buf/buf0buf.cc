@@ -2166,7 +2166,7 @@ withdraw_retry:
     }
   }
 
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >= SRV_SHUTDOWN_CLEANUP) {
     /* abort to resize for shutdown. */
     buf_pool_withdrawing = false;
     return;
@@ -2240,7 +2240,7 @@ withdraw_retry:
   }
 #endif /* UNIV_DEBUG */
 
-  if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+  if (srv_shutdown_state.load() >= SRV_SHUTDOWN_CLEANUP) {
     return;
   }
 
@@ -2541,11 +2541,11 @@ withdraw_retry:
 /** This is the thread for resizing buffer pool. It waits for an event and
 when waked up either performs a resizing and sleeps again. */
 void buf_resize_thread() {
-  while (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+  while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
     os_event_wait(srv_buf_resize_event);
     os_event_reset(srv_buf_resize_event);
 
-    if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+    if (srv_shutdown_state.load() >= SRV_SHUTDOWN_CLEANUP) {
       break;
     }
 

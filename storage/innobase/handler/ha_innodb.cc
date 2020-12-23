@@ -2633,6 +2633,14 @@ trx_t *innobase_trx_allocate(THD *thd) /*!< in: user thread handle */
  @return InnoDB transaction handle */
 trx_t *check_trx_exists(THD *thd) /*!< in: user thread handle */
 {
+  /* We request to stop master thread in srv_shutdown, which is invoked
+  after DD has been shut down. Since that point of time, we must not need
+  transaction objects for any reasons. */
+  ut_ad(srv_shutdown_state_matches([](auto state) {
+   return state < SRV_SHUTDOWN_MASTER_STOP ||
+          state == SRV_SHUTDOWN_EXIT_THREADS;
+  }));
+
   trx_t *&trx = thd_to_trx(thd);
 
   ut_ad(EQ_CURRENT_THD(thd));
@@ -3072,7 +3080,7 @@ void ha_innobase::init_table_handle_for_HANDLER(void) {
 @return always return 1 */
 static int innodb_init_abort() {
   DBUG_TRACE;
-  srv_shutdown_all_bg_threads();
+  srv_shutdown_exit_threads();
   innodb_space_shutdown();
   return 1;
 }
@@ -20979,6 +20987,7 @@ static bool innodb_purge_stop_now = TRUE;
 static bool innodb_log_checkpoint_now = TRUE;
 static bool innodb_log_checkpoint_fuzzy_now = TRUE;
 static bool innodb_buf_flush_list_now = TRUE;
+static bool innodb_log_flush_now = TRUE;
 static uint innodb_merge_threshold_set_all_debug =
     DICT_INDEX_MERGE_THRESHOLD_DEFAULT;
 
@@ -21021,6 +21030,17 @@ static void purge_stop_now_set(THD *thd MY_ATTRIBUTE((unused)),
   if (*(bool *)save && trx_purge_state() != PURGE_STATE_DISABLED) {
     trx_purge_stop();
   }
+}
+
+static void log_flush_now_set(THD *thd MY_ATTRIBUTE((unused)),
+                              SYS_VAR *var MY_ATTRIBUTE((unused)),
+                              void *var_ptr MY_ATTRIBUTE((unused)),
+                              const void *save) {
+  if (!*(bool *)save) {
+    return;
+  }
+
+  log_buffer_flush_to_disk(true);
 }
 
 /** Force InnoDB to do sharp checkpoint. This forces a flush of all
@@ -21604,6 +21624,11 @@ static MYSQL_SYSVAR_BOOL(purge_run_now, innodb_purge_run_now,
 static MYSQL_SYSVAR_BOOL(purge_stop_now, innodb_purge_stop_now,
                          PLUGIN_VAR_OPCMDARG, "Set purge state to STOP", NULL,
                          purge_stop_now_set, FALSE);
+
+static MYSQL_SYSVAR_BOOL(log_flush_now, innodb_log_flush_now,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Force flush of redo up to current lsn", nullptr,
+                         log_flush_now_set, FALSE);
 
 static MYSQL_SYSVAR_BOOL(log_checkpoint_now, innodb_log_checkpoint_now,
                          PLUGIN_VAR_OPCMDARG, "Force sharp checkpoint now",
@@ -23069,6 +23094,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(background_drop_list_empty),
     MYSQL_SYSVAR(purge_run_now),
     MYSQL_SYSVAR(purge_stop_now),
+    MYSQL_SYSVAR(log_flush_now),
     MYSQL_SYSVAR(log_checkpoint_now),
     MYSQL_SYSVAR(log_checkpoint_fuzzy_now),
     MYSQL_SYSVAR(checkpoint_disabled),

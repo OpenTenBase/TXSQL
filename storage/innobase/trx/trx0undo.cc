@@ -1895,12 +1895,13 @@ void trx_undo_insert_cleanup(trx_undo_ptr_t *undo_ptr, bool noredo) {
 }
 
 /** At shutdown, frees the undo logs of a PREPARED transaction. */
-void trx_undo_free_prepared(trx_t *trx) /*!< in/out: PREPARED transaction */
+void trx_undo_free_trx_with_prepared_or_active_logs(trx_t *trx, ulint expected_undo_state)
 {
   ut_ad(srv_shutdown_state.load() == SRV_SHUTDOWN_EXIT_THREADS);
+  ut_a(expected_undo_state == TRX_UNDO_ACTIVE || expected_undo_state == TRX_UNDO_PREPARED);
 
   if (trx->rsegs.m_redo.update_undo) {
-    ut_a(trx->rsegs.m_redo.update_undo->state == TRX_UNDO_PREPARED);
+    ut_a(trx->rsegs.m_redo.update_undo->state == expected_undo_state);
     UT_LIST_REMOVE(trx->rsegs.m_redo.rseg->update_undo_list,
                    trx->rsegs.m_redo.update_undo);
     trx_undo_mem_free(trx->rsegs.m_redo.update_undo);
@@ -1909,7 +1910,7 @@ void trx_undo_free_prepared(trx_t *trx) /*!< in/out: PREPARED transaction */
   }
 
   if (trx->rsegs.m_redo.insert_undo) {
-    ut_a(trx->rsegs.m_redo.insert_undo->state == TRX_UNDO_PREPARED);
+    ut_a(trx->rsegs.m_redo.insert_undo->state == expected_undo_state);
     UT_LIST_REMOVE(trx->rsegs.m_redo.rseg->insert_undo_list,
                    trx->rsegs.m_redo.insert_undo);
     trx_undo_mem_free(trx->rsegs.m_redo.insert_undo);
@@ -1918,7 +1919,7 @@ void trx_undo_free_prepared(trx_t *trx) /*!< in/out: PREPARED transaction */
   }
 
   if (trx->rsegs.m_noredo.update_undo) {
-    ut_a(trx->rsegs.m_noredo.update_undo->state == TRX_UNDO_PREPARED);
+    ut_a(trx->rsegs.m_noredo.update_undo->state == expected_undo_state);
 
     UT_LIST_REMOVE(trx->rsegs.m_noredo.rseg->update_undo_list,
                    trx->rsegs.m_noredo.update_undo);
@@ -1927,7 +1928,7 @@ void trx_undo_free_prepared(trx_t *trx) /*!< in/out: PREPARED transaction */
     trx->rsegs.m_noredo.update_undo = NULL;
   }
   if (trx->rsegs.m_noredo.insert_undo) {
-    ut_a(trx->rsegs.m_noredo.insert_undo->state == TRX_UNDO_PREPARED);
+    ut_a(trx->rsegs.m_noredo.insert_undo->state == expected_undo_state);
 
     UT_LIST_REMOVE(trx->rsegs.m_noredo.rseg->insert_undo_list,
                    trx->rsegs.m_noredo.insert_undo);

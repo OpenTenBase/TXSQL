@@ -122,9 +122,6 @@ void srv_pre_dd_shutdown();
 /** Shut down the InnoDB database. */
 void srv_shutdown();
 
-/** Shut down all InnoDB background threads. */
-void srv_shutdown_all_bg_threads();
-
 /** Start purge threads. During upgrade we start
 purge threads early to apply purge. */
 void srv_start_purge_threads();
@@ -173,13 +170,47 @@ enum srv_shutdown_t {
   /** Database running normally. */
   SRV_SHUTDOWN_NONE = 0,
 
-  /** Stopping all extra background tasks. This includes the purge threads and
-  every other thread in Srv_threads except:
-    - master thread,
-    - redo log threads,
-    - page cleaner threads,
-    - archiver threads.
-  At this phase the purge threads must be stopped. */
+  /** Shutdown has started. Stopping the thread responsible for rollback of
+  recovered transactions. In case of slow shutdown, this implies waiting
+  for completed rollback of all recovered transactions.
+  @remarks Note that user transactions are stopped earlier, when the
+  shutdown state is still equal to SRV_SHUTDOWN_NONE (user transactions
+  are closed when related connections are closed in close_connections()). */
+  SRV_SHUTDOWN_RECOVERY_ROLLBACK,
+
+  /** Stopping threads that might use system transactions or DD objects.
+  This is important because we need to ensure that in the next phase no
+  undo records could be produced (we will be stopping purge threads).
+  After next phase DD is shut down, so also no accesses to DD objects
+  are allowed then. List of threads being stopped within this phase:
+  - dict_stats thread,
+  - fts_optimize thread,
+  - ts_alter_encrypt thread.
+  The master thread exits its main loop and finishes its first phase
+  of shutdown (in which it was allowed to touch DD objects). */
+  SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS,
+
+  /** Stopping the purge threads. Before we enter this phase, we have
+  the guarantee that no new undo records could be produced. */
+  SRV_SHUTDOWN_PURGE,
+
+  /** Shutting down the DD. */
+  SRV_SHUTDOWN_DD,
+
+  /** Stopping remaining InnoDB background threads except:
+  - the master thread,
+  - redo log threads,
+  - page cleaner threads,
+  - archiver threads.
+  List of threads being stopped within this phase:
+  - lock_wait_timeout thread,
+  - error_monitor thread,
+  - monitor thread,
+  - buf_dump thread,
+  - buf_resize thread.
+  @remarks If your thread might touch DD objects or use system transactions
+  it must be stopped within SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS phase.
+  */
   SRV_SHUTDOWN_CLEANUP,
 
   /** Stopping the master thread. */
@@ -205,8 +236,15 @@ extern std::atomic<enum srv_shutdown_t> srv_shutdown_state;
 
 /** Call exit(3) */
 void srv_fatal_error() MY_ATTRIBUTE((noreturn));
-/**
-Shutdown all background threads created by InnoDB. */
-void srv_shutdown_all_bg_threads();
+
+void srv_shutdown_exit_threads();
+
+bool srv_shutdown_waits_for_rollback_of_recovered_transactions();
+
+template <typename F>
+bool srv_shutdown_state_matches(F &&f) {
+  const auto state = srv_shutdown_state.load();
+  return std::forward<F>(f)(state);
+}
 
 #endif

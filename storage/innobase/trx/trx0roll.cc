@@ -732,6 +732,18 @@ void trx_rollback_or_clean_recovered(
   recovered transactions to clean up or recover. */
 
   while (!trx_list.empty()) {
+    if (srv_shutdown_state.load() >= SRV_SHUTDOWN_RECOVERY_ROLLBACK &&
+        srv_fast_shutdown != 0) {
+      ut_a(srv_shutdown_state_matches([](auto state) {
+            return state == SRV_SHUTDOWN_RECOVERY_ROLLBACK ||
+            state == SRV_SHUTDOWN_EXIT_THREADS;
+            }));
+
+      if (all) {
+        ib::info() << "Transaction rollback is not completed";
+      }
+      return;
+    }
     trx_t *trx= trx_list.back();
     trx_list.pop_back();
     if (trx_rollback_resurrected(trx, all)) {
@@ -768,6 +780,13 @@ void trx_recovery_rollback_thread() {
 #endif /* UNIV_PFS_THREAD */
 
   ut_ad(!srv_read_only_mode);
+
+  while (DBUG_EVALUATE_IF("pause_rollback_on_recovery", true, false)) {
+    if (srv_shutdown_state.load() >= SRV_SHUTDOWN_RECOVERY_ROLLBACK) {
+      break;
+    }
+    os_thread_sleep(1000);
+  }
 
   trx_rollback_or_clean_recovered(TRUE);
 

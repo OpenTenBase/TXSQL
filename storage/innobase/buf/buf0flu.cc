@@ -2972,7 +2972,7 @@ static void buf_flush_page_cleaner_disabled_loop(void) {
   mutex_exit(&page_cleaner->mutex);
 
   while (innodb_page_cleaner_disabled_debug &&
-         srv_shutdown_state.load() == SRV_SHUTDOWN_NONE &&
+         srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP &&
          page_cleaner->is_running) {
     os_thread_sleep(100000); /* [A] */
   }
@@ -3016,7 +3016,7 @@ void buf_flush_page_cleaner_disabled_debug_update(THD *thd, SYS_VAR *var,
     innodb_page_cleaner_disabled_debug = false;
 
     /* Enable page cleaner and LRU manager threads. */
-    while (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+    while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
       mutex_enter(&page_cleaner->mutex);
       const ulint n = page_cleaner->n_disabled_debug;
       mutex_exit(&page_cleaner->mutex);
@@ -3035,7 +3035,7 @@ void buf_flush_page_cleaner_disabled_debug_update(THD *thd, SYS_VAR *var,
 
   innodb_page_cleaner_disabled_debug = true;
 
-  while (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+  while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
     /* Workers are possibly sleeping on is_requested.
 
     We have to wake them, otherwise they could possibly
@@ -3099,7 +3099,7 @@ static void buf_flush_page_coordinator_thread(size_t n_page_cleaners) {
   }
 
   while (!srv_read_only_mode &&
-         srv_shutdown_state.load() == SRV_SHUTDOWN_NONE &&
+         srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP &&
          recv_sys->spaces != NULL) {
     /* treat flushing requests during recovery. */
     ulint n_flushed_list = 0;
@@ -3146,7 +3146,7 @@ loop:
   bool was_server_active = true;
   int64_t sig_count = os_event_reset(buf_flush_event);
 
-  while (srv_shutdown_state.load() == SRV_SHUTDOWN_NONE) {
+  while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
     /* We consider server active if either we have just discovered a first
     activity after a period of inactive server, or we are after the period
     of active server in which case, it could be just the beginning of the
@@ -3162,7 +3162,7 @@ loop:
         !is_sync_flush) {
       ret_sleep = pc_sleep_if_needed(next_loop_time, sig_count);
 
-      if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+      if (srv_shutdown_state.load() >= SRV_SHUTDOWN_CLEANUP) {
         break;
       }
     } else if (ut_time_monotonic_ms() > next_loop_time) {
@@ -3313,7 +3313,7 @@ loop:
   /* This is just for test scenarios. */
   srv_thread_delay_cleanup_if_needed(thd);
 
-  ut_ad(srv_shutdown_state.load() != SRV_SHUTDOWN_NONE);
+  ut_ad(srv_shutdown_state.load() >= SRV_SHUTDOWN_CLEANUP);
   if (srv_fast_shutdown == 2 ||
       srv_shutdown_state.load() == SRV_SHUTDOWN_EXIT_THREADS) {
     /* In very fast shutdown or when innodb failed to start, we
