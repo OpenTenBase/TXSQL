@@ -7871,7 +7871,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
       valid_pos = binlog_file_reader.position();
-      sql_print_information("binlog_recover will analyze file:%s,pos:%lu\n",log_name,valid_pos);
+      sql_print_information("binlog_recover will analyze file:%s,pos:%lu",log_name,valid_pos);
       error = binlog_recover(&binlog_file_reader, &valid_pos);
       binlog_size = binlog_file_reader.ifile()->length();
     } else
