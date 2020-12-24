@@ -171,6 +171,7 @@ MY_BITMAP slave_error_mask;
 char slave_skip_error_names[SHOW_VAR_FUNC_BUFF_SIZE];
 
 bool txsql_slave_io_optimaze_write = false;
+bool print_invalid_replication_timestamps = false;
 
 char *slave_load_tmpdir = nullptr;
 bool replicate_same_server_id;
