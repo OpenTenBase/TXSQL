@@ -1083,6 +1083,10 @@ The following options may be given as the first argument:
  opt_admin_username_prefix. Rejected insert will return
  error , but all other operations will be silently ignored
  with such rows.
+ --reject-table-no-pk 
+ When set, tables must be created with a primary key, and
+ an existing primary key cannot be removed with 'ALTER
+ TABLE'. Attempts to do so will result in an error.
  --relay-log=name    The location and name to use for relay logs
  --relay-log-index=name 
  File that holds the names for relay log files.
@@ -1887,6 +1891,7 @@ read-rnd-buffer-size 262144
 regexp-stack-limit 8000000
 regexp-time-limit 32
 reject-rw-mysql-user-sys-users FALSE
+reject-table-no-pk FALSE
 relay-log relaylog
 relay-log-index relaylog.index
 relay-log-info-file relay-log.info

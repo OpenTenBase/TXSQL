@@ -193,6 +193,8 @@ regexp_time_limit
 regexp_time_limit
 reject_rw_mysql_user_sys_users
 reject_rw_mysql_user_sys_users
+reject_table_no_pk
+reject_table_no_pk
 relay_log_sync_threshold
 relay_log_sync_threshold
 relay_log_sync_timeout

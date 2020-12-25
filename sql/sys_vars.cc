@@ -6779,6 +6779,18 @@ static Sys_var_bool Sys_sql_require_primary_key{
     IN_BINLOG,
     ON_CHECK(check_session_admin)};
 
+static Sys_var_bool Sys_reject_table_no_pk{
+    "reject_table_no_pk",
+    "When set, tables must be created with a primary key, and an existing "
+    "primary key cannot be removed with 'ALTER TABLE'. Attempts to do so "
+    "will result in an error.",
+    HINT_UPDATEABLE SESSION_VAR(sql_require_primary_key),
+    CMD_LINE(OPT_ARG),
+    DEFAULT(false),
+    NO_MUTEX_GUARD,
+    IN_BINLOG,
+    ON_CHECK(check_session_admin)};
+
 static Sys_var_charptr Sys_sys_variables_admin_subject(
     PERSIST_ONLY_ADMIN_X509_SUBJECT,
     "The client peer certificate name required to enable setting all "

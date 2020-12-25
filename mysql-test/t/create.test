@@ -1960,10 +1960,12 @@ DROP TABLE t0;
 
 SET GLOBAL sql_require_primary_key= ON;
 SELECT @@global.sql_require_primary_key;
+select @@global.reject_table_no_pk;
 
 --echo # Checking variable at session level
 --echo # Should not affect this session
 SELECT @@session.sql_require_primary_key;
+select @@session.reject_table_no_pk;
 CREATE TABLE t1(i INT);
 CREATE TABLE t2(i INT PRIMARY KEY, j INT);
 ALTER TABLE t2 DROP COLUMN i;
@@ -1984,7 +1986,8 @@ ALTER TABLE t1 DROP COLUMN i;
 DROP TABLE t1;
 
 --echo # Overdide inherited global setting locally
-SET SESSION sql_require_primary_key= OFF;
+SET SESSION reject_table_no_pk= OFF;
+#SET SESSION sql_require_primary_key= OFF;
 
 SELECT @@session.sql_require_primary_key;
 CREATE TABLE t1(i INT);
@@ -1997,7 +2000,8 @@ DROP TABLE t1;
 --echo # Verify CREATE LIKE
 CREATE TABLE t1(i INT);
 
-SET SESSION sql_require_primary_key= ON;
+SET SESSION reject_table_no_pk= ON;
+select @@session.sql_require_primary_key;
 
 --error ER_TABLE_WITHOUT_PK
 CREATE TABLE t2 LIKE t1;
@@ -2131,7 +2135,8 @@ SET SESSION sql_require_primary_key=1;
 CREATE TABLE IF NOT EXISTS t1(i INT);
 
 --echo # Cleanup
-SET SESSION sql_require_primary_key=DEFAULT;
+SET SESSION reject_table_no_pk=DEFAULT;
+select @@session.sql_require_primary_key;
 DROP TABLE t1;
 
 --echo #
