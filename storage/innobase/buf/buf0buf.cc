@@ -907,12 +907,16 @@ requested but could not be performed.
                      the memory region to free */
 void buf_pool_t::deallocate_chunk(buf_chunk_t *chunk) {
   ut_ad(mutex_own(&chunks_mutex));
-  /* Undo the effect of the earlier MADV_DONTDUMP */
-  if (buf_pool_should_madvise) {
-    if (!chunk->madvise_dump()) {
-      innobase_disable_core_dump();
-    }
+
+  if ( !g_have_used_quickly_stoped.load() ) {
+    /* Undo the effect of the earlier MADV_DONTDUMP */
+     if (buf_pool_should_madvise) {
+       if (!chunk->madvise_dump()) {
+         innobase_disable_core_dump();
+       }
+     }
   }
+
   allocator.deallocate_large(chunk->mem, &chunk->mem_pfx);
 }
 
@@ -1376,7 +1380,7 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
 
 /** Free one buffer pool instance
 @param[in]	buf_pool	buffer pool instance to free */
-static void buf_pool_free_instance(buf_pool_t *buf_pool) {
+static void buf_pool_free_instance(buf_pool_t *buf_pool, bool ignore_unlock = false) {
   buf_chunk_t *chunk;
   buf_chunk_t *chunks;
   buf_page_t *bpage;
@@ -1417,10 +1421,12 @@ static void buf_pool_free_instance(buf_pool_t *buf_pool) {
 
     for (ulint i = chunk->size; i--; block++) {
       if (block->locks_inited) {
-        mutex_free(&block->mutex);
-        rw_lock_free(&block->lock);
+        if(!ignore_unlock) {
+          mutex_free(&block->mutex); //very slow,if we shutdown ,we can skip this
+          rw_lock_free(&block->lock);
 
-        ut_d(rw_lock_free(&block->debug_latch));
+          ut_d(rw_lock_free(&block->debug_latch));
+        }
       }
     }
     buf_pool->deallocate_chunk(chunk);
@@ -6488,14 +6494,27 @@ const char *buf_block_t::get_page_type_str() const {
   return ("UNKNOWN");
 }
 
+
+
 #ifndef UNIV_HOTBACKUP
+
 /** Frees the buffer pool instances and the global data structures. */
 void buf_pool_free_all() {
+
+  if (innodb_quickly_stoped) {
+    g_have_used_quickly_stoped = true;
+  }
+
+  time_t begin = time(NULL);
   for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
     buf_pool_t *ptr = &buf_pool_ptr[i];
 
-    buf_pool_free_instance(ptr);
+    buf_pool_free_instance(ptr, g_have_used_quickly_stoped.load());
   }
+
+  time_t end = time(NULL);
+  sql_print_information("buf_pool_free_all cost %ld sec,g_have_used_quickly_stoped:%d\n", (long)(end-begin),
+      g_have_used_quickly_stoped.load());
 
   buf_pool_free();
 }

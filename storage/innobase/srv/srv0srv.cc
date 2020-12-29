@@ -801,6 +801,8 @@ bool srv_hot_update_detect = false;
 ulint srv_max_concurrent_hot_update = 1;
 ulint srv_hot_update_wait_timeout = 1000000;
 
+bool innodb_quickly_stoped = false;
+
 /** Slot index in the srv_sys->sys_threads array for the purge thread. */
 static const ulint SRV_PURGE_SLOT = 1;
 

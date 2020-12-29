@@ -22927,6 +22927,11 @@ static MYSQL_SYSVAR_ULONG(hot_update_wait_timeout,
     "The timeout value of hot update waiting.",
     NULL, NULL, 1000000, 1000, 100000000, 0);
 
+static MYSQL_SYSVAR_BOOL(quickly_stoped,
+    innodb_quickly_stoped, PLUGIN_VAR_RQCMDARG,
+    "whether quickly stopd innodb,if set ,innodb resource cleaning will be safely ignored",
+    NULL, NULL, FALSE);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -23168,6 +23173,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(hot_update_detect),
     MYSQL_SYSVAR(max_concurrent_hot_update),
     MYSQL_SYSVAR(hot_update_wait_timeout),
+    MYSQL_SYSVAR(quickly_stoped),
     NULL};
 
 mysql_declare_plugin(innobase){

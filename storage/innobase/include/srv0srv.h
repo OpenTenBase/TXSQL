@@ -323,6 +323,9 @@ extern ulint  srv_max_concurrent_hot_update;
 /* Timeout value of hot update wait for. */
 extern ulint  srv_hot_update_wait_timeout;
 
+extern bool  innodb_quickly_stoped;
+
+
 /* Whether to disable file system cache if it is defined */
 extern bool srv_disable_sort_file_cache;
 

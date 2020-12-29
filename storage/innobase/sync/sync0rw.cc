@@ -50,6 +50,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "srv0srv.h"
 #include "sync0debug.h"
 
+std::atomic<bool> g_have_used_quickly_stoped { false };
 /*
         IMPLEMENTATION OF THE RW_LOCK
         =============================
@@ -281,7 +282,11 @@ void rw_lock_free_func(rw_lock_t *lock) /*!< in/out: rw-lock */
   ut_ad(rw_lock_validate(lock));
   ut_a(lock->lock_word == X_LOCK_DECR);
 
-  mutex_enter(&rw_lock_list_mutex);
+  bool need_lock = !g_have_used_quickly_stoped.load();//if g_mutiple_thread_stop is true,we need skip deal rw_lock_list
+  if(need_lock) {
+    mutex_enter(&rw_lock_list_mutex);
+  }
+
 
 #ifndef INNODB_RW_LOCKS_USE_ATOMICS
   mutex_free(rw_lock_get_mutex(lock));
@@ -291,9 +296,12 @@ void rw_lock_free_func(rw_lock_t *lock) /*!< in/out: rw-lock */
 
   os_event_destroy(lock->wait_ex_event);
 
-  UT_LIST_REMOVE(rw_lock_list, lock);
+  if (need_lock) {
+    UT_LIST_REMOVE(rw_lock_list, lock);
 
-  mutex_exit(&rw_lock_list_mutex);
+    mutex_exit(&rw_lock_list_mutex);
+  }
+
 
   /* We did an in-place new in rw_lock_create_func() */
   ut_d(lock->~rw_lock_t());

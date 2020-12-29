@@ -743,7 +743,9 @@ void lock_sys_close(void) {
 
   LockGuard guard;
   mutex_enter(&lock_sys->hot_update_mutex);
-  lock_sys_reset_hot_update();
+  if (srv_hot_update_detect) {//if we don't use hot update,we can skip this check,it is slow
+    lock_sys_reset_hot_update();
+  }
   mutex_exit(&lock_sys->hot_update_mutex);
   guard.release();
 

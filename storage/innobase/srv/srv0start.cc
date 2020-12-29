@@ -3379,7 +3379,9 @@ static lsn_t srv_shutdown_log() {
 
   /* No redo log might be generated since now. */
   log_background_threads_inactive_validate(*log_sys);
-  buf_must_be_all_freed();
+  if ( !innodb_quickly_stoped ) {
+    buf_must_be_all_freed();
+  }
 
   const lsn_t lsn = log_get_lsn(*log_sys);
 
@@ -3412,7 +3414,9 @@ static lsn_t srv_shutdown_log() {
     ut_a(err == DB_SUCCESS);
   }
 
-  buf_must_be_all_freed();
+  if ( !innodb_quickly_stoped ) {
+    buf_must_be_all_freed();
+  }
   ut_a(lsn == log_get_lsn(*log_sys));
 
   return (lsn);
