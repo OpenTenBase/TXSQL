@@ -1771,7 +1771,7 @@ class Relay_log_info : public Rpl_info {
     at internal rollback of the slave applier at the same time with
     the engine ha_data re-attachment.
   */
-  bool is_engine_ha_data_detached;
+  bool m_is_engine_ha_data_detached;
   /**
     Reference to being applied event. The member is set at event reading
     and gets reset at the end of the event lifetime.
@@ -1837,23 +1837,13 @@ class Relay_log_info : public Rpl_info {
   */
 
   void reattach_engine_ha_data(THD *thd);
+
   /**
-    Drops the engine ha_data flag when it is up.
-    The method is run at execution points of the engine ha_data
-    re-attachment.
-
-    @return true   when THD has detached the engine ha_data,
-            false  otherwise
+    Checks whether engine ha data is detached from THD
+    @retval true if the data is detached
+    @retval false if the data is not detached
   */
-
-  bool unflag_detached_engine_ha_data() {
-    bool rc = false;
-
-    if (is_engine_ha_data_detached)
-      rc = !(is_engine_ha_data_detached = false);  // return the old value
-
-    return rc;
-  }
+  bool is_engine_ha_data_detached() { return m_is_engine_ha_data_detached; }
 
   /**
     Execute actions at replicated atomic DLL post rollback time.

@@ -586,22 +586,6 @@ void trx_sys_close(void) {
 
   UT_DELETE(trx_sys->mvcc);
 
-  trx_sys_mutex_enter();
-  if (UT_LIST_GET_LEN(trx_sys->mysql_trx_list) > 0) {
-    ib::error() << "The mysql_trx_list is not empty which shouldn't"
-      << " happen, we force to remove all on them on shutdown";
-    ib::error() << "mysql_trx_list length is " << UT_LIST_GET_LEN(trx_sys->mysql_trx_list);
-
-    while ((UT_LIST_GET_LEN(trx_sys->mysql_trx_list) > 0)) {
-      trx_t *trx = UT_LIST_GET_LAST(trx_sys->mysql_trx_list);
-      trx_sys_mutex_exit();
-      ut_a(trx->state == TRX_STATE_NOT_STARTED);
-      trx_free_for_mysql(trx);
-      trx_sys_mutex_enter();
-    }
-  }
-  trx_sys_mutex_exit();
-
   ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
 
   /* We used placement new to create this mutex. Call the destructor. */
@@ -646,6 +630,10 @@ void trx_sys_after_pre_dd_shutdown_validate() {
 
 void trx_sys_after_background_threads_shutdown_validate() {
   trx_sys_after_pre_dd_shutdown_validate();
+
+  trx_sys_mutex_enter();
+  ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
+  trx_sys_mutex_exit();
 }
 
 static bool trx_count_active_recovered_callback(

@@ -1127,7 +1127,7 @@ bool Sql_cmd_xa_rollback::clean_state_from_coord_inject(THD *thd) {
         *
         * above case,the is_engine_ha_data_detached is true,so need unflag
         */
-        if(thd->rli_slave && thd->rli_slave->is_engine_ha_data_detached )  {
+        if(thd->rli_slave && thd->rli_slave->is_engine_ha_data_detached() )  {
           thd->rli_slave->reattach_engine_ha_data(thd);
         }
 
@@ -1336,7 +1336,7 @@ bool Sql_cmd_xa_prepare::execute(THD *thd) {
   }
 
   if (!st) {
-    if (!thd->rpl_unflag_detached_engine_ha_data() ||
+    if (!thd->is_engine_ha_data_detached() ||
         !(st = applier_reset_xa_trans(thd)))
       my_ok(thd);
   }
@@ -1767,19 +1767,12 @@ static void attach_native_trx(THD *thd) {
 
   if (ha_info) {
     for (; ha_info; ha_info = ha_info_next) {
-      handlerton *hton = ha_info->ht();
-      reattach_engine_ha_data_to_thd(thd, hton);
       ha_info_next = ha_info->next();
       ha_info->reset();
     }
-  } else {
-    /*
-      Although the current `Ha_trx_info` object is null, we need to make sure
-      that the data engine plugins have the oportunity to attach their internal
-      transactions and clean up the session.
-     */
-    thd->rpl_reattach_engine_ha_data();
   }
+
+  thd->rpl_reattach_engine_ha_data();
 }
 
 /**
