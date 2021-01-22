@@ -273,6 +273,7 @@ public:
 
     void set_thd_error_server_stop(THD *thd);
 
+    void reset_answer();
 private:
     // ipV4 address
     const std::string m_ip;

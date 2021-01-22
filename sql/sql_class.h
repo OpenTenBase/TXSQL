@@ -189,7 +189,12 @@ extern unsigned long txsql_kill_idle_trans_timeout;
 class Thd_Trans_binlog_info {
 public:
   Thd_Trans_binlog_info():m_file_no(0), m_pos(0) {};
-  
+
+  void reset() {
+    m_file_no = 0;
+    m_pos = 0;
+  }
+
   uint64_t file_no() const { return (m_file_no); }
 
   my_off_t pos() const { return (m_pos); }

@@ -181,6 +181,11 @@ bool CThdBottomHalf::remove_thd(const THD *thd)
   return false;
 }
 
+void CThdBottomHalf::reset_answer(void) {
+  CTGuard<CTMutex> gaurd(m_mutex);
+  m_newstBinlogInfoAns.reset();
+}
+
 /** Deal with answers from slave */
 void CThdBottomHalf::dealBinlogPosAns(BinlogPosAns* binlogAns) {
     ++sqlasyn_get_slave_ans;

@@ -70,6 +70,7 @@
 #include "sql/sql_class.h"    // THD
 #include "sql/sql_list.h"
 #include "sql/system_variables.h"
+#include "sql/thd_bottom_half.h"
 #include "sql_string.h"
 #include "thr_mutex.h"
 #include "typelib.h"
@@ -1177,6 +1178,10 @@ bool reset_master(THD *thd, bool unlock_global_read_lock) {
     global_sid_lock->wrlock();
     ret = (gtid_state->clear(thd) != 0);
     global_sid_lock->unlock();
+  }
+
+  if (!ret && g_thdBottomHalf != nullptr) {
+    g_thdBottomHalf->reset_answer();
   }
 
 end:
