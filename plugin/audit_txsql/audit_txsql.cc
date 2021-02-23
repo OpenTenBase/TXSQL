@@ -488,7 +488,7 @@ void audit_err_log(const char *info) {
 
   time(&t);
   lt = localtime(&t);
-  sprintf(err, "%d-%02d-%02d %02d:%02d:%02d [AUDIT WARNING] %s\n",
+  snprintf(err, sizeof(err), "%d-%02d-%02d %02d:%02d:%02d [AUDIT WARNING] %s\n",
           lt->tm_year + 1900, lt->tm_mon + 1, lt->tm_mday, lt->tm_hour,
           lt->tm_min, lt->tm_sec, info);
   fprintf(stderr, "%s", err);

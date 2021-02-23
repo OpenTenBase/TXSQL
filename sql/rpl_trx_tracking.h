@@ -157,7 +157,7 @@ class Writeset_trx_dependency_tracker {
     Track the last transaction sequence number that changed each row
     in the database, using row hashes from the writeset as the index.
   */
-  typedef std::map<uint64, int64,std::less<uint64_t>,Memroot_allocator<std::pair<const uint64_t, uint64_t>>> Writeset_history;
+  typedef std::map<uint64, int64,std::less<uint64_t>,Memroot_allocator<std::pair<const uint64_t, int64_t>>> Writeset_history;
   MEM_ROOT writeset_history_mem_root;
   Writeset_history m_writeset_history;
 };
