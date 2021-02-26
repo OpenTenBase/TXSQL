@@ -20,6 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include "log.h"
 #include "sql/rpl_info_table_access.h"
 
 #include <stddef.h>
@@ -247,7 +248,7 @@ enum enum_return_id Rpl_info_table_access::scan_info(TABLE *table,
     @retval false No error
     @retval true  Failure
 */
-bool Rpl_info_table_access::count_info(TABLE *table, uint *counter) {
+bool Rpl_info_table_access::count_info(TABLE* table, uint* counter ,bool &need_retry) {
   bool end = false;
   int error = 0;
 
@@ -261,6 +262,12 @@ bool Rpl_info_table_access::count_info(TABLE *table, uint *counter) {
       case 0:
         (*counter)++;
         break;
+      case HA_ERR_LOCK_WAIT_TIMEOUT:{
+       sql_print_error("{db:%s,table:%s}table->file->ha_rnd_next fail:,error:%d,is HA_ERR_LOCK_WAIT_TIMEOUT,currenct count:%u",
+           table->s->db.str, table->s->table_name.str, error, *counter);
+       need_retry = true;
+       break;
+      }
 
       case HA_ERR_END_OF_FILE:
         end = true;

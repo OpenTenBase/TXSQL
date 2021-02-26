@@ -118,7 +118,7 @@ class Rpl_info_table : public Rpl_info_handler {
   */
   static bool do_count_info(uint nparam, const char *param_schema,
                             const char *param_table,
-                            MY_BITMAP const *nullable_bitmap, uint *counter);
+                            MY_BITMAP const *nullable_bitmap, uint *counter,  bool &need_retry);
   static int do_reset_info(uint nparam, const char *param_schema,
                            const char *param_table, const char *channel_name,
                            MY_BITMAP const *nullable_bitmap);

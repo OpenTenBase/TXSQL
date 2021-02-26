@@ -895,12 +895,31 @@ bool Rpl_info_factory::scan_repositories(uint *found_instances,
 
   DBUG_TRACE;
 
-  if (Rpl_info_table::do_count_info(
-          table_data.n_fields, table_data.schema, table_data.name,
-          &table_data.nullable_fields, &table_instances)) {
-    error = true;
-    goto err;
+  uint64_t do_count_info_from_table = 0 ;
+  while (1) {
+    bool need_retry = false;
+    ++do_count_info_from_table;
+    if (Rpl_info_table::do_count_info(table_data.n_fields, table_data.schema,
+                                      table_data.name, &table_data.nullable_fields, &table_instances, need_retry))
+    {
+      if (need_retry) {
+        sql_print_error("do_count_info {db:%s,table:%s} fail,do_count_info_from_table:%lu,need_retry:%d,current get table_instances:%u",
+            table_data.schema, table_data.name, do_count_info_from_table, need_retry, table_instances);
+        usleep(1000*300);
+        continue;
+      }
+      error= true;
+      goto err;
+    } else {
+      break;
+    }
   }
+
+  if (do_count_info_from_table > 1) {
+    sql_print_error("do_count_info sometimes fail,but last success, stat info, do_count_info {db:%s,table:%s} ,do_count_info_from_table:%lu,current get table_instances:%u",
+               table_data.schema, table_data.name, do_count_info_from_table, table_instances);
+  }
+
 
   if (Rpl_info_file::do_count_info(
           file_data.n_fields, file_data.pattern, file_data.name_indexed,

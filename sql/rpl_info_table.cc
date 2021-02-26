@@ -527,7 +527,7 @@ end:
 bool Rpl_info_table::do_count_info(uint nparam, const char *param_schema,
                                    const char *param_table,
                                    MY_BITMAP const *nullable_bitmap,
-                                   uint *counter) {
+                                   uint *counter,  bool &need_retry) {
   int error = 1;
   TABLE *table = nullptr;
   sql_mode_t saved_mode;
@@ -535,6 +535,8 @@ bool Rpl_info_table::do_count_info(uint nparam, const char *param_schema,
   Rpl_info_table *info = nullptr;
   THD *thd = nullptr;
 
+  *counter = 0;
+  need_retry = false;
   DBUG_TRACE;
 
   if (!(info = new Rpl_info_table(nparam, param_schema, param_table, 0, nullptr,
@@ -562,7 +564,7 @@ bool Rpl_info_table::do_count_info(uint nparam, const char *param_schema,
   /*
     Counts entries in the rpl_info table.
   */
-  if (info->access->count_info(table, counter)) {
+  if (info->access->count_info(table, counter, need_retry)) {
     LogErr(WARNING_LEVEL, ER_RPL_CANT_SCAN_INFO_TABLE, info->str_schema.str,
            info->str_table.str);
     goto end;
