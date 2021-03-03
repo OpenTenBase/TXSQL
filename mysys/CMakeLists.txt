@@ -122,6 +122,8 @@ SET(MYSYS_SOURCES
   my_sha2.cc
   my_md5.cc
   my_rnd.cc
+  sm_encrypt.cc
+  my_sm4.cc
 )
 LIST(APPEND MYSYS_SOURCES my_aes_openssl.cc)
 

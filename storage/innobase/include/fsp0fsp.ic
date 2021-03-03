@@ -201,6 +201,7 @@ uint32_t fsp_flags_init(const page_size_t &page_size, bool atomic_blobs,
 
   if (is_encrypted) {
     flags |= FSP_FLAGS_MASK_ENCRYPTION;
+    flags |= srv_encrypt_algorithm << FSP_FLAGS_POS_ENCRYPT_ALGORITHM;
   }
 
   return (flags);
@@ -379,7 +380,7 @@ inline bool fsp_flags_is_valid(uint32_t flags) {
     return (false);
   }
 
-#if FSP_FLAGS_POS_UNUSED != 15
+#if FSP_FLAGS_POS_UNUSED != 17
 #error You have added a new FSP_FLAG without adding a validation check.
 #endif
 
@@ -450,4 +451,19 @@ uint32 fsp_header_get_space_version(const page_t *page) {
   version = mach_read_from_4(page + FIL_PAGE_SPACE_VERSION);
 
   return (version);
+}
+
+inline void fsp_flags_set_encryption_algorithm(uint32_t &flags, uint32_t alg) {
+  flags |= alg << FSP_FLAGS_POS_ENCRYPT_ALGORITHM;
+}
+
+inline void fsp_flags_unset_encryption_algorithm(uint32_t &flags) {
+  flags &= ~FSP_FLAGS_MASK_ENCRYPT_ALGORITHM;
+}
+
+/** Old version server doesn't have the encryption algorithm in tablespace flags */
+inline Encryption::Type fsp_flags_get_encryption_algorithm(uint32_t flags) {
+  uint32_t algorithm = FSP_FLAGS_GET_ENCRYPT_ALGORITHM(flags);
+  return (Encryption::type_is_valid(algorithm) ?
+        static_cast<Encryption::Type>(algorithm) : Encryption::AES);
 }

@@ -254,6 +254,9 @@ is a tablespace with encryption. */
 /** Width of the SDI flag.  This flag indicates the presence of
 tablespace dictionary.*/
 #define FSP_FLAGS_WIDTH_SDI 1
+/** Width of the encrypt algorithm flag. This flag indicates the tablespace
+ encrypt algorithm. */
+#define FSP_FLAGS_WIDTH_ENCRYPT_ALGORITHM 2
 
 /** Width of all the currently known tablespace flags */
 #define FSP_FLAGS_WIDTH                                        \
@@ -261,7 +264,7 @@ tablespace dictionary.*/
    FSP_FLAGS_WIDTH_ATOMIC_BLOBS + FSP_FLAGS_WIDTH_PAGE_SSIZE + \
    FSP_FLAGS_WIDTH_DATA_DIR + FSP_FLAGS_WIDTH_SHARED +         \
    FSP_FLAGS_WIDTH_TEMPORARY + FSP_FLAGS_WIDTH_ENCRYPTION +    \
-   FSP_FLAGS_WIDTH_SDI)
+   FSP_FLAGS_WIDTH_SDI + FSP_FLAGS_WIDTH_ENCRYPT_ALGORITHM)
 
 /** A mask of all the known/used bits in tablespace flags */
 #define FSP_FLAGS_MASK (~(~0U << FSP_FLAGS_WIDTH))
@@ -290,9 +293,12 @@ tablespace dictionary.*/
 /** Zero relative shift position of the start of the SDI bits */
 #define FSP_FLAGS_POS_SDI \
   (FSP_FLAGS_POS_ENCRYPTION + FSP_FLAGS_WIDTH_ENCRYPTION)
+/** Zero relative shift position of the start of the ENCRYPT ALGORITHM bits */
+#define FSP_FLAGS_POS_ENCRYPT_ALGORITHM \
+  (FSP_FLAGS_POS_SDI + FSP_FLAGS_WIDTH_SDI)
 
 /** Zero relative shift position of the start of the UNUSED bits */
-#define FSP_FLAGS_POS_UNUSED (FSP_FLAGS_POS_SDI + FSP_FLAGS_WIDTH_SDI)
+#define FSP_FLAGS_POS_UNUSED (FSP_FLAGS_POS_ENCRYPT_ALGORITHM + FSP_FLAGS_WIDTH_ENCRYPT_ALGORITHM)
 
 /** Bit mask of the POST_ANTELOPE field */
 #define FSP_FLAGS_MASK_POST_ANTELOPE \
@@ -321,6 +327,9 @@ tablespace dictionary.*/
 /** Bit mask of the SDI field */
 #define FSP_FLAGS_MASK_SDI \
   ((~(~0U << FSP_FLAGS_WIDTH_SDI)) << FSP_FLAGS_POS_SDI)
+/** Bit mask of the ENCRYPT ALGORITHM field */
+#define FSP_FLAGS_MASK_ENCRYPT_ALGORITHM \
+  ((~(~0U << FSP_FLAGS_WIDTH_ENCRYPT_ALGORITHM)) << FSP_FLAGS_POS_ENCRYPT_ALGORITHM)
 
 /** Return the value of the POST_ANTELOPE field */
 #define FSP_FLAGS_GET_POST_ANTELOPE(flags) \
@@ -349,6 +358,9 @@ tablespace dictionary.*/
 /** Return the value of the SDI field */
 #define FSP_FLAGS_HAS_SDI(flags) \
   ((flags & FSP_FLAGS_MASK_SDI) >> FSP_FLAGS_POS_SDI)
+/** Return the contents of the ENCRYT ALGORITHM field */
+#define FSP_FLAGS_GET_ENCRYPT_ALGORITHM(flags) \
+  ((flags & FSP_FLAGS_MASK_ENCRYPT_ALGORITHM) >> FSP_FLAGS_POS_ENCRYPT_ALGORITHM)
 /** Return the contents of the UNUSED bits */
 #define FSP_FLAGS_GET_UNUSED(flags) (flags >> FSP_FLAGS_POS_UNUSED)
 /** Return true if flags are not set */

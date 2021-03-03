@@ -194,13 +194,13 @@ bool Key::is_key_id_valid() { return key_id.length() > 0; }
 
 bool Key::is_key_type_valid() {
   return key_type.length() &&
-         (key_type == "AES" || key_type == "RSA" || key_type == "DSA");
+         (key_type == "AES" || key_type == "RSA" || key_type == "DSA" || key_type == "SM4");
 }
 
 bool Key::is_key_valid() { return is_key_id_valid() || is_key_type_valid(); }
 
 bool Key::is_key_length_valid() {
-  if (key_type == "AES") return key_len == 16 || key_len == 24 || key_len == 32;
+  if (key_type == "AES" || key_type == "SM4") return key_len == 16 || key_len == 24 || key_len == 32;
   if (key_type == "RSA")
     return key_len == 128 || key_len == 256 || key_len == 512;
   if (key_type == "DSA")

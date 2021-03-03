@@ -368,7 +368,7 @@ SET(SQL_SHARED_SOURCES
   item_pfs_func.cc
   item_json_func.cc
   item_regexp_func.cc
-  item_row.cc 
+  item_row.cc
   item_strfunc.cc
   item_subselect.cc
   item_sum.cc

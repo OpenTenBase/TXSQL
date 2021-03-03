@@ -243,6 +243,9 @@ char *srv_log_group_home_dir = NULL;
 /** Enable or disable Encrypt of REDO tablespace. */
 bool srv_redo_log_encrypt = false;
 
+/** Encrypt algorithm for transparent data encryption */
+ulong srv_encrypt_algorithm = Encryption::AES;
+
 ulong srv_n_log_files = SRV_N_LOG_FILES_MAX;
 
 #ifdef UNIV_DEBUG_DEDICATED
@@ -2560,7 +2563,8 @@ bool srv_enable_redo_encryption(bool is_boot) {
   }
 
   fsp_flags_set_encryption(space->flags);
-  err = fil_set_encryption(space->id, Encryption::AES, key, iv);
+  fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
+  err = fil_set_encryption(space->id, Encryption::SM4, key, iv);
   if (err != DB_SUCCESS) {
     ib::warn(ER_IB_MSG_1244);
     return true;
@@ -2589,13 +2593,13 @@ bool set_undo_tablespace_encryption(space_id_t space_id, mtr_t *mtr,
   memset(encrypt_info, 0, ENCRYPTION_INFO_SIZE);
 
   /* Fill up encryption info to be set */
-  if (!Encryption::fill_encryption_info(key, iv, encrypt_info, is_boot, true)) {
+  if (!Encryption::fill_encryption_info(key, iv, encrypt_info, is_boot, true, Encryption::SM4)) {
     ib::error(ER_IB_MSG_1052, space->name);
     return true;
   }
 
   ulint new_flags = space->flags | FSP_FLAGS_MASK_ENCRYPTION;
-
+  new_flags |= (static_cast<uint32_t>(Encryption::SM4) << FSP_FLAGS_POS_ENCRYPT_ALGORITHM);
   /* Write encryption info on tablespace header page */
   if (!fsp_header_write_encryption(space->id, new_flags, encrypt_info, true,
                                    false, mtr)) {
@@ -2605,7 +2609,8 @@ bool set_undo_tablespace_encryption(space_id_t space_id, mtr_t *mtr,
 
   /* Update In-Mem encryption information for UNDO tablespace */
   fsp_flags_set_encryption(space->flags);
-  err = fil_set_encryption(space->id, Encryption::AES, key, iv);
+  fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
+  err = fil_set_encryption(space->id, Encryption::SM4, key, iv);
   if (err != DB_SUCCESS) {
     ib::error(ER_IB_MSG_1054, space->name, int{err}, ut_strerr(err));
     return true;

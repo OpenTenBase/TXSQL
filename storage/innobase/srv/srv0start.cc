@@ -420,7 +420,8 @@ static dberr_t create_log_files(char *logfilename, size_t dirnamelen, lsn_t lsn,
     }
 
     fsp_flags_set_encryption(log_space->flags);
-    err = fil_set_encryption(log_space->id, Encryption::AES, NULL, NULL);
+    fsp_flags_set_encryption_algorithm(log_space->flags, static_cast<uint32_t>(Encryption::SM4));
+    err = fil_set_encryption(log_space->id, Encryption::SM4, NULL, NULL);
     ut_ad(err == DB_SUCCESS);
   }
 
@@ -648,7 +649,8 @@ static dberr_t srv_undo_tablespace_enable_encryption(space_id_t space_id) {
   fil_space_t *space = fil_space_get(space_id);
   if (!FSP_FLAGS_GET_ENCRYPTION(space->flags)) {
     fsp_flags_set_encryption(space->flags);
-    err = fil_set_encryption(space_id, Encryption::AES, NULL, NULL);
+    fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
+    err = fil_set_encryption(space_id, Encryption::SM4, NULL, NULL);
     if (err != DB_SUCCESS) {
       ib::error(ER_IB_MSG_1075, space->name);
       return (err);
@@ -704,9 +706,10 @@ static dberr_t srv_undo_tablespace_read_encryption(pfs_os_file_t fh,
 
   byte key[ENCRYPTION_KEY_LEN];
   byte iv[ENCRYPTION_KEY_LEN];
+  fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
   if (fsp_header_get_encryption_key(space->flags, key, iv, first_page)) {
     fsp_flags_set_encryption(space->flags);
-    err = fil_set_encryption(space->id, Encryption::AES, key, iv);
+    err = fil_set_encryption(space->id, Encryption::SM4, key, iv);
     ut_ad(err == DB_SUCCESS);
   } else {
     ut_free(first_page_buf);

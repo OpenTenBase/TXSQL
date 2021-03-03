@@ -1239,5 +1239,8 @@ bool dd_tablespace_update_cache(THD *thd);
 @return true if it does. */
 bool dd_is_table_in_encrypted_tablespace(const dict_table_t *table);
 
+/* Get the encryption algorithm for imported tablesppace */
+Encryption::Type dd_get_encrypted_tablespace_algorithm(const dict_table_t *table);
+
 #include "dict0dd.ic"
 #endif

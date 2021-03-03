@@ -294,6 +294,9 @@ struct Encryption {
 
     /** Use AES */
     AES = 1,
+
+    /** Use SM4 */
+    SM4 = 2,
   };
 
   /** Encryption information format version */
@@ -319,6 +322,7 @@ struct Encryption {
     switch (m_type) {
       case NONE:
       case AES:
+      case SM4:
 
       default:
         ut_error;
@@ -365,6 +369,11 @@ struct Encryption {
   @return the string representation */
   static const char *to_string(Type type) MY_ATTRIBUTE((warn_unused_result));
 
+  /** Convert to a "string".
+  @param[in]      type            The encryption type
+  @return the string representation of algorithm */
+  static const char *algorithm_string(Type type) MY_ATTRIBUTE((warn_unused_result));
+
   /** Check if the string is "empty" or "none".
   @param[in]      algorithm       Encryption algorithm to check
   @return true if no algorithm requested */
@@ -398,7 +407,7 @@ struct Encryption {
   @param[in]		encrypt_key	encrypt with master key
   @return true if success. */
   static bool fill_encryption_info(byte *key, byte *iv, byte *encrypt_info,
-                                   bool is_boot, bool encrypt_key);
+                                   bool is_boot, bool encrypt_key, Type algorithm);
 
   /** Get master key from encryption information
   @param[in]	encrypt_info	encryption information
@@ -419,7 +428,14 @@ struct Encryption {
   @param[in]		decrypt_key	decrypt key using master key
   @return true if success */
   static bool decode_encryption_info(byte *key, byte *iv, byte *encryption_info,
-                                     bool decrypt_key);
+                                     bool decrypt_key, Type algorithm);
+
+  /** Check the type in tablespace flags
+  @param[in] algorithm
+  @return return true if it's aes, sm4 */
+  static bool type_is_valid(uint32_t algorithm) {
+    return (static_cast<Type>(algorithm) == AES || static_cast<Type>(algorithm) == SM4);
+  }
 
   /** Encrypt the redo log block.
   @param[in]	type		IORequest

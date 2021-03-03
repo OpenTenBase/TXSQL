@@ -294,6 +294,8 @@ dberr_t btr_root_adjust_on_import(
       exclude encryption flag as well. */
       fsp_flags_unset_encryption(fsp_flags);
 
+      fsp_flags_unset_encryption_algorithm(fsp_flags);
+
       err = fsp_flags_are_equal(flags, fsp_flags) ? DB_SUCCESS : DB_CORRUPTION;
     }
   } else {
