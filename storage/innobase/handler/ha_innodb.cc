@@ -1794,6 +1794,9 @@ ulong thd_lock_wait_timeout(THD *thd) /*!< in: thread handle, or NULL to query
 {
   /* According to <mysql/plugin.h>, passing thd == NULL
   returns the global value of the session variable. */
+  if (unlikely(thd && thd->get_select_lock_n_sec())) {
+    return thd->get_select_lock_n_sec();
+  }
   return (THDVAR(thd, lock_wait_timeout));
 }
 

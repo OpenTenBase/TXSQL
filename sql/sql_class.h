@@ -1029,6 +1029,12 @@ class THD : public MDL_context_owner,
   bool status_var_aggregated;
   bool use_extra_status_var;
 
+  unsigned long m_select_lock_n_sec = 0 ;
+  unsigned long get_select_lock_n_sec() const {return m_select_lock_n_sec;}
+  void set_select_lock_n_sec(unsigned long select_lock_n_sec) {
+    m_select_lock_n_sec = select_lock_n_sec;
+  }
+
   /**
     Current query cost.
     @sa system_status_var::last_query_cost

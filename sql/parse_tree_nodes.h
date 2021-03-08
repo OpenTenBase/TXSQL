@@ -802,8 +802,8 @@ class PT_order : public Parse_tree_node {
 
 class PT_locking_clause : public Parse_tree_node {
  public:
-  PT_locking_clause(Lock_strength strength, Locked_row_action action)
-      : m_lock_strength(strength), m_locked_row_action(action) {}
+  PT_locking_clause(Lock_strength strength, Locked_row_action action, unsigned long wait_n_sec)
+      : m_lock_strength(strength), m_locked_row_action(action), m_wait_n_sec(wait_n_sec) {}
 
   bool contextualize(Parse_context *pc) override final;
 
@@ -812,6 +812,10 @@ class PT_locking_clause : public Parse_tree_node {
   virtual bool is_legacy_syntax() const = 0;
 
   Locked_row_action action() const { return m_locked_row_action; }
+
+  unsigned long get_wait_sec() const {
+    return m_wait_n_sec;
+  }
 
  protected:
   Lock_descriptor get_lock_descriptor() const {
@@ -831,18 +835,22 @@ class PT_locking_clause : public Parse_tree_node {
  private:
   Lock_strength m_lock_strength;
   Locked_row_action m_locked_row_action;
+
+ protected:
+  unsigned long m_wait_n_sec;
 };
 
 class PT_query_block_locking_clause : public PT_locking_clause {
  public:
   PT_query_block_locking_clause(Lock_strength strength,
-                                Locked_row_action action)
-      : PT_locking_clause(strength, action),
+                                Locked_row_action action,
+                                unsigned long wait_n_sec)
+      : PT_locking_clause(strength, action, wait_n_sec),
         m_is_legacy_syntax(strength == Lock_strength::UPDATE &&
                            action == Locked_row_action::WAIT) {}
 
   PT_query_block_locking_clause(Lock_strength strength)
-      : PT_locking_clause(strength, Locked_row_action::WAIT),
+      : PT_locking_clause(strength, Locked_row_action::WAIT, 0),
         m_is_legacy_syntax(true) {}
 
   bool set_lock_for_tables(Parse_context *pc) override;
@@ -860,7 +868,7 @@ class PT_table_locking_clause : public PT_locking_clause {
   PT_table_locking_clause(Lock_strength strength,
                           Mem_root_array_YY<Table_ident *> tables,
                           Locked_row_action action)
-      : PT_locking_clause(strength, action), m_tables(tables) {}
+      : PT_locking_clause(strength, action, 0), m_tables(tables) {}
 
   bool set_lock_for_tables(Parse_context *pc) override;
 

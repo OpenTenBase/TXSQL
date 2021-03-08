@@ -1588,6 +1588,9 @@ using Local_tables_list = IteratorContainer<Local_tables_iterator>;
 
 bool PT_query_block_locking_clause::set_lock_for_tables(Parse_context *pc) {
   Local_tables_list local_tables(pc->select->table_list.first);
+  if (unlikely(m_wait_n_sec > 0 && pc->thd)) {
+    pc->thd->set_select_lock_n_sec(m_wait_n_sec);
+  }
   for (TABLE_LIST *table_list : local_tables)
     if (!table_list->is_derived()) {
       if (table_list->lock_descriptor().type != TL_READ_DEFAULT) {

@@ -1,0 +1,66 @@
+create table t (id int auto_increment primary key);
+insert into t values(0);
+insert into t values(0);
+
+set global innodb_lock_wait_timeout = 100000;
+
+#basic syntax  test
+select * from t;
+select * from t for update;
+select  *from t for share;
+select * from t for update skip locked;
+select * from t for update nowait;
+
+#test new syntax
+--error 1525 
+select * from t for update wait 0;
+select * from t for update wait 1;
+--error 1525 
+select * from t for share wait 0;
+select * from t for share wait 1;
+
+#don't commit
+begin;
+select * from t for update;
+
+#connection 2
+connect (con2,localhost,root,,); 
+connection con2;
+
+#wait 1 sec
+--error 1205
+select * from t for update wait 1;
+
+#wait 1 sec
+--error 1205
+select * from (select * from t for update wait 1) t1;
+
+#wait 5 sec
+--error 1205
+select * from (select * from (select * from t for update wait 1) t1 for update wait 5) t2;
+
+#wait n sec can't set 0
+--error 1525
+select * from 
+(select *from t for update wait 10 ) t1 left join (select * from t for update wait 0) t2 on t1.id=t2.id;
+
+
+#wait 1 sec
+--error 1205
+select * from 
+(select *from t for update wait 10 ) t1 left join (select * from t for update wait 1) t2 on t1.id=t2.id;
+
+#wait n sec can't set 0
+--error 1525
+select * from 
+(select *from t for update wait 10 ) t1 left join (select * from t for update wait 0) t2 on t1.id=t2.id;
+
+set innodb_lock_wait_timeout = 4;
+--error 1205
+select * from t for update;
+
+connection default;
+commit;
+
+set global  innodb_lock_wait_timeout = default;
+drop table t;
