@@ -559,10 +559,8 @@ UNIV_INLINE MY_ATTRIBUTE((warn_unused_result)) xdes_t
 #ifdef UNIV_DEBUG
   /* Exclude Encryption flag as it might have been changed In Memory flags but
   not on disk. */
-  fsp_flags_unset_encryption_algorithm(flags);
-  uint32_t fspace_flags = fspace->flags;
-  fsp_flags_unset_encryption_algorithm(fspace_flags);
-  ut_ad(!((flags ^ fspace_flags) & ~(FSP_FLAGS_MASK_ENCRYPTION)));
+  ut_ad(!((flags ^ fspace->flags) &
+      ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM)));
 #endif /* UNIV_DEBUG */
 
   if ((offset >= size) || (offset >= limit)) {
@@ -925,8 +923,7 @@ bool fsp_header_write_encryption(space_id_t space_id, ulint space_flags,
                    ENCRYPTION_MAGIC_SIZE) == 0 ||
             memcmp(page + offset, ENCRYPTION_KEY_MAGIC_V2,
                    ENCRYPTION_MAGIC_SIZE) == 0 ||
-            memcmp(page + offset, ENCRYPTION_KEY_MAGIC_V3,
-                   ENCRYPTION_MAGIC_SIZE) == 0);
+            encryption_version_is_new(page + offset));
       return (true);
     }
   }
@@ -949,10 +946,12 @@ bool fsp_header_rotate_encryption(fil_space_t *space, byte *encrypt_info,
 
   DBUG_EXECUTE_IF("fsp_header_rotate_encryption_failure", return (false););
 
-  /* Fill encryption info. */
+  /* Fill encryption info. don't change the tablespace encryption algorithm*/
+  ut_ad(Encryption::type_is_valid(space->encryption_type));
   if (!Encryption::fill_encryption_info(space->encryption_key,
                                         space->encryption_iv, encrypt_info,
-                                        false, true, Encryption::SM4)) {
+                                        false, true,
+                                        space->encryption_type)) {
     return (false);
   }
 
@@ -1060,10 +1059,10 @@ bool fsp_header_init(space_id_t space_id, page_no_t size, mtr_t *mtr,
     byte encryption_info[ENCRYPTION_INFO_SIZE];
 
     if (offset == 0) return (false);
-
+    ut_ad(Encryption::type_is_valid(space->encryption_type));
     if (!Encryption::fill_encryption_info(space->encryption_key,
                                           space->encryption_iv, encryption_info,
-                                          is_boot, true, Encryption::SM4)) {
+                                          is_boot, true, space->encryption_type)) {
       space->encryption_type = Encryption::NONE;
       memset(space->encryption_key, 0, ENCRYPTION_KEY_LEN);
       memset(space->encryption_iv, 0, ENCRYPTION_KEY_LEN);
@@ -1124,7 +1123,7 @@ page_size_t fsp_header_get_page_size(const page_t *page) {
 @param[in]	page	first page of a tablespace
 @return true if success */
 bool fsp_header_get_encryption_key(uint32_t fsp_flags, byte *key, byte *iv,
-                                   page_t *page) {
+                                   page_t *page, Encryption::Type &algorithm) {
   ulint offset;
   const page_size_t page_size(fsp_flags);
 
@@ -1133,7 +1132,7 @@ bool fsp_header_get_encryption_key(uint32_t fsp_flags, byte *key, byte *iv,
     return (false);
   }
 
-  return (Encryption::decode_encryption_info(key, iv, page + offset, true, Encryption::SM4));
+  return (Encryption::decode_encryption_info(key, iv, page + offset, true, algorithm));
 }
 
 #ifndef UNIV_HOTBACKUP
@@ -1405,7 +1404,7 @@ static void fsp_fill_free_list(bool init_space, fil_space_t *space,
   /* Exclude Encryption flag as it might have been changed In Memory flags but
   not on disk. */
   ut_ad(!((flags ^ space->flags) & ~(FSP_FLAGS_MASK_ENCRYPTION |
-                                     FSP_FLAGS_MASK_ENCRYPT_ALGORITHM)));
+                                     FSP_FLAGS_MASK_SM4_ALGORITHM)));
 
   const page_size_t page_size(flags);
 
@@ -4119,9 +4118,11 @@ dberr_t fsp_alter_encrypt_tablespace(THD *thd, space_id_t space_id,
       Encryption::random_value(key);
       Encryption::random_value(iv);
 
+      /* new encryption tablespace, use the algorithm configuration */
+      uint32_t algorithm = srv_encryption_algorithm;
       /* Prepare encrypted encryption information to be written on page 0. */
       if (!Encryption::fill_encryption_info(key, iv, encryption_info, false,
-                                            true, Encryption::SM4)) {
+        true, static_cast<Encryption::Type>(algorithm))) {
         ut_ad(0);
       }
 
@@ -4129,10 +4130,8 @@ dberr_t fsp_alter_encrypt_tablespace(THD *thd, space_id_t space_id,
       NOTE : Not modifying space->flags as of now, because we want to persist
       the changes on disk and then modify in memory flags. */
       mtr_start(&mtr);
-      uint32_t space_flags =  space->flags | FSP_FLAGS_MASK_ENCRYPTION;
-      Encryption::Type algorithm = static_cast<Encryption::Type>(srv_encrypt_algorithm);
-      fsp_flags_set_encryption_algorithm(space_flags,
-          static_cast<uint32_t>(algorithm));
+      uint32_t space_flags = space->flags;
+      fsp_flags_set_encryption(space_flags, algorithm);
       if (!fsp_header_write_encryption(space_id,
                                        space_flags,
                                        encryption_info, true, false, &mtr)) {
@@ -4154,7 +4153,7 @@ dberr_t fsp_alter_encrypt_tablespace(THD *thd, space_id_t space_id,
 
       /* Set encryption for tablespace */
       rw_lock_x_lock(&space->latch);
-      err = fil_set_encryption(space_id, algorithm, key, iv);
+      err = fil_set_encryption(space_id, static_cast<Encryption::Type>(algorithm), key, iv);
       rw_lock_x_unlock(&space->latch);
       ut_ad(err == DB_SUCCESS);
 
@@ -4162,8 +4161,7 @@ dberr_t fsp_alter_encrypt_tablespace(THD *thd, space_id_t space_id,
       space->encryption_op_in_progress = ENCRYPTION;
 
       /* Update Encryption flag for tablespace */
-      fsp_flags_set_encryption(space->flags);
-      fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(algorithm));
+      fsp_flags_set_encryption(space->flags, algorithm);
     } else {
       /* Assert that tablespace is encrypted */
       ut_ad(FSP_FLAGS_GET_ENCRYPTION(space->flags));
@@ -4187,7 +4185,6 @@ dberr_t fsp_alter_encrypt_tablespace(THD *thd, space_id_t space_id,
 
       /* Update Encryption flag for tablespace */
       fsp_flags_unset_encryption(space->flags);
-      fsp_flags_unset_encryption_algorithm(space->flags);
 
       /* Don't erase Encryption info from page 0 yet */
     }
@@ -4232,7 +4229,6 @@ dberr_t fsp_alter_encrypt_tablespace(THD *thd, space_id_t space_id,
 
       /* Update Encryption flag for tablespace */
       fsp_flags_unset_encryption(space->flags);
-      fsp_flags_unset_encryption_algorithm(space->flags);
 
       /* Don't erase Encryption information from page 0 yet */
     }
@@ -4256,7 +4252,6 @@ all_done:
   on disk. Set them now. */
   if (in_recovery && !to_encrypt) {
     fsp_flags_unset_encryption(space->flags);
-    fsp_flags_unset_encryption_algorithm(space->flags);
   }
 
   /* If it was an Unencryption operation */
@@ -4466,7 +4461,8 @@ static void resume_alter_encrypt_tablespace(THD *thd) {
     page = buf_block_get_frame(block);
     uint32_t latest_fsp_flags = fsp_header_get_flags(page);
     if (FSP_FLAGS_GET_ENCRYPTION(latest_fsp_flags)) {
-      fsp_flags_set_encryption(space->flags);
+      fsp_flags_set_encryption(space->flags, static_cast<uint32_t>(Encryption::AES));
+      fsp_flags_init_encryption_algorithm_from_flags(space->flags, latest_fsp_flags);
     } else {
       fsp_flags_unset_encryption(space->flags);
     }

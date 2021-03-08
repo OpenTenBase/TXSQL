@@ -1726,7 +1726,11 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"CONVERT_INTERVAL_TO_USER_INTERVAL",
      SQL_FN_INTERNAL(Item_func_convert_interval_to_user_interval, 2)},
     {"INTERNAL_GET_DD_COLUMN_EXTRA",
-     SQL_FN_LIST_INTERNAL(Item_func_internal_get_dd_column_extra, 6)}};
+     SQL_FN_LIST_INTERNAL(Item_func_internal_get_dd_column_extra, 6)},
+    {"SM3_HMAC", SQL_FN_V(Item_func_sm3_hmac, 2, 3)},
+    {"SM3_DIGEST", SQL_FN(Item_func_sm3_digest, 1)},
+    {"SM4_ENCRYPT", SQL_FN_V(Item_func_sm4_cbc_encrypt, 2, 3)},
+    {"SM4_DECRYPT", SQL_FN_V(Item_func_sm4_cbc_decrypt, 2, 3)}};
 
 using Native_functions_hash = std::unordered_map<std::string, Create_func *>;
 static const Native_functions_hash *native_functions_hash;

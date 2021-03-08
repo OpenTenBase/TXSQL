@@ -1294,6 +1294,7 @@ bool show_binlogs(THD *thd) {
   field_list.push_back(
       new Item_return_int("File_size", 20, MYSQL_TYPE_LONGLONG));
   field_list.push_back(new Item_empty_string("Encrypted", 3));
+  field_list.push_back(new Item_empty_string("Algorithm", 3));
   if (thd->send_result_metadata(&field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
@@ -1316,6 +1317,7 @@ bool show_binlogs(THD *thd) {
     int encrypted_header_size = 0;
     ulonglong file_length = 0;  // Length if open fails
     fname[--length] = '\0';     // remove the newline
+    uint8_t encrypted_version = 0;
 
     protocol->start_row();
     dir_len = dirname_length(fname);
@@ -1327,6 +1329,7 @@ bool show_binlogs(THD *thd) {
       encrypted_header_size = cur.encrypted_header_size;
       file_length = cur.pos; /* The active log, use the active position */
       file_length = file_length + encrypted_header_size;
+      encrypted_version = cur.encrypted_version;
     } else {
       /* this is an old log, open it and find the size */
       if ((file = mysql_file_open(key_file_binlog, fname, O_RDONLY, MYF(0))) >=
@@ -1337,6 +1340,12 @@ bool show_binlogs(THD *thd) {
                    Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE) == 0) {
           /* Encryption header size is already accounted in the file_length */
           encrypted_header_size = 1;
+          if (mysql_file_read(file, static_cast<unsigned char*>(&encrypted_version),
+            Rpl_encryption_header::VERSION_SIZE, MYF(0)) !=
+            Rpl_encryption_header::VERSION_SIZE) {
+            /* Read version error */
+            encrypted_version = 0;
+          }
         }
         file_length = (ulonglong)mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
         mysql_file_close(file, MYF(0));
@@ -1344,6 +1353,17 @@ bool show_binlogs(THD *thd) {
     }
     protocol->store(file_length);
     protocol->store(encrypted_header_size ? "Yes" : "No", &my_charset_bin);
+    switch (encrypted_version) {
+      case Rpl_encryption_header::V1:
+        protocol->store("Aes", &my_charset_bin);
+        break;
+      case Rpl_encryption_header::V4:
+        protocol->store("Sm4", &my_charset_bin);
+        break;
+      default:
+        protocol->store("No", &my_charset_bin);
+        break;
+    }
     if (protocol->end_row()) {
       DBUG_PRINT(
           "info",

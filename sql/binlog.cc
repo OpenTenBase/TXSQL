@@ -303,6 +303,7 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
           new Binlog_encryption_ostream());
       if (encrypted_ostream->open(std::move(m_pipeline_head))) return true;
       m_encrypted_header_size = encrypted_ostream->get_header_size();
+      m_encrypted_version = encrypted_ostream->get_header_version();
       m_pipeline_head = std::move(encrypted_ostream);
     }
 
@@ -363,6 +364,7 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
       std::unique_ptr<Binlog_encryption_ostream> encrypted_ostream(
           new Binlog_encryption_ostream);
       ret_ofile->m_encrypted_header_size = header->get_header_size();
+      ret_ofile->m_encrypted_version = header->get_version();
       encrypted_ostream->open(std::move(ret_ofile->m_pipeline_head),
                               std::move(header));
       ret_ofile->m_pipeline_head = std::move(encrypted_ostream);
@@ -375,6 +377,7 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
     m_pipeline_head.reset(nullptr);
     m_position = 0;
     m_encrypted_header_size = 0;
+    m_encrypted_version = 0;
   }
 
   /**
@@ -470,12 +473,17 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
     Set that the log file is encrypted.
   */
   void set_encrypted() { m_encrypted = true; }
+  /**
+   Return the encrypted version of binlog.
+  */
+  uint8_t get_encrypted_version() { return m_encrypted_version; }
 
  private:
   my_off_t m_position = 0;
   int m_encrypted_header_size = 0;
   std::unique_ptr<Truncatable_ostream> m_pipeline_head;
   bool m_encrypted = false;
+  uint8_t m_encrypted_version = 0;
 };
 
 /**
@@ -5363,6 +5371,7 @@ int MYSQL_BIN_LOG::raw_get_current_log(LOG_INFO *linfo) {
           sizeof(linfo->log_file_name) - 1);
   linfo->pos = m_binlog_file->position();
   linfo->encrypted_header_size = m_binlog_file->get_encrypted_header_size();
+  linfo->encrypted_version = m_binlog_file->get_encrypted_version();
   return 0;
 }
 

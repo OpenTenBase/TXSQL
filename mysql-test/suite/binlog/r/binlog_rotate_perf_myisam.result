@@ -4,8 +4,8 @@ create database test_rotate_db;
 use test_rotate_db;
 #currrent engine=myisam
 show binary logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
 CREATE TABLE t1_myisam (c1 INT) ENGINE=myisam;
 insert into t1_myisam values(0),(1);
 show master status;
@@ -1268,298 +1268,298 @@ show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000291	0			
 show binary logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
-binlog.000016	0	No
-binlog.000017	0	No
-binlog.000018	0	No
-binlog.000019	0	No
-binlog.000020	0	No
-binlog.000021	0	No
-binlog.000022	0	No
-binlog.000023	0	No
-binlog.000024	0	No
-binlog.000025	0	No
-binlog.000026	0	No
-binlog.000027	0	No
-binlog.000028	0	No
-binlog.000029	0	No
-binlog.000030	0	No
-binlog.000031	0	No
-binlog.000032	0	No
-binlog.000033	0	No
-binlog.000034	0	No
-binlog.000035	0	No
-binlog.000036	0	No
-binlog.000037	0	No
-binlog.000038	0	No
-binlog.000039	0	No
-binlog.000040	0	No
-binlog.000041	0	No
-binlog.000042	0	No
-binlog.000043	0	No
-binlog.000044	0	No
-binlog.000045	0	No
-binlog.000046	0	No
-binlog.000047	0	No
-binlog.000048	0	No
-binlog.000049	0	No
-binlog.000050	0	No
-binlog.000051	0	No
-binlog.000052	0	No
-binlog.000053	0	No
-binlog.000054	0	No
-binlog.000055	0	No
-binlog.000056	0	No
-binlog.000057	0	No
-binlog.000058	0	No
-binlog.000059	0	No
-binlog.000060	0	No
-binlog.000061	0	No
-binlog.000062	0	No
-binlog.000063	0	No
-binlog.000064	0	No
-binlog.000065	0	No
-binlog.000066	0	No
-binlog.000067	0	No
-binlog.000068	0	No
-binlog.000069	0	No
-binlog.000070	0	No
-binlog.000071	0	No
-binlog.000072	0	No
-binlog.000073	0	No
-binlog.000074	0	No
-binlog.000075	0	No
-binlog.000076	0	No
-binlog.000077	0	No
-binlog.000078	0	No
-binlog.000079	0	No
-binlog.000080	0	No
-binlog.000081	0	No
-binlog.000082	0	No
-binlog.000083	0	No
-binlog.000084	0	No
-binlog.000085	0	No
-binlog.000086	0	No
-binlog.000087	0	No
-binlog.000088	0	No
-binlog.000089	0	No
-binlog.000090	0	No
-binlog.000091	0	No
-binlog.000092	0	No
-binlog.000093	0	No
-binlog.000094	0	No
-binlog.000095	0	No
-binlog.000096	0	No
-binlog.000097	0	No
-binlog.000098	0	No
-binlog.000099	0	No
-binlog.000100	0	No
-binlog.000101	0	No
-binlog.000102	0	No
-binlog.000103	0	No
-binlog.000104	0	No
-binlog.000105	0	No
-binlog.000106	0	No
-binlog.000107	0	No
-binlog.000108	0	No
-binlog.000109	0	No
-binlog.000110	0	No
-binlog.000111	0	No
-binlog.000112	0	No
-binlog.000113	0	No
-binlog.000114	0	No
-binlog.000115	0	No
-binlog.000116	0	No
-binlog.000117	0	No
-binlog.000118	0	No
-binlog.000119	0	No
-binlog.000120	0	No
-binlog.000121	0	No
-binlog.000122	0	No
-binlog.000123	0	No
-binlog.000124	0	No
-binlog.000125	0	No
-binlog.000126	0	No
-binlog.000127	0	No
-binlog.000128	0	No
-binlog.000129	0	No
-binlog.000130	0	No
-binlog.000131	0	No
-binlog.000132	0	No
-binlog.000133	0	No
-binlog.000134	0	No
-binlog.000135	0	No
-binlog.000136	0	No
-binlog.000137	0	No
-binlog.000138	0	No
-binlog.000139	0	No
-binlog.000140	0	No
-binlog.000141	0	No
-binlog.000142	0	No
-binlog.000143	0	No
-binlog.000144	0	No
-binlog.000145	0	No
-binlog.000146	0	No
-binlog.000147	0	No
-binlog.000148	0	No
-binlog.000149	0	No
-binlog.000150	0	No
-binlog.000151	0	No
-binlog.000152	0	No
-binlog.000153	0	No
-binlog.000154	0	No
-binlog.000155	0	No
-binlog.000156	0	No
-binlog.000157	0	No
-binlog.000158	0	No
-binlog.000159	0	No
-binlog.000160	0	No
-binlog.000161	0	No
-binlog.000162	0	No
-binlog.000163	0	No
-binlog.000164	0	No
-binlog.000165	0	No
-binlog.000166	0	No
-binlog.000167	0	No
-binlog.000168	0	No
-binlog.000169	0	No
-binlog.000170	0	No
-binlog.000171	0	No
-binlog.000172	0	No
-binlog.000173	0	No
-binlog.000174	0	No
-binlog.000175	0	No
-binlog.000176	0	No
-binlog.000177	0	No
-binlog.000178	0	No
-binlog.000179	0	No
-binlog.000180	0	No
-binlog.000181	0	No
-binlog.000182	0	No
-binlog.000183	0	No
-binlog.000184	0	No
-binlog.000185	0	No
-binlog.000186	0	No
-binlog.000187	0	No
-binlog.000188	0	No
-binlog.000189	0	No
-binlog.000190	0	No
-binlog.000191	0	No
-binlog.000192	0	No
-binlog.000193	0	No
-binlog.000194	0	No
-binlog.000195	0	No
-binlog.000196	0	No
-binlog.000197	0	No
-binlog.000198	0	No
-binlog.000199	0	No
-binlog.000200	0	No
-binlog.000201	0	No
-binlog.000202	0	No
-binlog.000203	0	No
-binlog.000204	0	No
-binlog.000205	0	No
-binlog.000206	0	No
-binlog.000207	0	No
-binlog.000208	0	No
-binlog.000209	0	No
-binlog.000210	0	No
-binlog.000211	0	No
-binlog.000212	0	No
-binlog.000213	0	No
-binlog.000214	0	No
-binlog.000215	0	No
-binlog.000216	0	No
-binlog.000217	0	No
-binlog.000218	0	No
-binlog.000219	0	No
-binlog.000220	0	No
-binlog.000221	0	No
-binlog.000222	0	No
-binlog.000223	0	No
-binlog.000224	0	No
-binlog.000225	0	No
-binlog.000226	0	No
-binlog.000227	0	No
-binlog.000228	0	No
-binlog.000229	0	No
-binlog.000230	0	No
-binlog.000231	0	No
-binlog.000232	0	No
-binlog.000233	0	No
-binlog.000234	0	No
-binlog.000235	0	No
-binlog.000236	0	No
-binlog.000237	0	No
-binlog.000238	0	No
-binlog.000239	0	No
-binlog.000240	0	No
-binlog.000241	0	No
-binlog.000242	0	No
-binlog.000243	0	No
-binlog.000244	0	No
-binlog.000245	0	No
-binlog.000246	0	No
-binlog.000247	0	No
-binlog.000248	0	No
-binlog.000249	0	No
-binlog.000250	0	No
-binlog.000251	0	No
-binlog.000252	0	No
-binlog.000253	0	No
-binlog.000254	0	No
-binlog.000255	0	No
-binlog.000256	0	No
-binlog.000257	0	No
-binlog.000258	0	No
-binlog.000259	0	No
-binlog.000260	0	No
-binlog.000261	0	No
-binlog.000262	0	No
-binlog.000263	0	No
-binlog.000264	0	No
-binlog.000265	0	No
-binlog.000266	0	No
-binlog.000267	0	No
-binlog.000268	0	No
-binlog.000269	0	No
-binlog.000270	0	No
-binlog.000271	0	No
-binlog.000272	0	No
-binlog.000273	0	No
-binlog.000274	0	No
-binlog.000275	0	No
-binlog.000276	0	No
-binlog.000277	0	No
-binlog.000278	0	No
-binlog.000279	0	No
-binlog.000280	0	No
-binlog.000281	0	No
-binlog.000282	0	No
-binlog.000283	0	No
-binlog.000284	0	No
-binlog.000285	0	No
-binlog.000286	0	No
-binlog.000287	0	No
-binlog.000288	0	No
-binlog.000289	0	No
-binlog.000290	0	No
-binlog.000291	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
+binlog.000016	0	No	No
+binlog.000017	0	No	No
+binlog.000018	0	No	No
+binlog.000019	0	No	No
+binlog.000020	0	No	No
+binlog.000021	0	No	No
+binlog.000022	0	No	No
+binlog.000023	0	No	No
+binlog.000024	0	No	No
+binlog.000025	0	No	No
+binlog.000026	0	No	No
+binlog.000027	0	No	No
+binlog.000028	0	No	No
+binlog.000029	0	No	No
+binlog.000030	0	No	No
+binlog.000031	0	No	No
+binlog.000032	0	No	No
+binlog.000033	0	No	No
+binlog.000034	0	No	No
+binlog.000035	0	No	No
+binlog.000036	0	No	No
+binlog.000037	0	No	No
+binlog.000038	0	No	No
+binlog.000039	0	No	No
+binlog.000040	0	No	No
+binlog.000041	0	No	No
+binlog.000042	0	No	No
+binlog.000043	0	No	No
+binlog.000044	0	No	No
+binlog.000045	0	No	No
+binlog.000046	0	No	No
+binlog.000047	0	No	No
+binlog.000048	0	No	No
+binlog.000049	0	No	No
+binlog.000050	0	No	No
+binlog.000051	0	No	No
+binlog.000052	0	No	No
+binlog.000053	0	No	No
+binlog.000054	0	No	No
+binlog.000055	0	No	No
+binlog.000056	0	No	No
+binlog.000057	0	No	No
+binlog.000058	0	No	No
+binlog.000059	0	No	No
+binlog.000060	0	No	No
+binlog.000061	0	No	No
+binlog.000062	0	No	No
+binlog.000063	0	No	No
+binlog.000064	0	No	No
+binlog.000065	0	No	No
+binlog.000066	0	No	No
+binlog.000067	0	No	No
+binlog.000068	0	No	No
+binlog.000069	0	No	No
+binlog.000070	0	No	No
+binlog.000071	0	No	No
+binlog.000072	0	No	No
+binlog.000073	0	No	No
+binlog.000074	0	No	No
+binlog.000075	0	No	No
+binlog.000076	0	No	No
+binlog.000077	0	No	No
+binlog.000078	0	No	No
+binlog.000079	0	No	No
+binlog.000080	0	No	No
+binlog.000081	0	No	No
+binlog.000082	0	No	No
+binlog.000083	0	No	No
+binlog.000084	0	No	No
+binlog.000085	0	No	No
+binlog.000086	0	No	No
+binlog.000087	0	No	No
+binlog.000088	0	No	No
+binlog.000089	0	No	No
+binlog.000090	0	No	No
+binlog.000091	0	No	No
+binlog.000092	0	No	No
+binlog.000093	0	No	No
+binlog.000094	0	No	No
+binlog.000095	0	No	No
+binlog.000096	0	No	No
+binlog.000097	0	No	No
+binlog.000098	0	No	No
+binlog.000099	0	No	No
+binlog.000100	0	No	No
+binlog.000101	0	No	No
+binlog.000102	0	No	No
+binlog.000103	0	No	No
+binlog.000104	0	No	No
+binlog.000105	0	No	No
+binlog.000106	0	No	No
+binlog.000107	0	No	No
+binlog.000108	0	No	No
+binlog.000109	0	No	No
+binlog.000110	0	No	No
+binlog.000111	0	No	No
+binlog.000112	0	No	No
+binlog.000113	0	No	No
+binlog.000114	0	No	No
+binlog.000115	0	No	No
+binlog.000116	0	No	No
+binlog.000117	0	No	No
+binlog.000118	0	No	No
+binlog.000119	0	No	No
+binlog.000120	0	No	No
+binlog.000121	0	No	No
+binlog.000122	0	No	No
+binlog.000123	0	No	No
+binlog.000124	0	No	No
+binlog.000125	0	No	No
+binlog.000126	0	No	No
+binlog.000127	0	No	No
+binlog.000128	0	No	No
+binlog.000129	0	No	No
+binlog.000130	0	No	No
+binlog.000131	0	No	No
+binlog.000132	0	No	No
+binlog.000133	0	No	No
+binlog.000134	0	No	No
+binlog.000135	0	No	No
+binlog.000136	0	No	No
+binlog.000137	0	No	No
+binlog.000138	0	No	No
+binlog.000139	0	No	No
+binlog.000140	0	No	No
+binlog.000141	0	No	No
+binlog.000142	0	No	No
+binlog.000143	0	No	No
+binlog.000144	0	No	No
+binlog.000145	0	No	No
+binlog.000146	0	No	No
+binlog.000147	0	No	No
+binlog.000148	0	No	No
+binlog.000149	0	No	No
+binlog.000150	0	No	No
+binlog.000151	0	No	No
+binlog.000152	0	No	No
+binlog.000153	0	No	No
+binlog.000154	0	No	No
+binlog.000155	0	No	No
+binlog.000156	0	No	No
+binlog.000157	0	No	No
+binlog.000158	0	No	No
+binlog.000159	0	No	No
+binlog.000160	0	No	No
+binlog.000161	0	No	No
+binlog.000162	0	No	No
+binlog.000163	0	No	No
+binlog.000164	0	No	No
+binlog.000165	0	No	No
+binlog.000166	0	No	No
+binlog.000167	0	No	No
+binlog.000168	0	No	No
+binlog.000169	0	No	No
+binlog.000170	0	No	No
+binlog.000171	0	No	No
+binlog.000172	0	No	No
+binlog.000173	0	No	No
+binlog.000174	0	No	No
+binlog.000175	0	No	No
+binlog.000176	0	No	No
+binlog.000177	0	No	No
+binlog.000178	0	No	No
+binlog.000179	0	No	No
+binlog.000180	0	No	No
+binlog.000181	0	No	No
+binlog.000182	0	No	No
+binlog.000183	0	No	No
+binlog.000184	0	No	No
+binlog.000185	0	No	No
+binlog.000186	0	No	No
+binlog.000187	0	No	No
+binlog.000188	0	No	No
+binlog.000189	0	No	No
+binlog.000190	0	No	No
+binlog.000191	0	No	No
+binlog.000192	0	No	No
+binlog.000193	0	No	No
+binlog.000194	0	No	No
+binlog.000195	0	No	No
+binlog.000196	0	No	No
+binlog.000197	0	No	No
+binlog.000198	0	No	No
+binlog.000199	0	No	No
+binlog.000200	0	No	No
+binlog.000201	0	No	No
+binlog.000202	0	No	No
+binlog.000203	0	No	No
+binlog.000204	0	No	No
+binlog.000205	0	No	No
+binlog.000206	0	No	No
+binlog.000207	0	No	No
+binlog.000208	0	No	No
+binlog.000209	0	No	No
+binlog.000210	0	No	No
+binlog.000211	0	No	No
+binlog.000212	0	No	No
+binlog.000213	0	No	No
+binlog.000214	0	No	No
+binlog.000215	0	No	No
+binlog.000216	0	No	No
+binlog.000217	0	No	No
+binlog.000218	0	No	No
+binlog.000219	0	No	No
+binlog.000220	0	No	No
+binlog.000221	0	No	No
+binlog.000222	0	No	No
+binlog.000223	0	No	No
+binlog.000224	0	No	No
+binlog.000225	0	No	No
+binlog.000226	0	No	No
+binlog.000227	0	No	No
+binlog.000228	0	No	No
+binlog.000229	0	No	No
+binlog.000230	0	No	No
+binlog.000231	0	No	No
+binlog.000232	0	No	No
+binlog.000233	0	No	No
+binlog.000234	0	No	No
+binlog.000235	0	No	No
+binlog.000236	0	No	No
+binlog.000237	0	No	No
+binlog.000238	0	No	No
+binlog.000239	0	No	No
+binlog.000240	0	No	No
+binlog.000241	0	No	No
+binlog.000242	0	No	No
+binlog.000243	0	No	No
+binlog.000244	0	No	No
+binlog.000245	0	No	No
+binlog.000246	0	No	No
+binlog.000247	0	No	No
+binlog.000248	0	No	No
+binlog.000249	0	No	No
+binlog.000250	0	No	No
+binlog.000251	0	No	No
+binlog.000252	0	No	No
+binlog.000253	0	No	No
+binlog.000254	0	No	No
+binlog.000255	0	No	No
+binlog.000256	0	No	No
+binlog.000257	0	No	No
+binlog.000258	0	No	No
+binlog.000259	0	No	No
+binlog.000260	0	No	No
+binlog.000261	0	No	No
+binlog.000262	0	No	No
+binlog.000263	0	No	No
+binlog.000264	0	No	No
+binlog.000265	0	No	No
+binlog.000266	0	No	No
+binlog.000267	0	No	No
+binlog.000268	0	No	No
+binlog.000269	0	No	No
+binlog.000270	0	No	No
+binlog.000271	0	No	No
+binlog.000272	0	No	No
+binlog.000273	0	No	No
+binlog.000274	0	No	No
+binlog.000275	0	No	No
+binlog.000276	0	No	No
+binlog.000277	0	No	No
+binlog.000278	0	No	No
+binlog.000279	0	No	No
+binlog.000280	0	No	No
+binlog.000281	0	No	No
+binlog.000282	0	No	No
+binlog.000283	0	No	No
+binlog.000284	0	No	No
+binlog.000285	0	No	No
+binlog.000286	0	No	No
+binlog.000287	0	No	No
+binlog.000288	0	No	No
+binlog.000289	0	No	No
+binlog.000290	0	No	No
+binlog.000291	0	No	No
 reset master;
 # left times= 3
 show master status;
@@ -1603,8 +1603,8 @@ reset master;
 # left times= 0
 # [engine=myisam] after first loop_times=0, show master logs results
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000001	0			
@@ -1614,10 +1614,10 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000002	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
 #begin to restart mysqld current loop_times=10
 # restart
 # left restart times= 9
@@ -1630,13 +1630,13 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000005	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
 #begin to restart mysqld current loop_times=9
 # restart
 # left restart times= 8
@@ -1649,16 +1649,16 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000008	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
 #begin to restart mysqld current loop_times=8
 # restart
 # left restart times= 7
@@ -1671,19 +1671,19 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000011	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
 #begin to restart mysqld current loop_times=7
 # restart
 # left restart times= 6
@@ -1696,22 +1696,22 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000014	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
 #begin to restart mysqld current loop_times=6
 # restart
 # left restart times= 5
@@ -1724,25 +1724,25 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000017	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
-binlog.000016	0	No
-binlog.000017	0	No
-binlog.000018	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
+binlog.000016	0	No	No
+binlog.000017	0	No	No
+binlog.000018	0	No	No
 #begin to restart mysqld current loop_times=5
 # restart
 # left restart times= 4
@@ -1755,28 +1755,28 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000020	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
-binlog.000016	0	No
-binlog.000017	0	No
-binlog.000018	0	No
-binlog.000019	0	No
-binlog.000020	0	No
-binlog.000021	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
+binlog.000016	0	No	No
+binlog.000017	0	No	No
+binlog.000018	0	No	No
+binlog.000019	0	No	No
+binlog.000020	0	No	No
+binlog.000021	0	No	No
 #begin to restart mysqld current loop_times=4
 # restart
 # left restart times= 3
@@ -1789,31 +1789,31 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000023	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
-binlog.000016	0	No
-binlog.000017	0	No
-binlog.000018	0	No
-binlog.000019	0	No
-binlog.000020	0	No
-binlog.000021	0	No
-binlog.000022	0	No
-binlog.000023	0	No
-binlog.000024	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
+binlog.000016	0	No	No
+binlog.000017	0	No	No
+binlog.000018	0	No	No
+binlog.000019	0	No	No
+binlog.000020	0	No	No
+binlog.000021	0	No	No
+binlog.000022	0	No	No
+binlog.000023	0	No	No
+binlog.000024	0	No	No
 #begin to restart mysqld current loop_times=3
 # restart
 # left restart times= 2
@@ -1826,34 +1826,34 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000026	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
-binlog.000016	0	No
-binlog.000017	0	No
-binlog.000018	0	No
-binlog.000019	0	No
-binlog.000020	0	No
-binlog.000021	0	No
-binlog.000022	0	No
-binlog.000023	0	No
-binlog.000024	0	No
-binlog.000025	0	No
-binlog.000026	0	No
-binlog.000027	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
+binlog.000016	0	No	No
+binlog.000017	0	No	No
+binlog.000018	0	No	No
+binlog.000019	0	No	No
+binlog.000020	0	No	No
+binlog.000021	0	No	No
+binlog.000022	0	No	No
+binlog.000023	0	No	No
+binlog.000024	0	No	No
+binlog.000025	0	No	No
+binlog.000026	0	No	No
+binlog.000027	0	No	No
 #begin to restart mysqld current loop_times=2
 # restart
 # left restart times= 1
@@ -1866,37 +1866,37 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 binlog.000029	0			
 flush logs;
 show master logs;
-Log_name	File_size	Encrypted
-binlog.000001	0	No
-binlog.000002	0	No
-binlog.000003	0	No
-binlog.000004	0	No
-binlog.000005	0	No
-binlog.000006	0	No
-binlog.000007	0	No
-binlog.000008	0	No
-binlog.000009	0	No
-binlog.000010	0	No
-binlog.000011	0	No
-binlog.000012	0	No
-binlog.000013	0	No
-binlog.000014	0	No
-binlog.000015	0	No
-binlog.000016	0	No
-binlog.000017	0	No
-binlog.000018	0	No
-binlog.000019	0	No
-binlog.000020	0	No
-binlog.000021	0	No
-binlog.000022	0	No
-binlog.000023	0	No
-binlog.000024	0	No
-binlog.000025	0	No
-binlog.000026	0	No
-binlog.000027	0	No
-binlog.000028	0	No
-binlog.000029	0	No
-binlog.000030	0	No
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	0	No	No
+binlog.000002	0	No	No
+binlog.000003	0	No	No
+binlog.000004	0	No	No
+binlog.000005	0	No	No
+binlog.000006	0	No	No
+binlog.000007	0	No	No
+binlog.000008	0	No	No
+binlog.000009	0	No	No
+binlog.000010	0	No	No
+binlog.000011	0	No	No
+binlog.000012	0	No	No
+binlog.000013	0	No	No
+binlog.000014	0	No	No
+binlog.000015	0	No	No
+binlog.000016	0	No	No
+binlog.000017	0	No	No
+binlog.000018	0	No	No
+binlog.000019	0	No	No
+binlog.000020	0	No	No
+binlog.000021	0	No	No
+binlog.000022	0	No	No
+binlog.000023	0	No	No
+binlog.000024	0	No	No
+binlog.000025	0	No	No
+binlog.000026	0	No	No
+binlog.000027	0	No	No
+binlog.000028	0	No	No
+binlog.000029	0	No	No
+binlog.000030	0	No	No
 #begin to restart mysqld current loop_times=1
 # restart
 # left restart times= 0
@@ -1905,8 +1905,8 @@ binlog.000030	0	No
 #begin to restart mysqld
 # restart: --log-bin=new_log_bin
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -1918,11 +1918,11 @@ new_log_bin.000003	0
 flush logs;
 # left times= 9
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
-new_log_bin.000002	0	No
-new_log_bin.000003	0	No
-new_log_bin.000004	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
+new_log_bin.000002	0	No	No
+new_log_bin.000003	0	No	No
+new_log_bin.000004	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -1934,14 +1934,14 @@ new_log_bin.000006	0
 flush logs;
 # left times= 8
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
-new_log_bin.000002	0	No
-new_log_bin.000003	0	No
-new_log_bin.000004	0	No
-new_log_bin.000005	0	No
-new_log_bin.000006	0	No
-new_log_bin.000007	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
+new_log_bin.000002	0	No	No
+new_log_bin.000003	0	No	No
+new_log_bin.000004	0	No	No
+new_log_bin.000005	0	No	No
+new_log_bin.000006	0	No	No
+new_log_bin.000007	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -1953,17 +1953,17 @@ new_log_bin.000009	0
 flush logs;
 # left times= 7
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
-new_log_bin.000002	0	No
-new_log_bin.000003	0	No
-new_log_bin.000004	0	No
-new_log_bin.000005	0	No
-new_log_bin.000006	0	No
-new_log_bin.000007	0	No
-new_log_bin.000008	0	No
-new_log_bin.000009	0	No
-new_log_bin.000010	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
+new_log_bin.000002	0	No	No
+new_log_bin.000003	0	No	No
+new_log_bin.000004	0	No	No
+new_log_bin.000005	0	No	No
+new_log_bin.000006	0	No	No
+new_log_bin.000007	0	No	No
+new_log_bin.000008	0	No	No
+new_log_bin.000009	0	No	No
+new_log_bin.000010	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -1975,20 +1975,20 @@ new_log_bin.000012	0
 flush logs;
 # left times= 6
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
-new_log_bin.000002	0	No
-new_log_bin.000003	0	No
-new_log_bin.000004	0	No
-new_log_bin.000005	0	No
-new_log_bin.000006	0	No
-new_log_bin.000007	0	No
-new_log_bin.000008	0	No
-new_log_bin.000009	0	No
-new_log_bin.000010	0	No
-new_log_bin.000011	0	No
-new_log_bin.000012	0	No
-new_log_bin.000013	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
+new_log_bin.000002	0	No	No
+new_log_bin.000003	0	No	No
+new_log_bin.000004	0	No	No
+new_log_bin.000005	0	No	No
+new_log_bin.000006	0	No	No
+new_log_bin.000007	0	No	No
+new_log_bin.000008	0	No	No
+new_log_bin.000009	0	No	No
+new_log_bin.000010	0	No	No
+new_log_bin.000011	0	No	No
+new_log_bin.000012	0	No	No
+new_log_bin.000013	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -2000,23 +2000,23 @@ new_log_bin.000015	0
 flush logs;
 # left times= 5
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
-new_log_bin.000002	0	No
-new_log_bin.000003	0	No
-new_log_bin.000004	0	No
-new_log_bin.000005	0	No
-new_log_bin.000006	0	No
-new_log_bin.000007	0	No
-new_log_bin.000008	0	No
-new_log_bin.000009	0	No
-new_log_bin.000010	0	No
-new_log_bin.000011	0	No
-new_log_bin.000012	0	No
-new_log_bin.000013	0	No
-new_log_bin.000014	0	No
-new_log_bin.000015	0	No
-new_log_bin.000016	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
+new_log_bin.000002	0	No	No
+new_log_bin.000003	0	No	No
+new_log_bin.000004	0	No	No
+new_log_bin.000005	0	No	No
+new_log_bin.000006	0	No	No
+new_log_bin.000007	0	No	No
+new_log_bin.000008	0	No	No
+new_log_bin.000009	0	No	No
+new_log_bin.000010	0	No	No
+new_log_bin.000011	0	No	No
+new_log_bin.000012	0	No	No
+new_log_bin.000013	0	No	No
+new_log_bin.000014	0	No	No
+new_log_bin.000015	0	No	No
+new_log_bin.000016	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -2028,26 +2028,26 @@ new_log_bin.000018	0
 flush logs;
 # left times= 4
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
-new_log_bin.000002	0	No
-new_log_bin.000003	0	No
-new_log_bin.000004	0	No
-new_log_bin.000005	0	No
-new_log_bin.000006	0	No
-new_log_bin.000007	0	No
-new_log_bin.000008	0	No
-new_log_bin.000009	0	No
-new_log_bin.000010	0	No
-new_log_bin.000011	0	No
-new_log_bin.000012	0	No
-new_log_bin.000013	0	No
-new_log_bin.000014	0	No
-new_log_bin.000015	0	No
-new_log_bin.000016	0	No
-new_log_bin.000017	0	No
-new_log_bin.000018	0	No
-new_log_bin.000019	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
+new_log_bin.000002	0	No	No
+new_log_bin.000003	0	No	No
+new_log_bin.000004	0	No	No
+new_log_bin.000005	0	No	No
+new_log_bin.000006	0	No	No
+new_log_bin.000007	0	No	No
+new_log_bin.000008	0	No	No
+new_log_bin.000009	0	No	No
+new_log_bin.000010	0	No	No
+new_log_bin.000011	0	No	No
+new_log_bin.000012	0	No	No
+new_log_bin.000013	0	No	No
+new_log_bin.000014	0	No	No
+new_log_bin.000015	0	No	No
+new_log_bin.000016	0	No	No
+new_log_bin.000017	0	No	No
+new_log_bin.000018	0	No	No
+new_log_bin.000019	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -2059,8 +2059,8 @@ new_log_bin.000021	0
 reset master;
 # left times= 3
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -2072,8 +2072,8 @@ new_log_bin.000003	0
 reset master;
 # left times= 2
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -2085,8 +2085,8 @@ new_log_bin.000003	0
 reset master;
 # left times= 1
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
 flush logs;
 show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
@@ -2099,6 +2099,6 @@ reset master;
 # left times= 0
 # [engine=myisam] after third loop_times=0, show master logs results
 show binary logs;
-Log_name	File_size	Encrypted
-new_log_bin.000001	0	No
+Log_name	File_size	Encrypted	Algorithm
+new_log_bin.000001	0	No	No
 drop database test_rotate_db;

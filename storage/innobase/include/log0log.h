@@ -797,7 +797,8 @@ It just need to flush the file header block with current master key.
 @param[in]	iv	encryption iv
 @param[in]	is_boot	if it is for bootstrap
 @return true if success. */
-bool log_write_encryption(byte *key, byte *iv, bool is_boot);
+bool log_write_encryption(byte *key, byte *iv, bool is_boot,
+                          Encryption::Type algorithm);
 
 /** Rotate the redo log encryption
 It will re-encrypt the redo log encryption metadata and write it to
@@ -1197,7 +1198,8 @@ inline bool log_checkpointer_is_active();
 @param[in]      is_boot      if it's for bootstrap
 @param[in]      encrypt_key  encrypt with master key */
 bool log_file_header_fill_encryption(byte *buf, byte *key, byte *iv,
-                                     bool is_boot, bool encrypt_key);
+                                     bool is_boot, bool encrypt_key,
+                                     Encryption::Type algorithm);
 
 #else /* !UNIV_HOTBACKUP */
 

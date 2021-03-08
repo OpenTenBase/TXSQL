@@ -28,6 +28,12 @@
   Wrapper to give simple interface for MySQL to SM4 national secret standard encryption.
 */
 
+#define MY_SM4_CBC_BLOCK_SIZE 16
+#define MY_SM4_CBC_KEY_SIZE 32
+#define MY_SM4_IV_SIZE 16
+#define MY_SM3_DIGEST_SIZE 32
+#define MY_SM3_HMAC_SIZE 32
+
 /**
   Encrypt a buffer using SM4
  
@@ -61,4 +67,29 @@ int my_sm4_decrypt(unsigned char *source, int source_length,
                    unsigned char *plain_text, int *plaintext_length,
                    unsigned char *key, unsigned char *iv, bool padding);
 
+
+int my_sm4_get_size(int source_length);
+
+/**
+  digest the given buffer
+
+  @param data input data to digest
+  @param data_len the input data length
+  @param digest output result
+  @param digest_len output result length
+*/
+int my_sm3_digest(unsigned char *data, int data_len, unsigned char *digest, int *digest_len);
+
+/**
+  hash data with mac
+
+  @param  data input data
+  @param  data_len the length of data
+  @param  hmac input hmac
+  @param  hmac_len input length of hmac
+  @param  hmac_key the input key
+  @param  key_len the lenght of the hmackey
+*/
+int my_sm3_hmac(unsigned char *data, int data_len, unsigned char *hmac, int *hmac_len,
+                                unsigned char *hmac_key, int key_len);
 #endif

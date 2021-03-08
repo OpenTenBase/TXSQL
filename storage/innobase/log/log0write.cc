@@ -2624,8 +2624,7 @@ bool log_read_encryption() {
 
   ut_a(err == DB_SUCCESS);
 
-  if (memcmp(log_block_buf + LOG_HEADER_CREATOR_END, ENCRYPTION_KEY_MAGIC_V3,
-             ENCRYPTION_MAGIC_SIZE) == 0) {
+  if (encryption_version_is_new(log_block_buf + LOG_HEADER_CREATOR_END)) {
     /* Make sure the keyring is loaded. */
     if (!Encryption::check_keyring()) {
       ut_free(log_block_buf_ptr);
@@ -2634,16 +2633,15 @@ bool log_read_encryption() {
       return (false);
     }
 
-    /* redo only use SM4 encryption algorithm */
+    Encryption::Type algorithm = Encryption::AES;
     if (Encryption::decode_encryption_info(
-            key, iv, log_block_buf + LOG_HEADER_CREATOR_END, true, Encryption::SM4)) {
+            key, iv, log_block_buf + LOG_HEADER_CREATOR_END, true, algorithm)) {
       /* If redo log encryption is enabled, set the
       space flag. Otherwise, we just fill the encryption
       information to space object for decrypting old
       redo log blocks. */
-      fsp_flags_set_encryption(space->flags);
-      fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
-      err = fil_set_encryption(space->id, Encryption::SM4, key, iv);
+      fsp_flags_set_encryption(space->flags, static_cast<uint32_t>(algorithm));
+      err = fil_set_encryption(space->id, algorithm, key, iv);
 
       if (err == DB_SUCCESS) {
         ut_free(log_block_buf_ptr);
@@ -2671,11 +2669,13 @@ bool log_read_encryption() {
 }
 
 bool log_file_header_fill_encryption(byte *buf, byte *key, byte *iv,
-                                     bool is_boot, bool encrypt_key) {
+                                     bool is_boot, bool encrypt_key,
+                                     Encryption::Type algorithm) {
   byte encryption_info[ENCRYPTION_INFO_SIZE];
 
+  ut_ad(Encryption::type_is_valid(algorithm));
   if (!Encryption::fill_encryption_info(key, iv, encryption_info, is_boot,
-                                        encrypt_key, Encryption::SM4)) {
+                                        encrypt_key, algorithm)) {
     return (false);
   }
 
@@ -2686,7 +2686,8 @@ bool log_file_header_fill_encryption(byte *buf, byte *key, byte *iv,
   return (true);
 }
 
-bool log_write_encryption(byte *key, byte *iv, bool is_boot) {
+bool log_write_encryption(byte *key, byte *iv, bool is_boot,
+                          Encryption::Type algorithm) {
   const page_id_t page_id{dict_sys_t::s_log_space_first_id, 0};
   byte *log_block_buf_ptr;
   byte *log_block_buf;
@@ -2702,9 +2703,11 @@ bool log_write_encryption(byte *key, byte *iv, bool is_boot) {
 
     key = space->encryption_key;
     iv = space->encryption_iv;
+    algorithm = space->encryption_type;
   }
 
-  if (!log_file_header_fill_encryption(log_block_buf, key, iv, is_boot, true)) {
+  if (!log_file_header_fill_encryption(log_block_buf, key, iv, is_boot,
+                                       true, algorithm)) {
     ut_free(log_block_buf_ptr);
     return (false);
   }
@@ -2725,8 +2728,8 @@ bool log_rotate_encryption() {
     return (true);
   }
 
-  /* Rotate log tablespace */
-  return (log_write_encryption(nullptr, nullptr, false));
+  /* Rotate log tablespace, space encryption algorithm not changed */
+  return (log_write_encryption(nullptr, nullptr, false, space->encryption_type));
 }
 
 void redo_rotate_default_master_key() {
@@ -2743,7 +2746,7 @@ void redo_rotate_default_master_key() {
       !srv_read_only_mode && strlen(server_uuid) > 0) {
     ut_a(FSP_FLAGS_GET_ENCRYPTION(space->flags));
 
-    log_write_encryption(nullptr, nullptr, false);
+    log_write_encryption(nullptr, nullptr, false, space->encryption_type);
   }
 }
 

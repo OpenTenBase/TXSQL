@@ -6644,8 +6644,8 @@ static ST_FIELD_INFO innodb_tablespaces_fields_info[] = {
      STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
      STRUCT_FLD(open_method, 0)},
 
-#define INNODB_TABLESPACES_ENCRYPT_ALGORITHM 14
-    {STRUCT_FLD(field_name, "ENCRYPT_ALGORITHM"), STRUCT_FLD(field_length, 3),
+#define INNODB_TABLESPACES_ENCRYPTION_ALGORITHM 14
+    {STRUCT_FLD(field_name, "ENCRYPTION_ALGORITHM"), STRUCT_FLD(field_length, 3),
      STRUCT_FLD(field_type, MYSQL_TYPE_STRING), STRUCT_FLD(value, 0),
      STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
      STRUCT_FLD(open_method, 0)},
@@ -6724,8 +6724,21 @@ static int i_s_dict_fill_innodb_tablespaces(
                         is_encrypted ? "Y" : "N"));
 
   if (is_encrypted) {
-    OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPT_ALGORITHM],
-      Encryption::algorithm_string(fsp_flags_get_encryption_algorithm(flags))));
+    /* undo may not update the encryption info in dd here */
+    if (fsp_is_undo_tablespace(space_id)) {
+      fil_space_t *space = fil_space_get(space_id);
+      if (space != nullptr) {
+        OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM],
+          Encryption::algorithm_to_string(space->encryption_type)));
+      } else {
+        OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM], "Unkown"));
+      }
+    } else {
+      OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM],
+        Encryption::algorithm_to_string(fsp_flags_get_encryption_algorithm(flags))));
+    }
+  } else {
+    OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM], "No"));
   }
 
   OK(field_store_string(fields[INNODB_TABLESPACES_ROW_FORMAT], row_format));

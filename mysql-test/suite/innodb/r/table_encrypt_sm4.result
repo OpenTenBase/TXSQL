@@ -1,14 +1,14 @@
 # restart: --early-plugin-load=keyring_file=keyring_file.so --loose-keyring_file_data=MYSQL_TMP_DIR/mysecret_keyring_log1 --general-log --log-output=FILE --general_log_file=MYSQL_TMP_DIR/keyring_query_log --plugin-dir=KEYRING_PLUGIN_PATH 
-SHOW VARIABLES LIKE  "innodb_encrypt_algorithm";
+SHOW VARIABLES LIKE  "innodb_encryption_algorithm";
 Variable_name	Value
-innodb_encrypt_algorithm	AES
-SET GLOBAL innodb_encrypt_algorithm = 'sm4';
-SHOW VARIABLES LIKE  "innodb_encrypt_algorithm";
+innodb_encryption_algorithm	AES
+SET GLOBAL innodb_encryption_algorithm = 'sm4';
+SHOW VARIABLES LIKE  "innodb_encryption_algorithm";
 Variable_name	Value
-innodb_encrypt_algorithm	SM4
+innodb_encryption_algorithm	SM4
 CREATE TABLE t (id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
-SELECT name,encryption,encrypt_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
-name	encryption	encrypt_algorithm
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+name	encryption	encryption_algorithm
 test/t	Y	SM4
 INSERT INTO t VALUES(1, 'kongzhi');
 SELECT * FROM t;
@@ -25,7 +25,7 @@ SELECT * FROM t;
 id	name
 1	kongzhi
 2	kongzhi2
-set global innodb_encrypt_algorithm='sm4';
+set global innodb_encryption_algorithm='sm4';
 CREATE TABLE t1(id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
 ALTER TABLE t1 DISCARD TABLESPACE;
 FLUSH TABLES t FOR EXPORT;
@@ -35,7 +35,7 @@ SELECT * FROM t1;
 id	name
 1	kongzhi
 2	kongzhi2
-SET GLOBAL innodb_encrypt_algorithm='aes';
+SET GLOBAL innodb_encryption_algorithm='aes';
 CREATE TABLE t2(id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
 ALTER TABLE t2 DISCARD TABLESPACE;
 FLUSH TABLES t FOR EXPORT;
@@ -46,15 +46,15 @@ DROP TABLE t1;
 DROP TABLE t2;
 DROP TABLE t;
 CREATE TABLE t(id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
-SELECT name,encryption,encrypt_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
-name	encryption	encrypt_algorithm
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+name	encryption	encryption_algorithm
 test/t	Y	AES
 INSERT INTO t VALUES(1, 'kongzhi');
 ALTER TABLE t ENCRYPTION='n';
-SET GLOBAL innodb_encrypt_algorithm='sm4';
+SET GLOBAL innodb_encryption_algorithm='sm4';
 ALTER TABLE t ENCRYPTION='y';
-SELECT name,encryption,encrypt_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
-name	encryption	encrypt_algorithm
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+name	encryption	encryption_algorithm
 test/t	Y	SM4
 # restart: --early-plugin-load=keyring_file=keyring_file.so --loose-keyring_file_data=MYSQL_TMP_DIR/mysecret_keyring_log1 --general-log --log-output=FILE --general_log_file=MYSQL_TMP_DIR/keyring_query_log --plugin-dir=KEYRING_PLUGIN_PATH 
 SELECT * FROM t;
@@ -74,8 +74,8 @@ INSERT INTO t VALUES(7, "hhhhh");
 INSERT INTO t VALUES(8, "iiiii");
 INSERT INTO t VALUES(9, "jjjjj");
 # Kill the server
-SELECT name,encryption,encrypt_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
-name	encryption	encrypt_algorithm
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+name	encryption	encryption_algorithm
 test/t	Y	SM4
 SELECT * FROM t ORDER BY name LIMIT 10;
 id	name
@@ -114,7 +114,7 @@ id	name
 3	ddddd
 4	eeeee
 5	fffff
-SET GLOBAL innodb_encrypt_algorithm='aes';
+SET GLOBAL innodb_encryption_algorithm='aes';
 SET GLOBAL innodb_redo_log_encrypt=OFF;
 SET GLOBAL innodb_undo_log_encrypt=OFF;
 DROP TABLE t;

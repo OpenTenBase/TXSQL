@@ -1,0 +1,4 @@
+SET PERSIST binlog_encryption_algorithm='sm4';
+--source rpl_encryption.test
+SHOW VARIABLES LIKE "%binlog_encryption_algorithm%";
+SET PERSIST binlog_encryption_algorithm='aes';

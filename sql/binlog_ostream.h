@@ -293,6 +293,11 @@ class Binlog_encryption_ostream : public Truncatable_ostream {
   */
   int get_header_size();
 
+  /**
+    Return the header version
+  */
+  uint8_t get_header_version();
+
  private:
   std::unique_ptr<Truncatable_ostream> m_down_ostream;
   std::unique_ptr<Rpl_encryption_header> m_header;

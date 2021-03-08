@@ -20,6 +20,8 @@ admin_username_prefix
 admin_username_prefix
 binlog_encryption
 binlog_encryption
+binlog_encryption_algorithm
+binlog_encryption_algorithm
 binlog_rotate_encryption_master_key_at_startup
 binlog_rotate_encryption_master_key_at_startup
 binlog_write_threshold
@@ -74,6 +76,8 @@ innodb_dedicated_server
 innodb_dedicated_server
 innodb_empty_free_list_algorithm
 innodb_empty_free_list_algorithm
+innodb_encryption_algorithm
+innodb_encryption_algorithm
 innodb_hot_update_detect
 innodb_hot_update_detect
 innodb_hot_update_wait_timeout

@@ -42,10 +42,10 @@ ERROR 42000: You have an error in your SQL syntax; check the manual that corresp
 CREATE TABLESPACE `test/s_bad` ADD DATAFILE 's_bad.ibd';
 ERROR 42000: InnoDB: A general tablespace name cannot contain '/'.
 CREATE TABLESPACE `s_too_long_file_name` ADD DATAFILE '../xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ibd';
-ERROR HY000: CREATE TABLESPACE data file must be in one of these directories 'MYSQL_TMP_DIR/;./'.
+ERROR HY000: CREATE TABLESPACE data file must be in one of these directories './;MYSQL_TMP_DIR/'.
 SHOW WARNINGS;
 Level	Code	Message
-Error	3121	CREATE TABLESPACE data file must be in one of these directories 'MYSQL_TMP_DIR/;./'.
+Error	3121	CREATE TABLESPACE data file must be in one of these directories './;MYSQL_TMP_DIR/'.
 Error	1528	Failed to create TABLESPACE s_too_long_file_name
 Error	3121	Incorrect File Name '../xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ibd'.
 CREATE TABLESPACE s_bad ADD DATAFILE 's_bad.ibd' FILE_BLOCK_SIZE=1k FILE_BLOCK_SIZE=2k;
@@ -59,7 +59,7 @@ ERROR HY000: The directory does not exist.
 SHOW WARNINGS;
 Level	Code	Message
 Error	3121	The directory does not exist.
-Error	3121	CREATE TABLESPACE data file must be in one of these directories 'MYSQL_TMP_DIR/;./'.
+Error	3121	CREATE TABLESPACE data file must be in one of these directories './;MYSQL_TMP_DIR/'.
 Error	1528	Failed to create TABLESPACE s_bad
 Error	3121	Incorrect File Name '../sub/dir/////s_bad.ibd'.
 DROP TABLESPACE 's_bad';
@@ -281,7 +281,7 @@ SHOW WARNINGS;
 Level	Code	Message
 Error	3121	The ADD DATAFILE filepath does not have a proper filename.
 Error	3121	The directory does not exist.
-Error	3121	CREATE TABLESPACE data file must be in one of these directories 'MYSQL_TMP_DIR/;./'.
+Error	3121	CREATE TABLESPACE data file must be in one of these directories './;MYSQL_TMP_DIR/'.
 Error	1528	Failed to create TABLESPACE s_bad
 Error	3121	Incorrect File Name '../s_dir/s_subdir/.ibd'.
 CREATE TABLESPACE s_bad ADD DATAFILE '../s_dir/s_bad.ibs';
@@ -290,7 +290,7 @@ SHOW WARNINGS;
 Level	Code	Message
 Error	3121	The ADD DATAFILE filepath must end with '.ibd'.
 Error	3121	The directory does not exist.
-Error	3121	CREATE TABLESPACE data file must be in one of these directories 'MYSQL_TMP_DIR/;./'.
+Error	3121	CREATE TABLESPACE data file must be in one of these directories './;MYSQL_TMP_DIR/'.
 Error	1528	Failed to create TABLESPACE s_bad
 Error	3121	Incorrect File Name '../s_dir/s_bad.ibs'.
 CREATE TABLESPACE s_bad ADD DATAFILE 'c:s_bad.ibd';

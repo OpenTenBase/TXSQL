@@ -228,4 +228,89 @@ class Aes_ctr_cipher : public Stream_cipher {
 
 typedef class Aes_ctr_cipher<Cipher_type::ENCRYPT> Aes_ctr_encryptor;
 typedef class Aes_ctr_cipher<Cipher_type::DECRYPT> Aes_ctr_decryptor;
+
+/**
+  @class Sm4_ctr
+
+  The class provides standards to be used by the Sm4_ctr ciphers.
+*/
+class Sm4_ctr {
+ public:
+  static const int PASSWORD_LENGTH = 32;
+  static const int SM4_BLOCK_SIZE = 16;
+  static const int FILE_KEY_LENGTH = 32;
+  /**
+    Returns the message digest function to be uses when opening the cipher.
+
+    @return sm3 message digest.
+  */
+  static const EVP_MD *get_evp_md() { return EVP_sm3(); }
+  /**
+    Returns the cipher to be uses when using the cipher.
+
+    @return SM4-CTR.
+  */
+  static const EVP_CIPHER *get_evp_cipher() { return EVP_sm4_ctr(); }
+  /**
+    Returns a new unique Stream_cipher encryptor.
+
+    @return A new Stream_cipher encryptor.
+  */
+  static std::unique_ptr<Stream_cipher> get_encryptor();
+  /**
+    Returns a new unique Stream_cipher decryptor.
+
+    @return A new Stream_cipher decryptor.
+  */
+  static std::unique_ptr<Stream_cipher> get_decryptor();
+};
+
+/**
+  @class Sm4_ctr_cipher
+
+  The class implements SM4-CTR encryption/decryption. It supports to
+  encrypt/decrypt a stream in both sequential and random way.
+*/
+template <Cipher_type TYPE>
+class Sm4_ctr_cipher : public Stream_cipher {
+ public:
+  static const int PASSWORD_LENGTH = Sm4_ctr::PASSWORD_LENGTH;
+  static const int SM4_BLOCK_SIZE = Sm4_ctr::SM4_BLOCK_SIZE;
+  static const int FILE_KEY_LENGTH = Sm4_ctr::FILE_KEY_LENGTH;
+
+  virtual ~Sm4_ctr_cipher() override;
+
+  bool open(const Key_string &password, int header_size) override;
+  void close() override;
+  bool encrypt(unsigned char *dest, const unsigned char *src,
+               int length) override;
+  bool decrypt(unsigned char *dest, const unsigned char *src,
+               int length) override;
+  bool set_stream_offset(uint64_t offset) override;
+
+ private:
+  /* Cipher context */
+  EVP_CIPHER_CTX *m_ctx = nullptr;
+  /* The file key to encrypt/decrypt data. */
+  unsigned char m_file_key[FILE_KEY_LENGTH];
+  /* The initialization vector (IV) used to encrypt/decrypt data. */
+  unsigned char m_iv[SM4_BLOCK_SIZE];
+
+  /**
+    Initialize OpenSSL cipher related context and IV.
+
+    @param[in] offset The stream offset to compute the SM4-CTR counter which
+                      will be set into IV.
+
+    @retval false Success.
+    @retval true Error.
+  */
+  bool init_cipher(uint64_t offset);
+
+  /** Destroy OpenSSL cipher related context. */
+  void deinit_cipher();
+};
+
+typedef class Sm4_ctr_cipher<Cipher_type::ENCRYPT> Sm4_ctr_encryptor;
+typedef class Sm4_ctr_cipher<Cipher_type::DECRYPT> Sm4_ctr_decryptor;
 #endif  // STREAM_CIPHER_INCLUDED

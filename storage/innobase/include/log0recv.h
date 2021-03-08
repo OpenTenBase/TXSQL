@@ -469,6 +469,9 @@ struct recv_sys_t {
 
     /** Encryption IV */
     byte *iv;
+
+    /** Encryption type */
+    Encryption::Type type;
   };
 
   using Encryption_Keys = std::vector<Encryption_Key>;

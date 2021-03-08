@@ -93,7 +93,8 @@ class Datafile {
         m_file_info(),
         m_encryption_key(),
         m_encryption_iv(),
-        m_encryption_op_in_progress(NONE) {
+        m_encryption_op_in_progress(NONE),
+        m_encryption_type(Encryption::NONE) {
     m_handle.m_file = OS_FILE_CLOSED;
   }
 
@@ -116,7 +117,8 @@ class Datafile {
         m_file_info(),
         m_encryption_key(),
         m_encryption_iv(),
-        m_encryption_op_in_progress(NONE) {
+        m_encryption_op_in_progress(NONE),
+        m_encryption_type(Encryption::NONE) {
     ut_ad(m_name != nullptr);
     m_handle.m_file = OS_FILE_CLOSED;
     /* No op */
@@ -139,7 +141,8 @@ class Datafile {
         m_file_info(),
         m_encryption_key(),
         m_encryption_iv(),
-        m_encryption_op_in_progress(NONE) {
+        m_encryption_op_in_progress(NONE),
+        m_encryption_type(file.m_encryption_type) {
     m_name = mem_strdup(file.m_name);
     ut_ad(m_name != nullptr);
 
@@ -195,6 +198,7 @@ class Datafile {
     m_encryption_key = nullptr;
     m_encryption_iv = nullptr;
     m_encryption_op_in_progress = NONE;
+    m_encryption_type = file.m_encryption_type;
 
     m_atomic_write = file.m_atomic_write;
 
@@ -501,5 +505,8 @@ class Datafile {
 
   /** Encryption operation in progress */
   encryption_op_type m_encryption_op_in_progress;
+
+  /** Encryption type */
+  Encryption::Type m_encryption_type;
 };
 #endif /* fsp0file_h */

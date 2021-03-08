@@ -56,3 +56,19 @@ int my_sm4_decrypt(unsigned char *source, int source_length,
   return Sm4CbcDecrypt(source, source_length,
                        plain_text, plaintext_length, key, iv, padding);
 }
+
+int my_sm4_get_size(int source_length) {
+  return  (MY_SM4_CBC_BLOCK_SIZE * (source_length / MY_SM4_CBC_BLOCK_SIZE) +
+          MY_SM4_CBC_BLOCK_SIZE);
+}
+
+int my_sm3_digest(unsigned char *data, int data_len,
+                  unsigned char *digest, int *digest_len) {
+  return Sm3Digest(data, data_len, digest, digest_len);
+}
+
+int my_sm3_hmac(unsigned char *data, int data_len,
+                unsigned char *hmac, int *hmac_len,
+                unsigned char *hmac_key, int key_len) {
+  return Sm3Hmac(data, data_len, hmac, hmac_len, hmac_key, key_len);
+}
