@@ -187,13 +187,12 @@ void CThdBottomHalf::reset_answer(void) {
 }
 
 /** Deal with answers from slave */
-void CThdBottomHalf::dealBinlogPosAns(BinlogPosAns* binlogAns) {
-    ++sqlasyn_get_slave_ans;
+void CThdBottomHalf::dealBinlogPosAns(const Thd_Trans_binlog_info &ack_info) {
 
-    // it's OK to read m_newstBinlogInfoAns without mutex because the udpsvr
-    // thread is the only writer. but write must be done under m_mutex below.
-    const char *fnstr= 0;
-    if (!(m_newstBinlogInfoAns.less((fnstr= binlogAns->getFileName()), binlogAns->log_pos))) {
+    CTGuard<CTMutex> gaurd(m_mutex);
+
+    ++sqlasyn_get_slave_ans;
+    if (!m_newstBinlogInfoAns.less(ack_info)) {
         ++sqlasyn_get_slave_ans_skip;
         return;
     }
@@ -210,84 +209,86 @@ void CThdBottomHalf::dealBinlogPosAns(BinlogPosAns* binlogAns) {
     if (tdsql_allow_async && enable_sql_asyn_when_ok) {
         LOG_INFO log_info;
         mysql_bin_log.get_current_log(&log_info);
-        if (strcmp(fnstr, log_info.log_file_name + dirname_length(log_info.log_file_name)) >= 0) {
+
+        /* Get current file number */
+        const char *ptr = strrchr((log_info.log_file_name + dirname_length(log_info.log_file_name)), '.');
+        DBUG_ASSERT(ptr != nullptr);
+
+        if (ack_info.file_no() >= strtoul(ptr + 1, nullptr, 10)) {
             enable_sql_asyn_when_ok= false;
             g_sqlAsyn= true;
         }
     }
 
-    do {
-        const uint64_t ack_time = getMonotonic_sec(); // current time, in seconds
-        CTGuard<CTMutex> gaurd(m_mutex);
-        // must copy under m_mutex.
-        m_newstBinlogInfoAns.set(fnstr, binlogAns->log_pos);
-        /*
-          dispatch all bottom-half work that are do-able to answering threads.
-          a do-able one is one whose txn's binlog have been received by slaves.
-          the order that the answering threads reply to clients is arbitrary,
-          but that's OK since all of them are guaranteed to have committed
-          successfully on current master and slaves and future master(if a
-          master switch happens soon).
- 
-          if a txn T2 modifies a row R0 that was inserted by txn T1, and user
-          has issued 'commit' to T1 but T1's bottom half is sitll in
-          this->m_thdContainer, then something strange and intresting can happen:
-          since T1 has already SE-committed on master, T2 is able to see and
-          modify the row R0 --- although T1's user doesn't know that T1 has
-          already committed, other connections know already at this moment.
- 
-          But since T2's
-          binlog is after that of T1, when T2's binlog is received by slaves,
-          so will those of T1, thus when we can reply to client that T2 has
-          commited, T1 are guaranteed to exist on current master and
-          slaves together with T2. So a committed txn(T2)'s changes will always be made based on
-          committed data, this is guaranteed by binlog order as above logic.
-          Although it's likely that T2's user receives the 'commit OK' message
-          earlier than T1's user, and this is OK and irrelevant.
- 
-          However, if T2 only reads R0 and is read only, then when T2
-          ends, it's likely that because of master crashes before slave
-          receiving T1's binlog, user will later not be able to find the row
-          R0 after connecting to the new master, although he did see it in
-          the old master.
-        */
-        for (ThdQueue_t::iterator iter = m_thdContainer.begin();
-             iter != m_thdContainer.end(); ++iter) {
-            if (iter->is_processed())
-              continue;
-            iter->setAckTime(ack_time);
-            if (m_newstBinlogInfoAns < iter->getThd()->ack_binlog_pos()) { 
-                /*
-                  No need to keep searching, because even if there can be more
-                  waiters <= m_newstBinlogInfoAns, they can be freed when next
-                  larger position is ack'ed.
-                  It's more efficient to use a deque instead of a set because there are very
-                  frequent and massive insertion/deletions, and deque does so in
-                  O(1) complexity, but set does so generally in O(NlogN) complexity.
-                  The only benifit of using a set is be able to skip following
-                  searches(if any) here, but that's a O(1) gain.
-                */
-                break;
-            } else {
-                /*
-                  Don't erase(iter) here because deque's iterator invalidation rules
-                  is complex and varies in implementations. Let's be safe, mark
-                  it processed and at the end of the function after this
-                  iteration, pop processed items at head of the deque.
-                */
-                iter->mark_processed();
-                // Round robin assign the bottom-half jobs to each answering
-                // thread, in binlog order
-                THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
+    const uint64_t ack_time = getMonotonic_sec(); // current time, in seconds
+    // must copy under m_mutex.
+    m_newstBinlogInfoAns.set(ack_info.file_no(), ack_info.pos());
+    /*
+      dispatch all bottom-half work that are do-able to answering threads.
+      a do-able one is one whose txn's binlog have been received by slaves.
+      the order that the answering threads reply to clients is arbitrary,
+      but that's OK since all of them are guaranteed to have committed
+      successfully on current master and slaves and future master(if a
+      master switch happens soon).
 
-                ++sqlasyn_deal_trx_by_ans;
+      if a txn T2 modifies a row R0 that was inserted by txn T1, and user
+      has issued 'commit' to T1 but T1's bottom half is sitll in
+      this->m_thdContainer, then something strange and intresting can happen:
+      since T1 has already SE-committed on master, T2 is able to see and
+      modify the row R0 --- although T1's user doesn't know that T1 has
+      already committed, other connections know already at this moment.
 
-                m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);
-            }
-            // Here m_mutex is locked.
+      But since T2's
+      binlog is after that of T1, when T2's binlog is received by slaves,
+      so will those of T1, thus when we can reply to client that T2 has
+      commited, T1 are guaranteed to exist on current master and
+      slaves together with T2. So a committed txn(T2)'s changes will always be made based on
+      committed data, this is guaranteed by binlog order as above logic.
+      Although it's likely that T2's user receives the 'commit OK' message
+      earlier than T1's user, and this is OK and irrelevant.
+
+      However, if T2 only reads R0 and is read only, then when T2
+      ends, it's likely that because of master crashes before slave
+      receiving T1's binlog, user will later not be able to find the row
+      R0 after connecting to the new master, although he did see it in
+      the old master.
+    */
+    for (ThdQueue_t::iterator iter = m_thdContainer.begin();
+         iter != m_thdContainer.end(); ++iter) {
+        if (iter->is_processed())
+          continue;
+        iter->setAckTime(ack_time);
+        if (m_newstBinlogInfoAns < iter->getThd()->ack_binlog_pos()) {
+            /*
+              No need to keep searching, because even if there can be more
+              waiters <= m_newstBinlogInfoAns, they can be freed when next
+              larger position is ack'ed.
+              It's more efficient to use a deque instead of a set because there are very
+              frequent and massive insertion/deletions, and deque does so in
+              O(1) complexity, but set does so generally in O(NlogN) complexity.
+              The only benifit of using a set is be able to skip following
+              searches(if any) here, but that's a O(1) gain.
+            */
+            break;
+        } else {
+            /*
+              Don't erase(iter) here because deque's iterator invalidation rules
+              is complex and varies in implementations. Let's be safe, mark
+              it processed and at the end of the function after this
+              iteration, pop processed items at head of the deque.
+            */
+            iter->mark_processed();
+            // Round robin assign the bottom-half jobs to each answering
+            // thread, in binlog order
+            THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
+
+            ++sqlasyn_deal_trx_by_ans;
+
+            m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);
         }
-        pop_processed();
-    } while (0);
+        // Here m_mutex is locked.
+    }
+    pop_processed();
 }
 
 void CThdBottomHalf::set_thd_error_server_stop(THD *thd) {
@@ -398,6 +399,98 @@ void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
     }
 }
 
+AckContainer::container_iter AckContainer::min_ack() {
+
+  AckContainer::container_iter min_iter = m_container.begin();
+  if (min_iter == m_container.end()) {
+    return min_iter;
+  }
+
+  AckContainer::container_iter iter = min_iter;
+  for (++iter; iter != m_container.end(); ++iter) {
+    if (iter->second.less(min_iter->second)) {
+      min_iter = iter;
+    }
+  }
+
+  return min_iter;
+}
+
+void AckContainer::resize() {
+  CTGuard<CTMutex> gaurd(m_mutex);
+
+  uint32_t new_size = g_sqlAsyncNSlaves;
+
+  if (m_container.size() <= new_size) {
+    return;
+  }
+
+  /** Erase until the size is satisfied */
+  while (m_container.size() > new_size) {
+    auto iter = min_ack();
+    m_container.erase(iter);
+  }
+
+  auto itr = min_ack();
+  DBUG_ASSERT(itr != m_container.end());
+
+  g_thdBottomHalf->dealBinlogPosAns(itr->second);
+}
+
+void AckContainer::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id) {
+
+  CTGuard<CTMutex> gaurd(m_mutex);
+
+  uint max_slaves = g_sqlAsyncNSlaves;
+
+  if (max_slaves == 1) {
+    /* recomment this line , Maintain the best compatibility in performance
+     * When G_SQLASyncnSlaves is changed from 1 to N, it doesn't matter much if this record is missing.
+     * Anyway, it will be covered soon after waiting for multiple ack
+     */
+//    m_container[thread_id] = new_ack_info;
+    g_thdBottomHalf->dealBinlogPosAns(new_ack_info);
+
+    return;
+  }
+
+  auto itr = m_container.find(thread_id);
+
+  if (itr != m_container.end()) {
+    /* Update the stored value */
+    if (itr->second.less(new_ack_info)) {
+      itr->second = new_ack_info;
+    }
+  } else if (m_container.size() < max_slaves) {
+    /* Insert the new element */
+    m_container[thread_id] = new_ack_info;
+  } else {
+    /* The container is full, so find the min element
+    and replace it if possible */
+    itr = min_ack();
+    DBUG_ASSERT(itr != m_container.end());
+    if (itr->second.less(new_ack_info)) {
+      /* Erase min element and insert new one.*/
+      m_container.erase(itr);
+      m_container[thread_id] = new_ack_info;
+    } else {
+      /** The min element is even larger than current one, so
+      skip it. */
+      return;
+    }
+  }
+
+  if (m_container.size() < max_slaves) {
+    /* do nothing because we don't have enough slave */
+    return;
+  }
+
+  itr = min_ack();
+  DBUG_ASSERT(itr != m_container.end());
+
+  g_thdBottomHalf->dealBinlogPosAns(itr->second);
+}
+
 bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
   if (len <(int)(VarBufNS::CloudCommHead::getMinLen())) {
     sql_print_error("get req[ip:%s,msglen:%d] < CloudCommHead::getMinLen():%u \n",
@@ -411,11 +504,18 @@ bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
     return false;
   }
 
-  if (0 == strcmp(newCommHead->classname, "BinlogPosAns")) {  //packet header
-    BinlogPosAns* binlogAns =(BinlogPosAns*) newCommHead;
+  Thd_Trans_binlog_info ack_info;
+
+  if (0 == strcmp(newCommHead->classname, "BinlogPosAns")) {
+    BinlogPosAns *binlogAns = (BinlogPosAns*) newCommHead;
     binlogAns->decode();
 
-    dealBinlogPosAns(binlogAns);
+//    sql_print_information("get binlog ans:%s",binlogAns->toString().c_str());//just for test
+
+    ack_info.set(binlogAns->getFileName(), binlogAns->log_pos);
+
+    /* If packet is from older version, we give it a fake id */
+    g_thdBottomHalf->ack_container.process(ack_info, binlogAns->get_server_id());
 
     return true;
   }

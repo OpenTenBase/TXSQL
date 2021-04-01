@@ -19,6 +19,7 @@
 #include "sql/sql_class.h"
 #include "sql/varbufproto.h"
 #include "sql/udpsvr.h"
+#include <unordered_map>
 
 #pragma pack(1)
 
@@ -33,25 +34,33 @@ inline uint64_t getMonotonic_sec() {
   return getMonotonic_msec () / 1000;
 }
 
-//Protocol of binlog ack
+//after this version,we will support m_server_id for BinlogPosAns
+enum BinlogPosAnsVer : uint16_t {
+  DefaultVer = 1,
+  NewVer_20210420 = 2,
+};
+
 struct BinlogPosAns: public VarBufNS::CloudCommHead {
 public:
     my_off_t log_pos; //binlog offset
 private:
     VarBufNS::VarValue m_filename; //binlog name
+    uint64_t m_server_id;//we can safely add fields before m_varBuf
+
     typedef VarBufNS::VarBufMgn VarBufType;
     VarBufType m_varBuf; //use getVarBuf to access this varaible.
 public:
-    BinlogPosAns() : log_pos(0) {
+    BinlogPosAns() : log_pos(0),m_server_id(0) {
         CloudBaseConstruct;
         snprintf(classname, sizeof(classname), "BinlogPosAns");
+        ver = NewVer_20210420;
     }
 
     void decode() {}
 
     std::string toString() {
         char buf[1024] = { 0 };
-        snprintf(buf, sizeof(buf), "filename:%s,filePos:%llu", getFileName(), log_pos);
+        snprintf(buf, sizeof(buf), "filename:%s,filePos:%llu,server id:%lu", getFileName(), log_pos, get_server_id());
         return buf;
     }
 
@@ -62,6 +71,19 @@ public:
 
     const char* getFileName() {
         return getVarBuf()->getBuf(m_filename.valIndex);
+    }
+
+    void set_server_id(const uint64_t server_id ) {
+      m_server_id = server_id;
+    }
+
+    //Keep old versions compatible,when new master get old slave ans,get_server_id() will return 0
+    uint64_t get_server_id() {
+      if (ver >= NewVer_20210420) {
+        return m_server_id;
+      } else {
+        return 0;
+      }
     }
 
     CloudBaseFun(BinlogPosAns);
@@ -174,6 +196,24 @@ private:
     MsgQueue_t m_queue;
 };
 
+class AckContainer {
+public:
+  AckContainer() {
+    m_container.clear();
+  }
+
+  typedef std::unordered_map<uint64_t, Thd_Trans_binlog_info>::iterator container_iter;
+  container_iter min_ack();
+
+  void resize();
+
+  void process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id);
+
+private:
+  std::unordered_map<uint64_t, Thd_Trans_binlog_info> m_container;
+  CTMutex m_mutex;
+};
+
 class CThdBottomHalf: public CUdpServer, public CLocalMysqlThread {
 public:
     CThdBottomHalf(const char*ip, unsigned short localPort, int threadnum)
@@ -251,10 +291,10 @@ public:
         return NULL;
     }
 
-    void do_timeout_loop(); 
+    void do_timeout_loop();
 
     size_t pop_processed();
-    
+
     int run() {
         loopdealreq();
         return 0;
@@ -267,13 +307,15 @@ public:
     // answering thread.
     bool remove_thd(const THD *thd);
 
-    void dealBinlogPosAns(BinlogPosAns *binlogAns); 
+    void dealBinlogPosAns(const Thd_Trans_binlog_info &ack_info);
 
     ~CThdBottomHalf() {}
 
     void set_thd_error_server_stop(THD *thd);
 
     void reset_answer();
+
+    AckContainer ack_container;
 private:
     // ipV4 address
     const std::string m_ip;
@@ -290,6 +332,7 @@ private:
 
     CThdBottomHalfAnsThread *m_ansThread;
 };
+
 
 extern ulonglong sqlasyn_get_slave_ans;
 extern ulonglong sqlasyn_get_slave_ans_skip;

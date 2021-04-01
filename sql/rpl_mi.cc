@@ -392,6 +392,7 @@ void Master_info::sync_relaylog_send_ack() {
     send_it= true;
     ans.setFileName(master_log_name, strlen(master_log_name));
     ans.log_pos = master_log_pos;
+    ans.set_server_id(server_id);
     update_sync_ack_status(true);
     mysql_mutex_unlock(&data_lock);
   } else if (num_acks_sent < 3) {
@@ -415,6 +416,7 @@ void Master_info::sync_relaylog_send_ack() {
     send_it= true;
     ans.setFileName(master_log_name,strlen(master_log_name));
     ans.log_pos = master_log_pos;
+    ans.set_server_id(server_id);
     num_acks_sent++;
     mysql_mutex_unlock(&data_lock);
   }

@@ -5523,6 +5523,7 @@ reading event"))
           BinlogPosAns ans;
           ans.setFileName(mi->master_log_name,strlen(mi->master_log_name));
           ans.log_pos  = mi->master_log_pos;
+          ans.set_server_id(server_id);
 
           mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
           mysql_mutex_unlock(&mi->data_lock);

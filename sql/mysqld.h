@@ -436,6 +436,7 @@ extern uint g_sqlAsynTimeout;
 extern uint g_sqlAsynWarnTimeout;
 extern uint g_log_prepared_xid_list_instances;
 extern uint g_simple_slow_logging;
+extern uint g_sqlAsyncNSlaves;
 
 class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;

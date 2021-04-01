@@ -198,7 +198,7 @@ public:
   uint64_t file_no() const { return (m_file_no); }
 
   my_off_t pos() const { return (m_pos); }
-  
+
   uint64_t get_file_no(const char *filename) {
     const char *ptr = strrchr(filename, '.');
     if (ptr == nullptr) {
@@ -213,6 +213,11 @@ public:
       m_file_no = get_file_no(file);
       m_pos = pos;
     }
+  }
+
+  void set(uint64_t file_no, my_off_t pos) {
+    m_file_no = file_no;
+    m_pos = pos;
   }
 
   bool less (const Thd_Trans_binlog_info& other_pos) const {
@@ -230,6 +235,11 @@ public:
     } else {
       return (m_file_no < rhtNo);
     }
+  }
+
+  void operator = (const Thd_Trans_binlog_info & lft) {
+    m_file_no = lft.file_no();
+    m_pos = lft.pos();
   }
 
   friend bool operator ==(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht);

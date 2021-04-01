@@ -7153,6 +7153,23 @@ static Sys_var_uint Sys_g_sqlAsynWarnTimeout(
     GLOBAL_VAR(g_sqlAsynWarnTimeout), CMD_LINE(OPT_ARG),
     VALID_RANGE(1, UINT_MAX), DEFAULT(3), BLOCK_SIZE(1));
 
+static bool fix_ack_slave_count(sys_var *, THD *, enum_var_type) {
+
+  if (g_thdBottomHalf) {
+    g_thdBottomHalf->ack_container.resize();
+  }
+
+  return false;
+}
+
+static Sys_var_uint Sys_g_sqlAsync_n_slaves(
+    "sqlasync_wait_n_slaves",
+    "commit transaction after receiving ack from at least this many slaves",
+    GLOBAL_VAR(g_sqlAsyncNSlaves), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(1), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(fix_ack_slave_count));
+
 static Sys_var_ulong Sys_relay_log_sync_threshold(
     "relay_log_sync_threshold",
     "Number of bytes to accumulate before fsync'ing relay log and sending an ack to master.",
