@@ -1,0 +1,66 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_mixed_or_row.inc
+--source include/master-slave.inc
+
+--connection master
+create database d1;
+use d1;
+CREATE TABLE t3 (
+id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+info varchar(2000)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+insert into d1.t3 values(1,repeat('a',1000));
+insert into d1.t3 values(2,repeat('a',1000));
+insert into d1.t3 values(3,repeat('a',1000));
+insert into d1.t3 values(4,repeat('a',1000));
+insert into d1.t3 values(5,repeat('a',1000));
+insert into d1.t3 values(6,repeat('a',1000));
+insert into d1.t3 values(7,repeat('a',1000));
+insert into d1.t3 values(8,repeat('a',1000));
+
+connect (master2,localhost,root,,);
+connect (master3,localhost,root,,);
+
+connection master2;
+set innodb_lock_wait_timeout=600;
+xa start 'test';
+update d1.t3 set info='a' where id =7;
+update d1.t3 set info='a' where id =1;
+
+connection master3;
+set innodb_lock_wait_timeout=600;
+xa start 'test2';
+update d1.t3 set info='a' where id =2;
+
+connection master2;
+--send update d1.t3 set info='a' where id =2;
+
+connection master3;
+--error ER_LOCK_DEADLOCK
+update d1.t3 set info='a' where id =1;
+
+insert into d1.t3 values(9,repeat('a',1000));
+
+--error ER_XA_RBDEADLOCK
+xa end 'test2';
+xa rollback 'test2';
+
+insert into d1.t3 values(9,repeat('a',1000));
+
+connection master2;
+--reap
+xa end 'test';
+xa prepare 'test';
+xa commit 'test';
+
+connection master;
+disconnect master2;
+disconnect master3;
+select count(*) from d1.t3;
+
+connection master;
+drop database d1;
+
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
+

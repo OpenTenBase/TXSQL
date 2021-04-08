@@ -466,7 +466,10 @@ bool trans_rollback_implicit(THD *thd) {
       ~(SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY);
   DBUG_PRINT("info", ("clearing SERVER_STATUS_IN_TRANS"));
   res = ha_rollback_trans(thd, true);
-  thd->variables.option_bits &= ~OPTION_BEGIN;
+  if (thd->get_transaction()->xid_state()->has_state(XID_STATE::XA_NOTR)) {
+    thd->variables.option_bits&= ~OPTION_BEGIN;
+  }
+
   thd->get_transaction()->reset_unsafe_rollback_flags(Transaction_ctx::SESSION);
 
   /* Rollback should clear transaction_rollback_request flag. */
