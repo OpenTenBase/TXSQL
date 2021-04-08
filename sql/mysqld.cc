@@ -3130,14 +3130,6 @@ static bool check_admin_address_has_valid_value(
                            &network_namespace))
     return true;
 
-  if (check_address_is_wildcard(address_value.c_str(),
-                                address_value.length())) {
-    if (!network_namespace.empty())
-      LogErr(ERROR_LEVEL,
-             ER_NETWORK_NAMESPACE_NOT_ALLOWED_FOR_WILDCARD_ADDRESS);
-
-    return true;
-  }
 
   if (network_namespace.empty())
     *admin_address_info = Bind_address_info(address_value);
