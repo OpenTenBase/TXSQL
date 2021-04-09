@@ -350,8 +350,13 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
       bool err = explain_single_table_modification(thd, thd, &plan, select_lex);
       return err;
     }
-    my_ok(thd, 0);
-    return false;
+
+    no_rows = true;
+
+    if (!returning_result) {
+      my_ok(thd, 0);
+      return false;
+    }
   }
 
   qep_tab.set_table(table);
@@ -387,8 +392,10 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         return err;
       }
 
-      my_ok(thd, 0);
-      return false;  // Nothing to delete
+      if (!returning_result) {
+        my_ok(thd, 0);
+        return false;  // Nothing to delete
+      }
     }
   }  // Ends scope for optimizer trace wrapper
 
@@ -420,7 +427,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
   }
 
   // Reaching here only when table must be accessed
-  DBUG_ASSERT(!no_rows);
+  DBUG_ASSERT(!no_rows || returning_result);
 
   {
     ha_rows rows;
@@ -516,8 +523,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     Query_result* qres= select_lex->query_result();
     DBUG_ASSERT((!qres && !returning_result) || (qres && returning_result));
-    if (returning_result)
-    {
+    if (returning_result) {
       select_lex->prepare(thd);
       qres->send_result_set_metadata(thd, *select_lex->returning_list,
           Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
@@ -525,7 +531,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     // The loop that reads rows and delete those that qualify
 
-    while (!(error = iterator->Read()) && !thd->killed) {
+    while (!no_rows && !(error = iterator->Read()) && !thd->killed) {
       DBUG_ASSERT(!thd->is_error());
       thd->inc_examined_row_count(1);
 

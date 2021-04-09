@@ -448,8 +448,11 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
             explain_single_table_modification(thd, thd, &plan, select_lex);
         return err;
       }
-      my_ok(thd);
-      return false;
+
+      if (!returning_result) {
+        my_ok(thd);
+        return false;
+      }
     }
   }
   // Initialize the cost model that will be used for this table
@@ -492,13 +495,15 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
         return err;
       }
 
-      char buff[MYSQL_ERRMSG_SIZE];
-      snprintf(buff, sizeof(buff), ER_THD(thd, ER_UPDATE_INFO), 0L, 0L,
-               (long)thd->get_stmt_da()->current_statement_cond_count());
-      my_ok(thd, 0, 0, buff);
+      if (!returning_result) {
+        char buff[MYSQL_ERRMSG_SIZE];
+        snprintf(buff, sizeof(buff), ER_THD(thd, ER_UPDATE_INFO), 0L, 0L,
+            (long)thd->get_stmt_da()->current_statement_cond_count());
+        my_ok(thd, 0, 0, buff);
 
-      DBUG_PRINT("info", ("0 records updated"));
-      return false;
+        DBUG_PRINT("info", ("0 records updated"));
+        return false;
+      }
     }
   }  // Ends scope for optimizer trace wrapper
 
@@ -697,7 +702,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           return true;
         }
 
-        while (!(error = iterator->Read()) && !thd->killed) {
+        while (!no_rows && !(error = iterator->Read()) && !thd->killed) {
           DBUG_ASSERT(!thd->is_error());
           thd->inc_examined_row_count(1);
 
@@ -811,7 +816,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
     }
 
-    while (true) {
+    while (!no_rows) {
       error = iterator->Read();
       if (error || thd->killed) break;
       thd->inc_examined_row_count(1);
@@ -1106,6 +1111,10 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
   thd->current_found_rows = found_rows;
   // Following test is disabled, as we get RQG errors that are hard to debug
   // DBUG_ASSERT((error >= 0) == thd->is_error());
+  if (no_rows) {
+    return thd->is_error();
+  }
+
   return error >= 0 || thd->is_error();
 }
 

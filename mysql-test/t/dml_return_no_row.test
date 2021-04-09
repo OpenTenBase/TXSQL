@@ -1,0 +1,13 @@
+create table t1 (a int, b int) engine=innodb;
+insert into t1 values (1,2),(2,3), (3,4);
+delete from t1 where 0 txsql_returning *;
+delete from t1 where a = 2 txsql_returning *;
+delete from t1 where a = 12 txsql_returning *;
+
+update t1 set b = b + 1 where 0 txsql_returning *;
+update t1 set b = b + 1 where 1 txsql_returning *;
+update t1 set b = b + 1 where a = 3 txsql_returning *;
+update t1 set b = b + 1 where a = 13 txsql_returning *;
+
+drop table t1;
+
