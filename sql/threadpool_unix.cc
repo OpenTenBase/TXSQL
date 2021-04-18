@@ -1819,6 +1819,7 @@ static void *worker_main(void *param) {
     if (!connection) break;
     this_thread.event_count++;
     handle_event(connection);
+    current_thd = NULL;
   }
 
   /* Thread shutdown: cleanup per-worker-thread structure. */
