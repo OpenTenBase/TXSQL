@@ -133,7 +133,8 @@ class Dictionary {
                                           bool is_ddl_statement,
                                           const char *schema_name,
                                           size_t schema_length,
-                                          const char *table_name) const = 0;
+                                          const char *table_name,
+                                          bool force_allow_access) const = 0;
 
   /**
     Check if given table name is a system view name.

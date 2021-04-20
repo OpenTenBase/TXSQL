@@ -3215,7 +3215,8 @@ bool sp_head::merge_table_list(THD *thd, TABLE_LIST *table,
           !dictionary->is_dd_table_access_allowed(
               thd->is_dd_system_thread(),
               table->mdl_request.is_ddl_or_lock_tables_lock_request(),
-              table->db, table->db_length, table->table_name)) {
+              table->db, table->db_length, table->table_name,
+              false/* not allow in sp */)) {
         my_error(ER_NO_SYSTEM_TABLE_ACCESS, MYF(0),
                  ER_THD_NONCONST(thd, dictionary->table_type_error_code(
                                           table->db, table->table_name)),

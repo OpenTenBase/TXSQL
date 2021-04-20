@@ -414,6 +414,11 @@ struct System_variables {
     @sa Sys_var_generated_random_password_length
   */
   uint32_t generated_random_password_length;
+
+  /**
+    Can access the dd tables if it's set
+  */
+  bool allow_access_dd_tables;
 };
 
 /**

@@ -1076,6 +1076,7 @@ class Internal_function_factory : public Create_func {
   Item *create_func(THD *thd, LEX_STRING function_name,
                     PT_item_list *item_list) override {
     if (!thd->parsing_system_view && !thd->is_dd_system_thread() &&
+        !thd->variables.allow_access_dd_tables &&
         DBUG_EVALUATE_IF("skip_dd_table_access_check", false, true)) {
       my_error(ER_NO_ACCESS_TO_NATIVE_FCT, MYF(0), function_name.str);
       return nullptr;

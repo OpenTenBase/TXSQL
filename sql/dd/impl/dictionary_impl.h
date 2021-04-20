@@ -122,7 +122,8 @@ class Dictionary_impl : public Dictionary {
                                           bool is_ddl_statement,
                                           const char *schema_name,
                                           size_t schema_length,
-                                          const char *table_name) const;
+                                          const char *table_name,
+                                          bool force_allow_access) const;
 
   virtual bool is_system_view_name(const char *schema_name,
                                    const char *table_name, bool *hidden) const;

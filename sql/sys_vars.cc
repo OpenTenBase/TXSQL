@@ -7264,3 +7264,10 @@ static Sys_var_bool Sys_print_invalid_replication_timestamps(
     "slave will print invalid replication timestamps logs",
     GLOBAL_VAR(print_invalid_replication_timestamps),
     CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_allow_access_dd_tables(
+    "allow_access_dd_tables",
+    "allow current user to access the dd tables",
+    SESSION_VAR(allow_access_dd_tables),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));

@@ -304,7 +304,8 @@ bool Dictionary_impl::is_dd_table_access_allowed(bool is_dd_internal_thread,
                                                  bool is_ddl_statement,
                                                  const char *schema_name,
                                                  size_t schema_length,
-                                                 const char *table_name) const {
+                                                 const char *table_name,
+                                                 bool force_allow_access) const {
   /*
     From WL#6391, we have the following matrix describing access:
 
@@ -333,6 +334,7 @@ bool Dictionary_impl::is_dd_table_access_allowed(bool is_dd_internal_thread,
   if (schema_length != MYSQL_SCHEMA_NAME.length ||
       strncmp(schema_name, MYSQL_SCHEMA_NAME.str, MYSQL_SCHEMA_NAME.length) ||
       is_dd_internal_thread ||
+      force_allow_access ||
       DBUG_EVALUATE_IF("skip_dd_table_access_check", true, false))
     return true;
 

@@ -111,7 +111,7 @@ bool Foreign_key_spec::validate(THD *thd, const char *table_name,
   const dd::Dictionary *dictionary = dd::get_dictionary();
   if (dictionary && !dictionary->is_dd_table_access_allowed(
                         thd->is_dd_system_thread(), true, ref_db.str,
-                        ref_db.length, ref_table.str)) {
+                        ref_db.length, ref_table.str, false)) {
     my_error(ER_NO_SYSTEM_TABLE_ACCESS, MYF(0),
              ER_THD_NONCONST(thd, dictionary->table_type_error_code(
                                       ref_db.str, ref_table.str)),

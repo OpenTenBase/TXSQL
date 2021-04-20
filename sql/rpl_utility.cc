@@ -468,7 +468,7 @@ bool table_def::compatible_with(THD *thd, Relay_log_info *rli, TABLE *table,
   const dd::Dictionary *dictionary = dd::get_dictionary();
   if (dictionary && !dictionary->is_dd_table_access_allowed(
                         false, false, table->s->db.str, table->s->db.length,
-                        table->s->table_name.str)) {
+                        table->s->table_name.str, false)) {
     DBUG_PRINT("debug", ("Access to dictionary table %s.%s is prohibited",
                          table->s->db.str, table->s->table_name.str));
     rli->report(

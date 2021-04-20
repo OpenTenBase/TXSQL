@@ -6238,7 +6238,9 @@ TABLE_LIST *SELECT_LEX::add_table_to_list(
             ptr == lex->query_tables)) &&
               lex->sql_command != SQLCOM_CHECK &&
               lex->sql_command != SQLCOM_ALTER_TABLE,
-          ptr->db, ptr->db_length, ptr->table_name)) {
+          ptr->db, ptr->db_length, ptr->table_name,
+          (thd->variables.allow_access_dd_tables &&
+           lex->sql_command == SQLCOM_SELECT))) {
     // We must allow creation of the system views even for non-system
     // threads since this is expected by the mysql_upgrade utility.
     if (!(lex->sql_command == SQLCOM_CREATE_VIEW &&
