@@ -2965,6 +2965,10 @@ void row_sel_field_store_in_mysql_format_func(
         blob_heap = mem_heap_create(UNIV_PAGE_SIZE, UT_LOCATION_HERE);
       }
 
+      if (blob_heap == prebuilt->blob_heap) {
+        prebuilt->blob_in_use = true;
+      }
+
       heap = blob_heap;
     } else {
       heap = mem_heap_create(UNIV_PAGE_SIZE, UT_LOCATION_HERE);
@@ -3069,6 +3073,10 @@ void row_sel_field_store_in_mysql_format_func(
         blob_heap = mem_heap_create(UNIV_PAGE_SIZE, UT_LOCATION_HERE);
       }
 
+      if (blob_heap == prebuilt->blob_heap) {
+        prebuilt->blob_in_use = true;
+      }
+
       heap = blob_heap;
       data = static_cast<byte *>(mem_heap_dup(heap, data, len));
     }
@@ -3115,6 +3123,10 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
   then the onus would be on the caller to empty the blob heap if required. */
   if (blob_heap != nullptr && blob_heap == prebuilt->blob_heap) {
     mem_heap_empty(blob_heap);
+  }
+
+  if (prebuilt->blob_heap != nullptr) {
+    prebuilt->blob_in_use = true;
   }
 
   if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))

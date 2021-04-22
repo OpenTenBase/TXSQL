@@ -777,6 +777,7 @@ struct row_prebuilt_t {
                              in fetch_cache */
   mem_heap_t *blob_heap;     /*!< in SELECTS BLOB fields are copied
                              to this heap */
+  bool blob_in_use;          /*!< indicate if blob_heap is used */
   mem_heap_t *old_vers_heap; /*!< memory heap where a previous
                              version is built in consistent read */
   enum {

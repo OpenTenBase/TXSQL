@@ -8068,6 +8068,9 @@ rollback_trx:
         prebuilt. Blob heaps of all the partitions will be freed later in the
         ha_innopart::clear_blob_heaps() */
         ctx->prebuilt->blob_heap = nullptr;
+
+        /* force to scan */
+        ctx->prebuilt->blob_in_use = true;
       }
 
       row_prebuilt_free(ctx->prebuilt, true);
@@ -8087,6 +8090,9 @@ rollback_trx:
       }
       user_trx->will_lock++;
       m_prebuilt->trx = user_trx;
+
+      /* force to scan */
+      m_prebuilt->blob_in_use = dict_table_is_partition(ctx->new_table);
     }
     DBUG_INJECT_CRASH("ib_commit_inplace_crash", crash_inject_count++);
   }
@@ -10571,6 +10577,7 @@ bool ha_innopart::prepare_inplace_alter_table(TABLE *altered_table,
 
   for (uint i = 0; i < m_tot_parts; ++oldp, ++newp) {
     m_prebuilt = ctx_parts->prebuilt_array[i];
+    m_prebuilt->blob_in_use = true;
     set_partition(i);
 
     const dd::Partition *old_part = *oldp;
@@ -10611,6 +10618,7 @@ bool ha_innopart::prepare_inplace_alter_table(TABLE *altered_table,
   }
 
   m_prebuilt = ctx_parts->prebuilt_array[0];
+  m_prebuilt->blob_in_use = true;
   ha_alter_info->handler_ctx = ctx_parts;
   ha_alter_info->group_commit_ctx = ctx_parts->ctx_array;
   ha_alter_info->create_info->tablespace = save_tablespace;
