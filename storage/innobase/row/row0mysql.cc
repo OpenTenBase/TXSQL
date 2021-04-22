@@ -918,6 +918,7 @@ static void row_mysql_convert_row_to_innobase(
   ulint n_v_col = 0;
   ulint n_m_v_col = 0;
 
+  ut_a(heap != &(prebuilt->blob_heap));
   ut_ad(prebuilt->template_type == ROW_MYSQL_WHOLE_ROW);
   ut_ad(prebuilt->mysql_template);
 
@@ -1284,6 +1285,7 @@ row_prebuilt_t *row_create_prebuilt(
 
   prebuilt->fts_doc_id_in_read_set = false;
   prebuilt->blob_heap = nullptr;
+  prebuilt->blob_in_use = false;
 
   prebuilt->no_read_locking = false;
   prebuilt->no_autoinc_locking = false;

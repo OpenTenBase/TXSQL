@@ -1102,6 +1102,9 @@ int ha_innopart::open(const char *name, int, uint, const dd::Table *table_def) {
 
   m_parts = ut::make_unique<saved_prebuilt_t[]>(
       ut::make_psi_memory_key(mem_key_partitioning), m_tot_parts);
+
+  m_prebuilt->blob_in_use = false;
+
   /* Verify that ut::new_arr_withkey performs value-initialization, which should
   zero-initialize built-in types such as pointers and integers. */
 #ifdef UNIV_DEBUG
@@ -1286,6 +1289,7 @@ void ha_innopart::set_partition(uint part_id) {
     DBUG_PRINT("ha_innopart",
                ("validating blob_heap: %p", m_prebuilt->blob_heap));
     mem_heap_validate(m_prebuilt->blob_heap);
+    ut_a(m_prebuilt->blob_in_use);
   }
 #endif
 
@@ -1324,6 +1328,7 @@ void ha_innopart::update_partition(uint part_id) {
     DBUG_PRINT("ha_innopart",
                ("validating blob_heap: %p", m_prebuilt->blob_heap));
     mem_heap_validate(m_prebuilt->blob_heap);
+    ut_a(m_prebuilt->blob_in_use);
   }
 #endif
 
@@ -4163,6 +4168,16 @@ void ha_innopart::clear_blob_heaps() {
     return;
   }
 
+  if (!m_prebuilt->blob_in_use) {
+#ifdef UNIV_DEBUG
+    for (uint i = 0; i < m_tot_parts; i++) {
+      auto &part{m_parts[i]};
+      ut_a(part.m_blob_heap == nullptr);
+    }
+#endif
+    return;
+  }
+
   for (uint i = 0; i < m_tot_parts; i++) {
     auto &part{m_parts[i]};
     if (part.m_blob_heap != nullptr) {
@@ -4172,6 +4187,7 @@ void ha_innopart::clear_blob_heaps() {
     }
   }
 
+  m_prebuilt->blob_in_use = false;
   /* Reset blob_heap in m_prebuilt after freeing all heaps. It is set in
   ha_innopart::set_partition to the blob heap of current partition. */
   m_prebuilt->blob_heap = nullptr;
