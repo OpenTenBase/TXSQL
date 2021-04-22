@@ -50,7 +50,7 @@ INSERT INTO rplvars (varname, varvalue)
         VARIABLE_NAME LIKE '%slave%') AND
        (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
         'innodb_master_thread_disabled_debug', 'innodb_strict_gtid_commit','forbid_remote_change_master', 'forbid_remote_change_sql_log_bin',
-        'relay_log_sync_threshold','relay_log_sync_timeout', 'relay_log_sync_txn_count', 'tdsql_relay_log_opt', 'tdsql_allow_async','txsql_slave_io_optimaze_write'))
+        'relay_log_sync_threshold','relay_log_sync_timeout', 'relay_log_sync_txn_count', 'tdsql_relay_log_opt', 'tdsql_allow_async','txsql_slave_io_optimaze_write','sqlasync_group_slave_ack'))
        ORDER BY VARIABLE_NAME;
 --enable_warnings
 --let $countvars= `SELECT COUNT(*) FROM rplvars;`

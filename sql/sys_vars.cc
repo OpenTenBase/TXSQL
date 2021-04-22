@@ -1,3 +1,4 @@
+
 /* Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
@@ -7236,6 +7237,12 @@ static Sys_var_bool Sys_tdsql_allow_async(
     "When no slave ack, allow master to do asynchronous replication.",
     GLOBAL_VAR(tdsql_allow_async),
     CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_sqlasyn_group_slave_ack(
+    "sqlasync_group_slave_ack",
+    "the slave node use group ack(merge fsync), It ensures data persistence and reduces IO ",
+    GLOBAL_VAR(sqlasync_group_slave_ack),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
 
 static Sys_var_bool Sys_log_prepared_xid_list(
     "log_prepared_xid_list",

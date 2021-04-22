@@ -44,6 +44,8 @@ class Basic_ostream {
   */
   virtual bool write(const unsigned char *buffer, my_off_t length) = 0;
   virtual ~Basic_ostream() {}
+
+  virtual File get_fd () { return -1; }
 };
 
 /**
@@ -141,6 +143,8 @@ class IO_CACHE_ostream : public Truncatable_ostream {
      @retval true  Error
   */
   bool sync() override;
+
+  virtual File get_fd () { return m_io_cache.file; }
 
  private:
   IO_CACHE m_io_cache;

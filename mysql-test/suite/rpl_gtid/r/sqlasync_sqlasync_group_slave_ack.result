@@ -1,0 +1,220 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set global gtid_mode = 'off_permissive';
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'ON';
+set gtid_next='automatic';
+call mtr.add_suppression("Error reading relay log event for channel '': binlog truncated in the middle of event; consider out of disk space");
+call mtr.add_suppression("Relay log read failure: Could not parse relay log event entry. The possible reasons are *");
+call mtr.add_suppression("Error reading GTIDs from relaylog *");
+call mtr.add_suppression("GTID_LOG_EVENT or ANONYMOUS_GTID_LOG_EVENT is not expected in an event stream in the middle of a DML *");
+call mtr.add_suppression("An unexpected event sequence was detected by the IO thread while queuing the event received from master *");
+CALL mtr.add_suppression("aborting in bottom half answering thread, reason");
+CALL mtr.add_suppression("rpl_slave_ack_thread::flush_and_ack get error,so we should stop io thread");
+CALL mtr.add_suppression("may be Failed to flush master info");
+select @@sqlasyn;
+@@sqlasyn
+1
+select @@thread_handling;
+@@thread_handling
+pool-of-threads
+select @@sqlasync_group_slave_ack;
+@@sqlasync_group_slave_ack
+1
+select @@sqlasyn;
+@@sqlasyn
+1
+select @@thread_handling;
+@@thread_handling
+pool-of-threads
+select @@sqlasync_group_slave_ack;
+@@sqlasync_group_slave_ack
+1
+create table t1(a int primary key, b int);
+insert into t1 values (0,0);
+insert into t1 values (1,1);
+"the master node get 2 rows"
+select *from t1;
+a	b
+0	0
+1	1
+include/sync_slave_sql_with_master.inc
+"the slave node get 2 rows"
+select *from t1;
+a	b
+0	0
+1	1
+set global debug='+d,rpl_slave_ack_thread_sleep';
+select *from t1;
+a	b
+0	0
+1	1
+insert into t1 values (2,2);
+ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+[connection master]
+insert into t1 values (3,3);
+ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+[connection master]
+insert into t1 values (4,4);
+ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+[connection master]
+"although sqlasyn timeout,but the master node can read 5 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+include/sync_slave_io_with_master.inc
+"because the slave node set rpl_slave_ack_thread_sleep,so the slave node just can read 2 rows"
+select *from t1;
+a	b
+0	0
+1	1
+set global debug='+d,rpl_slave_ack_thread_run';
+include/sync_slave_sql_with_master.inc
+"after the slave node set rpl_slave_ack_thread_run, the slave node just can read 5 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+"begin test slave stop slave"
+set global debug='+d,rpl_slave_ack_thread_sleep';
+"now the master has 5 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+insert into t1 values (5,5);
+ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+[connection master]
+"now the master has 6 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+"because the slave node set rpl_slave_ack_thread_sleep,so the slave node just can read 5 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+"restart slave"
+# Kill and restart
+include/rpl_reconnect.inc
+start slave;
+include/sync_slave_sql_with_master.inc
+"after restart slave,so the slave node just can read 6 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+"end test slave restart"
+insert into t1 values (6,6);
+"the master node get 7 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+include/sync_slave_sql_with_master.inc
+"the slave node just can read 7 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+set global debug='+d,rpl_slave_ack_thread_flush_and_ack_fail';
+insert into t1 values (7,7);
+insert into t1 values (8,8);
+"the master node get 9 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+insert into t1 values (9,9);
+ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+[connection master]
+"the master node get 10 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+include/assert.inc [when set rpl_slave_ack_thread_flush_and_ack_fail,the io thread should stop]
+"the slave node get 9 rows,and the io thread stoped"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+start slave io_thread;
+insert into t1 values (10,10);
+include/sync_slave_sql_with_master.inc
+"after start io thread,the slave node get 11 rows"
+select *from t1;
+a	b
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'OFF_PERMISSIVE';

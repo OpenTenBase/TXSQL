@@ -78,6 +78,8 @@ sqlasyn_slave_recv_txns	#
 sqlasyn_slave_relaylog_syncs	#
 sqlasyn_timeout_num	#
 sqlasync_delay_commit	#
+sqlasync_group_slave_push_to_queue_fail	#
+sqlasync_group_slave_relay_fsync	#
 show status like 'sqlasyn_%';
 Variable_name	Value
 sqlasyn_acks_to_master	#
@@ -90,6 +92,8 @@ sqlasyn_slave_recv_txns	#
 sqlasyn_slave_relaylog_syncs	#
 sqlasyn_timeout_num	#
 sqlasync_delay_commit	#
+sqlasync_group_slave_push_to_queue_fail	#
+sqlasync_group_slave_relay_fsync	#
 set global sqlasyntimeout = 30;
 set global sqlasynwarntimeout = 3;
 set global sqlasync_after_sync = 0;

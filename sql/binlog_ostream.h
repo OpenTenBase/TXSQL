@@ -286,6 +286,8 @@ class Binlog_encryption_ostream : public Truncatable_ostream {
   bool seek(my_off_t offset) override;
   bool flush() override;
   bool sync() override;
+
+  virtual File get_fd () { return m_down_ostream->get_fd(); }
   /**
     Return the encrypted file header size.
 

@@ -510,7 +510,7 @@ bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
     BinlogPosAns *binlogAns = (BinlogPosAns*) newCommHead;
     binlogAns->decode();
 
-//    sql_print_information("get binlog ans:%s",binlogAns->toString().c_str());//just for test
+    //sql_print_information("get binlog ans:%s",binlogAns->toString().c_str());//just for test,don't need delete this line
 
     ack_info.set(binlogAns->getFileName(), binlogAns->log_pos);
 

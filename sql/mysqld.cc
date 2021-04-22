@@ -715,6 +715,7 @@ The documentation is based on the source files such as:
 #include "thr_mutex.h"
 #include "typelib.h"
 #include "violite.h"
+#include "sql/rpl_slave_ack_thread.h"
 
 #include "storage/innobase/include/srv0srv.h"
 
@@ -1032,6 +1033,9 @@ bool migrate_connect_options = 0;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 
+extern ulonglong sqlasync_group_slave_relay_fsync;
+extern ulonglong sqlasync_group_slave_push_to_queue_fail;
+
 ulong txsql_convert_myisam_to_innodb;
 const char *txsql_convert_myisam_to_innodb_names[]=
 { "OFF", "WARN", "ON", "TRY", NullS };
@@ -1052,6 +1056,7 @@ bool g_sqlAsyn = false;
 bool g_sqlAsyncAfterSync = false;
 bool g_reliable_relaylog = true;
 bool tdsql_allow_async = false;
+bool sqlasync_group_slave_ack = true;
 bool g_log_prepared_xid_list = true;
 bool g_sp_cache_range = false;
 ulong g_relaylog_sync_threshold;
@@ -1066,6 +1071,19 @@ uint g_sqlAsyncNSlaves = 1;
 bool g_txsql_optimize_xa_recover = false;
 bool g_simplify_priv_check = false;
 CThdBottomHalf *g_thdBottomHalf = nullptr;
+rpl_slave_ack_thread * global_slave_ack_thread = NULL;
+
+void clean_txsql_thread_resouce() {
+  if(global_slave_ack_thread) {
+    delete global_slave_ack_thread;
+    global_slave_ack_thread = NULL;
+  }
+  if (g_thdBottomHalf) {//run this,all thd have been destored,so we can safely delete g_thdBottomHalf
+    delete g_thdBottomHalf;
+    g_thdBottomHalf = nullptr;
+  }
+}
+
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.
@@ -2175,6 +2193,9 @@ static void unireg_abort(int exit_code) {
   clean_up(!is_help_or_validate_option() && !daemon_launcher_quiet &&
            (exit_code || !opt_initialize)); /* purecov: inspected */
   DBUG_PRINT("quit", ("done with cleanup in unireg_abort"));
+
+  clean_txsql_thread_resouce();
+
   mysqld_exit(exit_code);
 }
 
@@ -7312,9 +7333,15 @@ int mysqld_main(int argc, char **argv)
   mysql_cond_broadcast(&COND_socket_listener_active);
   mysql_mutex_unlock(&LOCK_socket_listener_active);
 #endif  // !_WIN32
+
+  if(global_slave_ack_thread) {
+    global_slave_ack_thread->stop();
+  }
   if (g_thdBottomHalf) {
     g_thdBottomHalf->stop_all();
   }
+
+
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /*
     Disable the main thread instrumentation,
@@ -7339,10 +7366,8 @@ int mysqld_main(int argc, char **argv)
     LogErr(WARNING_LEVEL, ER_CANT_JOIN_SHUTDOWN_THREAD, "signal_", ret);
 #endif  // _WIN32
 
-  if (g_thdBottomHalf) {//run this,all thd have been destored,so we can safely delete g_thdBottomHalf
-    delete g_thdBottomHalf;
-    g_thdBottomHalf = nullptr;
-  }
+  clean_txsql_thread_resouce();
+
 
   clean_up(1);
   sysd::notify("STATUS=Server shutdown complete");
@@ -9067,6 +9092,8 @@ SHOW_VAR status_vars[] = {
     {"sqlasyn_acks_to_master", (char*) &sqlasyn_sendto_master, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"sqlasyn_slave_recv_txns", (char*) &sqlasyn_slave_recv_txns, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"sqlasyn_slave_relaylog_syncs", (char*) &sqlasyn_slave_relaylog_syncs, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_group_slave_relay_fsync", (char*) &sqlasync_group_slave_relay_fsync, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_group_slave_push_to_queue_fail", (char*) &sqlasync_group_slave_push_to_queue_fail, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
 
     /* Memory used */
     {"Total_server_memory_used", (char*) &show_total_server_memory_used, SHOW_FUNC, SHOW_SCOPE_GLOBAL},

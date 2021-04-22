@@ -126,6 +126,7 @@
 
 extern bool txsql_slave_io_optimaze_write;
 extern bool print_invalid_replication_timestamps;
+extern ulonglong sqlasync_group_slave_relay_fsync ;
 
 class Item;
 
@@ -437,6 +438,11 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
   my_off_t position() { return m_position; }
   bool is_empty() { return position() == 0; }
   bool is_open() { return m_pipeline_head != nullptr; }
+
+  virtual File get_fd () {
+    return m_pipeline_head->get_fd();
+  }
+
   /**
     Returns the encrypted header size of the binary log file.
 
@@ -6771,12 +6777,18 @@ end:
   @retval false success
   @retval true error
 */
-bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl) {
+bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl, bool group_slave_ack) {
   DBUG_TRACE;
   DBUG_PRINT("info", ("max_size: %lu", max_size));
 
   // Check pre-conditions
+  if(group_slave_ack) {//group ack mode,we don't own lock
+    mysql_mutex_assert_not_owner(&LOCK_log);
+    mysql_mutex_lock(&LOCK_log);
+  }
+
   mysql_mutex_assert_owner(&LOCK_log);
+
   DBUG_ASSERT(is_relay_log);
 
   /*
@@ -6784,6 +6796,9 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl) {
     only if the trx parser is not inside a transaction.
   */
   bool can_rotate = mi->transaction_parser.is_not_inside_transaction();
+  if (group_slave_ack) {
+    can_rotate = false;
+  }
 
 #ifndef DBUG_OFF
   if (m_binlog_file->get_real_file_size() >
@@ -6795,7 +6810,15 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl) {
 #endif
 
   // Flush and sync
-  bool error = flush_and_sync(g_reliable_relaylog && sync_rl);
+  File fd  = -1;
+  bool error = false;
+  if (group_slave_ack) {//just flush , delay group fsync
+    error = flush();
+    fd = m_binlog_file->get_fd();
+  } else {
+    error = flush_and_sync(g_reliable_relaylog && sync_rl);
+  }
+
   if (error) {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -6852,7 +6875,52 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl) {
   harvest_bytes_written(mi->rli, true /*need_log_space_lock=true*/);
   unlock_binlog_end_pos();
 
+  if (group_slave_ack) {
+    mysql_mutex_unlock(&LOCK_log);
+    //fsync is slow,don't need lock
+    if( fd >= 0 ) {
+      if( !mysql_file_sync(fd, MYF(MY_WME)) ){
+        sqlasync_group_slave_relay_fsync++;
+      }
+    }
+  }
+
   return error;
+}
+
+bool MYSQL_BIN_LOG::update_retrieved_gtid_set(Master_info *mi) {//just used to update Retrieved_Gtid_Set
+
+  DBUG_ASSERT(is_relay_log);
+
+  bool is_not_inside_transaction = mi->transaction_parser.is_not_inside_transaction();
+  if(!is_not_inside_transaction) {
+    return true;
+  }
+
+  //is_not_inside_transaction is true,so we have finished the gtid
+  /*
+    If the last event of the transaction has been flushed, we can add
+    the GTID (if it is not empty) to the logged set, or else it will
+    not be available in the Previous GTIDs of the next relay log file
+    if we are going to rotate the relay log.
+  */
+  const Gtid *last_gtid_queued = mi->get_queueing_trx_gtid();
+  if (!last_gtid_queued->is_empty()) {
+    mi->rli->get_sid_lock()->rdlock();
+    DBUG_SIGNAL_WAIT_FOR(current_thd, "updating_received_transaction_set",
+                         "reached_updating_received_transaction_set",
+                         "continue_updating_received_transaction_set");
+    mi->rli->add_logged_gtid(last_gtid_queued->sidno,
+                             last_gtid_queued->gno);
+    mi->rli->get_sid_lock()->unlock();
+  }
+
+  if (mi->is_queueing_trx()) {
+    mi->finished_queueing();
+  }
+
+
+  return true;
 }
 
 bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
@@ -6880,7 +6948,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   return error;
 }
 
-bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl) {
+bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl, bool group_slave_ack) {
   DBUG_TRACE;
 
   // check preconditions
@@ -6891,8 +6959,12 @@ bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, boo
   bool error = false;
   if (m_binlog_file->write(pointer_cast<const uchar *>(buf), len) == 0) {
     bytes_written += len;
-    if((!txsql_slave_io_optimaze_write) || need_write || sync_rl) {
-      error = after_write_to_relay_log(mi, sync_rl);
+    if(!group_slave_ack) { //if group_slave_ack is true,we just write relay log to memory
+      if((!txsql_slave_io_optimaze_write) || need_write || sync_rl) {
+        error = after_write_to_relay_log(mi, sync_rl, group_slave_ack);
+      }
+    } else { //update Retrieved_Gtid_Set,authough relay log does't writed to disk,it is safe to update Retrieved_Gtid_Set ahead of time
+      update_retrieved_gtid_set(mi);
     }
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,

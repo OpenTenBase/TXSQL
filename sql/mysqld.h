@@ -425,6 +425,7 @@ extern bool g_sqlAsyn;
 extern bool g_sqlAsyncAfterSync;
 extern bool g_reliable_relaylog;
 extern bool tdsql_allow_async;
+extern bool sqlasync_group_slave_ack;
 extern bool g_log_prepared_xid_list;
 extern bool g_sp_cache_range;
 extern bool g_simplify_priv_check;

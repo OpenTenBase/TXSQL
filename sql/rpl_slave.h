@@ -514,7 +514,7 @@ typedef enum {
 } QUEUE_EVENT_RESULT;
 QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
                                ulong event_len, bool flush_mi,
-                               bool& needAck, bool &rl_synced);
+                               bool& needAck, bool &rl_synced, bool local_sqlasync_group_slave_ack);
 
 extern "C" void *handle_slave_io(void *arg);
 extern "C" void *handle_slave_sql(void *arg);

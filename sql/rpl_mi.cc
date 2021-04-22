@@ -210,7 +210,7 @@ Master_info::Master_info(
   server_extn.m_before_header = nullptr;
   server_extn.m_after_header = nullptr;
   server_extn.compress_ctx.algorithm = MYSQL_UNCOMPRESSED;
-  gtid_monitoring_info = new Gtid_monitoring_info(&data_lock);
+  gtid_monitoring_info = new Gtid_monitoring_info(NULL);//when support slave ack group,we use it owns atomic lock
 
   mysql_mutex_init(*key_info_rotate_lock, &this->rotate_lock,
                    MY_MUTEX_INIT_FAST);
@@ -428,6 +428,11 @@ void Master_info::sync_relaylog_send_ack() {
 }
 
 void sync_relaylog_ack_all_masters() {
+
+  if (sqlasync_group_slave_ack) {//group ack mode,don't call again
+    return ;
+  }
+
   channel_map.rdlock();
 
   for (mi_map::iterator i= channel_map.begin(); i != channel_map.end(); ++i) {

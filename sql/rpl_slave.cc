@@ -150,6 +150,7 @@
 #include "sql_common.h"  // end_server
 #include "sql_string.h"
 #include "typelib.h"
+#include "sql/rpl_slave_ack_thread.h"
 
 struct mysql_cond_t;
 struct mysql_mutex_t;
@@ -285,6 +286,8 @@ enum enum_slave_apply_event_and_update_pos_retval {
 ulonglong sqlasyn_slave_recv_txns = 0;
 ulonglong sqlasyn_slave_relaylog_syncs = 0;
 ulonglong sqlasyn_sendto_master = 0;
+ulonglong sqlasync_group_slave_relay_fsync  = 0;
+ulonglong sqlasync_group_slave_push_to_queue_fail  = 0;
 
 static int process_io_rotate(Master_info *mi, Rotate_log_event *rev);
 static bool wait_for_relay_log_space(Relay_log_info *rli);
@@ -446,11 +449,18 @@ static void init_slave_psi_keys(void) {
 
 /* Initialize slave structures */
 
+extern rpl_slave_ack_thread * global_slave_ack_thread;
+
 int init_slave() {
   DBUG_TRACE;
   int error = 0;
   int thread_mask = SLAVE_SQL | SLAVE_IO;
   Master_info *mi = nullptr;
+
+  if(!global_slave_ack_thread) {
+    global_slave_ack_thread = new rpl_slave_ack_thread();
+    global_slave_ack_thread->start_thread();
+  }
 
 #ifdef HAVE_PSI_INTERFACE
   init_slave_psi_keys();
@@ -1373,7 +1383,9 @@ int flush_master_info(Master_info *mi, bool force, bool need_lock,
     mysql_mutex_lock(log_lock);
     mysql_mutex_lock(data_lock);
   } else {
-    mysql_mutex_assert_owner(log_lock);
+    if ( do_flush_relay_log ) {
+      mysql_mutex_assert_owner(log_lock);
+    }
     mysql_mutex_assert_owner(&mi->data_lock);
   }
 
@@ -5465,6 +5477,7 @@ reading event"))
            whether event has been synced to disk */
         bool synced = 0;
         bool needAck = false;
+        bool local_sqlasync_group_slave_ack = sqlasync_group_slave_ack && g_sqlAsyn && mi->channel_is_empty();
 #ifndef DBUG_OFF
         bool was_in_trx = false;
         if (mi->is_queueing_trx()) {
@@ -5480,8 +5493,8 @@ reading event"))
         }
 #endif
         QUEUE_EVENT_RESULT queue_res = queue_event(mi, event_buf, event_len,
-                                                    g_reliable_relaylog, /* true if flushing master info */
-                                                    needAck, synced);
+                                                    local_sqlasync_group_slave_ack ? false : g_reliable_relaylog, /* true if flushing master info ,when use group ack,we will delay flush master*/
+                                                    needAck, synced, local_sqlasync_group_slave_ack);
         if (queue_res == QUEUE_EVENT_ERROR_QUEUING) {
           mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                      ER_THD(thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -5508,29 +5521,44 @@ reading event"))
           goto err;
         }
 
-        if (g_sqlAsyn && needAck && (!g_reliable_relaylog || synced)) {
-          mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
-          mysql_mutex_lock(&mi->data_lock);
-          if (flush_master_info(mi, false, false, true)) {
-            mi->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
-                ER_THD(thd, ER_SLAVE_FATAL_ERROR),
-                "Failed to flush master info");
-            mysql_mutex_unlock(&mi->data_lock);
-            mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
-            goto err;
+        if (g_sqlAsyn && needAck) {
+
+          if (local_sqlasync_group_slave_ack) {
+            while(!global_slave_ack_thread->push(mi->master_log_name, mi->master_log_pos)) {//don't need lock
+              ++sqlasync_group_slave_push_to_queue_fail ;
+             std::this_thread::yield();
+            }
+            if (unlikely(global_slave_ack_thread->is_fail_when_check())) {
+              global_slave_ack_thread->set_fail_next_check(false);//reset fail flag
+              mi->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                                ER_THD(thd, ER_SLAVE_FATAL_ERROR),
+                                "global_slave_ack_thread->is_fail_when_check(),may be Failed to flush master info");
+              goto err;
+            }
+          } else if(!g_reliable_relaylog || synced) {
+              mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
+              mysql_mutex_lock(&mi->data_lock);
+              if (flush_master_info(mi, false, false, true)) {
+               mi->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                   ER_THD(thd, ER_SLAVE_FATAL_ERROR),
+                   "Failed to flush master info");
+               mysql_mutex_unlock(&mi->data_lock);
+               mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+               goto err;
+              }
+
+              BinlogPosAns ans;
+              ans.setFileName(mi->master_log_name,strlen(mi->master_log_name));
+              ans.log_pos  = mi->master_log_pos;
+              ans.set_server_id(server_id);
+
+              mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+              mysql_mutex_unlock(&mi->data_lock);
+
+              ans.computeLen();
+              mi->sendAnsToMaster(ans);
+              ++sqlasyn_sendto_master;
           }
-
-          BinlogPosAns ans;
-          ans.setFileName(mi->master_log_name,strlen(mi->master_log_name));
-          ans.log_pos  = mi->master_log_pos;
-          ans.set_server_id(server_id);
-
-          mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
-          mysql_mutex_unlock(&mi->data_lock);
-
-          ans.computeLen();
-          mi->sendAnsToMaster(ans);
-          ++sqlasyn_sendto_master;
         }
 
         /* The event was queued, but there was a failure flushing master info */
@@ -7474,7 +7502,7 @@ static bool checkNeedAck(Master_info* m,Log_event_type event_type){
 */
 QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
                                ulong event_len, bool do_flush_mi,
-                               bool& needAck, bool &rl_synced) {
+                               bool& needAck, bool &rl_synced, bool local_sqlasync_group_slave_ack) {
   QUEUE_EVENT_RESULT res = QUEUE_EVENT_OK;
   ulong inc_pos = 0;
   Relay_log_info *rli = mi->rli;
@@ -8002,6 +8030,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       Gtid_log_event anon_gtid_ev(buf, mi->get_mi_description_event());
       original_commit_timestamp = anon_gtid_ev.original_commit_timestamp;
       immediate_commit_timestamp = anon_gtid_ev.immediate_commit_timestamp;
+      mi->setLastGtidIsDdl((anon_gtid_ev.header()->flags) & LOG_EVENT_DDL_F);
     }
     /* fall through */
     default:
@@ -8156,27 +8185,34 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       sqlasyn_slave_recv_txns++;
 
     ulonglong now_hr= 0;// resolution: micro second.
-    if (needAck && ((mi->accu_bytes_relaylog + event_len > g_relaylog_sync_threshold) ||
-          !g_relaylog_fsync_txn_count ||
-          g_relaylog_fsync_txn_count <= mi->txns_since_last_relaylog_sync ||
-          !g_relaylog_fsync_ack_timeout ||
-          ((now_hr= my_microsecond_getsystime()) - mi->when_last_fsync_ack > g_relaylog_fsync_ack_timeout)))
-      rl_synced= true; // we must sync relay log now.
+    if (local_sqlasync_group_slave_ack) {//ack thread to sync
+      rl_synced = false;
+    } else {
+      if (needAck && ((mi->accu_bytes_relaylog + event_len > g_relaylog_sync_threshold) ||
+              !g_relaylog_fsync_txn_count ||
+              g_relaylog_fsync_txn_count <= mi->txns_since_last_relaylog_sync ||
+              !g_relaylog_fsync_ack_timeout ||
+              ((now_hr= my_microsecond_getsystime()) - mi->when_last_fsync_ack > g_relaylog_fsync_ack_timeout)))
+          rl_synced= true; // we must sync relay log now.
+
+    }
 
     /* write the event to the relay log */
-    if (likely(rli->relay_log.write_buffer(buf, event_len, mi, need_write, rl_synced) == 0)) {
+    if (likely(rli->relay_log.write_buffer(buf, event_len, mi, need_write, rl_synced, local_sqlasync_group_slave_ack) == 0)) {
       DBUG_SIGNAL_WAIT_FOR(current_thd,
                            "pause_on_queue_event_after_write_buffer",
                            "receiver_reached_pause_on_queue_event",
                            "receiver_continue_queuing_event");
-      mysql_mutex_lock(&mi->data_lock);
-      lock_count = 2;
-      mi->set_master_log_pos(mi->get_master_log_pos() + inc_pos);
+      if (!local_sqlasync_group_slave_ack) {//if it is true,ack thread do flush master,so don't need lock
+        mysql_mutex_lock(&mi->data_lock);
+        lock_count = 2;
+      }
+      mi->set_master_log_pos(mi->get_master_log_pos() + inc_pos);//just this thread add this pos,don't need lock
       DBUG_PRINT("info",
                  ("master_log_pos: %lu", (ulong)mi->get_master_log_pos()));
 
       mi->accu_bytes_relaylog += event_len;
-      if (needAck) {
+      if ( unlikely(needAck && !local_sqlasync_group_slave_ack)  ) {
         mi->update_sync_ack_status(rl_synced && g_reliable_relaylog);
       }
       
@@ -8246,7 +8282,7 @@ err:
   res = QUEUE_EVENT_ERROR_QUEUING;
 
 end:
-  if (res == QUEUE_EVENT_OK && do_flush_mi) {
+  if ( unlikely(do_flush_mi && res == QUEUE_EVENT_OK && !local_sqlasync_group_slave_ack)) {
     /*
       Take a ride in the already locked LOCK_log to flush master info.
 

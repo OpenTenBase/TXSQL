@@ -1385,6 +1385,10 @@ The following options may be given as the first argument:
  --sqlasync-after-sync 
  If true, the async process will commit transaction for
  each thd
+ --sqlasync-group-slave-ack 
+ the slave node use group ack(merge fsync), It ensures
+ data persistence and reduces IO 
+ (Defaults to on; use --skip-sqlasync-group-slave-ack to disable.)
  --sqlasync-wait-n-slaves[=#] 
  commit transaction after receiving ack from at least this
  many slaves
@@ -1961,6 +1965,7 @@ sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERR
 sql-require-primary-key FALSE
 sqlasyn FALSE
 sqlasync-after-sync FALSE
+sqlasync-group-slave-ack TRUE
 sqlasync-wait-n-slaves 1
 sqlasyntimeout 30
 sqlasynwarntimeout 3

@@ -220,6 +220,8 @@ sqlasyn
 sqlasyn
 sqlasync_after_sync
 sqlasync_after_sync
+sqlasync_group_slave_ack
+sqlasync_group_slave_ack
 sqlasync_wait_n_slaves
 sqlasync_wait_n_slaves
 sqlasyntimeout

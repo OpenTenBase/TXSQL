@@ -195,9 +195,9 @@ public:
     m_pos = 0;
   }
 
-  uint64_t file_no() const { return (m_file_no); }
+  inline uint64_t file_no() const { return (m_file_no); }
 
-  my_off_t pos() const { return (m_pos); }
+  inline my_off_t pos() const { return (m_pos); }
 
   uint64_t get_file_no(const char *filename) {
     const char *ptr = strrchr(filename, '.');
@@ -237,9 +237,8 @@ public:
     }
   }
 
-  void operator = (const Thd_Trans_binlog_info & lft) {
-    m_file_no = lft.file_no();
-    m_pos = lft.pos();
+  inline bool is_valid() const {
+    return m_file_no > 0;
   }
 
   friend bool operator ==(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht);

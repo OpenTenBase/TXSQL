@@ -902,6 +902,7 @@ SET (SLAVE_SOURCE
   rpl_rli.cc
   rpl_rli_pdb.cc
   rpl_slave.cc
+  rpl_slave_ack_thread.cc
   rpl_slave_commit_order_manager.cc
   rpl_slave_until_options.cc
   rpl_trx_boundary_parser.cc

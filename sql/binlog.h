@@ -829,11 +829,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void stop_union_events(THD *thd);
   bool is_query_in_union(THD *thd, query_id_t query_id_param);
 
-  bool write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl);
+  bool write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl, bool group_slave_ack = false);
   bool write_event(Log_event *ev, Master_info *mi);
 
- private:
-  bool after_write_to_relay_log(Master_info *mi, bool sync_rl= false);
+
+  bool after_write_to_relay_log(Master_info *mi, bool sync_rl= false, bool group_slave_ack = false);
+  bool update_retrieved_gtid_set(Master_info *mi);//just used to update Retrieved_Gtid_Set
 
  public:
   void make_log_name(char *buf, const char *log_ident);
