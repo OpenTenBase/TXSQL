@@ -523,32 +523,41 @@ bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
   return false;
 }
 
-struct Worker_thread_context {
-    PSI_thread *psi_thread;
-#ifndef DBUG_OFF
-    my_thread_id thread_id;
-#endif
-
-    void save() {
+class Worker_thread_context {
 #ifdef HAVE_PSI_THREAD_INTERFACE
-        psi_thread= PSI_THREAD_CALL(get_thread)();
+  PSI_thread *const psi_thread;
 #endif
 #ifndef DBUG_OFF
-        thread_id = my_thread_var_id();
+  const my_thread_id thread_id;
 #endif
-    }
-
-    void restore() {
+ public:
+  Worker_thread_context() noexcept
 #ifdef HAVE_PSI_THREAD_INTERFACE
-        PSI_THREAD_CALL(set_thread)(psi_thread);
+    :
+    psi_thread(PSI_THREAD_CALL(get_thread)())
+#ifndef DBUG_OFF
+    ,
+#endif
 #endif
 #ifndef DBUG_OFF
-        set_my_thread_var_id(thread_id);
+#ifndef HAVE_PSI_THREAD_INTERFACE
+    :
 #endif
-        //  pthread_setspecific(THR_THD, 0);
-        //  pthread_setspecific(THR_MALLOC, 0);
-        THR_MALLOC = nullptr;
-    }
+        thread_id(my_thread_var_id())
+#endif
+  {
+  }
+
+  ~Worker_thread_context() noexcept {
+#ifdef HAVE_PSI_THREAD_INTERFACE
+    PSI_THREAD_CALL(set_thread)(psi_thread);
+#endif
+#ifndef DBUG_OFF
+    set_my_thread_var_id(thread_id);
+#endif
+    current_thd = nullptr;
+    THR_MALLOC = nullptr;
+  }
 };
 
 /*
@@ -621,7 +630,6 @@ int CThdBottomHalfAnsThread::run() {
         }
 
         Worker_thread_context worker_context;
-        worker_context.save();
 
         thread_attach(the_thd);
 
@@ -663,7 +671,6 @@ int CThdBottomHalfAnsThread::run() {
         if (!thd_timeout) // if times out, the connection will be aborted below so won't bind it.
             bind_result= bindThdToEvent(the_thd);
 conn_gone:
-        worker_context.restore();
         unlock_conn_sqlasync(connection);
         if (!bind_result) {
             sql_print_error("aborting in bottom half answering thread, reason: %s",

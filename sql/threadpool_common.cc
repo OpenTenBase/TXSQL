@@ -116,6 +116,7 @@ class Worker_thread_context {
 #ifndef DBUG_OFF
     set_my_thread_var_id(thread_id);
 #endif
+    current_thd = nullptr;
     THR_MALLOC = nullptr;
   }
 };
