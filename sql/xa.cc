@@ -27,6 +27,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <functional>
 
 #include "m_ctype.h"
 #include "m_string.h"
@@ -90,9 +91,50 @@ struct transaction_free_hash {
 };
 
 static bool inited = false;
-static mysql_mutex_t LOCK_transaction_cache;
-static malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>
-    transaction_cache{key_memory_XID};
+
+#define XID_CACHE_INSTANCE  128
+
+static mysql_mutex_t LOCK_transaction_cache[XID_CACHE_INSTANCE];
+static malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>*
+    transaction_cache[XID_CACHE_INSTANCE];
+
+// Used to create keys for the map
+static std::string to_string(const XID &xid) {
+  return std::string(pointer_cast<const char *>(xid.key()), xid.key_length());
+}
+
+uint64_t get_instance_no(XID *xid) {
+  std::string xid_str = to_string(*xid);
+  size_t hash_val = std::hash<std::string>{}(xid_str);
+
+  return hash_val % XID_CACHE_INSTANCE;
+}
+
+class XidCacheGuard {
+public:
+  XidCacheGuard(XID *xid) {
+    m_instance_no = get_instance_no(xid);
+    mysql_mutex_lock(&LOCK_transaction_cache[m_instance_no]);
+  }
+
+  XidCacheGuard(uint64_t i) {
+    assert(i < XID_CACHE_INSTANCE);
+    mysql_mutex_lock(&LOCK_transaction_cache[i]);
+    m_instance_no = i;
+  }
+
+
+  ~XidCacheGuard() {
+    mysql_mutex_unlock(&LOCK_transaction_cache[m_instance_no]);
+  }
+
+  uint64_t instance_no() const {
+    return m_instance_no;
+  }
+
+private:
+  uint64_t  m_instance_no;
+};
 
 static const uint MYSQL_XID_PREFIX_LEN = 8;  // must be a multiple of 8
 static const uint MYSQL_XID_OFFSET = MYSQL_XID_PREFIX_LEN + sizeof(server_id);
@@ -1379,24 +1421,25 @@ bool Sql_cmd_xa_recover::trans_xa_recover(THD *thd) {
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
 
-  mysql_mutex_lock(&LOCK_transaction_cache);
 
-  for (const auto &key_and_value : transaction_cache) {
-    Transaction_ctx *transaction = key_and_value.second.get();
-    XID_STATE *xs = transaction->xid_state();
-    if (xs->has_state(XID_STATE::XA_PREPARED)) {
-      protocol->start_row();
-      xs->store_xid_info(protocol, m_print_xid_as_hex,
-                         m_print_xid_prepare_time);
+  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    XidCacheGuard guard(i);
 
-      if (protocol->end_row()) {
-        mysql_mutex_unlock(&LOCK_transaction_cache);
-        return true;
+    for (const auto &key_and_value : *transaction_cache[i]) {
+      Transaction_ctx *transaction = key_and_value.second.get();
+      XID_STATE *xs = transaction->xid_state();
+      if (xs->has_state(XID_STATE::XA_PREPARED)) {
+        protocol->start_row();
+        xs->store_xid_info(protocol, m_print_xid_as_hex,
+            m_print_xid_prepare_time);
+
+        if (protocol->end_row()) {
+          return true;
+        }
       }
     }
   }
 
-  mysql_mutex_unlock(&LOCK_transaction_cache);
   my_eof(thd);
   return false;
 }
@@ -1578,10 +1621,6 @@ char *XID::xid_to_str(char *buf) const {
 }
 #endif
 
-static inline std::string to_string(const XID &xid) {
-  return std::string(pointer_cast<const char *>(xid.key()), xid.key_length());
-}
-
 /**
   Callback that is called to do cleanup.
 
@@ -1614,16 +1653,26 @@ bool transaction_cache_init() {
   init_transaction_cache_psi_keys();
 #endif
 
-  mysql_mutex_init(key_LOCK_transaction_cache, &LOCK_transaction_cache,
+  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    mysql_mutex_init(key_LOCK_transaction_cache, &LOCK_transaction_cache[i],
                    MY_MUTEX_INIT_FAST);
+
+    transaction_cache[i] = new malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>(key_memory_XID);
+    transaction_cache[i]->clear();
+  }
   inited = true;
   return false;
 }
 
 void transaction_cache_free() {
   if (inited) {
-    transaction_cache.clear();
-    mysql_mutex_destroy(&LOCK_transaction_cache);
+
+    for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+      transaction_cache[i]->clear();
+      delete transaction_cache[i];
+      transaction_cache[i] = nullptr;
+      mysql_mutex_destroy(&LOCK_transaction_cache[i]);
+    }
   }
 }
 
@@ -1640,12 +1689,11 @@ void transaction_cache_free() {
 
 static std::shared_ptr<Transaction_ctx> transaction_cache_search(XID *xid) {
   std::shared_ptr<Transaction_ctx> res{nullptr};
-  mysql_mutex_lock(&LOCK_transaction_cache);
+  XidCacheGuard guard(xid);
 
-  const auto it = transaction_cache.find(to_string(*xid));
-  if (it != transaction_cache.end()) res = it->second;
+  const auto it = transaction_cache[guard.instance_no()]->find(to_string(*xid));
+  if (it != transaction_cache[guard.instance_no()]->end()) res = it->second;
 
-  mysql_mutex_unlock(&LOCK_transaction_cache);
   return res;
 }
 
@@ -1663,10 +1711,10 @@ static std::shared_ptr<Transaction_ctx> transaction_cache_search(XID *xid) {
 */
 
 bool transaction_cache_insert(XID *xid, Transaction_ctx *transaction) {
-  mysql_mutex_lock(&LOCK_transaction_cache);
+  XidCacheGuard guard(xid);
+
   std::shared_ptr<Transaction_ctx> ptr(transaction, transaction_free_hash());
-  bool res = !transaction_cache.emplace(to_string(*xid), std::move(ptr)).second;
-  mysql_mutex_unlock(&LOCK_transaction_cache);
+  bool res = !transaction_cache[guard.instance_no()]->emplace(to_string(*xid), std::move(ptr)).second;
   if (res) {
     my_error(ER_XAER_DUPID, MYF(0));
   }
@@ -1686,8 +1734,10 @@ inline bool create_and_insert_new_transaction(XID *xid, bool is_binlogged_arg,
   xs->start_recovery_xa(xid, is_binlogged_arg);
   xs->set_prepare_state_time(prepare_state_time);
 
-  return !transaction_cache
-              .emplace(to_string(*xs->get_xid()),
+  uint64_t instance_no = get_instance_no(xid);
+
+  return !transaction_cache[instance_no]
+              ->emplace(to_string(*xs->get_xid()),
                        std::shared_ptr<Transaction_ctx>(
                            transaction, transaction_free_hash()))
               .second;
@@ -1702,13 +1752,12 @@ bool transaction_cache_detach(Transaction_ctx *transaction) {
 
   DBUG_ASSERT(xs->has_state(XID_STATE::XA_PREPARED));
 
-  mysql_mutex_lock(&LOCK_transaction_cache);
+  XidCacheGuard guard(&xid);
 
-  DBUG_ASSERT(transaction_cache.count(to_string(xid)) != 0);
-  transaction_cache.erase(to_string(xid));
+  assert(transaction_cache[guard.instance_no()]->count(to_string(xid)) != 0);
+  transaction_cache[guard.instance_no()]->erase(to_string(xid));
   res = create_and_insert_new_transaction(&xid, was_logged, prepare_state_time);
 
-  mysql_mutex_unlock(&LOCK_transaction_cache);
 
   return res;
 }
@@ -1726,10 +1775,9 @@ bool transaction_cache_detach(Transaction_ctx *transaction) {
 */
 
 bool transaction_cache_insert_recovery(XID *xid) {
-  mysql_mutex_lock(&LOCK_transaction_cache);
+  XidCacheGuard guard(xid);
 
-  if (transaction_cache.count(to_string(*xid))) {
-    mysql_mutex_unlock(&LOCK_transaction_cache);
+  if (transaction_cache[guard.instance_no()]->count(to_string(*xid))) {
     return false;
   }
 
@@ -1741,18 +1789,18 @@ bool transaction_cache_insert_recovery(XID *xid) {
   */
   bool res = create_and_insert_new_transaction(xid, true, 0);
 
-  mysql_mutex_unlock(&LOCK_transaction_cache);
-
   return res;
 }
 
 void transaction_cache_delete(Transaction_ctx *transaction) {
-  mysql_mutex_lock(&LOCK_transaction_cache);
+  XID* xid = transaction->xid_state()->get_xid();
+
+  XidCacheGuard guard(xid);
+
   const auto it =
-      transaction_cache.find(to_string(*transaction->xid_state()->get_xid()));
-  if (it != transaction_cache.end() && it->second.get() == transaction)
-    transaction_cache.erase(it);
-  mysql_mutex_unlock(&LOCK_transaction_cache);
+      transaction_cache[guard.instance_no()]->find(to_string(*xid));
+  if (it != transaction_cache[guard.instance_no()]->end() && it->second.get() == transaction)
+    transaction_cache[guard.instance_no()]->erase(it);
 }
 
 /**
