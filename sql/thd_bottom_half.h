@@ -196,9 +196,9 @@ private:
     MsgQueue_t m_queue;
 };
 
-class AckContainer {
+class Ack_container {
 public:
-  AckContainer() {
+  Ack_container() {
     m_container.clear();
   }
 
@@ -315,7 +315,7 @@ public:
 
     void reset_answer();
 
-    AckContainer ack_container;
+    Ack_container ack_container;
 private:
     // ipV4 address
     const std::string m_ip;

@@ -32,6 +32,8 @@ The following options may be given as the first argument:
  --admin-username-prefix=name 
  User name prefixed with this string is treated as admin
  user
+ --allow-access-dd-tables 
+ allow current user to access the dd tables
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -1383,6 +1385,9 @@ The following options may be given as the first argument:
  --sqlasync-after-sync 
  If true, the async process will commit transaction for
  each thd
+ --sqlasync-wait-n-slaves[=#] 
+ commit transaction after receiving ack from at least this
+ many slaves
  --sqlasyntimeout[=#] 
  sql thread async, speed up cpu parellel, timeout
  --sqlasynwarntimeout[=#] 
@@ -1597,6 +1602,7 @@ activate-all-roles-on-login FALSE
 admin-address (No default value)
 admin-port 33062
 admin-username-prefix tdsqlsys_
+allow-access-dd-tables FALSE
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
 auto-increment-offset 1
@@ -1955,6 +1961,7 @@ sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERR
 sql-require-primary-key FALSE
 sqlasyn FALSE
 sqlasync-after-sync FALSE
+sqlasync-wait-n-slaves 1
 sqlasyntimeout 30
 sqlasynwarntimeout 3
 stored-program-cache 256

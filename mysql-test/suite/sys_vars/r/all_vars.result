@@ -18,6 +18,8 @@ activate_all_roles_on_login
 activate_all_roles_on_login
 admin_username_prefix
 admin_username_prefix
+allow_access_dd_tables
+allow_access_dd_tables
 binlog_encryption
 binlog_encryption
 binlog_encryption_algorithm
@@ -218,6 +220,8 @@ sqlasyn
 sqlasyn
 sqlasync_after_sync
 sqlasync_after_sync
+sqlasync_wait_n_slaves
+sqlasync_wait_n_slaves
 sqlasyntimeout
 sqlasyntimeout
 sqlasynwarntimeout

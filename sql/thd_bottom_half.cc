@@ -399,14 +399,14 @@ void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
     }
 }
 
-AckContainer::container_iter AckContainer::min_ack() {
+Ack_container::container_iter Ack_container::min_ack() {
 
-  AckContainer::container_iter min_iter = m_container.begin();
+  Ack_container::container_iter min_iter = m_container.begin();
   if (min_iter == m_container.end()) {
     return min_iter;
   }
 
-  AckContainer::container_iter iter = min_iter;
+  Ack_container::container_iter iter = min_iter;
   for (++iter; iter != m_container.end(); ++iter) {
     if (iter->second.less(min_iter->second)) {
       min_iter = iter;
@@ -416,7 +416,7 @@ AckContainer::container_iter AckContainer::min_ack() {
   return min_iter;
 }
 
-void AckContainer::resize() {
+void Ack_container::resize() {
   CTGuard<CTMutex> gaurd(m_mutex);
 
   uint32_t new_size = g_sqlAsyncNSlaves;
@@ -437,7 +437,7 @@ void AckContainer::resize() {
   g_thdBottomHalf->dealBinlogPosAns(itr->second);
 }
 
-void AckContainer::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id) {
+void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id) {
 
   CTGuard<CTMutex> gaurd(m_mutex);
 
