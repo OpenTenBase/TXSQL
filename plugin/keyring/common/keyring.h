@@ -51,6 +51,7 @@ extern volatile bool is_keys_container_initialized;
 extern std::unique_ptr<ILogger> logger;
 extern std::unique_ptr<char[]> keyring_file_data;
 extern bool keyring_open_mode;
+extern bool keyring_use_exist_dir;
 
 #ifdef HAVE_PSI_INTERFACE
 void keyring_init_psi_keys(void);

@@ -45,6 +45,7 @@ volatile bool is_keys_container_initialized = false;
 std::unique_ptr<ILogger> logger(nullptr);
 std::unique_ptr<char[]> keyring_file_data(nullptr);
 bool keyring_open_mode = false;  // 0 - Read|Write|Create; 1 - Read only
+bool keyring_use_exist_dir = false; // don't create the dir if 1
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_rwlock_info all_keyring_rwlocks[] = {
@@ -99,6 +100,7 @@ void log_operation_error(const char *failed_operation,
 }
 
 bool create_keyring_dir_if_does_not_exist(const char *keyring_file_path) {
+  if (keyring_use_exist_dir) return false;
   if (!keyring_file_path || strlen(keyring_file_path) == 0) return true;
   char keyring_dir[FN_REFLEN];
   size_t keyring_dir_length;
