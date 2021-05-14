@@ -1053,6 +1053,9 @@ struct trx_t {
   /** Weight/Age of the transaction in the record lock wait queue. */
   int32_t age;
 
+  /** Stable age while sorting wait transaction */
+  int32_t stable_age;
+
   /** For tracking if Weight/age has been updated. */
   uint64_t age_updated;
 

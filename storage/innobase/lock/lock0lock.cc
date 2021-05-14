@@ -1821,9 +1821,6 @@ static void lock_update_trx_age(trx_t *trx, int32_t age, bool hold_trx_mutex) {
     return;
   }
 
-  if (!hold_trx_mutex) {
-    trx_mutex_enter(trx);
-  }
   /* In an incorrect implementation the `trx->age` could grow exponentially due
   to double-counting trx's own weight when a cycle is formed in the
   wait-for graph. A correct implementation should keep the `trx->age` value
@@ -1847,17 +1844,14 @@ static void lock_update_trx_age(trx_t *trx, int32_t age, bool hold_trx_mutex) {
   <0,MAX_REASONABLE_AGE>. */
 
   const int32_t MAX_REASONABLE_AGE = std::min<ulint>(srv_max_n_threads, 100000);
-  trx->age += std::min(MAX_REASONABLE_AGE - trx->age, std::max(-trx->age, age));
+  int32_t current_age = trx->age;
+  trx->age = current_age + std::min(MAX_REASONABLE_AGE - current_age, std::max(-current_age, age));
 
   DBUG_EXECUTE_IF("lock_update_trx_age_check_age_limit", ut_a(trx->age < 100););
   ut_ad(0 <= trx->age);
   ut_ad(trx->age <= MAX_REASONABLE_AGE);
 
   trx->age_updated = lock_sys->mark_age_updated;
-
-  if (!hold_trx_mutex) {
-    trx_mutex_exit(trx);
-  }
 }
 
 /** Update the age of the transactions in the queue, when a new
@@ -2891,7 +2885,7 @@ struct CATS_Lock_priority {
       return (false);
     }
 
-    return (lhs.first->trx->age > rhs.first->trx->age);
+    return (lhs.first->trx->stable_age > rhs.first->trx->stable_age);
   }
 };
 
@@ -2930,6 +2924,7 @@ static void lock_grant_cats(hash_table_t *hash, lock_t *in_lock,
 
     } else {
       waiting.push_back(std::make_pair(lock, seq));
+      lock->trx->stable_age = lock->trx->age;
     }
 
     return (true);
@@ -5100,7 +5095,7 @@ static void lock_release(trx_t *trx) {
     if (lock_get_type_low(lock) == LOCK_REC) {
       guard.acquire_switch(lock);
       trx_mutex_enter(trx);
-      
+
       if (lock->discard) {
         guard.release();
         continue;
@@ -5110,7 +5105,7 @@ static void lock_release(trx_t *trx) {
     } else {
       guard.acquire_switch(lock);
       trx_mutex_enter(trx);
-      
+
       if (lock->discard) {
         guard.release();
         continue;
