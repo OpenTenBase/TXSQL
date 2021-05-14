@@ -78,6 +78,7 @@
 #include "template_utils.h"
 #include "thr_mutex.h"
 #include "tztime.h"
+#include "my_murmur3.h"
 
 const char *XID_STATE::xa_state_names[] = {"NON-EXISTING", "ACTIVE", "IDLE",
                                            "PREPARED", "ROLLBACK ONLY"};
@@ -94,7 +95,18 @@ static bool inited = false;
 
 #define XID_CACHE_INSTANCE  128
 
-static mysql_mutex_t LOCK_transaction_cache[XID_CACHE_INSTANCE];
+/** CPU cache line size */
+#ifdef __powerpc__
+#define CACHE_LINE_SIZE  128
+#else
+#define CACHE_LINE_SIZE  64
+#endif /* __powerpc__ */
+
+struct AlignedMutex{
+  alignas(CACHE_LINE_SIZE) mysql_mutex_t mutex;
+};
+
+static AlignedMutex LOCK_transaction_cache[XID_CACHE_INSTANCE];
 static malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>*
     transaction_cache[XID_CACHE_INSTANCE];
 
@@ -103,9 +115,8 @@ static std::string to_string(const XID &xid) {
   return std::string(pointer_cast<const char *>(xid.key()), xid.key_length());
 }
 
-uint64_t get_instance_no(XID *xid) {
-  std::string xid_str = to_string(*xid);
-  size_t hash_val = std::hash<std::string>{}(xid_str);
+uint32_t get_instance_no(XID *xid) {
+  uint32_t hash_val = murmur3_32(xid->key(), xid->key_length(), 0);
 
   return hash_val % XID_CACHE_INSTANCE;
 }
@@ -114,26 +125,26 @@ class XidCacheGuard {
 public:
   XidCacheGuard(XID *xid) {
     m_instance_no = get_instance_no(xid);
-    mysql_mutex_lock(&LOCK_transaction_cache[m_instance_no]);
+    mysql_mutex_lock(&(LOCK_transaction_cache[m_instance_no].mutex));
   }
 
-  XidCacheGuard(uint64_t i) {
+  XidCacheGuard(uint32_t i) {
     assert(i < XID_CACHE_INSTANCE);
-    mysql_mutex_lock(&LOCK_transaction_cache[i]);
+    mysql_mutex_lock(&(LOCK_transaction_cache[i].mutex));
     m_instance_no = i;
   }
 
 
   ~XidCacheGuard() {
-    mysql_mutex_unlock(&LOCK_transaction_cache[m_instance_no]);
+    mysql_mutex_unlock(&(LOCK_transaction_cache[m_instance_no].mutex));
   }
 
-  uint64_t instance_no() const {
+  uint32_t instance_no() const {
     return m_instance_no;
   }
 
 private:
-  uint64_t  m_instance_no;
+  uint32_t  m_instance_no;
 };
 
 static const uint MYSQL_XID_PREFIX_LEN = 8;  // must be a multiple of 8
@@ -1422,7 +1433,7 @@ bool Sql_cmd_xa_recover::trans_xa_recover(THD *thd) {
     return true;
 
 
-  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+  for (uint32_t i = 0; i < XID_CACHE_INSTANCE; i++) {
     XidCacheGuard guard(i);
 
     for (const auto &key_and_value : *transaction_cache[i]) {
@@ -1653,8 +1664,8 @@ bool transaction_cache_init() {
   init_transaction_cache_psi_keys();
 #endif
 
-  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
-    mysql_mutex_init(key_LOCK_transaction_cache, &LOCK_transaction_cache[i],
+  for (uint32_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    mysql_mutex_init(key_LOCK_transaction_cache, &(LOCK_transaction_cache[i].mutex),
                    MY_MUTEX_INIT_FAST);
 
     transaction_cache[i] = new malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>(key_memory_XID);
@@ -1667,11 +1678,11 @@ bool transaction_cache_init() {
 void transaction_cache_free() {
   if (inited) {
 
-    for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    for (uint32_t i = 0; i < XID_CACHE_INSTANCE; i++) {
       transaction_cache[i]->clear();
       delete transaction_cache[i];
       transaction_cache[i] = nullptr;
-      mysql_mutex_destroy(&LOCK_transaction_cache[i]);
+      mysql_mutex_destroy(&(LOCK_transaction_cache[i].mutex));
     }
   }
 }
@@ -1734,7 +1745,7 @@ inline bool create_and_insert_new_transaction(XID *xid, bool is_binlogged_arg,
   xs->start_recovery_xa(xid, is_binlogged_arg);
   xs->set_prepare_state_time(prepare_state_time);
 
-  uint64_t instance_no = get_instance_no(xid);
+  uint32_t instance_no = get_instance_no(xid);
 
   return !transaction_cache[instance_no]
               ->emplace(to_string(*xs->get_xid()),
