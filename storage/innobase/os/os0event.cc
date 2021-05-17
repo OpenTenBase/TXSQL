@@ -31,6 +31,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
  *******************************************************/
 
 #include "os0event.h"
+#ifdef UNIV_DEBUG
+#include "srv0srv.h" // innodb_quickly_stoped
+#endif
 
 #include <errno.h>
 #include <time.h>
@@ -656,7 +659,10 @@ void os_event_global_init(void) {
 
 void os_event_global_destroy(void) {
   ut_a(os_event::global_initialized);
-  ut_ad(os_event::n_objects_alive.load() == 0);
+#ifdef UNIV_DEBUG
+  if (!innodb_quickly_stoped)
+#endif
+    ut_ad(os_event::n_objects_alive.load() == 0);
 #ifndef _WIN32
   os_event::cond_attr_has_monotonic_clock = false;
 #ifdef UNIV_DEBUG
