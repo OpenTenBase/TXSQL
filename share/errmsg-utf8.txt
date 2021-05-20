@@ -19779,6 +19779,12 @@ ER_WARN_AUTH_ID_WITH_SYSTEM_USER_PRIV_IN_MANDATORY_ROLES
 ER_IB_MSG_SKIP_HIDDEN_DIR
   eng "Directory '%s' will not be scanned because it is a hidden directory."
 
+ER_IB_MSG_RECOVERY_NO_SPACE_IN_REDO_LOG__SKIP_IBUF_MERGES
+  eng "There is not enough free space in the redo log during recovery to perform pending ibuf merges. Please retry starting MySQL with --innodb-force-recovery=4."
+
+ER_IB_MSG_RECOVERY_NO_SPACE_IN_REDO_LOG__UNEXPECTED
+  eng "There is not enough free space in the redo log during recovery, restore from backup (or retry with --innodb-force-recovery=6)."
+
 # DO NOT add server-to-client messages here!  This range is for messages
 # intended for the error log only.  See the FAQ at the end of the file for
 # further information.

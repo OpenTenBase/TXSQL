@@ -3213,7 +3213,12 @@ loop:
     lsn_t lsn_limit = buf_flush_sync_lsn;
     mutex_exit(&page_cleaner->mutex);
 
-    if (srv_read_only_mode) {
+    /* Note: log.m_allow_checkpoints is set to true after recovery is finished,
+    and changes gathered in srv_dict_metadata are applied to dict_table_t
+    objects; or in log_start() if recovery was not needed. Until that happens
+    checkpoints are disallowed, so sync flush decisions (based on checkpoint age)
+    should be postponed. */
+    if (srv_read_only_mode || !log_sys->m_allow_checkpoints.load(std::memory_order_acquire)) {
       is_sync_flush = false;
     } else {
       ut_a(log_sys != nullptr);

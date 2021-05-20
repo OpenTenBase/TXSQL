@@ -568,7 +568,7 @@ bool log_sys_init(uint32_t n_files, uint64_t file_size, space_id_t space_id) {
 }
 
 void log_start(log_t &log, checkpoint_no_t checkpoint_no, lsn_t checkpoint_lsn,
-               lsn_t start_lsn) {
+               lsn_t start_lsn, bool allow_checkpoints) {
   ut_a(log_sys != nullptr);
   ut_a(checkpoint_lsn >= OS_FILE_LOG_BLOCK_SIZE);
   ut_a(checkpoint_lsn >= LOG_START_LSN);
@@ -581,6 +581,7 @@ void log_start(log_t &log, checkpoint_no_t checkpoint_no, lsn_t checkpoint_lsn,
   log.last_checkpoint_lsn = checkpoint_lsn;
   log.next_checkpoint_no = checkpoint_no;
   log.available_for_checkpoint_lsn = checkpoint_lsn;
+  log.m_allow_checkpoints.store(allow_checkpoints);
 
   log.sn = log_translate_lsn_to_sn(log.recovered_lsn);
 
