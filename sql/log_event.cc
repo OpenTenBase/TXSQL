@@ -1061,7 +1061,7 @@ int Log_event::do_update_pos(Relay_log_info *rli) {
   int error = 0;
   DBUG_ASSERT(!rli->belongs_to_client());
 
-  if (rli) error = rli->stmt_done(common_header->log_pos);
+  if (rli) error = rli->stmt_done(common_header->log_pos, ends_group());
   return error;
 }
 

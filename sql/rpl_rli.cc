@@ -1209,7 +1209,7 @@ bool Relay_log_info::cached_charset_compare(char *charset) const {
   return 0;
 }
 
-int Relay_log_info::stmt_done(my_off_t event_master_log_pos) {
+int Relay_log_info::stmt_done(my_off_t event_master_log_pos, bool ends_group) {
   clear_flag(IN_STMT);
 
   DBUG_ASSERT(!belongs_to_client());
@@ -1250,8 +1250,12 @@ int Relay_log_info::stmt_done(my_off_t event_master_log_pos) {
       mts_group_status != MTS_NOT_IN_GROUP) {
     inc_event_relay_log_pos();
   } else {
-    return inc_group_relay_log_pos(event_master_log_pos,
-                                   true /*need_data_lock*/);
+    // in mts recovery only ends group event can update the group pos
+    if (!is_mts_recovery() || ends_group)
+      return inc_group_relay_log_pos(event_master_log_pos,
+                                     true /*need_data_lock*/);
+    else
+      inc_event_relay_log_pos();
   }
   return 0;
 }

@@ -1275,7 +1275,7 @@ class Relay_log_info : public Rpl_info {
     relay log info and used to produce information for <code>SHOW
     SLAVE STATUS</code>.
   */
-  int stmt_done(my_off_t event_log_pos);
+  int stmt_done(my_off_t event_log_pos, bool ends_group = false);
 
   /**
      Set the value of a replication state flag.
