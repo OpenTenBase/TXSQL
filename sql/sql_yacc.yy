@@ -1257,6 +1257,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> ZLIB_SYM
 %token<lexer.keyword> ZSTD_SYM
 
+%token<lexer.keyword> ACK_SYM
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
@@ -12754,6 +12755,10 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_SLAVE_HOSTS;
           }
+        | SLAVE ACK_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_SLAVE_ACK;
+          }
         | BINLOG_SYM EVENTS_SYM binlog_in binlog_from
           {
             LEX *lex= Lex;
@@ -14269,6 +14274,7 @@ ident_keywords_ambiguous_3_roles:
 ident_keywords_unambiguous:
           ACTION
         | ACCOUNT_SYM
+        | ACK_SYM
         | ACTIVE_SYM
         | ADDDATE_SYM
         | ADMIN_SYM

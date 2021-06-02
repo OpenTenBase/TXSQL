@@ -85,10 +85,12 @@ update t1 set c = 10;
 --source include/sync_slave_sql_with_master.inc
 select * from t1;
 
-# show status 
+# show status
 --connection master
 --replace_column 2 #
 show status like 'sqlasyn_%';
+--replace_column 1 # 2 # 3 # 4 #
+show slave ack;
 --connection slave
 --replace_column 2 #
 show status like 'sqlasyn_%';

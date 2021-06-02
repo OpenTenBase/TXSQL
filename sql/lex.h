@@ -74,6 +74,7 @@ static const SYMBOL symbols[] = {
     {SYM("<=>", EQUAL_SYM)},
     {SYM("ACCESSIBLE", ACCESSIBLE_SYM)},
     {SYM("ACCOUNT", ACCOUNT_SYM)},
+    {SYM("ACK", ACK_SYM)},
     {SYM("ACTION", ACTION)},
     {SYM("ACTIVE", ACTIVE_SYM)},
     {SYM("ADD", ADD)},

@@ -196,21 +196,32 @@ private:
     MsgQueue_t m_queue;
 };
 
+typedef std::unordered_map<uint64_t, std::pair<time_t,Thd_Trans_binlog_info>> AckMap;
+
+struct AckInfo {
+  uint64_t server_id;
+  time_t ack_time;
+  Thd_Trans_binlog_info ack_pos;
+};
+
 class Ack_container {
 public:
   Ack_container() {
     m_container.clear();
   }
 
-  typedef std::unordered_map<uint64_t, Thd_Trans_binlog_info>::iterator container_iter;
+  typedef AckMap::iterator container_iter;
   container_iter min_ack();
 
   void resize();
 
-  void process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id);
+  void process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id, time_t ack_time);
+
+  void copy(std::vector<AckInfo> &infos);
 
 private:
-  std::unordered_map<uint64_t, Thd_Trans_binlog_info> m_container;
+  AckMap m_container;
+  AckInfo m_one_slave_info;
   CTMutex m_mutex;
 };
 

@@ -204,6 +204,7 @@ enum enum_sql_command {
   SQLCOM_CREATE_SRS,
   SQLCOM_DROP_SRS,
   SQLCOM_SHOW_THREADPOOL_STAT,
+  SQLCOM_SHOW_SLAVE_ACK,
   /* This should be the last !!! */
   SQLCOM_END
 };

@@ -2270,6 +2270,7 @@ uint sp_get_flags_for_command(LEX *lex) {
     case SQLCOM_SHOW_PROCESSLIST:
     case SQLCOM_SHOW_PROC_CODE:
     case SQLCOM_SHOW_SLAVE_HOSTS:
+    case SQLCOM_SHOW_SLAVE_ACK:
     case SQLCOM_SHOW_SLAVE_STAT:
     case SQLCOM_SHOW_STATUS:
     case SQLCOM_SHOW_STATUS_FUNC:

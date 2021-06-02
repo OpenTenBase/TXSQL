@@ -80,6 +80,9 @@ sqlasyn_timeout_num	#
 sqlasync_delay_commit	#
 sqlasync_group_slave_push_to_queue_fail	#
 sqlasync_group_slave_relay_fsync	#
+show slave ack;
+Server_id	File_Num	Pos	Timestamp
+#	#	#	#
 show status like 'sqlasyn_%';
 Variable_name	Value
 sqlasyn_acks_to_master	#

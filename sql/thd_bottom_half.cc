@@ -408,7 +408,7 @@ Ack_container::container_iter Ack_container::min_ack() {
 
   Ack_container::container_iter iter = min_iter;
   for (++iter; iter != m_container.end(); ++iter) {
-    if (iter->second.less(min_iter->second)) {
+    if (iter->second.second.less(min_iter->second.second)) {
       min_iter = iter;
     }
   }
@@ -434,11 +434,33 @@ void Ack_container::resize() {
   auto itr = min_ack();
   DBUG_ASSERT(itr != m_container.end());
 
-  g_thdBottomHalf->dealBinlogPosAns(itr->second);
+  g_thdBottomHalf->dealBinlogPosAns(itr->second.second);
 }
 
-void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t thread_id) {
+void Ack_container::copy(std::vector<AckInfo> &infos) {
+  infos.clear();
 
+  CTGuard<CTMutex> gaurd(m_mutex);
+
+  if (g_sqlAsyncNSlaves == 1 &&
+      m_one_slave_info.ack_pos.file_no() > 0) {
+    /* Copy from m_one_slave_info */
+    infos.push_back(m_one_slave_info);
+
+    return;
+  }
+
+  for (auto itr = m_container.begin(); itr != m_container.end(); itr++) {
+    AckInfo info;
+    info.server_id = itr->first;
+    info.ack_time = itr->second.first;
+    info.ack_pos = itr->second.second;
+
+    infos.push_back(info);
+  }
+}
+
+void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t server_id, time_t ack_time) {
   CTGuard<CTMutex> gaurd(m_mutex);
 
   uint max_slaves = g_sqlAsyncNSlaves;
@@ -451,28 +473,32 @@ void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t 
 //    m_container[thread_id] = new_ack_info;
     g_thdBottomHalf->dealBinlogPosAns(new_ack_info);
 
+    m_one_slave_info.server_id = server_id;
+    m_one_slave_info.ack_time = ack_time;
+    m_one_slave_info.ack_pos = new_ack_info;
+
     return;
   }
 
-  auto itr = m_container.find(thread_id);
+  auto itr = m_container.find(server_id);
 
   if (itr != m_container.end()) {
     /* Update the stored value */
-    if (itr->second.less(new_ack_info)) {
-      itr->second = new_ack_info;
+    if (itr->second.second.less(new_ack_info)) {
+      itr->second = std::make_pair(ack_time, new_ack_info);
     }
   } else if (m_container.size() < max_slaves) {
     /* Insert the new element */
-    m_container[thread_id] = new_ack_info;
+    m_container[server_id] = std::make_pair(ack_time, new_ack_info);
   } else {
     /* The container is full, so find the min element
     and replace it if possible */
     itr = min_ack();
     DBUG_ASSERT(itr != m_container.end());
-    if (itr->second.less(new_ack_info)) {
+    if (itr->second.second.less(new_ack_info)) {
       /* Erase min element and insert new one.*/
       m_container.erase(itr);
-      m_container[thread_id] = new_ack_info;
+      m_container[server_id] = std::make_pair(ack_time, new_ack_info);
     } else {
       /** The min element is even larger than current one, so
       skip it. */
@@ -488,7 +514,7 @@ void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t 
   itr = min_ack();
   DBUG_ASSERT(itr != m_container.end());
 
-  g_thdBottomHalf->dealBinlogPosAns(itr->second);
+  g_thdBottomHalf->dealBinlogPosAns(itr->second.second);
 }
 
 bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
@@ -515,7 +541,7 @@ bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
     ack_info.set(binlogAns->getFileName(), binlogAns->log_pos);
 
     /* If packet is from older version, we give it a fake id */
-    g_thdBottomHalf->ack_container.process(ack_info, binlogAns->get_server_id());
+    g_thdBottomHalf->ack_container.process(ack_info, binlogAns->get_server_id(), time(0));
 
     return true;
   }

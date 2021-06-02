@@ -543,6 +543,7 @@ void init_sql_command_flags(void) {
       CF_STATUS_COMMAND | CF_HAS_RESULT_SET | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_SHOW_BINLOGS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_HOSTS] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_SLAVE_ACK] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_BINLOG_EVENTS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_STORAGE_ENGINES] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PRIVILEGES] = CF_STATUS_COMMAND;
@@ -891,6 +892,7 @@ void init_sql_command_flags(void) {
   sql_command_flags[SQLCOM_HA_CLOSE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_HA_READ] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_SLAVE_HOSTS] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SHOW_SLAVE_ACK] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_DELETE_MULTI] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_UPDATE_MULTI] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_BINLOG_EVENTS] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -3283,6 +3285,11 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_SLAVE_HOSTS: {
       if (check_global_access(thd, REPL_SLAVE_ACL)) goto error;
       res = show_slave_hosts(thd);
+      break;
+    }
+    case SQLCOM_SHOW_SLAVE_ACK: {
+      if (check_global_access(thd, REPL_SLAVE_ACL)) goto error;
+      res = show_slave_ack(thd);
       break;
     }
     case SQLCOM_SHOW_RELAYLOG_EVENTS: {
