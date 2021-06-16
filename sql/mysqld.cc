@@ -3464,6 +3464,10 @@ void my_message_sql(uint error, const char *str, myf MyFlags) {
     /* At least, prevent new abuse ... */
     DBUG_ASSERT(strncmp(str, "MyISAM table", 12) == 0);
     error = ER_UNKNOWN_ERROR;
+  } else if (error == ER_SYNC_TIMEOUT ) {
+    /* TDSQL: In order to maintain compatibility, the error 
+       code must be the same as ER_XA_RBTIMEOUT. */
+    error = ER_XA_RBTIMEOUT;
   }
 
   if (thd) {
