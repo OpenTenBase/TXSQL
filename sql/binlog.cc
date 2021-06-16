@@ -8959,6 +8959,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
 
   DBUG_ASSERT(!thd->m_delay_commit);
   if (!skip_commit && g_sqlAsyncAfterSync && g_sqlAsyn &&
+      !thd->in_multi_query &&
       (thd->system_thread == NON_SYSTEM_THREAD) &&
       !(sql_command_flags[thd->lex->sql_command] & (CF_DISALLOW_IN_RO_TRANS | CF_AUTO_COMMIT_TRANS))) {
     thd->m_delay_commit = true;

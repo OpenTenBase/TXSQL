@@ -580,6 +580,8 @@ THD::THD(bool enable_plugins)
   qck_rows_info = nullptr;
 
   skip_acl_checking = false;
+
+  in_multi_query = false;
 #ifndef DBUG_OFF
   debug_binlog_xid_last.reset();
 #endif

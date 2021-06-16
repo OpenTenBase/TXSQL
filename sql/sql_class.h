@@ -2584,6 +2584,9 @@ class THD : public MDL_context_owner,
 
   bool skip_acl_checking;
 
+  /* The statement has multiple queries divided by semicolon(;) */
+  bool in_multi_query;
+
   /** number of name_const() substitutions, see sp_head.cc:subst_spvars() */
   uint query_name_consts;
 

@@ -21,5 +21,16 @@ insert into t1 select * from t2;
 drop table t1;
 drop table t2;
 
+delimiter ||||;
+create table t1 (i int);
+insert into t1 values (1);
+select * from t1 where i = 1;
+insert into t1 values (2),(3),(4);
+select * from t1 where i = 2;
+select * from t1 where i = 3||||
+drop table t1||||
+
+delimiter ;||||
+
 set global sqlasync_after_sync = 0;
 set global sqlasyn = 0;

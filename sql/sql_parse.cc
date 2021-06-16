@@ -5372,6 +5372,8 @@ void mysql_parse(THD *thd, Parser_state *parser_state) {
     if (!err) err = invoke_post_parse_rewrite_plugins(thd, false);
 
     found_semicolon = parser_state->m_lip.found_semicolon;
+
+    thd->in_multi_query = (found_semicolon != nullptr);
   }
 
   if (!err) {
@@ -5511,6 +5513,7 @@ void mysql_parse(THD *thd, Parser_state *parser_state) {
   sp_cache_enforce_limit(thd->sp_func_cache, stored_program_cache_size);
   thd->end_statement();
   thd->cleanup_after_query();
+  thd->in_multi_query = false;
   DBUG_ASSERT(thd->change_list.is_empty());
 
   DEBUG_SYNC(thd, "query_rewritten");
