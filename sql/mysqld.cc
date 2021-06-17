@@ -10226,9 +10226,17 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
 #define MYSQL_SERVER_SUFFIX_STR MYSQL_SERVER_SUFFIX_DEF
 #endif
 
+char *g_tdsql_sub_version = NULL;
 static void set_server_version(void) {
-  char *end MY_ATTRIBUTE((unused)) = strxmov(
+  char *end MY_ATTRIBUTE((unused)) = NULL;
+
+  if (NULL != g_tdsql_sub_version && 0 != strlen(g_tdsql_sub_version)) {
+    end = strxmov(
+    server_version, "8.0.", g_tdsql_sub_version, MYSQL_SERVER_SUFFIX_STR, NullS); 
+  } else {
+    end = strxmov(
       server_version, "8.0.22", MYSQL_SERVER_SUFFIX_STR, NullS);
+  }
 
   end = my_stpcpy(end, CompileTime() );
 

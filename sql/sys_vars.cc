@@ -7313,6 +7313,15 @@ static Sys_var_bool Sys_cdb_fire_wall_enabled(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL));
 
+//TDSQL: used to modify the MySQL version number
+extern char* g_tdsql_sub_version;
+static Sys_var_charptr Sys_tdsql_sub_version(
+       "tdsql_sub_version",
+       "tdsql reserved fields for special scenarios",
+       READ_ONLY GLOBAL_VAR(g_tdsql_sub_version),
+       CMD_LINE(REQUIRED_ARG), IN_SYSTEM_CHARSET,
+       DEFAULT(""));
+
 extern bool print_invalid_replication_timestamps;
 static Sys_var_bool Sys_print_invalid_replication_timestamps(
     "print_invalid_replication_timestamps",
