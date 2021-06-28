@@ -916,14 +916,17 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
             /* "Fix" the block so that the position cannot be
             changed after we release the buffer pool and
             block mutexes. */
-            buf_page_set_sticky(prev);
+            if (prev->was_io_fix_none()) {
+              // re-check io_fix is still NONE
+              buf_page_set_sticky(prev);
+              mutex_exit(prev_block_mutex);
+              break;
+            }
             mutex_exit(prev_block_mutex);
-            break;
           }
         }
         prev = UT_LIST_GET_PREV(list, prev);
       }
-
       /* We don't care if the flush succeeded or not since this
        is an best-effort run. Silence compiler warnings. */
       bool error [[maybe_unused]] =
