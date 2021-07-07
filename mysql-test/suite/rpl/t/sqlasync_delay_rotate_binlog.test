@@ -6,6 +6,10 @@ CALL mtr.add_suppression("aborting in bottom half answering thread");
 
 --connection master
 set global sqlasyn = 1;
+<<<<<<< HEAD
+=======
+set global sqlasync_after_sync = 1;
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 set global sqlasyntimeout = 5;
 SET @@global.max_binlog_size = 4096;
 
@@ -31,7 +35,10 @@ insert into t1 values (1,repeat('k', 4096));
 let $rpl_connection_name= master;
 --source include/rpl_connection.inc
 --enable_reconnect
+<<<<<<< HEAD
 commit tdsql_timeout_trxs;
+=======
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 --replace_column 1 # 2 #
 show binary logs;
 
@@ -41,11 +48,19 @@ show binary logs;
 --connection master
 drop table t1;
 set global sqlasyn = 0;
+<<<<<<< HEAD
+=======
+set global sqlasync_after_sync = 0;
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 set global sqlasyntimeout = 30;
 SET @@global.max_binlog_size=1073741824;
 
 --connection slave
 set global sqlasyn = 0;
+<<<<<<< HEAD
+=======
+set global sqlasync_after_sync = 0;
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 
 --connection master
 --source include/rpl_end.inc

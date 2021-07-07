@@ -8880,6 +8880,32 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
     DEBUG_SYNC(thd, "after_binlog_closed_due_to_error");
   }
 }
+
+void MYSQL_BIN_LOG::rotate_after_commit(THD *thd) {
+  /*
+    Do not force the rotate as several consecutive groups may
+    request unnecessary rotations.
+
+    NOTE: Run purge_logs wo/ holding LOCK_log because it does not
+    need the mutex. Otherwise causes various deadlocks.
+  */
+
+  DEBUG_SYNC(thd, "ready_to_do_rotation");
+  bool check_purge = false;
+  mysql_mutex_lock(&LOCK_log);
+  /*
+    If rotate fails then depends on binlog_error_action variable
+    appropriate action will be taken inside rotate call.
+  */
+  int error = rotate(false, &check_purge);
+  mysql_mutex_unlock(&LOCK_log);
+
+  if (error)
+    thd->commit_error = THD::CE_COMMIT_ERROR;
+  else if (check_purge)
+    purge();
+}
+
 /**
   Flush and commit the transaction.
 
@@ -9212,28 +9238,11 @@ commit_stage:
       (do_rotate && thd->commit_error == THD::CE_NONE &&
        !is_rotating_caused_by_incident &&
        thd->lex->sql_command != SQLCOM_XA_PREPARE)) {
-    /*
-      Do not force the rotate as several consecutive groups may
-      request unnecessary rotations.
-
-      NOTE: Run purge_logs wo/ holding LOCK_log because it does not
-      need the mutex. Otherwise causes various deadlocks.
-    */
-
-    DEBUG_SYNC(thd, "ready_to_do_rotation");
-    bool check_purge = false;
-    mysql_mutex_lock(&LOCK_log);
-    /*
-      If rotate fails then depends on binlog_error_action variable
-      appropriate action will be taken inside rotate call.
-    */
-    int error = rotate(false, &check_purge);
-    mysql_mutex_unlock(&LOCK_log);
-
-    if (error)
-      thd->commit_error = THD::CE_COMMIT_ERROR;
-    else if (check_purge)
-      purge();
+    if (!thd->m_delay_commit) {
+      rotate_after_commit(thd);
+    } else {
+      thd->m_delay_rotate = true;
+    }
   }
   /*
     flush or sync errors are handled above (using binlog_error_action).

@@ -5,6 +5,10 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 CALL mtr.add_suppression("aborting in bottom half answering thread");
 set global sqlasyn = 1;
+<<<<<<< HEAD
+=======
+set global sqlasync_after_sync = 1;
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 set global sqlasyntimeout = 5;
 SET @@global.max_binlog_size = 4096;
 set global sqlasyn = 1;
@@ -18,7 +22,10 @@ Log_name	File_size	Encrypted	Algorithm
 insert into t1 values (1,repeat('k', 4096));
 ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
 [connection master]
+<<<<<<< HEAD
 commit tdsql_timeout_trxs;
+=======
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 show binary logs;
 Log_name	File_size	Encrypted	Algorithm
 #	#	No	No
@@ -26,7 +33,15 @@ Log_name	File_size	Encrypted	Algorithm
 include/start_slave.inc
 drop table t1;
 set global sqlasyn = 0;
+<<<<<<< HEAD
 set global sqlasyntimeout = 30;
 SET @@global.max_binlog_size=1073741824;
 set global sqlasyn = 0;
+=======
+set global sqlasync_after_sync = 0;
+set global sqlasyntimeout = 30;
+SET @@global.max_binlog_size=1073741824;
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+>>>>>>> 462f4e85477 (fix issue#324 switch binlog crash in after_sync mode)
 include/rpl_end.inc

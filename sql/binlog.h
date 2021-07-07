@@ -843,6 +843,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int rotate(bool force_rotate, bool *check_purge);
   void purge();
   int rotate_and_purge(THD *thd, bool force_rotate);
+  void rotate_after_commit(THD *thd);
 
   bool flush();
   /**
