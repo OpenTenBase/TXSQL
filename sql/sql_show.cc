@@ -1822,7 +1822,8 @@ class thread_info {
         async_read_bytes(0), async_write_counts(0), async_write_bytes(0),
         redo_log_size(0), undo_log_size(0), binary_log_size(0),
         cpu_time(0), server_memory_used(0), innodb_memory_used(0),
-        pfs_memory_used(0) {}
+        pfs_memory_used(0), is_trx_begin(false), is_dml_begin(false),
+        is_local_or_admin_port(false) {}
 
   my_thread_id thread_id;
   time_t start_time_in_secs;
@@ -1849,6 +1850,9 @@ class thread_info {
   ulonglong server_memory_used;
   ulonglong innodb_memory_used;
   ulonglong pfs_memory_used;
+  bool is_trx_begin;
+  bool is_dml_begin;
+  bool is_local_or_admin_port;
 };
 
 // For sorting by thread_id.
@@ -1958,6 +1962,18 @@ class List_process_list : public Do_THD_Impl {
       thd_info->user = "unauthenticated user";
 
     thd_info->system_thread = inspect_thd->system_thread;
+
+    /* TDSQL: unfrozen feature add */
+    if (inspect_thd->variables.option_bits & OPTION_BEGIN) {
+      thd_info->is_trx_begin = true;
+    }
+
+    if (inspect_thd->variables.option_bits & OPTION_DML_BEGIN) {
+      thd_info->is_dml_begin = true;
+    }
+
+    thd_info->is_local_or_admin_port = inspect_thd->is_local_or_admin_port();
+
     /* HOST */
     if (inspect_thd->peer_port &&
         (inspect_sctx_host.length || inspect_sctx->ip().length) &&
@@ -2033,6 +2049,71 @@ class List_process_list : public Do_THD_Impl {
     m_thread_infos->push_back(thd_info);
   }
 };
+
+/* TDSQL:Freeze transaction variables */
+extern volatile bool g_freeze_transaction_enable;
+/**
+  After setting freeze_transaction_enable to ON, print out the session corresponding 
+  to the transaction that has not yet ended.
+*/
+bool show_unfrozen_processlist(THD *thd, const char *user){
+
+  Thread_info_array thread_infos(thd->mem_root);
+
+  if (!thd->killed) {
+    thread_infos.reserve(Global_THD_manager::get_instance()->get_thd_count());
+    List_process_list list_process_list(user, &thread_infos, thd, PROCESS_LIST_WIDTH);
+    Global_THD_manager::get_instance()->do_for_all_thd_copy(&list_process_list);
+  }
+
+  List<Item> field_list;
+  Protocol *protocol= thd->get_protocol();
+
+  DBUG_ENTER("show_unfrozen_processlist");
+
+  Item_int *fld_0 = new Item_int(NAME_STRING("Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS);
+  Item_empty_string *fld_1= new Item_empty_string("status", 50);
+
+  field_list.push_back(fld_0);
+  field_list.push_back(fld_1);
+
+  if (thd->send_result_metadata(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    DBUG_RETURN(true);
+  }
+
+  bool tmp_freeze_transaction_enable = g_freeze_transaction_enable;
+
+  if (tmp_freeze_transaction_enable) {
+    for (size_t ix = 0; ix < thread_infos.size(); ++ix) {
+      thread_info *thd_info = thread_infos.at(ix);
+
+      std::string info;
+      if (thd_info->system_thread != NON_SYSTEM_THREAD
+        || thd_info->is_local_or_admin_port)
+        continue;
+
+      if (thd_info->is_trx_begin) {
+        info = "Transaction just started.";
+      } else if (thd_info->is_dml_begin) {
+        info = "Transaction is running.";
+      } else {
+        // maybe session did not execute any sql
+      }
+
+      if ("" != info) {
+        protocol->start_row();
+        protocol->store((ulonglong)thd_info->thread_id);
+        protocol->store(info.c_str(), system_charset_info);
+        if (protocol->end_row()) {
+          DBUG_RETURN(true);
+        }
+      }
+    }
+  }
+
+  my_eof(thd);
+  DBUG_RETURN(false);
+}
 
 void mysqld_list_processes(THD *thd, const char *user,
                            bool verbose, bool detail) {

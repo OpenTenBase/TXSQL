@@ -522,6 +522,8 @@ void init_sql_command_flags(void) {
       CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
   sql_command_flags[SQLCOM_SHOW_THREADPOOL_STAT] =
       CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
+  sql_command_flags[SQLCOM_SHOW_UNFROZEN_PROCESSLIST] =
+        CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
   sql_command_flags[SQLCOM_SHOW_DATABASES] =
       CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
   sql_command_flags[SQLCOM_SHOW_TRIGGERS] =
@@ -3335,6 +3337,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
     }
     case SQLCOM_SHOW_THREADPOOL_STAT: {
        res = show_threadpool_status(thd);
+       break;
+    }
+    case SQLCOM_SHOW_UNFROZEN_PROCESSLIST: {
+       res = show_unfrozen_processlist( thd, thd->security_context()->priv_user().str);
        break;
     }
     case SQLCOM_SHOW_ENGINE_STATUS: {

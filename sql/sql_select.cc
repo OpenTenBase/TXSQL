@@ -632,6 +632,17 @@ bool Sql_cmd_dml::execute(THD *thd) {
   Ignore_error_handler ignore_handler;
   Strict_error_handler strict_handler;
 
+  /*
+    TDSQL: After setting freeze_transaction_enable to ON, 
+    it is not allowed to DML.
+  */
+  if (NULL != lex->query_tables && thd->check_if_need_frozen(OPTION_DML_BEGIN)) {
+    my_error(ER_TRANSACTION_IS_FROZEN,MYF(0));
+    return true;
+  }
+
+  //thd->variables.option_bits |= OPTION_DML_BEGIN;
+
   // @todo - enable when needs_explicit_preparation is changed
   // DBUG_ASSERT(!needs_explicit_preparation() || is_prepared());
 
@@ -745,6 +756,7 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // "unprepare" this object since unit->cleanup actually unprepares.
   unprepare(thd);
 
+  thd->variables.option_bits &= ~OPTION_DML_BEGIN;
   return res;
 
 err:
@@ -752,6 +764,8 @@ err:
   DBUG_PRINT("info", ("report_error: %d", thd->is_error()));
   THD_STAGE_INFO(thd, stage_end);
   prepare_only = true;
+
+  thd->variables.option_bits &= ~OPTION_DML_BEGIN;
 
   (void)unit->cleanup(thd, false);
   lex->clear_values_map();

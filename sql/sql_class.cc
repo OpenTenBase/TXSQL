@@ -2872,6 +2872,63 @@ void THD::update_slow_query_status() {
   }
 }
 
+//TDSQL: Freeze transaction variables 
+extern mysql_mutex_t LOCK_freeze_trans;
+extern mysql_cond_t COND_freeze_trans;
+extern volatile bool g_freeze_transaction_enable;
+extern int g_freeze_wait_timeout_sec;
+
+/*
+ TDSQL: Check if need to freeze the session
+*/
+bool THD::check_if_need_frozen(ulonglong option_bits){
+
+  ulonglong bak_bits = variables.option_bits;
+  bool need_check = (system_thread == NON_SYSTEM_THREAD) &&
+         (!is_local_or_admin_port()) && !(variables.option_bits & OPTION_BEGIN);
+  if (!need_check) {
+    variables.option_bits |= option_bits;
+    return false;
+  }
+
+check_again:
+  while (unlikely(g_freeze_transaction_enable)) {
+
+    DEBUG_SYNC(this, "missing_signal_notify");
+
+    struct timespec ts;
+    set_timespec(&ts, g_freeze_wait_timeout_sec);
+
+    mysql_mutex_lock(&LOCK_freeze_trans);
+    int err = 0;
+    if (likely(g_freeze_transaction_enable))
+      err = mysql_cond_timedwait(&COND_freeze_trans, &LOCK_freeze_trans, &ts);
+    mysql_mutex_unlock(&LOCK_freeze_trans);
+
+    if (err) {
+      sql_print_error("connection:%u timeout while waiting to wake up after freezen.", m_thread_id);
+    }
+
+    return true;
+  }
+
+  DEBUG_SYNC(this, "skip_freeze_check");
+
+  variables.option_bits |= option_bits;
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+
+  //double check
+  if (unlikely(g_freeze_transaction_enable)) {
+    //we should reset bits for double check
+	variables.option_bits = bak_bits;
+    goto check_again;
+  } else {
+    return false;
+  }
+
+  return false;
+}
+
 bool is_cloud_internal_user(const char *user) {
   return (user &&
           opt_admin_username_prefix.length > 0 &&

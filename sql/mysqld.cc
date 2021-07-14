@@ -941,7 +941,9 @@ static PSI_mutex_key key_LOCK_start_signal_handler;
 static PSI_cond_key key_COND_start_signal_handler;
 #endif  // _WIN32
 static PSI_mutex_key key_LOCK_server_started;
+static PSI_mutex_key key_LOCK_freeze_trans;
 static PSI_cond_key key_COND_server_started;
+static PSI_cond_key key_COND_freeze_trans;
 static PSI_mutex_key key_LOCK_keyring_operations;
 static PSI_mutex_key key_LOCK_tls_ctx_options;
 static PSI_mutex_key key_LOCK_rotate_binlog_master_key;
@@ -1067,6 +1069,10 @@ uint g_sqlAsynWarnTimeout;
 uint g_log_prepared_xid_list_instances = 8;
 uint g_simple_slow_logging = 0;
 uint g_sqlAsyncNSlaves = 1;
+
+/** tdsql: Variables to control transaction freeze */
+volatile bool g_freeze_transaction_enable = false;
+int g_freeze_wait_timeout_sec = 60;
 
 bool g_txsql_optimize_xa_recover = false;
 bool g_simplify_priv_check = false;
@@ -1435,7 +1441,9 @@ my_thread_handle signal_thread_id;
 sigset_t mysqld_signal_mask;
 my_thread_attr_t connection_attrib;
 mysql_mutex_t LOCK_server_started;
+mysql_mutex_t LOCK_freeze_trans;
 mysql_cond_t COND_server_started;
+mysql_cond_t COND_freeze_trans;
 mysql_mutex_t LOCK_reset_gtid_table;
 mysql_mutex_t LOCK_compress_gtid_table;
 mysql_cond_t COND_compress_gtid_table;
@@ -2450,7 +2458,9 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_default_password_lifetime);
   mysql_mutex_destroy(&LOCK_mandatory_roles);
   mysql_mutex_destroy(&LOCK_server_started);
+  mysql_mutex_destroy(&LOCK_freeze_trans);
   mysql_cond_destroy(&COND_server_started);
+  mysql_cond_destroy(&COND_freeze_trans);
   mysql_mutex_destroy(&LOCK_reset_gtid_table);
   mysql_mutex_destroy(&LOCK_compress_gtid_table);
   mysql_cond_destroy(&COND_compress_gtid_table);
@@ -4196,6 +4206,10 @@ SHOW_VAR com_status_vars[] = {
     {"show_threadpool_status",
      (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_SHOW_THREADPOOL_STAT]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+     {"show_unfrozen_processlist",
+     (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_SHOW_UNFROZEN_PROCESSLIST]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 /**
@@ -4997,7 +5011,10 @@ static int init_thread_environment() {
   mysql_cond_init(key_COND_manager, &COND_manager);
   mysql_mutex_init(key_LOCK_server_started, &LOCK_server_started,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_freeze_trans, &LOCK_freeze_trans,
+                     MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_server_started, &COND_server_started);
+  mysql_cond_init(key_COND_freeze_trans, &COND_freeze_trans);
   mysql_mutex_init(key_LOCK_reset_gtid_table, &LOCK_reset_gtid_table,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_compress_gtid_table, &LOCK_compress_gtid_table,
@@ -10845,6 +10862,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_slave_net_timeout, "LOCK_slave_net_timeout", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_slave_trans_dep_tracker, "LOCK_slave_trans_dep_tracker", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_server_started, "LOCK_server_started", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_freeze_trans, "LOCK_freeze_trans", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #if !defined(_WIN32)
   { &key_LOCK_socket_listener_active, "LOCK_socket_listener_active", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_start_signal_handler, "LOCK_start_signal_handler", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
@@ -10982,6 +11000,7 @@ static PSI_cond_info all_server_conds[]=
 #endif
   { &key_COND_manager, "COND_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_COND_server_started, "COND_server_started", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_COND_freeze_trans, "COND_freeze_trans_enable", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #if !defined(_WIN32)
   { &key_COND_socket_listener_active, "COND_socket_listener_active", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_COND_start_signal_handler, "COND_start_signal_handler", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

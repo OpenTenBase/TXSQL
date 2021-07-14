@@ -1250,6 +1250,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token XA_PREPARED_LIST /* MYSQL */
 %token THREADPOOL_SYM     /* MYSQL */
 %token<lexer.keyword> DETAIL
+%token<lexer.keyword> UNFROZEN_SYM /* TDSQL */
 /*
   Tokens for compressed column
 */
@@ -13036,6 +13037,10 @@ show_param:
         | THREADPOOL_SYM STATUS_SYM
           {
             Lex->sql_command = SQLCOM_SHOW_THREADPOOL_STAT;
+          }
+        | UNFROZEN_SYM PROCESSLIST_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_UNFROZEN_PROCESSLIST;
           }
         ;
 

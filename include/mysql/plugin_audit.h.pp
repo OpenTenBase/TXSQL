@@ -329,6 +329,7 @@ enum enum_sql_command {
   SQLCOM_DROP_SRS,
   SQLCOM_SHOW_THREADPOOL_STAT,
   SQLCOM_SHOW_SLAVE_ACK,
+  SQLCOM_SHOW_UNFROZEN_PROCESSLIST,
   SQLCOM_END
 };
 #include "plugin_audit_message_types.h"

@@ -2282,6 +2282,7 @@ uint sp_get_flags_for_command(LEX *lex) {
     case SQLCOM_SHOW_WARNS:
     case SQLCOM_REPAIR:
     case SQLCOM_SHOW_THREADPOOL_STAT:
+    case SQLCOM_SHOW_UNFROZEN_PROCESSLIST:
       flags = sp_head::MULTI_RESULTS;
       break;
     /*

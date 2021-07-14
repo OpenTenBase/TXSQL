@@ -70,6 +70,9 @@ void calc_sum_of_all_status(System_status_var *to);
 void append_definer(const THD *thd, String *buffer,
                     const LEX_CSTRING &definer_user,
                     const LEX_CSTRING &definer_host);
+
+bool show_unfrozen_processlist(THD *thd, const char *user);
+
 bool add_status_vars(const SHOW_VAR *list);
 void remove_status_vars(SHOW_VAR *list);
 void init_status_vars();

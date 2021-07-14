@@ -1,0 +1,83 @@
+#
+# RENAME-related tests which require debug sync.
+#
+
+create user test@localhost;
+grant CREATE, INSERT, SELECT, DROP, SYSTEM_VARIABLES_ADMIN, SESSION_VARIABLES_ADMIN on *.* to test@localhost;
+
+use test;
+create table t (id int key);
+insert into t values(1);
+
+--echo #con1 start a new transaction
+--connect(con1,127.0.0.1,test,,,,,TCP)
+use test;
+begin;
+
+--echo #con2 start a new transaction
+--connect(con2,127.0.0.1,test,,,,,TCP)
+use test;
+begin;
+insert into t values(2);
+
+--echo #conn3 implicit commit transaction
+--connect(con3,127.0.0.1,test,,,,,TCP)
+use test;
+insert into t values(3);
+
+--echo #freeze transaction
+--connect(con4,127.0.0.1,test,,,,,TCP)
+set global freeze_transaction_enable=ON;
+--echo #the transactions of con1 and con2 are waiting to be completed
+--replace_column 1 #
+--sorted_result
+show unfrozen processlist;
+
+--echo #con5 start a new transaction blocking
+--connect(con5,127.0.0.1,test,,,,,TCP)
+send begin;
+
+--echo #con6 start a new implicit transaction and blocking
+--connect(con6,127.0.0.1,test,,,,,TCP)
+use test;
+send select *from t;
+
+--echo #con1 complete the transaction
+connection con1;
+insert into t values(11);
+commit;
+
+--echo #con2 complete the transaction
+connection con2;
+commit;
+
+--echo #End of freeze
+connection con4;
+set global freeze_transaction_enable=OFF;
+
+--echo #con5 report an error
+connection con5;
+--error 3933
+reap;
+
+--echo #con6 report an error
+connection con6;
+--error 3933
+reap;
+
+--echo #The number of transactions waiting to be completed is 0
+connection con4;
+show unfrozen processlist;
+
+--echo # Disconnect and cleanup.
+connection default;
+drop table t;
+drop user 'test'@'localhost';
+disconnect con1;
+disconnect con2;
+disconnect con3;
+disconnect con4;
+disconnect con5;
+disconnect con6;
+
+###########################################################################

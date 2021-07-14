@@ -129,4 +129,10 @@
 */
 #define OPTION_NO_SUBQUERY_DURING_OPTIMIZATION (1ULL << 39)  // intern
 
+// Mark the start of DML
+#define OPTION_DML_BEGIN (1ULL << 40)
+
+// Mark the start of DDL
+#define OPTION_DDL_BEGIN (1ULL << 41)
+
 #endif /* QUERY_OPTIONS_INCLUDED */

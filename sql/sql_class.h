@@ -1163,6 +1163,8 @@ class THD : public MDL_context_owner,
 
   char m_ipfromproxy[50];// tdsql, source ip address in string.
 
+  bool check_if_need_frozen(ulonglong option_bits);
+
   void updateFromProxyIp(const char *ip) {
     strncpy(m_ipfromproxy,ip,sizeof(m_ipfromproxy)-1);
 

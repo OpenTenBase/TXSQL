@@ -151,6 +151,8 @@
 #include "storage/perfschema/pfs_server.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+#include "sql_backup_lock.h"
+
 TYPELIB bool_typelib = {array_elements(bool_values) - 1, "", bool_values, 0};
 
 #define MAX_CONNECTIONS 100000
@@ -7335,3 +7337,59 @@ static Sys_var_bool Sys_allow_access_dd_tables(
     SESSION_VAR(allow_access_dd_tables),
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
+
+/* TDSQL: Freeze transaction variables */
+extern volatile bool g_freeze_transaction_enable;
+extern mysql_mutex_t LOCK_freeze_trans;
+extern mysql_cond_t COND_freeze_trans;
+
+static bool check_freeze_transaction_enable_var(sys_var *self, THD *thd, set_var *setv) {
+
+  mysql_mutex_lock(&LOCK_freeze_trans);
+
+  if (setv->save_result.ulonglong_value == 1) {
+    MDL_request global_request;
+    MDL_REQUEST_INIT(&global_request, MDL_key::BACKUP_LOCK, "", "", MDL_SHARED, MDL_EXPLICIT);
+
+    if (thd->mdl_context.acquire_lock(&global_request, thd->variables.lock_wait_timeout)) {
+      sql_print_error("connection:%u Failed to acquire MDL backup lock.", thd->thread_id());
+      mysql_mutex_unlock(&LOCK_freeze_trans);
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool update_freeze_transaction_enable_var(sys_var *, THD *thd, enum_var_type type) {
+
+  if (false == g_freeze_transaction_enable ) {
+
+    //mysql_mutex_lock(&LOCK_freeze_trans);
+    mysql_cond_broadcast(&COND_freeze_trans);
+    //mysql_mutex_unlock(&LOCK_freeze_trans);
+
+    release_backup_lock(thd);
+
+  }
+  mysql_mutex_unlock(&LOCK_freeze_trans);
+
+  return false;
+}
+
+static Sys_var_bool Sys_freeze_transaction_enable(
+    "freeze_transaction_enable",
+    "After set to ON, block the newly started transaction, "
+    "while waiting for the write transaction that is currently "
+    "active to commit",
+    GLOBAL_VAR(g_freeze_transaction_enable),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NULL, NOT_IN_BINLOG,
+    ON_CHECK(check_freeze_transaction_enable_var),
+    ON_UPDATE(update_freeze_transaction_enable_var));
+
+extern int g_freeze_wait_timeout_sec;
+static Sys_var_int32 Sys_freeze_wait_timeout_sec(
+    "freeze_wait_timeout_sec",
+    "After the session is frozen, wait for more than specified "
+    "second without being notified, automatically wake up and report an error.",
+    GLOBAL_VAR(g_freeze_wait_timeout_sec), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, INT32_MAX), DEFAULT(60), BLOCK_SIZE(1));

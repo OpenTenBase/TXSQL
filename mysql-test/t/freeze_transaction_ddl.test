@@ -1,0 +1,72 @@
+#
+# RENAME-related tests which require debug sync.
+#
+
+create user test@localhost;
+grant CREATE, INSERT, SELECT, DROP, SYSTEM_VARIABLES_ADMIN, SESSION_VARIABLES_ADMIN on *.* to test@localhost;
+
+use test;
+create table t (id int key);
+insert into t values(1);
+
+--echo #con1 start a transaction
+--connect(con1,127.0.0.1,test,,,,,TCP)
+use test;
+begin;
+
+--echo #con2 set global freeze_transaction_enable=ON
+--connect(con2,127.0.0.1,test,,,,,TCP)
+set global freeze_transaction_enable=ON;
+
+--echo #con1 trying to DML and DDL
+connection con1;
+insert into t values(100);
+set lock_wait_timeout=1;
+delete from t where id = 1;
+--error ER_LOCK_WAIT_TIMEOUT
+create table t1 (id int key);
+--error ER_LOCK_WAIT_TIMEOUT
+
+--echo #con1 trying to DDL is blocked
+connection con1;
+set lock_wait_timeout=10;
+send create table t1 (id int key);
+
+--echo #con2 set global freeze_transaction_enable=OFF and notify con1
+connection con2;
+set global freeze_transaction_enable=OFF;
+connection con1;
+reap;
+
+############################
+#freeze_wait_timeout_sec
+--echo
+connection con2;
+set global freeze_wait_timeout_sec=1;
+
+disconnect con1;
+--connect(con1,127.0.0.1,test,,,,,TCP)
+
+connection con2;
+set global freeze_transaction_enable = ON;
+
+--disable_warnings
+connection con1;
+--error 3933
+begin;
+--error 3933
+--enable_warnings
+
+connection con2;
+set global freeze_transaction_enable = OFF;
+
+--echo # Disconnect and cleanup.
+connection default;
+set global freeze_wait_timeout_sec=60;
+drop table t;
+drop table t1;
+drop user 'test'@'localhost';
+disconnect con1;
+disconnect con2;
+
+###########################################################################

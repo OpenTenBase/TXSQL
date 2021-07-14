@@ -1,0 +1,106 @@
+#
+# RENAME-related tests which require debug sync.
+#
+--source include/have_debug_sync.inc
+
+SET DEBUG_SYNC= 'RESET';
+create user test@localhost;
+grant CREATE, INSERT, SELECT, DROP, SYSTEM_VARIABLES_ADMIN, SESSION_VARIABLES_ADMIN on *.* to test@localhost;
+
+use test;
+create table t (id int key);
+insert into t values(1);
+
+--echo #select-autocommit just skip the freeze check
+--connect(con1,127.0.0.1,test,,,,,TCP)
+use test;
+SET DEBUG_SYNC= 'skip_freeze_check WAIT_FOR freeze_switch_on_1';
+send select *from t;
+
+--echo #insert-autocomit just skip the freeze check
+--connect(con2,127.0.0.1,test,,,,,TCP)
+use test;
+SET DEBUG_SYNC= 'skip_freeze_check WAIT_FOR freeze_switch_on_2';
+send insert into t values(2);
+
+--echo #transaction started just skip the freeze check
+--connect(con3,127.0.0.1,test,,,,,TCP)
+use test;
+SET DEBUG_SYNC= 'skip_freeze_check WAIT_FOR freeze_switch_on_3';
+send begin;
+
+--echo #con4 set freeze_transaction_enable on and list currently active transaction
+--connect(con4,127.0.0.1,test,,,,,TCP)
+set global freeze_transaction_enable=ON;
+show unfrozen processlist;
+
+SET DEBUG_SYNC= 'now SIGNAL freeze_switch_on_1';
+SET DEBUG_SYNC= 'now SIGNAL freeze_switch_on_2';
+SET DEBUG_SYNC= 'now SIGNAL freeze_switch_on_3';
+
+--echo #con4 set freeze_transaction_enable success
+--replace_column 1 #
+--sorted_result
+show unfrozen processlist;
+set global freeze_transaction_enable=OFF;
+
+connection con1;
+--error 3933
+reap;
+
+connection con2;
+--error 3933
+reap;
+
+connection con3;
+--error 3933
+reap;
+
+########### test missing signal 
+--echo #con1 prepare to miss signal
+connection con1;
+set global freeze_transaction_enable=ON;
+use test;
+SET DEBUG_SYNC= 'missing_signal_notify WAIT_FOR freeze_switch_off';
+
+--echo #con2 miss signal
+connection con2;
+send begin;
+
+connection con1;
+set global freeze_transaction_enable=OFF;
+SET DEBUG_SYNC= 'now SIGNAL freeze_switch_off';
+
+--echo #con2 missing signal,but an error is reported through double check
+connection con2;
+--error 3933
+reap;
+
+--echo #test lock instance for backup failed
+connection con1;
+SET DEBUG_SYNC= 'alter_opened_table WAIT_FOR can_alter';
+send alter table t1 add column c5 int;
+
+connection con2;
+set lock_wait_timeout=1;
+--error ER_LOCK_WAIT_TIMEOUT
+set global freeze_transaction_enable=ON;
+show global variables like "freeze_transaction_enable";
+SET DEBUG_SYNC= 'now SIGNAL can_alter';
+set global freeze_transaction_enable=ON;
+show global variables like "freeze_transaction_enable";
+set global freeze_transaction_enable=ON;
+set global freeze_transaction_enable=ON;
+set global freeze_transaction_enable=OFF;
+set global freeze_transaction_enable=OFF;
+
+--echo # Disconnect and cleanup.
+connection default;
+drop table t;
+drop user 'test'@'localhost';
+disconnect con1;
+disconnect con2;
+disconnect con3;
+disconnect con4;
+SET DEBUG_SYNC= 'RESET';
+###########################################################################

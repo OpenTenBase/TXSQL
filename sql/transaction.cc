@@ -190,7 +190,19 @@ bool trans_begin(THD *thd, uint flags) {
     thd->tx_priority = 1;
   });
 
-  thd->variables.option_bits |= OPTION_BEGIN;
+  /*
+    TDSQL: After setting freeze_transaction_enable to ON,
+    it is not allowed to open new transactions.
+  */
+  if (thd->check_if_need_frozen(OPTION_BEGIN)) {
+    my_error(ER_TRANSACTION_IS_FROZEN,MYF(0));
+    return true;
+  }
+
+  //thd->variables.option_bits |= OPTION_BEGIN;
+
+  DEBUG_SYNC(thd, "skip_freeze_check_trx_bgein_end");
+
   thd->server_status |= SERVER_STATUS_IN_TRANS;
   if (thd->tx_read_only) thd->server_status |= SERVER_STATUS_IN_TRANS_READONLY;
   DBUG_PRINT("info", ("setting SERVER_STATUS_IN_TRANS"));
