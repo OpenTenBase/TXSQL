@@ -22,7 +22,7 @@
 
 struct SHOW_VAR;
 
-#define MAX_THREAD_GROUPS 128
+#define MAX_THREAD_GROUPS 1000
 
 enum tp_high_prio_mode_t {
   TP_HIGH_PRIO_MODE_TRANSACTIONS,
