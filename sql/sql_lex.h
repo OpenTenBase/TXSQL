@@ -3575,6 +3575,8 @@ struct LEX : public Query_tables_list {
   */
   bool will_contextualize;
 
+  bool commit_tdsql_timeout_trxs;
+
   LEX();
 
   virtual ~LEX();

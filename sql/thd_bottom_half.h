@@ -183,6 +183,7 @@ private:
 //Ack thread
 class CThdBottomHalfAnsThread: public CLocalMysqlThread {
 public:
+    static void deal_answered_thd(const CThdKey &thd, bool stopped = false);
     int run();
 
     bool push(const CThdKey &thd) {
@@ -325,6 +326,8 @@ public:
     void set_thd_error_server_stop(THD *thd);
 
     void reset_answer();
+
+    void commit_timeout_trxs(void);
 
     Ack_container ack_container;
 private:

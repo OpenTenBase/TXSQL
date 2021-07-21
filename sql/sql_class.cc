@@ -566,6 +566,10 @@ THD::THD(bool enable_plugins)
 
   m_delay_commit = false;
 
+  m_delay_rotate = false;
+
+  m_sql_asyn_deal_stage = WAIT_ACK_STAGE;
+
   usecs_in_q = 0;
 
   m_long_service = false;

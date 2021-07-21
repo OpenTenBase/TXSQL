@@ -1,0 +1,51 @@
+-- source include/master-slave.inc
+-- source include/have_debug.inc
+
+--connection master
+CALL mtr.add_suppression("aborting in bottom half answering thread");
+
+--connection master
+set global sqlasyn = 1;
+set global sqlasyntimeout = 5;
+SET @@global.max_binlog_size = 4096;
+
+--connection slave
+set global sqlasyn = 1;
+set global sqlasync_after_sync = 1;
+
+--connection master
+create table t1(a int primary key, name varchar(4096));
+
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+--source include/stop_slave.inc
+
+--connection master
+--replace_column 1 # 2 #
+show binary logs;
+--error ER_XA_RBTIMEOUT
+insert into t1 values (1,repeat('k', 4096));
+
+# lose connection, reconnect to master
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+commit tdsql_timeout_trxs;
+--replace_column 1 # 2 #
+show binary logs;
+
+--connection slave
+--source include/start_slave.inc
+
+--connection master
+drop table t1;
+set global sqlasyn = 0;
+set global sqlasyntimeout = 30;
+SET @@global.max_binlog_size=1073741824;
+
+--connection slave
+set global sqlasyn = 0;
+
+--connection master
+--source include/rpl_end.inc

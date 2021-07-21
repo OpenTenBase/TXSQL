@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CALL mtr.add_suppression("aborting in bottom half answering thread");
+set global sqlasyn = 1;
+set global sqlasyntimeout = 5;
+set global sqlasyn = 1;
+create table t1(a int primary key, name varchar(256));
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+insert into t1 values (1,'test');
+ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+[connection master]
+select * from t1;
+a	name
+show status like 'sqlasync_uncommitted_timeout_trxs';
+Variable_name	Value
+sqlasync_uncommitted_timeout_trxs	1
+commit tdsql_timeout_trxs;
+select * from t1;
+a	name
+1	test
+show status like 'sqlasync_uncommitted_timeout_trxs';
+Variable_name	Value
+sqlasync_uncommitted_timeout_trxs	0
+include/start_slave.inc
+select * from t1;
+a	name
+1	test
+drop table t1;
+set global sqlasyn = 0;
+set global sqlasyntimeout = 30;
+set global sqlasyn = 0;
+include/rpl_end.inc

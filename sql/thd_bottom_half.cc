@@ -186,6 +186,29 @@ void CThdBottomHalf::reset_answer(void) {
   m_newstBinlogInfoAns.reset();
 }
 
+void CThdBottomHalf::commit_timeout_trxs(void) {
+  THD *old_thd = current_thd;
+  MEM_ROOT **old_root = THR_MALLOC;
+  CTGuard<CTMutex> gaurd(m_mutex);
+
+  for (ThdQueue_t::iterator iter = m_thdContainer.begin();
+    iter != m_thdContainer.end(); ++iter) {
+    if (iter->is_processed())
+      continue;
+    // it's timeout and uncommitted trxs
+    if (iter->getThd()->m_sql_asyn_deal_stage == THD::WAIT_TIMEOUT) {
+      CThdBottomHalfAnsThread::deal_answered_thd(*iter);
+      iter->mark_processed();
+      sqlasync_uncommitted_timeout_trxs--;
+    }
+  }
+  pop_processed();
+  assert(sqlasync_uncommitted_timeout_trxs == 0);
+  // recover the thread local variables
+  current_thd = old_thd;
+  THR_MALLOC = old_root;
+}
+
 /** Deal with answers from slave */
 void CThdBottomHalf::dealBinlogPosAns(const Thd_Trans_binlog_info &ack_info) {
 
@@ -341,6 +364,7 @@ void CThdBottomHalf::pop_all() {
 
 void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
     int num_processed = 0;
+    my_thread_init();
     while (m_threadstate) {
         num_processed = 0;
         do {
@@ -354,41 +378,50 @@ void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
                   iter != m_thdContainer.end(); ++iter) {
                 if (iter->is_processed())
                     continue;
-                // when the bottom-half work was delayed too long, the session timesout and we reject it.
-                // and the tdsql set will stop working, master's binlog
-                // tail(txns whose binlog commit done, but SE commit not done)
-                // will be truncated, new master will be selected and the
-                // cluster(set) then will be restarted.
-                if ((!sqlasyn) || cur > (uint64_t)(iter->getReqTime() + g_sqlAsynTimeout)) {
-                  /* The session is timeout */
-                    if (sqlasyn) { 
-                        if (tdsql_allow_async) {
-                            /*
-                              Use this var because sqlasyn might be OFF and
-                              tdsql_allow_sync might be ON at the same time, and
-                              we must not turn on sqlasyn in such a combination.
-                            */
-                            enable_sql_asyn_when_ok= true;
-                            g_sqlAsyn= false;// degrade to async replication.
-                            sqlasyn= false;
-                        } else {
-                            iter->setTimeout (true);
-                            sqlasyn_timeout_num++;
-                        }
-                    }
 
+                if (sqlasyn &&
+                    cur > (uint64_t)(iter->getReqTime() + g_sqlAsynTimeout) &&
+                    tdsql_allow_async) {
+                  /*
+                    Use this var because sqlasyn might be OFF and
+                    tdsql_allow_sync might be ON at the same time, and
+                    we must not turn on sqlasyn in such a combination.
+                  */
+                  enable_sql_asyn_when_ok= true;
+                  g_sqlAsyn= false;// degrade to async replication.
+                  sqlasyn= false;
+                }
+
+                if (unlikely(!sqlasyn || iter->getThd()->is_killed())) {
+                  iter->mark_processed();
+                  num_processed++;
+                  THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
+                  m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);  
+                  continue;
+                } 
+
+                // timeout
+                if (cur > (uint64_t)(iter->getReqTime() + g_sqlAsynTimeout)) {
+                  iter->setTimeout (true);
+                  sqlasyn_timeout_num++;  
+                  if (iter->getThd()->m_delay_commit) {
+                    if (iter->getThd()->m_sql_asyn_deal_stage == THD::WAIT_ACK_STAGE) {
+                      // It's ok, the work is not heavy so process it in timer thread
+                      CThdBottomHalfAnsThread::deal_answered_thd(*iter);
+                    }
+                  } else {
                     iter->mark_processed();
                     num_processed++;
                     THD_STAGE_INFO(iter->getThd(), stage_waiting_for_dispatch_thd_to_ans_thread);
                     m_ansThread[iter->getThd()->thread_id() % m_threadNum].push(*iter);
+                  }
                 } else {
-                    /*
-                      This is OK because CThdKey::m_reqTime is set at construction time, so
-                      they are increasing in the deque.
-                    */
-                    break;
+                  /*
+                    This is OK because CThdKey::m_reqTime is set at construction time, so
+                    they are increasing in the deque.
+                  */
+                  break;
                 }
-                // Go through all items.
             }
             // m_mutex is locked here.
             pop_processed();
@@ -397,6 +430,7 @@ void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
         if (num_processed == 0)
           sleep(1);
     }
+    my_thread_end();
 }
 
 Ack_container::container_iter Ack_container::min_ack() {
@@ -602,6 +636,105 @@ static bool thread_attach(THD* thd) {
     return 0;
 }
 
+void CThdBottomHalfAnsThread::deal_answered_thd(const CThdKey &thdKey, bool stopped) {
+  THD *the_thd= thdKey.getThd();
+  /*
+    If a connection is already dispatched to an answering thread, it is
+    never aborted by the threadpool-worker thread, so here we always have
+    valid the_thd pointers.
+  */
+  connection_t *connection =(connection_t*)(the_thd->event_scheduler.data);
+  assert(connection);
+  if (!connection) {
+    sql_print_error("get thd,but connection is NULL");
+    return;
+  }
+  /*
+    Should lock m_lockWithSqlAsyn here, rather than inside
+    bindThdToEvent() below, and unlock it after bindThdToEvent() below.
+    then check that the connection isn't marked for us to abort
+    here, if so, abort it.
+  */
+  lock_conn_sqlasync(connection);
+  if (connection_should_abort(connection)) {
+    // Must unlock the mutex before destroying it
+    // otherwise pthread causes undefined behavior.
+    unlock_conn_sqlasync(connection);
+    sql_print_error("connection_should_abort is true,so call connection_abort");
+    connection_abort(connection);
+    return;
+  }
+
+  Worker_thread_context worker_context;
+
+  thread_attach(the_thd);
+
+  // Have to define them here because of the 'goto' below.
+  bool thd_timeout = false;
+  bool bind_result = false;
+  Vio *vio = nullptr;
+  // Check aliveness after attaching to the thd. The session/connection
+  // may have been killed by user, and if so we finish process the trx
+  if (!thd_connection_alive(the_thd) &&
+      the_thd->is_killed() != ER_SERVER_SHUTDOWN) {
+     // When connection is dead, we need to call connection_abort()(see
+     // handle_event() for same processing). So flip this switch, don't
+     // bother to define and use another flag variable.
+     goto conn_gone;
+  }
+
+  thd_timeout= thdKey.isTimeout();
+  //execute the last part
+  if (thd_timeout) {
+    /*
+      The OK status was already set by the DML statement so here we have
+      to allow overwrite status to set error status.
+    */
+    the_thd->get_stmt_da()->set_overwrite_status(true);
+    my_error(ER_XA_RBTIMEOUT, MYF(0));
+    the_thd->get_stmt_da()->set_overwrite_status(false);
+    // Timeout error already logged, not gonna repeat here.
+  } else if (g_sqlAsynWarnTimeout > 0) {
+    const uint64 cur = getMonotonic_sec();
+    if ((uint)(cur - thdKey.getReqTime()) > g_sqlAsynWarnTimeout) {
+      sqlasyn_exceed_warn_num++;
+      sql_print_error("session waiting for ack of binlog pos (%u,%llu) cost [%ld] sec,exceed %d sec",
+                      thdKey.getThd()->ack_binlog_pos().file_no(),
+                      thdKey.getThd()->ack_binlog_pos().pos(),
+                      (int64_t)(cur - thdKey.getReqTime()), g_sqlAsynWarnTimeout);
+    }
+  }
+
+  if (!thd_timeout) { // normal case
+    finish_command(thdKey.getCommand(), the_thd, nullptr, thdKey.isError());
+    if (!stopped && the_thd->is_killed() != ER_SERVER_SHUTDOWN) bind_result = bindThdToEvent(the_thd);
+  } else { // timeout
+    if (the_thd->m_delay_commit) {
+      if (the_thd->m_sql_asyn_deal_stage == THD::WAIT_ACK_STAGE) {
+        // no commit in engine
+        do_finish_command(thdKey.getCommand(), the_thd, nullptr, thdKey.isError());
+        vio = the_thd->get_protocol_classic()->get_vio();
+        if (vio) vio_cancel(vio, SHUT_WR); // close the connection under connection lock
+        the_thd->m_sql_asyn_deal_stage = THD::WAIT_TIMEOUT;
+        sqlasync_uncommitted_timeout_trxs++;
+        bind_result = true; // keep the connection alive
+      } else {
+        assert(the_thd->m_sql_asyn_deal_stage == THD::WAIT_TIMEOUT);
+        delay_commit_trx(the_thd); // commit trx now
+      }
+    } else {
+      finish_command(thdKey.getCommand(), the_thd, nullptr, thdKey.isError());
+    }
+  }
+conn_gone:
+  unlock_conn_sqlasync(connection);
+  if (!bind_result) {
+    sql_print_error("aborting in bottom half answering thread, reason: %s",
+                    (thd_timeout ? "tdsql ack timeout" : ((!thd_connection_alive(the_thd)) ? "connection killed" : "bind-poll error")));
+    connection_abort(connection);
+  }
+}
+
 int CThdBottomHalfAnsThread::run() {
 
     my_thread_init();
@@ -627,82 +760,8 @@ int CThdBottomHalfAnsThread::run() {
             }
         }
 
-        THD *the_thd= thdKey.getThd();
-        /*
-          If a connection is already dispatched to an answering thread, it is
-          never aborted by the threadpool-worker thread, so here we always have
-          valid the_thd pointers.
-        */
-        connection_t *connection =(connection_t*)(the_thd->event_scheduler.data);
-        DBUG_ASSERT(connection);
-        if (!connection) {
-          sql_print_error("get thd,but connection is NULL");
-          continue;
-        }
-        /*
-          Should lock m_lockWithSqlAsyn here, rather than inside
-          bindThdToEvent() below, and unlock it after bindThdToEvent() below.
-          then check that the connection isn't marked for us to abort
-          here, if so, abort it.
-        */
-        lock_conn_sqlasync(connection);
-        if (connection_should_abort(connection) || !m_threadstate) {
-          // Must unlock the mutex before destroying it
-          // otherwise pthread causes undefined behavior.
-          unlock_conn_sqlasync(connection);
-          sql_print_error("connection_should_abort is true,so call connection_abort");
-          connection_abort(connection);
-          continue;
-        }
-
-        Worker_thread_context worker_context;
-
-        thread_attach(the_thd);
-
-        // Have to define them here because of the 'goto' below.
-        bool thd_timeout = false;
-        bool bind_result = false;
-        // Check aliveness after attaching to the thd. The session/connection
-        // may have been killed by user, and if so we should not work on it.
-        if (!thd_connection_alive(the_thd)) {
-           // When connection is dead, we need to call connection_abort()(see
-           // handle_event() for same processing). So flip this switch, don't
-           // bother to define and use another flag variable.
-           goto conn_gone;
-        }
-
-        thd_timeout= thdKey.isTimeout();
-        //execute the last part
-        if (thd_timeout) {
-            /*
-              The OK status was already set by the DML statement so here we have
-              to allow overwrite status to set error status.
-            */
-            the_thd->get_stmt_da()->set_overwrite_status(true);
-            my_error(ER_SYNC_TIMEOUT, MYF(0));
-            the_thd->get_stmt_da()->set_overwrite_status(false);
-            // Timeout error already logged, not gonna repeat here.
-        } else if (g_sqlAsynWarnTimeout > 0) {
-            const uint64 cur = getMonotonic_sec();
-            if ((uint)(cur - thdKey.getReqTime()) > g_sqlAsynWarnTimeout) {
-                sqlasyn_exceed_warn_num++;
-                sql_print_error("session waiting for ack of binlog pos (%u,%llu) cost [%ld] sec,exceed %d sec",
-                         thdKey.getThd()->ack_binlog_pos().file_no(),
-                         thdKey.getThd()->ack_binlog_pos().pos(),
-                         (int64_t)(cur - thdKey.getReqTime()), g_sqlAsynWarnTimeout);
-            }
-        }
-
-        finish_command(thdKey.getCommand(), the_thd, nullptr, thdKey.isError());
-        if (!thd_timeout) // if times out, the connection will be aborted below so won't bind it.
-            bind_result= bindThdToEvent(the_thd);
-conn_gone:
-        unlock_conn_sqlasync(connection);
-        if (!bind_result) {
-            sql_print_error("aborting in bottom half answering thread, reason: %s",
-                     (thd_timeout ? "tdsql ack timeout" : ((!thd_connection_alive(the_thd)) ? "connection killed" : "bind-poll error")));
-            connection_abort(connection);
-        }
+        // do the real work
+        deal_answered_thd(thdKey, !m_threadstate);
     }
 
     my_thread_end();

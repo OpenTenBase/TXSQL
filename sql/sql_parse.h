@@ -146,9 +146,12 @@ bool set_default_collation(HA_CREATE_INFO *create_info,
                            const CHARSET_INFO *value);
 
 class Sql_cmd_clone;
+void delay_commit_trx(THD *thd);
+bool do_finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error);
 bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error);
 
 extern ulonglong sqlasync_delay_commit;
+extern ulonglong sqlasync_uncommitted_timeout_trxs;
 /* Bits in sql_command_flags */
 
 #define CF_CHANGES_DATA (1U << 0)

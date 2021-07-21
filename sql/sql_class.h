@@ -1742,9 +1742,19 @@ class THD : public MDL_context_owner,
     TDSQL Whether this session/connection is waiting for its bottom half work
     to be performed
   */
+  enum sql_asyn_deal_stage {
+    WAIT_ACK_STAGE,
+    WAIT_TIMEOUT
+  };
+
   bool m_asyncAns;
 
   bool m_delay_commit;
+
+  /* delay rotate binlog if commit delayed */
+  bool m_delay_rotate;
+
+  sql_asyn_deal_stage m_sql_asyn_deal_stage;
 
   /** True if it's a long-time connection such as binlog dump. */
   bool m_long_service;

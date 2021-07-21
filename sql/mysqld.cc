@@ -9112,6 +9112,7 @@ SHOW_VAR status_vars[] = {
     {"sqlasyn_exceed_warn_num", (char*) &sqlasyn_exceed_warn_num, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"sqlasyn_timeout_num", (char*) &sqlasyn_timeout_num, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"sqlasync_delay_commit", (char*) &sqlasync_delay_commit, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_uncommitted_timeout_trxs", (char*) &sqlasync_uncommitted_timeout_trxs, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
 
     //slave
     {"sqlasyn_acks_to_master", (char*) &sqlasyn_sendto_master, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},

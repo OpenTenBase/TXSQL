@@ -66,9 +66,6 @@ select *from t1;
 a	b
 0	0
 1	1
-2	2
-3	3
-4	4
 include/sync_slave_io_with_master.inc
 "because the slave node set rpl_slave_ack_thread_sleep,so the slave node just can read 2 rows"
 select *from t1;
@@ -106,7 +103,6 @@ a	b
 2	2
 3	3
 4	4
-5	5
 "because the slave node set rpl_slave_ack_thread_sleep,so the slave node just can read 5 rows"
 select *from t1;
 a	b
@@ -182,7 +178,6 @@ a	b
 6	6
 7	7
 8	8
-9	9
 include/assert.inc [when set rpl_slave_ack_thread_flush_and_ack_fail,the io thread should stop]
 "the slave node get 9 rows,and the io thread stoped"
 select *from t1;

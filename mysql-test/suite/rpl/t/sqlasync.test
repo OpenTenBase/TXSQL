@@ -99,7 +99,7 @@ show status like 'sqlasyn_%';
 --connection master
 set global sqlasyntimeout = 30;
 set global sqlasynwarntimeout = 3;
-set global sqlasync_after_sync = 0;
+#set global sqlasync_after_sync = 0;
 
 #cleanup
 --connection master

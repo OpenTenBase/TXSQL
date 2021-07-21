@@ -475,6 +475,7 @@ void LEX::reset() {
 
   clear_privileges();
   grant_as.cleanup();
+  commit_tdsql_timeout_trxs = false;
 }
 
 /**
@@ -3506,7 +3507,8 @@ LEX::LEX()
       keep_diagnostics(DA_KEEP_UNSPECIFIED),
       is_lex_started(0),
       in_update_value_clause(false),
-      will_contextualize(true) {
+      will_contextualize(true),
+      commit_tdsql_timeout_trxs(false) {
   reset_query_tables_list(true);
 }
 

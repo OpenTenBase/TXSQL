@@ -520,7 +520,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token  ALL                           /* SQL-2003-R */
 %token  ALTER                         /* SQL-2003-R */
 %token<lexer.keyword> ALWAYS_SYM
-%token  OBSOLETE_TOKEN_271            /* was: ANALYSE_SYM */
+%token<lexer.keyword> TDSQL_TIMEOUT_TRXS_SYM /* TDSQL */
 %token  ANALYZE_SYM
 %token  AND_AND_SYM                   /* OPERATOR */
 %token  AND_SYM                       /* SQL-2003-R */
@@ -637,7 +637,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token  DELETE_SYM                    /* SQL-2003-R */
 %token  DESC                          /* SQL-2003-N */
 %token  DESCRIBE                      /* SQL-2003-R */
-%token  OBSOLETE_TOKEN_388            /* was: DES_KEY_FILE */
+%token<lexer.keyword> UNFROZEN_SYM    /* TDSQL */
 %token  DETERMINISTIC_SYM             /* SQL-2003-R */
 %token<lexer.keyword> DIAGNOSTICS_SYM       /* SQL-2003-N */
 %token<lexer.keyword> DIRECTORY_SYM
@@ -1250,7 +1250,6 @@ void warn_about_deprecated_binary(THD *thd)
 %token XA_PREPARED_LIST /* MYSQL */
 %token THREADPOOL_SYM     /* MYSQL */
 %token<lexer.keyword> DETAIL
-%token<lexer.keyword> UNFROZEN_SYM /* TDSQL */
 /*
   Tokens for compressed column
 */
@@ -14606,6 +14605,7 @@ ident_keywords_unambiguous:
         | TABLESPACE_SYM
         | TABLE_CHECKSUM_SYM
         | TABLE_NAME_SYM
+        | TDSQL_TIMEOUT_TRXS_SYM
         | TEMPORARY
         | TEMPTABLE_SYM
         | TEXT_SYM
@@ -16010,6 +16010,12 @@ commit:
             MYSQL_YYABORT_UNLESS($3 != TVL_YES || $4 != TVL_YES);
             lex->tx_chain= $3;
             lex->tx_release= $4;
+          }
+        | COMMIT_SYM TDSQL_TIMEOUT_TRXS_SYM
+          {
+            LEX *lex=Lex;
+            lex->sql_command= SQLCOM_COMMIT;
+            lex->commit_tdsql_timeout_trxs = true;
           }
         ;
 

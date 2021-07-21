@@ -198,6 +198,7 @@ using Mysql::Nullable;
 using std::max;
 
 ulonglong sqlasync_delay_commit = 0;
+ulonglong sqlasync_uncommitted_timeout_trxs = 0;
 /**
   @defgroup Runtime_Environment Runtime Environment
   @{
@@ -1464,37 +1465,48 @@ static void check_secondary_engine_statement(THD *thd,
                                    query_length);
 }
 
-bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
-  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+/* Commit transaction if needed. */
+void delay_commit_trx(THD *thd) {
+  assert(thd->m_delay_commit);
 
-  /* Commit transaction if needed. */
-  if (thd->m_delay_commit) {
-    Transaction_ctx *trn_ctx = thd->get_transaction();
-    trn_ctx->m_flags.commit_low = true;
+  THD_event_functions *old_scheduler = thd->scheduler;
+  thd->scheduler = nullptr; // can't call threadpool scheduler
+  Transaction_ctx *trn_ctx = thd->get_transaction();
+  trn_ctx->m_flags.commit_low = true;
 
-    /* Engine may get commit here if it's autocommit */
-    close_thread_tables(thd);
+  /* Engine may get commit here if it's autocommit */
+  close_thread_tables(thd);
 
-    /* Reset the stmt scope. */
-    ha_commit_low(thd, false, false);
+  /* Reset the stmt scope. */
+  ha_commit_low(thd, false, false);
 
-    /* Commit the engine if needed. */
-    ha_commit_low(thd, true, false);
+  /* Commit the engine if needed. */
+  ha_commit_low(thd, true, false);
 
-    if (trn_ctx->m_flags.xid_written) {
-      mysql_bin_log.dec_prep_xids(thd);
-    }
-
-    thd->m_delay_commit = false;
-
-    /* Reset some variables by invoking this function */
-    trans_commit_implicit(thd);
-
-    /* Release mdl lock */
-    thd->mdl_context.release_transactional_locks();
-
-    sqlasync_delay_commit++;
+  if (trn_ctx->m_flags.xid_written) {
+    mysql_bin_log.dec_prep_xids(thd);
   }
+
+  thd->m_delay_commit = false;
+
+  /* Reset some variables by invoking this function */
+  trans_commit_implicit(thd);
+
+  /* Release mdl lock */
+  thd->mdl_context.release_transactional_locks();
+
+  sqlasync_delay_commit++;
+
+  /* rotate binlog after commit */
+  if (thd->m_delay_rotate) {
+    thd->m_delay_rotate = false;
+    mysql_bin_log.rotate_after_commit(thd);
+  }
+  thd->scheduler = old_scheduler; // recover the threadpool scheduler
+}
+
+bool do_finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
 
   /* Finalize server status flags after executing a command. */
   thd->send_statement_status();
@@ -1574,6 +1586,11 @@ bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *c
   }
 
   return error;
+}
+
+bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
+  if (thd->m_delay_commit) delay_commit_trx(thd);
+  return do_finish_command(command, thd, clone_cmd, error);
 }
 
 /**
@@ -4208,26 +4225,30 @@ int mysql_execute_command(THD *thd, bool first_level) {
       my_ok(thd);
       break;
     case SQLCOM_COMMIT: {
-      DBUG_ASSERT(thd->lock == NULL ||
-                  thd->locked_tables_mode == LTM_LOCK_TABLES);
-      bool tx_chain =
-          (lex->tx_chain == TVL_YES ||
-           (thd->variables.completion_type == 1 && lex->tx_chain != TVL_NO));
-      bool tx_release =
-          (lex->tx_release == TVL_YES ||
-           (thd->variables.completion_type == 2 && lex->tx_release != TVL_NO));
-      if (trans_commit(thd)) goto error;
-      thd->mdl_context.release_transactional_locks();
-      /* Begin transaction with the same isolation level. */
-      if (tx_chain) {
-        if (trans_begin(thd)) goto error;
+      assert(thd->lock == nullptr ||
+             thd->locked_tables_mode == LTM_LOCK_TABLES);
+      if (!lex->commit_tdsql_timeout_trxs) {
+        bool tx_chain =
+            (lex->tx_chain == TVL_YES ||
+             (thd->variables.completion_type == 1 && lex->tx_chain != TVL_NO));
+        bool tx_release =
+            (lex->tx_release == TVL_YES ||
+             (thd->variables.completion_type == 2 && lex->tx_release != TVL_NO));
+        if (trans_commit(thd)) goto error;
+        thd->mdl_context.release_transactional_locks();
+        /* Begin transaction with the same isolation level. */
+        if (tx_chain) {
+          if (trans_begin(thd)) goto error;
+        } else {
+          /* Reset the isolation level and access mode if no chaining
+           * transaction.*/
+          trans_reset_one_shot_chistics(thd);
+        }
+        /* Disconnect the current client connection. */
+        if (tx_release) thd->killed = THD::KILL_CONNECTION;
       } else {
-        /* Reset the isolation level and access mode if no chaining
-         * transaction.*/
-        trans_reset_one_shot_chistics(thd);
+        g_thdBottomHalf->commit_timeout_trxs();
       }
-      /* Disconnect the current client connection. */
-      if (tx_release) thd->killed = THD::KILL_CONNECTION;
       my_ok(thd);
       break;
     }
