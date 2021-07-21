@@ -390,6 +390,14 @@ The following options may be given as the first argument:
  --forbid-server-path-remote-change 
  Forbid modifying server path variables from remote tcp/ip
  connection.
+ --freeze-transaction-enable 
+ After set to ON, block the newly started transaction,
+ while waiting for the write transaction that is currently
+ active to commit
+ --freeze-wait-timeout-sec=# 
+ After the session is frozen, wait for more than specified
+ second without being notified, automatically wake up and
+ report an error.
  --ft-boolean-syntax=name 
  List of operators for MATCH ... AGAINST ( ... IN BOOLEAN
  MODE)
@@ -1457,6 +1465,8 @@ The following options may be given as the first argument:
  Always sync relaylog at end of trx to make relaylog
  reliable.
  (Defaults to on; use --skip-tdsql-relay-log-opt to disable.)
+ --tdsql-sub-version=name 
+ tdsql reserved fields for special scenarios
  --temptable-max-ram=# 
  Maximum amount of memory (in bytes) the TempTable storage
  engine is allowed to allocate from the main memory (RAM)
@@ -1692,6 +1702,8 @@ forbid-remote-install-plugin FALSE
 forbid-remote-stop-server FALSE
 forbid-server-path-remote-access FALSE
 forbid-server-path-remote-change FALSE
+freeze-transaction-enable FALSE
+freeze-wait-timeout-sec 60
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84
 ft-min-word-len 4
@@ -1872,7 +1884,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 220
+performance-schema-max-statement-classes 222
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -1987,6 +1999,7 @@ tdsql-allow-async FALSE
 tdsql-compute-query-time-for-slow-logging 0
 tdsql-hide-partitions 
 tdsql-relay-log-opt TRUE
+tdsql-sub-version 
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
 thread-cache-size 9

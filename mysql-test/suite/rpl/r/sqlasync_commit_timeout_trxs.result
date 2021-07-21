@@ -11,7 +11,7 @@ create table t1(a int primary key, name varchar(256));
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
 insert into t1 values (1,'test');
-ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 select * from t1;
 a	name

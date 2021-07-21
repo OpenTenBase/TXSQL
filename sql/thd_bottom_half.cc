@@ -691,7 +691,7 @@ void CThdBottomHalfAnsThread::deal_answered_thd(const CThdKey &thdKey, bool stop
       to allow overwrite status to set error status.
     */
     the_thd->get_stmt_da()->set_overwrite_status(true);
-    my_error(ER_XA_RBTIMEOUT, MYF(0));
+    my_error(ER_SYNC_TIMEOUT, MYF(0));
     the_thd->get_stmt_da()->set_overwrite_status(false);
     // Timeout error already logged, not gonna repeat here.
   } else if (g_sqlAsynWarnTimeout > 0) {

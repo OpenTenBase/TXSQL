@@ -612,6 +612,10 @@ LEX *sp_lex_instr::parse_expr(THD *thd, sp_head *sp) {
   if (!parsing_failed) {
     thd->lex->set_trg_event_type_for_tables();
 
+    // Mark statement as belonging to a stored procedure:
+    if (thd->lex->m_sql_cmd != nullptr)
+      thd->lex->m_sql_cmd->set_as_part_of_sp();
+
     // Call after-parsing callback.
     parsing_failed = on_after_expr_parsing(thd);
 

@@ -116,6 +116,17 @@ class Sql_cmd {
   /// Get the owning prepared statement
   Prepared_statement *get_owner() { return m_owner; }
 
+  /**
+    Mark statement as part of procedure. Such statements can be executed
+    multiple times, the first execute() call will also prepare it.
+  */
+  void set_as_part_of_sp() {
+    assert(!m_part_of_sp);
+    m_part_of_sp = true;
+  } 
+  /// @returns true if statement is part of a stored procedure
+  bool is_part_of_sp() const { return m_part_of_sp; }
+
   /// @return true if SQL command is a DML statement
   virtual bool is_dml() const { return false; }
 
@@ -196,7 +207,7 @@ class Sql_cmd {
   const handlerton *secondary_engine() const { return m_secondary_engine; }
 
  protected:
-  Sql_cmd() : m_owner(nullptr), m_prepared(false), prepare_only(true) {}
+  Sql_cmd() : m_owner(nullptr), m_part_of_sp(false), m_prepared(false), prepare_only(true) {}
 
   virtual ~Sql_cmd() {
     /*
@@ -223,6 +234,7 @@ class Sql_cmd {
  private:
   Prepared_statement
       *m_owner;     /// Owning prepared statement, nullptr if non-prep.
+  bool m_part_of_sp;            /// True when statement is part of stored proc.
   bool m_prepared;  /// True when statement has been prepared
 
   /**

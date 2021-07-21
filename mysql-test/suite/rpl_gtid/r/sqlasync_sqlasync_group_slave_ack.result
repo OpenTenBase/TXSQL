@@ -53,13 +53,13 @@ a	b
 0	0
 1	1
 insert into t1 values (2,2);
-ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 insert into t1 values (3,3);
-ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 insert into t1 values (4,4);
-ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 "although sqlasyn timeout,but the master node can read 5 rows"
 select *from t1;
@@ -93,7 +93,7 @@ a	b
 3	3
 4	4
 insert into t1 values (5,5);
-ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 "now the master has 6 rows"
 select *from t1;
@@ -164,7 +164,7 @@ a	b
 7	7
 8	8
 insert into t1 values (9,9);
-ERROR XA106: XA_RBTIMEOUT: Transaction branch was rolled back: took too long
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 "the master node get 10 rows"
 select *from t1;

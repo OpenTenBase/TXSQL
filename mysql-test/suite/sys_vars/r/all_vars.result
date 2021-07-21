@@ -54,6 +54,10 @@ forbid_server_path_remote_access
 forbid_server_path_remote_access
 forbid_server_path_remote_change
 forbid_server_path_remote_change
+freeze_transaction_enable
+freeze_transaction_enable
+freeze_wait_timeout_sec
+freeze_wait_timeout_sec
 generated_random_password_length
 generated_random_password_length
 group_replication_consistency
@@ -236,6 +240,8 @@ tdsql_hide_partitions
 tdsql_hide_partitions
 tdsql_relay_log_opt
 tdsql_relay_log_opt
+tdsql_sub_version
+tdsql_sub_version
 temptable_use_mmap
 temptable_use_mmap
 thread_pool_eager_mode

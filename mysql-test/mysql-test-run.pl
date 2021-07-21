@@ -7180,8 +7180,8 @@ sub run_ctest() {
   }
 
   # Create minimalistic "test" for the reporting
-  $tinfo = My::Test->new(name      => 'unit_tests',
-                         shortname => 'unit_tests',);
+  #$tinfo = My::Test->new(name      => 'unit_tests',
+  #                       shortname => 'unit_tests',);
 
   # Set dummy worker id to align report with normal tests
   $tinfo->{worker} = 0 if $opt_parallel > 1;
