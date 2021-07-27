@@ -288,7 +288,8 @@ static bool check_session_admin(sys_var *self MY_ATTRIBUTE((unused)), THD *thd,
            .first &&
       !sctx->has_global_grant(STRING_WITH_LEN("SYSTEM_VARIABLES_ADMIN"))
            .first &&
-      !sctx->check_access(SUPER_ACL)) {
+      !sctx->check_access(SUPER_ACL) &&
+      !thd->variables.tdsql_allow_access_internal_table) {
     my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
              "SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN");
     return true;
@@ -7334,6 +7335,13 @@ static Sys_var_bool Sys_allow_access_dd_tables(
     "allow_access_dd_tables",
     "allow current user to access the dd tables",
     SESSION_VAR(allow_access_dd_tables),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_tdsl_allow_set_session_var(
+    "tdsql_allow_access_internal_table",
+    "allow current user to access tdsql internal table",
+    SESSION_ONLY(tdsql_allow_access_internal_table),
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
 

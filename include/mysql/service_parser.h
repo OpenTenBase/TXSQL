@@ -30,9 +30,10 @@
 
 class THD;
 class Item;
+class TABLE_LIST;
 #define MYSQL_THD THD *
 typedef Item *MYSQL_ITEM;
-
+typedef TABLE_LIST *MYSQL_TABLE_LIST;
 /**
   @file include/mysql/service_parser.h
 
@@ -51,6 +52,7 @@ typedef Item *MYSQL_ITEM;
 #define STATEMENT_TYPE_OTHER 6
 
 typedef int (*parse_node_visit_function)(MYSQL_ITEM item, unsigned char *arg);
+typedef int (*parse_table_visit_function)(MYSQL_TABLE_LIST item, unsigned char *arg);
 
 typedef int (*sql_condition_handler_function)(int sql_errno,
                                               const char *sqlstate,
@@ -281,6 +283,10 @@ MYSQL_LEX_STRING mysql_parser_item_string(MYSQL_ITEM item);
 void mysql_parser_free_string(MYSQL_LEX_STRING string);
 MYSQL_LEX_STRING mysql_parser_get_query(MYSQL_THD thd);
 MYSQL_LEX_STRING mysql_parser_get_normalized_query(MYSQL_THD thd);
+
+const char* mysql_get_db_name(MYSQL_TABLE_LIST table);
+const char *mysql_get_table_name(MYSQL_TABLE_LIST );
+void mysql_reset_table_name(MYSQL_TABLE_LIST , const char *new_name);
 
 #endif /* MYSQL_DYNAMIC_PLUGIN */
 

@@ -440,6 +440,7 @@ SET(SQL_SHARED_SOURCES
   rpl_trx_tracking.cc
   rpl_write_set_handler.cc
   rules_table_service.cc
+  table_rewrite_rules_service.cc
   rwlock_scoped_lock.cc
   sd_notify.cc
   sdi_utils.cc

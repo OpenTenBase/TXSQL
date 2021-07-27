@@ -419,6 +419,7 @@ extern bool forbid_remote_change_sql_log_bin;
 extern bool forbid_remote_change_master;
 extern bool forbid_remote_stop_server;
 extern bool hidden_sensitive_variable;
+extern bool table_rewriter_plugin_loaded;
 
 /** tdsql: Variables to control strong consistency behavior */
 extern bool g_sqlAsyn;

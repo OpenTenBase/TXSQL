@@ -410,8 +410,20 @@ bool fix_sys_schema(THD *thd) {
   const char **query_ptr;
   LogErr(INFORMATION_LEVEL, ER_SERVER_UPGRADE_SYS_SCHEMA);
   thd->user_var_events_alloc = thd->mem_root;
-  for (query_ptr = &mysql_sys_schema[0]; *query_ptr != NULL; query_ptr++)
+  // upgrate user need all privileges
+  thd->set_local_or_admin_port(true);
+  for (query_ptr = &mysql_sys_schema[0]; *query_ptr != NULL; query_ptr++) {
+    // if no plugin can't create trigger 
+    if (!table_rewriter_plugin_loaded) {
+      std::string sql(*query_ptr);
+      std::string filter("TRIGGER query_rewrite");
+      if (sql.find(filter) != std::string::npos) {
+        query_ptr++;
+        assert(*query_ptr);
+      }
+    }
     if (ignore_error_and_execute(thd, *query_ptr)) return true;
+  }
   thd->mem_root->Clear();
   return false;
 }

@@ -31,9 +31,12 @@ SET(SYS_SCHEMA_SOURCES
   tables/sys_config.sql
   tables/sys_config_alter.sql
   tables/sys_config_data.sql
+  tables/table_rewrite_rules.sql
 
   triggers/sys_config_insert_set_user.sql
   triggers/sys_config_update_set_user.sql
+  triggers/table_rewrite_rules_insert.sql
+  triggers/table_rewrite_rules_delete.sql
 
   functions/extract_schema_from_file_name.sql
   functions/extract_table_from_file_name.sql
@@ -57,6 +60,7 @@ SET(SYS_SCHEMA_SOURCES
   functions/version_major.sql
   functions/version_minor.sql
   functions/version_patch.sql
+  functions/load_table_rewriter_rules.sql
   
   views/i_s/innodb_buffer_stats_by_schema.sql
   views/i_s/x_innodb_buffer_stats_by_schema.sql

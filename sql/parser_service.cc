@@ -98,6 +98,36 @@ class Service_visitor : public Select_lex_visitor {
 };
 
 /**
+  This class implements the parse tree visiting service.
+  @see mysql_parser_visit_table
+*/
+class Service_table_visitor : public Select_lex_visitor {
+  parse_table_visit_function m_processor;
+  uchar *m_arg;
+
+ public:
+  /**
+    @param processor This function will be called for each literal (Item) in
+    the parse tree, along with the Item's type and arg. If the function
+    returns non-zero, parse tree traversal will terminate.
+
+    @param arg Will be passed to processor on every call.
+  */
+  Service_table_visitor(parse_table_visit_function processor, uchar *arg)
+      : m_processor(processor), m_arg(arg) {}
+
+ protected:
+  bool visit_query_block(SELECT_LEX *select) override {
+    auto table = select->table_list.first;
+    for (;table; table = table->next_local) {
+      if (table->is_derived() || table->nested_join) continue;
+      if (m_processor(table, m_arg)) return true;
+    }
+    return false;
+  }
+};
+
+/**
   This class implements the framework needed for the callback function that
   handles conditions that may arise during parsing via the parser service.
 
@@ -327,6 +357,32 @@ int mysql_parser_visit_tree(MYSQL_THD thd, parse_node_visit_function processor,
                             unsigned char *arg) {
   Service_visitor visitor(processor, arg);
   return thd->lex->accept(&visitor);
+}
+
+int mysql_parser_visit_table(MYSQL_THD thd, parse_table_visit_function processor,
+                            unsigned char *arg) {
+  Service_table_visitor visitor(processor, arg);
+  if (!thd->lex->m_sql_cmd) return 0;
+  return thd->lex->accept(&visitor);
+}
+
+const char* mysql_get_db_name(MYSQL_TABLE_LIST table) {
+  return table->db;
+}
+
+const char *mysql_get_table_name(MYSQL_TABLE_LIST table) {
+  return table->table_name;
+}
+
+void mysql_reset_table_name(MYSQL_TABLE_LIST table, const char *new_name) {
+  if (!table->alias) {
+    table->alias = table->table_name;
+  }
+  table->table_name = current_thd->strmake(new_name, strlen(new_name));
+  table->mdl_request.init_with_source(MDL_key::TABLE, table->db, table->table_name,
+                                      table->mdl_request.type,
+                                      table->mdl_request.duration,
+                                      __FILE__, __LINE__);
 }
 
 MYSQL_LEX_STRING mysql_parser_item_string(MYSQL_ITEM item) {

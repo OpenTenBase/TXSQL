@@ -1,0 +1,28 @@
+# shut server down
+# Server is down
+# create bootstrap file
+# Restart the server against DDIR
+create test user no previlige on query_rerite
+select * from information_schema.plugins where plugin_name='table_rewriter';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+Table_rewriter	0.2	ACTIVE	AUDIT	4.1	table_rewriter.so	1.10	tdsql-thawne	A table name rewrite plugin that rewrites table name in the  parse tree.	GPL	ON
+create user 'test'@'localhost';
+grant all on test.* to 'test'@'localhost';
+set tdsql_allow_access_internal_table = on;
+select load_table_rewriter_rules();
+load_table_rewriter_rules()
+NULL
+set @a=@@tx_isolation, tx_isolation='REPEATABLE-READ' , @b= @@binlog_format, binlog_format='STATEMENT';
+insert ignore query_rewrite.table_rewrite_rules values('test', 't1#2', 't1');
+select * from query_rewrite.table_rewrite_rules;
+db	table_name	table_name_new
+test	t1#2	t1
+delete from query_rewrite.table_rewrite_rules where db='test' and table_name='t1#2';
+select * from query_rewrite.table_rewrite_rules;
+db	table_name	table_name_new
+set binlog_format=@b, tx_isolation=@a;
+# shut server down
+# Server is down
+# close the test connection
+# delete mysqld log
+# delete datadir

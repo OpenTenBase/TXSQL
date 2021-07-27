@@ -3669,9 +3669,11 @@ bool check_grant(THD *thd, ulong want_access, TABLE_LIST *tables,
     sctx = (t_ref->security_ctx != nullptr) ? t_ref->security_ctx
                                             : thd->security_context();
     const char *db_name = t_ref->get_db_name();
+    const char *table_name = t_ref->get_table_name();
     const ACL_internal_table_access *access = get_cached_table_access(
-        &t_ref->grant.m_internal, db_name, t_ref->get_table_name());
+        &t_ref->grant.m_internal, db_name, table_name);
 
+    if (thd->access_internal_table(db_name, table_name)) return false;
     if (access) {
       switch (access->check(orig_want_access, &t_ref->grant.privilege)) {
         case ACL_INTERNAL_ACCESS_GRANTED:
@@ -3849,6 +3851,8 @@ bool check_grant_column(THD *thd, GRANT_INFO *grant, const char *db_name,
   DBUG_PRINT("enter",
              ("table: %s  want_privilege: %lu", table_name, want_privilege));
 
+  // fast path for tdsql rebanance
+  if (thd->access_internal_table(db_name, table_name)) return false;
   // Adjust wanted privileges based on privileges granted to table:
   want_privilege &= ~grant->privilege;
   if (!want_privilege) return false;  // Already checked
@@ -4015,7 +4019,6 @@ bool check_grant_all_columns(THD *thd, ulong want_access_arg,
   DEBUG_SYNC(thd, "in_check_grant_all_columns");
   Acl_cache_lock_guard acl_cache_lock(thd, Acl_cache_lock_mode::READ_MODE);
   if (!acl_cache_lock.lock()) return true;
-
   for (; !fields->end_of_fields(); fields->next()) {
     grant = fields->grant(); /* Get cached GRANT_INFO on field */
     // Check the privileges at column level if table does not have wanted access
@@ -4024,6 +4027,7 @@ bool check_grant_all_columns(THD *thd, ulong want_access_arg,
       field_name = fields->name();
       table_name = fields->get_table_name();
       db_name = fields->get_db_name();
+      if (thd->access_internal_table(db_name, table_name)) return false;
       if (has_roles) {
         LEX_CSTRING str_db_name = {db_name, strlen(db_name)};
         LEX_CSTRING str_table_name = {table_name, strlen(table_name)};

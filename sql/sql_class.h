@@ -4400,6 +4400,24 @@ class THD : public MDL_context_owner,
   std::string toString() const;
   bool cdb_sql_rejected_by_firewall;
   bool can_delay_commit() const;
+  inline bool access_internal_db(const char *db_name) const {
+    if (variables.tdsql_allow_access_internal_table) {
+      if (db_name && !strncmp(db_name, "query_rewrite", strlen("query_rewrite")))
+       return true;
+    } 
+
+    return false;
+  }
+
+  inline bool access_internal_table(const char *db_name, const char *table_name) const {
+    if (variables.tdsql_allow_access_internal_table) {
+      if (db_name && !strncmp(db_name, "query_rewrite", strlen("query_rewrite")) &&
+          table_name && !strncmp(table_name, "table_rewrite_rules", strlen("table_rewrite_rules")))
+       return true;
+    } 
+
+    return false;
+  }
 };
 
 /**

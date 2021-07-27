@@ -852,6 +852,11 @@ static st_plugin_dl *plugin_dl_add(const LEX_STRING *dl, int report,
                  static_cast<int>(sizeof(st_plugin_dl)));
     return NULL;
   }
+  
+  // initialization and upgrade the function and trigger only the plugin loaded
+  if (!strncmp(dl->str, "table_rewriter.so", strlen("table_rewriter.so"))) {
+    table_rewriter_plugin_loaded = true;
+  }
   return tmp;
 }
 

@@ -173,7 +173,8 @@ bool check_priv(THD *thd, bool static_variable) {
   if (!static_variable) {
     if (!sctx->check_access(SUPER_ACL) &&
         !(sctx->has_global_grant(STRING_WITH_LEN("SYSTEM_VARIABLES_ADMIN"))
-              .first)) {
+              .first) &&
+        !thd->variables.tdsql_allow_access_internal_table) {
       my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
                "SUPER or SYSTEM_VARIABLES_ADMIN");
       return 1;

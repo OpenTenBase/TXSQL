@@ -194,6 +194,16 @@ int Compiled_in_command_iterator::next(std::string &query) {
     return READ_BOOTSTRAP_EOF;
   }
 
+  // don't create the trigger if the plugin is not loaded
+  if (!table_rewriter_plugin_loaded) {
+    std::string sql(cmds[m_cmds_ofs][m_cmd_ofs]);
+    std::string filter("TRIGGER query_rewrite");
+    if (sql.find(filter) != std::string::npos) {
+      m_cmd_ofs++;
+      assert(cmds[m_cmds_ofs][m_cmd_ofs] != NULL);
+    }
+  }
+
   query.assign(cmds[m_cmds_ofs][m_cmd_ofs++]);
   return READ_BOOTSTRAP_SUCCESS;
 }

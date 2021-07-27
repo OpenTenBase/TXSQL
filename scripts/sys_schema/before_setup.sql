@@ -21,4 +21,11 @@ CREATE DATABASE IF NOT EXISTS sys DEFAULT CHARACTER SET utf8mb4;
 
 ALTER DATABASE sys CHARACTER SET utf8mb4;
 
+SET @has_table_rewriter_plugin=(select count(*) from information_schema.plugins where plugin_name='table_rewriter');
+SET @str = "CREATE DATABASE IF NOT EXISTS query_rewrite DEFAULT CHARACTER SET utf8mb4;";
+SET @cmd=IF(@has_table_rewriter_plugin,@str,'set @dummy=0');
+prepare stmt from @cmd;
+execute stmt;
+drop prepare stmt;
+
 USE sys;

@@ -1,0 +1,6 @@
+LIBRARY		rewriter
+VERSION		1.0
+EXPORTS
+  load_table_rewriter_rules_init
+  load_table_rewriter_rules
+  load_table_rewriter_rules_deinit

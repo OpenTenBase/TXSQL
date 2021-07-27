@@ -31,6 +31,7 @@
 #include "mysql/service_mysql_alloc.h"
 #include "mysql/service_rules_table.h"
 #include "mysql/service_ssl_wrapper.h"
+#include "mysql/service_table_rewrite_rules.h"
 #include "mysqld_error.h"
 #include "sql/sql_audit.h"
 #include "sql/sql_class.h"
@@ -121,6 +122,13 @@ bool invoke_post_parse_rewrite_plugins(THD *thd, bool is_prepared) {
     dummy =
 #endif
         ssl_wrapper_service::
+            dummy_function_to_ensure_we_are_linked_into_the_server();
+    DBUG_ASSERT(dummy == 1);
+
+#ifndef DBUG_OFF
+    dummy =
+#endif
+        table_rewrite_rules_service::
             dummy_function_to_ensure_we_are_linked_into_the_server();
     DBUG_ASSERT(dummy == 1);
   }

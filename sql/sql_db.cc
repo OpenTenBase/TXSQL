@@ -1280,6 +1280,10 @@ bool mysql_change_db(THD *thd, const LEX_CSTRING &new_db_name,
                 sctx->master_access(new_db_file_name.str);
   }
 
+  if (thd->access_internal_db(new_db_file_name.str)) {
+      db_access |= DB_OP_ACLS;
+  }
+
   if (!force_switch && !(db_access & DB_OP_ACLS) &&
       check_grant_db(thd, new_db_file_name.str)) {
     my_error(ER_DBACCESS_DENIED_ERROR, MYF(0), sctx->priv_user().str,

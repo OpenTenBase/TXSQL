@@ -2395,6 +2395,10 @@ bool sp_head::execute_trigger(THD *thd, const LEX_CSTRING &db_name,
 
   fill_effective_table_privileges(thd, grant_info, db_name.str, table_name.str);
 
+  if (thd->access_internal_table(db_name.str, table_name.str)) {
+    grant_info->privilege |= TRIGGER_ACL;
+  }
+
   /* Check that the definer has TRIGGER privilege on the subject table. */
 
   if (!(grant_info->privilege & TRIGGER_ACL)) {

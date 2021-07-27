@@ -1,0 +1,59 @@
+#check the query_rewrite interfaces
+let BASEDIR= `select @@basedir`;
+--echo # shut server down
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server
+--source include/wait_until_disconnected.inc
+--echo # Server is down
+let DDIR=$MYSQL_TMP_DIR/installdb_test;
+let MYSQLD_LOG=$MYSQL_TMP_DIR/server.log;
+let extra_args=--no-defaults --innodb_dedicated_server=OFF --console --loose-skip-auto_generate_certs --loose-skip-sha256_password_auto_generate_rsa_keys --skip-ssl --basedir=$BASEDIR --lc-messages-dir=$MYSQL_SHAREDIR;
+let BOOTSTRAP_SQL=$MYSQL_TMP_DIR/tiny_bootstrap.sql;
+--echo # create bootstrap file
+write_file $BOOTSTRAP_SQL;
+CREATE DATABASE test;
+EOF
+
+--exec $MYSQLD $extra_args --initialize-insecure --datadir=$DDIR --early-plugin-load=table_rewriter.so --plugin-dir=../tdsql/bld/plugin_output_directory --init-file=$BOOTSTRAP_SQL > $MYSQLD_LOG 2>&1
+--echo # Restart the server against DDIR
+--exec echo "restart:--datadir=$DDIR --early-plugin-load=table_rewriter.so --plugin-dir=../tdsql/bld/plugin_output_directory" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+--echo create test user no previlige on query_rerite
+select * from information_schema.plugins where plugin_name='table_rewriter';
+create user 'test'@'localhost';
+grant all on test.* to 'test'@'localhost';
+connect(con1, localhost, test,,);
+--connection con1
+
+set tdsql_allow_access_internal_table = on;
+select load_table_rewriter_rules();
+set @a=@@tx_isolation, tx_isolation='REPEATABLE-READ' , @b= @@binlog_format, binlog_format='STATEMENT';
+insert ignore query_rewrite.table_rewrite_rules values('test', 't1#2', 't1');
+select * from query_rewrite.table_rewrite_rules;
+delete from query_rewrite.table_rewrite_rules where db='test' and table_name='t1#2';
+select * from query_rewrite.table_rewrite_rules;
+set binlog_format=@b, tx_isolation=@a;
+
+connection default;
+--echo # shut server down
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server
+--source include/wait_until_disconnected.inc
+--echo # Server is down
+
+--echo # close the test connection
+connection default;
+disconnect con1;
+
+--echo # delete mysqld log
+remove_file $BOOTSTRAP_SQL;
+remove_file $MYSQLD_LOG;
+
+--echo # delete datadir
+--force-rmdir $DDIR
+
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc

@@ -419,6 +419,11 @@ struct System_variables {
     Can access the dd tables if it's set
   */
   bool allow_access_dd_tables;
+
+  /**
+    allow proxy to read write tdsql internal table
+  */
+  bool tdsql_allow_access_internal_table;
 };
 
 /**

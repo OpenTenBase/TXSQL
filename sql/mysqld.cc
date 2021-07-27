@@ -1052,6 +1052,7 @@ bool forbid_remote_change_sql_log_bin = false;
 bool forbid_remote_change_master = false;
 bool forbid_remote_stop_server = false;
 bool hidden_sensitive_variable = false;
+bool table_rewriter_plugin_loaded = false;
 
 /** tdsql: Variables to control strong consistency behavior */
 bool g_sqlAsyn = false;

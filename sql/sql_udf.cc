@@ -579,7 +579,7 @@ bool mysql_create_function(THD *thd, udf_func *udf) {
 
   DBUG_TRACE;
 
-  if (!initialized) {
+  if (!initialized && strcmp(udf->name.str, "load_table_rewriter_rules")) {
     if (opt_noacl)
       my_error(ER_CANT_INITIALIZE_UDF, MYF(0), udf->name.str,
                "UDFs are unavailable with the --skip-grant-tables option");
