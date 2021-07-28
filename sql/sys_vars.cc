@@ -5031,7 +5031,6 @@ static bool fix_autocommit(sys_var *self, THD *thd, enum_var_type type) {
   if (!(thd->variables.option_bits & OPTION_AUTOCOMMIT) &&
       !(thd->variables.option_bits &
         OPTION_NOT_AUTOCOMMIT)) {  // disabling autocommit
-
     thd->get_transaction()->reset_unsafe_rollback_flags(
         Transaction_ctx::SESSION);
     thd->server_status &= ~SERVER_STATUS_AUTOCOMMIT;
@@ -7173,7 +7172,7 @@ static Sys_var_bool Sys_g_sqlAsyn(
 static Sys_var_bool Sys_g_sqlAsyncAfterSync(
     "sqlasync_after_sync",
     "If true, the async process will commit transaction for each thd",
-    GLOBAL_VAR(g_sqlAsyncAfterSync), CMD_LINE(OPT_ARG), DEFAULT(true));
+    GLOBAL_VAR(g_sqlAsyncAfterSync), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static Sys_var_uint Sys_g_sqlAsynTimeout(
     "sqlasyntimeout",

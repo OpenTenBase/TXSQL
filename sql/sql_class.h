@@ -4399,6 +4399,7 @@ class THD : public MDL_context_owner,
 
   std::string toString() const;
   bool cdb_sql_rejected_by_firewall;
+  bool can_delay_commit() const;
 };
 
 /**

@@ -3003,3 +3003,25 @@ std::string THD::toString() const
 
   return std::string(buff);
 }
+
+/**
+  not all trx can be delay committed 
+*/
+bool THD::can_delay_commit() const {
+  if (g_sqlAsyn && g_sqlAsyncAfterSync &&   
+      system_thread == NON_SYSTEM_THREAD &&
+      // not in procedure or function
+      !(lex->m_sql_cmd != nullptr && lex->m_sql_cmd->is_part_of_sp()) &&
+      // not support almost ddls except normal db and table operation
+      (!(sql_command_flags[lex->sql_command] & (CF_DISALLOW_IN_RO_TRANS | CF_AUTO_COMMIT_TRANS)) ||
+        (lex->sql_command == SQLCOM_CREATE_DB ||
+         lex->sql_command == SQLCOM_CREATE_TABLE ||
+         lex->sql_command == SQLCOM_DROP_DB ||
+         lex->sql_command == SQLCOM_DROP_TABLE)) &&
+      // not support in multi_query
+      (!in_multi_query)) {
+    return true;
+  } else {
+    return false;
+  }
+}

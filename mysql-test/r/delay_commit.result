@@ -1,4 +1,5 @@
 set global sqlasyn = 1;
+set global sqlasync_after_sync = 1;
 create table t1 (a int);
 insert into t1 values (1);
 insert into t1 values (2);
@@ -29,3 +30,4 @@ i
 3
 drop table t1||||
 set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;

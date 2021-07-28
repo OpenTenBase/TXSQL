@@ -1,0 +1,503 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CALL mtr.add_suppression("aborting in bottom half answering thread");
+set global sqlasyn = 1;
+set global sqlasync_after_sync = 1;
+set global sqlasyn = 1;
+set global sqlasync_after_sync = 1;
+create database kz;
+use kz;
+create table t(a int primary key, b int);
+set global sqlasyntimeout = 1;
+include/stop_slave.inc
+
+case 1: normal after sync mode don't commit if no one acked to
+insert into t values (1,1);;
+use kz;
+-------- before time out
+select * from t;
+a	b
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+use kz;
+-------- after time out
+select * from t;
+a	b
+commit tdsql_timeout_trxs;
+-------- after commit
+select * from t;
+a	b
+1	1
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+use kz;
+------- after replicate to slave
+select * from t;
+a	b
+1	1
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+1	1
+
+case 2: ddls only support create/drop database/table
+include/stop_slave.inc
+-----create database
+create database kz1;
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+show databases like 'kz1';
+Database (kz1)
+commit tdsql_timeout_trxs;
+---------- after commit
+show databases like 'kz1';
+Database (kz1)
+kz1
+[connection master]
+------- after reconect to master
+show databases like 'kz1';
+Database (kz1)
+kz1
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+show databases like 'kz1';
+Database (kz1)
+kz1
+include/stop_slave.inc
+------create table
+create table kz1(id int primary key);
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+show tables like 'kz1';
+Tables_in_kz (kz1)
+commit tdsql_timeout_trxs;
+---------- after commit
+show tables like 'kz1';
+Tables_in_kz (kz1)
+kz1
+[connection master]
+------- after reconect to master
+show tables like 'kz1';
+Tables_in_kz (kz1)
+kz1
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+show tables like 'kz1';
+Tables_in_kz (kz1)
+kz1
+include/stop_slave.inc
+------alter table downgrade to after commit
+alter table kz1 add column c int;
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+show create table kz1;
+Table	Create Table
+kz1	CREATE TABLE `kz1` (
+  `id` int(11) NOT NULL,
+  `c` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+commit tdsql_timeout_trxs;
+---------- after commit
+show create table kz1;
+Table	Create Table
+kz1	CREATE TABLE `kz1` (
+  `id` int(11) NOT NULL,
+  `c` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+[connection master]
+------- after reconect to master
+show create table kz1;
+Table	Create Table
+kz1	CREATE TABLE `kz1` (
+  `id` int(11) NOT NULL,
+  `c` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+show create table kz1;
+Table	Create Table
+kz1	CREATE TABLE `kz1` (
+  `id` int(11) NOT NULL,
+  `c` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+include/stop_slave.inc
+------drop table
+drop table kz1;
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+show tables like 'kz1';
+Tables_in_kz (kz1)
+kz1
+commit tdsql_timeout_trxs;
+---------- after commit
+show tables like 'kz1';
+Tables_in_kz (kz1)
+[connection master]
+------- after reconect to master
+show tables like 'kz1';
+Tables_in_kz (kz1)
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+show tables like 'kz1';
+Tables_in_kz (kz1)
+include/stop_slave.inc
+-----drop database
+drop database kz1;
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+show databases like 'kz1';
+Database (kz1)
+kz1
+commit tdsql_timeout_trxs;
+---------- after commit
+show databases like 'kz1';
+Database (kz1)
+[connection master]
+------- after reconect to master
+show databases like 'kz1';
+Database (kz1)
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+show databases like 'kz1';
+Database (kz1)
+
+3. multi statements
+---- 1. support normal case
+include/stop_slave.inc
+------create table
+use kz;
+insert into t values(2,2);insert into t values(3,3)|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+select * from t;
+a	b
+1	1
+2	2
+commit tdsql_timeout_trxs;
+---------- after commit
+select * from t;
+a	b
+1	1
+2	2
+3	3
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+1	1
+2	2
+3	3
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+select * from t;
+a	b
+1	1
+2	2
+3	3
+
+3.1 multi statements error happen
+include/stop_slave.inc
+------ dup key error
+use kz;
+insert into t values(20,20);insert into t values(20,20)|
+ERROR 23000: Duplicate entry '20' for key 'PRIMARY'
+---------- after timeout
+select * from t;
+a	b
+1	1
+2	2
+3	3
+20	20
+commit tdsql_timeout_trxs;
+---------- after commit
+select * from t;
+a	b
+1	1
+2	2
+3	3
+20	20
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+1	1
+2	2
+3	3
+20	20
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+select * from t;
+a	b
+1	1
+2	2
+3	3
+20	20
+
+---- 4. multi query downgrade to after commit
+include/stop_slave.inc
+use kz;
+insert into t values(4,4);create table kz1(id int primary key);insert into t values(5,5);drop table kz1|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+[connection master]
+insert into t values(6,6);begin;insert into t values(7,7);commit;insert into t values(8,8)|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+[connection master]
+insert into t values(9,9);set autocommit=0;insert into t values(10,10); set autocommit=1; insert into t values(11,11)|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+[connection master]
+insert into t values(12,12);xa start '1'; insert into t values(13,13); xa end '1'; xa prepare '1'; xa commit '1'; insert into t values(14,14)|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+[connection master]
+insert into t values(15,15);set autocommit=0; insert into t values(16,16); rollback; set autocommit=1|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+9	9
+10	10
+12	12
+13	13
+15	15
+20	20
+commit tdsql_timeout_trxs;
+---------- after commit
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+20	20
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+20	20
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+20	20
+
+---- 5. transaction in cross two multi_query
+include/stop_slave.inc
+use kz;
+insert into t values(16,16); begin; insert into t values(17,17)|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+check data only 16 insert
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+16	16
+20	20
+[connection master]
+insert into t values(18,18);commit|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+16	16
+18	18
+20	20
+commit tdsql_timeout_trxs;
+---------- after commit
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+16	16
+18	18
+20	20
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+16	16
+18	18
+20	20
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+select * from t;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+16	16
+18	18
+20	20
+
+---- 6. downgrade to after commit if commit in procedure
+include/stop_slave.inc
+use kz;
+create procedure after_sync_func()
+modifies sql data
+begin
+delete from t;
+START TRANSACTION;
+insert into t values(19,19);
+commit;
+end|
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+[connection master]
+call after_sync_func();
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+---------- after timeout
+select * from t;
+a	b
+commit tdsql_timeout_trxs;
+---------- after commit
+select * from t;
+a	b
+19	19
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+19	19
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+------- after replicate to slave
+select * from t;
+a	b
+19	19
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+set global sqlasyntimeout = 30;
+drop database kz;
+include/sync_slave_sql_with_master.inc
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+include/rpl_end.inc
