@@ -104,9 +104,11 @@ set global sqlasynwarntimeout = 3;
 #cleanup
 --connection master
 set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
 drop database sb1;
 --source include/sync_slave_sql_with_master.inc
 set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
 
 --connection master
  --source include/rpl_end.inc

@@ -22,11 +22,13 @@ CALL mtr.add_suppression("may be Failed to flush master info");
 select @@sqlasyn;
 select @@thread_handling;
 select @@sqlasync_group_slave_ack;
+set global sqlasync_after_sync=1;
 
 --connection slave
 select @@sqlasyn;
 select @@thread_handling;
 select @@sqlasync_group_slave_ack;
+set global sqlasync_after_sync=1;
 
 
 # create database for testing
@@ -187,7 +189,6 @@ insert into t1 values (10,10);
 --echo "after start io thread,the slave node get 11 rows"
 select *from t1;
 
-
 # show status 
 #--connection master
 #--replace_column 2 #
@@ -202,8 +203,12 @@ select *from t1;
 drop table t1;
 --source include/sync_slave_sql_with_master.inc
 
+--connection slave
+set global sqlasync_after_sync=0;
+
 
 --connection master
 --source include/rpl_end.inc
 set global gtid_mode = 'on_permissive';
 set global gtid_mode = 'OFF_PERMISSIVE';
+set global sqlasync_after_sync=0;

@@ -29,17 +29,20 @@ ERROR XA106: The transaction is in doubt. Please check whether the transaction h
 [connection master]
 select * from t1;
 a	b
+1	2
 set global sqlasync_after_sync = 1;
 insert into t1 values (2,3);
 ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 select * from t1;
 a	b
+1	2
 set global sqlasyntimeout = 3000;
 insert into t1 values (3,4);;
 use sb1;
 select * from t1;
 a	b
+1	2
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 use sb1;
@@ -97,7 +100,9 @@ sqlasync_uncommitted_timeout_trxs	#
 set global sqlasyntimeout = 30;
 set global sqlasynwarntimeout = 3;
 set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
 drop database sb1;
 include/sync_slave_sql_with_master.inc
 set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
 include/rpl_end.inc

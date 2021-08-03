@@ -5,10 +5,12 @@ CALL mtr.add_suppression("aborting in bottom half answering thread");
 
 --connection master
 set global sqlasyn = 1;
+set global sqlasync_after_sync= 1;
 set global sqlasyntimeout = 5;
 
 --connection slave
 set global sqlasyn = 1;
+set global sqlasync_after_sync= 1;
 
 --connection master
 create table t1(a int primary key, name varchar(256));
@@ -41,10 +43,12 @@ select * from t1;
 --connection master
 drop table t1;
 set global sqlasyn = 0;
+set global sqlasync_after_sync= 0;
 set global sqlasyntimeout = 30;
 
 --connection slave
 set global sqlasyn = 0;
+set global sqlasync_after_sync= 0;
 
 --connection master
 --source include/rpl_end.inc

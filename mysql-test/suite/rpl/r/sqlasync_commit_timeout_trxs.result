@@ -5,8 +5,10 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 CALL mtr.add_suppression("aborting in bottom half answering thread");
 set global sqlasyn = 1;
+set global sqlasync_after_sync= 1;
 set global sqlasyntimeout = 5;
 set global sqlasyn = 1;
+set global sqlasync_after_sync= 1;
 create table t1(a int primary key, name varchar(256));
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
@@ -31,6 +33,8 @@ a	name
 1	test
 drop table t1;
 set global sqlasyn = 0;
+set global sqlasync_after_sync= 0;
 set global sqlasyntimeout = 30;
 set global sqlasyn = 0;
+set global sqlasync_after_sync= 0;
 include/rpl_end.inc

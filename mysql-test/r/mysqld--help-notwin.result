@@ -1393,7 +1393,6 @@ The following options may be given as the first argument:
  --sqlasync-after-sync 
  If true, the async process will commit transaction for
  each thd
- (Defaults to on; use --skip-sqlasync-after-sync to disable.)
  --sqlasync-group-slave-ack 
  the slave node use group ack(merge fsync), It ensures
  data persistence and reduces IO 
@@ -1977,7 +1976,7 @@ sporadic-binlog-dump-fail FALSE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
 sqlasyn FALSE
-sqlasync-after-sync TRUE
+sqlasync-after-sync FALSE
 sqlasync-group-slave-ack TRUE
 sqlasync-wait-n-slaves 1
 sqlasyntimeout 30

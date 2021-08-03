@@ -1,4 +1,5 @@
 ## Test Strong consistency by asynchronous ACK
+-- source include/have_debug.inc
 -- source include/have_binlog_format_row.inc
 -- source include/master-slave.inc
 
@@ -389,6 +390,42 @@ select * from t;
 --source include/sync_slave_sql_with_master.inc
 --connection slave
 --echo ------- after replicate to slave
+select * from t;
+
+#simulate network error
+--source include/stop_slave.inc
+
+--echo 
+--echo simulate network error 
+--connection master
+set global debug='+d,simulate_thd_network_error';
+--send insert into t values (21,21);
+--connection master1
+use kz;
+--echo -------- before time out
+select * from t;
+--connection master
+--error ER_XA_RBTIMEOUT
+--reap
+--connection master1
+use kz;
+--echo -------- after time out
+select * from t;
+commit tdsql_timeout_trxs;
+--echo -------- after commit
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+use kz;
+--echo ------- after replicate to slave
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
 select * from t;
 
 #cleanup

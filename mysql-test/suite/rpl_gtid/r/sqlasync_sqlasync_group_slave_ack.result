@@ -24,6 +24,7 @@ pool-of-threads
 select @@sqlasync_group_slave_ack;
 @@sqlasync_group_slave_ack
 1
+set global sqlasync_after_sync=1;
 select @@sqlasyn;
 @@sqlasyn
 1
@@ -33,6 +34,7 @@ pool-of-threads
 select @@sqlasync_group_slave_ack;
 @@sqlasync_group_slave_ack
 1
+set global sqlasync_after_sync=1;
 create table t1(a int primary key, b int);
 insert into t1 values (0,0);
 insert into t1 values (1,1);
@@ -210,6 +212,8 @@ a	b
 10	10
 drop table t1;
 include/sync_slave_sql_with_master.inc
+set global sqlasync_after_sync=0;
 include/rpl_end.inc
 set global gtid_mode = 'on_permissive';
 set global gtid_mode = 'OFF_PERMISSIVE';
+set global sqlasync_after_sync=0;

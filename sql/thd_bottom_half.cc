@@ -673,10 +673,19 @@ void CThdBottomHalfAnsThread::deal_answered_thd(const CThdKey &thdKey, bool stop
   bool thd_timeout = false;
   bool bind_result = false;
   Vio *vio = nullptr;
+
   // Check aliveness after attaching to the thd. The session/connection
   // may have been killed by user, and if so we finish process the trx
-  if (!thd_connection_alive(the_thd) &&
-      the_thd->is_killed() != ER_SERVER_SHUTDOWN) {
+  // delay committed thd can't abort directly
+#if !defined(DBUG_OFF)
+  DBUG_EXECUTE_IF("simulate_thd_network_error",{
+    NET *net = the_thd->get_protocol_classic()->get_net();
+    net->error = 1; 
+    sql_print_error("debug test: set the error of network to 1");
+    DBUG_SET_INITIAL("-d,simulate_thd_network_error");
+  };);
+#endif
+  if (!thd_connection_alive(the_thd) && !the_thd->m_delay_commit) {
      // When connection is dead, we need to call connection_abort()(see
      // handle_event() for same processing). So flip this switch, don't
      // bother to define and use another flag variable.
