@@ -493,6 +493,42 @@ include/sync_slave_sql_with_master.inc
 select * from t;
 a	b
 19	19
+include/stop_slave.inc
+
+simulate network error 
+set global debug='+d,simulate_thd_network_error';
+insert into t values (21,21);;
+use kz;
+-------- before time out
+select * from t;
+a	b
+19	19
+ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
+use kz;
+-------- after time out
+select * from t;
+a	b
+19	19
+commit tdsql_timeout_trxs;
+-------- after commit
+select * from t;
+a	b
+19	19
+21	21
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+use kz;
+------- after replicate to slave
+select * from t;
+a	b
+19	19
+21	21
+[connection master]
+------- after reconect to master
+select * from t;
+a	b
+19	19
+21	21
 set global sqlasyn = 0;
 set global sqlasync_after_sync = 0;
 set global sqlasyntimeout = 30;

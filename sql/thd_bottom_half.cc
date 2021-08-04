@@ -199,7 +199,6 @@ void CThdBottomHalf::commit_timeout_trxs(void) {
     if (iter->getThd()->m_sql_asyn_deal_stage == THD::WAIT_TIMEOUT) {
       CThdBottomHalfAnsThread::deal_answered_thd(*iter);
       iter->mark_processed();
-      sqlasync_uncommitted_timeout_trxs--;
     }
   }
   pop_processed();
@@ -681,7 +680,7 @@ void CThdBottomHalfAnsThread::deal_answered_thd(const CThdKey &thdKey, bool stop
   DBUG_EXECUTE_IF("simulate_thd_network_error",{
     NET *net = the_thd->get_protocol_classic()->get_net();
     net->error = 1; 
-    sql_print_error("debug test: set the error of network to 1");
+    sql_print_information("debug test: set the error of network to 1");
     DBUG_SET_INITIAL("-d,simulate_thd_network_error");
   };);
 #endif
@@ -730,6 +729,7 @@ void CThdBottomHalfAnsThread::deal_answered_thd(const CThdKey &thdKey, bool stop
       } else {
         assert(the_thd->m_sql_asyn_deal_stage == THD::WAIT_TIMEOUT);
         delay_commit_trx(the_thd); // commit trx now
+        sqlasync_uncommitted_timeout_trxs--;
       }
     } else {
       finish_command(thdKey.getCommand(), the_thd, nullptr, thdKey.isError());

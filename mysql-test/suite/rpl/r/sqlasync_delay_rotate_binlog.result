@@ -26,7 +26,9 @@ Log_name	File_size	Encrypted	Algorithm
 include/start_slave.inc
 drop table t1;
 set global sqlasyn = 0;
+set global sqlasync_after_sync=0;
 set global sqlasyntimeout = 30;
 SET @@global.max_binlog_size=1073741824;
 set global sqlasyn = 0;
+set global sqlasync_after_sync=0;
 include/rpl_end.inc
