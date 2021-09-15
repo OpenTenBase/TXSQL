@@ -1,0 +1,1 @@
+--innodb_stats_skip_adjustment_for_primary_key=on

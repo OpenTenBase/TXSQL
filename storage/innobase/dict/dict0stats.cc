@@ -1576,8 +1576,24 @@ static bool dict_stats_analyze_index_for_n_prefix(
     our algo would (correctly) get an estimate that there are
     2 distinct records per page (average). Having 4 pages below
     non-boring records, it would (wrongly) estimate the number
-    of distinct records to 8. */
-    if (n_diff_on_leaf_page > 0) {
+    of distinct records to 8.
+
+    Bug#104959: ANALYZE InnoDB wide tables incorrectly to get zero
+    or seriously underestimated statistics
+
+    If there was just one big record on each clustered index page,
+    the algorithm will get a result of zero row in the table, which
+    gives the false illusion that the table is empty or significantly
+    under-estimated value.
+    The original algo ignores one-row pages. However, primary-key columns
+    do not need such adjustment, because the number of distinct values
+    is independent of adjacent pages. In contrast, sampling secondary index
+    does not suffer from this problem, because the limited total width of
+    secondary index columns effectively avoids one-row pages.
+    */
+    if (!(srv_stats_skip_adjustment_for_primary_key &&
+        (index->type & DICT_CLUSTERED) && n_prefix == index->n_uniq) &&
+        n_diff_on_leaf_page > 0) {
       n_diff_on_leaf_page--;
     }
 
