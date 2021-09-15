@@ -23535,6 +23535,13 @@ static MYSQL_SYSVAR_UINT(
     "Maximum number of records in table deadlock_hostory."
     "If the value is 0, historical deadlock information is not recorded",
     deadlock_history_size_check, deadlock_history_size_update, 0, 0, 16384, 0);
+
+static MYSQL_SYSVAR_BOOL(
+    stats_skip_adjustment_for_primary_key,
+    srv_stats_skip_adjustment_for_primary_key, PLUGIN_VAR_OPCMDARG,
+    "Skip adjustment NDV for estimating primary key in the leaf page "
+    "when calculating persistent statistics of clustered index",
+    nullptr, nullptr, false);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23575,6 +23582,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(doublewrite_files),
     MYSQL_SYSVAR(doublewrite_pages),
     MYSQL_SYSVAR(stats_include_delete_marked),
+    MYSQL_SYSVAR(stats_skip_adjustment_for_primary_key),
     MYSQL_SYSVAR(api_enable_binlog),
     MYSQL_SYSVAR(api_enable_mdl),
     MYSQL_SYSVAR(api_disable_rowlock),

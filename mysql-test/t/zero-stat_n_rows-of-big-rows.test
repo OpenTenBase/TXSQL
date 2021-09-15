@@ -1,0 +1,43 @@
+# Backup the original value of the variables
+SET @saved_innodb_stats_persistent = @@GLOBAL.innodb_stats_persistent;
+SET @saved_persistent_sample_pages = @@GLOBAL.innodb_stats_persistent_sample_pages;
+SET @saved_skip_adjustment_for_primary_key = @@innodb_stats_skip_adjustment_for_primary_key;
+
+create table t(c1 int primary key, c2 text(8000)) engine=innodb;
+insert into t value(10000, repeat('a',8000));
+
+--echo # Insert 9999 big records. All leaf pages will have one row except for the first.
+--let $total_rows_number=10000
+--let $iterator=1
+
+--disable_query_log
+--disable_result_log
+
+begin;
+while ($iterator < $total_rows_number)
+{
+  --eval insert into t values($iterator, repeat('a', 8000));
+  --inc $iterator
+}
+commit;
+
+--enable_result_log
+--enable_query_log
+
+set global innodb_stats_persistent=on;
+set global innodb_stats_persistent_sample_pages=20;
+
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=ON;
+analyze table t;
+select TABLE_ROWS from information_schema.tables where table_name ='t';
+
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=OFF;
+analyze table t;
+select TABLE_ROWS from information_schema.tables where table_name ='t';
+
+drop table t;
+
+# Cleanup
+SET GLOBAL innodb_stats_persistent = @saved_innodb_stats_persistent;
+SET GLOBAL innodb_stats_persistent_sample_pages = @saved_persistent_sample_pages;
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key = @saved_skip_adjustment_for_primary_key;

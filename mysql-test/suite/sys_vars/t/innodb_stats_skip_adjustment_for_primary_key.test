@@ -1,0 +1,52 @@
+###############################################################################
+#                                                                             #
+# Variable Name: innodb_stats_skip_adjustment_for_primary_key                 #
+# Scope: Global                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: numeric                                                          #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2021-09-15                                                   #
+# Author : hcduan                                                             #
+#                                                                             #
+#                                                                             #
+# Description:                                                                #
+#              * Value check                                                  #
+#              * Scope check                                                  #
+#                                                                             #
+###############################################################################
+
+
+####################################################################
+#   Display default value                                          #
+####################################################################
+SELECT @@innodb_stats_skip_adjustment_for_primary_key;
+
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=1;
+
+SELECT @@innodb_stats_skip_adjustment_for_primary_key;
+
+# check error
+--error ER_GLOBAL_VARIABLE
+SET SESSION innodb_stats_skip_adjustment_for_primary_key=1;
+
+# check error
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=100;
+
+# check error
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=foo;
+
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=OFF ;
+
+SELECT @@innodb_stats_skip_adjustment_for_primary_key;
+
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=ON ;
+
+SELECT @@innodb_stats_skip_adjustment_for_primary_key;
+
+# Check with default setting
+SET GLOBAL innodb_stats_skip_adjustment_for_primary_key=Default ;
+
+SELECT @@innodb_stats_skip_adjustment_for_primary_key;

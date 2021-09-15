@@ -3319,6 +3319,7 @@ ulong srv_async_table_size;
 char *srv_async_drop_tmp_dir = nullptr;
 /** Table-drop mode */
 ulong srv_table_drop_mode = SRV_SYNC_DROP;
+bool srv_stats_skip_adjustment_for_primary_key = false;
 
 bool srv_log_dummy_cache = true;
 
