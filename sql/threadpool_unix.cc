@@ -1342,7 +1342,6 @@ static connection_t *get_event(worker_thread_t *current_thread,
         if (connection_is_high_prio(*connection)) {
           haveCompute = true;
           connection->tickets--;
-          connection->when_enqueued = 0;
         } else if (!threadpool_eager_mode && too_many_active_threads(*thread_group)) {
           /*
             Not eligible for high priority processing. Restore tickets and put
@@ -1361,6 +1360,8 @@ static connection_t *get_event(worker_thread_t *current_thread,
             thread_group->get_normal_queue_num++;
           }
           thread_group->queue_event_count++;
+          // picked from event need clear the wait time if it's just login
+          connection->when_enqueued= 0;
           break;
         }
       }
