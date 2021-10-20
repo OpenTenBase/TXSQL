@@ -21439,9 +21439,8 @@ hot_update_detect_update(
 		lock_sys_reset_hot_update();
 	}
 
-
-	srv_hot_update_detect = *reinterpret_cast<bool*>(const_cast<void*>(save));
-	mutex_exit(&lock_sys->hot_update_mutex);
+  srv_hot_update_detect = *reinterpret_cast<bool*>(const_cast<void*>(save));
+  mutex_exit(&lock_sys->hot_update_mutex);
 }
 
 /** Validate if passed-in "value" is a valid value for

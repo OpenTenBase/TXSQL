@@ -2098,14 +2098,6 @@ lock_grant_hot_update(
   lock_t*    in_lock,
   ulint    heap_no);
 
-/** Find the hot update item which is in lock_sys->hot_row_update.
-@param[in]  rec_id    record ID
-@return the hot_update_item or NULL */
-static
-hot_update_item_t*
-lock_rec_find_hot_update_item(
-  const RecID&    rec_id);
-
 /** Grants a lock to a waiting lock request and releases the waiting
 transaction. The caller must hold lock_sys latch for the shard containing the
 lock, but not the lock->trx->mutex.
@@ -2454,26 +2446,6 @@ static void lock_rec_grant_by_heap_no(lock_t *in_lock, ulint heap_no) {
     }
   }
 }
-
-/** Find the hot update item which is in lock_sys->hot_row_update.
-@param[in]  rec_id    record ID
-@return the hot_update_item or NULL */
-static
-hot_update_item_t*
-lock_rec_find_hot_update_item(
-  const RecID&    rec_id)
-{
-  hot_update_item_t*  item = NULL;
-
-  ut_ad(lock_sys->hot_update_mutex.is_owned());
-
-  HASH_SEARCH(hash, lock_sys->hot_update_hash, rec_id.hash_value(),
-        hot_update_item_t*,
-        item, ut_ad(true), item->m_rec_id.matches(rec_id));
-
-  return(item);
-}
-
 
 /**
 A record could be moved to a new location due to page split/merge etc.
@@ -6333,18 +6305,11 @@ lock_clust_check_hot_row_update(
 
   if (item) {
     if (item->n_running >= srv_max_concurrent_hot_update) {
-      if (trx->hot_update_status == HOT_UPDATE_STATUS_WAITING) {
-        mutex_exit(&lock_sys->hot_update_mutex);
-        return (DB_LOCK_WAIT_HOT_ROW_UPDATE);
-      }
-
-      ut_ad(trx->hot_update_status == HOT_UPDATE_STATUS_NONE);
-      hot_update_t new_wait_hot_update;
-
-      new_wait_hot_update.m_trx = trx;
-      item->waiting_updates->push_back(new_wait_hot_update);
+      /* Set the rec id in trx for hot update waiting. */
       trx_mutex_enter(trx);
-      trx->hot_update_status = HOT_UPDATE_STATUS_WAITING;
+      trx->lock.hu_rec_id.m_space_id = space_id;
+      trx->lock.hu_rec_id.m_page_no = page_no;
+      trx->lock.hu_rec_id.m_heap_no = heap_no;
       trx_mutex_exit(trx);
       mutex_exit(&lock_sys->hot_update_mutex);
 #ifdef UNIV_DEBUG_HOT_UPDATE

@@ -915,6 +915,10 @@ struct hot_update_item_t {
             /*!< waiting updates. */
 };
 
+/** Find the hot update item which is in lock_sys->hot_row_update.
+@param[in]  rec_id    record ID
+@return the hot_update_item or NULL */
+inline hot_update_item_t *lock_rec_find_hot_update_item(const RecID &rec_id);
 
 /** Gets the type of a lock.
  @return LOCK_TABLE or LOCK_REC */

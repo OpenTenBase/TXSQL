@@ -384,6 +384,20 @@ static inline bool trx_is_rseg_updated(const trx_t *trx);
 
 typedef std::vector<ib_lock_t *, ut::allocator<ib_lock_t *>> lock_pool_t;
 
+struct hot_update_rec_id {
+  /**
+  Tablespace ID */
+  uint32_t        m_space_id;
+
+  /**
+  Page number within the space ID */
+  uint32_t        m_page_no;
+
+  /**
+  Heap number within the page */
+  uint32_t        m_heap_no;
+};
+
 /** Latching protocol for trx_lock_t::que_state.  trx_lock_t::que_state
  captures the state of the query thread during the execution of a query.
  This is different from a transaction state. The query state of a transaction
@@ -516,10 +530,12 @@ struct trx_lock_t {
   */
   que_thr_t *wait_thr;
 
+  /** query thread belonging to this trx that is waiting in the
+  hot update waiting queue.  Protected by lock_sys->mutex. */
   que_thr_t *hot_update_wait_thr;
-  /*!< query thread belonging to this
-  trx that is waiting in the hot update waiting queue.
-  Protected by lock_sys->mutex. */
+
+  /**  rec_id of hot update.*/
+  hot_update_rec_id hu_rec_id;
 
   /** Pre-allocated record locks. Protected by trx->mutex. */
   lock_pool_t rec_pool;

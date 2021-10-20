@@ -243,6 +243,10 @@ static void trx_init(trx_t *trx) {
   trx->hot_update_status = HOT_UPDATE_STATUS_NONE;
 
   trx->is_point_update = false;
+  trx->lock.hot_update_wait_thr = nullptr;
+  trx->lock.hu_rec_id.m_space_id = UINT32_UNDEFINED;
+  trx->lock.hu_rec_id.m_page_no = UINT32_UNDEFINED;
+  trx->lock.hu_rec_id.m_heap_no = UINT32_UNDEFINED;
 }
 
 /** For managing the life-cycle of the trx_t instance that we get
