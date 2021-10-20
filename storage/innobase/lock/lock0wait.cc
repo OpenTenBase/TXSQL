@@ -73,7 +73,7 @@ static void lock_wait_table_print(void) {
 /** Release a slot in the lock_sys_t::waiting_threads. Adjust the array last
  pointer if there are empty slots towards the end of the table. */
 static void lock_wait_table_release_slot(
-  srv_slot_t*	slot, 		/*!< in: slot to release */
+  srv_slot_t*	slot,		/*!< in: slot to release */
   bool hot_update_release) /* !< in: if this is called from lock_wait_in_hot_row_update_queue */
 {
   ut_ad(!mutex_own(&lock_sys->hot_update_wait_slot_mutex));
@@ -247,13 +247,15 @@ lock_wait_update_hot_update_item_after_timeout(
   mutex_exit(&lock_sys->hot_update_mutex);
 }
 
-/** Puts a user OS thread to wait for a hot row update lock to be released. 
+/** Puts a user OS thread to wait for a hot row update lock to be released.
 @param[in]	thr		query thread associated with the user OS thread  */
 void
 lock_wait_in_hot_row_update_queue(que_thr_t *thr)
 {
   srv_slot_t*   slot;
   trx_t*        trx;
+  hot_update_t  new_wait_hot_update;
+  hot_update_item_t*  item;
 
   trx = thr_get_trx(thr);
 
@@ -268,31 +270,51 @@ lock_wait_in_hot_row_update_queue(que_thr_t *thr)
 
   slot = lock_wait_table_reserve_slot(thr, std::chrono::seconds{100000000});
 
-  lock_wait_mutex_exit();
-
-  ut_ad(trx->hot_update_status == HOT_UPDATE_STATUS_WAITING);
   ut_ad(!trx->lock.hot_update_wait_thr);
 
   trx->lock.hot_update_wait_thr = thr;
 
+  trx->hot_update_status = HOT_UPDATE_STATUS_WAITING;
+
+  page_id_t page_id(trx->lock.hu_rec_id.m_space_id,
+                    trx->lock.hu_rec_id.m_page_no);
+  RecID  rec_id(page_id,
+                trx->lock.hu_rec_id.m_heap_no);
+
   trx_mutex_exit(trx);
+
+  lock_wait_mutex_exit();
 
   DEBUG_SYNC_C("hot_update_wait_will_wait");
 
-#ifdef UNIV_DEBUG_HOT_UPDATE
-  ib::info() << "trx " << trx->id << " waiting for slot.";
-#endif
-  if (srv_hot_update_wait_timeout > 100000000) {
-    os_event_wait(slot->event);
-  } else {
-    os_event_wait_time(slot->event,
-      std::chrono::milliseconds{srv_hot_update_wait_timeout});
-  }
+  mutex_enter(&lock_sys->hot_update_mutex);
+
+  new_wait_hot_update.m_trx = trx;
+  ut_ad(trx->lock.hu_rec_id.m_space_id != UINT32_UNDEFINED);
+  item = lock_rec_find_hot_update_item(rec_id);
+
+  if (item) {
+    item->waiting_updates->push_back(new_wait_hot_update);
+    mutex_exit(&lock_sys->hot_update_mutex);
 
 #ifdef UNIV_DEBUG_HOT_UPDATE
-  ib::info() << "trx " << trx->id << " waiting for slot finished.";
+    ib::info() << "trx " << trx->id << " waiting for slot.";
 #endif
-  DEBUG_SYNC_C("hot_update_wait_has_finished_waiting");
+    if (srv_hot_update_wait_timeout > 100000000) {
+      os_event_wait(slot->event);
+    } else {
+      os_event_wait_time(slot->event,
+        std::chrono::milliseconds{srv_hot_update_wait_timeout});
+    }
+
+#ifdef UNIV_DEBUG_HOT_UPDATE
+    ib::info() << "trx " << trx->id << " waiting for slot finished.";
+#endif
+    DEBUG_SYNC_C("hot_update_wait_has_finished_waiting");
+  } else {
+    /* If the item not exists, skip waiting phase. */
+	  mutex_exit(&lock_sys->hot_update_mutex);
+  }
 
   /* Release the slot for others to use */
   lock_wait_table_release_slot(slot, true);

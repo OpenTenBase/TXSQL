@@ -297,4 +297,19 @@ bool RecID::matches(const lock_t *lock) const {
           lock_rec_get_nth_bit(lock, m_heap_no));
 }
 
+/** Find the hot update item which is in lock_sys->hot_row_update.
+@param[in]  rec_id    record ID
+@return the hot_update_item or NULL */
+inline hot_update_item_t *lock_rec_find_hot_update_item(const RecID &rec_id) {
+  hot_update_item_t *item = NULL;
+
+  ut_ad(lock_sys->hot_update_mutex.is_owned());
+
+  HASH_SEARCH(hash, lock_sys->hot_update_hash, rec_id.hash_value(),
+              hot_update_item_t *, item, ut_ad(true),
+              item->m_rec_id.matches(rec_id));
+
+  return (item);
+}
+
 /* vim: set filetype=c: */
