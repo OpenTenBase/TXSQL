@@ -92,6 +92,7 @@ class DD_bootstrap_ctx {
   uint m_actual_dd_version = 0;
   uint m_upgraded_server_version = 0;
   Stage m_stage = Stage::NOT_STARTED;
+  uint m_tdsql_mysqld_server_version = 0;
 
  public:
   DD_bootstrap_ctx() {}
@@ -139,6 +140,10 @@ class DD_bootstrap_ctx {
     m_upgraded_server_version = upgraded_server_version;
   }
 
+  void set_tdsql_mysqld_server_version(uint tdsql_mysqld_server_version) {
+    m_tdsql_mysqld_server_version = tdsql_mysqld_server_version;
+  }
+
   uint get_upgraded_server_version() const { return m_upgraded_server_version; }
 
   bool upgraded_server_version_is(uint compare_upgraded_server_version) const {
@@ -155,7 +160,8 @@ class DD_bootstrap_ctx {
   }
 
   bool is_server_upgrade() const {
-    return !opt_initialize && (m_upgraded_server_version < MYSQL_VERSION_ID);
+    return !opt_initialize && (m_upgraded_server_version < MYSQL_VERSION_ID ||
+                               m_tdsql_mysqld_server_version < TDSQL_MYSQLD_SERVER_VERSION);
   }
 
   bool is_dd_upgrade_from_before(uint compare_actual_dd_version) const {

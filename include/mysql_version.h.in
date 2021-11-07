@@ -27,6 +27,8 @@
 #define TXSQL_VERSION_START_ID	99000
 /* current TXSQL version, may change with TXSQL version: 5 numbers start from 99000 */
 #define TXSQL_VERSION_ID  99401
+/* current tdsql mysqld version, used for tdsql upgrade the system tables */
+#define TDSQL_MYSQLD_SERVER_VERSION 722
 
 #ifndef LICENSE
 #define LICENSE                     GPL

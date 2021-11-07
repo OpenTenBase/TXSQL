@@ -1076,6 +1076,8 @@ bool initialize_dd_properties(THD *thd) {
     bool exists = false;
     bool exists_server = false;
     bool exists_upgraded_version = false;
+    bool exists_tdsql_mysqld_server_version = false;
+    uint tdsql_mysqld_server_version = 0;
 
     // Check 'DD_version' too in order to catch an upgrade from 8.0.3.
     if (dd::tables::DD_properties::instance().get(thd, "DD_VERSION",
@@ -1131,6 +1133,14 @@ bool initialize_dd_properties(THD *thd) {
       upgraded_server_version = actual_server_version;
     bootstrap::DD_bootstrap_ctx::instance().set_upgraded_server_version(
         upgraded_server_version);
+
+    dd::tables::DD_properties::instance().get(thd, "TDSQL_MYSQLD_SERVER_VERSION",
+                                              &tdsql_mysqld_server_version,
+                                              &exists_tdsql_mysqld_server_version);
+    if (exists_tdsql_mysqld_server_version) {
+      DBUG_ASSERT(tdsql_mysqld_server_version <= TDSQL_MYSQLD_SERVER_VERSION);
+      bootstrap::DD_bootstrap_ctx::instance().set_tdsql_mysqld_server_version(tdsql_mysqld_server_version);
+    }
 
     if (DBUG_EVALUATE_IF("simulate_mysql_upgrade_skip_pending", true,
                          actual_server_version != upgraded_server_version &&
@@ -1673,7 +1683,9 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
         dd::tables::DD_properties::instance().set(thd, "MYSQLD_VERSION_HI",
                                                   MYSQL_VERSION_ID) ||
         dd::tables::DD_properties::instance().set(thd, "MYSQLD_VERSION",
-                                                  MYSQL_VERSION_ID))
+                                                  MYSQL_VERSION_ID) ||
+        dd::tables::DD_properties::instance().set(thd, "TDSQL_MYSQLD_SERVER_VERSION",
+                                                  TDSQL_MYSQLD_SERVER_VERSION))
       return dd::end_transaction(thd, true);
 
     if (is_dd_upgrade_57) {
@@ -1698,6 +1710,8 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
     bool exists_hi = false;
     bool exists = false;
     bool exists_upgraded_version = false;
+    uint tdsql_mysqld_server_version = 0;
+    bool exists_tdsql_mysqld_server_version = false;
     if ((dd::tables::DD_properties::instance().get(
              thd, "MYSQLD_VERSION_LO", &mysqld_version_lo, &exists_lo) ||
          !exists_lo) ||
@@ -1721,6 +1735,10 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
     bootstrap::DD_bootstrap_ctx::instance().set_upgraded_server_version(
         upgraded_server_version);
 
+    dd::tables::DD_properties::instance().get(thd, "TDSQL_MYSQLD_SERVER_VERSION",
+                                              &tdsql_mysqld_server_version,
+                                              &exists_tdsql_mysqld_server_version);
+
     if ((mysqld_version_lo > MYSQL_VERSION_ID &&
          dd::tables::DD_properties::instance().set(thd, "MYSQLD_VERSION_LO",
                                                    MYSQL_VERSION_ID)) ||
@@ -1729,7 +1747,10 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
                                                    MYSQL_VERSION_ID)) ||
         (mysqld_version != MYSQL_VERSION_ID &&
          dd::tables::DD_properties::instance().set(thd, "MYSQLD_VERSION",
-                                                   MYSQL_VERSION_ID)))
+                                                   MYSQL_VERSION_ID)) ||
+        ((!exists_tdsql_mysqld_server_version || tdsql_mysqld_server_version < TDSQL_MYSQLD_SERVER_VERSION) &&
+         dd::tables::DD_properties::instance().set(thd, "TDSQL_MYSQLD_SERVER_VERSION",
+                                                   TDSQL_MYSQLD_SERVER_VERSION)))
       return dd::end_transaction(thd, true);
 
     /*
