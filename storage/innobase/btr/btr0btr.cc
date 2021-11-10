@@ -692,15 +692,10 @@ static ulint *btr_page_get_father_node_ptr_func(
     print_rec = page_rec_get_next(page_get_infimum_rec(page_align(user_rec)));
     offsets = rec_get_offsets(print_rec, index, offsets, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);
-    // page_rec_print(print_rec, offsets);
-
-    ib::info() << rec_printer(print_rec, offsets).str();
-
+    page_rec_print(print_rec, offsets);
     offsets = rec_get_offsets(node_ptr, index, offsets, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);
-    // page_rec_print(node_ptr, offsets);
-
-    ib::info() << rec_printer(node_ptr, offsets).str();
+    page_rec_print(node_ptr, offsets);
 
     ib::fatal(UT_LOCATION_HERE, ER_IB_MSG_29)
         << "You should dump + drop + reimport the table to"

@@ -4187,6 +4187,7 @@ void parallel_partition_file(
   local_partition_buffers = nullptr;
 }
 
+#ifdef UNIV_DEBUG
 void output_rec(merge_file_t *input_file,
                 dict_index_t *index, ulint end_run) {
   ulint *offsets = nullptr;
@@ -4233,6 +4234,7 @@ void output_rec(merge_file_t *input_file,
     ib::info() << rec_printer(mrec, 0, offsets).str();
   }
 }
+#endif
 
 void parallel_merge_sort(ulint id, merge_file_wrapper_t *file_wrapper,
                   trx_t *trx, row_merge_dup_t *dup,

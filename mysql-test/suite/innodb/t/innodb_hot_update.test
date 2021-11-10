@@ -48,9 +48,22 @@ SET GLOBAL DEBUG='+d,hot_update_time_out';
 UPDATE hotupdates set id = 2 WHERE id = 1;
 --source suite/innodb/include/hot_update.inc
 
+--echo ########################################################
+--echo #                                                      #
+--echo # Scenario 4 test basic function of hot update for     #
+--echo # insert on duplicate.                                 #
+--echo #                                                      #
+--echo ########################################################
+--connection default
+SET GLOBAL DEBUG='+d,hot_update_on_dup';
+--source suite/innodb/include/hot_update_dup.inc
+--let SEARCH_PATTERN=wait for duplicate update
+--source include/search_pattern_in_file.inc
+
 --connection default
 SET GLOBAL DEBUG='-d,hot_update_add_new_item';
 SET GLOBAL DEBUG='-d,hot_update_time_out';
+SET GLOBAL DEBUG='-d,hot_update_on_dup';
 
 SET DEBUG_SYNC = 'RESET';
 

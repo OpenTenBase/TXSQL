@@ -243,6 +243,7 @@ static void trx_init(trx_t *trx) {
   trx->hot_update_status = HOT_UPDATE_STATUS_NONE;
 
   trx->is_point_update = false;
+  trx->skip_hot_update_check = false;
   trx->lock.hot_update_wait_thr = nullptr;
   trx->lock.hu_rec_id.m_space_id = UINT32_UNDEFINED;
   trx->lock.hu_rec_id.m_page_no = UINT32_UNDEFINED;
