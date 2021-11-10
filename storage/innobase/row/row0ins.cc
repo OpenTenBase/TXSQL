@@ -2178,6 +2178,23 @@ a newer version of entry (the entry should not be inserted)
         /* Do nothing if no-locking is set */
         err = DB_SUCCESS;
       } else {
+        /* Check if it's a hot row update, if it is,
+        let it wait in hot row update queue. */
+        if (trx->skip_hot_update_check == false) {
+          err = lock_clust_check_hot_row_update(trx, rec);
+          if (err != DB_SUCCESS) {
+            /* For test dup update*/
+            DBUG_EXECUTE_IF("hot_update_on_dup",
+                            ib::info() << "trx " << trx->id << " wait for"
+                              << " duplicate" << " update.";);
+            goto func_exit;
+          } else {
+            trx_mutex_enter(trx);
+            trx->is_point_update = true;
+            trx_mutex_exit(trx);
+          }
+        }
+
         /* If the SQL-query will update or replace
         duplicate key we will take X-lock for
         duplicates ( REPLACE, LOAD DATAFILE REPLACE,
@@ -2186,6 +2203,12 @@ a newer version of entry (the entry should not be inserted)
         err = row_ins_set_rec_lock(row_allow_duplicates(thr) ? LOCK_X : LOCK_S,
                                    LOCK_REC_NOT_GAP, btr_cur_get_block(cursor),
                                    rec, cursor->index, offsets, thr);
+
+        if (err == DB_LOCK_WAIT) {
+          /* If it's already in lock waiting queue, then skip hot row
+	  update check. */
+          trx->skip_hot_update_check = true;
+        }
       }
 
       switch (err) {
@@ -2212,6 +2235,19 @@ a newer version of entry (the entry should not be inserted)
       offsets = rec_get_offsets(rec, cursor->index, offsets, ULINT_UNDEFINED,
                                 UT_LOCATION_HERE, &heap);
 
+      /* Check if it's a hot row update, if it is, let it wait in hot
+      update queue. */
+      if (trx->skip_hot_update_check == false) {
+        err = lock_clust_check_hot_row_update(trx, rec);
+        if (err != DB_SUCCESS) {
+          goto func_exit;
+        } else {
+          trx_mutex_enter(trx);
+          trx->is_point_update = true;
+          trx_mutex_exit(trx);
+        }
+      }
+
       /* If the SQL-query will update or replace
       duplicate key we will take X-lock for
       duplicates ( REPLACE, LOAD DATAFILE REPLACE,
@@ -2220,6 +2256,12 @@ a newer version of entry (the entry should not be inserted)
       err = row_ins_set_rec_lock(row_allow_duplicates(thr) ? LOCK_X : LOCK_S,
                                  LOCK_REC_NOT_GAP, btr_cur_get_block(cursor),
                                  rec, cursor->index, offsets, thr);
+
+      if (err == DB_LOCK_WAIT) {
+        /* If it's already in lock waiting queue, then skip hot row
+        update check. */
+        trx->skip_hot_update_check = true;
+      }
 
       switch (err) {
         case DB_SUCCESS_LOCKED_REC:

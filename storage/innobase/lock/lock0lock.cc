@@ -2569,8 +2569,8 @@ lock_grant_hot_update(
   if (item == NULL) {
 #ifdef UNIV_DEBUG_HOT_UPDATE
     ib::info() << "trx " << in_lock->trx->id
-      << " release lock on rec(" << rec_id.m_space_id 
-      << "," << rec_id.m_page_no << "," 
+      << " release lock on rec(" << rec_id.m_page_id.space()
+      << "," << rec_id.m_page_id.page_no() << ","
       << rec_id.m_heap_no << ") but can't find item to continue.";
 #endif
     mutex_exit(&lock_sys->hot_update_mutex);
@@ -2594,13 +2594,14 @@ lock_grant_hot_update(
 
 #ifdef UNIV_DEBUG_HOT_UPDATE
         ib::info() << "trx " << in_lock->trx->id
-          << " release the lock on item(" << item->m_rec_id.m_space_id
-          << "," << item->m_rec_id.m_page_no << "," << item->m_rec_id.m_heap_no
+          << " release the lock on item(" << rec_id.m_page_id.space()
+          << "," << rec_id.m_page_id.page_no() << "," << item->m_rec_id.m_heap_no
           << ") and notify trx "
           << next_update.m_trx->id
           << " to continue.";
         ib::info() << "hot update item has "
-          << item->n_running << " running ";
+          << item->n_running << " running "
+          << item->waiting_updates->size() << " waiting ";
 #endif
       } else {
         // Grant failed because the head trx in
@@ -4461,9 +4462,7 @@ static void lock_rec_release(lock_t *lock, ulint heap_no) {
     ib::info() << "trx " << lock->trx->id
       << " release the lock but not notify any other trx.";
     hot_update_item_t*  item;
-    ulint  space = lock->rec_lock.space;
-    ulint  page_no = lock->rec_lock.page_no;
-    RecID  rec_id(space, page_no, heap_no);
+    RecID  rec_id(lock->rec_lock.page_id, heap_no);
     mutex_enter(&lock_sys->hot_update_mutex);
     item = lock_rec_find_hot_update_item(rec_id);
     if (item != NULL && !item->waiting_updates->empty()) {
@@ -6315,8 +6314,8 @@ lock_clust_check_hot_row_update(
 #ifdef UNIV_DEBUG_HOT_UPDATE
       ib::info() << "trx" << trx->id
         << " has to wait for hot update on item("
-        << item->m_rec_id.m_space_id << ","
-        << item->m_rec_id.m_page_no << ","
+        << item->m_rec_id.m_page_id.space() << ","
+        << item->m_rec_id.m_page_id.page_no() << ","
         << item->m_rec_id.m_heap_no << ") which has "
         << item->n_running << " running "
         ", waiting size "
@@ -6399,7 +6398,8 @@ lock_clust_add_or_update_hot_update_item(
 
 #ifdef UNIV_DEBUG_HOT_UPDATE
   ib::info() << "trx " << trx->id << " added a new hot update item for rec("
-    << item->m_rec_id.m_space_id << "," << item->m_rec_id.m_page_no << ","
+    << item->m_rec_id.m_page_id.space() << ","
+    << item->m_rec_id.m_page_id.page_no() << ","
     << item->m_rec_id.m_heap_no << ")";
 #endif
   /* For test add new item */

@@ -779,6 +779,10 @@ struct trx_t {
           transaction must be doing an update
           on a unique row.*/
 
+  bool    skip_hot_update_check;;
+          /*!< if need to skip hot update
+          check. */
+
   /** State of the trx from the point of view of concurrency control
   and the valid state transitions.
 

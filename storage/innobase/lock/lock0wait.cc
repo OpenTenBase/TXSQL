@@ -304,7 +304,7 @@ lock_wait_in_hot_row_update_queue(que_thr_t *thr)
       os_event_wait(slot->event);
     } else {
       os_event_wait_time(slot->event,
-        std::chrono::milliseconds{srv_hot_update_wait_timeout});
+        std::chrono::microseconds{srv_hot_update_wait_timeout});
     }
 
 #ifdef UNIV_DEBUG_HOT_UPDATE
@@ -670,7 +670,6 @@ static void lock_wait_check_and_cancel(
   /* Try to detect trx's connection is alive. If connection
      is broken, signal timeout and quit.
   */
-  ut_ad(trx->connect_broken == false);
   if (cdb_lock_connect_check_enabled) {
     if (trx->mysql_thd && !thd_is_killed(trx->mysql_thd)
         && !thd_connection_alive2(trx->mysql_thd)) {
