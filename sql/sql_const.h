@@ -143,6 +143,8 @@ constexpr const long STACK_MIN_SIZE{20000};  // Abort if less stack during eval.
 #endif
 
 constexpr const int STACK_BUFF_ALLOC{352};  ///< For stack overrun checks
+/* The max key string length for cdb sql filter */
+#define CDB_SQL_FILTER_STR_LEN 10240
 
 constexpr const size_t ACL_ALLOC_BLOCK_SIZE{1024};
 constexpr const size_t TABLE_ALLOC_BLOCK_SIZE{1024};

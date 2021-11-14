@@ -138,6 +138,7 @@
 #include "sql/xa.h"
 #include "template_utils.h"  // pointer_cast
 #include "thr_lock.h"
+#include "cdb_sql_filter.h"
 #ifdef _WIN32
 #include "sql/named_pipe.h"
 #endif
@@ -7897,4 +7898,35 @@ static Sys_var_uint Sys_cdb_max_prefetch_rows(
     SESSION_VAR(cdb_max_prefetch_rows), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
-/* Changes from txsql end. */
+
+static bool update_cdb_sql_filter(sys_var *self, THD *thd, enum_var_type type) {
+  if (cdb_sql_filter_manager.handle_rule()) {
+    my_error(ER_CDB_SQL_FILTER_WRONG_VALUE, MYF(0),
+             cdb_sql_filter_manager.get_errmsg());
+    return true;
+  }
+  return false;
+}
+
+static Sys_var_charptr Sys_cdb_sql_filter(
+    "cdb_sql_filter", "Add one filter rule or delete one",
+    GLOBAL_VAR(cdb_sql_filter_manager.cdb_sql_filter),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_cdb_sql_filter));
+
+static Sys_var_charptr Sys_cdb_sql_filter_seperator(
+    "cdb_sql_filter_seperator",
+    "seperator in sql filter rule,"
+    "only the first character of this var is seperator."
+    "If var length is 0, ',' is default seperator"
+    "See Cdb_Sql_Filter_Manager::get_seperator",
+    READ_ONLY
+        GLOBAL_VAR(cdb_sql_filter_manager.cdb_sql_filter_seperator),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(","), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_cdb_sql_filter_enable(
+    "cdb_sql_filter_enable", "set to ON if cdb_sql_filter_enable",
+    GLOBAL_VAR(cdb_sql_filter_manager.cdb_sql_filter_enable),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(nullptr));

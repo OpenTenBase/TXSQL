@@ -144,6 +144,7 @@
 #include "rpl_mi.h"
 #include "rpl_rli_pdb.h"
 #include "rpl_msr.h"
+#include "cdb_sql_filter.h"
 
 /* @see dynamic_privileges_table.cc */
 bool iterate_all_dynamic_privileges(THD *thd,
@@ -3165,6 +3166,95 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     my_eof(thd);
 }
 
+void mysqld_list_cdb_sql_filters(THD *thd) {
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  Protocol *protocol = thd->get_protocol();
+  DBUG_ENTER("mysqld_list_cdb_sql_filters");
+
+  field_list.push_back(new Item_empty_string("type", 21));
+  field_list.push_back(new Item_return_int("item_id", 21, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_return_int("currenct_conn", 21, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_return_int("max_conn", 21, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_return_int("rejected_sql_count", 21, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_return_int("created_time", 21, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_return_int("expire_time", 21, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(new Item_empty_string("expired", 10));
+  field_list.push_back(
+      new Item_empty_string("key_str", CDB_SQL_FILTER_STR_LEN));
+  field_list.push_back(
+      new Item_empty_string("origin_str", CDB_SQL_FILTER_STR_LEN));
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    DBUG_VOID_RETURN;
+
+  std::vector<cdb_sql_filter::display_result> ret;
+  cdb_sql_filter_manager.get_all_rules_for_display(ret);
+
+  for (size_t i = 0; i < ret.size(); i++) {
+    protocol->start_row();
+    protocol->store(ret[i].type, system_charset_info);
+    protocol->store((longlong)ret[i].id);
+    protocol->store((longlong)ret[i].current_conn);
+    protocol->store((longlong)ret[i].concurrence);
+    protocol->store(ret[i].rejected_sql_count);
+    protocol->store(ret[i].created_time);
+    protocol->store(ret[i].expire_time);
+    if (ret[i].expired)
+      protocol->store("True", system_charset_info);
+    else
+      protocol->store("False", system_charset_info);
+    protocol->store(ret[i].key_string.c_str(), system_charset_info);
+    protocol->store(ret[i].origin_rule_str.c_str(), system_charset_info);
+
+    if (protocol->end_row()) break; /* purecov: inspected */
+  }
+
+  my_eof(thd);
+  DBUG_VOID_RETURN;
+}
+
+int fill_cdb_sql_filter_info(THD *thd, TABLE_LIST *tables,
+                             Item *__attribute__((unused))) {
+  DBUG_ENTER("fill_cdb_sql_filter_info");
+
+  std::vector<cdb_sql_filter::display_result> ret;
+  cdb_sql_filter_manager.get_all_rules_for_display(ret);
+
+  TABLE *table = tables->table;
+
+  const char *true_str = "True";
+  const char *false_str = "False";
+  for (size_t i = 0; i < ret.size(); i++) {
+    table->field[0]->store(ret[i].type, strlen(ret[i].type),
+                           system_charset_info);
+    table->field[1]->store((longlong)ret[i].id);
+    table->field[2]->store((longlong)ret[i].current_conn);
+    table->field[3]->store((longlong)ret[i].concurrence);
+    table->field[4]->store(ret[i].rejected_sql_count);
+    table->field[5]->store(ret[i].created_time);
+    table->field[6]->store(ret[i].expire_time);
+    if (ret[i].expired)
+      table->field[7]->store(true_str, strlen(true_str), system_charset_info);
+    else
+      table->field[7]->store(false_str, strlen(false_str), system_charset_info);
+    table->field[8]->store(ret[i].key_string.c_str(),
+                           ret[i].key_string.length(), system_charset_info);
+    table->field[9]->store(ret[i].origin_rule_str.c_str(),
+                           ret[i].origin_rule_str.length(),
+                           system_charset_info);
+
+    if (schema_table_store_record(thd, table)) DBUG_RETURN(1);
+  }
+
+  DBUG_RETURN(0);
+}
+
 /**
   This class implements callback function used by fill_schema_processlist()
   to populate all the client process information into I_S table.
@@ -3403,6 +3493,68 @@ int fill_slave_status(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)
 
       if (schema_table_store_record(thd, table))
       {
+        mysql_mutex_unlock(&mi->rli->data_lock);
+        channel_map.unlock();
+        DBUG_RETURN(1);
+      }
+    }
+    mysql_mutex_unlock(&mi->rli->data_lock);
+  }
+
+  channel_map.unlock();
+  DBUG_RETURN(0);
+}
+
+int fill_sql_filter_status(THD *thd, TABLE_LIST *tables,
+                           Item *__attribute__((unused))) {
+  DBUG_ENTER("fill_sql_filter_status");
+  assert((thd != NULL) && (tables != NULL));
+
+  TABLE *table = tables->table;
+  Master_info *mi = NULL;
+  Slave_worker *worker = NULL;
+  CHARSET_INFO *cs = system_charset_info;
+
+  channel_map.rdlock();
+
+  if (!is_slave_configured()) {
+    channel_map.unlock();
+    DBUG_RETURN(0);
+  }
+
+  for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
+       it++) {
+    mi = it->second;
+    if (!mi || !mi->rli->slave_running || mi->rli->replica_parallel_workers == 0)
+      continue;
+
+    mysql_mutex_lock(&mi->rli->data_lock);
+    for (Slave_worker **w_it = mi->rli->workers.begin();
+         w_it != mi->rli->workers.end(); ++w_it) {
+      char gtid_str[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+      worker = *w_it;
+
+      table->field[0]->store((ulonglong)worker->info_thd->thread_id(), true);
+
+      table->field[1]->store(worker->trx_delivered - worker->trx_executed,
+                             true);
+      table->field[2]->store(worker->trx_delivered, true);
+      table->field[3]->store(worker->trx_executed, true);
+      table->field[4]->store(worker->trx_executed - worker->trx_executed_before,
+                             true);
+      table->field[5]->store(worker->get_group_relay_log_pos(), true);
+      table->field[6]->store(worker->get_group_master_log_pos(), true);
+
+      Gtid *last_exec_gtid = worker->get_last_gtid();
+      if (!last_exec_gtid->is_empty()) {
+        global_sid_lock->rdlock();
+        last_exec_gtid->to_string(global_sid_map, gtid_str);
+        global_sid_lock->unlock();
+      }
+      table->field[7]->store(gtid_str, strlen(gtid_str), cs);
+      worker->trx_executed_before = worker->trx_executed;
+
+      if (schema_table_store_record(thd, table)) {
         mysql_mutex_unlock(&mi->rli->data_lock);
         channel_map.unlock();
         DBUG_RETURN(1);
@@ -5236,6 +5388,22 @@ ST_FIELD_INFO slave_state_fields_info[] =
   {"LAST_EXEC_GTID", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0 }
 };
+
+ST_FIELD_INFO cdb_sql_filter_fields_info[] =
+{
+  {"TYPE", 21, MYSQL_TYPE_STRING, 0, 0, "", 0},
+  {"ITEN_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+  {"CURRENCT_CONN", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+  {"MAX_CONN", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"REJECTED_SQL_COUNT", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+  {"CREATED_TIME", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"EXPIRE_TIME", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"EXPIRED", 10, MYSQL_TYPE_STRING, 0, 0, "", 0},
+  {"KEY_STR", CDB_SQL_FILTER_STR_LEN, MYSQL_TYPE_STRING, 0, 0, "", 0},
+  {"ORIGIN_STR", CDB_SQL_FILTER_STR_LEN, MYSQL_TYPE_STRING, 0, 0, "", 0},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}
+};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -5274,6 +5442,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_tmp_table_columns_format, get_schema_tmp_table_columns_record, true},
     {"TMP_TABLE_KEYS", tmp_table_keys_fields_info, show_temporary_tables,
      make_old_format, get_schema_tmp_table_keys_record, true},
+    {"CDB_SQL_FILTER_INFO", cdb_sql_filter_fields_info, fill_cdb_sql_filter_info,
+     make_old_format, nullptr, false},
     {"CDB_SLAVE_THREAD_STATUS", slave_state_fields_info, fill_slave_status,
      make_old_format, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};

@@ -9823,6 +9823,12 @@ ER_BACKQUERY_TIMESTAMP
 ER_BINLOG_UNSAFE_BACKQUERY
   eng "Statement is unsafe because it is used inside a backquery, which may break replication on slaves."
 
+ER_CDB_SQL_FILTER_WRONG_VALUE
+  eng "SET cdb_sql_filter failed, bacause %s."
+
+ER_CDB_SQL_FILTER_REJECT
+  eng "SQL rejected by CDB_SQL_FILTER"
+
 ################################################################################
 # Error numbers 5000 to 5999 are reserved for X Plugin. Please do not use
 # them for other error messages.
