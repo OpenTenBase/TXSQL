@@ -175,6 +175,9 @@ enum enum_server_operational_state {
 };
 enum_server_operational_state get_server_state();
 
+extern mysql_rwlock_t LOCK_whitelist_array;
+extern PSI_rwlock_key key_rwlock_LOCK_whitelist_array;
+extern PSI_rwlock_key key_LOCK_Sql_Filter_Rule;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log;
 extern bool opt_log_replica_updates;

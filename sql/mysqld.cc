@@ -969,6 +969,11 @@ MySQL clients support the protocol:
 #include "sql/server_component/persistent_dynamic_loader_imp.h"
 #include "sql/srv_session.h"
 
+#include "sql/opt_statistics.h"
+#include "my_md5.h"
+#include <set>
+#include "cdb_sql_filter.h"
+
 using std::max;
 using std::min;
 using std::vector;
@@ -2722,8 +2727,9 @@ static void clean_up(bool print_message) {
   persisted_variables_cache.cleanup();
 
   udf_deinit_globals();
+  cdb_sql_filter_manager.clean_up();
+
   /*
-    The following lines may never be executed as the main thread may have
     killed us
   */
   DBUG_PRINT("quit", ("done with cleanup"));
@@ -4417,6 +4423,10 @@ SHOW_VAR com_status_vars[] = {
     {"show_create_user",
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_CREATE_USER]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_cdb_sql_filters",
+     (char*) offsetof(System_status_var,
+                      com_stat[(uint) SQLCOM_SHOW_CDB_SQL_FILTERS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"shutdown",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHUTDOWN]),
@@ -6991,6 +7001,8 @@ static int init_server_components() {
 #if defined(MYSQL_ICU_DATADIR)
   init_icu_data_directory();
 #endif  // MYSQL_ICU_DATADIR
+
+  cdb_sql_filter_manager.init();
 
   return 0;
 }
@@ -12036,7 +12048,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_delegate_connection_mutex, "LOCK_delegate_connection_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_group_replication_connection_mutex, "LOCK_group_replication_connection_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 { &key_LOCK_authentication_policy, "LOCK_authentication_policy", PSI_FLAG_SINGLETON, 0, "A lock to ensure execution of CREATE USER or ALTER USER sql and SET @@global.authentication_policy variable are serialized"},
-  { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}
+  { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -12708,3 +12721,4 @@ bool check_and_update_partial_revokes_sysvar(THD *thd) {
 bool cdb_skip_event_scheduler = false;
 bool cdb_lock_connect_check_enabled = true;
 bool cdb_convert_memory_to_innodb = false;
+PSI_mutex_key key_LOCK_Sql_Filter_Rule;

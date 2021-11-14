@@ -1,0 +1,3 @@
+--tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf
+--cdb_sql_filter_enable=ON
+--cdb_sql_filter_seperator=''

@@ -182,6 +182,7 @@
   Changes from txsql start.
 */
 #include "sql/threadpool.h"
+#include "cdb_sql_filter.h"
 /**
   Changes from txsql end.
 */
@@ -583,6 +584,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_ENGINE_LOGS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_CDB_SQL_FILTERS]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_DB] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] = CF_STATUS_COMMAND;
@@ -2877,6 +2879,9 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
   CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_execute_command");
 
+  /* cdb_sql_filter: store matched rules */
+  std::vector<Rule*> matched_rules;
+
   /*
     If there is a CREATE TABLE...START TRANSACTION command which
     is not yet committed or rollbacked, then we should allow only
@@ -3253,6 +3258,25 @@ int mysql_execute_command(THD *thd, bool first_level) {
   if (!thd->in_sub_stmt)
     thd->query_plan.set_query_plan(lex->sql_command, lex,
                                    !thd->stmt_arena->is_regular());
+
+  /*
+    cdb_sql_filter: check sql filter rule and store matched rules
+  */
+  if (cdb_sql_filter_manager.cdb_sql_filter_enable &&
+      !thd->security_context()->check_access(SUPER_ACL) &&
+      cdb_sql_filter_manager.handle_sql_enter(thd->query().str,
+      thd->lex->sql_command, matched_rules))
+  {
+    /* 
+      some rules maybe matched, and added current connection count.
+      this rules has been saved in matched_rules,
+      current connections(which should't be added) will be remove
+      after error:
+      in cdb_sql_filter_manager.handle_sql_exit()
+    */
+    my_error(ER_CDB_SQL_FILTER_REJECT, MYF(0));
+    goto error;
+  }
 
   /* Update system variables specified in SET_VAR hints. */
   if (lex->opt_hints_global && lex->opt_hints_global->sys_var_hint)
@@ -4773,6 +4797,13 @@ int mysql_execute_command(THD *thd, bool first_level) {
       }
       break;
     }
+    case SQLCOM_SHOW_CDB_SQL_FILTERS:
+    {
+      if (check_global_access(thd, SUPER_ACL))
+        break;
+      mysqld_list_cdb_sql_filters(thd);
+      break;
+    }
     default:
       assert(0); /* Impossible */
       my_ok(thd);
@@ -4803,6 +4834,11 @@ finish:
   } else {
     lex->set_exec_started();
   }
+
+  /* cdb_sql_filter: remove connection count of matched rules */
+  if (matched_rules.size() > 0)
+    cdb_sql_filter_manager.handle_sql_exit(matched_rules);
+
 
   // Cleanup EXPLAIN info
   if (!thd->in_sub_stmt) {

@@ -549,6 +549,7 @@ SET(SQL_SHARED_SOURCES
   sql_error.cc
   sql_exception_handler.cc
   sql_executor.cc
+  cdb_sql_filter.cc
   sql_get_diagnostics.cc
   sql_gipk.cc
   sql_handler.cc

@@ -1372,12 +1372,12 @@ void warn_about_deprecated_binary(THD *thd)
 /* Changes from txsql start. */
 %token<lexer.keyword> THREADPOOL_SYM 1250
 %token<lexer.keyword> DETAIL 1252
+%token<lexer.keyword> SQL_CDB_FILTER_SYM 1259
 /* Changes from txsql end. */
 
 /*
   Precedence rules used to resolve the ambiguity when using keywords as idents
   in the case e.g.:
-
       SELECT TIMESTAMP'...'
 
   vs.
@@ -13802,6 +13802,10 @@ show_processlist_stmt:
           {
             $$ = NEW_PTN PT_show_processlist(@$, Lex->verbose, Lex->detail);
           }
+        | SHOW SQL_CDB_FILTER_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_CDB_SQL_FILTERS;
+          }
         ;
 
 show_variables_stmt:
@@ -15589,6 +15593,7 @@ ident_keywords_unambiguous:
         | SQL_BUFFER_RESULT
         | SQL_NO_CACHE_SYM
         | SQL_THREAD
+        | SQL_CDB_FILTER_SYM
         | SRID_SYM
         | STACKED_SYM
         | STARTS_SYM
