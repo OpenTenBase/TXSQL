@@ -8748,4 +8748,9 @@ static Sys_var_ulong Sys_pseudo_server_id(
     VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     IN_BINLOG, ON_CHECK(check_pseudo_server_id),
     ON_UPDATE(fix_pseudo_server_id));
+
+static Sys_var_bool Sys_partition_table_skip_limit(
+    "partition_table_skip_limit",
+    "The partion key doesn't need to be part of all unique index if setting to true",
+    GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 /* Changes from txsql end. */

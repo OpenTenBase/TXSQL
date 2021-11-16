@@ -1013,6 +1013,10 @@ static bool check_primary_key(TABLE *table) {
   bool result = false;
   DBUG_TRACE;
 
+  if (opt_par_skip_limit) {
+    return false;
+  }
+
   if (primary_key < MAX_KEY) {
     set_indicator_in_key_fields(table->key_info + primary_key);
     check_fields_in_PF(table->part_info->full_part_field_array, &all_fields,
@@ -1052,6 +1056,10 @@ static bool check_unique_keys(TABLE *table) {
   uint keys = table->s->keys;
   uint i;
   DBUG_TRACE;
+
+  if (opt_par_skip_limit) {
+    return false;
+  }
 
   for (i = 0; i < keys; i++) {
     if (table->key_info[i].flags & HA_NOSAME)  // Unique index
