@@ -170,6 +170,8 @@ extern CHARSET_INFO *character_set_filesystem;
 
 extern bool cdb_lock_connect_check_enabled;
 
+extern bool opt_par_skip_limit;
+
 enum enum_server_operational_state {
   SERVER_BOOTING,      /* Server is not operational. It is starting */
   SERVER_OPERATING,    /* Server is fully initialized and operating */

@@ -1202,6 +1202,8 @@ static bool binlog_format_used = false;
 
 LEX_STRING opt_init_connect, opt_init_replica;
 
+bool opt_par_skip_limit = false;
+
 /* Global variables */
 
 LEX_STRING opt_mandatory_roles;
