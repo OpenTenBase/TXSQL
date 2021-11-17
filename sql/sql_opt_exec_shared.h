@@ -630,6 +630,8 @@ enum {
   REF_SLICE_FINAL_AGGREGATE,
 
   REF_SLICE_SAVED_TMP1,
+
+  REF_SLICE_SAVED_ORDERED_GROUP_BY,
   /**
      The slice with pointers to columns of table(s), ie., the actual Items.
      Only used for queries involving temporary tables or the likes; for simple

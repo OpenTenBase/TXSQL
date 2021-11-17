@@ -256,6 +256,10 @@ struct AccessPath {
     // Access paths that modify tables.
     DELETE_ROWS,
     UPDATE_ROWS,
+
+    // Exchange.
+    PX_GATHER,
+    PX_SEND
   } type;
 
   /// A general enum to describe the safety of a given operation.
@@ -856,6 +860,22 @@ struct AccessPath {
     assert(type == UPDATE_ROWS);
     return u.update_rows;
   }
+  auto &px_gather() {
+    assert(type == PX_GATHER);
+    return u.px_gather;
+  }
+  const auto &px_gather() const {
+    assert(type == PX_GATHER);
+    return u.px_gather;
+  }
+  auto &px_send() {
+    assert(type == PX_SEND);
+    return u.px_send;
+  }
+  const auto &px_send() const {
+    assert(type == PX_SEND);
+    return u.px_send;
+  }
 
  private:
   // We'd prefer if this could be an std::variant, but we don't have C++17 yet.
@@ -1230,6 +1250,21 @@ struct AccessPath {
       table_map tables_to_update;
       table_map immediate_tables;
     } update_rows;
+    struct {
+      AccessPath *child;
+      JOIN *join;
+      TABLE *table;
+      uchar *record;
+      Temp_table_param *temp_table_param;
+      int ref_slice;
+    } px_gather;
+    struct {
+      AccessPath *child;
+      TABLE *table;
+      mem_root_deque<Item *> *send_fields;
+      Temp_table_param *temp_table_param;
+      uchar *record;
+    } px_send;
   } u;
 };
 static_assert(std::is_trivially_destructible<AccessPath>::value,
@@ -1745,6 +1780,39 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
                                     table_map delete_tables,
                                     table_map immediate_tables);
 
+inline AccessPath *NewPXGatherAccessPath(THD *thd, AccessPath *child,
+                                         JOIN *join, TABLE *table,
+                                         uchar *record,
+                                         Temp_table_param *temp_table_param,
+                                         int ref_slice) {
+  AccessPath *path = new (thd->mem_root) AccessPath;
+  path->type = AccessPath::PX_GATHER;
+  path->px_gather().child = child;
+  path->px_gather().join = join;
+  path->px_gather().table = table;
+  path->px_gather().record = record;
+  path->px_gather().temp_table_param = temp_table_param;
+  path->px_gather().ref_slice = ref_slice;
+
+  return path;
+}
+
+inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
+                                       TABLE *table,
+                                       mem_root_deque<Item *> *send_fields,
+                                       Temp_table_param *temp_table_param,
+                                       uchar *record) {
+  AccessPath *path = new (thd->mem_root) AccessPath;
+  path->type = AccessPath::PX_SEND;
+  path->px_send().child = child;
+  path->px_send().table = table;
+  path->px_send().send_fields = send_fields;
+  path->px_send().temp_table_param = temp_table_param;
+  path->px_send().record = record;
+
+  return path;
+}
+
 /**
   Modifies "path" and the paths below it so that they provide row IDs for
   all tables.
@@ -1860,5 +1928,19 @@ void ExpandSingleFilterAccessPath(THD *thd, AccessPath *path, const JOIN *join,
 
 /// Returns the tables that are part of a hash join.
 table_map GetHashJoinTables(AccessPath *path);
+
+bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
+                                AccessPath *&target_path, bool &split_agg);
+
+// AccessPath *inject_exchange_access_path(QEP_TAB *tab, AccessPath *path,
+//                                         exchange_inject_position position);
+void FixSortAccessPath(JOIN *join, AccessPath *path, TABLE *const new_table,
+                       int ref_slice);
+
+AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
+                                       AccessPath *const path,
+                                       AccessPath *const target_path,
+                                       uint curr_exchange, bool &new_child,
+                                       int cur_slice, bool alloc_group_field);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H

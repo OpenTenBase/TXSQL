@@ -2274,6 +2274,11 @@ class Item_func_group_concat final : public Item_sum {
     unsupported_as_wf();
     return true;
   }
+
+  /**
+   * Temp_table_param should be reset when injected exchange before.
+   */
+  bool reset(THD *thd);
 };
 
 /**

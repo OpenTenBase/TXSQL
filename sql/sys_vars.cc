@@ -8810,3 +8810,9 @@ static Sys_var_bool Sys_cdb_parallel_query_enable(
   SESSION_VAR(cdb_parallel_query_enable), CMD_LINE(OPT_ARG),
   DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 /* Changes from txsql end. */
+
+static Sys_var_bool Sys_exchange_inject(
+    "exchange_inject",
+    "exchange_inject"
+    "exchange_inject",
+    SESSION_VAR(exchange_inject), CMD_LINE(OPT_ARG), DEFAULT(false));

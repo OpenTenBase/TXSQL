@@ -4646,6 +4646,14 @@ class Copy_field {
 
   void set(Field *to, Field *from);  // Field to field
 
+  void reset();  // Reset m_do_copy
+
+  void set_from_field(Field *from) {
+    assert(m_from_field->type() == from->type() ||
+                m_to_field->type() == from->type());
+    m_from_field = from;
+  }
+
  private:
   void (*m_do_copy)(Copy_field *, const Field *, Field *);
   void (*m_do_copy2)(Copy_field *, const Field *,

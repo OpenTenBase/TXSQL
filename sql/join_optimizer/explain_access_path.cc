@@ -1139,6 +1139,18 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       children.push_back({path->update_rows().child});
       break;
     }
+    case AccessPath::PX_GATHER:
+      description.push_back(string("PX_Gather"));
+      children.push_back({path->px_gather().child});
+      break;
+    case AccessPath::PX_SEND:
+      description.push_back(string("PX_Send"));
+      children.push_back({path->px_send().child});
+      break;
+  }
+  if (path->type == AccessPath::PX_GATHER ||
+      path->type == AccessPath::PX_SEND) {
+    return {description, children};
   }
   if (include_costs && path->num_output_rows >= 0.0) {
     double first_row_cost;

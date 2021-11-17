@@ -739,6 +739,8 @@ class Query_expression {
 
   explicit Query_expression(enum_parsing_context parsing_context);
 
+  bool exchange_inject;
+
   /// @return true for a query expression without UNION or multi-level ORDER
   bool is_simple() const { return !(is_union() || fake_query_block); }
 

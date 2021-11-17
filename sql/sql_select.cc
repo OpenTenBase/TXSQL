@@ -98,6 +98,7 @@
 #include "sql/opt_trace.h"
 #include "sql/opt_trace_context.h"
 #include "sql/parse_tree_node_base.h"
+#include "sql/px_exchange.h"  // Exchange_info
 #include "sql/query_options.h"
 #include "sql/query_result.h"
 #include "sql/range_optimizer/path_helpers.h"
@@ -1881,6 +1882,27 @@ void JOIN::destroy() {
     rollup_sums.shrink_to_fit();
   }
 
+  if (exchange_temp_table) {
+    int exchange_num = exchange_temp_table->size() / 2;
+    for (TABLE *table : *exchange_temp_table) {
+      if (table->file != nullptr) {
+        table->file->ha_index_or_rnd_end();
+      }
+      close_tmp_table(table);
+      free_tmp_table(table);
+    }
+    exchange_temp_table->clear();
+    for (int index = 0; index < exchange_num; ++index) {
+      cleanup_item_list(tmp_fields[REF_SLICE_WIN_1 + index]);
+      cleanup_item_list(exchange_tmp_fields[index]);
+    }
+  }
+  if (exchange_temp_table_param) {
+    for (Temp_table_param *param : *exchange_temp_table_param) {
+      param->cleanup();
+    }
+    exchange_temp_table_param->clear();
+  }
   // Free memory for finalAggr inject
   if (aggr_tmp_table_param) {
     aggr_tmp_table_param->cleanup();
@@ -3462,6 +3484,20 @@ void QEP_TAB::cleanup() {
 
     close_tmp_table(t);
   }
+  if (exchange_send && exchange_send->size()) {
+    assert(exchange_gather->size() == exchange_send->size());
+    for (auto exchanges : {exchange_send, exchange_gather}) {
+      for (auto exchange_info : *exchanges) {
+        if (exchange_info->table != nullptr &&
+            exchange_info->temp_table_param != nullptr) {
+          close_tmp_table(exchange_info->table);
+          free_tmp_table(exchange_info->table);
+          destroy(exchange_info->temp_table_param);
+          exchange_info->temp_table_param = nullptr;
+        }
+      }
+    }
+  }
 }
 
 void QEP_shared_owner::qs_cleanup() {
@@ -4396,6 +4432,7 @@ bool JOIN::make_tmp_tables_info() {
     if (alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) return true;
 
     copy_ref_item_slice(REF_SLICE_SAVED_BASE, REF_SLICE_ACTIVE);
+    tmp_fields[REF_SLICE_SAVED_BASE] = *fields;
     current_ref_item_slice = REF_SLICE_SAVED_BASE;
 
     /*
@@ -4409,9 +4446,10 @@ bool JOIN::make_tmp_tables_info() {
     if (!simple_group && !(test_flags & TEST_NO_KEY_GROUP) && !with_json_agg)
       tmp_group = group_list;
 
-    tmp_table_param.hidden_field_count = CountHiddenFields(*fields);
+    tmp_table_param.hidden_field_count = CountHiddenFields(*curr_fields);
 
-    if (create_intermediate_table(&qep_tab[curr_tmp_table], *fields, tmp_group,
+    if (create_intermediate_table(&qep_tab[curr_tmp_table], *curr_fields,
+                                  tmp_group,
                                   !group_list.empty() && simple_group))
       return true;
     exec_tmp_table = qep_tab[curr_tmp_table].table();
@@ -4507,6 +4545,7 @@ bool JOIN::make_tmp_tables_info() {
       }
       group_list.clean();
     }
+
     /*
       If we have different sort & group then we must sort the data by group
       and copy it to a second temporary table.

@@ -89,6 +89,7 @@
 #include "sql/opt_costmodel.h"
 #include "sql/opt_explain_format.h"
 #include "sql/opt_trace.h"  // Opt_trace_object
+#include "sql/px_exchange.h"  // Exchange_info
 #include "sql/query_options.h"
 #include "sql/record_buffer.h"  // Record_buffer
 #include "sql/sort_param.h"
@@ -252,7 +253,7 @@ bool JOIN::create_intermediate_table(
       goto err;
 
     if (alloc_group_fields(this, group_list.order)) goto err;
-    if (make_sum_func_list(*fields, true)) goto err;
+    if (make_sum_func_list(tmp_table_fields, true)) goto err;
     const bool need_distinct =
         !(tab->range_scan() &&
           tab->range_scan()->type == AccessPath::GROUP_INDEX_SKIP_SCAN);
@@ -260,7 +261,7 @@ bool JOIN::create_intermediate_table(
     if (setup_sum_funcs(thd, sum_funcs)) goto err;
     group_list.clean();
   } else {
-    if (make_sum_func_list(*fields, false)) goto err;
+    if (make_sum_func_list(tmp_table_fields, false)) goto err;
     const bool need_distinct =
         !(tab->range_scan() &&
           tab->range_scan()->type == AccessPath::GROUP_INDEX_SKIP_SCAN);
@@ -293,6 +294,34 @@ err:
     tab->set_table(nullptr);
   }
   return true;
+}
+
+bool JOIN::create_exchange_intermediate_table(
+    Exchange_Info *exchange_info,
+    const mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields) {
+  assert(m_windows.elements == 0);
+  assert(!exchange_info->table && !exchange_info->temp_table_param);
+
+  exchange_info->temp_table_param =
+      new (thd->mem_root) Temp_table_param(tmp_table_param);
+  exchange_info->temp_table_param->skip_create_table = true;
+
+  ha_rows tmp_rows_limit =
+      ((order.empty() || skip_sort_order) && !query_block->with_sum_func)
+          ? m_select_limit
+          : HA_POS_ERROR;
+
+  TABLE *table = create_tmp_table(
+      thd, exchange_info->temp_table_param, tmp_table_fields,
+      /*group=*/nullptr, /*distinct=*/false, save_sum_fields,
+      query_block->active_options(), tmp_rows_limit, "<exchange>");
+
+  if (!table) return true;
+  exchange_info->table = table;
+
+  // Rewrite table for aggregate if needed.
+
+  return false;
 }
 
 /**
@@ -4689,6 +4718,15 @@ bool copy_fields(Temp_table_param *param, const THD *thd, bool reverse_copy) {
   for (Copy_field &ptr : param->copy_fields) ptr.invoke_do_copy(reverse_copy);
 
   if (thd->is_error()) return true;
+  return false;
+}
+
+bool copy_fields_and_funcs(Temp_table_param *param, const THD *thd,
+                           Copy_func_type type) {
+  if (copy_fields(param, thd)) return true;
+  if (param->items_to_copy != nullptr) {
+    if (copy_funcs(param, thd, type)) return true;
+  }
   return false;
 }
 

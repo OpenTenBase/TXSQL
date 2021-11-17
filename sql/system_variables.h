@@ -509,6 +509,8 @@ struct System_variables {
     @sa Sys_cdb_parallel_query_enable
   */
   bool cdb_parallel_query_enable;
+
+  bool exchange_inject;
 };
 
 /**

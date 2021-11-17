@@ -72,6 +72,31 @@ class List;
 template <typename Element_type>
 class Mem_root_array;
 
+enum exchange_inject_position {
+  EXCHANGE_NULL = 0,
+  EXCHANGE_AFTER_JOIN,
+  EXCHANGE_AFTER_MATERIALIZE,
+  EXCHANGE_AFTER_SORT,
+  EXCHANGE_AFTER_ALL
+};
+
+// Information about parallel exchange
+struct Exchange_Info {
+  exchange_inject_position position;
+
+  TABLE *table;
+  Temp_table_param *temp_table_param;
+  int ref_slice;
+  uchar *record;
+
+  Exchange_Info()
+      : position(EXCHANGE_NULL),
+        table(nullptr),
+        temp_table_param(nullptr),
+        ref_slice(-1),
+        record(nullptr) {}
+};
+
 /*
   Array of pointers to tables whose rowids compose the temporary table
   record.
@@ -217,6 +242,10 @@ enum Copy_func_type : int {
 
 bool copy_funcs(Temp_table_param *, const THD *thd,
                 Copy_func_type type = CFT_ALL);
+
+// Combines copy_fields() and copy_funcs().
+bool copy_fields_and_funcs(Temp_table_param *param, const THD *thd,
+                           Copy_func_type type = CFT_ALL);
 
 /**
   Copy the lookup key into the table ref's key buffer.
@@ -474,6 +503,13 @@ class QEP_TAB : public QEP_shared_owner {
   // Temporary table for table sample @see JOIN::Init_sample_tables()
   TABLE *m_table_sample_tmp_table = nullptr;
   Temp_table_param *m_table_sample_tmp_table_param = nullptr;
+  // Pointer of exchange after this. Only one exchange(gather or sender) is
+  // needed actually, in this demo we're simulating multithreading with a single
+  // thread, so we need two exchange.
+  mem_root_deque<Exchange_Info *> *exchange_gather = nullptr;
+  mem_root_deque<Exchange_Info *> *exchange_send = nullptr;
+  uint curr_exchange_index = 0;
+  bool use_exchange_after_all = false;
 
   QEP_TAB(const QEP_TAB &);             // not defined
   QEP_TAB &operator=(const QEP_TAB &);  // not defined

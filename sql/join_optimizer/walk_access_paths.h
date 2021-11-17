@@ -242,6 +242,14 @@ void WalkAccessPaths(AccessPath *path, JoinPtr join,
       WalkAccessPaths(path->update_rows().child, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
       break;
+    case AccessPath::PX_GATHER:
+      WalkAccessPaths(path->px_gather().child, join, cross_query_blocks,
+                      std::forward<Func &&>(func), post_order_traversal);
+      break;
+    case AccessPath::PX_SEND:
+      WalkAccessPaths(path->px_send().child, join, cross_query_blocks,
+                      std::forward<Func &&>(func), post_order_traversal);
+      break;
   }
   if (post_order_traversal) {
     if (func(path, join)) {
@@ -344,6 +352,10 @@ void WalkTablesUnderAccessPath(AccessPath *root_path, Func &&func,
           case AccessPath::DELETE_ROWS:
           case AccessPath::UPDATE_ROWS:
             return false;
+          case AccessPath::PX_GATHER:
+            return func(path->px_gather().table);
+          case AccessPath::PX_SEND:
+            return func(path->px_send().table);
         }
         assert(false);
         return true;

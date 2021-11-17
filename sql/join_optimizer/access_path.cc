@@ -54,6 +54,7 @@
 #include "sql/table.h"
 #include "sql/iterators/sort_merge_join_iterator.h"
 #include "sql/parallel_execution/px_item.h"
+#include "sql/px_exchange.h"
 
 #include <vector>
 
@@ -1183,6 +1184,24 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
                                             std::move(job.children[0]));
         break;
       }
+      case AccessPath::PX_GATHER: {
+        const auto &param = path->px_gather();
+        unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
+            thd, param.child, join, eligible_for_batch_mode);
+        iterator = NewIterator<PX_Gather>(thd, mem_root, param.table, param.record,
+                                          param.join, param.ref_slice,
+                                          param.temp_table_param, move(child));
+        break;
+      }
+      case AccessPath::PX_SEND: {
+        unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
+            thd, path->px_send().child, join, eligible_for_batch_mode);
+        iterator = NewIterator<PX_Send>(thd, mem_root, path->px_send().table,
+                                        path->px_send().send_fields,
+                                        path->px_send().temp_table_param,
+                                        path->px_send().record, move(child));
+        break;
+      }
     }
 
     if (iterator == nullptr) {
@@ -1974,6 +1993,16 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
   if (!tmp_table) goto build_err;
   join->final_tmp_table = tmp_table;
 
+  if (final_tmp_table_param->items_to_copy &&
+      final_tmp_table_param->items_to_copy->size()) {
+    Func_ptr_array *func_ptr = final_tmp_table_param->items_to_copy;
+    uint end = func_ptr->size();
+    for (uint i = 0; i < end; i++) {
+      Func_ptr &func = func_ptr->at(i);
+      func.set_override_result_field(func.func()->get_result_field());
+    }
+  }
+
   if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[REF_SLICE_FINAL_AGGREGATE],
                                &tmp_field, join->query_block->m_added_non_hidden_fields))
     goto build_err;
@@ -2154,3 +2183,1043 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
     }
   }
 }
+
+/**
+ * @param path  Raw access path
+ * @param target_path Where to inject exchange.
+ * @return true if not inject, false otherwise.
+ */
+bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
+                                AccessPath *&target_path, bool &split_agg) {
+  assert(target_path == nullptr);
+  auto find_exchange_inject_position = [thd, join, &target_path, &split_agg](
+                                           AccessPath *subpath, const JOIN *) {
+    switch (subpath->type) {
+      case AccessPath::TABLE_SCAN:
+      case AccessPath::INDEX_SCAN:
+      case AccessPath::NESTED_LOOP_JOIN:
+      case AccessPath::HASH_JOIN:
+      case AccessPath::FILTER:
+      case AccessPath::MATERIALIZE:
+        if (target_path == nullptr) {
+          target_path = subpath;
+        }
+        return false;
+      case AccessPath::LIMIT_OFFSET:  // Insert before limit
+      case AccessPath::STREAM:
+        return false;
+      case AccessPath::SORT:
+        target_path = nullptr;  // Merge sort is not supported yet
+        return false;
+      case AccessPath::AGGREGATE:
+      case AccessPath::TEMPTABLE_AGGREGATE:
+        if (check_sum_func_support(thd, join)) {
+          target_path = nullptr;
+        } else {
+          target_path = subpath;
+          split_agg = true;
+        }
+        return false;
+      default:
+        target_path = nullptr;  // Not supported yet
+        return true;
+    }
+  };
+
+  WalkAccessPaths(path, /*join=*/nullptr,
+                  WalkAccessPathPolicy::STOP_AT_MATERIALIZATION,
+                  find_exchange_inject_position);
+
+  return (target_path == nullptr);
+}
+
+static AccessPath *CreateExchangeAccessPath(
+    THD *thd, JOIN *join, AccessPath *const path,
+    mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields,
+    uint curr_exchange, bool alloc_group_field);
+
+static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
+                                                    AccessPath *const path,
+                                                    TABLE *table);
+
+static void FixAccessPathForExchange(AccessPath *const path,
+                                     AccessPath *receiver, JOIN *join);
+
+static void ConnectAccessPathWithChildExchange(AccessPath *const path,
+                                               AccessPath *receiver);
+
+/**
+ * Walk through access path to inject exchange.
+ * (1) Create exchange up to this path using CreateExchangeAccessPath(), the new
+ *     exchange access path will be the parent of this path.
+ * (2) Walk through the child of this path. If the child is injected exchange,
+ *     set `exchange_following` as child (see `new_child`). If the following
+ *     exchange has influence to this path, call FixAccessPathForExchange() to
+ *     fix the item.
+ *
+ * @param[out] new_child  Set to true if exchange was inject successfully 
+ *                        ahead of this path, old parent should set child to the
+ *                        exchange.
+ * 
+ * @param[in]  sort_parent True if parent access path is sort, this may cause
+ *                         some problem, exchange behind sort must be
+ *                         materialized(TODO)
+ * 
+ * @return exchange which has influence to the parent of this path or nullptr
+ */
+AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
+                                       AccessPath *const path,
+                                       AccessPath *const target_path,
+                                       uint curr_exchange, bool &new_child,
+                                       int cur_slice, bool alloc_group_field) {
+  assert(target_path);
+
+  bool return_follow = false;
+
+  // Invalidate the previous rule and reset the insert rule
+  bool inject_here = (target_path == path);
+
+  if(curr_exchange >= MAX_EXCHANGE_NUM) return nullptr;
+
+  bool use_tmp_table = true;  // if true, create temporary table.
+  TABLE *table = nullptr;
+
+  List_item *fields = nullptr;
+  bool save_sum_func = false;
+
+  AccessPath *child = nullptr;
+  int child_slice = -1;
+  bool alloc_child_group_field = false;
+
+  switch (path->type) {
+    case AccessPath::TABLE_SCAN:
+    case AccessPath::INDEX_SCAN: {
+      use_tmp_table = false;
+      switch(path->type) {
+        case AccessPath::TABLE_SCAN: {
+          table = path->table_scan().table;
+          break;
+        }
+        case AccessPath::INDEX_SCAN: {
+          table = path->index_scan().table;
+          break;
+        }
+        default:
+          assert(false);
+      }
+      break;
+    }
+    case AccessPath::NESTED_LOOP_JOIN: {
+      fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
+                  ? join->fields
+                  : &join->tmp_fields[REF_SLICE_SAVED_BASE];
+      // In One-stage parallel, we don`t walk deeper.
+      // child = path->nested_loop_join().outer;
+      break;
+    }
+    case AccessPath::HASH_JOIN: {
+      fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
+                  ? join->fields
+                  : &join->tmp_fields[REF_SLICE_SAVED_BASE];
+      // In One-stage parallel, we don`t walk deeper.
+      // child = path->hash_join().outer;
+      break;
+    }
+    case AccessPath::FILTER: {
+      child = path->filter().child;
+
+      if (cur_slice == -1) {
+        cur_slice = join->ref_items[REF_SLICE_TMP1].is_null()
+                        ? REF_SLICE_SAVED_BASE
+                        : REF_SLICE_TMP1;
+      }
+
+      uint ref_slice = 0;
+      if (cur_slice == REF_SLICE_SAVED_BASE) {
+        if (child->type == AccessPath::TABLE_SCAN) {
+          use_tmp_table = false;
+          table = child->table_scan().table;
+        } else if(child->type == AccessPath::INDEX_SCAN) {
+          use_tmp_table = false;
+          table = child->index_scan().table;
+        } else {
+          ref_slice = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
+                          ? 0
+                          : REF_SLICE_SAVED_BASE;
+        }
+      } else {
+        ref_slice = cur_slice;
+      }
+
+      if (use_tmp_table) {
+        if (ref_slice == 0) {
+          fields = join->fields;
+        } else {
+          fields = &join->tmp_fields[ref_slice];
+          /*
+          if (ref_slice == REF_SLICE_ORDERED_GROUP_BY) {
+            save_sum_func = true;
+          }
+          */
+        }
+      }
+
+      break;
+    }
+    case AccessPath::SORT: {
+      if (cur_slice != -1) {
+        if (cur_slice == REF_SLICE_SAVED_BASE) {
+          use_tmp_table = false;
+        } else {
+          fields = &join->tmp_fields[cur_slice];
+        }
+      } else {
+        fields = join->ref_items[REF_SLICE_TMP2].is_null()
+                    ? join->ref_items[REF_SLICE_TMP1].is_null()
+                          ? join->fields
+                          : &join->tmp_fields[REF_SLICE_TMP1]
+                    : &join->tmp_fields[REF_SLICE_TMP2];
+      }
+
+      child = path->sort().child;
+      child_slice = cur_slice;
+      return_follow = true;
+
+      break;
+    }
+    case AccessPath::AGGREGATE: {
+      if (inject_here) {
+        fields = &join->tmp_fields[REF_SLICE_SAVED_ORDERED_GROUP_BY];
+        save_sum_func = true;
+      }
+
+      child = path->aggregate().child;
+      child_slice = REF_SLICE_SAVED_BASE;
+
+      break;
+    }
+    case AccessPath::TEMPTABLE_AGGREGATE: {
+      fields = &join->tmp_fields[REF_SLICE_SAVED_TMP1];
+
+      child = path->temptable_aggregate().subquery_path;
+      child_slice = REF_SLICE_SAVED_BASE;
+
+      break;
+    }
+    case AccessPath::LIMIT_OFFSET: {
+      child = path->limit_offset().child;
+      return_follow = true;
+      break;
+    }
+    case AccessPath::STREAM: {
+      child = path->stream().child;
+      child_slice = REF_SLICE_SAVED_BASE;
+
+      break;
+    }
+
+    case AccessPath::MATERIALIZE: {
+      use_tmp_table = false;
+      table = path->materialize().param->table;
+
+      // TODO: multiple subquery
+      if (path->materialize().param->query_blocks.size() > 1)
+        return nullptr;
+      
+      assert(path->materialize().param->query_blocks.size());
+      // child = path->materialize().param->query_blocks[0].subquery_path;
+
+      break;
+    }
+    default:
+      return nullptr;
+      // assert(false);
+  }
+
+  AccessPath *exchange = nullptr;
+
+  const bool stop_walk =
+      (inject_here || !child);  // We only need to inject one exchange.
+
+  if (inject_here) {
+    if (use_tmp_table) {
+      assert(fields != nullptr);
+      exchange =
+          CreateExchangeAccessPath(thd, join, path, *fields, save_sum_func,
+                                   curr_exchange, alloc_group_field);
+    }
+    else {
+      exchange = CreateExchangeAccessPathUseTable(thd, join, path, table);
+    }
+    if (exchange) new_child = true;
+  }
+
+  if (stop_walk) return exchange;
+
+  AccessPath *exchange_following = nullptr;
+
+  bool have_new_child = false;
+  assert(child != nullptr);
+  int next_exchange_slice = inject_here ? curr_exchange + 1 : curr_exchange;
+  exchange_following = WalkAccessPathsForExchange(
+      thd, join, child, target_path, next_exchange_slice, have_new_child,
+      child_slice, alloc_child_group_field);
+  if (exchange_following) {
+    FixAccessPathForExchange(path, exchange_following, join);
+    if (have_new_child) {
+      ConnectAccessPathWithChildExchange(path, exchange_following);
+    }
+  }
+
+  return (return_follow ? exchange_following : exchange);
+}
+
+static void dbug_print_table(TABLE *table, const char *str, uint slice = -1);
+
+static void rebuild_ref_item(THD *thd, JOIN *join, uint exchange_ref_slice);
+
+/**
+ * First create a temporary table for sender with tmp_table_fields, then
+ * create a temporary table for receiver with item point at sender table.
+ * 
+ * The following access path should be fixed for the right item point at new
+ * temporary table, we do that in FixAccessPathForExchange().
+ *
+ * @param thd 
+ * @param join 
+ * @param path 
+ * @param tmp_table_fields 
+ * @param save_sum_fields 
+ * @param curr_exchange   The ref_slice that the items of exchange saved in.
+ * @return The receiver if success, nullptr otherwise.
+ */
+static AccessPath *CreateExchangeAccessPath(
+    THD *thd, JOIN *join, AccessPath *const path,
+    mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields,
+    uint curr_exchange, bool alloc_group_field) {
+  if (join->exchange_tmp_fields == nullptr) {
+    join->exchange_tmp_fields =
+        (*THR_MALLOC)
+            ->ArrayAlloc<mem_root_deque<Item *>>(MAX_EXCHANGE_NUM, *THR_MALLOC);
+    if (join->exchange_tmp_fields == nullptr) return nullptr;
+  }
+  AccessPath *sender = nullptr, *receiver = nullptr;
+  TABLE *table = nullptr, *table2 = nullptr;
+  uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
+
+  Temp_table_param *temp_table_param = nullptr, *temp_table_param2 = nullptr;
+
+  mem_root_deque<Item *> tmp_field(thd->mem_root);
+  List_item *curr_fields = &tmp_table_fields;
+
+  const uint ref_slice = REF_SLICE_WIN_1 + curr_exchange;
+
+  const char *table_info_sender = "sender";
+  const char *table_info_recv = "receiver";
+  char *table_alias_sender = nullptr;
+  char *table_alias_recv = nullptr;
+
+  if (join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
+    if (join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) goto inject_err;
+
+    join->copy_ref_item_slice(REF_SLICE_SAVED_BASE, REF_SLICE_ACTIVE);
+    join->tmp_fields[REF_SLICE_SAVED_BASE] = tmp_table_fields;
+  }
+
+  /*
+    1. Create sender
+  */
+  temp_table_param =
+      new (thd->mem_root) Temp_table_param(join->tmp_table_param);
+  temp_table_param->skip_create_table = true;
+  temp_table_param->copy_fields.clear();
+  // grouped_expressions removed from Temp_table_param
+  //temp_table_param->grouped_expressions.clear();
+  temp_table_param->items_to_copy = nullptr;
+
+  // TODO: Not always need to count.
+  count_field_types(join->query_block, temp_table_param, *curr_fields, false,
+                    save_sum_fields);
+  temp_table_param->hidden_field_count = CountHiddenFields(*curr_fields);
+
+  table_alias_sender =
+      new (thd->mem_root) char[strlen(table_info_sender) + 5 + 1];
+  sprintf(table_alias_sender, "<%s_%d>", table_info_sender, ref_slice);
+  table = create_tmp_table(
+      thd, temp_table_param, *curr_fields, /*group=*/nullptr,
+      /*distinct=*/false, save_sum_fields, join->query_block->active_options(),
+      HA_POS_ERROR, table_alias_sender);
+  if (!table) goto inject_err;
+
+  if (temp_table_param->items_to_copy &&
+      temp_table_param->items_to_copy->size()) {
+    Func_ptr_array *func_ptr = temp_table_param->items_to_copy;
+    uint end = func_ptr->size();
+    for (uint i = 0; i < end; i++) {
+      Func_ptr &func = func_ptr->at(i);
+      func.set_override_result_field(func.func()->get_result_field());
+    }
+  }
+  DBUG_EXECUTE_IF("exchange_inject_print",
+                  dbug_print_table(table, "PX_Sender", ref_slice););
+  join->exchange_temp_table->push_back(table);
+  join->exchange_temp_table_param->push_back(temp_table_param);
+  sender = NewPXSendAccessPath(thd, path, table, curr_fields,
+                               temp_table_param, record);
+
+  if (join->alloc_ref_item_slice(thd, ref_slice)) goto inject_err;
+
+  if (save_sum_fields) {
+    if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[ref_slice],
+                                 &tmp_field, join->query_block->m_added_non_hidden_fields))
+      goto inject_err;
+  } else {
+    if (change_to_use_tmp_fields_except_sums(curr_fields, thd, join->query_block,
+                                             join->ref_items[ref_slice],
+                                             &tmp_field, join->query_block->m_added_non_hidden_fields))
+      goto inject_err;
+  }
+
+  // Saved for cleanup items.
+  join->exchange_tmp_fields[curr_exchange] = tmp_field;
+
+  /*
+    2. Create receiver
+  */
+  curr_fields = &tmp_field;
+  temp_table_param2 =
+      new (thd->mem_root) Temp_table_param(join->tmp_table_param);
+  temp_table_param2->skip_create_table = true;
+  temp_table_param2->copy_fields.clear();
+  // grouped_expressions was removed from Temp_table_param
+  //temp_table_param2->grouped_expressions.clear();
+  temp_table_param2->items_to_copy = nullptr;
+
+  // TODO: Not always need to count.
+  count_field_types(join->query_block, temp_table_param2, *curr_fields, false,
+                    false);
+  temp_table_param2->hidden_field_count = CountHiddenFields(*curr_fields);
+
+  table_alias_recv =
+      new (thd->mem_root) char[strlen(table_info_recv) + 5 + 1];
+  sprintf(table_alias_recv, "<%s_%d>", table_info_recv, ref_slice);
+  table2 = create_tmp_table(
+      thd, temp_table_param2, *curr_fields, /*group=*/nullptr,
+      /*distinct=*/false, /*save_sum_funcs=*/false,
+      join->query_block->active_options(), HA_POS_ERROR, table_alias_recv);
+  if (!table2) goto inject_err;
+  if (temp_table_param2->items_to_copy &&
+      temp_table_param2->items_to_copy->size()) {
+    Func_ptr_array *func_ptr = temp_table_param2->items_to_copy;
+    uint end = func_ptr->size();
+    for (uint i = 0; i < end; i++) {
+      Func_ptr &func = func_ptr->at(i);
+      func.set_override_result_field(func.func()->get_result_field());
+    }
+  }
+  DBUG_EXECUTE_IF("exchange_inject_print",
+                  dbug_print_table(table, "PX_Gather", ref_slice););
+  join->exchange_temp_table->push_back(table2);
+  join->exchange_temp_table_param->push_back(temp_table_param2);
+
+  receiver = NewPXGatherAccessPath(thd, sender, join, table2, record,
+                                   temp_table_param2, ref_slice);
+
+  /*
+    ref_items[ref_slice] is covered, because we don`t need to
+    store ref_item of exchange_send.
+  */
+  if (save_sum_fields) {
+    if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[ref_slice],
+                                 &join->tmp_fields[ref_slice],
+                                 join->query_block->m_added_non_hidden_fields))
+      goto inject_err;
+  } else {
+    if (change_to_use_tmp_fields_except_sums(curr_fields, thd, join->query_block,
+                                             join->ref_items[ref_slice],
+                                             &join->tmp_fields[ref_slice],
+                                             join->query_block->m_added_non_hidden_fields))
+      goto inject_err;
+  }
+
+  if (path->type == AccessPath::AGGREGATE ||
+      path->type == AccessPath::TEMPTABLE_AGGREGATE)
+    rebuild_ref_item(thd, join, ref_slice);
+
+  if (alloc_group_field && !join->group_list.empty()) {
+    join->set_ref_item_slice(ref_slice);
+    ORDER *group = join->group_list.order;
+    join->group_fields.clear();
+    for (; group; group = group->next) {
+      Cached_item *tmp = new_Cached_item(join->thd, *group->item);
+      if (!tmp || join->group_fields.push_front(tmp)) goto inject_err;
+    }
+    join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+  }
+
+  return receiver;
+
+inject_err:
+  if (temp_table_param) {
+    destroy(temp_table_param);
+    temp_table_param = nullptr;
+  }
+  if (table) {
+    close_tmp_table(table);
+    free_tmp_table(table);
+  }
+  if (sender) {
+    sender->px_send().table = nullptr;
+  }
+  if (temp_table_param2) {
+    destroy(temp_table_param2);
+    temp_table_param2 = nullptr;
+  }
+  if (table2) {
+    close_tmp_table(table2);
+    free_tmp_table(table);
+  }
+  if (receiver) {
+    receiver->px_gather().table = nullptr;
+  }
+  return nullptr;
+}
+
+static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
+                                                    AccessPath *const path,
+                                                    TABLE *table) {
+  uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
+  if (record == nullptr) return nullptr;
+
+  AccessPath *sender =
+      NewPXSendAccessPath(thd, path, table, nullptr, nullptr, record);
+  AccessPath *receiver =
+      NewPXGatherAccessPath(thd, sender, join, table, record, nullptr, -1);
+  return receiver;
+}
+
+/**
+ * Item_sum_avg would be split as sum and count, which will change the
+ * number of items in ref_items so as to cause item_ref or group_list get wrong
+ * item from ref_items. This function will recover sum and count with raw avg.
+ */
+static void rebuild_ref_item(THD *thd, JOIN *join, uint exchange_ref_slice) {
+  const List_item &exchange_fields = join->tmp_fields[exchange_ref_slice];
+  uint fields_count = join->saved_base_fields->size();
+  uint ref_items_count = join->ref_items[REF_SLICE_SAVED_BASE].size();
+  uint num_hidden_fields = CountHiddenFields(*join->saved_base_fields);
+  Item **ref_item = thd->mem_root->ArrayAlloc<Item *>(ref_items_count);
+  Ref_item_array tmp_ref_items = Ref_item_array(ref_item, ref_items_count);
+  int i = 0, j = 0;
+  for (Item *item : *join->saved_base_fields) {
+    if (item->type() == Item::SUM_FUNC_ITEM) {
+      Item_sum *item_sum = down_cast<Item_sum *>(item);
+      if (item_sum->sum_func() == Item_sum::AVG_FUNC) {
+        tmp_ref_items[(item->hidden ? fields_count - i -1
+                                    : i - num_hidden_fields)] = item_sum;
+        ++++j;
+      } else {
+        tmp_ref_items[(item->hidden ? fields_count - i -1
+                                    : i - num_hidden_fields)] = exchange_fields[j++];
+      }
+    } else {
+      tmp_ref_items[(item->hidden ? fields_count - i -1
+                                  : i - num_hidden_fields)] = exchange_fields[j++];
+    }
+    ++i;
+  }
+
+  join->ref_items[exchange_ref_slice] = tmp_ref_items;
+}
+
+static void FixTmpTableParamForFinalTempTableAgg(
+    Temp_table_param *temp_table_param, TABLE *exchange_table, bool use_hash);
+
+static void FixTmpTableParamForFinalAgg(
+    Temp_table_param *temp_table_param, TABLE *exchange_table,
+    List_item *exchange_field);
+
+static void FixTmpTableParam(JOIN *join, Temp_table_param *temp_table_param,
+                             uint exchange_slice, TABLE *exchange_table,
+                             uint before_slice, uint curr_slice);
+
+static void FixAccessPathForExchange(AccessPath *const path,
+                                     AccessPath *receiver, JOIN *join) {
+  assert(receiver != nullptr);
+  const auto &exchange_param = receiver->px_gather();
+
+  // If exchange don`t create temporary table, there`s no need to fix it.
+  if (exchange_param.ref_slice == -1) return ;
+
+  switch (path->type) {
+    case AccessPath::NESTED_LOOP_JOIN: {
+      break;
+    }
+    case AccessPath::FILTER: {
+      /*
+        For having_cond, there`s no need to fix because it use item_ref. For
+        where_cond, it can`t be here.
+      */
+      break;
+    }
+    case AccessPath::SORT: {
+      FixSortAccessPath(join, path,
+                        exchange_param.table, exchange_param.ref_slice);
+      break;
+    }
+    case AccessPath::AGGREGATE:
+    case AccessPath::TEMPTABLE_AGGREGATE: {
+      /*
+        (1) Reset join::sum_funcs.
+          (1.1) Recompute sum_funcs with all Item_sum objects point at
+                temporary table of gather.
+          (1.2) Reset result_fields of sum_funcs to point at temporary table
+                used by temp_table_aggregate.
+        (2) Reset temp_table_param->copy_fields
+        TODO: Save these objects in case of rollback.
+      */
+
+      Temp_table_param *temp_table_param = nullptr;
+      bool is_final_agg = false;
+      bool use_hash = false;
+      switch (path->type) {
+        case AccessPath::AGGREGATE: {
+          //temp_table_param = path->aggregate().temp_table_param;
+          is_final_agg = path->aggregate().is_final_aggr;
+          break;
+        }
+        case AccessPath::TEMPTABLE_AGGREGATE: {
+          temp_table_param = path->temptable_aggregate().temp_table_param;
+          is_final_agg = path->temptable_aggregate().is_final_aggr;
+          use_hash = (path->temptable_aggregate().table->hash_field != nullptr);
+          break;
+        }
+        default:
+          assert(false);
+      }
+
+      assert(exchange_param.ref_slice != -1);
+
+      List_item *exchange_fields = &join->tmp_fields[exchange_param.ref_slice];
+
+      if (is_final_agg) {
+        // step 1
+        if (temp_table_param->sum_func_count) {
+          // Set args of final aggregate to items in exchange.
+          Item_sum **sum_funcs = join->final_aggr_sum_funcs, *sum_func;
+          while ((sum_func = *(sum_funcs++))) {
+            for (uint i = 0; i < sum_func->argument_count(); ++i) {
+              Item_sum::Sumfunctype sum_type = sum_func->sum_func();
+              Item *arg = sum_func->get_arg(i);
+              if (((sum_type == Item_sum::MIN_FUNC ||
+                    sum_type == Item_sum::MAX_FUNC) &&
+                   arg->basic_const_item()))
+                continue;
+              assert(arg->type() == Item::FIELD_ITEM);
+              uint field_index = ((Item_field *)arg)->field->field_index();
+              if (use_hash) --field_index;
+              Field *res_field =
+                  exchange_param.table->field[field_index];
+              assert(res_field != nullptr);
+              arg = sum_func->set_arg(join->thd, i,
+                                      new (join->thd->mem_root)
+                                          Item_field(res_field));
+              if (!arg) return;
+            }
+            if (sum_func->sum_func() == Item_sum::GROUP_CONCAT_FUNC) {
+              // Temp_table_param of Item_func_group_concat should be reset.
+              Item_func_group_concat *item = (Item_func_group_concat *)sum_func;
+              if (item->reset(join->thd)) return ;
+            }
+          }
+        }
+
+        // step 2
+        switch (path->type) {
+          case AccessPath::AGGREGATE: {
+            // reset final_group_feilds
+            if (join->final_group_feilds.size()) {
+              assert(join->simple_group);
+              join->set_ref_item_slice(exchange_param.ref_slice);
+              ORDER *group = join->group_list.order;
+              join->final_group_feilds.clear();
+              for (; group; group = group->next) {
+                Cached_item *tmp = new_Cached_item(join->thd, *group->item);
+                if (!tmp || join->final_group_feilds.push_front(tmp)) return ;
+              }
+              join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+            }
+            FixTmpTableParamForFinalAgg(temp_table_param, exchange_param.table,
+                                        exchange_fields);
+            break;
+          }
+          case AccessPath::TEMPTABLE_AGGREGATE: {
+            FixTmpTableParamForFinalTempTableAgg(
+                temp_table_param, exchange_param.table, use_hash);
+            break;
+          }
+          default:
+            assert(false);
+        }
+      } else {
+        // step 1
+        if (temp_table_param->sum_func_count) {
+          mem_root_deque<Field *> result_fields(join->thd->mem_root);
+          mem_root_deque<Item_sum *> resolve_sum_funcs(join->thd->mem_root);
+          Item_sum **sum_funcs = join->sum_funcs, *sum_func;
+          while ((sum_func = *(sum_funcs++))) {
+            result_fields.push_back(sum_func->get_result_field());
+            if (sum_func->sum_func() == Item_sum::AVG_DISTINCT_FUNC ||
+                sum_func->sum_func() == Item_sum::AVG_FUNC) {
+              resolve_sum_funcs.push_back(sum_func);
+            }
+          }
+
+          join->make_sum_func_list(*exchange_fields, /*before_group_by=*/false,
+                                  /*recompute=*/true);
+
+          sum_funcs = join->sum_funcs;
+          for (Field *result_field : result_fields) {
+            sum_func = *(sum_funcs++);
+            assert(sum_func != nullptr);
+            if (sum_func->sum_func() == Item_sum::AVG_DISTINCT_FUNC ||
+                sum_func->sum_func() == Item_sum::AVG_FUNC) {
+              Item_sum_avg *avg = (Item_sum_avg *)sum_func;
+              const Item_sum_avg *raw_avg =
+                  (Item_sum_avg *)resolve_sum_funcs.front();
+              avg->f_precision = raw_avg->f_precision;
+              avg->f_scale = raw_avg->f_scale;
+              avg->dec_bin_size = raw_avg->dec_bin_size;
+              resolve_sum_funcs.pop_front();
+            }
+            // sum_func->resolve_type(join->thd);
+            sum_func->set_result_field(result_field);
+            if (sum_func->sum_func() == Item_sum::GROUP_CONCAT_FUNC) {
+              // Temp_table_param of type Item_func_group_concat should be reset.
+              Item_func_group_concat *item = (Item_func_group_concat *)sum_func;
+              if (item->reset(join->thd)) return ;
+            }
+          }
+
+          if (path->type == AccessPath::AGGREGATE) {
+            const bool need_distinct =
+                !(join->qep_tab && join->qep_tab[0].range_scan() &&
+                  join->qep_tab[0].range_scan()->type == AccessPath::GROUP_INDEX_SKIP_SCAN);
+            if (prepare_sum_aggregators(sum_funcs, need_distinct)) return ;
+            if (setup_sum_funcs(join->thd, join->sum_funcs)) return ;
+
+            sum_funcs = join->sum_funcs;
+            // Sum funcs in join->fields should be reset
+            for (Item *&item : *join->fields) {
+              if (item->type() == Item::SUM_FUNC_ITEM && !item->const_item() &&
+                  down_cast<Item_sum *>(item)->aggr_query_block ==
+                      join->query_block) {
+                sum_func = *(sum_funcs++);
+                assert(sum_func);
+                item = sum_func;
+              }
+            }
+          }
+        }
+
+        int agg_ref_slice = -1;
+        switch (path->type) {
+          case AccessPath::AGGREGATE: {
+            //agg_ref_slice = path->aggregate().output_slice;
+            break;
+          }
+          case AccessPath::TEMPTABLE_AGGREGATE: {
+            agg_ref_slice = path->temptable_aggregate().ref_slice;
+            break;
+          }
+          default:
+            assert(false);
+        }
+
+        FixTmpTableParam(join, temp_table_param, exchange_param.ref_slice,
+                        exchange_param.table, REF_SLICE_SAVED_BASE,
+                        agg_ref_slice);
+      }
+      break;
+    }
+    case AccessPath::LIMIT_OFFSET: {
+      break;
+    }
+    case AccessPath::STREAM: {
+      //if (!path->stream().copy_fields_and_items_in_materialize) break;
+      auto tmp_table_param = path->stream().temp_table_param;
+      FixTmpTableParam(join, tmp_table_param, exchange_param.ref_slice,
+                       exchange_param.table, REF_SLICE_SAVED_BASE,
+                       REF_SLICE_TMP1);
+
+      break;
+    }
+    case AccessPath::MATERIALIZE: {
+      auto param = path->materialize().param;
+      // TODO: multiple subquery
+      auto &copy_fields = param->query_blocks[0].temp_table_param->copy_fields;
+      for (Copy_field &copy_field : copy_fields) {
+        Field *from_field =
+            exchange_param.table->field[copy_field.to_field()->field_index()];
+        assert(from_field != nullptr);
+        copy_field.set_from_field(from_field);
+      }
+      break;
+    }
+    default:
+      assert(false);
+  }
+}
+
+static void ConnectAccessPathWithChildExchange(AccessPath *const path,
+                                               AccessPath *receiver) {
+  switch (path->type) {
+    case AccessPath::NESTED_LOOP_JOIN:
+      path->nested_loop_join().outer = receiver;
+      break;
+    case AccessPath::FILTER:
+      path->filter().child = receiver;
+      break;
+    case AccessPath::SORT:
+      path->sort().child = receiver;
+      break;
+    case AccessPath::AGGREGATE:
+      path->aggregate().child = receiver;
+      break;
+    case AccessPath::TEMPTABLE_AGGREGATE:
+      path->temptable_aggregate().subquery_path = receiver;
+      break;
+    case AccessPath::LIMIT_OFFSET:
+      path->limit_offset().child = receiver;
+      break;
+    case AccessPath::STREAM:
+      path->stream().child = receiver;
+      break;
+    case AccessPath::MATERIALIZE:
+      path->materialize().param->query_blocks[0].subquery_path = receiver;
+      break;
+    default:
+      assert(false);
+  }
+}
+
+static void FixTmpTableParamForFinalTempTableAgg(
+    Temp_table_param *temp_table_param, TABLE *exchange_table, bool use_hash) {
+  Mem_root_vector<Copy_field> *copy_fields = &temp_table_param->copy_fields;
+  for (auto &copy_field : *copy_fields) {
+    uint16 field_index = copy_field.from_field()->field_index();
+    if (use_hash) {
+      assert(field_index > 0);
+      --field_index;
+    }
+    copy_field.set_from_field(exchange_table->field[field_index]);
+  }
+}
+
+/**
+ * @brief Ranks of items are reordered, we need to use the from_field->index
+ * to locate the from field in exchange temporary table.
+ * 
+ * @todo: Merge to FixTmpTableParam
+ */
+static void FixTmpTableParamForFinalAgg(
+    Temp_table_param *temp_table_param, TABLE *exchange_table,
+    List_item *exchange_field) {
+  Mem_root_vector<Copy_field> *copy_fields = &temp_table_param->copy_fields;
+  uint num_skip = 0;
+  for (auto &copy_field : *copy_fields) {
+    uint16 field_index = copy_field.from_field()->field_index();
+    uint real_index = field_index + num_skip;
+    // These item will create field in create_tmp_table() but not in
+    // setup_copy_field()
+    while ((*exchange_field)[real_index]->type() == Item::STRING_ITEM ||
+           (*exchange_field)[real_index]->type() == Item::NULL_ITEM) {
+      ++num_skip;
+      ++real_index;
+    }
+    copy_field.set_from_field(exchange_table->field[real_index]);
+  }
+}
+
+/**
+ * @note Item_func may be calculated by exchange in advance.
+ * @note Field used by aggregate
+ */
+static void FixTmpTableParam(JOIN *join, Temp_table_param *temp_table_param,
+                             uint exchange_slice, TABLE *exchange_table,
+                             uint before_slice, uint curr_slice) {
+  List_item &before_fields = join->tmp_fields[before_slice];
+  List_item &curr_fields = join->tmp_fields[curr_slice];
+  List_item &exchange_fields = join->tmp_fields[exchange_slice];
+
+  // REF_SLICE_ORDERED_GROUP_BY was created by setup_copy_fields() which don`t
+  // skip const items.
+  bool copy_all = true;
+  //bool copy_all = (curr_slice == REF_SLICE_ORDERED_GROUP_BY);
+
+  uint16 field_index = 0;
+  long num_hidden_fields = CountHiddenFields(before_fields);
+
+  Mem_root_vector<Copy_field> *copy_fields = &temp_table_param->copy_fields;
+  Func_ptr_array *items_to_copy = temp_table_param->items_to_copy;
+  auto copy_field_it = copy_fields->begin();
+  Mem_root_vector<Copy_field> new_copy_fields(
+          Mem_root_allocator<Copy_field>(join->thd->mem_root));
+  if (items_to_copy && items_to_copy->size()) {
+    new_copy_fields.reserve(items_to_copy->size());
+  }
+  for (uint item_index = 0; item_index < before_fields.size(); ++item_index) {
+    Item *before_item = before_fields[item_index];
+    Item *exchange_item = exchange_fields[item_index];
+
+    Item::Type type = before_item->type();
+    // Const items would be skipped for copy
+    if ((!copy_all || type != Item::FIELD_ITEM) &&
+        before_item->const_item() && num_hidden_fields <= 0) {
+      // Const items in ref slice would become not const in recevier, during the
+      // creation of temporary tables
+      if (!exchange_item->const_item()) ++field_index;
+      continue;
+    }
+
+    switch(type) {
+      case Item::SUM_FUNC_ITEM: {
+        Item_sum *sum_item = down_cast<Item_sum *>(before_item);
+        for (uint i = 0; i < sum_item->argument_count(); i++) {
+          Item *arg = sum_item->get_arg(i);
+          if (!arg->const_item()) field_index++;
+        }
+        break;
+      }
+      case Item::FIELD_ITEM: {
+        Field *from_field = exchange_table->field[field_index++];
+        assert(from_field != nullptr);
+        if (copy_field_it == copy_fields->end() ||
+            (from_field->type() == MYSQL_TYPE_BLOB &&
+             copy_field_it->from_field()->type() != MYSQL_TYPE_BLOB))
+          break;
+        (copy_field_it++)->set_from_field(from_field);
+        break;
+      }
+      case Item::FUNC_ITEM:
+      case Item::COND_ITEM:
+      case Item::SUBSELECT_ITEM:
+      case Item::CACHE_ITEM:
+      case Item::REF_ITEM: {
+        // item_func may be calculated by exchange in advance.
+        if (exchange_item->type() == Item::FIELD_ITEM) {
+          Field *from_field = exchange_table->field[field_index++];
+          assert(from_field != nullptr);
+          Item *curr_item = curr_fields[item_index];
+          Field *to_field = nullptr;
+          switch (curr_item->type()) {
+            case Item::FIELD_ITEM:
+              to_field = ((Item_field *)curr_item)->field;
+              break;
+            /*
+            case Item::COPY_STR_ITEM: { // TODO
+              Item *real_item = ((Item_copy *)curr_item)->get_item();
+              switch (real_item->type()) {
+                case Item::FIELD_ITEM:
+                  to_field = ((Item_field*)real_item)->field;
+                  break;
+                case Item::FUNC_ITEM:
+                case Item::SUBSELECT_ITEM:
+                  to_field = real_item->get_result_field();
+                  break;
+                default:
+                  assert(false);
+              }
+              break;
+            }
+            */
+            default:
+              assert(false);
+          }
+          assert(to_field != nullptr);
+          // TODO: Need to know in which condition the item would be added in
+          // copy_fields.
+          if (copy_field_it != copy_fields->end() &&
+              to_field == copy_field_it->to_field()) {
+            (copy_field_it++)->set_from_field(from_field);
+          } else {
+            new_copy_fields.emplace_back(to_field, from_field);
+            // Fields of REF_SLICE_ORDERED_GROUP_BY was maked specially.
+            //if (curr_slice == REF_SLICE_ORDERED_GROUP_BY)
+            //  new_copy_fields.back().reset();
+          }
+        }
+        break;
+      }
+      case Item::STRING_ITEM:
+      case Item::NULL_ITEM: {
+        if (exchange_item->type() == type) {
+          ++field_index;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    num_hidden_fields--;
+  }
+
+  if (new_copy_fields.size()) {
+    if (items_to_copy) items_to_copy->clear();
+    copy_fields->insert(copy_fields->end(), new_copy_fields.begin(),
+                        new_copy_fields.end());
+  }
+}
+
+/**
+ * @brief Fix filesort for sort accesspath
+ * 
+ * @todo If insert exchange as child of sort accesspath, the source of exchange
+ * inserted ahead of sort will be changed as the same as sort accesspath. So we
+ * need to create parent exchange after when child exchange has been created.
+ * Now we just don`t create child exchange of sort.
+ */
+void FixSortAccessPath(JOIN *join, AccessPath *path, TABLE *const new_table,
+                       int ref_slice) {
+  auto &new_filesort = path->sort().filesort;
+  new_filesort->tables = std::move(Mem_root_array<TABLE *>({new_table}));
+
+  // Redefine sort_order
+  if (join->order.order) {
+    join->set_ref_item_slice(ref_slice);
+    new_filesort->make_sortorder(join->order.order, false);
+    join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+  }
+  // Redefine addon fields for filesort
+  if (new_filesort->m_sort_param.using_addon_fields()) {
+    new_filesort->m_sort_param.addon_fields = nullptr;
+    new_filesort->m_sort_param.m_addon_fields_status =
+        Addon_fields_status::unknown_status;
+    new_filesort->using_addon_fields();
+  }
+}
+
+#ifndef DBUG_OFF
+/*
+  Print a text, SQL-like record representation into dbug trace, `error.log`
+  generally.
+
+  Note: this function is a work in progress: at the moment
+   - column read bitmap is ignored (can print garbage for unused columns)
+   - there is no quoting
+*/
+static void dbug_print_table(TABLE *table, const char *str, uint slice) {
+  char buff[1024];
+  Field **pfield;
+  String tmp(buff, sizeof(buff), &my_charset_bin);
+  DBUG_LOCK_FILE;
+
+  fprintf(DBUG_FILE, "\nrecord: %s, %d (", str, slice);
+  for (pfield = table->field; *pfield; pfield++)
+    fprintf(DBUG_FILE, "%s%s", (*pfield)->field_name, (pfield[1]) ? ", " : "");
+  fprintf(DBUG_FILE, ")");
+  fprintf(DBUG_FILE, "\n");
+  DBUG_UNLOCK_FILE;
+}
+#endif

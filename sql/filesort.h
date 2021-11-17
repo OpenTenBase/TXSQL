@@ -33,6 +33,7 @@
 #include "my_table_map.h"
 #include "sql/join_optimizer/access_path.h"
 #include "sql/sort_param.h"
+#include "sql/join_optimizer/access_path.h"
 
 class Addon_fields;
 class Field;
@@ -53,6 +54,9 @@ class Filesort {
   friend void FixSortAccessPathForAggrInject(THD *thd, JOIN *join,
     AccessPath *path, int ref_slice);
  
+  friend void FixSortAccessPath(JOIN *join, AccessPath *path,
+                                TABLE *const new_table, int ref_slice);
+
  public:
   THD *m_thd;
   /// The tables we are sorting.

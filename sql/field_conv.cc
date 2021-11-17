@@ -557,6 +557,14 @@ void Copy_field::set(Field *to, Field *from) {
   }
 }
 
+void Copy_field::reset() {
+  if (m_from_field->is_nullable() || m_from_field->table->is_nullable()) {
+    m_do_copy = do_copy_null;
+  } else {
+    m_do_copy = do_field_eq;
+  }
+}
+
 Copy_field::Copy_func *Copy_field::get_copy_func() {
   THD *thd = current_thd;
   if (m_to_field->is_array() && m_from_field->is_array()) return do_copy_blob;
