@@ -4789,6 +4789,34 @@ void Item_func_group_concat::print(const THD *thd, String *str,
   str->append(STRING_WITH_LEN("\')"));
 }
 
+bool Item_func_group_concat::reset(THD *thd) {
+  if (original == nullptr) {
+    destroy(tmp_table_param);
+    if (table != nullptr) {
+      if (table->blob_storage) destroy(table->blob_storage);
+      close_tmp_table(table);
+      free_tmp_table(table);
+      if (tree != nullptr) {
+        delete_tree(tree.get());
+        tree.reset(nullptr);
+      }
+      if (unique_filter) {
+        destroy(unique_filter);
+      }
+    }
+  }
+
+  // Like make_unique()
+  original = nullptr;
+  tmp_table_param = nullptr;
+  table = nullptr;
+  tree = nullptr;
+  unique_filter = nullptr;
+
+  assert(tree == nullptr);
+  return setup(thd);
+}
+
 bool Item_non_framing_wf::fix_fields(THD *thd, Item **items) {
   if (super::fix_fields(thd, items)) return true;
 

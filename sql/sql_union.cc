@@ -691,6 +691,10 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
   if (query_result() != nullptr) query_result()->estimated_rowcount = 0;
 
+  if (thd->variables.exchange_inject && !item && !derived_table) {
+    exchange_inject = true;
+  }
+
   for (Query_block *query_block = first_query_block(); query_block != nullptr;
        query_block = query_block->next_query_block()) {
     thd->lex->set_current_query_block(query_block);

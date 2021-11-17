@@ -2160,6 +2160,7 @@ Query_expression::Query_expression(enum_parsing_context parsing_context)
       table(nullptr),
       m_query_result(nullptr),
       uncacheable(0),
+      exchange_inject(false),
       cleaned(UC_DIRTY),
       item_list(current_thd->mem_root),
       types(current_thd->mem_root),

@@ -108,6 +108,7 @@
 #include "sql/window.h"
 #include "sql_string.h"
 #include "template_utils.h"
+#include "sql/px_exchange.h"
 
 using std::max;
 using std::min;
@@ -205,7 +206,12 @@ bool JOIN::alloc_ref_item_slice(THD *thd_arg, int sliceno) {
 }
 
 bool JOIN::alloc_indirection_slices() {
-  const int num_slices = REF_SLICE_WIN_1 + m_windows.elements;
+  // MAX_EXCHANGE_NUM reserved for exchange, we don`t use these all. In future
+  // we might use REF_SLICE_EXCHANGE. Only one ref_slice for exchange is enough,
+  // because only gather need to store ref_slice and one thread only have one
+  // gather. But in this demo, we inject several exchanges in one thread for
+  // test.
+  const int num_slices = REF_SLICE_WIN_1 + m_windows.elements + MAX_EXCHANGE_NUM;;
 
   assert(ref_items == nullptr);
   ref_items = (*THR_MALLOC)->ArrayAlloc<Ref_item_array>(num_slices);
@@ -984,6 +990,11 @@ bool JOIN::optimize(bool finalize_access_paths) {
   }
 
   count_field_types(query_block, &tmp_table_param, *fields, false, false);
+
+  if (query_expression()->exchange_inject && rollup_state == RollupState::NONE &&
+      !m_windowing_steps && m_windows.elements == 0) {
+    exchange_inject = true;
+  }
 
   create_access_paths();
 

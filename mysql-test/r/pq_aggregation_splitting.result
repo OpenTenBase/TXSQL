@@ -1,4 +1,5 @@
 set cdb_parallel_query_enable = 1;
+set exchange_inject=1;
 #
 # create test table
 #

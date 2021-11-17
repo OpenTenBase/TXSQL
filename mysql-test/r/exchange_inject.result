@@ -1,0 +1,305 @@
+set exchange_inject=1;
+set cdb_parallel_query_enable = 1;
+#
+# Table scan -> exchange
+#
+select * from t2;
+id	col1	col2
+1	9	1
+2	8	2
+3	7	3
+4	6	4
+5	5	5
+6	4	6
+7	3	7
+8	2	8
+9	1	9
+10	0	10
+select col1+1 from t1;
+col1+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+#
+# Table scan -> filter -> exchange
+#
+select * from t2 where col1 > 2;
+id	col1	col2
+1	9	1
+2	8	2
+3	7	3
+4	6	4
+5	5	5
+6	4	6
+7	3	7
+select * from t2 having col1 > 2 and col1 < 4;
+id	col1	col2
+7	3	7
+#
+# Table scan -> exchange -> limit
+#
+select * from t2 limit 3;
+id	col1	col2
+1	9	1
+2	8	2
+3	7	3
+#
+# Sort -> exchange
+#
+select * from t2 order by col1;
+id	col1	col2
+10	0	10
+9	1	9
+8	2	8
+7	3	7
+6	4	6
+5	5	5
+4	6	4
+3	7	3
+2	8	2
+1	9	1
+select * from t2 order by col1 desc;
+id	col1	col2
+1	9	1
+2	8	2
+3	7	3
+4	6	4
+5	5	5
+6	4	6
+7	3	7
+8	2	8
+9	1	9
+10	0	10
+#
+# Nested loop join -> exchange
+#
+select * from t1 join t2 on t1.id=t2.id;
+id	col1	col2	id	col1	col2
+1	1	1	1	9	1
+2	2	2	2	8	2
+3	3	3	3	7	3
+4	4	4	4	6	4
+5	5	5	5	5	5
+6	6	6	6	4	6
+7	7	7	7	3	7
+8	8	8	8	2	8
+9	9	9	9	1	9
+10	10	10	10	0	10
+#
+# Table scan -> exchange -> Aggregate -> exchange
+#
+select sum(col1) from t2;
+sum(col1)
+45
+select sum(col1)+1 from t2;
+sum(col1)+1
+46
+select avg(col1) from t2;
+avg(col1)
+4.5000
+#
+# Index scan -> exchange -> Aggregate -> exchange
+#
+select distinct col2 from t1;
+col2
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+#
+# Table scan-> materialize -> exchange
+#
+select distinct col1 from t1;
+col1
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+#
+# Table scan -> Sort -> exchange -> Nested loop join -> exchange
+#
+select * from t1 join t2 on t1.id=t2.id order by t1.col1;
+id	col1	col2	id	col1	col2
+1	1	1	1	9	1
+2	2	2	2	8	2
+3	3	3	3	7	3
+4	4	4	4	6	4
+5	5	5	5	5	5
+6	6	6	6	4	6
+7	7	7	7	3	7
+8	8	8	8	2	8
+9	9	9	9	1	9
+10	10	10	10	0	10
+#
+# Table scan -> Nested loop join -> exchange -> Sort -> exchange
+#
+select * from t1 join t2 on t1.id=t2.id order by t1.col1, t2.col1;
+id	col1	col2	id	col1	col2
+1	1	1	1	9	1
+2	2	2	2	8	2
+3	3	3	3	7	3
+4	4	4	4	6	4
+5	5	5	5	5	5
+6	6	6	6	4	6
+7	7	7	7	3	7
+8	8	8	8	2	8
+9	9	9	9	1	9
+10	10	10	10	0	10
+#
+# Table scan -> join -> exchange -> TemptableAggregate -> exchange
+#
+select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
+group by t1.col2;
+sum(t1.col1)	sum(t2.col1)
+1	9
+2	8
+3	7
+4	6
+5	5
+6	4
+7	3
+8	2
+9	1
+10	0
+#
+# join -> exchange -> TemptableAggregate -> exchange -> sort -> exchange
+#
+select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
+group by t1.col2 order by t1.col2;
+sum(t1.col1)	sum(t2.col1)
+1	9
+2	8
+3	7
+4	6
+5	5
+6	4
+7	3
+8	2
+9	1
+10	0
+#
+# join -> exchange -> TemptableAggregate -> exchange -> filter -> exchange
+#
+select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
+group by t1.col2 having sum(t1.col1)>1;
+sum(t1.col1)	sum(t2.col1)
+2	8
+3	7
+4	6
+5	5
+6	4
+7	3
+8	2
+9	1
+10	0
+select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
+group by t1.col2 having sum(t1.col1)>1 limit 1;
+sum(t1.col1)	sum(t2.col1)
+2	8
+#
+# join -> exchange -> Aggregate -> exchange
+#
+select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id;
+sum(t1.col1)	sum(t2.col1)
+55	45
+#
+# TemptableAggregate -> exchange -> filter -> exchange
+#   item->arg[0]->const_item() == true
+#
+select count(*) from t1 group by col1 having count(*) > 0;
+count(*)
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+#
+# Aggregate with group by
+#
+select col2 from t1 group by col2;
+col2
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+#
+# Aggregate\TemptableAggregate with function
+#
+select count(*),repeat("a",count(*)) from t1;
+count(*)	repeat("a",count(*))
+10	aaaaaaaaaa
+select col1,repeat("a",col1),count(*) from t1 group by col1;
+col1	repeat("a",col1)	count(*)
+1	a	1
+2	aa	1
+3	aaa	1
+4	aaaa	1
+5	aaaaa	1
+6	aaaaaa	1
+7	aaaaaaa	1
+8	aaaaaaaa	1
+9	aaaaaaaaa	1
+10	aaaaaaaaaa	1
+#
+# filter -> exchange -> Aggregate
+#
+select col1,count(*) from t1 where col1 > 5 group by col1;
+col1	count(*)
+6	1
+7	1
+8	1
+9	1
+10	1
+drop table t1, t2;
+CREATE TABLE t1 (a INT, b INT, c INT, KEY (a,b));
+INSERT INTO t1 VALUES (1,1,1), (1,2,1), (1,3,1), (1,4,1);
+INSERT INTO t1 SELECT a, b + 4, 1 FROM t1;
+INSERT INTO t1 SELECT a + 1, b, 1 FROM t1;
+INSERT INTO t1 SELECT a + 2, b + 8, 1 FROM t1;
+drop table t1;
+#
+# Subselect
+#
+CREATE TABLE t1 (a INT, b INT);
+INSERT INTO t1 VALUES (4, 40), (1, 10), (2, 20), (2, 20), (3, 30);
+CREATE TABLE t2 SELECT DISTINCT a FROM t1;
+SELECT (SELECT t2.a FROM t2 WHERE t2.a = t1.a) aa, b, COUNT(         b)
+FROM t1 GROUP BY aa, b;
+aa	b	COUNT(         b)
+4	40	1
+1	10	1
+2	20	2
+3	30	1
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;

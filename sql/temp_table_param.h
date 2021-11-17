@@ -60,6 +60,7 @@ class Func_ptr {
     return m_func_bits & (1 << type);
   }
 
+  void set_override_result_field(Field *f) { m_result_field = f; }
  private:
   Item *m_func;
   Field *m_result_field;

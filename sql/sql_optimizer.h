@@ -54,6 +54,7 @@
 #include "sql/temp_table_param.h"
 
 enum class Subquery_strategy : int;
+enum exchange_inject_position;
 class COND_EQUAL;
 class Item_subselect;
 class Item_sum;
@@ -61,6 +62,7 @@ class Opt_trace_context;
 class THD;
 class Window;
 struct AccessPath;
+struct Exchange_Info;
 struct MYSQL_LOCK;
 
 class Item_equal;
@@ -628,6 +630,13 @@ class JOIN {
   */
   bool with_json_agg;
 
+  // If true, do parallel.
+  bool exchange_inject{false};
+  // Saved for cleanup.
+  mem_root_deque<TABLE *> *exchange_temp_table = nullptr;
+  mem_root_deque<Temp_table_param *> *exchange_temp_table_param = nullptr;
+  List_item  *exchange_tmp_fields = nullptr;
+
   /// True if plan is const, ie it will return zero or one rows.
   bool plan_is_const() const { return const_tables == primary_tables; }
 
@@ -911,6 +920,18 @@ private:
                                  const mem_root_deque<Item *> &tmp_table_fields,
                                  ORDER_with_src &tmp_table_group,
                                  bool save_sum_fields);
+
+  /**
+   * @brief Create a intermediate table to be used by exchange
+   * 
+   * @param[in,out] exchange_info
+   * @param[in,out] tmp_table_fields 
+   * @param[in] save_sum_fields 
+   * @return true on failure, false on success
+   */
+  bool create_exchange_intermediate_table(
+      Exchange_Info *exchange_info,
+      const mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields);
 
   /**
     Optimize distinct when used on a subset of the tables.
