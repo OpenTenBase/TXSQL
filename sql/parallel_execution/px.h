@@ -96,4 +96,13 @@ class PX_proc {
   bool m_notified;
 };
 
+enum PX_SCAN_TYPE {
+  PX_TABLE_SCAN,
+  PX_INDEX_SCAN,
+  PX_RANGE_SCAN,
+  PX_REF_SCAN,
+  PX_DEPEND_REF_SCAN,
+  PX_INVALID_SCAN
+};
+
 #endif

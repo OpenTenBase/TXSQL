@@ -1065,6 +1065,7 @@ class THD : public MDL_context_owner,
   */
   ulong want_privilege;
 
+  void *px_scan_ctx{nullptr};
  private:
   /**
     The lex to hold the parsed tree of conventional (non-prepared) queries.

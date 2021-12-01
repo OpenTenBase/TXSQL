@@ -31,6 +31,9 @@
 #include "sql/sql_executor.h"
 #include "sql/table.h"
 
+extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
+
 ReverseIndexRangeScanIterator::ReverseIndexRangeScanIterator(
     THD *thd, TABLE *table, ha_rows *examined_rows, double expected_rows,
     int index, MEM_ROOT *return_mem_root, uint mrr_flags,
@@ -116,11 +119,31 @@ bool ReverseIndexRangeScanIterator::Init() {
     return true;
   }
 
+  DBUG_EXECUTE_IF("px_force_execute", {
+    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
+                     PX_RANGE_SCAN, m_index, nullptr, true)) {
+      return true;
+    }
+    table()->file->px_worker_init(thd()->px_scan_ctx);
+    return false;
+  });
+
   return false;
 }
 
 int ReverseIndexRangeScanIterator::Read() {
   DBUG_TRACE;
+
+  DBUG_EXECUTE_IF("px_force_execute", {
+    int result = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx);
+    if (result == 0) {
+      if (m_examined_rows != nullptr) {
+        ++*m_examined_rows;
+      }
+      return 0;
+    }
+    return HandleError(result);
+  });
 
   /* The max key is handled as follows:
    *   - if there is NO_MAX_RANGE, start at the end and move backwards

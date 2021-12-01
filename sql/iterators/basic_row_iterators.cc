@@ -52,18 +52,22 @@
 
 using std::string;
 using std::vector;
+extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
 
 template <bool Reverse>
 IndexScanIterator<Reverse>::IndexScanIterator(THD *thd, TABLE *table, int idx,
                                               bool use_order,
                                               double expected_rows,
-                                              ha_rows *examined_rows)
+                                              ha_rows *examined_rows,
+                                              bool reverse_scan)
     : TableRowIterator(thd, table),
       m_record(table->record[0]),
       m_idx(idx),
       m_use_order(use_order),
       m_expected_rows(expected_rows),
-      m_examined_rows(examined_rows) {}
+      m_examined_rows(examined_rows),
+      m_reverse_scan(reverse_scan) {}
 
 template <bool Reverse>
 IndexScanIterator<Reverse>::~IndexScanIterator() {
@@ -78,6 +82,15 @@ bool IndexScanIterator<Reverse>::Init() {
     if (table()->covering_keys.is_set(m_idx) && !table()->no_keyread) {
       table()->set_keyread(true);
     }
+
+    DBUG_EXECUTE_IF("px_force_execute", {
+      if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
+        PX_INDEX_SCAN, m_idx, nullptr, m_reverse_scan)) {
+        return true;
+      }
+      table()->file->px_worker_init(thd()->px_scan_ctx);
+      return false;
+    });
 
     int error = table()->file->ha_index_init(m_idx, m_use_order);
     if (error) {
@@ -99,6 +112,15 @@ bool IndexScanIterator<Reverse>::Init() {
 template <>
 int IndexScanIterator<false>::Read() {  // Forward read.
   int error;
+  DBUG_EXECUTE_IF("px_force_execute", {
+    error = table()->file->ha_px_worker_next(m_record, thd()->px_scan_ctx);
+    if (error) return HandleError(error);
+    if (m_examined_rows != nullptr) {
+      ++*m_examined_rows;
+    }
+    return 0;
+  });
+
   if (m_first) {
     error = table()->file->ha_index_first(m_record);
     m_first = false;
@@ -115,6 +137,15 @@ int IndexScanIterator<false>::Read() {  // Forward read.
 template <>
 int IndexScanIterator<true>::Read() {  // Backward read.
   int error;
+  DBUG_EXECUTE_IF("px_force_execute", {
+    error = table()->file->ha_px_worker_next(m_record, thd()->px_scan_ctx);
+    if (error) return HandleError(error);
+    if (m_examined_rows != nullptr) {
+      ++*m_examined_rows;
+    }
+    return 0;
+  });
+
   if (m_first) {
     error = table()->file->ha_index_last(m_record);
     m_first = false;
@@ -196,6 +227,24 @@ bool TableScanIterator::Init() {
   */
   const bool first_init = !table()->file->inited;
 
+  DBUG_EXECUTE_IF("px_force_execute", {
+    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
+                     PX_TABLE_SCAN, table()->s->primary_key, nullptr, false)) {
+      return true;
+    }
+    int error = table()->file->px_worker_init(thd()->px_scan_ctx);
+    if (error) {
+      PrintError(error);
+      return true;
+    }
+
+    if (first_init && set_record_buffer(table(), m_expected_rows)) {
+      return true; /* purecov: inspected */
+    }
+
+    return false;
+  });
+
   int error = table()->file->ha_rnd_init(true);
   if (error) {
     PrintError(error);
@@ -211,6 +260,18 @@ bool TableScanIterator::Init() {
 
 int TableScanIterator::Read() {
   int tmp;
+  DBUG_EXECUTE_IF("px_force_execute", {
+    while ((tmp = table()->file->ha_px_worker_next(m_record, thd()->px_scan_ctx))) {
+      if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+      return HandleError(tmp);
+    }
+
+    if (m_examined_rows != nullptr) {
+      ++*m_examined_rows;
+    }
+    return 0;
+  });
+
   while ((tmp = table()->file->ha_rnd_next(m_record))) {
     /*
       ha_rnd_next can return RECORD_DELETED for MyISAM when one thread is

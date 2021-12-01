@@ -1,0 +1,21 @@
+--source include/have_debug.inc
+
+CREATE TABLE `testText` (
+  `id` int(11) unsigned NOT NULL,
+  `before` char(6) NOT NULL DEFAULT 'before',
+  `data` text NOT NULL,
+  `after` char(5) NOT NULL DEFAULT 'after',
+  PRIMARY KEY (`id`) ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO testText (id,data) VALUES (0,repeat('0123456789abcdef',1));
+INSERT INTO testText (id,data) VALUES (1,repeat('0123456789abcdef',510));
+ANALYZE TABLE testText;
+
+EXPLAIN SELECT * FROM testText;
+SELECT * FROM testText;
+
+SET debug = '+d,px_force_execute';
+SELECT * FROM testText;
+SET debug = '-d,px_force_execute';
+
+DROP TABLE testText;

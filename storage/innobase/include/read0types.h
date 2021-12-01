@@ -54,6 +54,7 @@ class ReadView {
  public:
   ReadView();
   ~ReadView();
+
   /** Check whether transaction id is valid.
   @param[in]    id              transaction id to check
   @param[in]    name            table name */

@@ -75,6 +75,9 @@ using std::pair;
 static inline pair<uchar *, key_part_map> FindKeyBufferAndMap(
     const TABLE_REF *ref);
 
+extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
+
 ConstIterator::ConstIterator(THD *thd, TABLE *table, TABLE_REF *table_ref,
                              ha_rows *examined_rows)
     : TableRowIterator(thd, table),
@@ -339,6 +342,15 @@ static bool init_index(TABLE *table, handler *file, uint idx, bool sorted) {
 
 template <bool Reverse>
 bool RefIterator<Reverse>::Init() {
+  DBUG_EXECUTE_IF("px_force_execute", {
+    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
+        PX_REF_SCAN, m_ref->key, m_ref, m_reverse_scan)) {
+      return true;
+    }
+    table()->file->px_worker_init(thd()->px_scan_ctx);
+    return false;
+  });
+
   m_first_record_since_init = true;
   m_is_mvi_unique_filter_enabled = false;
   if (table()->file->inited) return false;
@@ -359,6 +371,18 @@ bool RefIterator<Reverse>::Init() {
 //! @cond
 template <>
 int RefIterator<false>::Read() {  // Forward read.
+  DBUG_EXECUTE_IF("px_force_execute", {
+    int tmp;
+    while ((tmp = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx))) {
+      if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+      return HandleError(tmp);
+    }
+    if (m_examined_rows != nullptr) {
+      ++*m_examined_rows;
+    }
+    return 0;
+  });
+
   if (m_first_record_since_init) {
     m_first_record_since_init = false;
 
@@ -411,6 +435,18 @@ int RefIterator<false>::Read() {  // Forward read.
 template <>
 int RefIterator<true>::Read() {  // Reverse read.
   assert(m_ref->keypart_hash == nullptr);
+
+  DBUG_EXECUTE_IF("px_force_execute", {
+    int tmp;
+    while ((tmp = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx))) {
+      if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+      return HandleError(tmp);
+    }
+    if (m_examined_rows != nullptr) {
+      ++*m_examined_rows;
+    }
+    return 0;
+  });
 
   if (m_first_record_since_init) {
     m_first_record_since_init = false;

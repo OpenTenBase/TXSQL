@@ -2265,6 +2265,22 @@ void trx_assign_read_view(trx_t *trx, /*!< in/out: active transaction */
   }
 }
 
+/** Do deep copy of snapshot to trx->read_view.
+@param[in]	trx worker's transaction
+@param[in]	snapshot	coordinator's snapshot
+@return read view cloned */
+ReadView *trx_clone_read_view(trx_t *trx, ReadView *snapshot)
+{
+  if (srv_read_only_mode) {
+    return nullptr;
+  }
+
+  ut_ad(trx->read_view);
+  trx->read_view->clone_from(snapshot);
+
+  return (trx->read_view);
+}
+
 /** Prepares a transaction for commit/rollback. */
 void trx_commit_or_rollback_prepare(trx_t *trx) /*!< in/out: transaction */
 {

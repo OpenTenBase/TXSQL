@@ -1,0 +1,31 @@
+--source include/have_debug.inc
+
+#
+# Testing Index Condition Pushdown for Parallel execution
+#
+--echo ####Parallel scan with ICP test
+CREATE TABLE t0 (a int) ENGINE=InnoDB;
+INSERT INTO t0 VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+CREATE TABLE t1(a int) ENGINE=InnoDB;
+INSERT INTO t1 SELECT A.a + B.a* 10 + C.a * 100 FROM t0 A, t0 B, t0 C;
+
+CREATE TABLE t2 (
+  pk int primary key,
+  kp1 int,
+  kp2 int,
+  col1 int,
+  key (kp1,kp2)
+) ENGINE=InnoDB;
+
+INSERT INTO t2 SELECT a,a,a,a FROM t1;
+
+--echo # Try a basic case:
+EXPLAIN SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+
+SET debug = '+d,px_force_execute';
+SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+SET debug = '-d,px_force_execute';
+
+DROP TABLE t0,t1,t2;

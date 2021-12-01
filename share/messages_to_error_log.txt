@@ -12035,6 +12035,9 @@ ER_READ_TIME_AND_GTS_FROM_RELAYLOG_FAILED
 ER_READ_TIME_AND_GTS_FROM_PREV
   eng "Can't read latest time and gts in current file : %s, move to previous one"
 
+ER_IB_ERR_PX_OOM
+  eng "%s"
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #
