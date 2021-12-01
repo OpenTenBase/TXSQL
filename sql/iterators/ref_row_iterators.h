@@ -48,12 +48,13 @@ class RefIterator final : public TableRowIterator {
  public:
   // "examined_rows", if not nullptr, is incremented for each successful Read().
   RefIterator(THD *thd, TABLE *table, TABLE_REF *ref, bool use_order,
-              double expected_rows, ha_rows *examined_rows)
+              double expected_rows, ha_rows *examined_rows, bool reverse_scan)
       : TableRowIterator(thd, table),
         m_ref(ref),
         m_use_order(use_order),
         m_expected_rows(expected_rows),
-        m_examined_rows(examined_rows) {}
+        m_examined_rows(examined_rows),
+        m_reverse_scan(reverse_scan) {}
   ~RefIterator() override;
 
   bool Init() override;
@@ -66,6 +67,7 @@ class RefIterator final : public TableRowIterator {
   ha_rows *const m_examined_rows;
   bool m_first_record_since_init;
   bool m_is_mvi_unique_filter_enabled;
+  bool m_reverse_scan;
 };
 
 /**

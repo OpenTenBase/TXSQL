@@ -118,6 +118,42 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
                              lob::undo_vers_t *lob_undo,
                              mem_heap_t *&blob_heap);
 
+/** Helper class to cache clust_rec and old_ver */
+class Row_sel_get_clust_rec_for_mysql {
+  const rec_t *cached_clust_rec;
+  rec_t *cached_old_vers;
+
+ public:
+  /** Constructor */
+  Row_sel_get_clust_rec_for_mysql()
+      : cached_clust_rec(nullptr), cached_old_vers(nullptr) {}
+
+  /** Retrieve the clustered index record corresponding to a record in a
+  non-clustered index. Does the necessary locking.
+  @param[in]     prebuilt    prebuilt struct in the handle
+  @param[in]     sec_index   secondary index where rec resides
+  @param[in]     rec         record in a non-clustered index
+  @param[in]     thr         query thread
+  @param[out]    out_rec     clustered record or an old version of it,
+                             NULL if the old version did not exist in the
+                             read view, i.e., it was a fresh inserted version
+  @param[in,out] offsets     in: offsets returned by
+                                 rec_get_offsets(rec, sec_index);
+                             out: offsets returned by
+                                 rec_get_offsets(out_rec, clust_index)
+  @param[in,out] offset_heap memory heap from which the offsets are allocated
+  @param[out]    vrow        virtual column to fill
+  @param[in]     mtr         mtr used to get access to the non-clustered record;
+                             the same mtr is used to access the clustered index
+  @param[in]     lob_undo    the LOB undo information.
+  @return DB_SUCCESS, DB_SUCCESS_LOCKED_REC, or error code */
+  dberr_t operator()(row_prebuilt_t *prebuilt, dict_index_t *sec_index,
+                     const rec_t *rec, que_thr_t *thr, const rec_t **out_rec,
+                     ulint **offsets, mem_heap_t **offset_heap,
+                     const dtuple_t **vrow, mtr_t *mtr,
+                     lob::undo_vers_t *lob_undo);
+};
+
 /** Converts a key value stored in MySQL format to an Innobase dtuple. The last
 field of the key value may be just a prefix of a fixed length field: hence
 the parameter key_len. But currently we do not allow search keys where the

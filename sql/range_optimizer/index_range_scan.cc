@@ -52,6 +52,9 @@
 #include "sql_string.h"
 #include "template_utils.h"
 
+extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
+
 IndexRangeScanIterator::IndexRangeScanIterator(
     THD *thd, TABLE *table_arg, ha_rows *examined_rows, double expected_rows,
     uint key_nr, bool need_rows_in_rowid_order, bool reuse_handler,
@@ -221,6 +224,15 @@ bool IndexRangeScanIterator::Init() {
     return true;
   }
 
+  DBUG_EXECUTE_IF("px_force_execute", {
+    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
+                     PX_RANGE_SCAN, index, nullptr, false)) {
+      return true;
+    }
+    table()->file->px_worker_init(thd()->px_scan_ctx);
+    return false;
+  });
+
   // Set up a record buffer. Note that we don't use
   // table->m_record_buffer, since if we are part of a ROR scan, all range
   // selects in the scan share the same TABLE object (but not the same
@@ -352,6 +364,17 @@ int IndexRangeScanIterator::Read() {
   MY_BITMAP *const save_read_set = table()->read_set;
   MY_BITMAP *const save_write_set = table()->write_set;
   DBUG_TRACE;
+
+  DBUG_EXECUTE_IF("px_force_execute", {
+    int result = file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx);
+    if (result == 0) {
+      if (m_examined_rows != nullptr) {
+        ++*m_examined_rows;
+      }
+      return 0;
+    }
+    return HandleError(result);
+  });
 
   if (in_ror_merged_scan) {
     /*

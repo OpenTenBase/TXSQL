@@ -1,0 +1,352 @@
+DROP TABLE IF EXISTS t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+CREATE TABLE t1(
+id INT PRIMARY KEY AUTO_INCREMENT,
+col1 VARCHAR(100),
+col2 INT,
+KEY idx_col2(col2)
+)ENGINE = InnoDB;
+EXPLAIN SELECT * FROM t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col1` AS `col1`,`test`.`t1`.`col2` AS `col2` from `test`.`t1`
+SELECT * FROM t1;
+id	col1	col2
+1	testtesttesttest	10
+2	testtesttesttest	9
+3	testtesttesttest	8
+4	testtesttesttest	7
+5	testtesttesttest	6
+6	testtesttesttest	5
+7	testtesttesttest	4
+8	testtesttesttest	3
+9	testtesttesttest	2
+10	testtesttesttest	1
+SET debug = '+d,px_force_execute';
+SELECT * FROM t1;
+id	col1	col2
+1	testtesttesttest	10
+2	testtesttesttest	9
+3	testtesttesttest	8
+4	testtesttesttest	7
+5	testtesttesttest	6
+6	testtesttesttest	5
+7	testtesttesttest	4
+8	testtesttesttest	3
+9	testtesttesttest	2
+10	testtesttesttest	1
+SET debug = '-d,px_force_execute';
+EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	idx_col2	5	NULL	10	100.00	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`)
+SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+id	col2
+10	1
+9	2
+8	3
+7	4
+6	5
+5	6
+4	7
+3	8
+2	9
+1	10
+SET debug = '+d,px_force_execute';
+SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+id	col2
+10	1
+9	2
+8	3
+7	4
+6	5
+5	6
+4	7
+3	8
+2	9
+1	10
+SET debug = '-d,px_force_execute';
+EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	idx_col2	5	NULL	10	100.00	Backward index scan; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) order by `test`.`t1`.`col2` desc
+SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
+id	col2
+1	10
+2	9
+3	8
+4	7
+5	6
+6	5
+7	4
+8	3
+9	2
+10	1
+SET debug = '+d,px_force_execute';
+SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
+id	col2
+1	10
+2	9
+3	8
+4	7
+5	6
+6	5
+7	4
+8	3
+9	2
+10	1
+SET debug = '-d,px_force_execute';
+###test range = (-inf, end)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` < 3)
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+id	col2
+10	1
+9	2
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+id	col2
+10	1
+9	2
+SET debug = '-d,px_force_execute';
+###test range = (-inf, end]
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` <= 3)
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+id	col2
+10	1
+9	2
+8	3
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+id	col2
+10	1
+9	2
+8	3
+SET debug = '-d,px_force_execute';
+###test range = (start, +inf)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` > 7)
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+id	col2
+3	8
+2	9
+1	10
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+id	col2
+3	8
+2	9
+1	10
+SET debug = '-d,px_force_execute';
+###test range = [start, +inf)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` >= 7)
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+id	col2
+4	7
+3	8
+2	9
+1	10
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+id	col2
+4	7
+3	8
+2	9
+1	10
+SET debug = '-d,px_force_execute';
+###test range = (start, end)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` > 5) and (`test`.`t1`.`col2` < 8))
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+id	col2
+5	6
+4	7
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+id	col2
+5	6
+4	7
+SET debug = '-d,px_force_execute';
+###test range = [start, end)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` >= 5) and (`test`.`t1`.`col2` < 8))
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+id	col2
+6	5
+5	6
+4	7
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+id	col2
+6	5
+5	6
+4	7
+SET debug = '-d,px_force_execute';
+###test range = (start, end]
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` > 5) and (`test`.`t1`.`col2` <= 8))
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+id	col2
+5	6
+4	7
+3	8
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+id	col2
+5	6
+4	7
+3	8
+SET debug = '-d,px_force_execute';
+###test range = [start, end]
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` >= 5) and (`test`.`t1`.`col2` <= 8))
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+id	col2
+6	5
+5	6
+4	7
+3	8
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+id	col2
+6	5
+5	6
+4	7
+3	8
+SET debug = '-d,px_force_execute';
+###test range = (-inf, end1] || [start2, +inf)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` <= 2) or (`test`.`t1`.`col2` >= 9))
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+id	col2
+10	1
+9	2
+2	9
+1	10
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+id	col2
+10	1
+9	2
+2	9
+1	10
+SET debug = '-d,px_force_execute';
+###test range = (start1, end1] || [start2, end2)
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (((`test`.`t1`.`col2` > 1) and (`test`.`t1`.`col2` <= 3)) or ((`test`.`t1`.`col2` >= 8) and (`test`.`t1`.`col2` < 10)))
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+id	col2
+9	2
+8	3
+3	8
+2	9
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+id	col2
+9	2
+8	3
+3	8
+2	9
+SET debug = '-d,px_force_execute';
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	2	100.00	Using where; Backward index scan; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` < 3) order by `test`.`t1`.`col2` desc
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
+id	col2
+9	2
+10	1
+SET debug = '+d,px_force_execute';
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
+id	col2
+9	2
+10	1
+SET debug = '-d,px_force_execute';
+DROP TABLE t1;
+CREATE TABLE t1 ( 
+pk INT NOT NULL AUTO_INCREMENT,
+c1_idx CHAR(1) DEFAULT 'y', 
+c2 INT, 
+PRIMARY KEY (pk),
+INDEX c1_idx (c1_idx)
+) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (), (), (), ();
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	c1_idx	c1_idx	5	const	4	100.00	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y')
+SELECT * FROM t1 WHERE c1_idx = 'y';
+pk	c1_idx	c2
+1	y	NULL
+2	y	NULL
+3	y	NULL
+4	y	NULL
+SET debug = '+d,px_force_execute';
+SELECT * FROM t1 WHERE c1_idx = 'y';
+pk	c1_idx	c2
+1	y	NULL
+2	y	NULL
+3	y	NULL
+4	y	NULL
+SET debug = '-d,px_force_execute';
+EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	c1_idx	c1_idx	5	const	4	100.00	Using where; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y') order by `test`.`t1`.`pk` desc
+SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
+pk	c1_idx	c2
+4	y	NULL
+3	y	NULL
+2	y	NULL
+1	y	NULL
+SET debug = '+d,px_force_execute';
+SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
+pk	c1_idx	c2
+4	y	NULL
+3	y	NULL
+2	y	NULL
+1	y	NULL
+SET debug = '-d,px_force_execute';
+DROP TABLE t1;

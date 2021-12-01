@@ -64,6 +64,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0bool_scope_guard.h"
 
 // Forward declarations
+class PX_Ctx;
 class THD;
 class ha_innobase;
 class innodb_session_t;
@@ -963,6 +964,26 @@ struct row_prebuilt_t {
                                         and clust_pcur, and we do not need
                                         to reposition the cursors. */
   void try_unlock(bool has_latches_on_recs);
+ public:
+  /** The PX_Ctx attached to worker. */
+  std::shared_ptr<PX_Ctx> px_ctx{};
+
+  /** This detemines whether need to get the cluster record. */
+  bool px_requires_clust_rec{false};
+
+  /** When call index_read in parallel execution, close the index
+  condition pushdown in index read. */
+  bool px_reading{false};
+
+  /** The tuple constructed in row_search_mvcc to make the range tuple. */
+  dtuple_t *px_range_tuple{};
+
+  mem_heap_t *px_range_heap{nullptr};
+
+  bool px_first_read{true};
+
+ public:
+  bool has_attach_ctx() { return px_ctx != nullptr; }
 
  private:
   /** A helper function for init_search_tuples_types() which prepares the shape

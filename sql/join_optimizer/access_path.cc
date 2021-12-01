@@ -384,11 +384,11 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         if (param.reverse) {
           iterator = NewIterator<IndexScanIterator<true>>(
               thd, mem_root, param.table, param.idx, param.use_order,
-              path->num_output_rows, examined_rows);
+              path->num_output_rows, examined_rows, true);
         } else {
           iterator = NewIterator<IndexScanIterator<false>>(
               thd, mem_root, param.table, param.idx, param.use_order,
-              path->num_output_rows, examined_rows);
+              path->num_output_rows, examined_rows, false);
         }
         break;
       }
@@ -397,11 +397,11 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         if (param.reverse) {
           iterator = NewIterator<RefIterator<true>>(
               thd, mem_root, param.table, param.ref, param.use_order,
-              path->num_output_rows, examined_rows);
+              path->num_output_rows, examined_rows, true);
         } else {
           iterator = NewIterator<RefIterator<false>>(
               thd, mem_root, param.table, param.ref, param.use_order,
-              path->num_output_rows, examined_rows);
+              path->num_output_rows, examined_rows, false);
         }
         break;
       }

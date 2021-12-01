@@ -158,6 +158,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0import.h"
 #include "row0ins.h"
 #include "row0mysql.h"
+#include "row0px.h"
 #include "row0quiesce.h"
 #include "row0sel.h"
 #include "row0upd.h"
@@ -10842,6 +10843,432 @@ dict_index_t *ha_innobase::innobase_get_index(
   }
 
   return index;
+}
+
+static int convert_error_code(dberr_t err, int flags, THD *thd,
+                              row_prebuilt_t *prebuilt, TABLE *table) {
+  int error;
+  switch (err) {
+    case DB_SUCCESS:
+      error = 0;
+      srv_stats.n_rows_read.add(thd_get_thread_id(prebuilt->trx->mysql_thd), 1);
+      break;
+    case DB_END_OF_INDEX:
+      error = HA_ERR_END_OF_FILE;
+      break;
+    default:
+      error = convert_error_code_to_mysql(err, prebuilt->table->flags, thd);
+      break;
+  }
+
+  return error;
+}
+
+int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tuple,
+                                     bool reverse_scan, mem_heap_t *heap, bool is_start_key) {
+  int result = 0;
+  ut_ad(range_key);
+
+  /*
+    Make a scan range tuple according to the key_range.
+    In non-reverse scan, the scan range is [start, end).
+    In reverse scan, the scan range is (start, end],
+    So the end tuple must exits.
+  */
+  uint key_len = calculate_key_len(table, active_index, range_key->keypart_map);
+  auto key_flag = range_key->flag;
+
+  if (is_start_key) {
+    if (!reverse_scan) {
+      key_flag = (range_key->flag == HA_READ_AFTER_KEY) ? HA_READ_AFTER_KEY : HA_READ_KEY_OR_NEXT;
+    } else {
+      key_flag = (range_key->flag == HA_READ_AFTER_KEY) ? HA_READ_KEY_OR_PREV : HA_READ_BEFORE_KEY;
+    }
+  } else {
+    if (!reverse_scan) {
+      key_flag = (range_key->flag == HA_READ_BEFORE_KEY) ? HA_READ_KEY_OR_NEXT : HA_READ_AFTER_KEY;
+    } else {
+      key_flag = (range_key->flag == HA_READ_BEFORE_KEY) ? HA_READ_BEFORE_KEY : HA_READ_KEY_OR_PREV;
+    }
+  }
+
+  /*
+    Read the range_key and make the range tuple.
+    We call the index_read without index condition
+    pushdown. Because if there are lots of records
+    can't match the icp from the range key record,
+    we do the serial scan with icp = on. After get
+    the rec in row_search_mvcc, we convert it to a
+    dtuple_t by row_rec_to_index_entry_low.
+  */
+  m_prebuilt->px_reading = true;
+  auto saved_ipc = m_prebuilt->idx_cond;
+  m_prebuilt->idx_cond = false;
+  int err = index_read(table->record[0], range_key->key, key_len, key_flag);
+  m_prebuilt->idx_cond = saved_ipc;
+  m_prebuilt->px_reading = false;
+
+  if (!err) {
+    range_tuple = dtuple_copy(m_prebuilt->px_range_tuple, heap);
+    range_tuple->n_fields_cmp = m_prebuilt->px_range_tuple->n_fields_cmp;
+    /* Do a deep copy. */
+    for (size_t i = 0; i < dtuple_get_n_fields(m_prebuilt->px_range_tuple); ++i) {
+      dfield_dup(&range_tuple->fields[i], heap);
+    }
+  } else if (is_start_key) {
+    if (reverse_scan) {
+      result = (err == HA_ERR_KEY_NOT_FOUND) ? 0 : err;
+    } else {
+      result = err;
+    }
+  } else {
+    if (err == HA_ERR_KEY_NOT_FOUND) {
+      index_last(table->record[0]);
+      result = 0;
+    } else {
+      result = err;
+    }
+  }
+
+  return result;
+}
+
+/**
+  Do a parallel partition according to the range start key and range end key.
+*/
+int ha_innobase::px_partition(PX_reader *reader, key_range *start_key, key_range *end_key, bool reverse_scan) {
+  int result{0};
+  dtuple_t *range_start{nullptr};
+  dtuple_t *range_end{nullptr};
+  mem_heap_t *heap{nullptr};
+  dict_index_t *index = innobase_get_index(active_index);
+
+  /*
+    Alloc space for range_start and range_end. We must ensure
+    that the life of scan range tuple is longer than the
+    PX_reader::add_scan.
+  */
+  if (!heap) {
+    heap = mem_heap_create(2 * (sizeof(btr_pcur_t) + (srv_page_size / 16)), UT_LOCATION_HERE);
+  }
+
+  if (start_key) {
+    result = px_make_range_tuple(start_key, range_start, reverse_scan, heap, true);
+  }
+
+  /*
+    When end_key is empty, which indicates we need to scan to the end of index.
+    In reverse scan, the scan range is (start, end], the end tuple must exits so
+    we can scan from end to start. For this reason, we must call index_last to
+    get the persitent cursor of last record and make the range_end of the last
+    range by it.
+  */
+  if (end_key == nullptr && !result) {
+    result = index_last(table->record[0]);
+  } else if(!result) {
+    result = px_make_range_tuple(end_key, range_end, reverse_scan, heap, false);
+  }
+
+  if (result) {
+    return result;
+  }
+
+  PX_Scan_range range_scan{range_start, range_end};
+  PX_Config config(range_scan, index);
+  config.m_last_pcur = m_prebuilt->pcur;
+  config.m_reverse_scan = reverse_scan;
+
+  /* Do the partition. */
+  auto success = reader->add_scan(m_prebuilt->trx, config);
+
+  if (heap) {
+    mem_heap_free(heap);
+  }
+
+  if (!success) {
+    ut::delete_(reader);
+    return (HA_ERR_GENERIC);
+  }
+
+  return 0;
+}
+
+/**
+  Parallel table/index scan init, partition the whole index.
+*/
+int ha_innobase::px_full_scan_init(PX_reader *reader, bool reverse_scan) {
+  int result = 0;
+  btr_pcur_t *pcur{nullptr};
+  dtuple_t *range_start{nullptr};
+  dtuple_t *range_end{nullptr};
+  dict_index_t *index = innobase_get_index(active_index);
+  m_prebuilt->index = index;
+
+  /** reverse table/index scan, get the persitent cursor of last record. */
+  if (reverse_scan) {
+    result = index_last(table->record[0]);
+    if (!result) {
+      pcur = m_prebuilt->pcur;
+    }
+  } else {
+    result = index_first(table->record[0]);
+  }
+
+  /** If error orrcurs, the process will finish early. */
+  if (result) {
+    return result;
+  }
+
+  PX_Scan_range range_scan{range_start, range_end};
+  PX_Config config(range_scan, index);
+  config.m_last_pcur = pcur;
+  config.m_reverse_scan = reverse_scan;
+
+  auto success = reader->add_scan(m_prebuilt->trx, config);
+
+  if (!success) {
+    return (HA_ERR_GENERIC);
+  }
+
+  return 0;
+}
+
+/**
+  Parallel range scan init, partition the index according to the range key.
+ */
+int ha_innobase::px_range_scan_init(PX_reader *reader, bool reverse_scan) {
+  dict_index_t *index = innobase_get_index(active_index);
+  m_prebuilt->index = index;
+  int result = 0;
+
+  uint range_res{0};
+  /* Partition the index per range. */
+  while (!(range_res = mrr_funcs.next(mrr_iter, &mrr_cur_range))) {
+    auto start_key =
+        mrr_cur_range.start_key.keypart_map ? &mrr_cur_range.start_key : 0;
+    auto end_key =
+        mrr_cur_range.end_key.keypart_map ? &mrr_cur_range.end_key : 0;
+
+    if ((result = px_partition(reader, start_key, end_key, reverse_scan))) {
+      return result;
+    }
+  }
+
+  return 0;
+}
+
+/**
+  Parallel independent ref scan init. Do the parallel scan according the ref key.
+*/
+int ha_innobase::px_ref_scan_init(PX_reader *reader, bool reverse_scan) {
+  dict_index_t *index = innobase_get_index(active_index);
+  m_prebuilt->index = index;
+  int result = 0;
+
+  auto start_key = px_ref_key.keypart_map ? &px_ref_key : 0;
+  auto end_key = px_ref_key.keypart_map ? &px_ref_key : 0;
+
+  if ((result = px_partition(reader, start_key, end_key, reverse_scan))) {
+      return result;
+  }
+
+  return 0;
+}
+
+/**
+  Create the PX_reader and do the partition.
+
+  @param[in]	dop	The dop of parallelism.
+  @param[in]	key	The index keyno used in partition.
+  @param[in]	dop		The degree of parallelism.
+  @param[in,out]	scan_ctx	The pointer of PX_reader object.
+  @param[in]  reverse_scan Forward scan or reverse scan.
+
+  @retval	errno Failure
+  @retval	0 Success 
+*/
+int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, bool reverse_scan) {
+  if (dict_table_is_discarded(m_prebuilt->table)) {
+    ib_senderrf(ha_thd(), IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
+                m_prebuilt->table->name.m_name);
+
+    return (HA_ERR_NO_SUCH_TABLE);
+  }
+
+  int result = 0;
+  active_index = key;
+  result = change_active_index(active_index);
+
+  if (result) {
+    return result;
+  }
+
+  update_thd();
+  auto trx = m_prebuilt->trx;
+  innobase_register_trx(ht, ha_thd(), trx);
+  trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
+  trx_assign_read_view(trx);
+
+  auto reader = ut::new_withkey<PX_reader>(
+      UT_NEW_THIS_FILE_PSI_KEY, dop);
+
+  if (reader == nullptr) {
+    return (HA_ERR_OUT_OF_MEM);
+  }
+
+  reader->key = active_index;
+  reader->snapshot = trx->read_view;
+  reader->m_reverse_scan = reverse_scan;
+
+  switch (px_scan_type) {
+    case PX_RANGE_SCAN:
+      result = px_range_scan_init(reader, reverse_scan);
+      break;
+    case PX_REF_SCAN:
+      result = px_ref_scan_init(reader, reverse_scan);
+      break;
+    default :
+      result = px_full_scan_init(reader, reverse_scan);
+      break;
+  }
+
+  if (result) {
+    ut::delete_(reader);
+    return result;
+  }
+
+  // Do the second split if necessary.
+  reader->split();
+  scan_ctx = reader;
+
+  return (0);
+}
+
+int ha_innobase::px_worker_init(void *&scan_ctx) {
+  ut_ad(scan_ctx);
+  ut_ad(m_prebuilt->select_lock_type == LOCK_NONE);
+
+  int result = 0;
+  /* Set some variables in row_prebuilt_t before parallel scan. */
+  m_prebuilt->px_ctx = nullptr;
+  m_prebuilt->px_first_read = true;
+
+  PX_reader *reader = static_cast<PX_reader *>(scan_ctx);
+  active_index = reader->key;
+  result = change_active_index(active_index);
+
+  if (result) {
+    return result;
+  }
+
+  update_thd();
+  auto trx = m_prebuilt->trx;
+  innobase_register_trx(ht, ha_thd(), trx);
+  trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
+
+  /*
+    This is a consistent read, we must keep the readview the same
+    for all threads in a parallele execution.
+    Assign a read view for parallel execution worker, and then copy
+    the readview of parallel execution coordinator. 
+  */
+  if (!srv_read_only_mode) {
+    ut_ad(reader->snapshot);
+    trx_assign_read_view(trx);
+    trx_clone_read_view(trx, reader->snapshot);
+    if (trx->read_view == nullptr) {
+      return HA_ERR_OUT_OF_MEM;
+    }
+  }
+
+  m_prebuilt->sql_stat_start = false;
+
+  /*
+    Close end range check for parallel scan.
+    We have do the partition by the range start key and
+    range end key in px_coordinator_init, so every recorcd
+    in PX_ctx is fulfill the range condition. For this reason
+    there is no need to do the range condition pushdwon check
+    in parallel block scan.
+  */
+  end_range = nullptr;
+
+  return (0);
+}
+
+/**
+  Parallel scan in iterator mode. If the worker thd has attach
+  a PX_Ctx, call PX_Ctx::row_search_px to scan the record whthin
+  the boundary of PX_Ctx. If not, call PX_reader::task_dispatch
+  to get a PX_Ctx from the global task queue.
+
+  @param[in,out]  buf the buffer to store the record
+  @param[in]  scan_ctx the innodb scan ctx
+
+  @retval	errno Failure
+  @retval	0 Success 
+*/
+int ha_innobase::px_worker_next(uchar *buf, void *scan_ctx) {
+  dberr_t err{DB_SUCCESS};
+  ut_a(scan_ctx != nullptr);
+  auto reader = static_cast<PX_reader *>(scan_ctx);
+  /* Already has error occurs. */
+  if (reader->is_error_set()) {
+    return err;
+  }
+
+  while(true) {
+    if (!m_prebuilt->has_attach_ctx()) {
+      /* Attach one task (ctx) if not yet. */
+      err = reader->task_dispatch(m_prebuilt->px_ctx);
+
+      if (err != DB_SUCCESS) {
+        ut_ad(err == DB_END_OF_INDEX);
+        break;
+      }
+    }
+
+    err = m_prebuilt->px_ctx->row_search_px(buf, m_prebuilt);
+    /*
+      There are two scenario when no valid record.
+      1) the index or the PX_Ctx end, just increment the finish count and retry dispatch task.
+      2) set err when other error occurs.
+    */
+    if (err != DB_SUCCESS) {
+      if (err == DB_END_OF_INDEX || err == DB_END_OF_PX_CTX) {
+        m_prebuilt->px_ctx = nullptr;
+        reader->incr_completed();
+        continue;
+      } else if (!reader->is_error_set()) {
+        reader->set_error_state(err);
+      }
+    }
+
+    break;
+  }
+
+  return (convert_error_code(err, 0, current_thd, m_prebuilt, table));
+}
+
+int ha_innobase::px_coordinator_end(void *scan_ctx) {
+  ut_a(scan_ctx);
+
+  active_index = MAX_KEY;
+  PX_reader *reader = static_cast<PX_reader *>(scan_ctx);
+
+  /* Wake up workers thread. */
+  reader->wakeup_workers();
+
+  ut::delete_(reader);
+  return 0;
+}
+
+int ha_innobase::px_worker_end(void *scan_ctx) {
+  ut_a(scan_ctx && m_prebuilt->trx && m_prebuilt->trx->read_view);
+
+  ut::delete_(m_prebuilt->trx->read_view);
+  m_prebuilt->trx->read_view = nullptr;
+  return 0;
 }
 
 /** Changes the active index of a handle.

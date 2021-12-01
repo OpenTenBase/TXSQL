@@ -12,6 +12,8 @@
 #include "mysql/psi/mysql_mutex.h"   // mysql_mutex_register
 #include "mysql/psi/mysql_thread.h"  // mysql_thread_register
 #include "template_utils.h"          // array_elements
+#include "sql/table.h"               // TABLE
+#include "sql/sql_opt_exec_shared.h" // TABLE_REF
 
 #include "sql/sql_class.h"  // THD
 
@@ -113,4 +115,21 @@ void PX_proc::wait(ulong timeout, const PSI_stage_info *stage,
   if (actual_wait) {
     m_thd->exit_cond(stage, src_func, src_file, src_line);
   }
+}
+
+bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                  uint keyno, TABLE_REF *ref, bool reverse_scan = false) {
+  assert(table);
+  int error = 0;
+  table->file->px_scan_type = type;
+  if (ref) {
+    assert(type == PX_REF_SCAN);
+    table->file->px_ref_key.key = ref->key_buff;
+    table->file->px_ref_key.keypart_map = make_prev_keypart_map(ref->key_parts);
+    table->file->px_ref_key.length = ref->key_length;
+    table->file->px_ref_key.flag = HA_READ_KEY_OR_NEXT;
+  }
+
+  error = table->file->ha_px_coordinator_init(dop, keyno, scan_ctx, reverse_scan);
+  return error ? true : false;
 }

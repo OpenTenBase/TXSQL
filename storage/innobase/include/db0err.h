@@ -225,6 +225,8 @@ enum dberr_t {
   DB_FTS_TOO_MANY_NESTED_EXP,
 
   /* The following are txsql failure codes */
-  DB_LOCK_WAIT_HOT_ROW_UPDATE = 5000
+  DB_LOCK_WAIT_HOT_ROW_UPDATE = 5000,
+  /* The record is over the end of PX_Ctx. */
+  DB_END_OF_PX_CTX
 };
 #endif

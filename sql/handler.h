@@ -65,6 +65,7 @@
 #include "sql/dd/types/object_table.h"  // dd::Object_table
 #include "sql/discrete_interval.h"      // Discrete_interval
 #include "sql/key.h"
+#include "sql/parallel_execution/px.h"
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
@@ -4444,6 +4445,8 @@ class handler {
   */
   enum enum_range_scan_direction { RANGE_SCAN_ASC, RANGE_SCAN_DESC };
 
+  key_range px_ref_key;
+  enum PX_SCAN_TYPE px_scan_type;
  private:
   Record_buffer *m_record_buffer = nullptr;  ///< Buffer for multi-row reads.
   /*
@@ -4488,7 +4491,7 @@ class handler {
   /** Length of ref (1-8 or the clustered key length) */
   uint ref_length;
   FT_INFO *ft_handler;
-  enum { NONE = 0, INDEX, RND, SAMPLING } inited;
+  enum { NONE = 0, INDEX, RND, SAMPLING, PQ } inited;
   bool implicit_emptied; /* Can be !=0 only if HEAP */
   const Item *pushed_cond;
 
@@ -4744,8 +4747,17 @@ class handler {
   int ha_reset();
   /* this is necessary in many places, e.g. in HANDLER command */
   int ha_index_or_rnd_end() {
-    return inited == INDEX ? ha_index_end() : inited == RND ? ha_rnd_end() : 0;
+    return inited == INDEX ? ha_index_end() : 
+      inited == RND ? ha_rnd_end() : 
+        inited == PQ ? ha_px_end() : 0;
   }
+
+  int ha_px_end();
+
+  int ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, bool reverse_scan = false);
+
+  int ha_px_worker_next(uchar *buf, void *scan_ctx);
+
   /**
     The cached_table_flags is set at ha_open and ha_external_lock
   */
@@ -4888,6 +4900,30 @@ class handler {
     @param[in]      scan_ctx      A scan context created by parallel_scan_init.
   */
   virtual void parallel_scan_end(void *scan_ctx [[maybe_unused]]) { return; }
+
+  virtual int px_coordinator_init(uint dop MY_ATTRIBUTE((unused)),
+                                  uint key MY_ATTRIBUTE((unused)),
+                                  void *&scan_ctx MY_ATTRIBUTE((unused)),
+                                  bool reverse_scan MY_ATTRIBUTE((unused)) = false) {
+    return 0;
+  }
+
+  virtual int px_worker_init(void *&scan_ctx MY_ATTRIBUTE((unused))) {
+    return 0;
+  }
+
+  virtual int px_worker_next(uchar *buf MY_ATTRIBUTE((unused)),
+                 void *scan_ctx MY_ATTRIBUTE((unused))) {
+    return 0;
+  }
+
+  virtual int px_coordinator_end(void *scan_ctx MY_ATTRIBUTE((unused))) {
+    return 0;
+  }
+
+  virtual int px_worker_end(void *scan_ctx MY_ATTRIBUTE((unused))) {
+    return 0;
+  }
 
   /**
     Submit a dd::Table object representing a core DD table having

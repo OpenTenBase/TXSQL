@@ -40,6 +40,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0pread-histogram.h"
 #include "trx0trx.h"
 
+class PX_reader;
+
 /** "GEN_CLUST_INDEX" is the name reserved for InnoDB default
 system clustered index when there is no primary key. */
 extern const char innobase_index_reserve_name[];
@@ -528,6 +530,27 @@ class ha_innobase : public handler {
   /** End of the parallel scan.
   @param[in]      scan_ctx      A scan context created by parallel_scan_init. */
   void parallel_scan_end(void *scan_ctx) override;
+
+  int px_coordinator_init(uint dop, uint key, void *&scan_ctx, bool reverse_scan = false) override;
+
+  int px_full_scan_init(PX_reader *reader, bool reverse_scan = false);
+
+  int px_range_scan_init(PX_reader *reader, bool reverse_scan = false);
+
+  int px_ref_scan_init(PX_reader *reader, bool reverse_scan = false);
+
+  int px_partition(PX_reader *reader, key_range *start_key, key_range *end_key, bool reverse_scan = false);
+
+  int px_make_range_tuple(key_range *range_key, dtuple_t *&range_tuple,
+                          bool reverse_scan, mem_heap_t *heap, bool is_start_key);
+
+  int px_worker_init(void *&scan_ctx) override;
+
+  int px_worker_next(uchar *buf, void *scan_ctx) override;
+
+  int px_coordinator_end(void *scan_ctx) override;
+
+  int px_worker_end(void *scan_ctx) override;
 
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
                                   uint table_changes) override;

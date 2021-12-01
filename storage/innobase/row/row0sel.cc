@@ -2455,7 +2455,7 @@ void row_sel_convert_mysql_key_to_innobase(dtuple_t *tuple, byte *buf,
 }
 
 /** Stores the row id to the prebuilt struct. */
-static void row_sel_store_row_id_to_prebuilt(
+void row_sel_store_row_id_to_prebuilt(
     row_prebuilt_t *prebuilt,  /*!< in/out: prebuilt */
     const rec_t *index_rec,    /*!< in: record */
     const dict_index_t *index, /*!< in: index of the record */
@@ -3293,42 +3293,6 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
   return err;
 }
 
-/** Helper class to cache clust_rec and old_ver */
-class Row_sel_get_clust_rec_for_mysql {
-  const rec_t *cached_clust_rec;
-  rec_t *cached_old_vers;
-
- public:
-  /** Constructor */
-  Row_sel_get_clust_rec_for_mysql()
-      : cached_clust_rec(nullptr), cached_old_vers(nullptr) {}
-
-  /** Retrieve the clustered index record corresponding to a record in a
-  non-clustered index. Does the necessary locking.
-  @param[in]     prebuilt    prebuilt struct in the handle
-  @param[in]     sec_index   secondary index where rec resides
-  @param[in]     rec         record in a non-clustered index
-  @param[in]     thr         query thread
-  @param[out]    out_rec     clustered record or an old version of it,
-                             NULL if the old version did not exist in the
-                             read view, i.e., it was a fresh inserted version
-  @param[in,out] offsets     in: offsets returned by
-                                 rec_get_offsets(rec, sec_index);
-                             out: offsets returned by
-                                 rec_get_offsets(out_rec, clust_index)
-  @param[in,out] offset_heap memory heap from which the offsets are allocated
-  @param[out]    vrow        virtual column to fill
-  @param[in]     mtr         mtr used to get access to the non-clustered record;
-                             the same mtr is used to access the clustered index
-  @param[in]     lob_undo    the LOB undo information.
-  @return DB_SUCCESS, DB_SUCCESS_LOCKED_REC, or error code */
-  dberr_t operator()(row_prebuilt_t *prebuilt, dict_index_t *sec_index,
-                     const rec_t *rec, que_thr_t *thr, const rec_t **out_rec,
-                     ulint **offsets, mem_heap_t **offset_heap,
-                     const dtuple_t **vrow, mtr_t *mtr,
-                     lob::undo_vers_t *lob_undo);
-};
-
 /* TDSQL: When query with GTS , check the prepare record by sleeping. */
 bool check_prepare_rec_in_sleep_mode(trx_id_t &trx_id, THD *thd,
         TLogManager::gts_state_t &state, dberr_t &err) {
@@ -3789,8 +3753,8 @@ err_exit:
  Then we may have to move the cursor one step up or down.
  @return true if we may need to process the record the cursor is now
  positioned on (i.e. we should not go to the next record yet) */
-static bool sel_restore_position_for_mysql(
-    bool *same_user_rec, /*!< out: true if we were able to restore
+bool sel_restore_position_for_mysql(
+    bool *same_user_rec, /*!< out: TRUE if we were able to restore
                           the cursor on a user record with the
                           same ordering prefix in in the
                           B-tree index */
@@ -3939,7 +3903,7 @@ void row_sel_copy_cached_fields_for_mysql(byte *buf, const byte *cached_rec,
 /** Get the record buffer provided by the server, if there is one.
 @param  prebuilt        prebuilt struct
 @return the record buffer, or nullptr if none was provided */
-static Record_buffer *row_sel_get_record_buffer(
+Record_buffer *row_sel_get_record_buffer(
     const row_prebuilt_t *prebuilt) {
   if (prebuilt->m_mysql_handler == nullptr) {
     return nullptr;
@@ -3948,7 +3912,7 @@ static Record_buffer *row_sel_get_record_buffer(
 }
 
 /** Pops a cached row for MySQL from the fetch cache. */
-static inline void row_sel_dequeue_cached_row_for_mysql(
+void row_sel_dequeue_cached_row_for_mysql(
     byte *buf,                /*!< in/out: buffer where to copy the
                               row */
     row_prebuilt_t *prebuilt) /*!< in: prebuilt struct */
@@ -4043,7 +4007,7 @@ static inline void row_sel_prefetch_cache_init(
 
 /** Get the last fetch cache buffer from the queue.
  @return pointer to buffer. */
-static inline byte *row_sel_fetch_last_buf(
+byte *row_sel_fetch_last_buf(
     row_prebuilt_t *prebuilt) /*!< in/out: prebuilt struct */
 {
   const auto record_buffer = row_sel_get_record_buffer(prebuilt);
@@ -4076,7 +4040,7 @@ static inline byte *row_sel_fetch_last_buf(
 }
 
 /** Pushes a row for MySQL to the fetch cache. */
-static inline void row_sel_enqueue_cache_row_for_mysql(
+void row_sel_enqueue_cache_row_for_mysql(
     byte *mysql_rec,          /*!< in/out: MySQL record */
     row_prebuilt_t *prebuilt) /*!< in/out: prebuilt struct */
 {
@@ -4152,7 +4116,7 @@ static ulint row_sel_try_search_shortcut_for_mysql(
 
 /** Check a pushed-down index condition.
  @return ICP_NO_MATCH, ICP_MATCH, or ICP_OUT_OF_RANGE */
-static ICP_RESULT row_search_idx_cond_check(
+ICP_RESULT row_search_idx_cond_check(
     byte *mysql_rec,          /*!< out: record
                               in MySQL format (invalid unless
                               prebuilt->idx_cond == true and
@@ -6468,6 +6432,21 @@ lock_table_wait:
 normal_return:
   /*-------------------------------------------------------------*/
   que_thr_stop_for_mysql_no_error(thr, trx);
+
+  /* Make the px range tuple by the record[0]. */
+  if (err == DB_SUCCESS && prebuilt->px_reading) {
+    if (prebuilt->px_range_heap) {
+      mem_heap_free(prebuilt->px_range_heap);
+    }
+
+    prebuilt->px_range_heap =
+        mem_heap_create(sizeof(btr_pcur_t) + (srv_page_size / 16), UT_LOCATION_HERE);
+
+    prebuilt->px_range_tuple = row_rec_to_index_entry_low(
+        rec, index,
+        rec_get_offsets(rec, index, nullptr, ULINT_UNDEFINED, UT_LOCATION_HERE, &prebuilt->heap),
+        prebuilt->px_range_heap);
+  }
 
   mtr_commit(&mtr);
 

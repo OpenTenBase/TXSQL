@@ -272,6 +272,7 @@ our @DEFAULT_SUITES = qw(
   tdsql
   tdsql_sequence
   gtid_optimize
+  parallel_execution
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

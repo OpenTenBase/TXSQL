@@ -90,7 +90,7 @@ class IndexScanIterator final : public TableRowIterator {
   //
   // "examined_rows", if not nullptr, is incremented for each successful Read().
   IndexScanIterator(THD *thd, TABLE *table, int idx, bool use_order,
-                    double expected_rows, ha_rows *examined_rows);
+                    double expected_rows, ha_rows *examined_rows, bool reverse_scan = false);
   ~IndexScanIterator() override;
 
   bool Init() override;
@@ -103,6 +103,8 @@ class IndexScanIterator final : public TableRowIterator {
   const double m_expected_rows;
   ha_rows *const m_examined_rows;
   bool m_first = true;
+
+  bool m_reverse_scan;
 };
 
 // Readers relating to reading sorted data (from filesort).
