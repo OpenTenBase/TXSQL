@@ -177,7 +177,7 @@ class Parallel_reader {
     const page_size_t m_page_size;
 
     /** if true then enable separate read ahead threads. */
-    bool m_read_ahead{true};
+    bool m_read_ahead{false};
   };
 
   /** Constructor.
@@ -642,6 +642,11 @@ class Parallel_reader::Ctx {
   @return DB_SUCCESS or error code. */
   dberr_t split() MY_ATTRIBUTE((warn_unused_result));
 
+  /** @return true if in error state. */
+  bool is_error_set() const MY_ATTRIBUTE((warn_unused_result)) {
+    return m_scan_ctx->m_reader->is_error_set() || m_scan_ctx->is_error_set();
+  }
+
  private:
   /** Context ID. */
   size_t m_id{std::numeric_limits<size_t>::max()};
@@ -664,6 +669,9 @@ class Parallel_reader::Ctx {
 
   /** Current row. */
   const rec_t *m_rec{};
+
+  /** Number of pages traversed by the context. */
+  size_t m_n_pages{};
 
   /** Start of a new range to scan. */
   bool m_start{};

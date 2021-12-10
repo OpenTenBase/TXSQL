@@ -50,6 +50,10 @@ std::atomic_size_t Parallel_reader::s_active_threads{};
 /** Tree depth at which we decide to split blocks further. */
 static constexpr size_t SPLIT_THRESHOLD{3};
 
+/** No. of pages to scan, in the case of large tables, before the check for
+trx interrupted is made as the call is expensive. */
+static constexpr size_t TRX_IS_INTERRUPTED_PROBE{50000};
+
 /** Size of the read ahead request queue. */
 static constexpr size_t MAX_READ_AHEAD_REQUESTS{128};
 
@@ -155,19 +159,24 @@ dberr_t Parallel_reader::Ctx::split() {
     ranges.back().second = m_range.second;
   }
 
+  dberr_t err{DB_SUCCESS};
+
   /* Create the partitioned scan execution contexts. */
   for (auto &range : ranges) {
-    auto err = m_scan_ctx->create_context(range, false);
+    err = m_scan_ctx->create_context(range, false);
 
     if (err != DB_SUCCESS) {
-      m_scan_ctx->index_s_unlock();
-      return (err);
+      break;
     }
+  }
+
+  if (err != DB_SUCCESS) {
+    m_scan_ctx->set_error_state(err);
   }
 
   m_scan_ctx->index_s_unlock();
 
-  return (DB_SUCCESS);
+  return (err);
 }
 
 Parallel_reader::Parallel_reader(size_t max_threads)
@@ -484,7 +493,7 @@ dberr_t Parallel_reader::Ctx::traverse() {
 
   auto index = m_scan_ctx->m_config.m_index;
 
-  for (;;) {
+  while (err == DB_SUCCESS) {
     auto pcur = from->m_pcur;
     auto cur = pcur->get_page_cur();
 
@@ -502,6 +511,18 @@ dberr_t Parallel_reader::Ctx::traverse() {
         }
       }
 
+      if (!(m_n_pages % TRX_IS_INTERRUPTED_PROBE) &&
+          trx_is_interrupted(trx())) {
+        err = DB_INTERRUPTED;
+        mtr.commit();
+        break;
+      }
+
+      if (is_error_set()) {
+        mtr.commit();
+        break;
+      }
+
       err = pcursor.move_to_next_block(index);
 
       if (err != DB_SUCCESS) {
@@ -510,6 +531,7 @@ dberr_t Parallel_reader::Ctx::traverse() {
         break;
       }
 
+      ++m_n_pages;
       ut_ad(!page_cur_is_before_first(cur));
     }
 
@@ -544,6 +566,10 @@ dberr_t Parallel_reader::Ctx::traverse() {
       mtr.commit();
       break;
     }
+  }
+
+  if (err != DB_SUCCESS) {
+    m_scan_ctx->set_error_state(err);
   }
 
   ut_a(!mtr.is_active());
@@ -615,6 +641,15 @@ void Parallel_reader::worker(size_t thread_id) {
       } else {
         err = ctx->traverse();
       }
+
+      /* Check for trx interrupted (useful in the case of small tables). */
+      if (err == DB_SUCCESS && trx_is_interrupted(ctx->trx())) {
+        err = DB_INTERRUPTED;
+        scan_ctx->set_error_state(err);
+        break;
+      }
+
+      ut_ad(err == DB_SUCCESS || scan_ctx->is_error_set());
 
       ++n_completed;
     }
@@ -1058,6 +1093,8 @@ void Parallel_reader::parallel_read() {
     threads.back().start();
   }
 
+  DEBUG_SYNC_C("parallel_read_wait_for_kill_query");
+
   os_event_set(m_event);
 
   /* Start the read ahead threads. */
@@ -1071,6 +1108,10 @@ void Parallel_reader::parallel_read() {
 dberr_t Parallel_reader::run() {
   if (!m_scan_ctxs.empty()) {
     parallel_read();
+  }
+
+  if (is_error_set()) {
+    return m_err;
   }
 
   for (auto &scan_ctx : m_scan_ctxs) {
