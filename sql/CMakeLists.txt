@@ -343,6 +343,11 @@ SET(SQL_GIS_SOURCES
   options_parser.cc
 )
 
+SET(SQL_PX_SOURCES
+  parallel_execution/px.cc
+  parallel_execution/px_mq.cc
+)
+
 SET(SQL_SHARED_SOURCES
   auth/auth_acls.cc
   auth/auth_common.cc
@@ -777,6 +782,7 @@ SET(SQL_SOURCE
   ${GEN_DIGEST_SOURCES}
   ${GEN_KEYWORD_LIST_SOURCES}
   ${CONF_SOURCES}
+  ${SQL_PX_SOURCES}
   ${SQL_SHARED_SOURCES}
   ${SQL_HEADERS}
   ${BUNDLED_LZ4_PATH}/xxhash.c
