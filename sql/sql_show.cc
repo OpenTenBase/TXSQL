@@ -5444,8 +5444,6 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_old_format, get_schema_tmp_table_keys_record, true},
     {"CDB_SQL_FILTER_INFO", cdb_sql_filter_fields_info, fill_cdb_sql_filter_info,
      make_old_format, nullptr, false},
-    {"CDB_SLAVE_THREAD_STATUS", slave_state_fields_info, fill_slave_status,
-     make_old_format, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
 int initialize_schema_table(st_plugin_int *plugin) {
