@@ -7899,8 +7899,22 @@ static Sys_var_uint Sys_cdb_max_prefetch_rows(
     VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static bool check_cdb_sql_filter_syntax(sys_var *,
+                                        THD *thd MY_ATTRIBUTE((unused)),
+                                        set_var *var) {
+  if (cdb_sql_filter_manager.handle_rule(var->save_result.string_value.str,
+                                         true)) {
+    my_error(ER_CDB_SQL_FILTER_WRONG_VALUE, MYF(0),
+             cdb_sql_filter_manager.get_errmsg());
+    var->save_result.string_value.str = const_cast<char *>("");
+    var->save_result.string_value.length = 0;
+    return true;
+  }
+  return false;
+}
+
 static bool update_cdb_sql_filter(sys_var *self, THD *thd, enum_var_type type) {
-  if (cdb_sql_filter_manager.handle_rule()) {
+  if (cdb_sql_filter_manager.handle_rule(sql_filter_command)) {
     my_error(ER_CDB_SQL_FILTER_WRONG_VALUE, MYF(0),
              cdb_sql_filter_manager.get_errmsg());
     return true;
@@ -7910,9 +7924,9 @@ static bool update_cdb_sql_filter(sys_var *self, THD *thd, enum_var_type type) {
 
 static Sys_var_charptr Sys_cdb_sql_filter(
     "cdb_sql_filter", "Add one filter rule or delete one",
-    GLOBAL_VAR(cdb_sql_filter_manager.cdb_sql_filter),
+    GLOBAL_VAR(sql_filter_command),
     CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_cdb_sql_filter));
+    NOT_IN_BINLOG, ON_CHECK(check_cdb_sql_filter_syntax), ON_UPDATE(update_cdb_sql_filter));
 
 static Sys_var_charptr Sys_cdb_sql_filter_seperator(
     "cdb_sql_filter_seperator",

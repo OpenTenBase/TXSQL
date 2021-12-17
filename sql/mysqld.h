@@ -424,6 +424,7 @@ extern ulong opt_keyring_migration_port;
 
 extern ulonglong global_conn_mem_limit;
 extern ulonglong global_conn_mem_counter;
+extern char *sql_filter_command;
 /**
   Variable to check if connection related options are set
   as part of keyring migration.
