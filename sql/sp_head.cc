@@ -1777,6 +1777,11 @@ void sp_head::set_body_start(THD *thd, const char *begin_ptr) {
 void sp_head::set_body_end(THD *thd) {
   Lex_input_stream *lip = &thd->m_parser_state->m_lip; /* shortcut */
   const char *end_ptr = lip->get_cpp_ptr();            /* shortcut */
+  /* Remove the extra semicolon to prevent mysqldump export errors */
+  if (end_ptr - m_parser_data.get_body_start_ptr() > 0 &&
+        (end_ptr[-1] == ';')) {
+    end_ptr--;
+  }
 
   /* Make the string of parameters. */
 
