@@ -1410,6 +1410,11 @@ static char *cover_definer_clause(char *stmt_str, size_t stmt_length,
                                   size_t stmt_version_length,
                                   const char *keyword_str,
                                   size_t keyword_length) {
+  /* Remove the extra semicolon to prevent mysqldump export errors */
+  if (stmt_length > 0 && (stmt_str[stmt_length-1] == ';')) {
+    stmt_length--;
+    stmt_str[stmt_length] = '\0';
+  }
   char *definer_begin =
       my_case_str(stmt_str, stmt_length, STRING_WITH_LEN(" DEFINER"));
   char *definer_end = nullptr;
