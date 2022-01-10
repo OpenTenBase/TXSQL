@@ -47,5 +47,16 @@ create table t2 (a int, b int) engine = innodb;
 set global binlog_write_threshold = 5;
 --error ER_BINLOG_THRESHOLD_EXCEEDED
 drop table t2;
+
+# issue#479 update partition table crash
+set global binlog_write_threshold = 1024;
+create table t(id int primary key, c varchar(2048)) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4 PARTITION BY LIST (murmurHashCodeAndMod(`id`,2)) (PARTITION p0 VALUES IN (0) ENGINE = InnoDB, PARTITION p1 VALUES IN (1) ENGINE = InnoDB);
+insert into t values(1, 'kz');
+insert into t values(2, 'wj');
+# without fix this will crash
+--error ER_BINLOG_THRESHOLD_EXCEEDED
+update t set c=repeat('kz', 1000) where id>0;
+drop table t;
+
 set global binlog_write_threshold = 0;
 drop table t2;

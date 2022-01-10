@@ -11282,11 +11282,11 @@ int THD::binlog_update_row(TABLE *table, bool is_trans,
       binlog_prepare_pending_rows_event<Update_rows_log_event>(
           table, server_id, before_size + after_size, is_trans, extra_row_info,
           source_part_id);
-
+  /* the binlog_write_threshold may be passed */
+  if (unlikely(ev == 0)) return HA_ERR_OUT_OF_MEM;
   if (part_info) {
     ev->m_extra_row_info.set_source_partition_id(source_part_id);
   }
-  if (unlikely(ev == 0)) return HA_ERR_OUT_OF_MEM;
 
   error = ev->add_row_data(before_row, before_size) ||
           ev->add_row_data(after_row, after_size);

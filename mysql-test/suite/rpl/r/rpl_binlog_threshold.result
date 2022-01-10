@@ -40,5 +40,12 @@ create table t2 (a int, b int) engine = innodb;
 set global binlog_write_threshold = 5;
 drop table t2;
 ERROR HY000: binlog write threshold(5) exceeded, the transaction has 123 (bytes) binlogs, it is aborted.
+set global binlog_write_threshold = 1024;
+create table t(id int primary key, c varchar(2048)) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4 PARTITION BY LIST (murmurHashCodeAndMod(`id`,2)) (PARTITION p0 VALUES IN (0) ENGINE = InnoDB, PARTITION p1 VALUES IN (1) ENGINE = InnoDB);
+insert into t values(1, 'kz');
+insert into t values(2, 'wj');
+update t set c=repeat('kz', 1000) where id>0;
+ERROR HY000: binlog write threshold(1024) exceeded, the transaction has 2184 (bytes) binlogs, it is aborted.
+drop table t;
 set global binlog_write_threshold = 0;
 drop table t2;
