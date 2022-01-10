@@ -1843,6 +1843,7 @@ void JOIN::destroy() {
   // Run Cached_item DTORs!
   group_fields.destroy_elements();
   semijoin_deduplication_fields.destroy_elements();
+  final_group_feilds.destroy_elements();
 
   tmp_table_param.cleanup();
 
@@ -1850,6 +1851,8 @@ void JOIN::destroy() {
   if (tmp_fields != nullptr) {
     cleanup_item_list(tmp_fields[REF_SLICE_TMP1]);
     cleanup_item_list(tmp_fields[REF_SLICE_TMP2]);
+    cleanup_item_list(tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
+    cleanup_item_list(tmp_fields[REF_SLICE_SAVED_TMP1]);
     for (uint widx = 0; widx < m_windows.elements; widx++) {
       cleanup_item_list(tmp_fields[REF_SLICE_WIN_1 + widx]);
     }
@@ -1876,6 +1879,21 @@ void JOIN::destroy() {
     rollup_group_items.shrink_to_fit();
     rollup_sums.clear();
     rollup_sums.shrink_to_fit();
+  }
+
+  // Free memory for finalAggr inject
+  if (aggr_tmp_table_param) {
+    aggr_tmp_table_param->cleanup();
+  }
+  if (final_tmp_table) {
+    if (final_tmp_table->file != nullptr) {
+      final_tmp_table->file->ha_index_or_rnd_end();
+    }
+    close_tmp_table(final_tmp_table);
+    free_tmp_table(final_tmp_table);
+  }
+  if (final_aggr_tmp_table_param) {
+    final_aggr_tmp_table_param->cleanup();
   }
 }
 
@@ -3999,6 +4017,50 @@ bool JOIN::alloc_func_list() {
       (Item_sum **)thd->mem_calloc(sizeof(Item_sum **) * (func_count + 1) +
                                    sizeof(Item_sum ***) * (group_parts + 1));
   return sum_funcs == nullptr;
+}
+
+/**
+  Make an array of pointers to final sum_functions to speed up
+  sum_func calculation.
+
+  @retval
+    0	ok
+  @retval
+    1	Error
+*/
+bool JOIN::alloc_func_list_with_param(Temp_table_param *param, Item_sum ***new_sum_funcs) {
+  uint func_count, group_parts;
+  DBUG_TRACE;
+
+  func_count = param->sum_func_count;
+  /*
+    If we are using rollup, we need a copy of the summary functions for
+    each level
+  */
+  if (rollup_state != RollupState::NONE) func_count *= (send_group_parts + 1);
+
+  group_parts = send_group_parts;
+  /*
+    If distinct, reserve memory for possible
+    disctinct->group_by optimization
+  */
+  if (select_distinct) {
+    group_parts += CountVisibleFields(*fields);
+    /*
+      If the ORDER clause is specified then it's possible that
+      it also will be optimized, so reserve space for it too
+    */
+    if (!order.empty()) {
+      ORDER *ord;
+      for (ord = order.order; ord; ord = ord->next) group_parts++;
+    }
+  }
+
+  /* This must use calloc() as rollup_make_fields depends on this */
+  *new_sum_funcs =
+      (Item_sum **)thd->mem_calloc(sizeof(Item_sum **) * (func_count + 1) +
+                                   sizeof(Item_sum ***) * (group_parts + 1));
+  return *new_sum_funcs == nullptr;
 }
 
 /**

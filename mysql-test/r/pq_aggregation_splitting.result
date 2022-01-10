@@ -1,0 +1,195 @@
+set cdb_parallel_query_enable = 1;
+#
+# create test table
+#
+CREATE TABLE `t` (
+`id` int NOT NULL AUTO_INCREMENT,
+`col1` int DEFAULT NULL,
+`col2` int DEFAULT NULL,
+`col3` double DEFAULT NULL,
+PRIMARY KEY (`id`),
+KEY `idx_col2` (`col2`)
+) ENGINE=InnoDB AUTO_INCREMENT=8;
+INSERT INTO t VALUES (1, 6, 2, 1);
+INSERT INTO t VALUES (2, 5, 2, 3);
+INSERT INTO t VALUES (3, 4, 2, 2);
+INSERT INTO t VALUES (4, 3, 3, 4);
+INSERT INTO t VALUES (5, 2, 1, 6);
+#
+# test aggregation function without splitting
+#
+select sum(col1), min(col1), max(col1) from t;
+sum(col1)	min(col1)	max(col1)
+20	2	6
+#
+# test aggregation function count()
+#
+select count(col1) from t;
+count(col1)
+5
+#
+# test aggregation function avg()
+#
+select avg(col1) from t;
+avg(col1)
+4.0000
+#
+# test aggregate function with expression
+#
+select sum(col1*4+2) from t;
+sum(col1*4+2)
+90
+select count(col1*4+2) from t;
+count(col1*4+2)
+5
+select max(col1*4+2) from t;
+max(col1*4+2)
+26
+select min(col1*4+2) from t;
+min(col1*4+2)
+10
+select avg(col1*4+2) from t;
+avg(col1*4+2)
+18.0000
+select 100*sum(col1)/count(col2)+min(col1)-max(col3) from t;
+100*sum(col1)/count(col2)+min(col1)-max(col3)
+396
+select avg(col2)*avg(col2)/count(col1)*2 from t;
+avg(col2)*avg(col2)/count(col1)*2
+1.600000000000
+#
+# test aggregation function with group by(no index)
+#
+select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+col1	col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+6	1	1	2.0000	2	2	1	6
+5	3	1	2.0000	2	2	1	5
+4	2	1	2.0000	2	2	1	4
+3	4	1	3.0000	3	3	1	3
+2	6	1	1.0000	1	1	1	2
+select count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+1	2.0000	2	2	1	6
+1	2.0000	2	2	1	5
+1	2.0000	2	2	1	4
+1	3.0000	3	3	1	3
+1	1.0000	1	1	1	2
+#
+# test aggregation function with group by(with index)
+#
+select sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
+sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
+2	2.0000	1	2	2
+15	5.0000	3	4	6
+3	3.0000	1	3	3
+select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
+col2	sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
+1	2	2.0000	1	2	2
+2	15	5.0000	3	4	6
+3	3	3.0000	1	3	3
+#
+# test aggregation function with order by
+#
+select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 order by col1;
+col1	col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+2	6	1	1.0000	1	1	1	2
+3	4	1	3.0000	3	3	1	3
+4	2	1	2.0000	2	2	1	4
+5	3	1	2.0000	2	2	1	5
+6	1	1	2.0000	2	2	1	6
+#
+# test aggregation function with having
+#
+select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4;
+col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+1	1	2.0000	2	2	1	6
+3	1	2.0000	2	2	1	5
+select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2 having sum(col1)>1;
+col2	sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
+1	2	2.0000	1	2	2
+2	15	5.0000	3	4	6
+3	3	3.0000	1	3	3
+#
+# test aggregation function with having and order by
+#
+select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4 order by col1;
+col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+3	1	2.0000	2	2	1	5
+1	1	2.0000	2	2	1	6
+#
+# test aggregation function with order by (sort for distinct)
+#
+select distinct col2, repeat("a", length(col2)), count(*) from t group by col1, col2 limit 2;
+col2	repeat("a", length(col2))	count(*)
+1	a	1
+2	a	1
+select distinct min(col1) from t group by col3 order by min(col2);
+min(col1)
+2
+4
+5
+6
+3
+CREATE TABLE `t1` (
+`id` int NOT NULL AUTO_INCREMENT,
+`col1` int DEFAULT NULL,
+`t1col2` int DEFAULT NULL,
+`t1col3` double DEFAULT NULL,
+PRIMARY KEY (`id`),
+KEY `idx_col2` (`t1col2`)
+) ENGINE=InnoDB AUTO_INCREMENT=8;
+INSERT INTO t1 VALUES (1, 6, 2, 1);
+INSERT INTO t1 VALUES (2, 5, 2, 3);
+INSERT INTO t1 VALUES (3, 4, 2, 2);
+INSERT INTO t1 VALUES (4, 3, 3, 4);
+INSERT INTO t1 VALUES (5, 5, 1, 6);
+#
+# test aggregation function with const item in group list
+#
+select t1.col1, col2, sum(t1col3) from t1, t where t1.col1 = 5 group by col1, col2;
+col1	col2	sum(t1col3)
+5	2	27
+5	3	9
+5	1	9
+#
+# test aggregation function with union
+# not supported by exchange yet
+#
+# test Group (no aggregates)
+#
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1;
+1
+1
+#
+# count -> sum with right data_type
+#
+CREATE TABLE `t2` (
+`val` decimal(5,3) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT INTO t2 VALUES (0.114);
+INSERT INTO t2 VALUES (0.115);
+INSERT INTO t2 VALUES (0.116);
+SELECT COUNT(val) FROM t2 WHERE val > 0.115;
+COUNT(val)
+1
+DROP TABLE t2;
+#
+# count -> sum with right result_type
+#
+CREATE TABLE t2 (
+spID int(10) unsigned,
+userID int(10) unsigned,
+score smallint(5) unsigned,
+key (spid),
+key (score)
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t2 VALUES (1,1,1),(2,2,2),(2,1,1),(3,3,3),(4,3,3),(5,3,3),(6,3,3),(7,3,3);
+select userid,count(*) from t2 group by userid having 3 in (1,count(*));
+userid	count(*)
+DROP TABLE t2;
+DROP TABLE t;
+DROP TABLE t1;

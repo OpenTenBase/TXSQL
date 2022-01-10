@@ -42,6 +42,7 @@
 #include "sql/field.h"
 #include "sql/item.h"
 #include "sql/iterators/row_iterator.h"
+#include "sql/join_optimizer/access_path.h"
 #include "sql/mem_root_array.h"
 #include "sql/opt_explain_format.h"  // Explain_sort_clause
 #include "sql/sql_executor.h"
@@ -140,6 +141,10 @@ class ORDER_with_src {
 };
 
 class JOIN {
+  friend bool RebuildTempAggregateAccessPath(
+      THD *thd, JOIN *join, AccessPath *const path,
+      uint curr_slice, uint *avg_count);
+
  public:
   JOIN(THD *thd_arg, Query_block *select);
   JOIN(const JOIN &rhs) = delete;
@@ -349,13 +354,16 @@ class JOIN {
   /// Expected cost of windowing;
   double windowing_cost{0.0};
   mem_root_deque<Item *> *fields;
+  mem_root_deque<Item *> *saved_base_fields;
   List<Cached_item> group_fields{};
+  List<Cached_item> final_group_feilds{};
   List<Cached_item> group_fields_cache{};
 
   // For destroying fields otherwise owned by RemoveDuplicatesIterator.
   List<Cached_item> semijoin_deduplication_fields{};
 
   Item_sum **sum_funcs{nullptr};
+  Item_sum **final_aggr_sum_funcs{nullptr};
   /**
      Describes a temporary table.
      Each tmp table has its own tmp_table_param.
@@ -363,6 +371,9 @@ class JOIN {
      to build the tmp table's own tmp_table_param.
   */
   Temp_table_param tmp_table_param;
+  Temp_table_param *aggr_tmp_table_param = nullptr;
+  Temp_table_param *final_aggr_tmp_table_param = nullptr;
+  TABLE *final_tmp_table = nullptr;
   MYSQL_LOCK *lock;
 
   enum class RollupState { NONE, INITED, READY };
@@ -633,6 +644,7 @@ class JOIN {
   bool alloc_func_list();
   bool make_sum_func_list(const mem_root_deque<Item *> &fields,
                           bool before_group_by, bool recompute = false);
+  bool alloc_func_list_with_param(Temp_table_param *param, Item_sum ***new_sum_funcs);
 
   /**
      Overwrites one slice of ref_items with the contents of another slice.
@@ -835,7 +847,50 @@ class JOIN {
   */
   bool select_count{false};
 
- private:
+  /**
+    Transform ref_items[curr_slice] to fields format and save it in
+    saved_fields.
+
+    @param saved_fields fields to save in
+    @param curr_slice current slice in ref_items.
+  */
+  bool transform_ref_items_to_fields(mem_root_deque<Item *> *saved_fields,
+                                     uint curr_slice);
+
+  /**
+    Check whether rebuild sum funcs for aggregate(first aggregate,
+    not final aggregate) or not.
+    Now, we only consider to support sum, max/min, count, avg. In
+    first aggregate, we only should rebuild avg.
+
+    @param thd
+    @param curr_slice current slice in ref_items.
+    @param avg_count count of Item_sum_avg.
+
+    @return false if successful, true if fail.
+  */
+  bool check_and_rebuild_sum_funcs(THD *thd, uint curr_slice, uint *avg_count);
+
+  /**
+    Replace sum func with another sum func.
+
+    @param thd
+    @param curr_slice current slice in ref_items.
+    
+    @return false if successful
+  */
+  bool rebuild_sum_funcs(THD *thd, uint curr_slice);
+  
+  /**
+    Rebuild aggregate functions for final_aggregate.
+
+    @param thd
+    @param curr_slice current slice of final_aggregate
+    @param avg_count number of Item_sum_avg
+  */
+  bool rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count);
+
+private:
   /**
     Create a temporary table to be used for processing DISTINCT/ORDER
     BY/GROUP BY.

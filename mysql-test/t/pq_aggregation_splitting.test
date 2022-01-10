@@ -1,0 +1,149 @@
+#################################################
+# Test for parallel query aggregation splitting #
+#################################################
+
+set cdb_parallel_query_enable = 1;
+
+--echo #
+--echo # create test table
+--echo #
+CREATE TABLE `t` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `col1` int DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` double DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_col2` (`col2`)
+) ENGINE=InnoDB AUTO_INCREMENT=8;
+
+INSERT INTO t VALUES (1, 6, 2, 1);
+INSERT INTO t VALUES (2, 5, 2, 3);
+INSERT INTO t VALUES (3, 4, 2, 2);
+INSERT INTO t VALUES (4, 3, 3, 4);
+INSERT INTO t VALUES (5, 2, 1, 6);
+
+--echo #
+--echo # test aggregation function without splitting
+--echo #
+select sum(col1), min(col1), max(col1) from t;
+
+--echo #
+--echo # test aggregation function count()
+--echo #
+select count(col1) from t;
+
+--echo #
+--echo # test aggregation function avg()
+--echo #
+select avg(col1) from t;
+
+--echo #
+--echo # test aggregate function with expression
+--echo #
+select sum(col1*4+2) from t;
+select count(col1*4+2) from t;
+select max(col1*4+2) from t;
+select min(col1*4+2) from t;
+select avg(col1*4+2) from t;
+select 100*sum(col1)/count(col2)+min(col1)-max(col3) from t;
+select avg(col2)*avg(col2)/count(col1)*2 from t;
+
+--echo #
+--echo # test aggregation function with group by(no index)
+--echo #
+select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+select count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+
+--echo #
+--echo # test aggregation function with group by(with index)
+--echo #
+select sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
+select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
+
+--echo #
+--echo # test aggregation function with order by
+--echo #
+select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 order by col1;
+
+--echo #
+--echo # test aggregation function with having
+--echo #
+select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4;
+select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2 having sum(col1)>1;
+
+--echo #
+--echo # test aggregation function with having and order by
+--echo #
+select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4 order by col1;
+
+--echo #
+--echo # test aggregation function with order by (sort for distinct)
+--echo #
+select distinct col2, repeat("a", length(col2)), count(*) from t group by col1, col2 limit 2;
+
+--source include/turn_off_only_full_group_by.inc
+select distinct min(col1) from t group by col3 order by min(col2);
+--source include/restore_sql_mode_after_turn_off_only_full_group_by.inc
+
+CREATE TABLE `t1` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `col1` int DEFAULT NULL,
+  `t1col2` int DEFAULT NULL,
+  `t1col3` double DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_col2` (`t1col2`)
+) ENGINE=InnoDB AUTO_INCREMENT=8;
+
+INSERT INTO t1 VALUES (1, 6, 2, 1);
+INSERT INTO t1 VALUES (2, 5, 2, 3);
+INSERT INTO t1 VALUES (3, 4, 2, 2);
+INSERT INTO t1 VALUES (4, 3, 3, 4);
+INSERT INTO t1 VALUES (5, 5, 1, 6);
+
+--echo #
+--echo # test aggregation function with const item in group list
+--echo #
+select t1.col1, col2, sum(t1col3) from t1, t where t1.col1 = 5 group by col1, col2;
+
+--echo #
+--echo # test aggregation function with union
+--echo # not supported by exchange yet
+# select sum(col2) from t union select sum(col1) from t;
+# select sum(col2) from t union select sum(col1) from t group by col3;
+# select count(col2) from t union select avg(col2) from t;
+# select count(col2) from t union select avg(col2)+avg(col2) from t;
+# select col2,count(col1) from t group by col2 union select col2,avg(col3)+avg(col3) from t group by col2;
+
+--echo #
+--echo # test Group (no aggregates)
+--echo #
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1;
+
+--echo #
+--echo # count -> sum with right data_type
+--echo #
+CREATE TABLE `t2` (
+  `val` decimal(5,3) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT INTO t2 VALUES (0.114);
+INSERT INTO t2 VALUES (0.115);
+INSERT INTO t2 VALUES (0.116);
+SELECT COUNT(val) FROM t2 WHERE val > 0.115;
+DROP TABLE t2;
+
+--echo #
+--echo # count -> sum with right result_type
+--echo #
+CREATE TABLE t2 (
+  spID int(10) unsigned,
+  userID int(10) unsigned,
+  score smallint(5) unsigned,
+  key (spid),
+  key (score)
+);
+INSERT INTO t2 VALUES (1,1,1),(2,2,2),(2,1,1),(3,3,3),(4,3,3),(5,3,3),(6,3,3),(7,3,3);
+select userid,count(*) from t2 group by userid having 3 in (1,count(*));
+DROP TABLE t2;
+
+DROP TABLE t;
+DROP TABLE t1;

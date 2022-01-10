@@ -3446,6 +3446,11 @@ void JOIN::create_access_paths() {
   path = attach_access_paths_for_having_and_limit(path);
   path = attach_access_path_for_update_or_delete(path);
 
+  // Rebuild aggregate and inject final aggregate.
+  if (thd->variables.cdb_parallel_query_enable) {
+    path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+  }
+
   m_root_access_path = path;
 }
 
@@ -5096,6 +5101,284 @@ void JOIN::restore_fields(table_map save_nullinfo) {
       table->reset_null_row();
     }
   }
+}
+
+/**
+  Transform ref_items to fields array.
+
+  @param saved_fields to save ref_items[curr_slice] in.
+  @param curr_slice which slice of ref_items will be transformed.
+
+  @return false if successful, true if fail.
+*/
+bool JOIN::transform_ref_items_to_fields(mem_root_deque<Item *> *saved_fields,
+                                         uint curr_slice) {
+  uint num_hidden_fields = CountHiddenFields(*fields);
+  uint fields_count = fields->size();
+  Ref_item_array *base_ref_item = &(ref_items[curr_slice]);
+  for (uint i=0; i<fields_count; i++) {
+    bool is_hidden = (*fields)[i]->hidden;
+    saved_fields->push_back((*base_ref_item)[is_hidden ? fields_count - i -1
+                                                            : i - num_hidden_fields]);
+  }
+  if (saved_fields == nullptr || saved_fields->size() != fields_count) {
+    return true;
+  }
+  return false;
+}
+
+/**
+  Check whether rebuild sum funcs for aggregate(first aggregate,
+  not final aggregate) or not.
+  Now, we only consider to support sum, max/min, count, avg. In
+  first aggregate, we only should rebuild avg.
+
+  @param thd
+  @param curr_slice this is slice in ref_items.
+  @param avg_count count of Item_sum_avg.
+
+  @return true if fail, false if successful.
+*/
+bool JOIN::check_and_rebuild_sum_funcs(THD *thd, uint curr_slice, uint *avg_count) {
+    // check whether there are avg funcs.
+    bool do_rebuild = false;
+    uint avg_num = 0;
+    for (Item_sum **sum_item = sum_funcs; *sum_item != nullptr; ++sum_item) {
+      const Item_sum::Sumfunctype sum_type = (*sum_item)->sum_func();
+      if (sum_type == Item_sum::AVG_FUNC) {
+        do_rebuild = true;
+        avg_num++;
+      }
+    }
+
+    // transform ref_items[REF_SLICE_SAVED_BASE] to fields format and save it.
+    saved_base_fields = new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+    if (transform_ref_items_to_fields(saved_base_fields, REF_SLICE_SAVED_BASE)) {
+      return true;
+    }
+    tmp_fields[REF_SLICE_SAVED_BASE] = *saved_base_fields;
+
+    // rebuild sum_funcs
+    if (do_rebuild && rebuild_sum_funcs(thd, curr_slice)) {
+      return true;
+    }
+
+    *avg_count = avg_num;
+
+  return false;
+}
+
+/**
+  Rebuild sum functions for aggregate.
+
+  @param thd
+  @param curr_slice current slice in ref_items
+
+  @return false if successful
+*/
+bool JOIN::rebuild_sum_funcs(THD *thd, uint curr_slice) {
+  mem_root_deque<Item *> *curr_fields = saved_base_fields;
+  uint saved_allow_sum_funcs = thd->lex->allow_sum_func;
+  nesting_map select_nest_level = (nesting_map)1 << (unsigned int)query_block->nest_level;
+  thd->lex->allow_sum_func |= select_nest_level;
+
+  // create new item array for fields
+  mem_root_deque<Item *> *new_join_fields =
+      new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  new_join_fields->clear();
+  // Traverse JOIN::fields to rebuild sum_funcs like Item_sum_avg.
+  size_t i = 0;
+  for (Item *item : *curr_fields) {
+    if (item->type() == Item::SUM_FUNC_ITEM) {
+      Item_sum *item_sum = dynamic_cast<Item_sum *>(item);
+      const Item_sum::Sumfunctype sum_type = item_sum->sum_func();
+      Item_sum **new_item_list{nullptr};
+      
+      if (sum_type == Item_sum::AVG_FUNC) {
+        Item_sum_avg *item_sum_avg = dynamic_cast<Item_sum_avg *>(item);
+        new_item_list = item_sum_avg->pq_rebuild_item(thd, query_block);
+        if (!new_item_list) {
+          goto err;
+        }
+      } else {
+        new_join_fields->push_back(item);
+        ++i;
+        continue;
+      }
+
+      // Change pointer about items, include JOIN::fields, JOIN::tmp_fields
+      for (Item_sum **sum_item = new_item_list; *sum_item != nullptr; ++sum_item) {
+        new_join_fields->push_back(*sum_item);
+        ++i;
+      }
+    } else {
+      new_join_fields->push_back(item);
+      ++i;
+    }
+  }
+
+  tmp_fields[curr_slice] = *new_join_fields;
+  fields = &tmp_fields[curr_slice];
+
+  thd->lex->allow_sum_func = saved_allow_sum_funcs;
+  return false;
+
+err:
+  thd->lex->allow_sum_func = saved_allow_sum_funcs;
+  return true;
+}
+
+
+/**
+  Rebuild sum funcs for final aggregate.
+  Rebuild item_sum in curr_slice items and final_aggr_sum_funcs.
+
+  @param thd
+  @param curr_slice current slice of aggregate
+  @param avg_count number of avg func
+  
+  @return false if successful, true if fail.
+*/
+bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
+  bool func_div_hidden = false;
+  List_item *curr_fields = &tmp_fields[REF_SLICE_SAVED_BASE];
+  Item_sum **final_sum_funcs = final_aggr_sum_funcs;
+  Item_sum **new_item_list{nullptr};
+  mem_root_deque<Item *> *new_final_fields =
+      new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  new_final_fields->clear();
+
+  uint saved_allow_sum_funcs = thd->lex->allow_sum_func;
+  nesting_map select_nest_level = (nesting_map)1 << (unsigned int)query_block->nest_level;
+  thd->lex->allow_sum_func |= select_nest_level;
+
+  // Travers curr_fields to rebuild sum_funcs.
+  mem_root_deque<Item *> *curr_tmp_fields = &tmp_fields[curr_slice];
+  mem_root_deque<Item *> temp_fields(thd->mem_root);
+  temp_fields = *curr_tmp_fields;
+  curr_tmp_fields->clear();
+  uint curr_i = 0;
+  for (Item *item : *curr_fields) {
+    if (item->type() == Item::SUM_FUNC_ITEM && !item->const_item() &&
+        down_cast<Item_sum *>(item)->aggr_query_block == query_block) {
+      assert(!item->m_is_window_function);
+      // rebuild sum funcs
+      Item_sum *item_sum = down_cast<Item_sum *>(item);
+      new_item_list = item_sum->pq_rebuild_item(thd, query_block);
+
+      Item_sum::Sumfunctype sum_type = item_sum->sum_func();
+
+      // reset args for sum funcs
+      Field *res_field = item_sum->get_result_field();
+      if (res_field == nullptr) return true;
+      Item *arg = new_item_list[0]->get_arg(0);
+      if (!((sum_type == Item_sum::MIN_FUNC || sum_type == Item_sum::MAX_FUNC)
+          && arg->basic_const_item())) {
+        arg = new_item_list[0]->set_arg(thd, 0, new(thd->mem_root) Item_field(res_field));
+        if (!arg) return true;
+      }
+      
+      // fix fields after set args
+      new_item_list[0]->fix_fields(thd, nullptr);
+      // fix result type for count->sum
+      if (sum_type == Item_sum::COUNT_FUNC) {
+        new_item_list[0]->pq_fix_result_type(INT_RESULT);
+      }
+
+      curr_tmp_fields->push_back(new_item_list[0]);
+      *final_sum_funcs++ = new_item_list[0];
+    } else {
+      curr_tmp_fields->push_back(temp_fields[curr_i]);
+    }
+    ++curr_i;
+  }
+  *final_sum_funcs++ = nullptr;
+
+  // If there are no avgs, change fields, tmp_fields, ref_items
+  if (!avg_count) {
+    fields = curr_tmp_fields;
+    thd->lex->allow_sum_func = saved_allow_sum_funcs;
+    return false;
+  }
+  temp_fields = *curr_tmp_fields;
+
+  // Travers temp_fields to inject item_func_div if there are avgs.
+  int avg_inject_step = -1;
+  uint sum_i = 0, i = 0;
+  mem_root_deque<Item *> *hidden_fields =
+      new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  mem_root_deque<Item *> *visible_fields =
+      new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  for (Item *item : temp_fields) {
+    Item_func_div *item_div = nullptr;
+    if (item->type() == Item::SUM_FUNC_ITEM && !item->const_item() &&
+        down_cast<Item_sum *>(item)->aggr_query_block == query_block) {
+      assert(!item->m_is_window_function);
+      if (avg_inject_step < 0) {
+        Item *final_saved_item = (*saved_base_fields)[sum_i];
+        Item_sum *final_saved_item_sum = down_cast<Item_sum *>(final_saved_item);
+        if (final_saved_item_sum->sum_func() == Item_sum::AVG_FUNC) {
+          func_div_hidden = item->hidden;
+          avg_inject_step = 1;
+        }
+        sum_i++;
+      }
+
+      if (avg_inject_step >= 0) item->hidden = true;
+
+      if (avg_inject_step == 0) {
+        // create item_func_div
+        item_div = new (thd->mem_root) Item_func_div(POS(),
+            (temp_fields)[i-1], (temp_fields)[i]);
+        if (item_div->resolve_type(thd)) {
+          return true;
+        }
+        item_div->set_aggregation();
+        item_div->fixed = true;
+
+        // set func_div name and hidden.
+        Item *item_func_div = implicit_cast<Item *>(item_div);
+        item_func_div->hidden = func_div_hidden;
+        item_func_div->item_name.copy(item->item_name.ptr(), item->item_name.length(),
+                                      system_charset_info, item->item_name.is_autogenerated());
+      }
+    } else {
+      sum_i++;
+    }
+
+    if (item->hidden) {
+      hidden_fields->push_back(item);
+    } else {
+      visible_fields->push_back(item);
+    }
+
+    if (item_div) {
+      if (func_div_hidden) {
+        hidden_fields->push_back(item_div);
+      } else {
+        visible_fields->push_back(item_div);
+      }
+    }
+    
+    i++;
+    if (avg_inject_step >= 0) avg_inject_step--;
+  }
+
+  // Rebuild tmp_fields, fields
+  uint j = 0;
+  for (Item *item : *hidden_fields) {
+    new_final_fields->push_back(item);
+    ++j;
+  }
+  for (Item *item : *visible_fields) {
+    new_final_fields->push_back(item);
+    ++j;
+  }
+  tmp_fields[curr_slice] = *new_final_fields;
+  fields = new_final_fields;
+
+  thd->lex->allow_sum_func = saved_allow_sum_funcs;
+  return false;
 }
 
 /******************************************************************************

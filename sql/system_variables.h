@@ -505,6 +505,10 @@ struct System_variables {
   bool log_profile_in_slow_log;
   uint txsql_extend_slow_log_level;
   ulonglong log_slow_verbosity;
+  /*
+    @sa Sys_cdb_parallel_query_enable
+  */
+  bool cdb_parallel_query_enable;
 };
 
 /**
