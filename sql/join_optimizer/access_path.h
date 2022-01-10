@@ -1139,6 +1139,7 @@ struct AccessPath {
     struct {
       AccessPath *child;
       bool rollup;
+      bool is_final_aggr;
     } aggregate;
     struct {
       AccessPath *subquery_path;
@@ -1146,6 +1147,7 @@ struct AccessPath {
       TABLE *table;
       AccessPath *table_path;
       int ref_slice;
+      bool is_final_aggr;
     } temptable_aggregate;
     struct {
       AccessPath *child;
@@ -1455,17 +1457,19 @@ AccessPath *NewSortAccessPath(THD *thd, AccessPath *child, Filesort *filesort,
                               bool count_examined_rows);
 
 inline AccessPath *NewAggregateAccessPath(THD *thd, AccessPath *child,
-                                          bool rollup) {
+                                          bool rollup,
+                                          bool is_final_aggr = false) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::AGGREGATE;
   path->aggregate().child = child;
   path->aggregate().rollup = rollup;
+  path->aggregate().is_final_aggr = is_final_aggr;
   return path;
 }
 
 inline AccessPath *NewTemptableAggregateAccessPath(
     THD *thd, AccessPath *subquery_path, Temp_table_param *temp_table_param,
-    TABLE *table, AccessPath *table_path, int ref_slice) {
+    TABLE *table, AccessPath *table_path, int ref_slice, bool is_final_aggr = false) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::TEMPTABLE_AGGREGATE;
   path->temptable_aggregate().subquery_path = subquery_path;
@@ -1473,6 +1477,7 @@ inline AccessPath *NewTemptableAggregateAccessPath(
   path->temptable_aggregate().table = table;
   path->temptable_aggregate().table_path = table_path;
   path->temptable_aggregate().ref_slice = ref_slice;
+  path->temptable_aggregate().is_final_aggr = is_final_aggr;
   return path;
 }
 
@@ -1758,6 +1763,31 @@ void FindTablesToGetRowidFor(AccessPath *path);
   Thus, this is done when creating iterators.
  */
 bool FinalizeMaterializedSubqueries(THD *thd, JOIN *join, AccessPath *path);
+
+AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
+                                                 AccessPath *const path);
+
+bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                uint curr_slice, uint *avg_count);
+
+bool RebuildTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                    uint curr_slice, uint *avg_count);
+
+AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join,
+                                          AccessPath *const path,
+                                          uint curr_slice, uint avg_count);
+
+AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join,
+                                              AccessPath *const path,
+                                              uint curr_slice, uint avg_count);
+
+void RebuildCurrentRefItems(THD *thd, JOIN *join, uint curr_slice, bool is_final_aggr);
+
+ORDER *CreateOrderForGroupList(THD *thd, ORDER *order);
+
+bool FixFuncDivForAvg(THD *thd, JOIN *join, uint avg_count);
+
+void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice);
 
 unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
     THD *thd, MEM_ROOT *mem_root, AccessPath *path, JOIN *join,

@@ -625,6 +625,12 @@ enum {
   */
   REF_SLICE_TMP2,
   /**
+     The slice with pointers to columns of table about final aggregator.
+  */
+  REF_SLICE_FINAL_AGGREGATE,
+
+  REF_SLICE_SAVED_TMP1,
+  /**
      The slice with pointers to columns of table(s), ie., the actual Items.
      Only used for queries involving temporary tables or the likes; for simple
      queries, they always live in REF_SLICE_ACTIVE, so we don't need a copy

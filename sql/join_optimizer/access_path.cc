@@ -21,8 +21,9 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "sql/join_optimizer/access_path.h"
-
 #include "sql/filesort.h"
+#include "sql/field.h"
+#include "sql/sql_tmp_table.h"
 #include "sql/item_sum.h"
 #include "sql/iterators/basic_row_iterators.h"
 #include "sql/iterators/bka_iterator.h"
@@ -52,6 +53,7 @@
 #include "sql/sql_update.h"
 #include "sql/table.h"
 #include "sql/iterators/sort_merge_join_iterator.h"
+#include "sql/parallel_execution/px_item.h"
 
 #include <vector>
 
@@ -888,7 +890,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             thd, mem_root, move(job.children[0]), join,
             TableCollection(tables, /*store_rowids=*/false,
                             /*tables_to_get_rowid_for=*/0),
-            param.rollup);
+            param.rollup, param.is_final_aggr);
         break;
       }
       case AccessPath::TEMPTABLE_AGGREGATE: {
@@ -912,7 +914,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = unique_ptr_destroy_only<RowIterator>(
             temptable_aggregate_iterator::CreateIterator(
                 thd, move(job.children[0]), param.temp_table_param, param.table,
-                move(job.children[1]), join, param.ref_slice));
+                move(job.children[1]), join, param.ref_slice, param.is_final_aggr));
 
         break;
       }
@@ -1415,4 +1417,740 @@ table_map GetHashJoinTables(AccessPath *path) {
         return false;
       });
   return tables;
+}
+
+/**
+  Walk through accespath to inject final_aggregate.
+  This recursive will be stopped when we find Aggregate or there
+  is no aggregate in accesspath.
+  If find Aggregate or TemptableAggregate:
+  [1] Rebuild Aggregate/TemptableAggregate(function: Rebuild__AccessPath).
+    a. rebuild items in fields, sum_funcs, tmp_fields, ref_items.
+    b. create tmp_table to store results
+  [2] Build final Aggregate/TemptableAggregate(function: BuildFinal__AccessPath).
+    a. build items for final aggregate, include final_aggr_sum_funcs,
+       fields, tmp_fields, ref_items.
+    b. create tmp_table for final aggregate if needed.
+    c. create new accesspath.
+
+  @param thd
+  @param join
+  @param path
+  @return new accesspath
+*/
+AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
+                                                AccessPath *const path) {
+  AccessPath *newFinalAggrPath = nullptr;
+  AccessPath *child = nullptr;
+  AccessPath *newChild = nullptr;
+  bool do_inject = false;
+  switch (path->type) {
+    case AccessPath::AGGREGATE: {
+      do_inject = true;
+      uint avg_count = 0;
+      uint curr_slice = 0;
+      if (!(join->implicit_grouping || join->group_optimized_away) &&
+          !thd->lex->using_hypergraph_optimizer) {
+        curr_slice = join->get_ref_item_slice();
+      }
+
+      // check all sum_funcs are support
+      if (check_sum_func_support(thd, join)) {
+        do_inject = false;
+        break;
+      }
+
+      // [1] rebuild Aggregate
+      if (RebuildAggregateAccessPath(thd, join, path, curr_slice, &avg_count)) {
+        assert(false);
+      }
+      // [2] create final Aggregate accesspath
+      newFinalAggrPath = BuildFinalAggregateAccessPath(thd, join, path, curr_slice,
+                                                       avg_count);
+      if (newFinalAggrPath == nullptr) {
+        assert(false);
+      }
+      break;
+    }
+    case AccessPath::TEMPTABLE_AGGREGATE: {
+      do_inject = true;
+      uint avg_count = 0;
+      uint curr_slice = path->temptable_aggregate().ref_slice;
+
+      // check all sum_funcs are support
+      if (check_sum_func_support(thd, join)) {
+        do_inject = false;
+        break;
+      }
+      
+      // [1] rebuild temptableAggregate
+      if (RebuildTempAggregateAccessPath(thd, join, path, curr_slice, &avg_count)) {
+        assert(false);
+      }
+      // save current slice ref_items, it will be used in exchange inject.
+      if(join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_TMP1)) assert(false);
+      join->copy_ref_item_slice(REF_SLICE_SAVED_TMP1, curr_slice);
+      join->tmp_fields[REF_SLICE_SAVED_TMP1] = join->tmp_fields[curr_slice];
+      // [2] create final temptableAggregate accesspath
+      newFinalAggrPath = BuildFinalTempAggregateAccessPath(thd, join, path, curr_slice,
+                                                           avg_count);
+      if (newFinalAggrPath == nullptr) {
+        assert(false);
+      }
+      break;
+    }
+    case AccessPath::FILTER: {
+      child = path->filter().child;
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child);
+      path->filter().child = newChild;
+      break;
+    }
+    case AccessPath::LIMIT_OFFSET : {
+      child = path->limit_offset().child;
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child);
+      path->limit_offset().child = newChild;
+      break;
+    }
+    case AccessPath::SORT : {
+      child = path->sort().child;
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child);
+      path->sort().child = newChild;
+      FixSortAccessPathForAggrInject(thd, join, path, REF_SLICE_FINAL_AGGREGATE);
+      break;
+    }
+    default:
+      break;
+  }
+
+  return do_inject ? newFinalAggrPath : path;
+}
+
+/**
+  Restore ref_items, keep number and position of ref_item no change.
+  
+  For example:
+    select avg(col1), avg(col2)/sum(col3) from t;
+  
+  JOIN::saved_base_fields
+  |------hidden-------|   |-------visible-------|
+  +---------+---------+ # +---------+-----------+
+  |sum(col3)|avg(col2)| # |avg(col1)|func_div1()|
+  +---------+---------+ # +---------+-----------+
+  
+  [1] If it's not final aggr
+  JOIN::fields:
+  |------------hidden-------------|   |-------------visible-------------|
+  +---------+---------+-----------+ # +---------+-----------+-----------+
+  |sum(col3)|sum(col2)|count(col2)| # |sum(col1)|count(col1)|func_div1()|
+  +---|-----+---------+-----------+ # +---------+-----------+------|----+
+      |                                                            |
+       \---------------->--------------\                           |
+                    /-------------------\----<---------------------/
+  JOIN::ref_items:  |                    \
+  +---------+-------|---+ # +---------+---|-----+
+  |avg(col1)|func_div1()| # |avg(col2)|sum(col3)|
+  +---------+-----------+ # +---------+---------+
+  |-------visible-------|   |------hidden-------|
+
+  [2] If it's final aggr
+  JOIN::fields:
+  |------------------------------hidden-----------------------------|   |-------visible---------|
+  +---------+---------+-----------+-----------+---------+-----------+ # +-----------+-----------+
+  |sum(col3)|sum(col2)|count(col2)|func_div2()|sum(col1)|count(col1)| # |func_div3()|func_div1()|
+  +---|-----+---------+-----------+-----|-----+---------+-----------+ # +-----------+-----------+
+      |                                 v                               \_ _ _ _ _ _ _ _ _ _ _ _/     
+       \           /--------------------|----------------<--------------------------/
+        \----------|----->--------------|------\
+                   |                    |      |
+  JOIN::ref_items: |                    /      | 
+  /-----------------------\            |       v 
+  +-----------+-----------+ # +-----------+---------+
+  |func_div3()|func_div1()| # |func_div2()|sum(col3)| 
+  +-----------+-----------+ # +-----------+---------+
+  |--------visible--------|   |-------hidden--------|
+
+  @param thd
+  @param join
+  @param curr_slice current slice of ref_items.
+*/
+void RebuildCurrentRefItems(THD *thd, JOIN *join, uint curr_slice, bool is_final_aggr) {
+  Ref_item_array &curr_ref_items = join->ref_items[curr_slice];
+  uint fields_count = join->saved_base_fields->size();
+  uint num_hidden_fields = CountHiddenFields(*join->saved_base_fields);
+  uint ref_items_count = join->ref_items[0].size();
+  Item **ref_item = thd->mem_root->ArrayAlloc<Item *>(ref_items_count);
+  Ref_item_array tmp_ref_items = Ref_item_array(ref_item, ref_items_count);
+
+  if (is_final_aggr) {
+    uint i = 0, position = 0;
+    for (;i < num_hidden_fields; ++i) {
+      Item *item = (*join->saved_base_fields)[i];
+      if (item->type() == Item::SUM_FUNC_ITEM) {
+        Item_sum *item_sum = down_cast<Item_sum *>(item);
+        if (item_sum->sum_func() == Item_sum::AVG_FUNC) {
+          position += 2;
+        } 
+      }
+      tmp_ref_items[fields_count - i - 1] = (*join->fields)[position];
+      ++position;
+    }
+    for (Item *item : VisibleFields(*join->fields)) {
+      tmp_ref_items[i - num_hidden_fields] = item;
+      ++i;
+    }
+  } else {
+    uint i = 0, j = 0;
+    for (Item *item : *join->saved_base_fields) {
+      if (item->type() == Item::SUM_FUNC_ITEM) {
+        Item_sum *item_sum = down_cast<Item_sum *>(item);
+        if (item_sum->sum_func() == Item_sum::AVG_FUNC) {
+          tmp_ref_items[(item->hidden ? fields_count - i -1
+                                      : i - num_hidden_fields)] = item_sum;
+          ++j;
+        } else {
+          tmp_ref_items[(item->hidden ? fields_count - i -1
+                                      : i - num_hidden_fields)] = (*join->fields)[j];
+        }
+      } else {
+        tmp_ref_items[(item->hidden ? fields_count - i -1
+                                    : i - num_hidden_fields)] = (*join->fields)[j];
+      }
+      ++i;
+      ++j;
+    }
+  }
+
+  curr_ref_items = tmp_ref_items;
+}
+
+/**
+  Rebuild Aggregate.
+  [1] rebuild aggregation functions in fields and tmp_fields.
+  [2] restore tmp_table_param and calculate properties for param.
+  [3] count of sum_funcs may change after rebuild aggregation functions,
+      so we need re-alloc memory for sum_funcs.
+  [4] re-create tmp_table for Aggregate.
+  [5] call RebuildCurrentRefItems to rebuild ref_items for curr_slice
+      after change_to_use_tmp_fields.
+
+  @param thd
+  @param join
+  @param path
+  @param curr_slice current slice in ref_items.
+
+  @return false if successful, true if fail.
+*/
+bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                uint curr_slice, uint *avg_count) {
+
+  List_item *curr_fields = nullptr;
+  TABLE *tmp_table = nullptr;
+  mem_root_deque<Item *> tmp_field(thd->mem_root);
+  join->aggr_tmp_table_param = new (thd->mem_root) Temp_table_param(join->tmp_table_param);
+  join->aggr_tmp_table_param->copy_fields.clear();
+  //join->aggr_tmp_table_param->grouped_expressions.clear();
+
+  // rebuild sum_funcs for Aggregate.
+  if (join->check_and_rebuild_sum_funcs(thd, REF_SLICE_SAVED_BASE, avg_count)) {
+    goto rebuild_err;
+  }
+  curr_fields = &join->tmp_fields[REF_SLICE_SAVED_BASE];
+
+  count_field_types(join->query_block, join->aggr_tmp_table_param,
+                    *curr_fields, /*reset_with_sum_func=*/false,
+                    /*save_sum_fields=*/true);
+  
+  // re-alloc sum_funcs
+  if (join->alloc_func_list_with_param(join->aggr_tmp_table_param,
+        &join->sum_funcs)) goto rebuild_err;
+
+  join->aggr_tmp_table_param->hidden_field_count =
+      CountHiddenFields(*curr_fields);
+  
+  // create tmp table for first aggregate to save result.
+  tmp_table = create_tmp_table(
+      thd, join->aggr_tmp_table_param, *curr_fields, /*group=*/nullptr,
+      /*distinct=*/false, /*save_sum_fields=*/true, join->query_block->active_options(),
+      HA_POS_ERROR, "<temp>");
+  if (!tmp_table) goto rebuild_err;
+  join->final_tmp_table = tmp_table;
+
+  // rebuild sum_func_list
+  if (join->make_sum_func_list(*curr_fields, /*before_group_by=*/true, /*recompute=*/true))
+    goto rebuild_err;
+
+  if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[curr_slice],
+                               &tmp_field, join->query_block->m_added_non_hidden_fields))
+    goto rebuild_err;
+  join->tmp_fields[curr_slice] = tmp_field;
+  
+  // reset join::fields to curr_slice items.
+  join->fields = &join->tmp_fields[curr_slice];
+  
+  if (*avg_count) RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/false);
+
+  // reset aggregate accesspath param
+  //path->aggregate().temp_table_param = join->aggr_tmp_table_param;
+
+  return false;
+
+rebuild_err:
+  if (join->aggr_tmp_table_param) {
+    destroy(join->aggr_tmp_table_param);
+    join->aggr_tmp_table_param = nullptr;
+  }
+  if (tmp_table) {
+    close_tmp_table(tmp_table);
+    free_tmp_table(tmp_table);
+  }
+  return true;
+}
+
+/**
+  Rebuild TemptableAggregate.
+  [1] rebuild aggregation functions in fields and tmp_fields.
+  [2] restore tmp_table_param and calculate properties for param.
+  [3] count of sum_funcs may change after rebuild aggregation functions,
+      so we need re-alloc memory for sum_funcs.
+  [4] re-create tmp_table for TemptableAggregate.
+  [5] call RebuildCurrentRefItems to rebuild ref_items for curr_slice
+      after change_to_use_tmp_fields.
+
+  @param thd
+  @param join
+  @param path
+  @param curr_slice current slice in ref_items.
+
+  @return false if successful, true if fail.
+*/
+bool RebuildTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                    uint curr_slice, uint *avg_count) {
+  AccessPath *table_path = nullptr;
+  List_item *curr_fields = nullptr;
+  uint curr_tmp_table = join->primary_tables;
+  QEP_TAB *tab = &join->qep_tab[curr_tmp_table];
+  mem_root_deque<Item *> tmp_field(thd->mem_root);
+  ORDER_with_src *tmp_group;
+  
+  // rebuild sum_funcs for temptableAggregate.
+  if (join->check_and_rebuild_sum_funcs(thd, REF_SLICE_SAVED_BASE, avg_count)) {
+    goto rebuild_err;
+  }
+  // if there is no Item_sum_avg, don't need rebuild temptable.
+  if (!(*avg_count)) return false;
+
+  curr_fields = &join->tmp_fields[REF_SLICE_SAVED_BASE];
+
+  if (!join->simple_group && !(test_flags & TEST_NO_KEY_GROUP) && !join->with_json_agg) {
+    tmp_group = new (thd->mem_root) ORDER_with_src(join->query_block->group_list.first,ESC_GROUP_BY);
+  }
+
+  join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+
+  join->tmp_table_param.pq_copy_from(path->temptable_aggregate().temp_table_param);
+
+  count_field_types(join->query_block, &join->tmp_table_param, *curr_fields,
+                    /*reset_with_sum_func=*/false, /*save_sum_fields=*/true);
+
+  // re-alloc sum_funcs
+  if (join->alloc_func_list()) goto rebuild_err;
+  
+  // cleanup temp_table before rebuild a new temp_table for tab
+  if (tab->table()) {
+    close_tmp_table(tab->table());
+    free_tmp_table(tab->table());
+    tab->set_table(nullptr);
+  }
+
+  if (join->create_intermediate_table(tab, *curr_fields, *tmp_group,
+                                      !(*tmp_group).empty() && join->simple_group)) {
+    goto rebuild_err;
+  }
+
+  if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[curr_slice],
+                               &tmp_field, join->query_block->m_added_non_hidden_fields)) {
+    goto rebuild_err;
+  }
+  join->tmp_fields[curr_slice] = tmp_field;
+  join->fields = &join->tmp_fields[curr_slice];
+
+  // keep ref_items[curr_slice] no change
+  RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/false);
+                          
+  // re-create table path
+  table_path = create_table_access_path(thd, tab->table(), tab->range_scan(),
+                                        tab->table_ref, tab->position(),
+                                        /*count_examined_rows=*/false);
+  if (!table_path) goto rebuild_err;
+
+  // set path properties
+  path->temptable_aggregate().table = tab->table();
+  path->temptable_aggregate().table_path = table_path;
+  path->temptable_aggregate().temp_table_param = tab->tmp_table_param;
+  return false;
+
+rebuild_err:
+  return true;
+}
+
+/**
+  Create order for group list.
+  We need build new group list for Final TempTableAggregate
+  through saved group list, if this aggregate with group
+  by.
+  
+  @param thd
+  @param order the first order in group_list
+
+  @return order object.
+*/
+ORDER *CreateOrderForGroupList(THD *thd, ORDER *order) {
+  ORDER *new_order = new (thd->mem_root) ORDER;
+  new_order->item = order->item;
+  new_order->item_initial = *(order->item);
+  new_order->field_in_tmp_table = nullptr;
+  new_order->in_field_list = order->in_field_list;
+  new_order->used_alias = order->used_alias;
+  new_order->is_position = order->is_position;
+  new_order->is_explicit = order->is_explicit;
+
+  if (order->next != nullptr) {
+    new_order->next = CreateOrderForGroupList(thd, order->next);
+    if (!new_order->next) assert(false);
+  }
+
+  if (!new_order) assert(false);
+  return new_order;
+}
+
+/**
+  Fix Item_func_div for average.
+  Items may change after change_to_use_temp_fields, need
+  to specify items for Item_func_div.
+
+  For example:
+    select avg(col1), avg(col2)/sum(col3) from t;
+
+  |------hidden-------|   |-------visible-------|
+  +---------+---------+ # +---------+-----------+
+  |sum(col3)|avg(col2)| # |avg(col1)|func_div1()|  saved_base_fields
+  +---------+---------+ # +---------+-----------+
+
+  After we replace (check_and_rebuild_sum_funcs) avg with sum/count
+  |------------hidden-------------|   |-------------visible-------------|
+  +---------+---------+-----------+ # +---------+-----------+-----------+
+  |sum(col3)|sum(col2)|count(col2)| # |sum(col1)|count(col1)|func_div1()|
+  +---------+---------+-----------+ # +---------+-----------+-----------+
+
+  After we insert (rebuild_final_sum_funcs) func_div for avg and set sum/count hidden
+  |------------------------------hidden-----------------------------|   |-------visible---------|
+  +---------+---------+-----------+-----------+---------+-----------+ # +-----------+-----------+
+  |sum(col3)|sum(col2)|count(col2)|func_div2()|sum(col1)|count(col1)| # |func_div3()|func_div1()|
+  +---------+---------+-----------+-----------+---------+-----------+ # +-----------+-----------+
+
+  Then, we should reset func_div's args.
+  |------------------------------hidden-----------------------------|   |-------visible---------|
+  +---------+---------+-----------+-----------+---------+-----------+ # +-----------+-----------+
+  |sum(col3)|sum(col2)|count(col2)|func_div2()|sum(col1)|count(col1)| # |func_div3()|func_div1()|
+  +---------+---------+-----------+-----------+---------+-----------+ # +-----------+-----------+
+        \        \          /                      \           /
+         \        \        /                        \         /
+          \       func_div2                          func_div3
+           \          /
+            \        /
+            func_div1
+
+  @param thd
+  @param join
+  @param avg_num number of average
+
+  @return false if successful, true if fail.
+*/
+bool FixFuncDivForAvg(THD *thd, JOIN *join, uint avg_count) {
+  uint saved_base_hidden = CountHiddenFields(*join->saved_base_fields);
+  uint saved_base_size = join->saved_base_fields->size();
+
+  uint avg_hidden_i = 0;
+  for (uint i = 0; i < saved_base_hidden; ++i) {
+    Item *item = (*join->saved_base_fields)[i];
+    if (item->type() == Item::SUM_FUNC_ITEM) {
+      Item_sum *item_sum = down_cast<Item_sum *>(item);
+      if (item_sum->sum_func() == Item_sum::AVG_FUNC) {
+        uint avg_positin = i + (++avg_hidden_i) * 2;
+        Item *now_item = (*join->fields)[avg_positin];
+        if (now_item->type() != Item::FUNC_ITEM) {
+          return true;
+        }
+        // set args
+        Item_func *func = down_cast<Item_func *>(now_item);
+        func->set_arg_resolve(thd, 0, (*join->fields)[avg_positin - 2]);
+        func->set_arg_resolve(thd, 1, (*join->fields)[avg_positin - 1]);
+      }
+    }
+  }
+
+  uint avg_i = 0;
+  for (uint i = saved_base_hidden; i < saved_base_size; i++) {
+    Item *item = (*join->saved_base_fields)[i];
+    if (item->type() == Item::SUM_FUNC_ITEM) {
+      Item_sum *item_sum = down_cast<Item_sum *>(item);
+      if (item_sum->sum_func() == Item_sum::AVG_FUNC) {
+        Item *now_item = (*join->fields)[i + 2 * avg_count];
+        if (now_item->type() != Item::FUNC_ITEM) {
+          return true;
+        }
+        // set args
+        Item_func *func = down_cast<Item_func *>(now_item);
+        uint avg_position = saved_base_hidden + avg_hidden_i * 2 + avg_i * 2;
+        func->set_arg_resolve(thd, 0, (*join->fields)[avg_position]);
+        func->set_arg_resolve(thd, 1, (*join->fields)[avg_position + 1]);
+        avg_i++;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+  Build final TemptableAggregate.
+  [1] create tmp_table_param for final TemptableAggregate, and copy properties
+      from temp_table_param of TemptableAggregate.
+  [2] alloc memory for final_aggr_sum_funcs.
+  [3] rebuild aggregation functions for final TemptableAggregate.
+  [4] re-calculate properties for final_aggr_tmp_table_param.
+  [5] create group list for final TemptableAggregate.
+  [6] create tmp_table and items for final TemptableAggregate.
+  [7] fix Item_func_div for average function.
+
+  @param thd
+  @param join
+  @param path
+  @param curr_slice current slice in ref_items.
+  @param avg_num number of average funccs.
+
+  @return false if successful, true if fail.
+*/
+AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                          uint curr_slice, uint avg_count) {
+  AccessPath *newPath = nullptr;
+  AccessPath *table_path = nullptr;
+  TABLE *tmp_table = nullptr;
+  mem_root_deque<Item *> tmp_field(thd->mem_root);
+  List_item *curr_fields = nullptr;
+  ORDER *final_order = nullptr;
+  ORDER *old_order = nullptr;
+
+  // create tmp_table_param for final aggregate.
+  Temp_table_param *final_tmp_table_param = new (thd->mem_root) Temp_table_param(join->tmp_table_param);
+  // copy from tmp_table_param.
+  final_tmp_table_param->copy_fields.clear();
+  final_tmp_table_param->pq_copy_from(path->temptable_aggregate().temp_table_param);
+  join->final_aggr_tmp_table_param = final_tmp_table_param;
+
+  if (join->alloc_ref_item_slice(thd, REF_SLICE_FINAL_AGGREGATE)) goto build_err;
+
+  // alloc new sum_func for final_aggregate
+  if (join->alloc_func_list_with_param(join->final_aggr_tmp_table_param, &join->final_aggr_sum_funcs)) goto build_err;
+
+  // rebuild final_sum_funcs
+  if (join->rebuild_final_sum_funcs(thd, curr_slice, avg_count)) goto build_err;
+
+  curr_fields = &join->tmp_fields[curr_slice];
+
+  count_field_types(join->query_block, join->final_aggr_tmp_table_param, *curr_fields,
+                    /*reset_with_sum_func=*/false, /*save_sum_fields=*/true);
+  
+  // create new group_list for temptable.
+  join->set_ref_item_slice(curr_slice);
+  old_order = path->temptable_aggregate().table->group;
+  if (old_order) final_order = CreateOrderForGroupList(thd, old_order);
+
+  // use curr_slice to build temp table for final aggregate.
+  tmp_table = create_tmp_table(
+      thd, join->final_aggr_tmp_table_param, *curr_fields, final_order,
+      /*distinct=*/false, /*save_sum_fields=*/true, join->query_block->active_options(),
+      /*rows_limit=*/HA_POS_ERROR, "<temp>");
+  if (!tmp_table) goto build_err;
+  join->final_tmp_table = tmp_table;
+
+  if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[REF_SLICE_FINAL_AGGREGATE],
+                               &tmp_field, join->query_block->m_added_non_hidden_fields))
+    goto build_err;
+
+  join->tmp_fields[REF_SLICE_FINAL_AGGREGATE] = tmp_field;
+  
+  // reset join::fields to curr_slice items.
+  join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
+
+  if (avg_count) {
+    // fix Item_func_div's args, it should be item_field
+    if (FixFuncDivForAvg(thd, join, avg_count)) goto build_err;
+    // rebuild ref_items[REF_SLICE_FINAL_AGGREGATE]
+    RebuildCurrentRefItems(thd, join, REF_SLICE_FINAL_AGGREGATE, /*is_final_aggr=*/true);
+  }
+  
+  join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+
+  // create accesspath for final aggregate.
+  table_path = NewTableScanAccessPath(thd, tmp_table, /*count_examined_rows=*/false);
+  newPath = NewTemptableAggregateAccessPath(thd, path, join->final_aggr_tmp_table_param,
+                                            tmp_table, table_path, REF_SLICE_FINAL_AGGREGATE,
+                                            /*is_final_aggr=*/true);
+
+  return newPath;
+
+build_err:
+  if (final_tmp_table_param) {
+    destroy(final_tmp_table_param);
+    final_tmp_table_param = nullptr;
+  }
+  if (tmp_table) {
+    close_tmp_table(tmp_table);
+    free_tmp_table(tmp_table);
+  }
+  return nullptr;
+}
+
+/**
+  Build Aggregate.
+  [1] create tmp_table_param for final Aggregate, and copy properties
+      from temp_table_param of Aggregate.
+  [2] alloc memory for final_aggr_sum_funcs.
+  [3] rebuild aggregation functions for final Aggregate.
+  [4] create group fields for final Aggregate.
+  [5] create items for final Aggregate.
+  [6] fix Item_func_div for average function.
+
+  @param thd
+  @param join
+  @param path
+  @param curr_slice current slice in ref_items.
+  @param avg_num number of average funccs.
+
+  @return false if successful, true if fail.
+*/
+AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                          uint curr_slice, uint avg_count) {
+  AccessPath *newPath = nullptr;
+
+  // use JOIN::tmp_table_param for final aggregate.
+  //join->tmp_table_param.pq_copy_from(path->aggregate().temp_table_param);
+  join->tmp_table_param.copy_fields.clear();
+  join->final_aggr_tmp_table_param = &join->tmp_table_param;
+
+  if (join->alloc_ref_item_slice(thd, REF_SLICE_FINAL_AGGREGATE)) goto build_err;
+
+  // alloc new sum_func for final_aggregate
+  if (join->alloc_func_list_with_param(join->aggr_tmp_table_param, &join->final_aggr_sum_funcs)) goto build_err;
+
+  // use aggregate's item to rebuild sum_func of final_aggregate and reset join::fields
+  if (join->rebuild_final_sum_funcs(thd, curr_slice, avg_count)) goto build_err;
+
+  count_field_types(join->query_block, join->final_aggr_tmp_table_param, *join->fields,
+                    /*reset_with_sum_func=*/false, /*save_sum_fields=*/false);
+
+  // reset group_feilds
+  if (!join->group_list.empty()) {
+    join->set_ref_item_slice(curr_slice);
+    ORDER *group = join->group_list.order;
+    join->final_group_feilds.clear();
+    for (; group; group = group->next) {
+      Cached_item *tmp = new_Cached_item(join->thd, *group->item);
+      if (!tmp || join->final_group_feilds.push_front(tmp)) goto build_err;
+    }
+    join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+  }
+
+  /*
+  setup_copy_fields(*join->fields, thd, join->final_aggr_tmp_table_param,
+                    join->ref_items[REF_SLICE_FINAL_AGGREGATE],
+                    &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
+  */
+  join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
+
+  if (avg_count) {
+    if (FixFuncDivForAvg(thd, join, avg_count)) goto build_err;
+    // rebuild ref_items[REF_SLICE_FINAL_AGGREGATE]
+    RebuildCurrentRefItems(thd, join, REF_SLICE_FINAL_AGGREGATE, /*is_final_aggr=*/true);
+  }
+
+  // create final aggregate AccessPath.
+  newPath = NewAggregateAccessPath(thd, path,
+                                   path->aggregate().rollup, /*is_final_aggr=*/true);
+
+  return newPath;
+
+build_err:
+  if (join->final_aggr_tmp_table_param) {
+    destroy(join->final_aggr_tmp_table_param);
+    join->final_aggr_tmp_table_param = nullptr;
+  }
+  return nullptr;
+}
+
+void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice) {
+  AccessPath *newChild = path->sort().child;
+  bool do_fixsort = false;
+  auto &new_filesort = path->sort().filesort;
+  switch (newChild->type) {
+    case AccessPath::TEMPTABLE_AGGREGATE : {
+      if (newChild->temptable_aggregate().is_final_aggr) {
+        new_filesort->tables = std::move(Mem_root_array<TABLE *>(
+          {newChild->temptable_aggregate().table}));
+        do_fixsort = true;
+      }
+      break;
+    }
+    case AccessPath::FILTER : {
+      AccessPath *filter_child = newChild->filter().child;
+      if (filter_child->type == AccessPath::TEMPTABLE_AGGREGATE &&
+          filter_child->temptable_aggregate().is_final_aggr) {
+        new_filesort->tables = std::move(Mem_root_array<TABLE *>(
+          {filter_child->temptable_aggregate().table}));
+        do_fixsort = true;
+      }
+      break;
+    }
+    case AccessPath::SORT : {
+      AccessPath *sort_child = newChild->sort().child;
+      if (sort_child->type == AccessPath::TEMPTABLE_AGGREGATE &&
+          sort_child->temptable_aggregate().is_final_aggr) {
+        new_filesort->tables = std::move(Mem_root_array<TABLE *>(
+          {sort_child->temptable_aggregate().table}));
+        do_fixsort = true;
+      }
+    }
+    default :
+      break; 
+  }
+
+  if (do_fixsort) {
+    // Redefine sort_order
+    join->set_ref_item_slice(ref_slice);
+    if (new_filesort->m_remove_duplicates) {
+      bool all_order_fields_used;
+      ORDER *desired_order = join->order.order;
+      if (desired_order == nullptr &&
+          join->qep_tab[0].filesort_pushed_order != nullptr) {
+        desired_order = join->qep_tab[0].filesort_pushed_order;
+      }
+      ORDER *order = create_order_from_distinct(
+        thd, join->ref_items[ref_slice], desired_order, &join->query_block->fields,
+        /*skip_aggregates=*/false, /*convert_bit_fields_to_long=*/false,
+        &all_order_fields_used);
+      new_filesort->make_sortorder(order, false);
+    } else {
+      new_filesort->make_sortorder(join->order.order, false);
+    }
+    join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+    
+    // Redefine addon fields for filesort    
+    if (new_filesort->m_sort_param.using_addon_fields()) {
+      new_filesort->m_sort_param.addon_fields = nullptr;
+      new_filesort->m_sort_param.m_addon_fields_status =
+          Addon_fields_status::unknown_status;
+      new_filesort->using_addon_fields();
+    }
+  }
 }

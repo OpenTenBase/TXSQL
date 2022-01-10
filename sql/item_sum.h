@@ -449,6 +449,8 @@ class Item_sum : public Item_func {
     SUM_DISTINCT_FUNC,    // SUM (DISTINCT)
     AVG_FUNC,             // AVG
     AVG_DISTINCT_FUNC,    // AVG (DISTINCT)
+    PX_AVG_FUNC,          // PX_AVG
+    PX_AVG_DISTINCT_FUNC, // PX_AVG(DISTINCT)
     MIN_FUNC,             // MIN
     MAX_FUNC,             // MAX
     STD_FUNC,             // STD/STDDEV/STDDEV_POP
@@ -784,6 +786,12 @@ class Item_sum : public Item_func {
   /// Non-const version
   virtual Item_sum *unwrap_sum() { return this; }
 
+  bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
+
+  virtual Item_sum **pq_rebuild_item(THD *, Query_block *) { return nullptr; }
+
+  virtual void pq_fix_result_type(Item_result) {}
+
  protected:
   /*
     Raise an error (ER_NOT_SUPPORTED_YET) with the detail that this
@@ -975,6 +983,7 @@ class Item_sum_num : public Item_sum {
     return get_time_from_numeric(ltime); /* Decimal or real */
   }
   void reset_field() override;
+  bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 };
 
 class Item_sum_int : public Item_sum_num {
@@ -1057,6 +1066,9 @@ class Item_sum_sum : public Item_sum_num {
   void update_field() override;
   const char *func_name() const override { return "sum"; }
   Item *copy_or_same(THD *thd) override;
+  bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
+  Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
+  void pq_fix_result_type(Item_result item_result) override { hybrid_type = item_result; }
 };
 
 class Item_sum_count : public Item_sum_int {
@@ -1107,6 +1119,7 @@ class Item_sum_count : public Item_sum_int {
   void update_field() override;
   const char *func_name() const override { return "count"; }
   Item *copy_or_same(THD *thd) override;
+  Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
 };
 
 /* Item to get the value of a stored sum function */
@@ -1391,6 +1404,7 @@ class Item_sum_avg final : public Item_sum_sum {
     m_frame_null_count = 0;
     Item_sum_sum::cleanup();
   }
+  Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
 };
 
 class Item_sum_variance;
@@ -1733,6 +1747,7 @@ class Item_sum_hybrid : public Item_sum {
   Item *copy_or_same(THD *thd) override;
   bool check_wf_semantics1(THD *thd, Query_block *select,
                            Window_evaluation_requirements *r) override;
+  bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 
  private:
   /*
@@ -1757,6 +1772,8 @@ class Item_sum_min final : public Item_sum_hybrid {
       : Item_sum_hybrid(thd, item) {}
   enum Sumfunctype sum_func() const override { return MIN_FUNC; }
   const char *func_name() const override { return "min"; }
+  Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
+  bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 
  private:
   Item_sum_min *clone_hybrid(THD *thd) const override;
@@ -1771,6 +1788,8 @@ class Item_sum_max final : public Item_sum_hybrid {
       : Item_sum_hybrid(thd, item) {}
   enum Sumfunctype sum_func() const override { return MAX_FUNC; }
   const char *func_name() const override { return "max"; }
+  Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
+  bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 
  private:
   Item_sum_max *clone_hybrid(THD *thd) const override;

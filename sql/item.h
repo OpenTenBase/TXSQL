@@ -1055,6 +1055,8 @@ class Item : public Parse_tree_node {
   ~Item() override = default;
 #endif
 
+  virtual bool pq_copy_item(THD *thd, Query_block *select, Item *item);
+
  private:
   /*
     Hide the contextualize*() functions: call/override the itemize()
@@ -5572,6 +5574,8 @@ class Item_result_field : public Item {
     raise_numeric_overflow(unsigned_flag ? "DECIMAL UNSIGNED" : "DECIMAL");
     return E_DEC_OVERFLOW;
   }
+
+  // bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 };
 
 class Item_ref : public Item_ident {

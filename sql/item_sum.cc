@@ -3358,6 +3358,9 @@ void Item_sum_sum::reset_field() {
     if (!arg_val)  // Null
       arg_val = &decimal_zero;
     result_field->store_decimal(arg_val);
+  } else if (hybrid_type == INT_RESULT){
+    longlong nr = args[0]->val_int();
+    int8store(result_field->field_ptr(), nr);
   } else {
     assert(hybrid_type == REAL_RESULT);
     double nr = args[0]->val_real();  // Nulls also return 0
@@ -3455,6 +3458,17 @@ void Item_sum_sum::update_field() {
         result_field->set_notnull();
       }
     }
+  } else if (hybrid_type == INT_RESULT) {
+    longlong old_nr;
+    uchar *res = result_field->field_ptr();
+
+    old_nr = sint8korr(res);
+    longlong nr = args[0]->val_int();
+    if (!args[0]->null_value) {
+      old_nr += nr;
+      result_field->set_notnull();
+    }
+    int8store(res, old_nr);
   } else {
     uchar *res = result_field->field_ptr();
 

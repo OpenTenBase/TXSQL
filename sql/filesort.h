@@ -31,6 +31,7 @@
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "my_table_map.h"
+#include "sql/join_optimizer/access_path.h"
 #include "sql/sort_param.h"
 
 class Addon_fields;
@@ -49,6 +50,9 @@ enum class Addon_fields_status;
   Sorting related info.
 */
 class Filesort {
+  friend void FixSortAccessPathForAggrInject(THD *thd, JOIN *join,
+    AccessPath *path, int ref_slice);
+ 
  public:
   THD *m_thd;
   /// The tables we are sorting.

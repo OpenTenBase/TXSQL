@@ -351,6 +351,7 @@ SET(SQL_PX_SOURCES
   parallel_execution/px_receiver_merge.cc
   parallel_execution/px_sender.cc
   parallel_execution/px_exchange_channel.cc
+  parallel_execution/px_item.cc
 )
 
 SET(SQL_SHARED_SOURCES

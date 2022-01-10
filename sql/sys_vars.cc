@@ -8803,4 +8803,10 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     "partition_table_skip_limit",
     "The partion key doesn't need to be part of all unique index if setting to true",
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
+
+static Sys_var_bool Sys_cdb_parallel_query_enable(
+  "cdb_parallel_query_enable",
+  "parallel query switch. Can be ON/OFF.",
+  SESSION_VAR(cdb_parallel_query_enable), CMD_LINE(OPT_ARG),
+  DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 /* Changes from txsql end. */

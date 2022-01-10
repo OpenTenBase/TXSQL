@@ -225,6 +225,8 @@ class Temp_table_param {
         m_window(nullptr) {}
 
   void cleanup() { copy_fields.clear(); }
+
+  void pq_copy_from(Temp_table_param *orig_param);
 };
 
 #endif  // TEMP_TABLE_PARAM_INCLUDED
