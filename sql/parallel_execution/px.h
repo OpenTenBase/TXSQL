@@ -59,7 +59,7 @@ enum PX_handle_status { NOT_YET_STARTED = 0, STARTED, KILLED };
 class PX_worker_handle {
  public:
   PX_worker_handle(THD *thd) : m_thd(thd) {}
-  ~PX_worker_handle() {}
+  virtual ~PX_worker_handle() {}
 
   // FIXME: the worker thread may have switched to the next task.
   virtual PX_handle_status check_worker_status() = 0;

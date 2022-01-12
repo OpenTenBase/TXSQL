@@ -35,6 +35,7 @@
 #include "mysqld_error.h"                               // ER_*
 #include "sql/sql_list.h"
 #include "sql_string.h"
+#include "sql/parallel_execution/px_mq.h"
 
 class Item;
 class Item_subselect;
@@ -44,6 +45,10 @@ class THD;
 struct CHARSET_INFO;
 template <class Element_type>
 class mem_root_deque;
+
+struct TABLE_LIST;
+class Field;
+class TABLE;
 
 /*
   This is used to get result from a query

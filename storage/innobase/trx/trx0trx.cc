@@ -1066,7 +1066,6 @@ static void trx_resurrect(trx_rseg_t *rseg) {
  transactions to be rolled back or cleaned up are built based on the
  undo log lists. */
 void trx_lists_init_at_db_start(void) {
-  if (ibddump_enabled) return;
   ut_a(srv_is_being_started);
 
   /* Look through the rollback segments in the TRX_SYS for

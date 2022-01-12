@@ -346,6 +346,11 @@ SET(SQL_GIS_SOURCES
 SET(SQL_PX_SOURCES
   parallel_execution/px.cc
   parallel_execution/px_mq.cc
+  parallel_execution/px_exchange_info.cc
+  parallel_execution/px_receiver.cc
+  parallel_execution/px_receiver_merge.cc
+  parallel_execution/px_sender.cc
+  parallel_execution/px_exchange_channel.cc
 )
 
 SET(SQL_SHARED_SOURCES

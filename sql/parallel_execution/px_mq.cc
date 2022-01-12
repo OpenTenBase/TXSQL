@@ -31,20 +31,41 @@
   } while (0);
 
 /* If the size isn't MAXALIGN'd, just discard the odd bytes. */
-PX_mq::PX_mq(size_t ring_size, char *ring_buffer)
+PX_mq::PX_mq(size_t ring_size, malloc_func_t malloc_func, free_func_t free_func)
     : m_receiver(),
       m_sender(),
       m_bytes_read(),
       m_bytes_written(),
       m_ring_size(MAXALIGN_DOWN(ring_size)),
       m_detached(),
-      m_ring_buffer(ring_buffer) {
+      m_ring_buffer(nullptr),
+      m_malloc_func(malloc_func),
+      m_free_func(free_func) {
   /* Minimum queue size is enough for header and at least one chunk of data. */
   assert(m_ring_size >= MAXIMUM_ALIGNOF);
   SpinLockInit(key_px_mq_lock, &m_mutex);
 }
 
-PX_mq::~PX_mq() { SpinLockFree(&m_mutex); }
+bool PX_mq::init() {
+  assert(!m_ring_buffer);
+  m_ring_buffer = (char *)(*m_malloc_func)(m_ring_size);
+
+  if (!m_ring_buffer) {
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "(MQ::init)");
+    return true;
+  }
+
+  return false;
+}
+
+PX_mq::~PX_mq() {
+  SpinLockFree(&m_mutex);
+
+  if (m_ring_buffer) {
+    (*m_free_func)(m_ring_buffer);
+    m_ring_buffer = nullptr;
+  }
+}
 
 void PX_mq::set_receiver(PX_proc *proc) {
   PX_proc *sender;
