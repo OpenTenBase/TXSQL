@@ -247,9 +247,10 @@ TEST_F(PX_mq_test, SingleThread) {
   // 6161xxxxxxxxxx 0000000000000000 0400000000000000 34343434xxxxxxxx
 
   const size_t RING_SIZE = 32;
-  std::unique_ptr<char> ptr(new char[RING_SIZE]);
-  PX_mq mq(RING_SIZE, ptr.get());
-  memset(ptr.get(), 0xff, RING_SIZE);
+  //std::unique_ptr<char> ptr(new char[RING_SIZE]);
+  PX_mq mq(RING_SIZE, malloc, free);
+  mq.init();
+  //memset(ptr.get(), 0xff, RING_SIZE);
 
   PX_proc proc_s(&thd_s);
   PX_proc proc_r(&thd_r);
@@ -368,8 +369,9 @@ TEST_F(PX_mq_test, Concurrent) {
   Mock_worker_handle receiver_handle(NOT_YET_STARTED);
 
   const size_t RING_SIZE = 1024;
-  std::unique_ptr<char> ptr(new char[RING_SIZE]);
-  PX_mq mq(RING_SIZE, ptr.get());
+  //std::unique_ptr<char> ptr(new char[RING_SIZE]);
+  PX_mq mq(RING_SIZE, malloc, free);
+  mq.init();
 
   Sender_thread sender;
   Receiver_thread receiver;

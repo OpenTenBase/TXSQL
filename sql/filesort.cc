@@ -110,6 +110,7 @@
 #include "sql/thr_malloc.h"
 #include "sql/tztime.h"
 #include "sql_string.h"
+#include "sql/parallel_execution/px_receiver_merge.h"
 #include "template_utils.h"
 
 using std::max;
@@ -667,6 +668,7 @@ Filesort::Filesort(THD *thd, Mem_root_array<TABLE *> tables_arg,
                    bool unwrap_rollup)
     : m_thd(thd),
       tables(std::move(tables_arg)),
+      m_order(order),
       keep_buffers(keep_buffers_arg),
       limit(limit_arg),
       sortorder(nullptr),
@@ -2410,4 +2412,69 @@ void change_double_for_sort(double nr, uchar *to) {
   swap(to[2], to[5]);
   swap(to[3], to[4]);
 #endif
+}
+
+/**
+  compare the record of two workers in PX_receiver_merge
+  @param a the ID of first worker
+  @param b the ID of second worker
+  @param arg PX_receiver_merge object
+  @return
+    true if a's record is less than b's record;
+    false otherwise.
+*/
+
+bool heap_compare_records(int a, int b, void *arg) {
+  assert(arg);
+  bool convert_res;
+
+  PX_receiver_merge *merge_sort = static_cast<PX_receiver_merge *>(arg);
+  const Filesort *filesort = merge_sort->get_filesort();
+  THD *thd = merge_sort->get_thd();
+  assert(filesort && current_thd == thd);
+
+  uchar *key_0 = merge_sort->get_key(0);
+  uchar *key_1 = merge_sort->get_key(1);
+
+  Sort_param *sort_param = merge_sort->get_sort_param();
+  int key_len = 0, compare_len = 0;
+
+  if (sort_param) {
+    key_len = sort_param->max_record_length() + 1;
+    compare_len = sort_param->max_compare_length();
+  }
+
+  /*
+    The compare process contains the following three steps:
+    1. copy to table->record[0]
+    2. add row_id info
+    3. generate sort key
+  */
+  mq_record_st *compare_a = merge_sort->get_record(a);
+  convert_res = merge_sort->decompact_row(
+      compare_a->m_data, compare_a->m_length);
+
+  if (!convert_res) return true;
+
+  if (sort_param) {
+    sort_param->make_sortkey(key_0, key_len, filesort->tables);
+  }
+
+  mq_record_st *compare_b = merge_sort->get_record(b);
+  convert_res = merge_sort->decompact_row(
+      compare_b->m_data, compare_b->m_length);
+
+  if (!convert_res) return true;
+
+  if (sort_param) {
+    sort_param->make_sortkey(key_1, key_len, filesort->tables);
+  }
+
+  if (sort_param != nullptr && sort_param->using_varlen_keys()) {
+    return cmp_varlen_keys(sort_param->local_sortorder, sort_param->use_hash, key_0,
+                      key_1);
+  } else {
+    int cmp = memcmp(key_0, key_1, compare_len);
+    return cmp < 0;
+  }
 }

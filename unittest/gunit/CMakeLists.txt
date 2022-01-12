@@ -306,6 +306,7 @@ SET(SERVER_TESTS
   xid_extract
   binlog_test
   px_mq
+  px_exchange
 )
 
 DISABLE_GOOGLEMOCK_UNINITIALIZED_WARNING(

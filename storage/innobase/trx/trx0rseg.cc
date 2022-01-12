@@ -250,7 +250,6 @@ static trx_rseg_t *trx_rseg_physical_initialize(trx_rseg_t *rseg,
                                                 trx_id_t gtid_trx_no,
                                                 mtr_t *mtr,
                                                 purge_pq_t *pre_purge_queue) {
-  if (ibddump_enabled) return nullptr;
   auto rseg_header =
       trx_rsegf_get_new(rseg->space_id, rseg->page_no, rseg->page_size, mtr);
 

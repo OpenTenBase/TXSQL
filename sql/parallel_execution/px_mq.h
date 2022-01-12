@@ -33,7 +33,8 @@ enum PX_mq_result {
 
 class PX_mq {
  public:
-  PX_mq(size_t ring_size, char *ring_buffer);
+  PX_mq(size_t ring_size, malloc_func_t malloc_func, free_func_t free_func);
+  bool init();
   ~PX_mq();
 
   void set_receiver(PX_proc *proc);
@@ -56,6 +57,9 @@ class PX_mq {
   Size m_ring_size;
   bool m_detached;
   char *m_ring_buffer;
+
+  malloc_func_t m_malloc_func;
+  free_func_t m_free_func;
 };
 
 class PX_mq_handle {
