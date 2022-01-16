@@ -8051,8 +8051,13 @@ static mysql_row_templ_t *build_template_field(
   templ->mbminlen = col->get_mbminlen();
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
-  templ->col_comp_algorithm = field->comp_col_algo;
-  templ->is_compressed = (field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED);
+  /* intrinsic table not compressed */
+  if (!clust_index->table->is_intrinsic()) {
+    templ->col_comp_algorithm = field->comp_col_algo;
+    templ->is_compressed = (field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED);
+  } else {
+    templ->is_compressed = false;
+  }
 
   if (!index->is_clustered() && templ->rec_field_no == ULINT_UNDEFINED) {
     prebuilt->need_to_access_clustered = TRUE;

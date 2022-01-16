@@ -80,7 +80,9 @@ ha_heap::ha_heap(handlerton *hton, TABLE_SHARE *table_arg)
       file(0),
       records_changed(0),
       key_stat_version(0),
-      single_instance(0) {}
+      single_instance(0) {
+        ref_length = sizeof(HP_HEAP_POSITION);
+      }
 
 /*
   Hash index statistics is updated (copied from HP_KEYDEF::hash_buckets to
