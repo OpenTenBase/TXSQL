@@ -5818,6 +5818,7 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_stateme
     parser_state->m_input.m_compute_digest = true;
 
   LEX *lex = thd->lex;
+  lex->use_px = false;
   const char *found_semicolon = nullptr;
 
   bool err = thd->get_stmt_da()->is_error();

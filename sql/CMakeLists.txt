@@ -352,6 +352,10 @@ SET(SQL_PX_SOURCES
   parallel_execution/px_sender.cc
   parallel_execution/px_exchange_channel.cc
   parallel_execution/px_item.cc
+  parallel_execution/px_dfo.cc
+  parallel_execution/px_executor.cc
+  parallel_execution/px_workerpool.cc
+  parallel_execution/my_thread_barrier.cc
 )
 
 SET(SQL_SHARED_SOURCES

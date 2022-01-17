@@ -9987,6 +9987,8 @@ ER_REYCLE_BIN_INVALID_TIME
 
 reserved-error-section 5000 5999
 
+ER_PX_WORKER_ERROR
+  eng "PX worker error ('%s') exit. "
 
 ################################################################################
 # DO NOT add messages for the error-log to this file;

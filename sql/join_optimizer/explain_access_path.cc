@@ -1139,16 +1139,18 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       children.push_back({path->update_rows().child});
       break;
     }
-    case AccessPath::PX_GATHER:
-      description.push_back(string("PX_Gather"));
-      children.push_back({path->px_gather().child});
+    case AccessPath::PX_RECEIVE:
+      description.push_back(
+          string("Exchange Receive dop ") + ")"); //TODO: add dop.
+      children.push_back({path->px_receiver().child});
       break;
     case AccessPath::PX_SEND:
-      description.push_back(string("PX_Send"));
+      description.push_back(
+          string("Exchange Send dop ") + ")"); //TODO: add dop.
       children.push_back({path->px_send().child});
       break;
   }
-  if (path->type == AccessPath::PX_GATHER ||
+  if (path->type == AccessPath::PX_RECEIVE ||
       path->type == AccessPath::PX_SEND) {
     return {description, children};
   }

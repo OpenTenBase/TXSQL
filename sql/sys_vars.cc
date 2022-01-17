@@ -8805,14 +8805,21 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 
 static Sys_var_bool Sys_cdb_parallel_query_enable(
-  "cdb_parallel_query_enable",
-  "parallel query switch. Can be ON/OFF.",
-  SESSION_VAR(cdb_parallel_query_enable), CMD_LINE(OPT_ARG),
-  DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
-/* Changes from txsql end. */
+    "cdb_parallel_query_enable",
+    "parallel query switch. Can be ON/OFF.",
+    SESSION_VAR(cdb_parallel_query_enable), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
-static Sys_var_bool Sys_exchange_inject(
-    "exchange_inject",
-    "exchange_inject"
-    "exchange_inject",
-    SESSION_VAR(exchange_inject), CMD_LINE(OPT_ARG), DEFAULT(false));
+static Sys_var_bool Sys_cdb_parallel_execution_enabled(
+    "cdb_parallel_execution_enabled",
+    "Turn on or turn off the parallel execution.",
+    SESSION_VAR(cdb_parallel_execution_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_ulong Sys_cdb_parallel_degree(
+    "cdb_parallel_degree", "cdb parallel degree.",
+    NON_PERSIST SESSION_VAR(cdb_parallel_degree),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, ULONG_MAX),
+    DEFAULT(4), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+

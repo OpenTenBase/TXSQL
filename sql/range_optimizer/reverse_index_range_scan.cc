@@ -119,14 +119,10 @@ bool ReverseIndexRangeScanIterator::Init() {
     return true;
   }
 
-  DBUG_EXECUTE_IF("px_force_execute", {
-    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
-                     PX_RANGE_SCAN, m_index, nullptr, true)) {
-      return true;
-    }
+  if (m_parallel_scan) {
     table()->file->px_worker_init(thd()->px_scan_ctx);
     return false;
-  });
+  }
 
   return false;
 }
@@ -134,7 +130,7 @@ bool ReverseIndexRangeScanIterator::Init() {
 int ReverseIndexRangeScanIterator::Read() {
   DBUG_TRACE;
 
-  DBUG_EXECUTE_IF("px_force_execute", {
+  if (m_parallel_scan) {
     int result = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx);
     if (result == 0) {
       if (m_examined_rows != nullptr) {
@@ -143,7 +139,7 @@ int ReverseIndexRangeScanIterator::Read() {
       return 0;
     }
     return HandleError(result);
-  });
+  }
 
   /* The max key is handled as follows:
    *   - if there is NO_MAX_RANGE, start at the end and move backwards

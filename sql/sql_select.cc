@@ -126,6 +126,11 @@
 #include "sql/temp_table_param.h"
 #include "sql/thd_raii.h"
 #include "sql/window.h"  // ignore_gaf_const_opt
+#include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
+#include "sql/parallel_execution/px_executor.h"  // PX_coordinator
+#include "sql/parallel_execution/px_workerpool.h"  // worker_pool
+#include "sql/sql_db.h"  // mysql_change_db
+#include "sql/log.h"
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_lock.h"
@@ -437,7 +442,7 @@ bool Sql_cmd_dml::prepare(THD *thd) {
   }
 
   // Perform a coarse statement-specific privilege check.
-  if (precheck(thd)) goto err;
+  if (!thd->m_is_worker && precheck(thd)) goto err;
 
   // Trigger out_of_memory condition inside open_tables_for_query()
   DBUG_EXECUTE_IF("sql_cmd_dml_prepare__out_of_memory",
@@ -868,8 +873,11 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 
   // We know by now that execution will complete (successful or with error)
   lex->set_exec_completed();
+
   if (lex->is_explain()) {
     if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
+  } else if (lex->use_px) {
+    if (unit->execute_in_parallel(thd)) return true;
   } else {
     if (unit->execute(thd)) return true;
 
@@ -878,6 +886,8 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
         return false;
     }
   }
+
+  // If execute in parallel finished and check that 
 
   return false;
 }
@@ -1667,6 +1677,28 @@ static void destroy_sj_tmp_tables(JOIN *join) {
   join->sj_tmp_tables.clear();
 }
 
+/*
+  Destroy all temporary tables created by exchange
+*/
+
+static void destroy_exchange_tmp_tables(JOIN *join) {
+  List_iterator<TABLE> it(join->exchange_tmp_tables);
+  TABLE *table;
+  while ((table = it++)) {
+    /*
+      SJ-Materialization tables are initialized for either sequential reading
+      or index lookup, DuplicateWeedout tables are not initialized for read
+      (we only write to them), so need to call ha_index_or_rnd_end.
+    */
+    if (table->file != nullptr) {
+      table->file->ha_index_or_rnd_end();
+    }
+    close_tmp_table(table);
+    free_tmp_table(table);
+  }
+  join->exchange_tmp_tables.clear();
+}
+
 /**
   Remove all rows from all temp tables used by NL-semijoin runtime
 
@@ -1682,6 +1714,23 @@ bool JOIN::clear_sj_tmp_tables() {
   }
   return false;
 }
+
+/**
+  Remove all rows from all temp tables used by exchange
+
+  All rows must be removed from all temporary tables before every join
+  re-execution.
+*/
+
+bool JOIN::clear_exchange_tmp_tables() {
+  List_iterator<TABLE> it(exchange_tmp_tables);
+  TABLE *table;
+  while ((table = it++)) {
+    if (table->empty_result_table()) return true; /* purecov: inspected */
+  }
+  return false;
+}
+
 
 /// Empties all correlated materialized derived tables
 bool JOIN::clear_corr_derived_tmp_tables() {
@@ -1729,6 +1778,7 @@ void JOIN::reset() {
     }
   }
   clear_sj_tmp_tables();
+  clear_exchange_tmp_tables();
   set_ref_item_slice(REF_SLICE_SAVED_BASE);
 
   if (qep_tab) {
@@ -1867,6 +1917,7 @@ void JOIN::destroy() {
   if (const_tables > 0) query_block->update_used_tables();
 
   destroy_sj_tmp_tables(this);
+  destroy_exchange_tmp_tables(this);
 
   List_iterator<Semijoin_mat_exec> sjm_list_it(sjm_exec_list);
   Semijoin_mat_exec *sjm;
@@ -1912,7 +1963,7 @@ void JOIN::destroy() {
       final_tmp_table->file->ha_index_or_rnd_end();
     }
     close_tmp_table(final_tmp_table);
-    free_tmp_table(final_tmp_table);
+    // free_tmp_table(final_tmp_table);
   }
   if (final_aggr_tmp_table_param) {
     final_aggr_tmp_table_param->cleanup();
@@ -3484,20 +3535,20 @@ void QEP_TAB::cleanup() {
 
     close_tmp_table(t);
   }
-  if (exchange_send && exchange_send->size()) {
-    assert(exchange_gather->size() == exchange_send->size());
-    for (auto exchanges : {exchange_send, exchange_gather}) {
-      for (auto exchange_info : *exchanges) {
-        if (exchange_info->table != nullptr &&
-            exchange_info->temp_table_param != nullptr) {
-          close_tmp_table(exchange_info->table);
-          free_tmp_table(exchange_info->table);
-          destroy(exchange_info->temp_table_param);
-          exchange_info->temp_table_param = nullptr;
-        }
-      }
-    }
-  }
+  // if (exchange_send && exchange_send->size()) {
+  //   DBUG_ASSERT(exchange_gather->size() == exchange_send->size());
+  //   for (auto exchanges : {exchange_send, exchange_gather}) {
+  //     for (auto exchange_info : *exchanges) {
+  //       if (exchange_info->table != nullptr &&
+  //           exchange_info->temp_table_param != nullptr) {
+  //         close_tmp_table(current_thd, exchange_info->table);
+  //         free_tmp_table(exchange_info->table);
+  //         destroy(exchange_info->temp_table_param);
+  //         exchange_info->temp_table_param = nullptr;
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 void QEP_shared_owner::qs_cleanup() {

@@ -127,6 +127,7 @@ class Item_func : public Item_result_field {
   inline Item **arguments() const {
     return (argument_count() > 0) ? args : nullptr;
   }
+  virtual bool check_safe() { return true; }
 
  protected:
   /*
@@ -534,6 +535,16 @@ class Item_func : public Item_result_field {
                 Item_transformer transformer, uchar *arg_t) override;
   void traverse_cond(Cond_traverser traverser, void *arg,
                      traverse_order order) override;
+
+  /*
+    Check compatible for parallel execution, we forbid the item which can't
+    be evaluated in the query.
+  */
+  bool check_compat_for_parallel(uchar *) override {
+    if (type() == FUNC_ITEM)
+      if (!check_safe()) return true;
+    return false;
+  }
 
   /**
      Throw an error if the input double number is not finite, i.e. is either
@@ -2047,6 +2058,7 @@ class Item_func_last_insert_id final : public Item_int_func {
     func_arg->banned_function_name = func_name();
     return true;
   }
+  virtual bool check_safe() override { return false; }
 };
 
 class Item_func_benchmark final : public Item_int_func {

@@ -356,7 +356,7 @@ class JOIN {
   /// Expected cost of windowing;
   double windowing_cost{0.0};
   mem_root_deque<Item *> *fields;
-  mem_root_deque<Item *> *saved_base_fields;
+  mem_root_deque<Item *> *saved_base_fields{nullptr};
   List<Cached_item> group_fields{};
   List<Cached_item> final_group_feilds{};
   List<Cached_item> group_fields_cache{};
@@ -613,6 +613,8 @@ class JOIN {
 
   /* Temporary tables used to weed-out semi-join duplicates */
   List<TABLE> sj_tmp_tables{};
+  /* Temporary tables used to set in exchange sender and receiver. */
+  List<TABLE> exchange_tmp_tables{};
   List<Semijoin_mat_exec> sjm_exec_list{};
   /* end of allocation caching storage */
 
@@ -756,6 +758,7 @@ class JOIN {
   table_map calculate_deps_of_remaining_lateral_derived_tables(
       table_map plan_tables, uint idx) const;
   bool clear_sj_tmp_tables();
+  bool clear_exchange_tmp_tables();
   bool clear_corr_derived_tmp_tables();
   void clear_hash_tables() { ++hash_table_generation; }
 
@@ -916,6 +919,7 @@ private:
 
     @returns false on success, true on failure
   */
+ public:
   bool create_intermediate_table(QEP_TAB *tab,
                                  const mem_root_deque<Item *> &tmp_table_fields,
                                  ORDER_with_src &tmp_table_group,
@@ -939,6 +943,7 @@ private:
     E.g.,: SELECT DISTINCT t1.a FROM t1,t2 WHERE t1.b=t2.b
     In this case we can stop scanning t2 when we have found one t1.a
   */
+ private:
   void optimize_distinct();
 
   /**

@@ -94,6 +94,7 @@
 #include "thr_lock.h"  // thr_lock_type
 #include "violite.h"   // SSL_type
 #include "sql/recycle_bin.h"
+#include "sql/parallel_execution/px_exchange_info.h"
 
 class Alter_info;
 class Event_parse_data;
@@ -670,6 +671,7 @@ class Query_expression {
   Query_block *slave;
 
  private:
+  PX_exchange_info *exchange_info{nullptr};
   /**
     Marker for subqueries in WHERE, HAVING, ORDER BY, GROUP BY and
     SELECT item lists.
@@ -902,6 +904,10 @@ class Query_expression {
    */
   bool force_create_iterators(THD *thd);
 
+  bool create_single_thread_iterators(THD *thd);
+
+  bool init_exchange_info(THD *thd);
+
   /// See optimize().
   bool unfinished_materialization() const {
     return !m_query_blocks_to_materialize.empty();
@@ -976,6 +982,18 @@ class Query_expression {
   bool finalize(THD *thd);
 
   /**
+    Traverse access paths and add exchange operator to acess paths, then split
+    the whole access path tree into multiple dfos, schedule the multiple dfos
+    among created physical threads.
+
+    Except that, MQ items' ref must be added into whole path.
+
+    @param thd Thread handle.
+    @param path root access path for traversing.
+  */
+  bool parallelize(THD *thd, AccessPath *path);
+
+  /**
     Do everything that would be needed before running Init() on the root
     iterator. In particular, clear out data from previous execution iterations,
     if needed.
@@ -984,6 +1002,7 @@ class Query_expression {
 
   bool ExecuteIteratorQuery(THD *thd);
   bool execute(THD *thd);
+  bool execute_in_parallel(THD *thd);
   bool explain(THD *explain_thd, const THD *query_thd);
   void cleanup(THD *thd, bool full);
   /**
@@ -992,6 +1011,7 @@ class Query_expression {
   */
   void destroy();
 
+  bool has_user_vars() const;
   void print(const THD *thd, String *str, enum_query_type query_type);
   bool accept(Select_lex_visitor *visitor);
 
@@ -1037,6 +1057,11 @@ class Query_expression {
                            Query_result_interceptor *old_result);
   bool set_limit(THD *thd, Query_block *provider);
   bool has_any_limit() const;
+
+  // bool px_single_thread_mode(THD *thd) const {
+  //   return !thd->variables.cdb_parallel_execution_enabled &&
+  //     thd->lex->only_one_exchange();
+  // }
 
   inline bool is_union() const;
   bool union_needs_tmp_table(LEX *lex);
@@ -2213,6 +2238,9 @@ class Query_block {
   /// Hidden items added during optimization
   /// @note that using this means we modify resolved data during optimization
   uint hidden_items_from_optimization{0};
+
+  /// Whether the query block has user_vars
+  bool has_user_vars{false};
 
  private:
   friend class Query_expression;
@@ -3993,6 +4021,7 @@ struct LEX : public Query_tables_list {
   bool grant_privilege;
   uint slave_thd_opt, start_transaction_opt;
   int select_number;  ///< Number of query block (by EXPLAIN)
+  int m_exchange_number;  ///< Number of exchange injected.
   uint8 create_view_algorithm;
   uint8 create_view_check;
   /**
@@ -4042,6 +4071,9 @@ struct LEX : public Query_tables_list {
   bool has_udf() const { return m_has_udf; }
   st_parsing_options parsing_options;
   Alter_info *alter_info;
+
+  bool is_from_ps;
+  bool is_from_sp;
   /* Prepared statements SQL syntax:*/
   LEX_CSTRING prepared_stmt_name; /* Statement name (in all queries) */
   /*
@@ -4163,6 +4195,16 @@ struct LEX : public Query_tables_list {
            (sroutines != nullptr && !sroutines->empty());
   }
 
+  /// Compatiable code, only support one exchange currently.
+  bool only_one_exchange() const { return thd->lex->m_exchange_number == 1; }
+  /// Mark a LEX can not be executed parallel if
+  ///  1. the LEX is not SELECT command, or
+  ///  2. it's not a dynamic SQL, it's in PS/SP, or
+  ///  3. it has subquery.
+  ///  4. currently handle only exchange number equals 1.
+  ///  5. query which has at least one table.
+  bool check_px_execution() const;
+
  public:
   st_sp_chistics sp_chistics;
 
@@ -4248,6 +4290,8 @@ struct LEX : public Query_tables_list {
   Table_ident *clear_table_name;
 
   bool clear_all_name;
+  // Whether can use parallel execution.
+  bool use_px{false};
 
   LEX();
 

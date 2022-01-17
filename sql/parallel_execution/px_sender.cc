@@ -11,14 +11,19 @@
 
 #define PX_HIDDEN_FIELD_COUNT 4
 
-PX_sender::PX_sender(uint sender_no, PX_exchange_info *pei, THD *thd, TABLE *table,
-    mem_root_deque<Item *> *send_fields, mem_root_deque<Item *> *shuffle_key)
-    : m_sender_no(sender_no),
-      m_pei(pei),
+PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
+    unique_ptr_destroy_only<RowIterator> source, TABLE *table,
+    mem_root_deque<Item *> *send_fields, mem_root_deque<Item *> *shuffle_key,
+    Temp_table_param *temp_table_param)
+    : RowIterator(thd),
       m_thd(thd),
+      m_sender_no(thd->worker_id),
+      m_pei(pei),
+      m_source(move(source)),
       m_table(table),
       m_send_fields(send_fields),
-      m_reshuffle_key(shuffle_key) {}
+      m_reshuffle_key(shuffle_key),
+      m_temp_table_param(temp_table_param) {}
 
 bool PX_sender::init() {
   assert(m_pei);
@@ -57,7 +62,13 @@ bool PX_sender::attach() {
     return true;
   }
 
-  return false;
+  for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
+    Field *field = *pfield;
+    if (bitmap_is_set(m_table->read_set, field->field_index()))
+      m_fields.push_back(field);
+  }
+
+  return m_source->Init();;
 }
 
 /**
@@ -75,9 +86,26 @@ bool PX_sender::send() {
     2 * 2^12(4096) / 8 = 2^10 bytes. We can use 2 bytes to store
     the skip flag len info.
   */
+  bool result =false;
   uint16 null_len = 0;
   uint32 total_copy_bytes = 0;
+  result = m_source->Read();
   auto send_format = m_pei->format();
+
+  if (m_temp_table_param && copy_fields_and_funcs(m_temp_table_param, thd()))
+    return true; /* purecov: inspected */
+
+  // For some reason, items might not store information in fields. (testcase
+  // type_bit_innodb:80) we need to do this manually.
+  // for (Item *item : *m_send_fields) {
+  //   Field *result_field = item->get_result_field();
+  //   if (item->const_item() && result_field) {
+  //     item->save_in_field(result_field, true);
+  //   }
+  // }
+  // for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
+  //   Field *field = *pfield;
+  // }
 
   switch (send_format) {
    case PX_COMPACT_ROW: {
@@ -85,7 +113,7 @@ bool PX_sender::send() {
        return true;
      }
 
-     if (send_compact_row()) {
+     if (!result && send_compact_row()) {
        m_pei->detach_sender(m_sender_no);
        return true;
      }
@@ -96,7 +124,7 @@ bool PX_sender::send() {
      break;
   }
 
-  return false;
+  return result;
 }
 
 bool PX_sender::send_compact_row() {
@@ -202,17 +230,63 @@ bool PX_sender::make_compact_row(uint16 &null_len, uint32 &total_copy_bytes) {
 
   uint i, j;
   uint null_num = 0;
-  Field *result_field = nullptr;
+  // Field *result_field = nullptr;
   int fields_idx = PX_HIDDEN_FIELD_COUNT;
 
-  /*
-    Skip the send of Item::NULL_ITEM or const_string_item
-    in compact row format.
-  */
-  for (Item *item : *m_send_fields) {
-    if (item->type() == Item::NULL_ITEM || item->type() == Item::STRING_ITEM) {
-      assert(item->const_item() || item->basic_const_item());
+  // /*
+  //   Skip the send of Item::NULL_ITEM or const_string_item
+  //   in compact row format.
+  // */
+  // for (Item *item : *m_send_fields) {
+  //   if (item->type() == Item::NULL_ITEM || item->type() == Item::STRING_ITEM) {
+  //     DBUG_ASSERT(item->const_item() || item->basic_const_item());
 
+  //     m_skip_array[null_num++] = 1;
+  //     m_skip_array[null_num++] = 0;
+  //     m_compact_row[fields_idx++].m_need_send = false;
+  //     continue;
+  //   }
+
+  //   /*
+  //     1)For Item_field, sent the field directly because there is no need
+  //     to copy it to parallel execution sender tmp table.
+  //     2)For Item_func, write the result to parallel execution sender tmp
+  //     table by save_in_field firstly.
+  //   */
+  //   result_field = item->get_result_field();
+
+  //   if (!result_field) {
+  //     DBUG_ASSERT(item->type() == Item::FIELD_ITEM);
+  //     result_field = down_cast<Item_field *>(item)->field;
+  //   } else {
+  //     if (item->save_in_field(result_field, true)) {
+  //       return true;
+  //     }
+  //   }
+
+  //   m_skip_array[null_num++] = 0;
+  //   m_skip_array[null_num++] = result_field->is_null() ? 1 : 0;
+
+  //   /* Skip the send of null field. */
+  //   if (m_skip_array[null_num - 1]) {
+  //     m_compact_row[fields_idx++].m_need_send = false;
+  //     continue;
+  //   }
+
+  //   total_copy_bytes += make_compact_field(result_field, &m_compact_row[fields_idx]);
+  //   fields_idx++;
+  // }
+
+  for (Field *field : m_fields) {
+    // if (item->type() == Item::NULL_ITEM || item->type() == Item::STRING_ITEM) {
+    //   DBUG_ASSERT(item->const_item() || item->basic_const_item());
+
+    //   m_skip_array[null_num++] = 1;
+    //   m_skip_array[null_num++] = 0;
+    //   m_compact_row[fields_idx++].m_need_send = false;
+    //   continue;
+    // }
+    if (MYSQL_TYPE_NULL == field->type()) {
       m_skip_array[null_num++] = 1;
       m_skip_array[null_num++] = 0;
       m_compact_row[fields_idx++].m_need_send = false;
@@ -225,19 +299,19 @@ bool PX_sender::make_compact_row(uint16 &null_len, uint32 &total_copy_bytes) {
       2)For Item_func, write the result to parallel execution sender tmp
       table by save_in_field firstly.
     */
-    result_field = item->get_result_field();
+    // result_field = item->get_result_field();
 
-    if (!result_field) {
-      assert(item->type() == Item::FIELD_ITEM);
-      result_field = down_cast<Item_field *>(item)->field;
-    } else {
-      if (item->save_in_field(result_field, true)) {
-        return true;
-      }
-    }
+    // if (!result_field) {
+    //   DBUG_ASSERT(item->type() == Item::FIELD_ITEM);
+    //   result_field = down_cast<Item_field *>(item)->field;
+    // } else {
+    //   if (item->save_in_field(result_field, true)) {
+    //     return true;
+    //   }
+    // }
 
     m_skip_array[null_num++] = 0;
-    m_skip_array[null_num++] = result_field->is_null() ? 1 : 0;
+    m_skip_array[null_num++] = field->is_null() ? 1 : 0;
 
     /* Skip the send of null field. */
     if (m_skip_array[null_num - 1]) {
@@ -245,7 +319,7 @@ bool PX_sender::make_compact_row(uint16 &null_len, uint32 &total_copy_bytes) {
       continue;
     }
 
-    total_copy_bytes += make_compact_field(result_field, &m_compact_row[fields_idx]);
+    total_copy_bytes += make_compact_field(field, &m_compact_row[fields_idx]);
     fields_idx++;
   }
 

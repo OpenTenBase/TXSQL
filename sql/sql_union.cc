@@ -94,6 +94,11 @@
 #include "sql/visible_fields.h"
 #include "sql/window.h"  // Window
 #include "template_utils.h"
+#include "sql/table.h"
+#include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
+#include "sql/parallel_execution/px_executor.h"  // PX_coordinator
+#include "sql/parallel_execution/px_workerpool.h"  // worker_pool
+#include "sql/log.h"
 
 using std::move;
 using std::vector;
@@ -101,6 +106,21 @@ using std::vector;
 class Item_rollup_group_item;
 class Item_rollup_sum_switcher;
 class Opt_trace_context;
+class ORDER_with_src;
+struct ORDER;
+
+static void debug_print_iterator(RowIterator *iterator) {
+  sql_print_information("operator: %s", iterator->str().c_str());
+  for (unsigned i = 0; i < iterator->m_children.size(); ++i)
+    debug_print_iterator(iterator->m_children[i]);
+}
+
+static void debug_print_dfo(Dfo *dfo) {
+  // if (nullptr == dfo) return;
+  sql_print_information("dfo with iterator: %s", dfo->m_root_iterator->str().c_str());
+  for (unsigned i = 0; i < dfo->m_child_dfos.size(); ++i) 
+    debug_print_dfo(dfo->m_child_dfos.at(i));
+}
 
 bool Query_result_union::prepare(THD *, const mem_root_deque<Item *> &,
                                  Query_expression *u) {
@@ -673,6 +693,12 @@ static bool finalize_full_text_functions(THD *thd,
   return false;
 }
 
+bool Query_expression::parallelize(THD *, AccessPath *) {
+  // Add exchange to access path tree.
+  // if (traverse_access_path_tree(thd, m_root_access_path)) return true;
+  return false;
+}
+
 bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
                                 bool create_iterators,
                                 bool finalize_access_paths) {
@@ -834,6 +860,16 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     } else {
       join = nullptr;
     }
+    /// Access path has already been generated, traverse the all access path tree
+    /// and generate the parallel execution plan before code generation.
+    bool only_one_exchange = thd->lex->only_one_exchange(); // Compatible code.
+    if (thd->variables.cdb_parallel_execution_enabled &&
+          thd->lex->check_px_execution() && only_one_exchange)
+      thd->lex->use_px = true;
+    sql_print_information("basic check: %d, only one exchange: %d, ex num: %d",
+      thd->lex->check_px_execution(),
+      thd->lex->only_one_exchange(), thd->lex->m_exchange_number);
+
     m_root_iterator = CreateIteratorFromAccessPath(
         thd, m_root_access_path, join, /*eligible_for_batch_mode=*/true);
     if (m_root_iterator == nullptr) {
@@ -856,6 +892,12 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
                              /*tokens_for_force_subplan=*/nullptr)
                   .c_str());
     }
+
+    /// If cdb_parallel_execution_enabled if off, and at least one exchange in
+    /// access path tree, execute the iterator tree by using plan which has only
+    /// one exchange. single thread mode.
+    if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange())
+      create_single_thread_iterators(thd);
   }
 
   return false;
@@ -870,6 +912,43 @@ bool Query_expression::finalize(THD *thd) {
       }
     }
   }
+  return false;
+}
+
+void init_exchange_channel(RowIterator *iterator) {
+  // if (iterator->type() == RowIterator::PHY_PX_SEND)
+  //   static_cast<PX_sender*>(iterator)->init();
+  if (iterator->type() == RowIterator::PHY_PX_RECEIVE)
+    static_cast<PX_receiver*>(iterator)->init();
+  for (unsigned i = 0; i < iterator->m_children.size(); ++i)
+    init_exchange_channel(iterator->m_children.at(i));
+}
+
+void attach_exchange_info(RowIterator *iterator, PX_exchange_info *info) {
+  if (iterator->type() == RowIterator::PHY_PX_SEND)
+    static_cast<PX_sender*>(iterator)->set_exchange_info(info);
+  if (iterator->type() == RowIterator::PHY_PX_RECEIVE)
+    static_cast<PX_receiver*>(iterator)->set_exchange_info(info);
+  for (unsigned i = 0; i < iterator->m_children.size(); ++i)
+    attach_exchange_info(iterator->m_children.at(i), info);
+}
+
+bool Query_expression::init_exchange_info(THD *) {
+  exchange_info->init();
+  init_exchange_channel(m_root_iterator.get());
+  return false;
+}
+
+bool Query_expression::create_single_thread_iterators(THD *thd) {
+  exchange_info = new (thd->mem_root) PX_exchange_info(thd, 
+    PX_GATHER_EXCHANGE, /*exchange_type=*/
+    PX_MQ_CHANNEL, /*channel_type=*/
+    1, /*senders=*/
+    1, /*receivers=*/
+    PX_COMPACT_ROW, /*exchange_format=*/
+    false/*need_materialize=*/);
+  RowIterator *root = m_root_iterator.get();
+  attach_exchange_info(root, exchange_info);
   return false;
 }
 
@@ -1305,6 +1384,11 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
       }
     });
 
+    /// Init the exchange info when is single thread mode.
+    if (!thd->variables.cdb_parallel_execution_enabled &&
+        thd->lex->only_one_exchange() && exchange_info)
+      init_exchange_info(thd);
+
     if (m_root_iterator->Init()) {
       return true;
     }
@@ -1344,6 +1428,11 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
     }
 
     end_semi_consistent_read.rollback();
+    /// Detach receiver from exchange info.
+    if (!thd->variables.cdb_parallel_execution_enabled &&
+      thd->lex->only_one_exchange() && exchange_info)
+      exchange_info->detach_receiver(0);
+
     // NOTE: join_cleanup must be done before we send EOF, so that we get the
     // row counts right.
   }
@@ -1377,6 +1466,58 @@ bool Query_expression::execute(THD *thd) {
   Change_current_query_block save_query_block(thd);
 
   return ExecuteIteratorQuery(thd);
+}
+
+/**
+  Execute a query expression that may be a UNION and/or have an ordered result
+  in parallel execution mode, here coordinator and worker behave differently.
+
+  @param thd          thread handle
+
+  @returns false if success, true if error
+*/
+
+bool Query_expression::execute_in_parallel(THD *thd) {
+  bool ret = false;
+  debug_print_iterator(root_iterator());
+  Dfo_mgr dfo_mgr(thd);
+  dfo_mgr.do_split_iterator_tree(root_iterator(), dfo_mgr.m_root_dfo);
+  debug_print_dfo(dfo_mgr.root_dfo());
+
+  if (!thd->m_is_worker) {
+    sql_print_information("leading running in parallel");
+    // Generate the physical execution plan and start to schedule, before
+    // the scheduling, create worker schedulers to receive the tasks.
+    PX_coordinator *coordinator =
+      new (thd->mem_root) PX_sequential_coordinator(&dfo_mgr, thd);
+    thd->px_executor = coordinator;
+    // coordinator->prepare_task_for_dfo();
+    // coordinator->create_mq_channel_for_task_pair();
+
+    // Create worker executor to execute tasks received, set num_threads.
+    worker_pool_t *worker_pool = worker_pool_create(thd->variables.cdb_parallel_degree);
+    // Schedule every task for each dfo by sending instructions.
+    ret = coordinator->schedule(worker_pool);
+  } else {
+    sql_print_information("running task in worker.");
+
+    // Generate worker executor and waiting for instructions.
+    PX_worker *worker = new (thd->mem_root) PX_worker(&dfo_mgr, thd);
+    thd->px_executor = worker;
+    thd->px_executor->prepare_task_for_dfo();
+
+    // 1. Wait other workers finish their parse and optimize work.
+    worker_pool_optimize_end(thd->worker_arg);
+    sql_print_information("prepare task for dfo in worker thread. %p"
+      "in thd %p", thd->px_executor, thd);
+    // 2. Loop and waiting for master scheduler to dispatch tasks.
+    worker->loop();
+    // 3. Wait other workers finish their all tasks.
+    // worker_pool_optimize_end(thd->worker_arg);
+    sql_print_information("finish worker's task.");
+    if (thd->is_error()) ret = true;
+  }
+  return ret;
 }
 
 /**

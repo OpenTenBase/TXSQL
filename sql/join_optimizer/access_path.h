@@ -40,6 +40,8 @@
 #include "sql/mem_root_array.h"
 #include "sql/sql_array.h"
 #include "sql/sql_class.h"
+#include "sql/parallel_execution/px_mq.h"
+#include "sql/sql_lex.h"
 
 template <class T>
 class Bounds_checked_array;
@@ -55,6 +57,7 @@ class SJ_TMP_TABLE;
 class Table_function;
 class Temp_table_param;
 class Window;
+class PX_mq_handle;
 struct AccessPath;
 struct GroupIndexSkipScanParameters;
 struct IndexSkipScanParameters;
@@ -257,8 +260,8 @@ struct AccessPath {
     DELETE_ROWS,
     UPDATE_ROWS,
 
-    // Exchange.
-    PX_GATHER,
+    // Exchange
+    PX_RECEIVE,
     PX_SEND
   } type;
 
@@ -860,13 +863,13 @@ struct AccessPath {
     assert(type == UPDATE_ROWS);
     return u.update_rows;
   }
-  auto &px_gather() {
-    assert(type == PX_GATHER);
-    return u.px_gather;
+  auto &px_receiver() {
+    assert(type == PX_RECEIVE);
+    return u.px_receiver;
   }
-  const auto &px_gather() const {
-    assert(type == PX_GATHER);
-    return u.px_gather;
+  const auto &px_receiver() const {
+    assert(type == PX_RECEIVE);
+    return u.px_receiver;
   }
   auto &px_send() {
     assert(type == PX_SEND);
@@ -1254,16 +1257,14 @@ struct AccessPath {
       AccessPath *child;
       JOIN *join;
       TABLE *table;
-      uchar *record;
-      Temp_table_param *temp_table_param;
       int ref_slice;
-    } px_gather;
+    } px_receiver;
     struct {
       AccessPath *child;
       TABLE *table;
       mem_root_deque<Item *> *send_fields;
+      List_item *fields;
       Temp_table_param *temp_table_param;
-      uchar *record;
     } px_send;
   } u;
 };
@@ -1780,36 +1781,28 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
                                     table_map delete_tables,
                                     table_map immediate_tables);
 
-inline AccessPath *NewPXGatherAccessPath(THD *thd, AccessPath *child,
-                                         JOIN *join, TABLE *table,
-                                         uchar *record,
-                                         Temp_table_param *temp_table_param,
-                                         int ref_slice) {
+inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
+                                         TABLE *table, int ref_slice) {
   AccessPath *path = new (thd->mem_root) AccessPath;
-  path->type = AccessPath::PX_GATHER;
-  path->px_gather().child = child;
-  path->px_gather().join = join;
-  path->px_gather().table = table;
-  path->px_gather().record = record;
-  path->px_gather().temp_table_param = temp_table_param;
-  path->px_gather().ref_slice = ref_slice;
-
+  path->type = AccessPath::PX_RECEIVE;
+  path->px_receiver().child = child;
+  path->px_receiver().table = table;
+  path->px_receiver().ref_slice = ref_slice;
   return path;
 }
 
 inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
                                        TABLE *table,
                                        mem_root_deque<Item *> *send_fields,
-                                       Temp_table_param *temp_table_param,
-                                       uchar *record) {
+                                       List_item *fields,
+                                       Temp_table_param *temp_table_param) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_SEND;
   path->px_send().child = child;
   path->px_send().table = table;
   path->px_send().send_fields = send_fields;
+  path->px_send().fields = fields;
   path->px_send().temp_table_param = temp_table_param;
-  path->px_send().record = record;
-
   return path;
 }
 
@@ -1942,5 +1935,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                                        AccessPath *const target_path,
                                        uint curr_exchange, bool &new_child,
                                        int cur_slice, bool alloc_group_field);
+
+bool WalkAccessPathsForCompat(AccessPath *path);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H

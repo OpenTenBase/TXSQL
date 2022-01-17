@@ -342,14 +342,10 @@ static bool init_index(TABLE *table, handler *file, uint idx, bool sorted) {
 
 template <bool Reverse>
 bool RefIterator<Reverse>::Init() {
-  DBUG_EXECUTE_IF("px_force_execute", {
-    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
-        PX_REF_SCAN, m_ref->key, m_ref, m_reverse_scan)) {
-      return true;
-    }
+  if (m_parallel_scan) {
     table()->file->px_worker_init(thd()->px_scan_ctx);
     return false;
-  });
+  }
 
   m_first_record_since_init = true;
   m_is_mvi_unique_filter_enabled = false;
@@ -371,7 +367,7 @@ bool RefIterator<Reverse>::Init() {
 //! @cond
 template <>
 int RefIterator<false>::Read() {  // Forward read.
-  DBUG_EXECUTE_IF("px_force_execute", {
+  if (m_parallel_scan) {
     int tmp;
     while ((tmp = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx))) {
       if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
@@ -381,7 +377,7 @@ int RefIterator<false>::Read() {  // Forward read.
       ++*m_examined_rows;
     }
     return 0;
-  });
+  }
 
   if (m_first_record_since_init) {
     m_first_record_since_init = false;
@@ -436,7 +432,7 @@ template <>
 int RefIterator<true>::Read() {  // Reverse read.
   assert(m_ref->keypart_hash == nullptr);
 
-  DBUG_EXECUTE_IF("px_force_execute", {
+  if (m_parallel_scan) {
     int tmp;
     while ((tmp = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx))) {
       if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
@@ -446,7 +442,7 @@ int RefIterator<true>::Read() {  // Reverse read.
       ++*m_examined_rows;
     }
     return 0;
-  });
+  }
 
   if (m_first_record_since_init) {
     m_first_record_since_init = false;
