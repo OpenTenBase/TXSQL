@@ -1,0 +1,18 @@
+show variables like "innodb_page_size";
+
+CREATE TABLE `t13` (id int primary key, value blob);
+
+select ROW_FORMAT,DATA_LENGTH from information_schema.TABLES where table_name like "t13";
+
+insert into t13 values(1, repeat('A', 8100));
+
+alter table t13 add column (c int), ALGORITHM = INSTANT;
+
+begin;
+
+update t13 set value = repeat('E', 8101) where id = 1;
+
+# should be crash if bug not fixed
+rollback;
+
+drop table t13;

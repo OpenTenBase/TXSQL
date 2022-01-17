@@ -1,0 +1,13 @@
+show variables like "innodb_page_size";
+Variable_name	Value
+innodb_page_size	16384
+CREATE TABLE `t13` (id int primary key, value blob);
+select ROW_FORMAT,DATA_LENGTH from information_schema.TABLES where table_name like "t13";
+ROW_FORMAT	DATA_LENGTH
+Dynamic	16384
+insert into t13 values(1, repeat('A', 8100));
+alter table t13 add column (c int), ALGORITHM = INSTANT;
+begin;
+update t13 set value = repeat('E', 8101) where id = 1;
+rollback;
+drop table t13;
