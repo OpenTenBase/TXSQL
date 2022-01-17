@@ -25,9 +25,11 @@
 
 #include <assert.h>
 #include <string>
+#include <prealloced_array.h>
 
 class Item;
 class JOIN;
+class PX_table_descriptor;
 class THD;
 struct TABLE;
 
@@ -80,9 +82,64 @@ class IteratorProfiler {
  */
 class RowIterator {
  public:
+  enum PhysicalRowIteratorType {
+    PHY_NO_TYPE = 1000,
+    // Basic access paths (those with no children, at least nominally).
+    PHY_TABLE_SCAN,
+    PHY_INDEX_SCAN,
+    PHY_REF,
+    PHY_REF_OR_NULL,
+    PHY_EQ_REF,
+    PHY_PUSHED_JOIN_REF,
+    PHY_FULL_TEXT_SEARCH,
+    PHY_CONST_TABLE,
+    PHY_MRR,
+    PHY_FOLLOW_TAIL,
+    PHY_INDEX_RANGE_SCAN,
+    PHY_DYNAMIC_INDEX_RANGE_SCAN,
+    PHY_TABLE_SAMPLE,
+
+    // Basic access paths that don't correspond to a specific table.
+    PHY_TABLE_VALUE_CONSTRUCTOR,
+    PHY_FAKE_SINGLE_ROW,
+    PHY_ZERO_ROWS,
+    PHY_ZERO_ROWS_AGGREGATED,
+    PHY_MATERIALIZED_TABLE_FUNCTION,
+    PHY_UNQUALIFIED_COUNT,
+
+    // Joins.
+    PHY_NESTED_LOOP_JOIN,
+    PHY_NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL,
+    PHY_BKA_JOIN,
+    PHY_HASH_JOIN,
+    PHY_SORT_MERGE_JOIN,
+
+    // Composite access paths.
+    PHY_FILTER,
+    PHY_SORT,
+    PHY_AGGREGATE,
+    PHY_PRECOMPUTED_AGGREGATE,
+    PHY_TEMPTABLE_AGGREGATE,
+    PHY_LIMIT_OFFSET,
+    PHY_STREAM,
+    PHY_MATERIALIZE,
+    PHY_MATERIALIZE_INFORMATION_SCHEMA_TABLE,
+    PHY_APPEND,
+    PHY_WINDOWING,
+    PHY_WEEDOUT,
+    PHY_REMOVE_DUPLICATES,
+    PHY_ALTERNATIVE,
+    PHY_CACHE_INVALIDATOR,
+
+    // Exchange
+    PHY_PX_RECEIVE,
+    PHY_PX_SEND
+  }physical_row_iterator_type;
+
+ public:
   // NOTE: Iterators should typically be instantiated using NewIterator,
   // in sql/iterators/timing_iterator.h.
-  explicit RowIterator(THD *thd) : m_thd(thd) {}
+  explicit RowIterator(THD *thd) : m_thd(thd), m_children(4) {}
   virtual ~RowIterator() = default;
 
   RowIterator(const RowIterator &) = delete;
@@ -223,11 +280,21 @@ class RowIterator {
   virtual RowIterator *real_iterator() { return this; }
   virtual const RowIterator *real_iterator() const { return this; }
 
+  // Type of the row iterator.
+  virtual PhysicalRowIteratorType type() { return PHY_NO_TYPE; }
+  virtual RowIterator *child(size_t i) { return m_children.at(i); }
+  virtual void add_child(RowIterator *itr) { m_children.push_back(itr); }
+  virtual void adjust_children() {}
+  virtual std::string str() { return ""; }
+
  protected:
   THD *thd() const { return m_thd; }
 
  private:
   THD *const m_thd;
+
+ public:
+  Prealloced_array<RowIterator*, 4> m_children;
 };
 
 class TableRowIterator : public RowIterator {
@@ -239,10 +306,16 @@ class TableRowIterator : public RowIterator {
   void StartPSIBatchMode() override;
   void EndPSIBatchModeIfStarted() override;
 
+  virtual void set_parallel_scan() { m_parallel_scan = true; }
+  virtual PX_table_descriptor *get_table_descriptor() { return nullptr; }
+
  protected:
   int HandleError(int error);
   void PrintError(int error);
   TABLE *table() const { return m_table; }
+
+ protected:
+  bool m_parallel_scan{false};
 
  private:
   TABLE *const m_table;

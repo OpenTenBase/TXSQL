@@ -1371,6 +1371,10 @@ class TemptableAggregateIterator final : public TableRowIterator {
     return &m_table_iter_profiler;
   }
 
+  virtual std::string str() override { return "TempTable_Aggregate"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_TEMPTABLE_AGGREGATE; }
+  virtual void adjust_children() override { add_child(m_subquery_iterator.get()); }
+
  private:
   /// The iterator we are reading rows from.
   unique_ptr_destroy_only<RowIterator> m_subquery_iterator;

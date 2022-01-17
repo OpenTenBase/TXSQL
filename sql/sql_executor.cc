@@ -3475,9 +3475,48 @@ void JOIN::create_access_paths() {
   path = attach_access_paths_for_having_and_limit(path);
   path = attach_access_path_for_update_or_delete(path);
 
-  // Rebuild aggregate and inject final aggregate.
-  if (thd->variables.cdb_parallel_query_enable) {
-    path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+  LEX *lex = thd->lex;
+  AccessPath *target_path = nullptr;  // Where to inject exchange
+  bool split_agg = false;
+  if (!exchange_inject ||
+      FindExchangeInjectPosition(thd, this, path, target_path, split_agg)) {
+    m_root_access_path = path;
+    return ;
+  }
+
+
+  if (lex->check_px_execution() && WalkAccessPathsForCompat(path)) {
+    sql_print_information("compatible check passed and begin to insert exchange.");
+    if (thd->variables.cdb_parallel_query_enable && split_agg) {
+      if (exchange_temp_table == nullptr) {
+        exchange_temp_table =
+            new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
+        exchange_temp_table_param =
+            new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
+      }
+      path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+    }
+    
+    if (exchange_inject == true && m_windows.elements == 0) {
+      if (exchange_temp_table == nullptr) {
+        exchange_temp_table =
+            new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
+        exchange_temp_table_param =
+            new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
+      }
+      bool new_child = false;
+      AccessPath *exchange = WalkAccessPathsForExchange(
+          thd, this, path, target_path, /*curr_exchange=*/0,
+          /*new_child=*/new_child, /*cur_slice*/-1, false);
+      if (exchange) {
+        int ref_slice = exchange->px_receiver().ref_slice;
+        if (ref_slice != -1) {
+          fields = &tmp_fields[ref_slice];
+        }
+        if (new_child)
+          path = exchange;
+      }
+    }
   }
 
   m_root_access_path = path;

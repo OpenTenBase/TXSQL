@@ -7834,7 +7834,8 @@ Field *find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
 
   if (fld) {
     // Check if there are sufficient privileges to the found field.
-    if (want_privilege) {
+    if (want_privilege && !thd->m_is_worker) {
+      // TODO: not check privilege for parallel worker.
       if (fld != view_ref_found) {
         if (check_column_grant_in_table_ref(thd, *actual_table, name, length,
                                             want_privilege))
@@ -9061,13 +9062,16 @@ bool setup_fields(THD *thd, ulong want_privilege, bool allow_sum_func,
     assert(!item->hidden);
     Item **item_pos = &*it;
     if ((!item->fixed && item->fix_fields(thd, item_pos)) ||
-        (item = *item_pos)->check_cols(1)) {
+        (!thd->m_is_worker && (item = *item_pos)->check_cols(1))) {
+      // TODO: not check priviledge for parallel worker.
       DBUG_PRINT("info",
                  ("thd->mark_used_columns: %d", thd->mark_used_columns));
       return true; /* purecov: inspected */
     }
 
-    // Check that we don't have a field that is hidden system field. This should
+    if (thd->m_is_worker) item = *item_pos;
+
+    // Check that we don't have a field that is hidden from users. This should
     // be caught in Item_field::fix_fields.
     assert(
         item->type() != Item::FIELD_ITEM ||
@@ -9376,7 +9380,8 @@ bool insert_fields(THD *thd, Query_block *query_block, const char *db_name,
     */
     if (!any_privileges && !(tables->grant.privilege & SELECT_ACL)) {
       field_iterator.set(tables);
-      if (check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
+      if (!thd->m_is_worker && check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
+      if (!thd->m_is_worker && check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
         return true;
     }
 

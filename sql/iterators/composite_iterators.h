@@ -94,6 +94,10 @@ class FilterIterator final : public RowIterator {
   }
   void UnlockRow() override { m_source->UnlockRow(); }
 
+  virtual std::string str() override { return "Filter"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_FILTER; }
+  virtual void adjust_children() override { add_child(m_source.get()); }
+
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
   Item *m_condition;
@@ -147,6 +151,10 @@ class LimitOffsetIterator final : public RowIterator {
     m_source->EndPSIBatchModeIfStarted();
   }
   void UnlockRow() override { m_source->UnlockRow(); }
+
+  virtual std::string str() override { return "Limit"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_LIMIT_OFFSET; }
+  virtual void adjust_children() override { add_child(m_source.get()); }
 
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
@@ -223,6 +231,10 @@ class AggregateIterator final : public RowIterator {
     // and we also can't unlock the _current_ row, since that belongs to a
     // different group. Thus, do nothing.
   }
+
+  virtual std::string str() override { return "Aggregate"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_AGGREGATE; }
+  virtual void adjust_children() override { add_child(m_source.get()); }
 
  private:
   enum {
@@ -366,6 +378,13 @@ class NestedLoopIterator final : public RowIterator {
     if (m_state == READING_FIRST_INNER_ROW || m_state == READING_INNER_ROWS) {
       m_source_inner->UnlockRow();
     }
+  }
+
+  virtual std::string str() override { return "NestedLoop"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_NESTED_LOOP_JOIN; }
+  virtual void adjust_children() override {
+    add_child(m_source_outer.get());
+    add_child(m_source_inner.get());
   }
 
  private:
@@ -834,6 +853,10 @@ class MaterializeInformationSchemaTableIterator final : public RowIterator {
   // The temporary table is private to us, so there's no need to worry about
   // locks to other transactions.
   void UnlockRow() override {}
+
+  virtual std::string str() override { return "MaterializeInformationSchemaTable"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_MATERIALIZE_INFORMATION_SCHEMA_TABLE; }
+  virtual void adjust_children() override { add_child(m_table_iterator.get()); }
 
  private:
   /// The iterator that reads from the materialized table.

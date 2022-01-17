@@ -327,6 +327,7 @@ bool sp_lex_instr::reset_lex_and_exec_core(THD *thd, uint *nextp,
   */
 
   LEX *lex_saved = thd->lex;
+  m_lex->is_from_sp = true;
   thd->lex = m_lex;
   m_lex->thd = thd;
 
@@ -526,6 +527,7 @@ bool sp_lex_instr::reset_lex_and_exec_core(THD *thd, uint *nextp,
 
   /* Restore original lex. */
 
+  thd->lex->is_from_sp = false;
   thd->lex = lex_saved;
 
   /*

@@ -135,6 +135,10 @@ class IndexRangeScanIterator : public RowIDCapableRowIterator {
     assert(need_rows_in_rowid_order);
     return file->ref;
   }
+
+  virtual std::string str() override { return "IndexRangeScan"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_INDEX_RANGE_SCAN; }
+  virtual PX_table_descriptor * get_table_descriptor() override;
 };
 
 bool InitIndexRangeScan(TABLE *table, handler *file, int index,

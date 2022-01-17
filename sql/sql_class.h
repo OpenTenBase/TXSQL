@@ -143,6 +143,8 @@ struct TABLE_LIST;
 struct timeval;
 struct User_level_lock;
 struct YYLTYPE;
+struct worker_thread_arg;
+class RowIterator;
 
 namespace dd {
 namespace cache {
@@ -159,6 +161,8 @@ class Reprepare_observer;
 class Rows_log_event;
 class Time_zone;
 class sp_cache;
+class PX_executor;
+class PX_coordinator;
 struct Binlog_user_var_event;
 struct LOG_INFO;
 
@@ -1040,6 +1044,7 @@ class THD : public MDL_context_owner,
   }
 
  public:
+  PX_executor *px_executor{nullptr};
   MDL_context mdl_context;
 
   /**
@@ -1083,6 +1088,30 @@ class THD : public MDL_context_owner,
   }
 
   bool is_legal_column_encrypt_read;
+
+  /* Worker arguments to be assigned tasks. */
+  worker_thread_arg *worker_arg{nullptr};
+  /* Variables for parallel query. */
+  RowIterator *px_iterator{NULL};
+  /* Error occurs in parallele query. */
+  bool px_error{false};
+
+  /* The leader thd of parallel query worker thd. */
+  THD *px_leader{nullptr};
+  int worker_id{0};
+
+  inline bool is_px_error() {
+    if (px_leader == nullptr) {
+      /** Leader thd. */
+      return px_error;
+    } else {
+      /** Worker thd. */
+      return (px_error || 
+              px_leader->is_killed() ||
+              px_leader->px_error ||
+              px_leader->is_error());
+    }
+  }
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
@@ -2060,6 +2089,7 @@ private:
 
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
+  bool m_is_worker{false};
 
  private:
   /**
@@ -3034,6 +3064,7 @@ private:
 
   void shutdown_active_vio();
   void awake(THD::killed_state state_to_set);
+  void awake_all_worker_thd(THD::killed_state state_to_set);
 
   /** Disconnect the associated communication endpoint. */
   void disconnect(bool server_shutdown = false);

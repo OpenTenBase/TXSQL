@@ -66,6 +66,9 @@ class TableScanIterator final : public TableRowIterator {
 
   bool Init() override;
   int Read() override;
+  virtual std::string str() override { return "TableScan"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_TABLE_SCAN; }
+  virtual PX_table_descriptor * get_table_descriptor() override;
 
  private:
   uchar *const m_record;
@@ -96,6 +99,9 @@ class IndexScanIterator final : public TableRowIterator {
   bool Init() override;
   int Read() override;
 
+  virtual std::string str() override { return "IndexScan"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_INDEX_SCAN; }
+  virtual PX_table_descriptor * get_table_descriptor() override;
  private:
   uchar *const m_record;
   const int m_idx;

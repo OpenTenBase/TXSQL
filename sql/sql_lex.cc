@@ -463,6 +463,7 @@ void LEX::reset() {
   event_parse_data = nullptr;
   profile_options = PROFILE_NONE;
   select_number = 0;
+  m_exchange_number = 0;
   allow_sum_func = 0;
   m_deny_window_func = 0;
   m_subquery_to_derived_is_impossible = false;
@@ -837,6 +838,46 @@ bool LEX::check_preparation_invalid(THD *thd_arg) {
   }
 
   DBUG_RETURN(false);
+}
+
+bool LEX::check_px_execution() const {
+  bool ret = false;
+  if (sql_command == SQLCOM_SELECT && !unit->has_user_vars() &&
+      !is_from_ps && !is_from_sp && !unit->is_union() &&
+      current_query_block() && current_query_block()->table_list.elements > 0)
+    ret = true;
+
+  // skip that has lock when select.
+  if (query_tables && query_tables->updating) ret = false;
+
+  for (const TABLE_LIST *tl = query_tables; ret && tl != nullptr;
+      tl = tl->next_global) {
+    if (tl->table && tl->table->file && (  // 1. has table
+        nullptr != tl->table->part_info || // 2. not partition table.
+        strncmp(tl->table->file->table_type(), "InnoDB", 6) != 0)) { 
+                                           // 3. must innodb
+      ret = false;
+      break;
+    }
+  }
+
+  if (ret) {// TODO: more check.
+    mem_root_deque<Item *> *fields = &current_query_block()->fields;
+    for (Item *item : *fields) {
+      if (item->data_type() == MYSQL_TYPE_BLOB ||
+          item->data_type() == MYSQL_TYPE_BIT ||
+          item->data_type() == MYSQL_TYPE_JSON ||
+          item->data_type() == MYSQL_TYPE_TINY_BLOB ||
+          item->data_type() == MYSQL_TYPE_MEDIUM_BLOB ||
+          item->data_type() == MYSQL_TYPE_LONG_BLOB ||
+          item->data_type() == MYSQL_TYPE_GEOMETRY) {
+        ret = false;
+        break;
+      }
+    }
+  }
+
+  return ret;
 }
 
 Yacc_state::~Yacc_state() {
@@ -2634,6 +2675,12 @@ bool Query_block::setup_base_ref_items(THD *thd) {
 
   base_ref_items = Ref_item_array(array, n_elems);
 
+  return false;
+}
+
+bool Query_expression::has_user_vars() const {
+  for (Query_block *sl = first_query_block(); sl; sl = sl->next_query_block())
+    if (sl->has_user_vars) return true;
   return false;
 }
 

@@ -55,6 +55,9 @@
 #include "sql/iterators/sort_merge_join_iterator.h"
 #include "sql/parallel_execution/px_item.h"
 #include "sql/px_exchange.h"
+#include "sql/parallel_execution/px_sender.h"
+#include "sql/parallel_execution/px_receiver.h"
+#include "sql/log.h"
 
 #include <vector>
 
@@ -109,6 +112,215 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
   path->update_rows().tables_to_update = update_tables;
   path->update_rows().immediate_tables = immediate_tables;
   return path;
+}
+
+bool compat_for_table(TABLE *table) {
+  bool ret = true;
+  for (Field **pfield = table->field; *pfield != nullptr; ++pfield) {
+    Field *field = *pfield;
+    if (nullptr == field) continue;
+    if (bitmap_is_set(table->read_set, field->field_index())) {
+      if (field->type() == MYSQL_TYPE_BLOB || 
+          field->type() == MYSQL_TYPE_BIT || 
+          field->type() == MYSQL_TYPE_JSON ||
+          field->type() == MYSQL_TYPE_TINY_BLOB ||
+          field->type() == MYSQL_TYPE_MEDIUM_BLOB ||
+          field->type() == MYSQL_TYPE_LONG_BLOB ||
+          field->type() == MYSQL_TYPE_GEOMETRY) {
+        ret = false;
+        break;
+      }
+    }
+  }
+  return ret;
+}
+
+bool WalkAccessPathsForCompat(AccessPath *path) {
+  // TODO: more check
+  bool parallel_safe = false;
+  switch (path->type) {
+    case AccessPath::TABLE_SCAN: {
+      TABLE *table = path->table_scan().table;
+      if (table->s->table_category != TABLE_CATEGORY_USER ||
+          table->s->tmp_table != NO_TMP_TABLE)
+        parallel_safe = false;
+      else if (table->file->stats.records <= 2)
+        parallel_safe = false;
+      else if (!compat_for_table(table))
+        parallel_safe = false;
+      else
+        parallel_safe = true;
+      break;
+    }
+    case AccessPath::INDEX_SCAN: {
+      TABLE *table = path->index_scan().table;
+      if (table->s->table_category != TABLE_CATEGORY_USER ||
+          table->s->tmp_table != NO_TMP_TABLE)
+        parallel_safe = false;
+      else if (table->file->stats.records <= 2)
+        parallel_safe = false;
+      else if (!compat_for_table(table))
+        parallel_safe = false;
+      else
+        parallel_safe = true;
+      break;
+    }
+    case AccessPath::REF:
+    case AccessPath::REF_OR_NULL:
+    case AccessPath::EQ_REF:
+    case AccessPath::PUSHED_JOIN_REF:
+    case AccessPath::FULL_TEXT_SEARCH: {
+      // No children.
+      parallel_safe = true;
+      break;
+    }
+    case AccessPath::CONST_TABLE: {
+      parallel_safe = false;
+      break;
+    }
+    case AccessPath::MRR:
+    case AccessPath::FOLLOW_TAIL: {
+      // No children.
+      parallel_safe = true;
+      break;
+    }
+    case AccessPath::INDEX_RANGE_SCAN: {
+      const auto &param = path->index_range_scan();
+      TABLE *table = param.used_key_part[0].field->table;
+      if (table->s->table_category != TABLE_CATEGORY_USER ||
+          table->s->tmp_table != NO_TMP_TABLE)
+        parallel_safe = false;
+      else if (table->file->stats.records <= 2)
+        parallel_safe = false;
+      else if (!compat_for_table(table))
+        parallel_safe = false;
+      else
+        parallel_safe = true;
+      
+      break;
+    }
+    case AccessPath::INDEX_MERGE:
+    case AccessPath::ROWID_INTERSECTION:
+    case AccessPath::ROWID_UNION:
+    case AccessPath::INDEX_SKIP_SCAN:
+    case AccessPath::GROUP_INDEX_SKIP_SCAN:
+    case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
+    case AccessPath::TABLE_VALUE_CONSTRUCTOR: {
+      // No children.
+      parallel_safe = true;
+      break;
+    }
+    case AccessPath::FAKE_SINGLE_ROW: {
+      // No children.
+      parallel_safe = false;
+      break;
+    }
+    case AccessPath::ZERO_ROWS:
+    case AccessPath::ZERO_ROWS_AGGREGATED:
+    case AccessPath::MATERIALIZED_TABLE_FUNCTION:
+    case AccessPath::UNQUALIFIED_COUNT: {
+      // No children.
+      parallel_safe = true;
+      break;
+    }
+    case AccessPath::NESTED_LOOP_JOIN: {
+      bool o_compat = WalkAccessPathsForCompat(path->nested_loop_join().outer);
+      bool i_compat = WalkAccessPathsForCompat(path->nested_loop_join().inner);
+      parallel_safe = o_compat && i_compat;
+      break;
+    }
+    case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
+      bool o_compat = WalkAccessPathsForCompat(
+        path->nested_loop_semijoin_with_duplicate_removal().outer);
+      bool i_compat = WalkAccessPathsForCompat(
+        path->nested_loop_semijoin_with_duplicate_removal().inner);
+      parallel_safe = o_compat && i_compat;
+      break;
+    }
+    case AccessPath::BKA_JOIN: {
+      bool o_compat = WalkAccessPathsForCompat(path->bka_join().outer);
+      bool i_compat = WalkAccessPathsForCompat(path->bka_join().inner);
+      parallel_safe = o_compat && i_compat;
+      break;
+    }
+    case AccessPath::HASH_JOIN: {
+      bool o_compat = WalkAccessPathsForCompat(path->hash_join().outer);
+      bool i_compat = WalkAccessPathsForCompat(path->hash_join().inner);
+      parallel_safe = o_compat && i_compat;
+      break;
+    }
+    case AccessPath::FILTER: {
+      parallel_safe = WalkAccessPathsForCompat(path->filter().child);
+      if (parallel_safe) {
+        Item *condition = path->filter().condition;
+        if (condition->walk(&Item::check_compat_for_parallel,
+                      enum_walk::POSTFIX, nullptr))
+          parallel_safe = false;
+      }
+      break;
+    }
+    case AccessPath::SORT: {
+      parallel_safe = WalkAccessPathsForCompat(path->sort().child);
+      break;
+    }
+    case AccessPath::AGGREGATE: {
+      parallel_safe = WalkAccessPathsForCompat(path->aggregate().child);
+      break;
+    }
+    case AccessPath::TEMPTABLE_AGGREGATE: {
+      bool subquery_compat = WalkAccessPathsForCompat(
+        path->temptable_aggregate().subquery_path);
+      // bool table_compat = WalkAccessPathsForCompat(
+      //   path->temptable_aggregate().table_path);
+      parallel_safe = subquery_compat;
+      break;
+    }
+    case AccessPath::LIMIT_OFFSET: {
+      parallel_safe = WalkAccessPathsForCompat(path->limit_offset().child);
+      break;
+    }
+    case AccessPath::STREAM: {
+      parallel_safe = WalkAccessPathsForCompat(path->stream().child);
+      break;
+    }
+    case AccessPath::MATERIALIZE: {
+      parallel_safe = WalkAccessPathsForCompat(path->materialize().table_path);
+      break;
+    }
+    case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE: {
+      parallel_safe = false;
+      break;
+    }
+    case AccessPath::APPEND: {
+      // Currently we forbid this situation.
+      parallel_safe = false;
+      break;
+    }
+    case AccessPath::WINDOW: {
+      parallel_safe = WalkAccessPathsForCompat(path->window().child);
+      break;
+    }
+    case AccessPath::WEEDOUT: {
+      parallel_safe = WalkAccessPathsForCompat(path->weedout().child);
+      break;
+    }
+    case AccessPath::REMOVE_DUPLICATES: {
+      parallel_safe = WalkAccessPathsForCompat(path->remove_duplicates().child);
+      break;
+    }
+    case AccessPath::ALTERNATIVE: {
+      parallel_safe = WalkAccessPathsForCompat(path->alternative().child);
+      break;
+    }
+    case AccessPath::CACHE_INVALIDATOR: {
+      parallel_safe = WalkAccessPathsForCompat(path->cache_invalidator().child);
+      break;
+    }
+    default:
+      break;
+  }
+  sql_print_information("access path %d not compat %d.", path->type, parallel_safe);
+  return parallel_safe;
 }
 
 static AccessPath *FindSingleAccessPathOfType(AccessPath *path,
@@ -1184,22 +1396,20 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
                                             std::move(job.children[0]));
         break;
       }
-      case AccessPath::PX_GATHER: {
-        const auto &param = path->px_gather();
+      case AccessPath::PX_RECEIVE: {
         unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-            thd, param.child, join, eligible_for_batch_mode);
-        iterator = NewIterator<PX_Gather>(thd, mem_root, param.table, param.record,
-                                          param.join, param.ref_slice,
-                                          param.temp_table_param, move(child));
+            thd, mem_root, path->px_receiver().child, join, eligible_for_batch_mode);
+        iterator = NewIterator<PX_receiver>(thd, mem_root, 0, nullptr, join, move(child),
+            path->px_receiver().table, path->px_receiver().ref_slice);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::PX_SEND: {
         unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-            thd, path->px_send().child, join, eligible_for_batch_mode);
-        iterator = NewIterator<PX_Send>(thd, mem_root, path->px_send().table,
-                                        path->px_send().send_fields,
-                                        path->px_send().temp_table_param,
-                                        path->px_send().record, move(child));
+            thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
+        iterator = NewIterator<PX_sender>(thd, mem_root, 0, nullptr, move(child),
+            path->px_send().table, path->px_send().fields, nullptr, path->px_send().temp_table_param);
+        iterator->adjust_children();
         break;
       }
     }
@@ -1693,10 +1903,12 @@ bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
       HA_POS_ERROR, "<temp>");
   if (!tmp_table) goto rebuild_err;
   join->final_tmp_table = tmp_table;
+  join->exchange_temp_table->push_back(tmp_table);
+  join->exchange_temp_table_param->push_back(&join->tmp_table_param);
 
   // rebuild sum_func_list
   if (join->make_sum_func_list(*curr_fields, /*before_group_by=*/true, /*recompute=*/true))
-    goto rebuild_err;
+   goto rebuild_err;
 
   if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[curr_slice],
                                &tmp_field, join->query_block->m_added_non_hidden_fields))
@@ -1992,6 +2204,8 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
       /*rows_limit=*/HA_POS_ERROR, "<temp>");
   if (!tmp_table) goto build_err;
   join->final_tmp_table = tmp_table;
+  join->exchange_temp_table->push_back(tmp_table);
+  join->exchange_temp_table_param->push_back(join->final_aggr_tmp_table_param);
 
   if (final_tmp_table_param->items_to_copy &&
       final_tmp_table_param->items_to_copy->size()) {
@@ -2008,7 +2222,7 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
     goto build_err;
 
   join->tmp_fields[REF_SLICE_FINAL_AGGREGATE] = tmp_field;
-  
+
   // reset join::fields to curr_slice items.
   join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
 
@@ -2204,6 +2418,12 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
         if (target_path == nullptr) {
           target_path = subpath;
         }
+        return false;
+      case AccessPath::REF:
+      case AccessPath::REF_OR_NULL:
+      case AccessPath::EQ_REF:
+      case AccessPath::PUSHED_JOIN_REF:
+      case AccessPath::CONST_TABLE:
         return false;
       case AccessPath::LIMIT_OFFSET:  // Insert before limit
       case AccessPath::STREAM:
@@ -2440,6 +2660,10 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
 
   const bool stop_walk =
       (inject_here || !child);  // We only need to inject one exchange.
+  //if ((path->type != AccessPath::AGGREGATE &&
+  //     path->type != AccessPath::TEMPTABLE_AGGREGATE)) {
+  //  inject_here = false;
+  //}
 
   if (inject_here) {
     if (use_tmp_table) {
@@ -2451,6 +2675,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
     else {
       exchange = CreateExchangeAccessPathUseTable(thd, join, path, table);
     }
+    thd->lex->m_exchange_number++;
     if (exchange) new_child = true;
   }
 
@@ -2505,7 +2730,7 @@ static AccessPath *CreateExchangeAccessPath(
   }
   AccessPath *sender = nullptr, *receiver = nullptr;
   TABLE *table = nullptr, *table2 = nullptr;
-  uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
+  // uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
 
   Temp_table_param *temp_table_param = nullptr, *temp_table_param2 = nullptr;
 
@@ -2564,8 +2789,7 @@ static AccessPath *CreateExchangeAccessPath(
                   dbug_print_table(table, "PX_Sender", ref_slice););
   join->exchange_temp_table->push_back(table);
   join->exchange_temp_table_param->push_back(temp_table_param);
-  sender = NewPXSendAccessPath(thd, path, table, curr_fields,
-                               temp_table_param, record);
+  sender = NewPXSendAccessPath(thd, path, table, nullptr, curr_fields, temp_table_param);
 
   if (join->alloc_ref_item_slice(thd, ref_slice)) goto inject_err;
 
@@ -2622,8 +2846,7 @@ static AccessPath *CreateExchangeAccessPath(
   join->exchange_temp_table->push_back(table2);
   join->exchange_temp_table_param->push_back(temp_table_param2);
 
-  receiver = NewPXGatherAccessPath(thd, sender, join, table2, record,
-                                   temp_table_param2, ref_slice);
+  receiver = NewPXReceiveAccessPath(thd, sender, table2, ref_slice);
 
   /*
     ref_items[ref_slice] is covered, because we don`t need to
@@ -2680,7 +2903,7 @@ inject_err:
     free_tmp_table(table);
   }
   if (receiver) {
-    receiver->px_gather().table = nullptr;
+    receiver->px_receiver().table = nullptr;
   }
   return nullptr;
 }
@@ -2688,13 +2911,13 @@ inject_err:
 static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
                                                     AccessPath *const path,
                                                     TABLE *table) {
-  uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
-  if (record == nullptr) return nullptr;
+  // uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
+  // if (record == nullptr) return nullptr;
 
-  AccessPath *sender =
-      NewPXSendAccessPath(thd, path, table, nullptr, nullptr, record);
+  AccessPath *sender = NewPXSendAccessPath(thd, path, table, nullptr,
+    join->fields, nullptr);
   AccessPath *receiver =
-      NewPXGatherAccessPath(thd, sender, join, table, record, nullptr, -1);
+      NewPXReceiveAccessPath(thd, sender, table, -1);
   return receiver;
 }
 
@@ -2746,7 +2969,7 @@ static void FixTmpTableParam(JOIN *join, Temp_table_param *temp_table_param,
 static void FixAccessPathForExchange(AccessPath *const path,
                                      AccessPath *receiver, JOIN *join) {
   assert(receiver != nullptr);
-  const auto &exchange_param = receiver->px_gather();
+  const auto &exchange_param = receiver->px_receiver();
 
   // If exchange don`t create temporary table, there`s no need to fix it.
   if (exchange_param.ref_slice == -1) return ;

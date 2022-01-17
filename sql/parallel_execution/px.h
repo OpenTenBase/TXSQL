@@ -19,6 +19,8 @@
 #include "mysql/psi/mysql_mutex.h"
 
 class THD;
+struct TABLE;
+struct TABLE_REF;
 
 extern PSI_mutex_key key_px_thd_lock;
 extern PSI_cond_key key_px_thd_cond;
@@ -103,6 +105,30 @@ enum PX_SCAN_TYPE {
   PX_REF_SCAN,
   PX_DEPEND_REF_SCAN,
   PX_INVALID_SCAN
+};
+class PX_table_descriptor {
+ public:
+  PX_table_descriptor(TABLE *table, PX_SCAN_TYPE type,
+                      uint keyno, TABLE_REF *ref,
+                      bool reverse_scan) :
+      m_table(table),
+      m_type(type),
+      m_keyno(keyno),
+      m_ref(ref),
+      m_reverse_scan(reverse_scan) {}
+
+  TABLE *table() { return m_table; }
+  PX_SCAN_TYPE type() { return m_type; }
+  uint keyno() { return m_keyno; }
+  TABLE_REF *ref() { return m_ref; }
+  bool reverse_scan() { return m_reverse_scan; }
+
+ private:
+  TABLE *m_table{nullptr};
+  PX_SCAN_TYPE m_type{PX_INVALID_SCAN};
+  uint m_keyno{UINT_MAX};
+  TABLE_REF *m_ref{nullptr};
+  bool m_reverse_scan{false};
 };
 
 #endif

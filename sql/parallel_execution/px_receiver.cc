@@ -1,5 +1,6 @@
 #include "px_atomic.h"
 #include "px_receiver.h"
+#include "px_sender.h"
 #include "px_exchange_info.h"
 #include "px_mq.h"
 #include "include/my_dbug.h"
@@ -7,6 +8,7 @@
 #include "sql/field.h"
 
 #include "sql/sql_class.h"
+#include "sql/sql_optimizer.h"
 
 static char bool_item_field[8] = {0, 0, 0, 1, 1, 0, 1, 1};
 
@@ -15,13 +17,23 @@ char *const_item_and_field_flag(uint value) {
   return bool_item_field + 2 * value;
 }
 
-PX_receiver::PX_receiver() {}
+void SwitchSlice(JOIN *join, int slice_num) {
+  if (-1 != slice_num && !join->ref_items[slice_num].is_null()) {
+    join->set_ref_item_slice(slice_num);
+  }
+}
 
-PX_receiver::PX_receiver(uint receiver_no, PX_exchange_info *pei, THD *thd, TABLE *table)
-    : m_receiver_no(receiver_no),
-      m_pei(pei),
+PX_receiver::PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei,
+  JOIN *join, unique_ptr_destroy_only<RowIterator> source,
+  TABLE *table, int ref_slice)
+    : RowIterator(thd),
       m_thd(thd),
-      m_table(table) {}
+      m_receiver_no(receiver_no),
+      m_pei(pei),
+      m_join(join),
+      m_source(move(source)),
+      m_table(table),
+      m_ref_slice(ref_slice) {}
 
 /**
   Exchange receiver need three phases:
@@ -31,6 +43,14 @@ PX_receiver::PX_receiver(uint receiver_no, PX_exchange_info *pei, THD *thd, TABL
 */
 bool PX_receiver::init() {
   assert(m_pei);
+
+  THD *thd = get_thd();
+
+  if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
+    assert(m_source.get()->type() == PHY_PX_SEND);
+    PX_sender *sender = static_cast<PX_sender*>(m_source.get());
+    sender->init();
+  }
 
   if (m_pei->register_receiver(get_thd(), m_receiver_no)) {
     return true;
@@ -42,6 +62,9 @@ bool PX_receiver::init() {
 
   m_pei->get_receiver_channel(m_receiver_no, m_channels);
   m_active_channels = m_channels.size();
+
+  // m_join = thd->lex->current_select()->join;
+  m_input_slice = m_join->get_ref_item_slice();
 
   return false;
 }
@@ -57,9 +80,27 @@ bool PX_receiver::init() {
     true  - if the sender has not register.
 */
 bool PX_receiver::attach() {
+  THD *thd = get_thd();
+
+  if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
+    assert(m_source.get()->type() == PHY_PX_SEND);
+    PX_sender *sender = static_cast<PX_sender*>(m_source.get());
+    sender->attach();
+  }
+
   if (m_pei->attach_receiver(m_receiver_no)) {
     assert(0);
     return true;
+  }
+
+  if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
+    assert(m_source.get()->type() == PHY_PX_SEND);
+    PX_sender *sender = static_cast<PX_sender*>(m_source.get());
+    while(-1 != sender->Read());
+    m_pei->detach_sender(thd->worker_id);
+    sender->end();
+    // TODO: only support one-stage parallel.
+    sql_print_information("finish single thread mode receiver execution.");
   }
 
   return false;
@@ -71,6 +112,13 @@ bool PX_receiver::attach() {
   @return true error occurs or killed, fail read success!
 */
 bool PX_receiver::next() {
+  // if (m_join->select_count) {
+  //   // When true, UnqualifiedCountIterator would be used. This iterator directly
+  //   // use join->fields, which is the last ref_slice in ref_items actually.
+  //   SwitchSlice(m_join, m_ref_slice);
+  // } else {
+    SwitchSlice(m_join, m_input_slice);
+  // }
   bool result = false;
   uchar *data = nullptr;
   Size msg_len = 0;
@@ -87,7 +135,7 @@ bool PX_receiver::next() {
     occur or receiver killed, detach the
     receiver from the channels.
   */
-  if (result) {
+  if (result || m_thd->killed) {
     m_pei->detach_receiver(m_receiver_no);
     return true;
   }
@@ -95,7 +143,8 @@ bool PX_receiver::next() {
   if (m_pei->format() == PX_COMPACT_ROW) {
     decompact_row(data, msg_len);
   }
- 
+
+  SwitchSlice(m_join, m_ref_slice);
   return result;
 }
 

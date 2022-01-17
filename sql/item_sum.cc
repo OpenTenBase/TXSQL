@@ -1402,7 +1402,9 @@ bool Item_sum_num::fix_fields(THD *thd, Item **ref) {
 
   for (uint i = 0; i < arg_count; i++) {
     if ((!args[i]->fixed && args[i]->fix_fields(thd, args + i)) ||
-        args[i]->check_cols(1))
+        (!thd->m_is_worker && args[i]->check_cols(1)))
+      // TODO: No need to check columns' privileges as a worker thread.
+      // unified approach to handle THD evironments restore.
       return true;
     set_nullable(is_nullable() || args[i]->is_nullable());
   }

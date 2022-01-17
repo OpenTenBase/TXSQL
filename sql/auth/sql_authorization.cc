@@ -4117,6 +4117,7 @@ bool check_column_grant_in_table_ref(THD *thd, TABLE_LIST *table_ref,
   GRANT_INFO *grant;
   const char *db_name;
   const char *table_name;
+  if (thd->m_is_worker) return false;
   Security_context *sctx = (table_ref->security_ctx != nullptr)
                                ? table_ref->security_ctx
                                : thd->security_context();

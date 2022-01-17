@@ -203,6 +203,16 @@ static bool has_blob_primary_key(const TABLE *table) {
                      });
 }
 
+PX_table_descriptor *IndexRangeScanIterator::get_table_descriptor() {
+  PX_table_descriptor *descriptor = new (thd()->mem_root)
+      PX_table_descriptor(table(), PX_RANGE_SCAN, index, nullptr, false);
+  if (descriptor == nullptr) {
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
+  }
+
+  return descriptor;
+}
+
 bool IndexRangeScanIterator::Init() {
   empty_record(table());
 
@@ -224,14 +234,10 @@ bool IndexRangeScanIterator::Init() {
     return true;
   }
 
-  DBUG_EXECUTE_IF("px_force_execute", {
-    if (px_partition(/*dop=*/1, thd()->px_scan_ctx, table(),
-                     PX_RANGE_SCAN, index, nullptr, false)) {
-      return true;
-    }
+  if (m_parallel_scan) {
     table()->file->px_worker_init(thd()->px_scan_ctx);
     return false;
-  });
+  }
 
   // Set up a record buffer. Note that we don't use
   // table->m_record_buffer, since if we are part of a ROR scan, all range
@@ -365,7 +371,7 @@ int IndexRangeScanIterator::Read() {
   MY_BITMAP *const save_write_set = table()->write_set;
   DBUG_TRACE;
 
-  DBUG_EXECUTE_IF("px_force_execute", {
+  if (m_parallel_scan) {
     int result = file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx);
     if (result == 0) {
       if (m_examined_rows != nullptr) {
@@ -374,7 +380,7 @@ int IndexRangeScanIterator::Read() {
       return 0;
     }
     return HandleError(result);
-  });
+  }
 
   if (in_ror_merged_scan) {
     /*

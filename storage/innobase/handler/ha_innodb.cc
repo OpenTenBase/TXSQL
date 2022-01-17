@@ -11137,8 +11137,8 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, bool r
     return result;
   }
 
-  // Do the second split if necessary.
-  reader->split();
+  // // Do the second split if necessary. TODO: need to check here.
+  // reader->split();
   scan_ctx = reader;
 
   return (0);
