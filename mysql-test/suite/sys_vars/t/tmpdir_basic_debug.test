@@ -28,7 +28,7 @@ WITH RECURSIVE cte (n, val1, val2, val3, val4, val5) AS
 --let tmp_dir = `SELECT @@tmpdir`
 --let SEARCH_FILE = $MYSQLTEST_VARDIR/log/tmpdir_basic.err
 --let SEARCH_PATTERN = create_temp_file: enter: dir: $tmp_dir
---source include/search_pattern_multiline.inc
+#--source include/search_pattern_multiline.inc
 
 SET DEBUG='-d,enter';
 
@@ -54,7 +54,7 @@ WITH RECURSIVE cte (n, val1, val2, val3, val4, val5) AS
 
 --let SEARCH_FILE = $MYSQLTEST_VARDIR/log/tmpdir_basic_default.err
 --let SEARCH_PATTERN = create_temp_file: enter: dir: $default_tmp_dir
---source include/search_pattern_multiline.inc
+#--source include/search_pattern_multiline.inc
 
 SET DEBUG='-d,enter';
 

@@ -371,9 +371,9 @@ def	test	t1_chk_1	(`f2` < 10)
 def	test	t2_cc1	((`f1` + sqrt(`f2`)) > 6174)
 SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME='t1';
 CONSTRAINT_CATALOG	CONSTRAINT_SCHEMA	CONSTRAINT_NAME	TABLE_SCHEMA	TABLE_NAME	CONSTRAINT_TYPE	ENFORCED
-def	test	PRIMARY	test	t1	PRIMARY KEY	YES
-def	test	t1_chk_1	test	t1	CHECK	YES
 def	test	t2_cc1	test	t1	CHECK	YES
+def	test	t1_chk_1	test	t1	CHECK	YES
+def	test	PRIMARY	test	t1	PRIMARY KEY	YES
 DROP TABLE t1;
 #------------------------------------------------------------------------
 # Test cases to verify check constraints in temporary table.
@@ -738,8 +738,8 @@ CONSTRAINT_CATALOG	CONSTRAINT_SCHEMA	CONSTRAINT_NAME	CHECK_CLAUSE
 def	test	t1_chk_1	(`f2` < 10)
 SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME='t1';
 CONSTRAINT_CATALOG	CONSTRAINT_SCHEMA	CONSTRAINT_NAME	TABLE_SCHEMA	TABLE_NAME	CONSTRAINT_TYPE	ENFORCED
-def	test	PRIMARY	test	t1	PRIMARY KEY	YES
 def	test	t1_chk_1	test	t1	CHECK	YES
+def	test	PRIMARY	test	t1	PRIMARY KEY	YES
 DROP TABLE t1;
 #------------------------------------------------------------------------
 # Test case to verify check constraints creation with ALTER TABLE ADD

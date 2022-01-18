@@ -5693,7 +5693,8 @@ SELECT * FROM v1	{
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 79891
               }
             }
           },
@@ -6036,7 +6037,8 @@ SELECT * FROM v1 ORDER BY f2, f0 LIMIT 30	{
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 79891
               }
             }
           },
@@ -6773,7 +6775,8 @@ LIMIT 30	{
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 79891
               }
             }
           },
@@ -6850,7 +6853,8 @@ LIMIT 30	{
                     "unique_constraint": false,
                     "makes_grouped_rows": false,
                     "cannot_insert_duplicates": false,
-                    "location": "TempTable"
+                    "location": "memory (heap)",
+                    "row_limit_estimate": 79891
                   }
                 }
               },
@@ -7078,7 +7082,8 @@ GROUP BY 1 ORDER BY 2,1 LIMIT 5	{
                       "unique_constraint": false,
                       "makes_grouped_rows": true,
                       "cannot_insert_duplicates": false,
-                      "location": "TempTable"
+                      "location": "memory (heap)",
+                      "row_limit_estimate": 932067
                     }
                   }
                 }
@@ -8109,7 +8114,8 @@ SELECT * FROM v1 ORDER BY f2, f0 LIMIT 30	{
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 79891
               }
             }
           },
@@ -8607,7 +8613,8 @@ ORDER BY d1.f2 DESC LIMIT 30	{
                     "unique_constraint": false,
                     "makes_grouped_rows": false,
                     "cannot_insert_duplicates": false,
-                    "location": "TempTable"
+                    "location": "memory (heap)",
+                    "row_limit_estimate": 79891
                   }
                 }
               },

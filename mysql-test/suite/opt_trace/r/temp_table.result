@@ -152,7 +152,8 @@ SELECT uniq, col1 FROM t1 GROUP BY col2,uniq LIMIT 3	{
                 "unique_constraint": true,
                 "makes_grouped_rows": true,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 4004
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -312,7 +313,8 @@ SELECT uniq, col1, col2 FROM t1 GROUP BY uniq	{
                 "unique_constraint": false,
                 "makes_grouped_rows": true,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 4011
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },

@@ -624,7 +624,8 @@ SELECT (SELECT 1 FROM t6 WHERE d = ifnull(c,null) UNION SELECT 2 FROM t6 WHERE d
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": true,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1864135
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -1059,7 +1060,8 @@ SELECT * FROM t5 WHERE 5 IN (SELECT 1 FROM t6 WHERE d = ifnull(c,null) UNION SEL
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": true,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1864135
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -1338,7 +1340,7 @@ Warning	1287	Setting user variables within expressions is deprecated and will be
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 select length(@trace);
 length(@trace)
-13882
+13933
 set @max_mem_size=13807;
 set optimizer_trace_max_mem_size=@max_mem_size;
 select length(@query)+length(@trace) > @@optimizer_trace_max_mem_size;
@@ -1348,7 +1350,7 @@ SELECT * FROM t5 WHERE 5 IN (SELECT 1 FROM t6 WHERE d = ifnull(c,null) UNION SEL
 c
 select (@missing_bytes:=missing_bytes_beyond_max_mem_size) from information_schema.OPTIMIZER_TRACE;
 (@missing_bytes:=missing_bytes_beyond_max_mem_size)
-202
+217
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 select (@query2:=QUERY)+NULL,(@trace2:=TRACE)+NULL from information_schema.OPTIMIZER_TRACE;
@@ -1361,7 +1363,7 @@ select length(@trace2),
 (length(@trace2) + @missing_bytes) = length(@trace),
 @query2 = @query;
 length(@trace2)	(length(@trace2) + @missing_bytes) = length(@trace)	@query2 = @query
-13680	1	1
+13716	1	1
 select length(@query2) + length(@trace2)
 between (@@optimizer_trace_max_mem_size-200) and (@@optimizer_trace_max_mem_size+200);
 length(@query2) + length(@trace2)
@@ -4205,7 +4207,8 @@ SELECT * FROM t1 WHERE c1=5 UNION SELECT * FROM t2 WHERE c2=5	{
           "unique_constraint": false,
           "makes_grouped_rows": false,
           "cannot_insert_duplicates": true,
-          "location": "TempTable"
+          "location": "memory (heap)",
+          "row_limit_estimate": 3355443
         } /* tmp_table_info */
       } /* creating_tmp_table */
     },
@@ -4902,7 +4905,8 @@ concat(c1,'y') IN
                     "unique_constraint": false,
                     "makes_grouped_rows": false,
                     "cannot_insert_duplicates": true,
-                    "location": "TempTable"
+                    "location": "memory (heap)",
+                    "row_limit_estimate": 441505
                   } /* tmp_table_info */
                 } /* creating_tmp_table */
               }
@@ -5091,7 +5095,8 @@ concat(c1,'y') IN
                     "unique_constraint": false,
                     "makes_grouped_rows": false,
                     "cannot_insert_duplicates": true,
-                    "location": "TempTable"
+                    "location": "memory (heap)",
+                    "row_limit_estimate": 493447
                   } /* tmp_table_info */
                 } /* creating_tmp_table */
               }
@@ -7246,7 +7251,8 @@ trace
                       "unique_constraint": false,
                       "makes_grouped_rows": true,
                       "cannot_insert_duplicates": false,
-                      "location": "TempTable"
+                      "location": "memory (heap)",
+                      "row_limit_estimate": 559240
                     } /* tmp_table_info */
                   } /* creating_tmp_table */
                 }
@@ -7751,7 +7757,8 @@ insert into t6 select * from t6 where d>7	{
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 3355443
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -7957,7 +7964,8 @@ update t5, t6 set t6.d=t6.d+t5.c+4-t5.c-4 where d>7000	{
                 "unique_constraint": false,
                 "makes_grouped_rows": true,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1398101
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -13203,7 +13211,8 @@ explain select * from v1 where id="b"	{
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 243148
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -13258,7 +13267,8 @@ select TRACE into dumpfile 'MYSQLTEST_VARDIR/tmp/optimizer_trace.txt' from infor
           "unique_constraint": false,
           "makes_grouped_rows": false,
           "cannot_insert_duplicates": true,
-          "location": "TempTable"
+          "location": "memory (heap)",
+          "row_limit_estimate": 1864135
         }
       }
     },

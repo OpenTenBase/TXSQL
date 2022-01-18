@@ -4481,7 +4481,8 @@ EXPLAIN SELECT 1 FROM
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 3355443
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -4833,7 +4834,8 @@ EXPLAIN SELECT 1 FROM
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 3355443
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },

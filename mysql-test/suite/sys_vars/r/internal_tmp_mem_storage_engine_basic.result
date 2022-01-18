@@ -1,9 +1,9 @@
 SELECT @@global.internal_tmp_mem_storage_engine;
 @@global.internal_tmp_mem_storage_engine
-TempTable
+MEMORY
 SELECT @@session.internal_tmp_mem_storage_engine;
 @@session.internal_tmp_mem_storage_engine
-TempTable
+MEMORY
 SET @@global.internal_tmp_mem_storage_engine = 'memory';
 SELECT @@global.internal_tmp_mem_storage_engine;
 @@global.internal_tmp_mem_storage_engine

@@ -12010,7 +12010,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "4.30"
+      "query_cost": "2.10"
     },
     "table": {
       "table_name": "alias",
@@ -12019,9 +12019,9 @@ EXPLAIN
       "rows_produced_per_join": 16,
       "filtered": "100.00",
       "cost_info": {
-        "read_cost": "2.70",
+        "read_cost": "0.50",
         "eval_cost": "1.60",
-        "prefix_cost": "4.30",
+        "prefix_cost": "2.10",
         "data_read_per_join": "640"
       },
       "used_columns": [
@@ -16682,7 +16682,8 @@ SELECT ROW_NUMBER() OVER (PARTITION BY i), SUM(i) OVER (ORDER BY i DESC) FROM t 
                     "unique_constraint": false,
                     "makes_grouped_rows": false,
                     "cannot_insert_duplicates": false,
-                    "location": "TempTable"
+                    "location": "memory (heap)",
+                    "row_limit_estimate": 578524
                   }
                 }
               },
@@ -16719,7 +16720,8 @@ SELECT ROW_NUMBER() OVER (PARTITION BY i), SUM(i) OVER (ORDER BY i DESC) FROM t 
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 372827
               }
             }
           },
@@ -16737,7 +16739,8 @@ SELECT ROW_NUMBER() OVER (PARTITION BY i), SUM(i) OVER (ORDER BY i DESC) FROM t 
                       "unique_constraint": false,
                       "makes_grouped_rows": false,
                       "cannot_insert_duplicates": false,
-                      "location": "TempTable"
+                      "location": "memory (heap)",
+                      "row_limit_estimate": 578524
                     }
                   }
                 },
@@ -16755,7 +16758,8 @@ SELECT ROW_NUMBER() OVER (PARTITION BY i), SUM(i) OVER (ORDER BY i DESC) FROM t 
                             "unique_constraint": false,
                             "makes_grouped_rows": true,
                             "cannot_insert_duplicates": false,
-                            "location": "TempTable"
+                            "location": "memory (heap)",
+                            "row_limit_estimate": 762600
                           }
                         }
                       },

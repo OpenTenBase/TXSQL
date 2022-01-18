@@ -3385,3 +3385,4 @@ view_table_usage=
        table_id=34
        trx_id=0
        space_id=1
+TDSQL_MYSQLD_SERVER_VERSION=722

@@ -2183,7 +2183,8 @@ ON table2 .col_int_key = table1 .col_int_key
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": true,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1290555
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },

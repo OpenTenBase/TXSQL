@@ -384,11 +384,11 @@ VARIABLE_VALUE
 16777216
 CALL test_hint("SET_VAR(internal_tmp_mem_storage_engine=MEMORY)", "internal_tmp_mem_storage_engine");
 VARIABLE_VALUE
-TempTable
+MEMORY
 VARIABLE_VALUE
 MEMORY
 VARIABLE_VALUE
-TempTable
+MEMORY
 CALL test_hint("SET_VAR(max_length_for_sort_data=4)", "max_length_for_sort_data");
 VARIABLE_VALUE
 4096

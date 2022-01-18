@@ -3320,7 +3320,8 @@ TRACE
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1864135
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -3367,7 +3368,8 @@ show_json_object('"join_execution": {', TRACE)
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1864135
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -3417,7 +3419,8 @@ show_json_object('"join_execution": {', TRACE)
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1864135
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },

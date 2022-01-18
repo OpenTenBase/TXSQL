@@ -80,5 +80,5 @@ SELECT count_alloc > 0
 FROM performance_schema.memory_summary_global_by_event_name
 WHERE event_name = 'memory/temptable/physical_disk';
 count_alloc > 0
-1
+0
 DROP TABLE t;

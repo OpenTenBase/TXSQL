@@ -1466,7 +1466,8 @@ TRACE
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1048576
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -1488,7 +1489,8 @@ TRACE
                             "unique_constraint": false,
                             "makes_grouped_rows": true,
                             "cannot_insert_duplicates": false,
-                            "location": "TempTable"
+                            "location": "memory (heap)",
+                            "row_limit_estimate": 762600
                           } /* tmp_table_info */
                         } /* creating_tmp_table */
                       }
@@ -4040,7 +4042,8 @@ select 497, tmp.ID, NULL from (select 497 as ID, MAX(t3.DATA) as DATA      from 
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
                 "cannot_insert_duplicates": false,
-                "location": "TempTable"
+                "location": "memory (heap)",
+                "row_limit_estimate": 1677721
               } /* tmp_table_info */
             } /* creating_tmp_table */
           },
@@ -5362,7 +5365,8 @@ GROUP BY field2 ORDER BY alias1.col_int_key,alias2.pk	{
                       "unique_constraint": false,
                       "makes_grouped_rows": true,
                       "cannot_insert_duplicates": false,
-                      "location": "TempTable"
+                      "location": "memory (heap)",
+                      "row_limit_estimate": 932067
                     } /* tmp_table_info */
                   } /* creating_tmp_table */
                 }
