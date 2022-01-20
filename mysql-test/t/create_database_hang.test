@@ -1,0 +1,41 @@
+
+connection default;
+# prepare data
+--disable_warnings
+DROP DATABASE IF EXISTS `mytest`;
+--enable_warnings
+CREATE DATABASE mytest;
+
+CREATE TABLE mytest.t (id INT);
+INSERT INTO mytest.t VALUES(1);
+
+# restart mysqld to clean up table definition cache
+--let $restart_parameters=restart:--performance_schema=ON
+--source include/restart_mysqld.inc
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+connection con1;
+XA START '1';
+INSERT INTO mytest.t VALUES(2);
+XA END '1';
+XA PREPARE '1';
+
+connection con2;
+# hold schem IX lock
+SELECT OBJECT_TYPE, OBJECT_SCHEMA, LOCK_TYPE, LOCK_DURATION, LOCK_STATUS
+FROM performance_schema.metadata_locks
+WHERE OBJECT_SCHEMA ='mytest';
+
+# no block by MDL IX LOCK
+CREATE DATABASE IF NOT EXISTS `mytest`;
+
+connection con1;
+XA COMMIT '1';
+
+# clean up
+connection default;
+disconnect con1;
+disconnect con2;
+DROP DATABASE mytest;

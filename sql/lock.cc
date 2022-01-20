@@ -990,6 +990,41 @@ bool acquire_shared_global_read_lock(THD *thd,
 }
 
 /**
+  Obtain an intention exclusive metadata lock on a schema name.
+
+  @param thd         Thread handle.
+  @param db          The database name.
+
+  This function is used to hold an IX metadata lock to read from DD, so
+  if a database exists, we can avoid to hold the X metadata lock.
+
+  @retval false  Success.
+  @retval true   Failure: we're in LOCK TABLES mode, or out of memory,
+                 or this connection was killed.
+*/
+bool lock_schema_name_for_read(THD *thd, const char *db) {
+  MDL_request_list mdl_requests;
+  MDL_request mdl_request;
+
+  if (thd->locked_tables_mode) {
+    my_error(ER_LOCK_OR_ACTIVE_TRANSACTION, MYF(0));
+    return true;
+  }
+
+  if (thd->global_read_lock.can_acquire_protection()) return true;
+
+  MDL_REQUEST_INIT(&mdl_request, MDL_key::SCHEMA, db, "", MDL_INTENTION_EXCLUSIVE,
+                   MDL_TRANSACTION);
+  mdl_requests.push_front(&mdl_request);
+
+  if (thd->mdl_context.acquire_locks(&mdl_requests,
+                                     thd->variables.lock_wait_timeout))
+    return true;
+
+  return false;
+}
+
+/**
   Take global read lock, wait if there is protection against lock.
 
   If the global read lock is already taken by this thread, then nothing is done.

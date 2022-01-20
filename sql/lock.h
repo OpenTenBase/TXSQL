@@ -66,4 +66,7 @@ bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
 /* Acquire protection against the global read lock. */
 bool acquire_shared_global_read_lock(THD *thd, unsigned long lock_wait_timeout);
 
+/* Get schema IX Lock to read DD */
+bool lock_schema_name_for_read(THD *thd, const char *db);
+
 #endif /* LOCK_INCLUDED */

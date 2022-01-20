@@ -279,7 +279,13 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     my_casedn_str(&my_charset_utf8_tolower_ci, name_buf);
     lock_db_name = name_buf;
   }
-  if (lock_schema_name(thd, lock_db_name)) return true;
+
+  bool if_not_exists = (create_info->options & HA_LEX_CREATE_IF_NOT_EXISTS);
+  if (if_not_exists) {
+    if (lock_schema_name_for_read(thd, lock_db_name)) return true;
+  } else {
+    if (lock_schema_name(thd, lock_db_name)) return true;
+  }
 
   dd::cache::Dictionary_client &dc = *thd->dd_client();
   dd::String_type schema_name{db};
@@ -289,7 +295,6 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
   }
 
   bool store_in_dd = true;
-  bool if_not_exists = (create_info->options & HA_LEX_CREATE_IF_NOT_EXISTS);
   if (existing_schema != nullptr) {
     if (if_not_exists == false) {
       my_error(ER_DB_CREATE_EXISTS, MYF(0), db);
@@ -299,6 +304,10 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
                         ER_THD(thd, ER_DB_CREATE_EXISTS), db);
 
     store_in_dd = false;
+  }
+
+  if (store_in_dd && if_not_exists) {
+    if (lock_schema_name(thd, lock_db_name)) return true;
   }
 
   /* Check directory */
