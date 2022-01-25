@@ -59,6 +59,9 @@ static constexpr uint DD_VERSION_80014 = 80014;
 static constexpr uint DD_VERSION_80015 = 80015;
 static constexpr uint DD_VERSION_80016 = 80016;
 static constexpr uint DD_VERSION_80017 = 80017;
+// support downgrade from 8.0.19->8.0.18 of tdsql
+static constexpr uint DD_VERSION_80018 = 80018;
+static constexpr uint DD_VERSION_80019 = 80019;
 
 /*
   Set of supported DD version labels. A supported DD version is a version
@@ -79,6 +82,9 @@ static constexpr uint SERVER_VERSION_80013 = 80013;
 static constexpr uint SERVER_VERSION_80014 = 80014;
 static constexpr uint SERVER_VERSION_80015 = 80015;
 static constexpr uint SERVER_VERSION_80016 = 80016;
+// support downgrade from 8.0.19->8.0.18 of tdsql
+static constexpr uint SERVER_VERSION_80018 = 80018;
+static constexpr uint SERVER_VERSION_80019 = 80019;
 
 /*
   Set of unsupported server version labels. An unsupported server version is a
@@ -129,7 +135,9 @@ class DD_bootstrap_ctx {
   bool supported_server_version(uint version) const {
     return (unsupported_server_versions.find(version) ==
             unsupported_server_versions.end()) &&
-           MYSQL_VERSION_ID > version;
+           ((MYSQL_VERSION_ID > version) ||
+           (MYSQL_VERSION_ID == SERVER_VERSION_80018 &&
+            version == SERVER_VERSION_80019));
   }
 
   bool supported_server_version() const {
@@ -156,12 +164,16 @@ class DD_bootstrap_ctx {
   }
 
   bool is_dd_upgrade() const {
-    return !opt_initialize && (m_actual_dd_version < dd::DD_VERSION);
+    return !opt_initialize && (m_actual_dd_version < dd::DD_VERSION ||
+                               (m_actual_dd_version == DD_VERSION_80019 &&
+                                dd::DD_VERSION == DD_VERSION_80018));
   }
 
   bool is_server_upgrade() const {
     return !opt_initialize && (m_upgraded_server_version < MYSQL_VERSION_ID ||
-                               m_tdsql_mysqld_server_version < TDSQL_MYSQLD_SERVER_VERSION);
+                               m_tdsql_mysqld_server_version < TDSQL_MYSQLD_SERVER_VERSION ||
+                               (m_upgraded_server_version == SERVER_VERSION_80019 &&
+                                MYSQL_VERSION_ID == SERVER_VERSION_80018));
   }
 
   bool is_dd_upgrade_from_before(uint compare_actual_dd_version) const {

@@ -128,6 +128,9 @@ enum dd_column_keys {
 
 /** Server version that the tablespace created */
 const uint32 DD_SPACE_CURRENT_SRV_VERSION = MYSQL_VERSION_ID;
+/** support downgrade from 8.0.19->8.0.18 of tdsql */
+const uint32 DD_SPACE_VERSION_80018 = 80018;
+const uint32 DD_SPACE_VERSION_80019 = 80019;
 
 /** The tablespace version that the tablespace created */
 const uint32 DD_SPACE_CURRENT_SPACE_VERSION = 1;

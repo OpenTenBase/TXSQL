@@ -5417,14 +5417,18 @@ dberr_t fil_ibd_open(bool validate, fil_type_t purpose, space_id_t space_id,
   }
 
   if (validate && !old_space && !for_import) {
-    if (df.server_version() > DD_SPACE_CURRENT_SRV_VERSION) {
+    if (df.server_version() > DD_SPACE_CURRENT_SRV_VERSION &&
+        !(df.server_version() == DD_SPACE_VERSION_80019 &&
+         DD_SPACE_CURRENT_SRV_VERSION == DD_SPACE_VERSION_80018)) {
       ib::error(ER_IB_MSG_1272, ulong{DD_SPACE_CURRENT_SRV_VERSION},
                 ulonglong{df.server_version()});
       /* Server version is less than the tablespace server version.
       We don't support downgrade for 8.0 server, so report error */
       return (DB_SERVER_VERSION_LOW);
     }
-    ut_ad(df.space_version() == DD_SPACE_CURRENT_SPACE_VERSION);
+    ut_ad(df.space_version() == DD_SPACE_CURRENT_SPACE_VERSION ||
+          (df.space_version() == DD_SPACE_VERSION_80019 &&
+           DD_SPACE_CURRENT_SPACE_VERSION == DD_SPACE_VERSION_80018));
   }
 
   /* Set unencryption in progress flag */
