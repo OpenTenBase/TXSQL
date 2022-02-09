@@ -359,7 +359,7 @@ bool History_table_persistor::read_row(History_table_access_context &table_ctx,
       // Negative numbers are relative: -1 means last, -2 means second to last.
       uint idx = 0, target = static_cast<uint>(-version);
       for ((error = table->file->ha_index_read_map(table->record[0], user_key,
-                                                   static_cast<key_part_map>(1),
+                                                   make_prev_keypart_map(history_key_parts),
                                                    HA_READ_PREFIX_LAST));
            !error &&
            match_key_prefix(record, schema_name, table_name, column_name);
@@ -442,7 +442,7 @@ bool History_table_persistor::shrink(History_table_access_context &table_ctx,
     */
     uint count = 0;
     for ((error = table->file->ha_index_read_map(table->record[0], user_key,
-                                                 static_cast<key_part_map>(1),
+                                                 make_prev_keypart_map(history_key_parts),
                                                  HA_READ_PREFIX_LAST));
          !error &&
          match_key_prefix(record, schema_name, table_name, column_name);
@@ -486,7 +486,7 @@ bool History_table_persistor::delete_stats(
     auto guard = create_scope_guard([table] { table->file->ha_index_end(); });
 
     for ((error = table->file->ha_index_read_map(table->record[0], user_key,
-                                                 static_cast<key_part_map>(1),
+                                                 make_prev_keypart_map(history_key_parts),
                                                  HA_READ_PREFIX_LAST));
          !error &&
          match_key_prefix(record, schema_name, table_name, column_name);
@@ -533,7 +533,7 @@ bool History_table_persistor::rename_stats(
 
     /* Traverse the records for same column, update matching rows. */
     for ((error = table->file->ha_index_read_map(table->record[0], user_key,
-                                                 static_cast<key_part_map>(1),
+                                                 make_prev_keypart_map(history_key_parts),
                                                  HA_READ_PREFIX_LAST));
          !error &&
          match_key_prefix(record, old_schema_name, old_table_name, column_name);

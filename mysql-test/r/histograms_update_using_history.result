@@ -184,5 +184,27 @@ DROP TABLE tbl1_renamed;
 SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1_renamed" AND COLUMN_NAME="c1";
 HISTOGRAM
 0
+#
+# Test Multiple-column Histogram
+#
+CREATE TABLE tbl2(c1 INT, c2 int);
+INSERT INTO tbl2(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c2;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	status	Histogram statistics created for column 'c2'.
+test.tbl2	histogram	status	Histogram history created for column 'c2'.
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	status	Histogram statistics created for column 'c1'.
+test.tbl2	histogram	status	Histogram history created for column 'c1'.
+# apply history test
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1 USING HISTORY -1;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	status	The histogram on column 'c1' restored with history version.
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c2 USING HISTORY -1;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	status	The histogram on column 'c2' restored with history version.
+# DROP TABLE
+DROP TABLE tbl2;
 SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= 5;
 SET GLOBAL HISTOGRAM_HISTORY_ENABLED= 0;
