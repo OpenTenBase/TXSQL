@@ -146,13 +146,14 @@ void LockGuard::enter_with_confirm(space_id_t space, page_no_t page_no) {
   ut_ad(m_mutexs.empty());
   uint64_t fold = lock_rec_fold(space, page_no);
   while (true) {
+    ulint old_cell = lock_sys->rec_hash->n_cells;
     auto idx = get_part_with_fold(fold);
     enter(&lock_sys->rec_mutex[idx]);
 
     /* Reconfirm as it's possible that the hash cell
      may get changed if bp is just resized. */
 
-    if (idx != get_part_with_fold(fold)) {
+    if (unlikely(old_cell != lock_sys->rec_hash->n_cells)) {
       release();
     } else {
       break;
@@ -220,12 +221,24 @@ void LockGuard::acquire(const buf_block_t *block) {
   ut_ad(!lock_mutex_own());
   m_mutexs.clear();
 
-  if (block->get_page_type() == FIL_PAGE_RTREE) {
-    enter(&lock_sys->prdt_mutex);
-  }
+  uint64_t fold = lock_rec_fold(block->get_space_id(), block->get_page_no());
+  while (true) {
+    ulint old_cell = lock_sys->rec_hash->n_cells;
+    if (block->get_page_type() == FIL_PAGE_RTREE) {
+      enter(&lock_sys->prdt_mutex);
+    }
 
-  auto idx = get_part(block->get_space_id(), block->get_page_no());
-  enter(&lock_sys->rec_mutex[idx]);
+    auto idx = get_part_with_fold(fold);
+    enter(&lock_sys->rec_mutex[idx]);
+
+    /* Reconfirm as it's possible that the hash cell
+    may get changed if bp is just resized. */
+    if (unlikely(old_cell != lock_sys->rec_hash->n_cells)) {
+      release();
+    } else {
+      break;
+    }
+  }
 
   ut_ad(!m_mutexs.empty());
 }
@@ -237,6 +250,7 @@ void LockGuard::acquire(const buf_block_t *block1, const buf_block_t *block2) {
   PartIds idxs;
   uint32_t idx1, idx2;
   uint64_t fold1, fold2;
+  ulint old_cell;
   fold1 = lock_rec_fold(block1->get_space_id(), block1->get_page_no());
   fold2 = lock_rec_fold(block2->get_space_id(), block2->get_page_no());
 
@@ -246,6 +260,8 @@ retry:
   }
 
   idxs.clear();
+
+  old_cell = lock_sys->rec_hash->n_cells;
 
   idx1 = get_part_with_fold(fold1);
   idx2 = get_part_with_fold(fold2);
@@ -257,8 +273,7 @@ retry:
     enter(&lock_sys->rec_mutex[idx]);
   }
 
-  if (idx1 != get_part_with_fold(fold1) ||
-      idx2 != get_part_with_fold(fold2)) {
+  if (unlikely(old_cell != lock_sys->rec_hash->n_cells)) {
     release();
 
     goto retry;
@@ -410,14 +425,18 @@ bool lock_mutex_own() {
 
 }
 
+bool lock_mutex_own(space_id_t space_id, page_no_t page_no) {
+  auto part_id = LockGuard::get_part(space_id, page_no);
+  return lock_sys->rec_mutex[part_id].is_owned();
+}
+
 bool lock_mutex_own(const lock_t *lock) {
   if (lock_get_type_low(lock) == LOCK_TABLE) {
     return (lock_sys->table_mutex.is_owned());
   } else if (lock->is_predicate()) {
     return (lock_sys->prdt_mutex.is_owned());
   } else {
-    return (lock_sys->rec_mutex[LockGuard::get_part(lock->space_id(),
-                                         lock->page_no())].is_owned());
+    return lock_mutex_own(lock->space_id(), lock->page_no());
   }
 }
 
@@ -427,8 +446,7 @@ bool lock_mutex_own(const buf_block_t *block) {
     return true;
   }
 
-  return (lock_sys->rec_mutex[LockGuard::get_part(block->get_space_id(),
-                              block->get_page_no())].is_owned());
+  return lock_mutex_own(block->get_space_id(), block->get_page_no());
 }
 
 bool lock_mutex_own(GuardType guard_type) {

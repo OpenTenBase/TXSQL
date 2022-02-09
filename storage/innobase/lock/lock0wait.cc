@@ -1126,13 +1126,23 @@ static bool lock_wait_check_candidate_cycle(
   PartIds part_ids;
   part_ids.clear();
 
+  ulint old_cell = lock_sys->rec_hash->n_cells;
+
   lock_wait_collect_part_ids(cycle_ids, infos, part_ids);
 
-  if (part_ids.empty()) {
+  if (unlikely(part_ids.empty())) {
+    lock_wait_mutex_exit();
     return false;
   }
 
   LockGuard guard(part_ids);
+
+  /* buffer pool resizing may happen during the process, let it go and
+  checking deadlock in next loop */
+  if (unlikely(old_cell != lock_sys->rec_hash->n_cells)) {
+    lock_wait_mutex_exit();
+    return false;
+  }
 
   if (!lock_wait_trxs_are_still_waiting(cycle_ids, infos, part_ids)) {
     lock_wait_mutex_exit();
