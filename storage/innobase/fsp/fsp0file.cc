@@ -761,8 +761,7 @@ dberr_t Datafile::find_space_id() {
       --page_count;
     }
 
-    ib::info(ER_IB_MSG_405)
-        << "Page size:" << page_size << ". Pages to analyze:" << page_count;
+    fprintf(stderr, "InnoDB: Page size: %lu. Pages to analyze: %lu\n", page_size, page_count);
 
     byte *buf = static_cast<byte *>(ut_malloc_nokey(2 * UNIV_PAGE_SIZE_MAX));
 
@@ -833,9 +832,7 @@ dberr_t Datafile::find_space_id() {
         space_id_t space_id = mach_read_from_4(page + FIL_PAGE_SPACE_ID);
 
         if (space_id > 0) {
-          ib::info(ER_IB_MSG_408)
-              << "VALID: space:" << space_id << " page_no:" << j
-              << " page_size:" << page_size;
+          fprintf(stderr, "InnoDB: VALID: space: %u page_no: %lu page_size: %lu\n", space_id, j, page_size);
 
           ++valid_pages;
 
@@ -846,21 +843,17 @@ dberr_t Datafile::find_space_id() {
 
     ut_free(buf);
 
-    ib::info(ER_IB_MSG_409) << "Page size: " << page_size
-                            << ". Possible space_id count:" << verify.size();
+    fprintf(stderr, "InnoDB: Pager size: %lu. Possible space_id count: %lu\n", page_size, verify.size());
 
     const ulint pages_corrupted = 3;
 
     for (ulint missed = 0; missed <= pages_corrupted; ++missed) {
       for (Pages::const_iterator it = verify.begin(); it != verify.end();
            ++it) {
-        ib::info(ER_IB_MSG_410)
-            << "space_id:" << it->first
-            << ", Number of pages matched: " << it->second << "/" << valid_pages
-            << " (" << page_size << ")";
-
+        fprintf(stderr, "InnoDB: space_id: %u, Number of pages matched: %lu/%lu (%lu)\n",
+                it->first, it->second, valid_pages, page_size);
         if (it->second == (valid_pages - missed)) {
-          ib::info(ER_IB_MSG_411) << "Chosen space:" << it->first;
+          fprintf(stderr, "InnoDB: Chosen space: %u\n", it->first);
 
           m_space_id = it->first;
           return (DB_SUCCESS);
