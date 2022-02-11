@@ -1137,7 +1137,13 @@ static void plugin_del(st_plugin_int *plugin) {
   mysql_mutex_assert_owner(&LOCK_plugin);
   mysql_mutex_assert_owner(&LOCK_plugin_delete);
   /* Free allocated strings before deleting the plugin. */
-  mysql_rwlock_wrlock(&LOCK_system_variables_hash);
+  // if can't get the lock always try again
+  while (mysql_rwlock_trywrlock(&LOCK_system_variables_hash) != 0) {
+    mysql_mutex_unlock(&LOCK_plugin);
+    sql_print_information("Lock failed in plugin_del sleep 1 seconds and try again");
+    sleep(1);
+    mysql_mutex_lock(&LOCK_plugin);
+  }
   mysql_del_sys_var_chain(plugin->system_vars);
   mysql_rwlock_unlock(&LOCK_system_variables_hash);
   restore_pluginvar_names(plugin->system_vars);
@@ -2241,7 +2247,13 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
   mysql_mutex_lock(&LOCK_plugin_install);
   mysql_mutex_lock(&LOCK_plugin);
   DEBUG_SYNC(thd, "acquired_LOCK_plugin");
-  mysql_rwlock_wrlock(&LOCK_system_variables_hash);
+  // if can't get the lock always try again
+  while (mysql_rwlock_trywrlock(&LOCK_system_variables_hash) != 0) {
+    mysql_mutex_unlock(&LOCK_plugin);
+    sql_print_information("Lock failed in mysql_install_plugin sleep 1 seconds and try again");
+    sleep(1);
+    mysql_mutex_lock(&LOCK_plugin);
+  }
 
   {
     MEM_ROOT alloc{PSI_NOT_INSTRUMENTED, 512};
