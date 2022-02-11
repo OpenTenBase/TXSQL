@@ -648,6 +648,7 @@ extern uint srv_page_hash_cell_factor;
 extern const ulong srv_idle_flush_pct_default;
 /** How much flush to be done in case of server is idle */
 extern ulong srv_idle_flush_pct;
+extern ulong srv_active_threshold;
 
 /* Number of IO operations per second the server can do */
 extern ulong srv_io_capacity;

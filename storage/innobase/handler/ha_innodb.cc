@@ -22053,6 +22053,11 @@ static MYSQL_SYSVAR_ULONG(
     " idle.",
     NULL, NULL, srv_idle_flush_pct_default, 0, 100, 0);
 
+static MYSQL_SYSVAR_ULONG(
+    active_threshold, srv_active_threshold, PLUGIN_VAR_RQCMDARG,
+    "treate server as active if exceeding this threshold since last checking",
+    NULL, NULL, 0, 0, ULONG_MAX, 0);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_STR(buffer_pool_evict, srv_buffer_pool_evict,
                         PLUGIN_VAR_RQCMDARG, "Evict pages from the buffer pool",
@@ -23223,6 +23228,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(max_concurrent_hot_update),
     MYSQL_SYSVAR(hot_update_wait_timeout),
     MYSQL_SYSVAR(quickly_stoped),
+    MYSQL_SYSVAR(active_threshold),
     NULL};
 
 mysql_declare_plugin(innobase){

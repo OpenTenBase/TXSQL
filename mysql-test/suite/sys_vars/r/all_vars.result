@@ -64,6 +64,8 @@ group_replication_consistency
 group_replication_consistency
 hidden_sensitive_variable
 hidden_sensitive_variable
+innodb_active_threshold
+innodb_active_threshold
 innodb_async_drop_tmp_dir
 innodb_async_drop_tmp_dir
 innodb_async_table_size

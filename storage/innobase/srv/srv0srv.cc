@@ -461,6 +461,7 @@ bool opt_space_extend_fill_zero = true;
 
 const ulong srv_idle_flush_pct_default = 100;
 ulong srv_idle_flush_pct = srv_idle_flush_pct_default;
+ulong srv_active_threshold = 0;
 
 /* This parameter is deprecated. Use srv_n_io_[read|write]_threads
 instead. */
@@ -1982,7 +1983,10 @@ ulint srv_get_activity_count(void) { return (srv_sys->activity_count); }
 ibool srv_check_activity(
     ulint old_activity_count) /*!< in: old activity count */
 {
-  return (srv_sys->activity_count != old_activity_count);
+  ulint active_counter = srv_get_activity_count();
+  ut_ad(active_counter >= old_activity_count);
+
+  return (active_counter > old_activity_count + srv_active_threshold);
 }
 
 /** Make room in the table cache by evicting an unused table.
