@@ -21,15 +21,14 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "sql/join_optimizer/materialize_path_parameters.h"
-#include "sql/join_optimizer/access_path.h"
+#include "sql/join_optimizer/access_path.h"  //EquivalenceCheckHelper
 #include <vector>
 
 using std::vector;
 
 bool MaterializePathParameters::eq(const MaterializePathParameters *other) const {
   if (query_blocks.size() != other->query_blocks.size() ||
-      invalidators->size() != other->invalidators->size() ||
-      !EquivalenceCheckHelper::eq_table_share(table, other->table) ||
+      !EquivalenceCheckHelper::eq_table_share(table, other->table) ||  
       ref_slice != other->ref_slice ||
       rematerialize != other->rematerialize ||
       limit_rows != other->limit_rows ||
@@ -38,6 +37,10 @@ bool MaterializePathParameters::eq(const MaterializePathParameters *other) const
   }
 
   if (invalidators != nullptr) {
+    if (other->invalidators == nullptr ||
+        invalidators->size() != other->invalidators->size()) {
+      return false;
+    }
     const AccessPath *other_invalidator = (*invalidators)[0];
     for (const AccessPath *invalidator : *invalidators) {
       if (other_invalidator == nullptr ||
@@ -49,9 +52,8 @@ bool MaterializePathParameters::eq(const MaterializePathParameters *other) const
         return false;
       }
     }
-    if (other_invalidator != nullptr) {
-      return false;
-    }
+  } else if (other->invalidators != nullptr) {
+    return false;
   }
 
   if (cte != nullptr) {

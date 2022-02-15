@@ -1520,7 +1520,10 @@ bool Query_expression::execute_in_parallel(THD *thd) {
                               is_union() ? nullptr : join,
                               /*is_root_of_join=*/!is_union());
       //TODO goto end if plan inequivalence
-      //sql_print_error("%d-thread generated an %d plan", thd->thread_id(), thd->worker_arg->is_equivalent_plan);
+      sql_print_information("%d-thread generated an %sequal plan",
+                            thd->thread_id(),
+                            thd->worker_arg->is_equivalent_plan ? "" : "un");
+      thd->m_equivalence_check_phase = false;
     }
     // Generate worker executor and waiting for instructions.
     PX_worker *worker = new (thd->mem_root) PX_worker(dfo_mgr, thd);

@@ -4501,11 +4501,7 @@ class Field_bit : public Field {
     bit_ptr = bit_ptr_arg;
     bit_ofs = bit_ofs_arg;
   }
-  bool eq(const Field *field) const final {
-    return (Field::eq(field) &&
-            bit_ptr == down_cast<const Field_bit *>(field)->bit_ptr &&
-            bit_ofs == down_cast<const Field_bit *>(field)->bit_ofs);
-  }
+  bool eq(const Field *field) const final;
   uint is_equal(const Create_field *new_field) const final;
   void move_field_offset(ptrdiff_t ptr_diff) final {
     Field::move_field_offset(ptr_diff);

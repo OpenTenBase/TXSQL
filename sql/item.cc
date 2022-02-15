@@ -84,6 +84,7 @@
 #include "sql/system_variables.h"
 #include "sql/thd_raii.h"
 #include "sql/tztime.h"  // my_tz_UTC
+#include "sql/join_optimizer/access_path.h"  //EquivalenceCheckHelper
 #include "template_utils.h"
 #include "typelib.h"
 #include "unsafe_string_append.h"
@@ -1229,6 +1230,11 @@ void Item_name_string::copy(const char *str_arg, size_t length_arg,
 */
 
 bool Item::eq(const Item *item, bool) const {
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    if (!item_name.is_set()) {
+      return type() == item->type();
+    }
+  }
   /*
     Note, that this is never true if item is a Item_param:
     for all basic constants we have special checks, and Item_param's
@@ -3049,14 +3055,22 @@ bool Item_field::eq(const Item *item, bool) const {
   if (fixed && item_field->fixed)
   {
     if (current_thd && current_thd->m_equivalence_check_phase) {
-      // for optimizer phase in worker thd
-      if (base_item_field()->field == item_field->base_item_field()->field) {
-        return true;
+      // logical equivalence comparison in worker thd.
+      if (!EquivalenceCheckHelper::eq_table_share(
+              base_item_field()->field->table,
+              item_field->base_item_field()->field->table)) {
+        return false;
       }
-      return base_item_field()->field->eq(item_field->base_item_field()->field);
-    } else {
-      return base_item_field()->field == item_field->base_item_field()->field;
+      if (base_item_field()->field->field_length !=
+              item_field->base_item_field()->field->field_length ||
+          strcmp(base_item_field()->field->field_name,
+                 item_field->base_item_field()->field->field_name) != 0) {
+        return false;
+      }
+      return true;
     }
+
+    return base_item_field()->field == item_field->base_item_field()->field;
   }
   /*
     We may come here when we are trying to find a function in a GROUP BY
@@ -4650,7 +4664,32 @@ Item *Item_param::clone_item() const {
   return nullptr;
 }
 
-bool Item_param::eq(const Item *arg, bool) const { return this == arg; }
+bool Item_param::eq(const Item *arg, bool) const {
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    // PARAM_ITEM
+    if (type() == arg->type()) {
+      const Item_param *item_param = down_cast<const Item_param *>(arg);
+      if (m_param_state != item_param->param_state() ||
+          m_json_as_scalar != item_param->json_as_scalar() ||
+          pos_in_query != item_param->pos_in_query ||
+          m_type_inherited != item_param->is_type_inherited() ||
+          m_type_pinned != item_param->is_type_pinned() ||
+          m_unsigned_actual != item_param->is_unsigned_actual() ||
+          m_collation_actual != item_param->collation_actual() ||
+          m_data_type_actual != item_param->data_type_actual()) {
+        return false;
+      }
+
+      // TODO: Parallel execution currently does not support SP and PS.
+      // In the future, we need to support checking param value by val_str.
+      assert(false);
+      return true;
+    }
+    return false;
+  }
+
+  return this == arg;
+}
 
 /* End of Item_param related */
 
@@ -9469,6 +9508,27 @@ bool Item_cache::walk(Item_processor processor, enum_walk walk, uchar *arg) {
   return ((walk & enum_walk::PREFIX) && (this->*processor)(arg)) ||
          (example && example->walk(processor, walk, arg)) ||
          ((walk & enum_walk::POSTFIX) && (this->*processor)(arg));
+}
+
+bool Item_cache::eq(const Item *item, bool binary_cmp) const {
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    if (type() == item->type()) {
+      const Item_cache *item_cache = down_cast<const Item_cache *>(item);
+      if (used_table_map != item_cache->used_tables()) {
+        return false;
+      }
+
+      if (cached_field != nullptr) {
+        if (item_cache->cached_field == nullptr ||
+            !cached_field->eq(item_cache->cached_field, binary_cmp)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+  return this == item;
 }
 
 bool Item_cache::has_value() {

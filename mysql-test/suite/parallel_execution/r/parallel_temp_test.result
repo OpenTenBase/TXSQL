@@ -1,0 +1,3 @@
+--echo #######################################
+--echo # PQ temporary test file, which will be deleted in the future
+--echo #######################################

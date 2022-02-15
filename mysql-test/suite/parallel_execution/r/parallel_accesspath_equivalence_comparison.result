@@ -1,0 +1,2020 @@
+###############################################
+# pq accesspath equivalence comparison test
+###############################################
+###############################################
+# Inconsistent accesspath may caused by: 
+#  1) optimizer_switch changes
+#  2) TODO: sql_mode changes
+#  3) TODO: charset changes
+#  3) TODO: thd.variables
+#  4) TODO: statistics info
+#  5) TODO: const table ref
+#  6) additional tests that may cause exceptions
+###############################################
+# 1) test plan changed by optimizer_switch
+select @@optimizer_switch;
+@@optimizer_switch
+index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on,sort_merge_join=off
+create table t1 (a1 char(8), a2 char(8));
+create table t2 (b1 char(8), b2 char(8));
+insert into t1 values ('1 - 00', '2 - 00');
+insert into t1 values ('1 - 01', '2 - 01');
+insert into t1 values ('1 - 02', '2 - 02');
+insert into t2 values ('1 - 01', '2 - 01');
+insert into t2 values ('1 - 01', '2 - 01');
+insert into t2 values ('1 - 02', '2 - 02');
+insert into t2 values ('1 - 02', '2 - 02');
+insert into t2 values ('1 - 03', '2 - 03');
+set @@optimizer_switch="semijoin=off";
+prepare st1 from
+"select * from t1 where (a1, a2) in (select b1, min(b2) from t2 where b1 > '0' group by b1)";
+set @@optimizer_switch="semijoin=on,materialization=off";
+execute st1;
+a1	a2
+1 - 01	2 - 01
+1 - 02	2 - 02
+set @@optimizer_switch="semijoin=off,materialization=on";
+execute st1;
+a1	a2
+1 - 01	2 - 01
+1 - 02	2 - 02
+set optimizer_switch='default';
+set @@optimizer_switch="materialization=off";
+prepare st1 from
+"select * from t1 where (a1, a2) in (select b1, min(b2) from t2 where b1 > '0' group by b1)";
+set @@optimizer_switch="semijoin=off,materialization=on";
+execute st1;
+a1	a2
+1 - 01	2 - 01
+1 - 02	2 - 02
+set @@optimizer_switch="semijoin=on,materialization=off";
+execute st1;
+a1	a2
+1 - 01	2 - 01
+1 - 02	2 - 02
+set optimizer_switch='default';
+drop table t1, t2;
+#
+# BUG#47367 Crash in Name_resolution_context::process_error
+#
+SET SESSION optimizer_switch = 'default,semijoin=off';
+CREATE TABLE t1 (f1 INTEGER);
+CREATE TABLE t2 LIKE t1;
+CREATE PROCEDURE p1 () BEGIN SELECT f1 FROM t1 WHERE f1 IN (SELECT f1 FROM t2); END|
+CALL p1;
+f1
+ALTER TABLE t2 CHANGE COLUMN f1 my_column INT;
+CALL p1;
+f1
+DROP PROCEDURE p1;
+# Restore the original column list of table t2:
+ALTER TABLE t2 CHANGE COLUMN my_column f1 INT;
+SET SESSION optimizer_switch = 'semijoin=on';
+# Recreate procedure so that we eliminate any caching effects
+CREATE PROCEDURE p1 () BEGIN SELECT f1 FROM t1 WHERE f1 IN (SELECT f1 FROM t2); END|
+CALL p1;
+f1
+ALTER TABLE t2 CHANGE COLUMN f1 my_column INT;
+CALL p1;
+f1
+DROP PROCEDURE p1;
+DROP TABLE t1, t2;
+SET SESSION optimizer_switch = 'default';
+#
+# Bug #46744 Crash in optimize_semijoin_nests on empty view
+# with limit and procedure.
+#
+DROP TABLE IF EXISTS t1, t2;
+DROP VIEW IF EXISTS v1;
+DROP PROCEDURE IF EXISTS p1;
+CREATE TABLE t1 ( f1 int );
+CREATE TABLE t2 ( f1 int );
+insert into t2 values (5), (7);
+CREATE OR REPLACE VIEW v1 AS SELECT * FROM t1 LIMIT 2;
+create procedure p1() 
+select COUNT(*) 
+FROM v1 WHERE f1 IN 
+(SELECT f1 FROM t2 WHERE f1 = ANY (SELECT f1 FROM v1));
+SET SESSION optimizer_switch = 'semijoin=on';
+CALL p1();
+COUNT(*)
+0
+SET SESSION optimizer_switch = 'semijoin=off';
+CALL p1();
+COUNT(*)
+0
+drop table t1, t2;
+drop view v1;
+drop procedure p1;
+set SESSION optimizer_switch='default';
+# End of bug#46744
+#
+# Bug#50489: another segfault in fix_semijoin_strategies... 
+#
+CREATE TABLE it (
+id INT NOT NULL,
+expr_key INT NOT NULL,
+expr_nokey INT NOT NULL,
+expr_padder INT DEFAULT NULL,
+KEY expr_key(expr_key)
+);
+INSERT INTO it VALUES (135,218264606,218264606,100);
+INSERT INTO it VALUES (201,810783319,810783319,200);
+CREATE TABLE ot (
+id INT NOT NULL,
+expr_key INT NOT NULL,
+expr_nokey INT NOT NULL,
+KEY expr_key(expr_key)
+);
+CREATE PROCEDURE run_n_times(x int)
+BEGIN
+DECLARE c int;
+WHILE x DO
+SET x = x-1;
+SELECT COUNT(expr_key) INTO c FROM ot
+WHERE expr_key IN (SELECT expr_nokey FROM it)
+AND ot.expr_key<100000000;
+END WHILE;
+END;
+SET optimizer_switch="default";
+call run_n_times(1);
+SET optimizer_switch="firstmatch=off,materialization=off";
+call run_n_times(1);
+SET optimizer_switch="default";
+call run_n_times(1);
+DROP PROCEDURE run_n_times;
+CREATE PROCEDURE run_n_times(x int)
+BEGIN
+DECLARE c int;
+WHILE x DO
+SET x = x-1;
+SELECT COUNT(expr_key) INTO c FROM ot
+WHERE expr_key IN (SELECT expr_nokey FROM it)
+AND ot.expr_key<100000000;
+END WHILE;
+END;
+SET optimizer_switch="firstmatch=off,materialization=off";
+call run_n_times(1);
+SET optimizer_switch="default";
+call run_n_times(1);
+DROP PROCEDURE run_n_times;
+CREATE PROCEDURE run_n_times(x int)
+BEGIN
+DECLARE c int;
+WHILE x DO
+SET x = x-1;
+SELECT COUNT(expr_key) INTO c FROM ot
+WHERE expr_key IN (SELECT expr_nokey FROM it)
+AND ot.expr_key<100000000;
+END WHILE;
+END;
+SET optimizer_switch="semijoin=off,materialization=off";
+call run_n_times(1);
+SET optimizer_switch="default";
+call run_n_times(1);
+DROP PROCEDURE run_n_times;
+DROP TABLE it, ot;
+# 
+# BUG#31480: Incorrect result for nested subquery when executed via semijoin
+# 
+CREATE TABLE t1 (a INT NOT NULL, b INT NOT NULL);
+CREATE TABLE t2 (c INT NOT NULL, d INT NOT NULL);
+CREATE TABLE t3 (e INT NOT NULL);
+CREATE TABLE t4 (f INT NOT NULL, g INT NOT NULL);
+INSERT INTO t1 VALUES (1,10);
+INSERT INTO t1 VALUES (2,10);
+INSERT INTO t1 VALUES (1,20);
+INSERT INTO t1 VALUES (2,20);
+INSERT INTO t1 VALUES (3,20);
+INSERT INTO t1 VALUES (2,30);
+INSERT INTO t1 VALUES (4,40);
+INSERT INTO t2 VALUES (2,10);
+INSERT INTO t2 VALUES (2,20);
+INSERT INTO t2 VALUES (4,10);
+INSERT INTO t2 VALUES (5,10);
+INSERT INTO t2 VALUES (3,20);
+INSERT INTO t2 VALUES (2,40);
+INSERT INTO t3 VALUES (10);
+INSERT INTO t3 VALUES (30);
+INSERT INTO t3 VALUES (10);
+INSERT INTO t3 VALUES (20);
+INSERT INTO t4 VALUES (2,10);
+INSERT INTO t4 VALUES (2,10);
+INSERT INTO t4 VALUES (3,10);
+INSERT INTO t4 VALUES (4,10);
+INSERT INTO t4 VALUES (4,20);
+INSERT INTO t4 VALUES (4,20);
+# Reference to the parent query block (used tables was wrong)
+set @@optimizer_switch='materialization=off,semijoin=off';
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+analyze table t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	OK
+analyze table t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (<nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`ta`.`b` = `test`.`tc`.`e`) and (<cache>(`test`.`tb`.`d`) >= `test`.`tc`.`e`))))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	10
+2	20
+3	20
+2	30
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Start temporary
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; End temporary; Using join buffer (hash join)
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb`) where ((`test`.`ta`.`a` = `test`.`tb`.`c`) and <nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`ta`.`b` = `test`.`tc`.`e`) and (<cache>(`test`.`tb`.`d`) >= `test`.`tc`.`e`))))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	10
+2	20
+3	20
+2	30
+# Subquery with GROUP BY and HAVING
+set @@optimizer_switch='materialization=off,semijoin=off';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
+GROUP BY f
+HAVING ta.a=tc.f));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using temporary
+Warnings:
+Note	1276	Field or reference 'ta.a' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (<nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select sum(`test`.`tc`.`g`) from `test`.`t4` `tc` group by `test`.`tc`.`f` having ((`test`.`ta`.`a` = `test`.`tc`.`f`) and (<cache>(`test`.`tb`.`d`) >= <ref_null_helper>(sum(`test`.`tc`.`g`))))))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
+GROUP BY f
+HAVING ta.a=tc.f));
+a	b
+2	10
+2	20
+3	20
+2	30
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
+GROUP BY f
+HAVING ta.a=tc.f));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Start temporary
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; End temporary; Using join buffer (hash join)
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using temporary
+Warnings:
+Note	1276	Field or reference 'ta.a' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb`) where ((`test`.`ta`.`a` = `test`.`tb`.`c`) and <nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select sum(`test`.`tc`.`g`) from `test`.`t4` `tc` group by `test`.`tc`.`f` having ((`test`.`ta`.`a` = `test`.`tc`.`f`) and (<cache>(`test`.`tb`.`d`) >= <ref_null_helper>(sum(`test`.`tc`.`g`))))))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
+GROUP BY f
+HAVING ta.a=tc.f));
+a	b
+2	10
+2	20
+3	20
+2	30
+# Subquery with ORDER BY and LIMIT
+set @@optimizer_switch='materialization=off,semijoin=off';
+# NOTE: The ordered subquery should have a LIMIT clause to make sense
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d IN (SELECT g FROM t4 as tc
+WHERE ta.a=tc.f
+ORDER BY tc.f));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.a' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select `test`.`tc`.`g` from `test`.`t4` `tc` where ((`test`.`ta`.`a` = `test`.`tc`.`f`) and (<cache>(`test`.`tb`.`d`) = `test`.`tc`.`g`)))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d IN (SELECT g FROM t4 as tc
+WHERE ta.a=tc.f
+ORDER BY tc.f));
+a	b
+2	10
+2	20
+2	30
+4	40
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d IN (SELECT g FROM t4 as tc
+WHERE ta.a=tc.f
+ORDER BY tc.f));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Start temporary
+1	SIMPLE	tc	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+1	SIMPLE	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; End temporary; Using join buffer (hash join)
+Warnings:
+Note	1276	Field or reference 'test.ta.a' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb` join `test`.`t4` `tc`) where ((`test`.`tc`.`f` = `test`.`tb`.`c`) and (`test`.`ta`.`a` = `test`.`tb`.`c`) and (`test`.`tc`.`g` = `test`.`tb`.`d`))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d IN (SELECT g FROM t4 as tc
+WHERE ta.a=tc.f
+ORDER BY tc.f));
+a	b
+2	10
+2	20
+2	30
+4	40
+# Reference to the transformed-away query block (dependency was wrong)
+set @@optimizer_switch='materialization=off,semijoin=off';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE tb.d=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.tb.d' of SELECT #3 was resolved in SELECT #2
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (<nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`tb`.`d` = `test`.`tc`.`e`) and (<cache>(`test`.`tb`.`d`) >= `test`.`tc`.`e`))))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE tb.d=tc.e));
+a	b
+2	10
+2	20
+2	30
+3	20
+4	40
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE tb.d=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using where; Start temporary
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; End temporary; Using join buffer (hash join)
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.tb.d' of SELECT #3 was resolved in SELECT #2
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb`) where ((`test`.`ta`.`a` = `test`.`tb`.`c`) and <nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#3 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`tb`.`d` = `test`.`tc`.`e`) and (<cache>(`test`.`tb`.`d`) >= `test`.`tc`.`e`))))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE tb.d=tc.e));
+a	b
+2	10
+2	20
+2	30
+3	20
+4	40
+# Reference above the parent query block (should not be affected)
+set @@optimizer_switch='materialization=off,semijoin=off';
+EXPLAIN SELECT * FROM t1 AS t
+WHERE t.a NOT IN (SELECT a FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE t.b=tc.e)));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where
+3	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t.b' of SELECT #4 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t1` `t` where <in_optimizer>(`test`.`t`.`a`,<exists>(/* select#2 */ select `test`.`ta`.`a` from `test`.`t1` `ta` where (<in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#3 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (<nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#4 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`t`.`b` = `test`.`tc`.`e`) and (<cache>(`test`.`tb`.`d`) >= `test`.`tc`.`e`))))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`)))) and (<cache>(`test`.`t`.`a`) = `test`.`ta`.`a`))) is false)
+SELECT * FROM t1 AS t
+WHERE t.a NOT IN (SELECT a FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE t.b=tc.e)));
+a	b
+1	10
+1	20
+4	40
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS t
+WHERE t.a NOT IN (SELECT a FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE t.b=tc.e)));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	NULL
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using where; Not exists; Using join buffer (hash join)
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where; Using join buffer (hash join)
+4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t.b' of SELECT #4 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t1` `t` anti join (`test`.`t1` `ta` join `test`.`t2` `tb`) on(((`test`.`tb`.`c` = `test`.`t`.`a`) and (`test`.`ta`.`a` = `test`.`t`.`a`) and <nop>(<in_optimizer>(`test`.`tb`.`d`,<exists>(/* select#4 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`t`.`b` = `test`.`tc`.`e`) and (<cache>(`test`.`tb`.`d`) >= `test`.`tc`.`e`))))))) where true
+SELECT * FROM t1 AS t
+WHERE t.a NOT IN (SELECT a FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+WHERE t.b=tc.e)));
+a	b
+1	10
+1	20
+4	40
+# EXISTS with reference to the parent query block
+set @@optimizer_switch='materialization=off,semijoin=off';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE EXISTS (SELECT * FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (exists(/* select#3 */ select 1 from `test`.`t3` `tc` where (`test`.`ta`.`b` = `test`.`tc`.`e`)) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE EXISTS (SELECT * FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	10
+2	20
+3	20
+2	30
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE EXISTS (SELECT * FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Start temporary
+1	SIMPLE	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; Using join buffer (hash join)
+1	SIMPLE	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; End temporary; Using join buffer (hash join)
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb` join `test`.`t3` `tc`) where ((`test`.`ta`.`b` = `test`.`tc`.`e`) and (`test`.`tb`.`c` = `test`.`ta`.`a`))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE EXISTS (SELECT * FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	10
+2	20
+2	30
+3	20
+# Scalar subquery with reference to the parent query block
+set @@optimizer_switch='materialization=off,semijoin=off';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d = (SELECT MIN(e) FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where ((`test`.`tb`.`d` = (/* select#3 */ select min(`test`.`tc`.`e`) from `test`.`t3` `tc` where (`test`.`ta`.`b` = `test`.`tc`.`e`))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d = (SELECT MIN(e) FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	10
+2	20
+3	20
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d = (SELECT MIN(e) FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Start temporary
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; End temporary; Using join buffer (hash join)
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #3 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb`) where ((`test`.`ta`.`a` = `test`.`tb`.`c`) and ((/* select#3 */ select min(`test`.`tc`.`e`) from `test`.`t3` `tc` where (`test`.`ta`.`b` = `test`.`tc`.`e`)) = `test`.`tb`.`d`))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE tb.d = (SELECT MIN(e) FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	10
+2	20
+3	20
+# Combine scalar subquery with quantified comparison subquery
+set @@optimizer_switch='materialization=off,semijoin=off';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE (SELECT MIN(e) FROM t3 as tc
+WHERE tb.d=tc.e) < SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
+4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #4 was resolved in SELECT #1
+Note	1276	Field or reference 'test.tb.d' of SELECT #3 was resolved in SELECT #2
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` where <in_optimizer>(`test`.`ta`.`a`,<exists>(/* select#2 */ select `test`.`tb`.`c` from `test`.`t2` `tb` where (<nop>(<in_optimizer>((/* select#3 */ select min(`test`.`tc`.`e`) from `test`.`t3` `tc` where (`test`.`tb`.`d` = `test`.`tc`.`e`)),<exists>(/* select#4 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`ta`.`b` = `test`.`tc`.`e`) and <if>(outer_field_is_not_null, (<cache>((/* select#3 */ select min(`test`.`tc`.`e`) from `test`.`t3` `tc` where (`test`.`tb`.`d` = `test`.`tc`.`e`))) < `test`.`tc`.`e`), true))))) and (<cache>(`test`.`ta`.`a`) = `test`.`tb`.`c`))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE (SELECT MIN(e) FROM t3 as tc
+WHERE tb.d=tc.e) < SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	20
+2	30
+set @@optimizer_switch='materialization=off,semijoin=on';
+EXPLAIN SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE (SELECT MIN(e) FROM t3 as tc
+WHERE tb.d=tc.e) < SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Start temporary
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; End temporary; Using join buffer (hash join)
+4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.ta.b' of SELECT #4 was resolved in SELECT #1
+Note	1276	Field or reference 'test.tb.d' of SELECT #3 was resolved in SELECT #2
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a`,`test`.`ta`.`b` AS `b` from `test`.`t1` `ta` semi join (`test`.`t2` `tb`) where ((`test`.`ta`.`a` = `test`.`tb`.`c`) and <nop>(<in_optimizer>((/* select#3 */ select min(`test`.`tc`.`e`) from `test`.`t3` `tc` where (`test`.`tb`.`d` = `test`.`tc`.`e`)),<exists>(/* select#4 */ select `test`.`tc`.`e` from `test`.`t3` `tc` where ((`test`.`ta`.`b` = `test`.`tc`.`e`) and <if>(outer_field_is_not_null, (<cache>((/* select#3 */ select min(`test`.`tc`.`e`) from `test`.`t3` `tc` where (`test`.`tb`.`d` = `test`.`tc`.`e`))) < `test`.`tc`.`e`), true))))))
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+WHERE (SELECT MIN(e) FROM t3 as tc
+WHERE tb.d=tc.e) < SOME(SELECT e FROM t3 as tc
+WHERE ta.b=tc.e));
+a	b
+2	20
+2	30
+DROP TABLE t1, t2, t3, t4;
+set @@optimizer_switch='default';
+# 5) additional tests that may cause exceptions
+CREATE DATABASE temptable_test;
+USE temptable_test;
+SELECT
+GRANDPARENT1.`col_int_key` AS g1,
+GRANDPARENT1.`col_datetime_key` AS dt
+FROM
+C AS GRANDPARENT1
+LEFT JOIN
+C AS GRANDPARENT2
+ON (GRANDPARENT2.`pk` <> GRANDPARENT1.`pk`)
+WHERE
+(GRANDPARENT1.`pk`, GRANDPARENT1.`pk`) IN (
+SELECT DISTINCT
+PARENT1.`col_int_key` AS p1,
+PARENT1.`col_int_key` AS p2
+FROM
+C AS PARENT1
+LEFT JOIN
+C AS PARENT2
+USING (`col_varchar_key`)
+WHERE
+((PARENT1.`pk` > GRANDPARENT1.`col_int_key`)
+OR ((PARENT1.`col_time_key` <= GRANDPARENT1.`col_time_key`)
+AND (PARENT1.`col_datetime_key` > '2005-02-01')
+)
+)
+ORDER BY PARENT1.`col_int_key`
+  )
+AND GRANDPARENT1.`col_varchar_key` <> 'r'
+HAVING g1 <> '13:16:53.053569'
+ORDER BY GRANDPARENT1.`col_datetime_key`;
+g1	dt
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+0	2001-11-08 21:02:12
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+1	2007-07-12 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+4	1900-01-01 00:00:00
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+62	2008-01-03 10:33:32
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	1900-01-01 00:00:00
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+7	2005-04-04 01:21:01
+Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
+Warnings:
+SET SESSION internal_tmp_mem_storage_engine = default;
+USE test;
+DROP DATABASE temptable_test;
+# Testing correct nesting of natural joins.
+CREATE TABLE t1( a INT, b int );
+CREATE TABLE t2( a INT, c int );
+CREATE TABLE t3( a INT, d int );
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
+INSERT INTO t2 VALUES         (2, 2), (3, 3), (4, 4);
+INSERT INTO t3 VALUES                 (3, 3), (4, 4), (5, 5);
+# The two queries below should produce identical result sets.
+SELECT * FROM t1 NATURAL LEFT JOIN t2 NATURAL RIGHT JOIN t3;
+a	d	b	c
+3	3	3	3
+4	4	NULL	NULL
+5	5	NULL	NULL
+SELECT * FROM (t1 NATURAL LEFT JOIN t2) NATURAL RIGHT JOIN t3;
+a	d	b	c
+3	3	3	3
+4	4	NULL	NULL
+5	5	NULL	NULL
+# This result should differ from the result sets above.
+SELECT * FROM t1 NATURAL LEFT JOIN (t2 NATURAL RIGHT JOIN t3);
+a	b	d	c
+1	1	NULL	NULL
+2	2	NULL	NULL
+3	3	3	3
+DROP TABLE t1, t2, t3;
+SET @@timestamp=default;
+SET @save_sql_mode=@@sql_mode;
+set SQL_MODE='';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a INT, b DATETIME);
+INSERT INTO t1 VALUES (INTERVAL(3,2,1) + 1, "1997-12-31 23:59:59" + INTERVAL 1 SECOND);
+SELECT * FROM t1 WHERE a = INTERVAL(3,2,1) + 1;
+a	b
+3	1998-01-01 00:00:00
+DROP TABLE t1;
+SET sql_mode = default;
+DROP TABLE IF EXISTS t1,t2,t3;
+CREATE TABLE t1 (a1 INT, a2 INT, a3 INT, a4 DATETIME);
+CREATE TABLE t2 LIKE t1;
+CREATE TABLE t3 LIKE t1;
+SELECT t1.* FROM t1 AS t0, { OJ t2 INNER JOIN t1 ON (t1.a1=t2.a1) } WHERE t0.a3=2;
+a1	a2	a3	a4
+SELECT t1.*,t2.* FROM { OJ ((t1 INNER JOIN t2 ON (t1.a1=t2.a2)) LEFT OUTER JOIN t3 ON t3.a3=t2.a1)};
+a1	a2	a3	a4	a1	a2	a3	a4
+SELECT t1.*,t2.* FROM { OJ ((t1 LEFT OUTER JOIN t2 ON t1.a3=t2.a2) INNER JOIN t3 ON (t3.a1=t2.a2))};
+a1	a2	a3	a4	a1	a2	a3	a4
+SELECT t1.*,t2.* FROM { OJ (t1 LEFT OUTER JOIN t2 ON t1.a1=t2.a2) CROSS JOIN t3 ON (t3.a2=t2.a3)};
+a1	a2	a3	a4	a1	a2	a3	a4
+SELECT * FROM {oj t1 LEFT OUTER JOIN t2 ON t1.a1=t2.a3} WHERE t1.a2 > 10;
+a1	a2	a3	a4	a1	a2	a3	a4
+SELECT {fn CONCAT(a1,a2)} FROM t1;
+{fn CONCAT(a1,a2)}
+UPDATE t3 SET a4={d '1789-07-14'} WHERE a1=0;
+SELECT a1, a4 FROM t2 WHERE a4 LIKE {fn UCASE('1789-07-14')};
+a1	a4
+DROP TABLE t1, t2, t3;
+# bug #17727401
+SELECT '' IN (SELECT '1' c FROM t1 ORDER BY '' ORDER BY '') FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY '') FROM t1' at line 1
+# regression & coverage tests
+# uniform syntax for FROM DUAL clause:
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+FOR UPDATE;
+1
+1
+SELECT 1 FROM
+(SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+FOR UPDATE) a;
+1
+1
+CREATE TABLE t1 (i INT);
+SELECT 1 FROM t1
+WHERE EXISTS(SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+FOR UPDATE);
+1
+SELECT 1 FROM t1
+UNION
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+FOR UPDATE;
+1
+1
+(SELECT 1 FROM t1)
+UNION 
+(SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+FOR UPDATE);
+1
+1
+# "FOR UPDATE" tests
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1;
+1
+SELECT 1 FROM t1 FOR UPDATE UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1' at line 1
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1 FOR UPDATE;
+1
+# "INTO" clause tests
+SELECT 1 FROM t1 INTO @var17727401;
+Warnings:
+Warning	1329	No data - zero rows fetched, selected, or processed
+SELECT 1 FROM DUAL INTO @var17727401;
+SELECT 1 INTO @var17727401;
+SELECT 1 INTO @var17727401 FROM t1;
+Warnings:
+Warning	1329	No data - zero rows fetched, selected, or processed
+SELECT 1 INTO @var17727401 FROM DUAL;
+SELECT 1 INTO @var17727401_1 FROM t1 INTO @var17727401_2;
+ERROR HY000: Multiple INTO clauses in one query block.
+SELECT 1 INTO @var17727401_1 FROM DUAL
+INTO @var17727401_2;
+ERROR HY000: Multiple INTO clauses in one query block.
+SELECT 1 INTO @var17727401 FROM t1 WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1;
+Warnings:
+Warning	1329	No data - zero rows fetched, selected, or processed
+SELECT 1 FROM t1 WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1 INTO @var17727401;
+Warnings:
+Warning	1329	No data - zero rows fetched, selected, or processed
+SELECT 1 FROM t1 WHERE 1 INTO @var17727401 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1' at line 1
+SELECT 1 INTO @var17727401_1
+FROM t1 WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1
+INTO @var17727401_2;
+ERROR HY000: Multiple INTO clauses in one query block.
+SELECT (SELECT 1 FROM t1 INTO @var17727401);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @var17727401)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 INTO @var17727401) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @var17727401) a' at line 1
+SELECT EXISTS(SELECT 1 FROM t1 INTO @var17727401);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @var17727401)' at line 1
+SELECT 1 FROM t1 INTO @var17727401 UNION SELECT 1 FROM t1 INTO t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 INTO t1' at line 1
+(SELECT 1 FROM t1 INTO @var17727401) UNION (SELECT 1 FROM t1 INTO t1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION (SELECT 1 FROM t1 INTO t1)' at line 1
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 INTO @var17727401;
+Warnings:
+Warning	1329	No data - zero rows fetched, selected, or processed
+# ORDER and LIMIT clause combinations
+(SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1;
+1
+(SELECT 1 FROM t1 LIMIT 1) LIMIT 1;
+1
+((SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1) ORDER BY 1;
+ERROR 42000: This version of MySQL doesn't yet support 'parenthesized query expression with more than one external level of ORDER/LIMIT operations'
+((SELECT 1 FROM t1 LIMIT 1) LIMIT 1) LIMIT 1;
+1
+(SELECT 1 FROM t1 ORDER BY 1) LIMIT 1;
+1
+(SELECT 1 FROM t1 LIMIT 1) ORDER BY 1;
+1
+((SELECT 1 FROM t1 ORDER BY 1) LIMIT 1) ORDER BY 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')' at line 1
+((SELECT 1 FROM t1 LIMIT 1) ORDER BY 1) LIMIT 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')' at line 1
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1;
+1
+SELECT (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1);
+(SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1)
+NULL
+SELECT 1 FROM (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1) a;
+1
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1;
+1
+SELECT (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1);
+(SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1)
+NULL
+SELECT 1 FROM (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1) a;
+1
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1;
+1
+SELECT (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1);
+(SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1)
+NULL
+SELECT 1 FROM (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1) a;
+1
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1 ORDER BY 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1' at line 1
+SELECT (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1 ORDER BY 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1 ORDER BY 1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1) a' at line 1
+SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1' at line 1
+SELECT (SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1) a' at line 1
+SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1' at line 1
+SELECT (SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1) a' at line 1
+SELECT 1 FROM t1 ORDER BY 1 LIMIT 1 UNION SELECT 1 FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1' at line 1
+SELECT (SELECT 1 FROM t1 ORDER BY 1 LIMIT 1 UNION SELECT 1 FROM t1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 ORDER BY 1 LIMIT 1 UNION SELECT 1 FROM t1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1) a' at line 1
+SELECT 1 FROM t1 LIMIT 1 ORDER BY 1 UNION SELECT 1 FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1 UNION SELECT 1 FROM t1' at line 1
+SELECT (SELECT 1 FROM t1 LIMIT 1 ORDER BY 1 UNION SELECT 1 FROM t1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1 UNION SELECT 1 FROM t1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 LIMIT 1 ORDER BY 1 UNION SELECT 1 FROM t1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1 UNION SELECT 1 FROM t1) a' at line 1
+SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 ORDER BY 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1' at line 1
+SELECT (SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 ORDER BY 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 ORDER BY 1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1) a' at line 1
+SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 LIMIT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 LIMIT 1' at line 1
+SELECT (SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 LIMIT 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 LIMIT 1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 LIMIT 1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 LIMIT 1) a' at line 1
+SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 ORDER BY 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1' at line 1
+SELECT (SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 ORDER BY 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 ORDER BY 1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 ORDER BY 1) a' at line 1
+SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 LIMIT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 LIMIT 1' at line 1
+SELECT (SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 LIMIT 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 LIMIT 1)' at line 1
+SELECT 1 FROM (SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 LIMIT 1) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1 FROM t1 LIMIT 1) a' at line 1
+DROP TABLE t1;
+#
+# Bug #18106014: RECENT REGRESSION: MORE CASES OF ASSERTION FAILED:
+#                !JOIN->PLAN_IS_CONST()
+#
+SELECT COUNT(1) FROM DUAL GROUP BY '1' ORDER BY 1 ;
+COUNT(1)
+1
+SELECT COUNT(1)           GROUP BY '1' ORDER BY 1 ;
+COUNT(1)
+1
+DO(SELECT 1 c           GROUP BY 1 HAVING 1 ORDER BY COUNT(1));
+DO(SELECT 1 c FROM DUAL GROUP BY 1 HAVING 1 ORDER BY COUNT(1));
+SELECT (SELECT 1 c                   GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+'null is not expected';
+null is not expected
+1
+SELECT (SELECT 1 c FROM DUAL         GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+'null is not expected';
+null is not expected
+1
+SELECT (SELECT 1 c                   GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c FROM DUAL         GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c           WHERE 1 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+'null is not expected';
+null is not expected
+1
+SELECT (SELECT 1 c FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+'null is not expected';
+null is not expected
+1
+SELECT (SELECT 1 c           WHERE 1 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c FROM DUAL WHERE 1 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c           WHERE 0 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c FROM DUAL WHERE 0 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c           WHERE 0 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT (SELECT 1 c FROM DUAL WHERE 0 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+'null is expected';
+null is expected
+NULL
+SELECT 1 c FROM DUAL GROUP BY 1 HAVING 1 ORDER BY COUNT(1);
+c
+1
+SELECT 1 c FROM DUAL GROUP BY 1 HAVING 0 ORDER BY COUNT(1);
+c
+SELECT 1 c           GROUP BY 1 HAVING 1 ORDER BY COUNT(1);
+c
+1
+#
+# Bug #18106058: RECENT REGRESSION: CRASH IN JOIN::MAKE_TMP_TABLES_INFO
+#
+CREATE TABLE t1 (i INT);
+INSERT INTO t1 VALUES (1);
+SELECT ((SELECT 1 AS f           HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+ORDER BY f));
+((SELECT 1 AS f           HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+ORDER BY f))
+1
+SELECT ((SELECT 1 AS f FROM DUAL HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+ORDER BY f));
+((SELECT 1 AS f FROM DUAL HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+ORDER BY f))
+1
+SELECT 1 AS f          FROM DUAL HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+ORDER BY f;
+f
+1
+SELECT 1 AS f                   HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+ORDER BY f;
+f
+1
+DROP TABLE t1;
+#
+# Some additional coverage tests for WL#7199 and friends
+#
+CREATE TABLE t1 (i INT);
+INSERT INTO t1 VALUES (1), (2);
+CREATE TABLE t2 (i INT);
+INSERT INTO t2 VALUES (10), (20);
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 WHERE i = 10
+ORDER BY i;
+i
+1
+10
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 WHERE i = 10
+LIMIT 100;
+i
+1
+10
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 GROUP BY i HAVING i = 10
+ORDER BY i;
+i
+1
+10
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 GROUP BY i HAVING i = 10
+LIMIT 100;
+i
+1
+10
+(SELECT i FROM t1 WHERE i = 1) ORDER BY i;
+i
+1
+(SELECT i FROM t1 WHERE i = 1) LIMIT 100;
+i
+1
+(SELECT i FROM t1 GROUP BY i HAVING i = 1) ORDER BY i;
+i
+1
+(SELECT i FROM t1 GROUP BY i HAVING i = 1) LIMIT 100;
+i
+1
+DROP TABLE t1, t2;
+#
+# Bug#18486460 ASSERTION FAILED: N < M_SIZE AFTER FIX_INNER_REFS
+#
+CREATE TABLE t1(b INT);
+CREATE TABLE t2(a INT, b INT, c INT, d INT);
+EXPLAIN SELECT
+(
+SELECT
+ROW(t1.b, a) = ROW( ROW(1, t2.c) = ROW(1, d), c) = a
+FROM t1
+)
+FROM t2 GROUP BY a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using temporary
+2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1276	Field or reference 'test.t2.c' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t2.d' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t2.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t2.c' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t2.a' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select (/* select#2 */ select (((`test`.`t1`.`b` = ((1 = 1) and (`test`.`t2`.`c` = `test`.`t2`.`d`))) and (`test`.`t2`.`a` = `test`.`t2`.`c`)) = `test`.`t2`.`a`) from `test`.`t1`) AS `(
+SELECT
+ROW(t1.b, a) = ROW( ROW(1, t2.c) = ROW(1, d), c) = a
+FROM t1
+)` from `test`.`t2` group by `test`.`t2`.`a`
+DROP TABLE t1, t2;
+#
+# Bug#18498344: SELECT WITH ALIAS NOT WORKING IN 5.7
+#
+CREATE TABLE t1 (
+a INT
+);
+INSERT INTO t1 VALUES ( 2 );
+# Should succeed
+SELECT *
+FROM ( SELECT a FROM t1 UNION SELECT 1 ORDER BY a ) AS a1
+WHERE a1.a = 1 OR a1.a = 2;
+a
+1
+2
+DROP TABLE t1;
+#
+# WL#8083: Introduce <query expression> parser rule
+# Bug#14743786: PARSE ERROR WITH UNION PARENTHESES ON TOP LEVEL
+#
+#
+# Part1: Regression Testing.
+#
+CREATE TABLE t1 ( a INT );
+INSERT INTO t1 VALUES ( 1 );
+CREATE TABLE t2 ( a INT );
+INSERT INTO t2 VALUES ( 2 ), ( 2 );
+CREATE TABLE t3 ( a INT );
+INSERT INTO t3 VALUES ( 3 ), ( 3 ), ( 3 );
+SELECT 1 UNION SELECT 2;
+1
+1
+2
+(SELECT 1) UNION SELECT 2;
+1
+1
+2
+SELECT 1 UNION (SELECT 2);
+1
+1
+2
+(SELECT 1) UNION (SELECT 2);
+1
+1
+2
+SELECT 2 FROM t1 UNION ((SELECT 3 FROM t1));
+2
+2
+3
+(SELECT 2 FROM t1)  UNION SELECT 3 FROM t1;
+2
+2
+3
+((SELECT 2 FROM t1)) UNION SELECT 3 FROM t1;
+2
+2
+3
+(SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1;
+1
+1
+(SELECT 1 FROM t1 LIMIT 1) LIMIT 1;
+1
+1
+SELECT a FROM t1 LIMIT 1 UNION ALL SELECT a FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION ALL SELECT a FROM t1' at line 1
+(SELECT 1) UNION (SELECT 2 UNION SELECT 3);
+ERROR 42000: This version of MySQL doesn't yet support 'nesting of unions at the right-hand side'
+(SELECT a FROM t1 LIMIT 1) UNION ALL (SELECT a FROM t1 ORDER BY a) LIMIT 2;
+a
+1
+1
+(SELECT a FROM t1 LIMIT 1) UNION ALL ((SELECT a FROM t1 ORDER BY a)) LIMIT 2;
+a
+1
+1
+SELECT 1 UNION SELECT 2 FROM t1 ORDER BY a LIMIT 1;
+ERROR 42S22: Unknown column 'a' in 'order clause'
+SELECT 1 UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1);
+1
+1
+2
+(SELECT 1 FROM t1 LIMIT 2) UNION  SELECT 2 FROM t1 ORDER BY a LIMIT 1;
+ERROR 42S22: Unknown column 'a' in 'order clause'
+(SELECT 1 FROM t1 LIMIT 2) UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1);
+1
+1
+2
+(SELECT a FROM t1 LIMIT 2) LIMIT 1;
+a
+1
+((SELECT a FROM t1 LIMIT 2)) LIMIT 1;
+a
+1
+(SELECT a FROM t1 LIMIT 2) ORDER BY 1;
+a
+1
+(SELECT 1 FROM t1 LIMIT 2) UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1) LIMIT 1;
+1
+1
+(SELECT 1 FROM t1 LIMIT 2) UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1)
+ORDER BY a;
+ERROR 42S22: Unknown column 'a' in 'order clause'
+(SELECT 1 FROM t1 LIMIT 1) UNION ((SELECT 2 FROM t1 ORDER BY a LIMIT 2))
+ORDER BY a;
+ERROR 42S22: Unknown column 'a' in 'order clause'
+(SELECT a FROM t2 LIMIT 1) UNION (SELECT a FROM t3 LIMIT 2) LIMIT 1;
+a
+2
+(SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1;
+1
+1
+(SELECT a FROM t1 LIMIT 1) ORDER BY t1.a;
+ERROR 42000: Table 't1' from one of the SELECTs cannot be used in global ORDER clause
+((SELECT a FROM t1 LIMIT 1)) ORDER BY t1.a;
+ERROR 42000: Table 't1' from one of the SELECTs cannot be used in global ORDER clause
+(SELECT a FROM t1 LIMIT 1) UNION ALL (SELECT 2) ORDER BY t1.b;
+ERROR 42000: Table 't1' from one of the SELECTs cannot be used in global ORDER clause
+(SELECT a FROM t1 LIMIT 1) UNION ALL ((SELECT 2)) ORDER BY t1.b;
+ERROR 42000: Table 't1' from one of the SELECTs cannot be used in global ORDER clause
+(SELECT a FROM t1 LIMIT 1) UNION ALL (SELECT a FROM t1 ORDER BY a LIMIT 2)
+ORDER BY t1.b;
+ERROR 42000: Table 't1' from one of the SELECTs cannot be used in global ORDER clause
+SELECT 1 UNION ( SELECT 1 UNION SELECT 1 );
+ERROR 42000: This version of MySQL doesn't yet support 'nesting of unions at the right-hand side'
+( SELECT 1 UNION SELECT 1 ) UNION SELECT 1;
+1
+1
+( (SELECT 1 UNION SELECT 1 ) UNION SELECT 1 ) UNION SELECT 1;
+1
+1
+( SELECT 1 UNION ( SELECT 1 UNION SELECT 1 ) UNION SELECT 1 );
+ERROR 42000: This version of MySQL doesn't yet support 'nesting of unions at the right-hand side'
+( SELECT 1 UNION ( SELECT 1 UNION SELECT 1 ) UNION SELECT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+SELECT a FROM t1 ORDER BY a UNION SELECT a FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT a FROM t1' at line 1
+(SELECT * FROM t1 LIMIT 1) UNION SELECT * FROM t1;
+a
+1
+(SELECT * FROM t1 ORDER BY a) UNION SELECT * FROM t1;
+a
+1
+SELECT a FROM t1
+UNION
+SELECT a FROM t1 ORDER BY a
+UNION
+SELECT a FROM t1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION
+SELECT a FROM t1' at line 4
+(SELECT SQL_CALC_FOUND_ROWS a FROM t1 LIMIT 2)
+UNION
+(SELECT a FROM t2 ORDER BY a) LIMIT 2;
+a
+1
+2
+Warnings:
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+DROP TABLE t1, t2, t3;
+CREATE PROCEDURE p1() BEGIN IF whatever THEN SELECT 1; END IF; END|
+CALL p1();
+ERROR 42S22: Unknown column 'whatever' in 'field list'
+DROP PROCEDURE p1;
+#
+# Part 2: Test of changed (fixed) behavior.
+#
+CREATE TABLE t1 ( a INT );
+INSERT INTO t1 VALUES ( 1 );
+CREATE TABLE t2 ( a INT );
+INSERT INTO t2 VALUES ( 2 ), ( 2 );
+CREATE TABLE t3 ( a INT );
+INSERT INTO t3 VALUES ( 3 ), ( 3 ), ( 3 );
+(SELECT 1 FROM t1   UNION   SELECT 2 FROM t1);
+1
+1
+2
+((SELECT 1 FROM t1   UNION   SELECT 2 FROM t1));
+1
+1
+2
+(SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1));
+1
+1
+2
+((SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1)));
+1
+1
+2
+((SELECT 1 FROM t1   UNION ((SELECT 2 FROM t1))));
+1
+1
+2
+((SELECT 1 FROM t1)  UNION   SELECT 2 FROM t1);
+1
+1
+2
+(((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1);
+1
+1
+2
+((((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1));
+1
+1
+2
+((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1));
+1
+1
+2
+(((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1)));
+1
+1
+2
+((((SELECT 1 FROM t1)) UNION  (SELECT 2 FROM t1)));
+1
+1
+2
+(((SELECT 1 FROM t1)  UNION ((SELECT 2 FROM t1))));
+1
+1
+2
+((((SELECT 1 FROM t1)) UNION ((SELECT 2 FROM t1))));
+1
+1
+2
+(SELECT 1 UNION SELECT 2) ORDER BY 1;
+1
+1
+2
+((SELECT 1 UNION SELECT 2)) ORDER BY 1;
+1
+1
+2
+((SELECT 1) ORDER BY 1);
+1
+1
+((SELECT 1) LIMIT 1);
+1
+1
+(SELECT 1 UNION SELECT 2) LIMIT 1;
+1
+1
+((SELECT 1 UNION SELECT 2)) LIMIT 1;
+1
+1
+(SELECT a FROM t1) LIMIT 1 UNION ALL ((SELECT a FROM t1 ORDER BY a)) LIMIT 2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION ALL ((SELECT a FROM t1 ORDER BY a)) LIMIT 2' at line 1
+DROP TABLE t1, t2, t3;
+#
+# Part 3: The <table factor> syntax.
+#
+CREATE TABLE t1 ( a INT );
+INSERT INTO t1 VALUES ( 1 );
+CREATE TABLE t2 ( a INT );
+INSERT INTO t2 VALUES ( 2 );
+CREATE TABLE t3 ( a INT );
+INSERT INTO t3 VALUES ( 3 );
+CREATE TABLE t4 ( a INT );
+INSERT INTO t4 VALUES ( 3 );
+SELECT * FROM    (SELECT 1 FROM t1   UNION   SELECT 2 FROM t1) dt;
+1
+1
+2
+SELECT * FROM   ((SELECT 1 FROM t1   UNION   SELECT 2 FROM t1)) dt;
+1
+1
+2
+SELECT * FROM    (SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1)) dt;
+1
+1
+2
+SELECT * FROM   ((SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1))) dt;
+1
+1
+2
+SELECT * FROM   ((SELECT 1 FROM t1   UNION ((SELECT 2 FROM t1)))) dt;
+1
+1
+2
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION   SELECT 2 FROM t1) dt;
+1
+1
+2
+SELECT * FROM  (((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1) dt;
+1
+1
+2
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1)) dt;
+1
+1
+2
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1)) dt;
+1
+1
+2
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1))) dt;
+1
+1
+2
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION  (SELECT 2 FROM t1))) dt;
+1
+1
+2
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION ((SELECT 2 FROM t1)))) dt;
+1
+1
+2
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION ((SELECT 2 FROM t1)))) dt;
+1
+1
+2
+SELECT * FROM    (SELECT 1 FROM t1   UNION   SELECT 2 FROM t1);
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM   ((SELECT 1 FROM t1   UNION   SELECT 2 FROM t1));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM    (SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM   ((SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1)));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM   ((SELECT 1 FROM t1   UNION ((SELECT 2 FROM t1))));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION   SELECT 2 FROM t1);
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM  (((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1);
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1)));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION  (SELECT 2 FROM t1)));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION ((SELECT 2 FROM t1))));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION ((SELECT 2 FROM t1))));
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM  ( t1 JOIN t2 ON TRUE );
+a	a
+1	2
+SELECT * FROM (( t1 JOIN t2 ON TRUE ));
+a	a
+1	2
+SELECT * FROM ( t1 JOIN t2 ON TRUE  JOIN t3 ON TRUE );
+a	a	a
+1	2	3
+SELECT * FROM ((t1 JOIN t2 ON TRUE) JOIN t3 ON TRUE );
+a	a	a
+1	2	3
+SELECT * FROM (t1 INNER JOIN t2 ON (t1.a = t2.a));
+a	a
+SELECT 1 FROM (SELECT 1 FROM t1 INTO @v) a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @v) a' at line 1
+SELECT 1 FROM (t1);
+1
+1
+SELECT 1 FROM ((t1));
+1
+1
+SELECT 1 UNION SELECT 2 FROM (t2);
+1
+1
+2
+SELECT 1 FROM  (SELECT 2  ORDER BY 1) AS res;
+1
+1
+#
+# This syntax is no longer allowed
+#
+SELECT 1 FROM ((SELECT 2) ORDER BY 1) AS res;
+1
+1
+SELECT 1 FROM ((SELECT 2) a ORDER BY 1) AS res;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY 1) AS res' at line 1
+SELECT 1 FROM ((SELECT 2) LIMIT 1) AS res;
+1
+1
+SELECT 1 FROM ((SELECT 2) a LIMIT 1) AS res;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'LIMIT 1) AS res' at line 1
+SELECT * FROM ( t1 AS alias1 );
+a
+1
+SELECT * FROM   t1 AS alias1, t2 AS alias2;
+a	a
+1	2
+SELECT * FROM ( t1 AS alias1, t2 AS alias2 );
+a	a
+1	2
+SELECT * FROM ( t1 JOIN t2 ON TRUE, t1 JOIN t3 ON TRUE );
+ERROR 42000: Not unique table/alias: 't1'
+SELECT * FROM ( t1 JOIN t2 ON TRUE, t1 t11 JOIN t3 ON TRUE ) t1a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 't1a' at line 1
+SELECT * FROM ( t1 JOIN t2 ON TRUE, SELECT 1 FROM DUAL );
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SELECT 1 FROM DUAL )' at line 1
+SELECT * FROM ( t1 JOIN t2 ON TRUE, (SELECT 1 FROM DUAL) t1a );
+a	a	1
+1	2	1
+SELECT * FROM t1 JOIN t2 ON TRUE, (SELECT 1 FROM DUAL) t1a;
+a	a	1
+1	2	1
+SELECT * FROM ( SELECT 1 FROM DUAL );
+ERROR 42000: Every derived table must have its own alias
+SELECT * FROM ( SELECT 1 FROM DUAL ) t1a;
+1
+1
+SELECT * FROM  ( t1, t2 );
+a	a
+1	2
+SELECT * FROM (( t1, t2 ));
+a	a
+1	2
+SELECT * FROM  ( (t1),   t2  );
+a	a
+1	2
+SELECT * FROM  (((t1)),  t2  );
+a	a
+1	2
+SELECT * FROM  ( (t1),  (t2) );
+a	a
+1	2
+SELECT * FROM  (  t1,   (t2) );
+a	a
+1	2
+((SELECT 1 UNION SELECT 1) UNION SELECT 1);
+1
+1
+SELECT * FROM ((SELECT 1 UNION SELECT 1) UNION SELECT 1) a;
+1
+1
+SELECT * FROM (t1, t2) JOIN (t3, t4) ON TRUE;
+a	a	a	a
+1	2	3	3
+SELECT * FROM ((t1, t2) JOIN t3 ON TRUE);
+a	a	a
+1	2	3
+SELECT * FROM t1 JOIN ( t2, t3 ) USING ( a );
+ERROR 23000: Column 'a' in from clause is ambiguous
+DROP TABLE t1, t2, t3, t4;
+# Check the format in the note.
+CREATE TABLE t1 (a INT);
+EXPLAIN SELECT 1 FROM (SELECT 1 FROM t1) t;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select 1 AS `1` from `test`.`t1`
+DROP TABLE t1;
+CREATE TABLE t1 ( a INT );
+CREATE TABLE t2 ( b INT );
+CREATE TABLE t3 ( c INT );
+CREATE TABLE t4 ( d INT );
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2);
+INSERT INTO t3 VALUES (2);
+INSERT INTO t4 VALUES (2);
+SELECT * FROM t1 LEFT JOIN ( t2, t3, t4 ) ON a = c;
+a	b	c	d
+1	NULL	NULL	NULL
+SELECT * FROM t1 NATURAL JOIN ((t1 NATURAL JOIN t1), (t1 NATURAL JOIN t1));
+ERROR 42000: Not unique table/alias: 't1'
+DROP TABLE t1, t2, t3, t4;
+CREATE TABLE t1 ( a INT );
+CREATE TABLE t2 ( b INT );
+CREATE TABLE t3 ( c INT );
+CREATE TABLE t4 ( d INT );
+CREATE TABLE t5 ( d INT );
+SELECT * FROM t5 NATURAL JOIN ((t1 NATURAL JOIN t2), (t3 NATURAL JOIN t4));
+d	a	b	c
+SELECT * FROM ((t1 NATURAL JOIN t2), (t3 NATURAL JOIN t4)) NATURAL JOIN t5;
+d	a	b	c
+SELECT * FROM t1 JOIN ( t2, t3 ) ON TRUE;
+a	b	c
+SELECT * FROM ( t1, t2 , t3 );
+a	b	c
+SELECT * FROM ( ( t1, t2 ), t3 );
+a	b	c
+SELECT * FROM ( ((t1, t2)), t3 );
+a	b	c
+SELECT * FROM ( t1, ( t2, t3 ) );
+a	b	c
+SELECT * FROM ( t1, ((t2, t3)) );
+a	b	c
+SELECT * FROM ((( t1, t2 ), t3));
+a	b	c
+SELECT * FROM ((((t1, t2)), t3));
+a	b	c
+SELECT * FROM ((t1, ( t2, t3 )));
+a	b	c
+SELECT * FROM ((t1, ((t2, t3))));
+a	b	c
+CREATE VIEW v1 AS SELECT 1 INTO @v;
+ERROR HY000: View's SELECT contains a 'INTO' clause
+CREATE VIEW v1 AS SELECT 1 FROM ( SELECT 1 FROM t1 ) my_table;
+DROP TABLE t1, t2, t3, t4, t5;
+DROP VIEW v1;
+CREATE TABLE t1( a INT );
+INSERT INTO t1 VALUES (1);
+SELECT 1 INTO @v;
+(SELECT 1 INTO @v);
+((SELECT 1 INTO @v));
+SELECT 1 FROM t1 INTO @v;
+(SELECT 1 FROM t1 INTO @v);
+((SELECT 1 FROM t1 INTO @v));
+SELECT 1 FROM t1 INTO @v UNION SELECT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1' at line 1
+(SELECT 1 FROM t1 INTO @v) UNION SELECT 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 1' at line 1
+SELECT 1 FROM t1 INTO @v UNION (SELECT 1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION (SELECT 1)' at line 1
+((SELECT 1 FROM t1 INTO @v) UNION (SELECT 1));
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION (SELECT 1))' at line 1
+SELECT 1 INTO @v UNION SELECT 1;
+ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
+(SELECT 1 INTO @v) UNION SELECT 1;
+ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
+SELECT 1 INTO @v UNION (SELECT 1);
+ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
+((SELECT 1 INTO @v) UNION (SELECT 1));
+ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
+SELECT 1 UNION SELECT 2 INTO @v;
+ERROR 42000: Result consisted of more than one row
+(SELECT 1) UNION SELECT 2 INTO @v;
+ERROR 42000: Result consisted of more than one row
+(SELECT 1) UNION (SELECT 2 INTO @v);
+ERROR 42000: Result consisted of more than one row
+((SELECT 1) UNION (SELECT 2 INTO @v));
+ERROR 42000: Result consisted of more than one row
+SELECT 1 UNION SELECT 2 INTO @v FROM t1;
+ERROR 42000: Result consisted of more than one row
+(SELECT 1) UNION SELECT 2 INTO @v FROM t1;
+ERROR 42000: Result consisted of more than one row
+(SELECT 1) UNION (SELECT 2 INTO @v FROM t1);
+ERROR 42000: Result consisted of more than one row
+((SELECT 1) UNION (SELECT 2 INTO @v FROM t1));
+ERROR 42000: Result consisted of more than one row
+SELECT 1 UNION SELECT 1 INTO @v FROM t1;
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+(SELECT 1) UNION SELECT 1 INTO @v FROM t1;
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+(SELECT 1) UNION (SELECT 1 INTO @v FROM t1);
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+((SELECT 1) UNION (SELECT 1 INTO @v FROM t1));
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+SELECT * FROM (SELECT a INTO @v FROM t1) t1a;
+ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
+SELECT * FROM (SELECT a INTO @v) t1a;
+ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
+DROP TABLE t1;
+#
+# Part 4: The <joined table> syntax.
+#
+CREATE TABLE t1( a INT );
+CREATE TABLE t2( b INT );
+CREATE TABLE t3( c INT );
+CREATE TABLE t4( d INT );
+CREATE TABLE t5( e INT );
+# We use EXPLAIN so we can get the parser's interpretation of the
+# nesting. We don't really care about the execution plan.
+SET optimizer_switch = 'block_nested_loop=off';
+SELECT * FROM t1 JOIN t2;
+a	b
+SELECT * FROM t1 JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 INNER JOIN t2;
+a	b
+SELECT * FROM t1 INNER JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 INNER JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 CROSS JOIN t2;
+a	b
+SELECT * FROM t1 CROSS JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 CROSS JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 STRAIGHT_JOIN t2;
+a	b
+SELECT * FROM t1 STRAIGHT_JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 STRAIGHT_JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 t11 NATURAL JOIN t1 t12;
+a
+SELECT * FROM t1 t11 NATURAL JOIN t1 t12 ON t11.a = t12.a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ON t11.a = t12.a' at line 1
+SELECT * FROM t1 t11 NATURAL JOIN t1 t12 USING ( a );
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'USING ( a )' at line 1
+SELECT * FROM t1 t11 NATURAL INNER JOIN t1 t12;
+a
+SELECT * FROM t1 LEFT JOIN t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+SELECT * FROM t1 LEFT JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 LEFT JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 NATURAL LEFT JOIN t2;
+a	b
+SELECT * FROM t1 LEFT OUTER JOIN t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+SELECT * FROM t1 LEFT OUTER JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 LEFT OUTER JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 NATURAL LEFT OUTER JOIN t2;
+a	b
+SELECT * FROM t1 RIGHT JOIN t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+SELECT * FROM t1 RIGHT JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 RIGHT JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 NATURAL RIGHT JOIN t2;
+b	a
+SELECT * FROM t1 RIGHT OUTER JOIN t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+SELECT * FROM t1 RIGHT OUTER JOIN t2 ON a = b;
+a	b
+SELECT * FROM t1 t11 RIGHT OUTER JOIN t1 t12 USING ( a );
+a
+SELECT * FROM t1 NATURAL RIGHT OUTER JOIN t2;
+b	a
+# Right-deep join nesting.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c ON t1.a = t2.b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`b` = `test`.`t1`.`a`) and (`test`.`t3`.`c` = `test`.`t1`.`a`))
+# Right-deep join nesting from t2 and on.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d ON t2.b = t3.c;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t3`.`c` = `test`.`t2`.`b`) and (`test`.`t4`.`d` = `test`.`t2`.`b`))
+# Right-deep join nesting from t2 and on.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d ON t1.a = t2.b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t4`.`d` = `test`.`t3`.`c`) and (`test`.`t2`.`b` = `test`.`t1`.`a`))
+# Left-deep join nesting.
+EXPLAIN SELECT * FROM t1 JOIN t2 ON t1.a = t2.b JOIN t3 ON t2.b = t3.c;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`b` = `test`.`t1`.`a`) and (`test`.`t3`.`c` = `test`.`t1`.`a`))
+# A cross join joined with an inner join (i.e. with a join condition).
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t1.a = t2.b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3` where (`test`.`t2`.`b` = `test`.`t1`.`a`)
+EXPLAIN SELECT * FROM t1 t11 JOIN t2 JOIN t1 t12 USING ( a );
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t12	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t11`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t1` `t11` join `test`.`t2` join `test`.`t1` `t12` where (`test`.`t12`.`a` = `test`.`t11`.`a`)
+# A left-deep cross join tree joined with an inner join.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t1.a = t2.b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where (`test`.`t2`.`b` = `test`.`t1`.`a`)
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 JOIN t5 ON t1.a = t2.b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d`,`test`.`t5`.`e` AS `e` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` join `test`.`t5` where (`test`.`t2`.`b` = `test`.`t1`.`a`)
+# The different kinds of <table_ref> when used with context-dependent
+# join. Tests the top-down build of the parse tree.
+EXPLAIN SELECT * FROM t1 JOIN (t2) JOIN t3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3`
+EXPLAIN SELECT * FROM t1 JOIN (SELECT 1 AS b) a JOIN t3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,'1' AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t3`
+EXPLAIN SELECT * FROM t1 JOIN (t2 JOIN t3) JOIN t4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4`
+EXPLAIN SELECT * FROM t1 JOIN (t2, t3) JOIN t4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4`
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c JOIN t4 ON t1.a = t4.d;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t3`.`c` = `test`.`t2`.`b`) and (`test`.`t4`.`d` = `test`.`t1`.`a`))
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c JOIN t4 ON t1.a = t2.b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t2`.`b` = `test`.`t1`.`a`) and (`test`.`t3`.`c` = `test`.`t1`.`a`))
+EXPLAIN SELECT * FROM t1 t11 JOIN t2 JOIN t1 t12 USING(a) JOIN t1 t13 USING(a);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t12	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t13	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t11`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t1` `t11` join `test`.`t2` join `test`.`t1` `t12` join `test`.`t1` `t13` where ((`test`.`t12`.`a` = `test`.`t11`.`a`) and (`test`.`t13`.`a` = `test`.`t11`.`a`))
+EXPLAIN SELECT * FROM t2 JOIN t1 t11 JOIN t1 t12 USING(a) JOIN t1 t13 USING(a);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t12	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t13	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t11`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` join `test`.`t1` `t11` join `test`.`t1` `t12` join `test`.`t1` `t13` where ((`test`.`t12`.`a` = `test`.`t11`.`a`) and (`test`.`t13`.`a` = `test`.`t11`.`a`))
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where (`test`.`t4`.`d` = `test`.`t3`.`c`)
+SET optimizer_switch = DEFAULT;
+DROP TABLE t1, t2, t3, t4, t5;
+# Testing correct nesting of natural joins.
+CREATE TABLE t1( a INT, b int );
+CREATE TABLE t2( a INT, c int );
+CREATE TABLE t3( a INT, d int );
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
+INSERT INTO t2 VALUES         (2, 2), (3, 3), (4, 4);
+INSERT INTO t3 VALUES                 (3, 3), (4, 4), (5, 5);
+# The two queries below should produce identical result sets.
+SELECT * FROM t1 NATURAL LEFT JOIN t2 NATURAL RIGHT JOIN t3;
+a	d	b	c
+3	3	3	3
+4	4	NULL	NULL
+5	5	NULL	NULL
+SELECT * FROM (t1 NATURAL LEFT JOIN t2) NATURAL RIGHT JOIN t3;
+a	d	b	c
+3	3	3	3
+4	4	NULL	NULL
+5	5	NULL	NULL
+# This result should differ from the result sets above.
+SELECT * FROM t1 NATURAL LEFT JOIN (t2 NATURAL RIGHT JOIN t3);
+a	b	d	c
+1	1	NULL	NULL
+2	2	NULL	NULL
+3	3	3	3
+DROP TABLE t1, t2, t3;
+#
+# WL#8907: Parser refactoring: merge all SELECT rules into one.
+#
+# Warning on hints in CREATE or ALTER VIEW:
+CREATE VIEW v1 AS SELECT /*+ QB_NAME(a) */ 1;
+ALTER VIEW v1 AS SELECT /*+ QB_NAME(a) */ 1;
+SELECT * FROM v1;
+1
+1
+DROP VIEW v1;
+# The "Hints aren't supported in CREATE or ALTER VIEW" warning is masked:
+CREATE VIEW v1 AS SELECT /*+ BAD_HINT */ 1;
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'BAD_HINT */ 1' at line 1
+ALTER VIEW v1 AS SELECT /*+ BAD_HINT */ 1;
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'BAD_HINT */ 1' at line 1
+SELECT * FROM v1;
+1
+1
+DROP VIEW v1;
+#
+#
+# Bug#23321895: CRASH IN IS_VIEW_OR_DERIVED OR
+# TABLE_LIST::IS_LEAF_FOR_NAME_RESOLUTION
+#
+CREATE TABLE t1( a INT );
+CREATE TABLE t2( a INT );
+CREATE TABLE t3( a INT );
+CREATE TABLE t4( a INT );
+SELECT 1
+FROM ( SELECT 1 FROM t1 JOIN t2 ON @@q ) AS d
+JOIN t3 LEFT JOIN t4 ON 1;
+ERROR HY000: Unknown system variable 'q'
+DROP TABLE t1, t2, t3, t4;
+#
+# Bug#29205289: PARSER ACCEPTS UNDOCUMENTED SYNTAX: `... = TABLE_ALIAS`
+#
+CREATE TABLE t1 (i INT);
+LOCK TABLES t1=a READ;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '=a READ' at line 1
+HANDLER t1 OPEN=a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '=a' at line 1
+SELECT * FROM t1=a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '=a' at line 1
+SELECT * FROM (SELECT 1)=a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '=a' at line 1
+SELECT * FROM t1 JOIN t1=a;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '=a' at line 1
+UPDATE t1=a SET i=0;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '=a SET i=0' at line 1
+DROP TABLE t1;
+#
+# Bug #22320942: ODBC OUTER JOIN ESCAPE SEQUENCE SYNTAX IS BROKEN
+#
+CREATE TEMPORARY TABLE t1 (i INT);
+CREATE TEMPORARY TABLE t2 (i INT);
+SELECT * FROM { OJ t1 LEFT JOIN t2 ON TRUE };
+i	i
+SELECT * FROM { `OJ` t1 LEFT JOIN t2 ON TRUE };
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '`OJ` t1 LEFT JOIN t2 ON TRUE }' at line 1
+SELECT * FROM { random_identifier t1 LEFT JOIN t2 ON TRUE };
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'random_identifier t1 LEFT JOIN t2 ON TRUE }' at line 1
+DROP TABLE t1, t2;
+SET sql_mode=DEFAULT;
+#
+# WL#13559: Deprecate syntax: confusing combinations of UNION and INTO
+#
+#
+# No warning expected:
+#
+SELECT 1 UNION SELECT 1 INTO @var;
+(SELECT 1 UNION SELECT 1 INTO @var);
+SELECT 1 UNION SELECT 1 FROM DUAL INTO @var;
+(SELECT 1 UNION SELECT 1 FROM DUAL INTO @var);
+SELECT 1 UNION SELECT 1 FROM DUAL FOR UPDATE INTO @var;
+(SELECT 1 UNION SELECT 1 FROM DUAL FOR UPDATE INTO @var);
+#
+# Deprecation warning expected:
+#
+SELECT 1 UNION SELECT 1 INTO @var FROM DUAL;
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+SELECT 1 UNION (SELECT 1 INTO @var FROM DUAL);
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+SELECT 1 UNION SELECT 1 FROM DUAL INTO @var FOR UPDATE;
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+(SELECT 1 UNION SELECT 1 FROM DUAL INTO @var FOR UPDATE);
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+SELECT 1 UNION SELECT 1 INTO @var FOR UPDATE;
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+(SELECT 1 UNION SELECT 1 INTO @var FOR UPDATE);
+Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+#
+# Syntax error expected:
+#
+SELECT 1 UNION (SELECT 1 FROM DUAL INTO @var);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @var)' at line 1

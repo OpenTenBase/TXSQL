@@ -1503,7 +1503,7 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
     int i = 0;
     for (const auto &child : GetAccessPathsFromSelectList(worker_join)) {
       // check des
-      if (CheckPlanEquivalence(level + 1,
+      if (!CheckPlanEquivalence(level + 1,
                                path_from_select_list[i].path,
                                path_from_select_list[i].join,
                                child.path, child.join,

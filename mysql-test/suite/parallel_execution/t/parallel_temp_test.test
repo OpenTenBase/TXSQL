@@ -1,0 +1,135 @@
+
+--echo #######################################
+--echo # PQ temporary test file, which will be deleted in the future
+--echo #######################################
+
+--echo Unsupported column type(LONGBLOB)
+
+CREATE TABLE t1 (a LONGBLOB) ENGINE=INNODB;
+INSERT INTO t1 VALUES ('a'), ('a'), ('a');
+CREATE TABLE t2 (a INT) ENGINE=INNODB;
+INSERT INTO t2 VALUES(1), (1), (1), (1);
+ANALYZE TABLE t1, t2;
+SELECT
+ (SELECT NULL IN (NULL) FROM t1 WHERE a) =
+  ANY(SELECT 1 FROM t2)
+FROM t1;
+DROP TABLE t1, t2;
+
+--echo core decompact_field
+
+CREATE TABLE t (a INT, b INT,KEY k(a,b));
+INSERT INTO t VALUES (1,2),
+       (NULL,3),(3,3),(1,NULL),
+       (NULL,2), (NULL,NULL);
+EXPLAIN SELECT COUNT(DISTINCT a,b) FROM t IGNORE INDEX (k);
+SELECT COUNT(DISTINCT a,b) FROM t IGNORE INDEX (k);
+DROP TABLE t;
+
+--echo core reverse_scan = tab->m_reversed_access (px_partition)
+
+create table t1(a int, b double(8, 2));
+insert into t1 values
+(1, 28.50), (1, 121.85), (1, 157.23), (1, 1351.00), (1, -1965.35), (1, 81.75), 
+(1, 217.08), (1, 7.94), (4, 96.07), (4, 6404.65), (4, -6500.72), (2, 100.00),
+(5, 5.00), (5, -2104.80), (5, 2033.80), (5, 0.07), (5, 65.93),
+(3, -4986.24), (3, 5.00), (3, 4857.34), (3, 123.74), (3,  0.16),
+(6, -1695.31), (6, 1003.77), (6, 499.72), (6, 191.82);
+ANALYZE TABLE t1;
+select sum(b) s from t1 group by a having s <> 0 order by s;
+alter table t1 add key (a, b);
+ANALYZE TABLE t1;
+select sum(b) s from t1 group by a having s <> 0 order by s;
+drop table t1;
+
+--echo sql_mode
+
+CREATE TABLE t1 (a char(1));
+INSERT INTO t1 VALUES ('A'),('B'),('A'),('B'),('A'),('B'),(NULL),('a'),('b'),(NULL),('A'),('B'),(NULL);
+--source include/turn_off_only_full_group_by.inc
+
+SELECT a FROM t1 GROUP BY a;
+SELECT a,count(*) FROM t1 GROUP BY a;
+SELECT a FROM t1 GROUP BY binary a;
+SELECT a,count(*) FROM t1 GROUP BY binary a;
+SELECT binary a FROM t1 GROUP BY 1;
+SELECT binary a,count(*) FROM t1 GROUP BY 1;
+# Do the same tests with MyISAM temporary tables
+SET BIG_TABLES=1;
+SELECT a FROM t1 GROUP BY a ORDER BY a;
+SELECT a,count(*) FROM t1 GROUP BY a ORDER BY a;
+SELECT a FROM t1 GROUP BY binary a ORDER BY binary a;
+SELECT a,count(*) FROM t1 GROUP BY binary a ORDER BY binary a;
+SELECT binary a FROM t1 GROUP BY 1 ORDER BY 1;
+SELECT binary a,count(*) FROM t1 GROUP BY 1 ORDER BY 1;
+SET BIG_TABLES=0;
+
+--source include/restore_sql_mode_after_turn_off_only_full_group_by.inc
+drop table t1;
+
+--echo function in select clause
+
+CREATE TABLE series (
+  val INT(10) UNSIGNED NOT NULL
+);
+INSERT INTO series VALUES(1);
+CREATE TABLE seq_calls (
+  c INT
+);
+INSERT INTO seq_calls VALUES(0);
+
+DELIMITER |;
+CREATE FUNCTION next_seq_value() RETURNS INT
+BEGIN
+ DECLARE next_val INT;
+ SELECT val INTO next_val FROM series;
+ UPDATE series SET val=mod(val + 1, 2);
+ UPDATE seq_calls SET c=c+1;
+ RETURN next_val;
+END;
+|
+DELIMITER ;|
+
+CREATE TABLE t1 (t INT, u INT, KEY(t));
+INSERT INTO t1 VALUES(10, 10), (11, 11), (12, 12), (12, 13),(14, 15), (15, 16),
+                     (16, 17), (17, 18);
+ANALYZE TABLE t1;
+# Print starting point, for debugging
+SELECT * FROM series, seq_calls;
+
+SELECT t, next_seq_value() r FROM t1 FORCE INDEX(t)
+       GROUP BY t HAVING r = 1  ORDER BY t1.u;
+
+DROP TABLE t1;
+DROP FUNCTION next_seq_value;
+DROP TABLE series, seq_calls;
+
+--echo charaset of thd.variables
+
+SET NAMES utf8;
+SET character_set_connection=utf32;
+CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf32);
+INSERT INTO t1 VALUES ('фыва'),('Фыва'),('фЫва'),('фыВа'),('фывА'),('ФЫВА');
+INSERT INTO t1 VALUES ('фывапролдж'),('Фывапролдж'),('фЫвапролдж'),('фыВапролдж');
+INSERT INTO t1 VALUES ('фывАпролдж'),('фываПролдж'),('фывапРолдж'),('фывапрОлдж');
+INSERT INTO t1 VALUES ('фывапроЛдж'),('фывапролДж'),('фывапролдЖ'),('ФЫВАПРОЛДЖ');
+SELECT * FROM t1 WHERE a LIKE 'фЫва%' COLLATE utf32_bin ORDER BY BINARY a;
+DROP TABLE t1;
+
+--echo timestamp
+
+CREATE TABLE t1 (a DATETIME(6));
+INSERT INTO t1 VALUES ('0000-00-00 00:00:00.000000');
+INSERT INTO t1 VALUES ('0000-00-00 00:00:00.000001');
+INSERT INTO t1 VALUES ('2000-01-01 00:00:00.000000');
+INSERT INTO t1 VALUES ('2000-01-01 00:00:00.000001');
+INSERT INTO t1 VALUES ('2000-01-01 00:00:00.000002');
+INSERT INTO t1 VALUES ('2000-01-01 10:00:00.000000');
+INSERT INTO t1 VALUES ('2000-01-01 10:00:00.000001');
+INSERT INTO t1 VALUES ('2000-01-01 10:00:00.000002');
+INSERT INTO t1 VALUES ('2000-01-01 23:00:00.000000');
+INSERT INTO t1 VALUES ('2000-01-01 23:00:00.000001');
+INSERT INTO t1 VALUES ('2000-01-01 23:00:00.000002');
+SELECT * FROM t1 WHERE a IN ('2000-01-01 00:00:00', '0000-00-00 00:00:00.000001', '2000-01-01 23:00:00.000002');
+SELECT * FROM t1 WHERE a IN (0, 20000101000000, 20000101230000);
+drop table t1;
