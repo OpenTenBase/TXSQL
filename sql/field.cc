@@ -8466,6 +8466,30 @@ void Field_set::sql_type(String &res) const {
 
 /**
   @retval
+    true   if the fields are equally
+  @retval
+    false  if the fields are unequally
+*/
+
+bool Field::eq(const Field *field) const {
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    // TODO: for optimizer phase in worker thd
+    return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
+        null_bit == field->null_bit && field->type() == type());
+    /*if (real_type() != field->real_type() || charset() != field->charset() ||
+        pack_length() != field->pack_length()) {
+      return false;
+    }
+    return (memcmp(ptr, field->ptr, pack_length()) == 0 &&
+        null_bit == field->null_bit && field->type() == type());*/
+  } else {
+    return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
+        null_bit == field->null_bit && field->type() == type());
+  }
+}
+
+/**
+  @retval
     true   if the fields are equally defined
   @retval
     false  if the fields are unequally defined

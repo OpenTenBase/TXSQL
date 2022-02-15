@@ -8816,6 +8816,15 @@ static Sys_var_bool Sys_cdb_parallel_execution_enabled(
     SESSION_VAR(cdb_parallel_execution_enabled), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_bool Sys_cdb_plan_equivalence_comparison_enabled(
+    "cdb_plan_equivalence_comparison_enabled",
+    "Turn on or turn off the plan equivalence comparison between"
+    "workers and the coordinator for parallel execution.",
+    GLOBAL_VAR(cdb_plan_equivalence_comparison_enabled),
+    CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
 static Sys_var_ulong Sys_cdb_parallel_degree(
     "cdb_parallel_degree", "cdb parallel degree.",
     NON_PERSIST SESSION_VAR(cdb_parallel_degree),

@@ -13173,3 +13173,4 @@ bool g_enable_backup_dcn_switch = false;
 bool g_log_statement_of_query_event = false;
 bool txsql_parallel_copy_ddl = false;
 bool cdb_optimize_gtid_lock = false;
+bool cdb_plan_equivalence_comparison_enabled = false;

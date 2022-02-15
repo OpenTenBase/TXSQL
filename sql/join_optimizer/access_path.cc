@@ -58,11 +58,414 @@
 #include "sql/parallel_execution/px_sender.h"
 #include "sql/parallel_execution/px_receiver.h"
 #include "sql/log.h"
+#include "sql/table_function.h"  // Table_function
 
 #include <vector>
 
 using pack_rows::TableCollection;
 using std::vector;
+
+bool AccessPath::operator==(const AccessPath &other) const {
+  if (type != other.type) {
+    return false;
+  }
+  switch (type) {
+    case TABLE_SCAN: {
+      // equivalence check: same TABLE_SHARE
+      return EquivalenceCheckHelper::eq_table_share(
+          u.table_scan.table, other.table_scan().table);
+      break;
+    }
+    case INDEX_SCAN: {
+      // equivalence check: same INDEX.idx and reverse
+      if (u.index_scan.idx != other.index_scan().idx ||
+          u.index_scan.use_order != other.index_scan().use_order ||
+          u.index_scan.reverse != other.index_scan().reverse) {
+        return false;
+      }
+      return EquivalenceCheckHelper::eq_table_share_without_icp(
+          u.index_scan.table, other.index_scan().table);
+      break;
+    }
+    case REF: {
+      // equivalence check: same TABLE_SHARE, ref, and idx_cond
+      if (!EquivalenceCheckHelper::eq_table_share(u.ref.table,
+              other.ref().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.ref.ref, other.ref().ref) ||
+          !EquivalenceCheckHelper::eq_item(u.ref.table->file->pushed_idx_cond,
+              other.ref().table->file->pushed_idx_cond)) {
+        return false;
+      }
+      if (u.ref.use_order != other.ref().use_order ||
+          u.ref.reverse != other.ref().reverse) {
+        return false;
+      }
+      break;
+    }
+    case REF_OR_NULL: {
+      // equivalence check: same TABLE_SHARE, ref, and idx_cond
+      if (!EquivalenceCheckHelper::eq_table_share(u.ref_or_null.table,
+              other.ref_or_null().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.ref_or_null.ref,
+              other.ref_or_null().ref) ||
+          !EquivalenceCheckHelper::eq_item(u.ref_or_null.table->file->pushed_idx_cond,
+              other.ref_or_null().table->file->pushed_idx_cond)) {
+        return false;
+      }
+      if (u.ref_or_null.use_order != other.ref_or_null().use_order) {
+        return false;
+      }
+      break;
+    }
+    case EQ_REF: {
+      // equivalence check: same TABLE_SHARE, ref, and idx_cond
+      if (!EquivalenceCheckHelper::eq_table_share(u.eq_ref.table,
+              other.eq_ref().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.eq_ref.ref,
+              other.eq_ref().ref) ||
+          !EquivalenceCheckHelper::eq_item(u.eq_ref.table->file->pushed_idx_cond,
+              other.eq_ref().table->file->pushed_idx_cond)) {
+        return false;
+      }
+      if (u.eq_ref.use_order != other.eq_ref().use_order) {
+        return false;
+      }
+      break;
+    }
+    case PUSHED_JOIN_REF: {
+      // equivalence check: same TABLE_SHARE and ref
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.pushed_join_ref.table,
+              other.pushed_join_ref().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.pushed_join_ref.ref,
+              other.pushed_join_ref().ref)) {
+        return false;
+      }
+      if (u.pushed_join_ref.use_order != other.pushed_join_ref().use_order ||
+          u.pushed_join_ref.is_unique != other.pushed_join_ref().is_unique) {
+        return false;
+      }
+      break;
+    }
+    case FULL_TEXT_SEARCH: {
+      // equivalence check: same TABLE_SHARE and ref
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.full_text_search.table,
+              other.full_text_search().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.full_text_search.ref,
+              other.full_text_search().ref)) {
+        return false;
+      }
+      if (u.full_text_search.use_order != other.full_text_search().use_order) {
+        return false;
+      }
+      break;
+    }
+    case CONST_TABLE: {
+      // TODO: check item? (plan cache)
+      // equivalence check: same TABLE_SHARE and ref
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.const_table.table,
+              other.const_table().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.const_table.ref,
+              other.const_table().ref)) {
+        return false;
+      }
+      TABLE *table = u.const_table.table;
+      assert(table->file->pushed_cond == nullptr);
+      TABLE *coordinator_table = other.const_table().table;
+      assert(coordinator_table->file->pushed_cond == nullptr);
+      break;
+    }
+    case MRR: {
+      // equivalence check: same TABLE_SHARE, ref and idx_cond
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.mrr.table,
+              other.mrr().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.mrr.ref,
+              other.mrr().ref) ||
+          !EquivalenceCheckHelper::eq_item(u.mrr.table->file->pushed_idx_cond,
+              other.mrr().table->file->pushed_idx_cond)) {
+        return false;
+      }
+      if (u.mrr.mrr_flags != other.mrr().mrr_flags ||
+          u.mrr.keep_current_rowid != other.mrr().keep_current_rowid) {
+        return false;
+      }
+      break;
+    }
+    case FOLLOW_TAIL: {
+      // equivalence check: same TABLE_SHARE
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.follow_tail.table,
+              other.follow_tail().table)) {
+        return false;
+      }
+      break;
+    }
+    case INDEX_RANGE_SCAN: {
+      // equivalence check: same TABLE_SHARE, quick, idx_cond and QUICK_SELECT_I
+      // Quick select removed
+      TABLE *table = u.index_range_scan.used_key_part[0].field->table;
+      TABLE *other_table = other.index_range_scan().used_key_part[0].field->table;
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              table,
+              other_table) ||
+          !EquivalenceCheckHelper::eq_item(
+              table->file->pushed_idx_cond,
+             other_table->file->pushed_idx_cond)) {
+        return false;
+      }
+      break;
+    }
+    case DYNAMIC_INDEX_RANGE_SCAN: {
+      // equivalence check: same TABLE_SHARE and idx_cond
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.dynamic_index_range_scan.table,
+              other.dynamic_index_range_scan().table) ||
+          !EquivalenceCheckHelper::eq_item(u.dynamic_index_range_scan.table->file->pushed_idx_cond,
+              other.dynamic_index_range_scan().table->file->pushed_idx_cond)) {
+        return false;
+      }
+      break;
+    }
+    case TABLE_VALUE_CONSTRUCTOR: {
+      return true;
+    }
+    case FAKE_SINGLE_ROW: {
+      return true;
+    }
+    case ZERO_ROWS: {
+      // TODO: worker_children.push_back(
+      // equivalence check: same cause
+      if (strlen(u.zero_rows.cause) != strlen(other.zero_rows().cause) ||
+          strncmp(u.zero_rows.cause, other.zero_rows().cause,
+                  strlen(u.zero_rows.cause)) != 0) {
+        return false;
+      }
+      break;
+    }
+    case ZERO_ROWS_AGGREGATED: {
+      // equivalence check: same cause
+      if (strlen(u.zero_rows_aggregated.cause) !=
+            strlen(other.zero_rows_aggregated().cause) ||
+          strncmp(u.zero_rows_aggregated.cause, other.zero_rows_aggregated().cause,
+                  strlen(u.zero_rows_aggregated.cause)) != 0) {
+        return false;
+      }
+      break;
+    }
+    case MATERIALIZED_TABLE_FUNCTION: {
+      // equivalence check: same TABLE_SHARE and Table_function
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.materialized_table_function.table,
+              other.materialized_table_function().table) ||
+          !EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.materialized_table_function.table_function->get_table(),
+              other.materialized_table_function().table_function->get_table())) {
+        return false;
+      }
+      break;
+    }
+    case NESTED_LOOP_JOIN: {
+      // equivalence check: same join_type
+      if (u.nested_loop_join.join_type != other.nested_loop_join().join_type ||
+          u.nested_loop_join.pfs_batch_mode != other.nested_loop_join().pfs_batch_mode) {
+        return false;
+      }
+      break;
+    }
+    case NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
+      // equivalence check: same TABLE_SHARE and key.name
+      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.nested_loop_semijoin_with_duplicate_removal.table,
+              other.nested_loop_semijoin_with_duplicate_removal().table) ||
+          !EquivalenceCheckHelper::eq_table_share_without_icp(
+              u.nested_loop_semijoin_with_duplicate_removal.key->table,
+              other.nested_loop_semijoin_with_duplicate_removal().key->table)) {
+        return false;
+      }
+      if (u.nested_loop_semijoin_with_duplicate_removal.key_len !=
+              other.nested_loop_semijoin_with_duplicate_removal().key_len ||
+          strlen(u.nested_loop_semijoin_with_duplicate_removal.key->name) !=
+              strlen(other.nested_loop_semijoin_with_duplicate_removal().key->name) ||
+          strcmp(u.nested_loop_semijoin_with_duplicate_removal.key->name,
+              other.nested_loop_semijoin_with_duplicate_removal().key->name) != 0) {
+        return false;
+      }
+      break;
+    }
+    case BKA_JOIN: {
+      if (u.bka_join.join_type != other.bka_join().join_type ||
+          u.bka_join.rec_per_key != other.bka_join().rec_per_key ||
+          u.bka_join.store_rowids != other.bka_join().store_rowids ||
+          u.bka_join.tables_to_get_rowid_for != other.bka_join().tables_to_get_rowid_for ||
+          u.bka_join.mrr_length_per_rec != other.bka_join().mrr_length_per_rec) {
+        return false;
+      }
+      break;
+    }
+    case HASH_JOIN: {
+      // equivalence check: same JoinPredicate
+      if (u.hash_join.join_predicate != other.hash_join().join_predicate ||
+          u.hash_join.store_rowids != other.hash_join().store_rowids ||
+          u.hash_join.tables_to_get_rowid_for != other.hash_join().tables_to_get_rowid_for ||
+          u.hash_join.allow_spill_to_disk != other.hash_join().allow_spill_to_disk) {
+        return false;
+      }
+      break;
+    }
+    case FILTER: {
+      // equivalence check: cond
+      if (!EquivalenceCheckHelper::eq_item(u.filter.condition,
+              other.filter().condition)) {
+        return false;
+      }
+      break;
+    }
+    case SORT: {
+      // equivalence check: same Filesort
+      if (u.sort.tables_to_get_rowid_for != other.sort().tables_to_get_rowid_for ||
+          u.sort.filesort->using_addon_fields() != other.sort().filesort->using_addon_fields() ||
+          u.sort.filesort->m_remove_duplicates != other.sort().filesort->m_remove_duplicates ||
+          u.sort.filesort->limit != other.sort().filesort->limit ||
+          u.sort.filesort->sort_order_length() != other.sort().filesort->sort_order_length()) {
+        return false;
+      }
+      for (unsigned i = 0; i < u.sort.filesort->sort_order_length();
+          ++i) {
+        const st_sort_field *order = &u.sort.filesort->sortorder[i];
+        const st_sort_field *other_order = &other.sort().filesort->sortorder[i];
+        if (order->reverse != other_order->reverse ||
+            !order->item->eq(other_order->item, false)) {
+          return false;
+        }
+      }
+      break;
+    }
+    case AGGREGATE: {
+      // equivalence check: AccessPath
+      if (u.aggregate.rollup != other.aggregate().rollup ||
+          u.aggregate.is_final_aggr != other.aggregate().is_final_aggr) {
+        return false;
+      }
+      break;
+    }
+    case TEMPTABLE_AGGREGATE: {
+      // equivalence check: AccessPath
+      if (!EquivalenceCheckHelper::eq_logic_table_share_without_icp(
+              u.temptable_aggregate.table,
+              other.temptable_aggregate().table)) {
+        return false;
+      }
+      if (u.temptable_aggregate.is_final_aggr != other.temptable_aggregate().is_final_aggr ||
+          u.temptable_aggregate.ref_slice != other.temptable_aggregate().ref_slice) {
+        return false;
+      }
+      break;
+    }
+    case LIMIT_OFFSET: {
+      if (u.limit_offset.offset != other.limit_offset().offset ||
+          u.limit_offset.reject_multiple_rows != other.limit_offset().reject_multiple_rows ||
+          u.limit_offset.count_all_rows != other.limit_offset().count_all_rows ||
+          u.limit_offset.limit != other.limit_offset().limit) {
+        return false;
+      }
+      if (u.limit_offset.send_records_override != nullptr) {
+        if (other.limit_offset().send_records_override == nullptr) {
+          return false;
+        }
+        return (*u.limit_offset.send_records_override == *other.limit_offset().send_records_override);
+      }
+      if (other.limit_offset().send_records_override != nullptr) {
+        return false;
+      }
+      break;
+    }
+    case REMOVE_DUPLICATES: {
+      // group items need compare
+      break;
+    }
+    case ALTERNATIVE: {
+      // equivalence check: same TABLE_SHARE, ref, and cond_guards(field)
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.alternative.table_scan_path->table_scan().table,
+              other.alternative().table_scan_path->table_scan().table) ||
+          !EquivalenceCheckHelper::eq_table_ref(u.alternative.used_ref,
+              other.alternative().used_ref)) {
+        return false;
+      }
+      break;
+    }
+    case MATERIALIZE: {
+      // equivalence check: check call MaterializePathParameters ExplainMaterializeAccessPath
+      if (!u.materialize.param->eq(other.materialize().param)) {
+        return false;
+      }
+      break;
+    }
+    case APPEND: {
+      break;
+    }
+    case WINDOW: {
+      break;
+    }
+    case UNQUALIFIED_COUNT: {
+      break;
+    }
+    case WEEDOUT: {
+      // equivalence check: SJ_TMP_TABLE
+      if (u.weedout.tables_to_get_rowid_for != other.weedout().tables_to_get_rowid_for) {
+        return false;
+      }
+      SJ_TMP_TABLE *sj = u.weedout.weedout_table;
+      SJ_TMP_TABLE *other_sj = other.weedout().weedout_table;
+      if (sj->tabs_end == sj->tabs + 1) {
+        if (other_sj->tabs_end != other_sj->tabs + 1 ||
+            !EquivalenceCheckHelper::eq_table_share(
+                sj->tabs->qep_tab->table(),
+                other_sj->tabs->qep_tab->table())) {
+          return false;
+        }
+      } else {
+        SJ_TMP_TABLE_TAB *other_tab = other_sj->tabs;
+        for (SJ_TMP_TABLE_TAB *tab = sj->tabs; tab != sj->tabs_end; ++tab, other_tab++) {
+          if (other_tab == nullptr ||
+              !EquivalenceCheckHelper::eq_table_share(
+                  tab->qep_tab->table(),
+                  other_tab->qep_tab->table())) {
+            return false;
+          }
+        }
+        if (other_tab != nullptr) {
+          return false;
+        }
+      }
+      break;
+    }
+    case CACHE_INVALIDATOR: {
+      if (strlen(u.cache_invalidator.name) !=
+              strlen(other.cache_invalidator().name) ||
+          strcmp(u.cache_invalidator.name,
+              other.cache_invalidator().name) != 0) {
+        return false;
+      }
+      break;
+    }
+    case PX_RECEIVE: {
+      return true;
+    }
+    case PX_SEND: {
+      return true;
+    }
+    case STREAM:
+    case MATERIALIZE_INFORMATION_SCHEMA_TABLE:
+    default:
+      return false; // not supported
+      break;
+  }
+  return true;
+}
 
 AccessPath *NewSortAccessPath(THD *thd, AccessPath *child, Filesort *filesort,
                               bool count_examined_rows) {

@@ -380,6 +380,15 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
 
     // In each worker THD, synchronization is needed to keep up with master.
     worker_new_thd->worker_arg = &worker_pool->thread_args[i];
+
+    Query_expression *unit = thd()->lex->unit;
+    if (unit != nullptr) {
+      worker_new_thd->worker_arg->coordinator_root_access_path = unit->root_access_path();
+    } else {
+      worker_new_thd->worker_arg->coordinator_root_access_path = nullptr;
+    }
+    worker_new_thd->worker_arg->coordinator_join =
+        unit->is_union() ? nullptr : unit->first_query_block()->join;
   }
 
   thread_func = execute_inner_in_worker;
@@ -397,8 +406,17 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
   */ 
   worker_pool_begin_query(worker_pool);
   // Waiting for all worker has done prepare work, adjust semaphore and go on.
-  // TODO: execution plan consistency check between master and workers.
   worker_pool_wait_query(worker_pool);
+  // consistency check between master and workers.
+  if (cdb_plan_equivalence_comparison_enabled) {
+    for (int i = 1; i < num_threads; ++i) {
+      if (!worker_pool->thread_args[i].is_equivalent_plan) {
+        sql_print_error("%d-th/%d thread(%d) generated an unequal plan", i, num_threads, th_arg_array[i]->worker_thd->thread_id());
+        // TODO: fallback to execute in single thread
+        goto end_workers;
+      }
+    }
+  }
 
   if (check_error(worker_pool, "Parse and Optimize")) return true;
 
@@ -417,6 +435,7 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
   ret = schedule_dfo_pair_inner(worker_pool, th_arg_array);
   sql_print_information("finish all tasks in coordinator thread.");
 
+end_workers:
   // Every worker jump out of loop(), 
   worker_pool_destroy(worker_pool);
 

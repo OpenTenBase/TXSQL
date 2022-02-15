@@ -1500,7 +1500,21 @@ bool Query_expression::execute_in_parallel(THD *thd) {
     ret = coordinator->schedule(worker_pool);
   } else {
     sql_print_information("running task in worker.");
-
+    // check plan equivalence
+    if (cdb_plan_equivalence_comparison_enabled) {
+      int base_level = 0;
+      JOIN *join = first_query_block()->join;
+      thd->m_equivalence_check_phase = true;
+      thd->worker_arg->is_equivalent_plan =
+          CheckPlanEquivalence(base_level,
+                              thd->worker_arg->coordinator_root_access_path,
+                              thd->worker_arg->coordinator_join,
+                              root_access_path(),
+                              is_union() ? nullptr : join,
+                              /*is_root_of_join=*/!is_union());
+      //TODO goto end if plan inequivalence
+      //sql_print_error("%d-thread generated an %d plan", thd->thread_id(), thd->worker_arg->is_equivalent_plan);
+    }
     // Generate worker executor and waiting for instructions.
     PX_worker *worker = new (thd->mem_root) PX_worker(&dfo_mgr, thd);
     thd->px_executor = worker;

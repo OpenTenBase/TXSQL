@@ -57,7 +57,8 @@ worker_pool_t* worker_pool_create(int num_threads)
     worker_pool->thread_args[i].thread_func_arg = &worker_pool->args[i];
     worker_pool->thread_args[i].num_workers = &worker_pool->num_workers;
     worker_pool->thread_args[i].error = false;
-        
+    // The default value is set to unequal, which needs to be checked by each worker
+    worker_pool->thread_args[i].is_equivalent_plan = false;
     ret = pthread_create (&worker_pool->threads[i], &attr, worker_func_inner,
                           &worker_pool->thread_args[i]);
     if (ret) 

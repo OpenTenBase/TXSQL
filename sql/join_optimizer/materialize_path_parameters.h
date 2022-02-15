@@ -89,6 +89,14 @@ struct MaterializePathParameters {
      run-time cardinality check.
   */
   bool reject_multiple_rows;
+
+  /*
+    The function only serves the plan equivalence comparison of parallel
+    execution. Since the equivalence comparison of QueryBlock depends on
+    the iteration of CheckPlanEquivalence (see explain_access_path.cc),
+    the function here is not incomplete equivalence comparison.
+  */
+  bool eq(const MaterializePathParameters *other) const;
 };
 
 #endif  // !defined(MATERIALIZE_PATH_PARAMETERS_H)

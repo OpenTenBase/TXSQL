@@ -94,6 +94,17 @@ class Table_function {
     assert(i < table->s->fields);
     return table->field[i];
   }
+
+  /**
+    Returns table
+
+    @returns
+      table
+  */
+  TABLE *get_table() {
+    return table;
+  }
+
   /**
     Delete all rows in the table
   */

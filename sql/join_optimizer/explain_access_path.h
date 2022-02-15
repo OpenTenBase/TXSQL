@@ -67,4 +67,15 @@ std::string PrintQueryPlan(
  */
 std::string GetForceSubplanToken(AccessPath *path, JOIN *join);
 
+/**
+  check two plans an access path and all of its children (if any) in a tree.
+  "level" is the current indenting level, as this is called recursively.
+  "join" should be set to the JOIN that "path" is part of (or nullptr
+  if it is not, e.g. if it's part of executing a UNION).
+ */
+bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
+                          JOIN *coordinator_join,
+                          AccessPath *worker_path,
+                          JOIN *worker_join,
+                          bool is_root_of_join);
 #endif  // SQL_JOIN_OPTIMIZER_EXPLAIN_ACCESS_PATH_H

@@ -446,6 +446,7 @@ SET(SQL_SHARED_SOURCES
   join_optimizer/common_subexpression_elimination.cc
   join_optimizer/cost_model.cc
   join_optimizer/estimate_selectivity.cc
+  join_optimizer/materialize_path_parameters.cc
   join_optimizer/explain_access_path.cc
   join_optimizer/finalize_plan.cc
   join_optimizer/graph_simplification.cc

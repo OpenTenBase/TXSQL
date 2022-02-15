@@ -89,6 +89,22 @@ struct ExplainData {
   vector<Child> children;
 };
 
+struct PlanEquivalenceData {
+  int level;
+
+  /// List of zero or more access paths which are direct children of this one.
+  /// By convention, if there are multiple ones (ie., we're doing a join),
+  /// the outer iterator is listed first. So for a LEFT JOIN b, we'd list
+  /// a before b.
+  vector<ExplainData::Child> coordinator_path_children;
+
+  /// List of zero or more access paths which are direct children of this one.
+  /// By convention, if there are multiple ones (ie., we're doing a join),
+  /// the outer iterator is listed first. So for a LEFT JOIN b, we'd list
+  /// a before b.
+  vector<ExplainData::Child> worker_path_children;
+};
+
 string JoinTypeToString(JoinType join_type) {
   switch (join_type) {
     case JoinType::INNER:
@@ -1336,4 +1352,160 @@ string GetForceSubplanToken(AccessPath *path, JOIN *join) {
            sha256sum[6], sha256sum[7]);
 
   return ret;
+}
+
+PlanEquivalenceData CheckAndExplainAccessPath(
+    const AccessPath *coordinator_path,
+    JOIN *coordinator_join,
+    const AccessPath *worker_path,
+    JOIN *worker_join,
+    bool &are_equivalent) {
+  int level = 0;
+  vector<string> description;
+  ExplainData worker_table_explain;
+  ExplainData coordinator_table_explain;
+
+  if (worker_path == nullptr) {
+    if (coordinator_path == nullptr) {
+      are_equivalent = true;
+      goto end;
+    }
+    are_equivalent = false;
+    goto end;
+  }
+
+  if (!((*worker_path) == (*coordinator_path))) {
+    are_equivalent = false;
+    goto end;
+  }
+
+  // add other necessary check
+  switch (worker_path->type) {
+    case AccessPath::UNQUALIFIED_COUNT: {
+      // equivalence check: same TABLE_SHARE
+      if (!EquivalenceCheckHelper::eq_table_share(
+                worker_join->qep_tab->table(),
+                coordinator_join->qep_tab->table())) {
+        are_equivalent = false;
+        goto end;
+      }
+      break;
+    }
+    case AccessPath::AGGREGATE: {
+      if (worker_join->group_optimized_away !=
+              coordinator_join->group_optimized_away ||
+          worker_join->grouped != coordinator_join->grouped) {
+        are_equivalent = false;
+        goto end;
+      }
+      Item_sum **coordinator_item = coordinator_join->sum_funcs;
+      for (Item_sum **item = worker_join->sum_funcs; *item != nullptr; ++item) {
+        if (*coordinator_item == nullptr) {
+          are_equivalent = false;
+          goto end;
+        }
+        if (worker_path->aggregate().rollup &&
+            !EquivalenceCheckHelper::eq_item(
+                down_cast<Item_rollup_sum_switcher *>(*item)->master(),
+                down_cast<Item_rollup_sum_switcher *>(*item)->master())) {
+          are_equivalent = false;
+          goto end;
+        } else if (!worker_path->aggregate().rollup &&
+            !EquivalenceCheckHelper::eq_item(*item, *coordinator_item)) {
+          are_equivalent = false;
+          goto end;
+        }
+        ++coordinator_item;
+      }
+      if (*coordinator_item != nullptr) {
+        are_equivalent = false;
+        goto end;
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  worker_table_explain = ExplainAccessPath(worker_path, worker_join, /*include_costs=*/true);
+  coordinator_table_explain = ExplainAccessPath(coordinator_path, coordinator_join, /*include_costs=*/true);
+end:
+  return {level, coordinator_table_explain.children, worker_table_explain.children};
+}
+
+bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
+                          JOIN *coordinator_join,
+                          AccessPath *worker_path,
+                          JOIN *worker_join,
+                          bool is_root_of_join) {
+  string ret;
+  bool are_equivalent = true;
+
+  if (coordinator_path == nullptr || worker_path == nullptr) {
+    if (coordinator_path == nullptr && worker_path == nullptr) {
+      return true;
+    }
+    return false;
+  }
+
+  PlanEquivalenceData bothPlan = CheckAndExplainAccessPath(
+      coordinator_path, coordinator_join,
+      worker_path, worker_join, are_equivalent);
+
+  if (!are_equivalent) {
+    return false;
+  }
+
+  for (uint i=0; i < bothPlan.worker_path_children.size(); i++) {
+    JOIN *worker_subjoin = bothPlan.worker_path_children[i].join != nullptr ?
+        bothPlan.worker_path_children[i].join : worker_join;
+    bool child_is_root_of_join = worker_subjoin != worker_join;
+    JOIN *coordinator_subjoin = bothPlan.coordinator_path_children[i].join != nullptr ?
+        bothPlan.coordinator_path_children[i].join : coordinator_join;
+    // update empty condition
+    if (!bothPlan.worker_path_children[i].description.empty()) {
+      are_equivalent = CheckPlanEquivalence(
+                          level + bothPlan.level + 1,
+                          bothPlan.coordinator_path_children[i].path,
+                          coordinator_subjoin,
+                          bothPlan.worker_path_children[i].path,
+                          worker_subjoin,
+                          child_is_root_of_join);
+    } else {
+      are_equivalent = CheckPlanEquivalence(
+                          level + bothPlan.level,
+                          bothPlan.coordinator_path_children[i].path,
+                          coordinator_subjoin,
+                          bothPlan.worker_path_children[i].path,
+                          worker_subjoin,
+                          child_is_root_of_join);
+    }
+
+    if (!are_equivalent) {
+      return false;
+    }
+  }
+  if (is_root_of_join) {
+    if (coordinator_path->type == AccessPath::ZERO_ROWS) {
+      if (worker_path->type == AccessPath::ZERO_ROWS) {
+        return true;
+      }
+      return false;
+    }
+
+    vector<ExplainData::Child> path_from_select_list =
+        GetAccessPathsFromSelectList(coordinator_join);
+    int i = 0;
+    for (const auto &child : GetAccessPathsFromSelectList(worker_join)) {
+      // check des
+      if (CheckPlanEquivalence(level + 1,
+                               path_from_select_list[i].path,
+                               path_from_select_list[i].join,
+                               child.path, child.join,
+                               /*is_root_of_join=*/true)) {
+        return false;
+      }
+      i++;
+    }
+  }
+  return true;
 }

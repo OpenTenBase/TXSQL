@@ -79,6 +79,9 @@ typedef struct worker_thread_arg {
   void                  **thread_func_arg;
 
   bool                  error;
+  AccessPath            *coordinator_root_access_path; // coordinator's plan
+  JOIN                  *coordinator_join; // coordinator's JOIN
+  bool                  is_equivalent_plan; // equivalent to the coordinator's plan
 } worker_thread_arg;
 
 typedef struct worker_pool_t {

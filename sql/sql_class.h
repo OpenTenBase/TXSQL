@@ -2090,6 +2090,7 @@ private:
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
   bool m_is_worker{false};
+  bool m_equivalence_check_phase{false};
 
  private:
   /**
