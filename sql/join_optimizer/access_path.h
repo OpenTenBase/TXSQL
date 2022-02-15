@@ -183,6 +183,10 @@ public:
       }
       return false;
     }
+    if (a->s->table_category == TABLE_CATEGORY_TEMPORARY &&
+        b->s->table_category == TABLE_CATEGORY_TEMPORARY) {
+      return true;
+    }
     return (a->s == b->s);
   }
 
@@ -192,24 +196,11 @@ public:
     }
     assert(a->file->pushed_idx_cond == nullptr);
     assert(b->file->pushed_idx_cond == nullptr);
+    if (a->s->table_category == TABLE_CATEGORY_TEMPORARY &&
+        b->s->table_category == TABLE_CATEGORY_TEMPORARY) {
+      return true;
+    }
     return (a->s == b->s);
-  }
-
-  static inline bool eq_logic_table_share_without_icp (const TABLE *a, const TABLE *b) {
-    if (a == nullptr || b == nullptr) {
-      return false;
-    }
-    assert(a->file->pushed_idx_cond == nullptr);
-    assert(b->file->pushed_idx_cond == nullptr);
-    if (a->s->db.length == b->s->db.length ||
-        a->s->table_name.length == b->s->db.length) {
-      if (strncmp(a->s->db.str, b->s->db.str, a->s->db.length) == 0 &&
-          strncmp(a->s->table_name.str, b->s->table_name.str, a->s->table_name.length) == 0) {
-        return true;
-      }
-      return false;
-    }
-    return false;
   }
 
   static inline bool eq_table_ref (const TABLE_REF *a, const TABLE_REF *b) {
@@ -236,9 +227,8 @@ public:
       if (b == nullptr) {
         return false;
       }
-      // TODO: item equivalence check (recursive call eq_item)
-      return true;
-      //return a->eq(b, false);
+      // item equivalence check (recursive call eq_item)
+      return a->eq(b, true);
     }
     if (b != nullptr) {
       return false;

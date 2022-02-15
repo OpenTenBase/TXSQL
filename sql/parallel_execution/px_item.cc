@@ -501,3 +501,17 @@ bool check_px_unsafe_item(Item *item) {
 
   return false;
 }
+
+bool Temp_table_param::eq(const Temp_table_param *other) const {
+  if (!other) {
+    return false;
+  }
+
+  return (skip_create_table == other->skip_create_table &&
+      group_length == other->group_length &&
+      schema_table == other->schema_table &&
+      force_copy_fields == other->force_copy_fields &&
+      bit_fields_as_long == other->bit_fields_as_long &&
+      group_parts == other->group_parts &&
+      group_null_parts == other->group_null_parts);
+}

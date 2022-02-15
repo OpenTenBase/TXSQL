@@ -8472,20 +8472,20 @@ void Field_set::sql_type(String &res) const {
 */
 
 bool Field::eq(const Field *field) const {
+  // Support equality test between two plans between worker and coordinator
   if (current_thd && current_thd->m_equivalence_check_phase) {
-    // TODO: for optimizer phase in worker thd
-    return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
-        null_bit == field->null_bit && field->type() == type());
-    /*if (real_type() != field->real_type() || charset() != field->charset() ||
-        pack_length() != field->pack_length()) {
+    if (type() != field->type()
+        || null_bit != field->null_bit
+        || charset() != field->charset()
+        || pack_length() != field->pack_length()
+        || is_null() != field->is_null()) {
       return false;
     }
-    return (memcmp(ptr, field->ptr, pack_length()) == 0 &&
-        null_bit == field->null_bit && field->type() == type());*/
-  } else {
-    return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
-        null_bit == field->null_bit && field->type() == type());
+    return (memcmp(ptr, field->ptr, pack_length()) == 0);
   }
+
+  return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
+      null_bit == field->null_bit && field->type() == type());
 }
 
 /**
@@ -8750,6 +8750,19 @@ Field *Field_bit::new_key_field(MEM_ROOT *root, TABLE *new_table,
     if (bit_len) res->ptr++;  // Store rest of data here
   }
   return res;
+}
+
+bool Field_bit::eq(const Field *field) const {
+  // Support equality test between two plans between worker and coordinator
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    return (Field::eq(field) &&
+            bit_ofs == down_cast<const Field_bit *>(field)->bit_ofs &&
+            cmp(bit_ptr, down_cast<const Field_bit *>(field)->bit_ptr));
+  }
+
+  return (Field::eq(field) &&
+          bit_ptr == down_cast<const Field_bit *>(field)->bit_ptr &&
+          bit_ofs == down_cast<const Field_bit *>(field)->bit_ofs);
 }
 
 uint Field_bit::is_equal(const Create_field *new_field) const {

@@ -1,0 +1,96 @@
+
+--echo #######################################
+--echo # pq item equivalence comparison test
+--echo #######################################
+
+--echo #######################################
+--echo # 1) test field::eq, testcase copy from main.ctype_latin1_de
+--echo #######################################
+
+create table t1 (a char (20) not null, b int not null primary key auto_increment, index (a,b));
+insert into t1 (a) values ('�'),('ac'),('ae'),('ad'),('�c'),('aeb');
+insert into t1 (a) values ('�c'),('uc'),('ue'),('ud'),('�'),('ueb'),('uf');
+insert into t1 (a) values ('�'),('oc'),('�a'),('oe'),('od'),('�c'),('oeb');
+insert into t1 (a) values ('s'),('ss'),('�'),('�b'),('ssa'),('ssc'),('�a');
+insert into t1 (a) values ('e�'),('u�'),('�o'),('��'),('��a'),('aeae');
+insert into t1 (a) values ('q'),('a'),('u'),('o'),('�'),('�'),('a');
+select a,b from t1 order by a,b;
+select a,b from t1 order by upper(a),b;
+drop table t1;
+
+--echo #######################################
+--echo # 2) test temptables which has differ table_name/path, testcase copy from main.func_math
+--echo #######################################
+
+CREATE TABLE t(a INT, b VARCHAR(2));
+INSERT INTO t VALUES (1,'a'), (2,'qw'), (1,'t'), (3,'t');
+SELECT crc32(SUM(a)) FROM t;
+SELECT crc32(AVG(a)) FROM t GROUP BY b;
+drop table t;
+
+--echo testcase copy from main.case
+create table t1 (a int);
+insert into t1 values(1),(2),(3),(4);
+select case a when 1 then 2 when 2 then 3 else 0 end as fcase, count(*) from t1 group by fcase;
+analyze table t1;
+explain select case a when 1 then 2 when 2 then 3 else 0 end as fcase, count(*) from t1 group by fcase;
+select case a when 1 then "one" when 2 then "two" else "nothing" end as fcase, count(*) from t1 group by fcase;
+drop table t1;
+
+CREATE TABLE t (i1 INT,
+                d1 DOUBLE,
+                e2 DECIMAL(5,2));
+
+INSERT INTO t VALUES ( 6,    6.0,  10.0/3),
+                     ( null, 9.0,  10.0/3),
+                     ( 1,    null, 10.0/3),
+                     ( 2,    2.0,  null  );
+
+SELECT IFNULL(e2,i1) nullif_c,
+       IF(e2 IS NULL,i1,e2) if_c,
+       SUM(d1) FROM t
+       GROUP BY e2,i1 ORDER BY nullif_c, SUM(d1);
+
+DROP TABLE t;
+
+--echo #######################################
+--echo # 3) test select list (GetAccessPathsFromSelectList), testcase copy from main.subquery_mat_all
+--echo #######################################
+
+CREATE TABLE t1 (a varchar(20)) ENGINE=INNODB;
+INSERT INTO t1 VALUES ('a'), ('a'), ('a');
+CREATE TABLE t2 (a INT) ENGINE=INNODB;
+INSERT INTO t2 VALUES(1), (1), (1), (1);
+ANALYZE TABLE t1, t2;
+SELECT
+ (SELECT NULL IN (NULL) FROM t1 WHERE a) =
+  ANY(SELECT 1 FROM t2)
+FROM t1;
+DROP TABLE t1, t2;
+
+
+--echo #######################################
+--echo # 4) test MaterializePathParameters::eq with temptable, testcase copy from main.key
+--echo #######################################
+
+CREATE TABLE t1 (a INT PRIMARY KEY AUTO_INCREMENT);
+
+INSERT INTO t1 VALUES (), (), ();
+
+SELECT 1 AS c1
+FROM t1
+ORDER BY (
+  SELECT 1 AS c2
+  FROM t1
+  GROUP BY GREATEST(LAST_INSERT_ID(), t1.a)
+  ORDER BY GREATEST(LAST_INSERT_ID(), t1.a)
+  LIMIT 1);
+
+DROP TABLE t1;
+
+--echo testcase copy from main.window_functions
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES(1),(1),(2),(2);
+--error ER_SUBQUERY_NO_1_ROW
+SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
+DROP TABLE t1;

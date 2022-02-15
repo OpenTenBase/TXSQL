@@ -1,0 +1,1465 @@
+--echo ###############################################
+--echo # pq accesspath equivalence comparison test
+--echo ###############################################
+
+--echo ###############################################
+--echo # Inconsistent accesspath may caused by: 
+--echo #  1) optimizer_switch changes
+--echo #  2) TODO: sql_mode changes
+--echo #  3) TODO: charset changes
+--echo #  3) TODO: thd.variables
+--echo #  4) TODO: statistics info
+--echo #  5) TODO: const table ref
+--echo #  6) additional tests that may cause exceptions
+--echo ###############################################
+
+--echo # 1) test plan changed by optimizer_switch
+select @@optimizer_switch;
+
+# test re-optimization/re-execution with different execution methods
+# prepare once, exec with different modes
+create table t1 (a1 char(8), a2 char(8));
+create table t2 (b1 char(8), b2 char(8));
+
+insert into t1 values ('1 - 00', '2 - 00');
+insert into t1 values ('1 - 01', '2 - 01');
+insert into t1 values ('1 - 02', '2 - 02');
+
+insert into t2 values ('1 - 01', '2 - 01');
+insert into t2 values ('1 - 01', '2 - 01');
+insert into t2 values ('1 - 02', '2 - 02');
+insert into t2 values ('1 - 02', '2 - 02');
+insert into t2 values ('1 - 03', '2 - 03');
+
+set @@optimizer_switch="semijoin=off";
+prepare st1 from
+"select * from t1 where (a1, a2) in (select b1, min(b2) from t2 where b1 > '0' group by b1)";
+set @@optimizer_switch="semijoin=on,materialization=off";
+execute st1;
+set @@optimizer_switch="semijoin=off,materialization=on";
+execute st1;
+
+set optimizer_switch='default';
+set @@optimizer_switch="materialization=off";
+prepare st1 from
+"select * from t1 where (a1, a2) in (select b1, min(b2) from t2 where b1 > '0' group by b1)";
+set @@optimizer_switch="semijoin=off,materialization=on";
+execute st1;
+set @@optimizer_switch="semijoin=on,materialization=off";
+execute st1;
+
+set optimizer_switch='default';
+drop table t1, t2;
+
+--echo #
+--echo # BUG#47367 Crash in Name_resolution_context::process_error
+--echo #
+
+SET SESSION optimizer_switch = 'default,semijoin=off';
+CREATE TABLE t1 (f1 INTEGER);
+CREATE TABLE t2 LIKE t1;
+delimiter |;
+CREATE PROCEDURE p1 () BEGIN SELECT f1 FROM t1 WHERE f1 IN (SELECT f1 FROM t2); END|
+delimiter ;|
+CALL p1;
+ALTER TABLE t2 CHANGE COLUMN f1 my_column INT;
+CALL p1;
+DROP PROCEDURE p1;
+--echo # Restore the original column list of table t2:
+ALTER TABLE t2 CHANGE COLUMN my_column f1 INT;
+
+SET SESSION optimizer_switch = 'semijoin=on';
+delimiter |;
+--echo # Recreate procedure so that we eliminate any caching effects
+CREATE PROCEDURE p1 () BEGIN SELECT f1 FROM t1 WHERE f1 IN (SELECT f1 FROM t2); END|
+delimiter ;|
+CALL p1;
+ALTER TABLE t2 CHANGE COLUMN f1 my_column INT;
+CALL p1;
+DROP PROCEDURE p1;
+DROP TABLE t1, t2;
+SET SESSION optimizer_switch = 'default';
+
+
+--echo #
+--echo # Bug #46744 Crash in optimize_semijoin_nests on empty view
+--echo # with limit and procedure.
+--echo #
+
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+DROP VIEW IF EXISTS v1;
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+
+CREATE TABLE t1 ( f1 int );
+CREATE TABLE t2 ( f1 int );
+
+insert into t2 values (5), (7);
+
+CREATE OR REPLACE VIEW v1 AS SELECT * FROM t1 LIMIT 2;
+
+create procedure p1() 
+select COUNT(*) 
+FROM v1 WHERE f1 IN 
+(SELECT f1 FROM t2 WHERE f1 = ANY (SELECT f1 FROM v1));
+
+SET SESSION optimizer_switch = 'semijoin=on';
+CALL p1();
+SET SESSION optimizer_switch = 'semijoin=off';
+CALL p1();
+
+drop table t1, t2;
+drop view v1;
+drop procedure p1;
+
+set SESSION optimizer_switch='default';
+
+--echo # End of bug#46744
+
+--echo #
+--echo # Bug#50489: another segfault in fix_semijoin_strategies... 
+--echo #
+
+CREATE TABLE it (
+  id INT NOT NULL,
+  expr_key INT NOT NULL,
+  expr_nokey INT NOT NULL,
+  expr_padder INT DEFAULT NULL,
+  KEY expr_key(expr_key)
+);
+INSERT INTO it VALUES (135,218264606,218264606,100);
+INSERT INTO it VALUES (201,810783319,810783319,200);
+CREATE TABLE ot (
+  id INT NOT NULL,
+  expr_key INT NOT NULL,
+  expr_nokey INT NOT NULL,
+  KEY expr_key(expr_key)
+);
+delimiter |;
+let proc_text=
+CREATE PROCEDURE run_n_times(x int)
+BEGIN
+DECLARE c int;
+WHILE x DO
+  SET x = x-1;
+  SELECT COUNT(expr_key) INTO c FROM ot
+  WHERE expr_key IN (SELECT expr_nokey FROM it)
+    AND ot.expr_key<100000000;
+END WHILE;
+END|
+delimiter ;|
+eval $proc_text;
+SET optimizer_switch="default";
+call run_n_times(1);
+SET optimizer_switch="firstmatch=off,materialization=off";
+call run_n_times(1);
+SET optimizer_switch="default";
+call run_n_times(1);
+DROP PROCEDURE run_n_times;
+
+# Re-create procedure to avoid caching effects
+eval $proc_text;
+SET optimizer_switch="firstmatch=off,materialization=off";
+call run_n_times(1);
+SET optimizer_switch="default";
+call run_n_times(1);
+DROP PROCEDURE run_n_times;
+
+# Re-create procedure to avoid caching effects
+eval $proc_text;
+SET optimizer_switch="semijoin=off,materialization=off";
+call run_n_times(1);
+SET optimizer_switch="default";
+call run_n_times(1);
+DROP PROCEDURE run_n_times;
+
+DROP TABLE it, ot;
+
+# End of Bug#50489
+
+--echo # 
+--echo # BUG#31480: Incorrect result for nested subquery when executed via semijoin
+--echo # 
+
+CREATE TABLE t1 (a INT NOT NULL, b INT NOT NULL);
+CREATE TABLE t2 (c INT NOT NULL, d INT NOT NULL);
+CREATE TABLE t3 (e INT NOT NULL);
+CREATE TABLE t4 (f INT NOT NULL, g INT NOT NULL);
+
+INSERT INTO t1 VALUES (1,10);
+INSERT INTO t1 VALUES (2,10);
+INSERT INTO t1 VALUES (1,20);
+INSERT INTO t1 VALUES (2,20);
+INSERT INTO t1 VALUES (3,20);
+INSERT INTO t1 VALUES (2,30);
+INSERT INTO t1 VALUES (4,40);
+
+INSERT INTO t2 VALUES (2,10);
+INSERT INTO t2 VALUES (2,20);
+INSERT INTO t2 VALUES (4,10);
+INSERT INTO t2 VALUES (5,10);
+INSERT INTO t2 VALUES (3,20);
+INSERT INTO t2 VALUES (2,40);
+
+INSERT INTO t3 VALUES (10);
+INSERT INTO t3 VALUES (30);
+INSERT INTO t3 VALUES (10);
+INSERT INTO t3 VALUES (20);
+
+INSERT INTO t4 VALUES (2,10);
+INSERT INTO t4 VALUES (2,10);
+INSERT INTO t4 VALUES (3,10);
+INSERT INTO t4 VALUES (4,10);
+INSERT INTO t4 VALUES (4,20);
+INSERT INTO t4 VALUES (4,20);
+
+--echo # Reference to the parent query block (used tables was wrong)
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+                                  WHERE ta.b=tc.e));
+
+analyze table t1;
+analyze table t2;
+analyze table t3;
+analyze table t4;
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+eval $query;
+
+--echo # Subquery with GROUP BY and HAVING
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
+                                  GROUP BY f
+                                  HAVING ta.a=tc.f));
+
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+eval $query;
+
+--echo # Subquery with ORDER BY and LIMIT
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+--echo # NOTE: The ordered subquery should have a LIMIT clause to make sense
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE tb.d IN (SELECT g FROM t4 as tc
+                                  WHERE ta.a=tc.f
+                                  ORDER BY tc.f));
+
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+eval $query;
+
+--echo # Reference to the transformed-away query block (dependency was wrong)
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+                                  WHERE tb.d=tc.e));
+
+eval EXPLAIN $query;
+--sorted_result
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+--sorted_result
+eval $query;
+
+--echo # Reference above the parent query block (should not be affected)
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS t
+WHERE t.a NOT IN (SELECT a FROM t1 AS ta
+                  WHERE ta.a IN (SELECT c FROM t2 AS tb
+                                 WHERE tb.d >= SOME(SELECT e FROM t3 as tc
+                                                    WHERE t.b=tc.e)));
+
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+eval $query;
+
+--echo # EXISTS with reference to the parent query block
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE EXISTS (SELECT * FROM t3 as tc
+                             WHERE ta.b=tc.e));
+
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+--sorted_result
+eval $query;
+
+--echo # Scalar subquery with reference to the parent query block
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE tb.d = (SELECT MIN(e) FROM t3 as tc
+                             WHERE ta.b=tc.e));
+
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+eval $query;
+
+--echo # Combine scalar subquery with quantified comparison subquery
+
+set @@optimizer_switch='materialization=off,semijoin=off';
+
+let query=
+SELECT * FROM t1 AS ta
+WHERE ta.a IN (SELECT c FROM t2 AS tb
+               WHERE (SELECT MIN(e) FROM t3 as tc
+                      WHERE tb.d=tc.e) < SOME(SELECT e FROM t3 as tc
+                                              WHERE ta.b=tc.e));
+
+eval EXPLAIN $query;
+eval $query;
+
+set @@optimizer_switch='materialization=off,semijoin=on';
+
+eval EXPLAIN $query;
+eval $query;
+
+DROP TABLE t1, t2, t3, t4;
+
+set @@optimizer_switch='default';
+
+--echo # 5) additional tests that may cause exceptions
+
+
+CREATE DATABASE temptable_test;
+USE temptable_test;
+
+-- exec gunzip < $MYSQL_TEST_DIR/t/temptable_dump.sql.gz | $MYSQL temptable_test
+
+-- disable_query_log
+-- disable_result_log
+ANALYZE TABLE A;
+ANALYZE TABLE AA;
+ANALYZE TABLE B;
+ANALYZE TABLE BB;
+ANALYZE TABLE C;
+ANALYZE TABLE CC;
+ANALYZE TABLE D;
+ANALYZE TABLE DD;
+ANALYZE TABLE DUMMY;
+ANALYZE TABLE E;
+ANALYZE TABLE HH;
+ANALYZE TABLE K;
+ANALYZE TABLE MM;
+ANALYZE TABLE PP;
+ANALYZE TABLE table10000_innodb_int_autoinc;
+
+SET SESSION internal_tmp_mem_storage_engine = 'TempTable';
+
+# Several of the DBUG_PRINT calls give 'conditional jump'
+if (!$VALGRIND_TEST) {
+  if ($is_debug) {
+    SET GLOBAL debug = "+d,temptable_api";
+  }
+}
+
+-- enable_result_log
+-- enable_query_log
+
+-- sorted_result
+SELECT
+  GRANDPARENT1.`col_int_key` AS g1,
+  GRANDPARENT1.`col_datetime_key` AS dt
+FROM
+  C AS GRANDPARENT1
+  LEFT JOIN
+  C AS GRANDPARENT2
+  ON (GRANDPARENT2.`pk` <> GRANDPARENT1.`pk`)
+WHERE
+  (GRANDPARENT1.`pk`, GRANDPARENT1.`pk`) IN (
+    SELECT DISTINCT
+      PARENT1.`col_int_key` AS p1,
+      PARENT1.`col_int_key` AS p2
+    FROM
+      C AS PARENT1
+      LEFT JOIN
+      C AS PARENT2
+      USING (`col_varchar_key`)
+    WHERE
+      ((PARENT1.`pk` > GRANDPARENT1.`col_int_key`)
+        OR ((PARENT1.`col_time_key` <= GRANDPARENT1.`col_time_key`)
+             AND (PARENT1.`col_datetime_key` > '2005-02-01')
+           )
+      )
+    ORDER BY PARENT1.`col_int_key`
+  )
+  AND GRANDPARENT1.`col_varchar_key` <> 'r'
+HAVING g1 <> '13:16:53.053569'
+ORDER BY GRANDPARENT1.`col_datetime_key`;
+
+SET SESSION internal_tmp_mem_storage_engine = default;
+
+USE test;
+DROP DATABASE temptable_test;
+
+--echo # Testing correct nesting of natural joins.
+CREATE TABLE t1( a INT, b int );
+CREATE TABLE t2( a INT, c int );
+CREATE TABLE t3( a INT, d int );
+
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
+INSERT INTO t2 VALUES         (2, 2), (3, 3), (4, 4);
+INSERT INTO t3 VALUES                 (3, 3), (4, 4), (5, 5);
+
+--echo # The two queries below should produce identical result sets.
+--sorted_result
+SELECT * FROM t1 NATURAL LEFT JOIN t2 NATURAL RIGHT JOIN t3;
+--sorted_result
+SELECT * FROM (t1 NATURAL LEFT JOIN t2) NATURAL RIGHT JOIN t3;
+--echo # This result should differ from the result sets above.
+--sorted_result
+SELECT * FROM t1 NATURAL LEFT JOIN (t2 NATURAL RIGHT JOIN t3);
+
+DROP TABLE t1, t2, t3;
+
+SET @@timestamp=default;
+
+# copy by parser testcase (sql of select)
+
+SET @save_sql_mode=@@sql_mode;
+
+#
+# Documenting the current behavior, to detect incompatible changes.
+# In each cases:
+# - no error is the correct result
+# - an error is the expected result with the current implementation,
+#   and is a limitation.
+
+set SQL_MODE='';
+
+#
+# Bug#22312 Syntax error in expression with INTERVAL()
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a INT, b DATETIME);
+INSERT INTO t1 VALUES (INTERVAL(3,2,1) + 1, "1997-12-31 23:59:59" + INTERVAL 1 SECOND);
+SELECT * FROM t1 WHERE a = INTERVAL(3,2,1) + 1;
+DROP TABLE t1;
+SET sql_mode = default;
+#
+# Bug#28317 Left Outer Join with {oj outer-join}
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2,t3;
+--enable_warnings
+CREATE TABLE t1 (a1 INT, a2 INT, a3 INT, a4 DATETIME);
+CREATE TABLE t2 LIKE t1;
+CREATE TABLE t3 LIKE t1;
+SELECT t1.* FROM t1 AS t0, { OJ t2 INNER JOIN t1 ON (t1.a1=t2.a1) } WHERE t0.a3=2;
+SELECT t1.*,t2.* FROM { OJ ((t1 INNER JOIN t2 ON (t1.a1=t2.a2)) LEFT OUTER JOIN t3 ON t3.a3=t2.a1)};
+SELECT t1.*,t2.* FROM { OJ ((t1 LEFT OUTER JOIN t2 ON t1.a3=t2.a2) INNER JOIN t3 ON (t3.a1=t2.a2))};
+SELECT t1.*,t2.* FROM { OJ (t1 LEFT OUTER JOIN t2 ON t1.a1=t2.a2) CROSS JOIN t3 ON (t3.a2=t2.a3)};
+SELECT * FROM {oj t1 LEFT OUTER JOIN t2 ON t1.a1=t2.a3} WHERE t1.a2 > 10;
+SELECT {fn CONCAT(a1,a2)} FROM t1;
+UPDATE t3 SET a4={d '1789-07-14'} WHERE a1=0;
+SELECT a1, a4 FROM t2 WHERE a4 LIKE {fn UCASE('1789-07-14')};
+DROP TABLE t1, t2, t3;
+
+--echo # bug #17727401
+--error ER_PARSE_ERROR
+SELECT '' IN (SELECT '1' c FROM t1 ORDER BY '' ORDER BY '') FROM t1;
+
+--echo # regression & coverage tests
+
+--echo # uniform syntax for FROM DUAL clause:
+
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+  FOR UPDATE;
+
+SELECT 1 FROM
+  (SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+   FOR UPDATE) a;
+
+CREATE TABLE t1 (i INT);
+
+SELECT 1 FROM t1
+  WHERE EXISTS(SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+               FOR UPDATE);
+
+SELECT 1 FROM t1
+UNION
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+  FOR UPDATE;
+
+(SELECT 1 FROM t1)
+UNION 
+(SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1
+ FOR UPDATE);
+
+--echo # "FOR UPDATE" tests
+
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1;
+--error ER_PARSE_ERROR
+SELECT 1 FROM t1 FOR UPDATE UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1;
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1 FOR UPDATE;
+
+
+--echo # "INTO" clause tests
+
+SELECT 1 FROM t1 INTO @var17727401;
+SELECT 1 FROM DUAL INTO @var17727401;
+SELECT 1 INTO @var17727401;
+
+SELECT 1 INTO @var17727401 FROM t1;
+SELECT 1 INTO @var17727401 FROM DUAL;
+
+# Double "INTO" clause: parse error is "near 'INTO @var17727401_2' at line 1"
+--error ER_MULTIPLE_INTO_CLAUSES
+SELECT 1 INTO @var17727401_1 FROM t1 INTO @var17727401_2;
+
+# Double "INTO" clause: parse error is "near 'INTO @var17727401_2' at line 2"
+--error ER_MULTIPLE_INTO_CLAUSES
+SELECT 1 INTO @var17727401_1 FROM DUAL
+  INTO @var17727401_2;
+
+SELECT 1 INTO @var17727401 FROM t1 WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1;
+SELECT 1 FROM t1 WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1 INTO @var17727401;
+
+--error ER_PARSE_ERROR
+SELECT 1 FROM t1 WHERE 1 INTO @var17727401 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1;
+
+--error ER_MULTIPLE_INTO_CLAUSES
+SELECT 1 INTO @var17727401_1
+  FROM t1 WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1 LIMIT 1
+  INTO @var17727401_2;
+
+--error ER_PARSE_ERROR
+SELECT (SELECT 1 FROM t1 INTO @var17727401);
+--error ER_PARSE_ERROR
+SELECT 1 FROM (SELECT 1 FROM t1 INTO @var17727401) a;
+--error ER_PARSE_ERROR
+SELECT EXISTS(SELECT 1 FROM t1 INTO @var17727401);
+
+--error ER_PARSE_ERROR
+SELECT 1 FROM t1 INTO @var17727401 UNION SELECT 1 FROM t1 INTO t1;
+--error ER_PARSE_ERROR
+(SELECT 1 FROM t1 INTO @var17727401) UNION (SELECT 1 FROM t1 INTO t1);
+
+SELECT 1 FROM t1 UNION SELECT 1 FROM t1 INTO @var17727401;
+
+--echo # ORDER and LIMIT clause combinations
+
+# Limited support for (SELECT ...) ORDER/LIMIT:
+
+(SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1;
+(SELECT 1 FROM t1 LIMIT 1) LIMIT 1;
+
+--error ER_NOT_SUPPORTED_YET
+((SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1) ORDER BY 1;
+((SELECT 1 FROM t1 LIMIT 1) LIMIT 1) LIMIT 1;
+
+(SELECT 1 FROM t1 ORDER BY 1) LIMIT 1;
+(SELECT 1 FROM t1 LIMIT 1) ORDER BY 1;
+
+--error ER_PARSE_ERROR
+((SELECT 1 FROM t1 ORDER BY 1) LIMIT 1) ORDER BY 1);
+--error ER_PARSE_ERROR
+((SELECT 1 FROM t1 LIMIT 1) ORDER BY 1) LIMIT 1);
+
+# ORDER/LIMIT and UNION:
+
+let $q=SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1;
+eval $q;
+eval SELECT ($q);
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1;
+eval $q;
+eval SELECT ($q);
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 UNION SELECT 1 FROM t1 ORDER BY 1 LIMIT 1;
+eval $q;
+eval SELECT ($q);
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 UNION SELECT 1 FROM t1 LIMIT 1 ORDER BY 1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 ORDER BY 1 LIMIT 1 UNION SELECT 1 FROM t1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 LIMIT 1 ORDER BY 1 UNION SELECT 1 FROM t1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 ORDER BY 1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 LIMIT 1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 LIMIT 1 UNION SELECT 1 FROM t1 ORDER BY 1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+let $q=SELECT 1 FROM t1 ORDER BY 1 UNION SELECT 1 FROM t1 LIMIT 1;
+--error ER_PARSE_ERROR
+eval $q;
+--error ER_PARSE_ERROR
+eval SELECT ($q);
+--error ER_PARSE_ERROR
+eval SELECT 1 FROM ($q) a;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Bug #18106014: RECENT REGRESSION: MORE CASES OF ASSERTION FAILED:
+--echo #                !JOIN->PLAN_IS_CONST()
+--echo #
+
+SELECT COUNT(1) FROM DUAL GROUP BY '1' ORDER BY 1 ;
+SELECT COUNT(1)           GROUP BY '1' ORDER BY 1 ;
+
+DO(SELECT 1 c           GROUP BY 1 HAVING 1 ORDER BY COUNT(1));
+DO(SELECT 1 c FROM DUAL GROUP BY 1 HAVING 1 ORDER BY COUNT(1));
+
+SELECT (SELECT 1 c                   GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+  'null is not expected';
+SELECT (SELECT 1 c FROM DUAL         GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+  'null is not expected';
+SELECT (SELECT 1 c                   GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+  'null is expected';
+SELECT (SELECT 1 c FROM DUAL         GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+  'null is expected';
+
+SELECT (SELECT 1 c           WHERE 1 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+  'null is not expected';
+SELECT (SELECT 1 c FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+  'null is not expected';
+SELECT (SELECT 1 c           WHERE 1 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+  'null is expected';
+SELECT (SELECT 1 c FROM DUAL WHERE 1 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+  'null is expected';
+
+SELECT (SELECT 1 c           WHERE 0 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+  'null is expected';
+SELECT (SELECT 1 c FROM DUAL WHERE 0 GROUP BY 1 HAVING 1 ORDER BY COUNT(1)) AS
+  'null is expected';
+SELECT (SELECT 1 c           WHERE 0 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+  'null is expected';
+SELECT (SELECT 1 c FROM DUAL WHERE 0 GROUP BY 1 HAVING 0 ORDER BY COUNT(1)) AS
+  'null is expected';
+
+SELECT 1 c FROM DUAL GROUP BY 1 HAVING 1 ORDER BY COUNT(1);
+SELECT 1 c FROM DUAL GROUP BY 1 HAVING 0 ORDER BY COUNT(1);
+SELECT 1 c           GROUP BY 1 HAVING 1 ORDER BY COUNT(1);
+
+--echo #
+--echo # Bug #18106058: RECENT REGRESSION: CRASH IN JOIN::MAKE_TMP_TABLES_INFO
+--echo #
+
+CREATE TABLE t1 (i INT);
+INSERT INTO t1 VALUES (1);
+
+SELECT ((SELECT 1 AS f           HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+  ORDER BY f));
+SELECT ((SELECT 1 AS f FROM DUAL HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+  ORDER BY f));
+
+SELECT 1 AS f          FROM DUAL HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+  ORDER BY f;
+SELECT 1 AS f                   HAVING EXISTS(SELECT 1 FROM t1) IS TRUE
+  ORDER BY f;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Some additional coverage tests for WL#7199 and friends
+--echo #
+
+CREATE TABLE t1 (i INT);
+INSERT INTO t1 VALUES (1), (2);
+CREATE TABLE t2 (i INT);
+INSERT INTO t2 VALUES (10), (20);
+
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 WHERE i = 10
+ORDER BY i;
+
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 WHERE i = 10
+LIMIT 100;
+
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 GROUP BY i HAVING i = 10
+ORDER BY i;
+
+SELECT i FROM t1 WHERE i = 1
+UNION
+SELECT i FROM t2 GROUP BY i HAVING i = 10
+LIMIT 100;
+
+(SELECT i FROM t1 WHERE i = 1) ORDER BY i;
+(SELECT i FROM t1 WHERE i = 1) LIMIT 100;
+
+(SELECT i FROM t1 GROUP BY i HAVING i = 1) ORDER BY i;
+(SELECT i FROM t1 GROUP BY i HAVING i = 1) LIMIT 100;
+
+DROP TABLE t1, t2;
+
+--echo #
+--echo # Bug#18486460 ASSERTION FAILED: N < M_SIZE AFTER FIX_INNER_REFS
+--echo #
+
+CREATE TABLE t1(b INT);
+CREATE TABLE t2(a INT, b INT, c INT, d INT);
+
+--source include/turn_off_only_full_group_by.inc
+EXPLAIN SELECT
+(
+  SELECT
+  ROW(t1.b, a) = ROW( ROW(1, t2.c) = ROW(1, d), c) = a
+  FROM t1
+)
+FROM t2 GROUP BY a;
+--source include/restore_sql_mode_after_turn_off_only_full_group_by.inc
+
+DROP TABLE t1, t2;
+
+--echo #
+--echo # Bug#18498344: SELECT WITH ALIAS NOT WORKING IN 5.7
+--echo #
+
+CREATE TABLE t1 (
+  a INT
+);
+
+INSERT INTO t1 VALUES ( 2 );
+
+--echo # Should succeed
+SELECT *
+FROM ( SELECT a FROM t1 UNION SELECT 1 ORDER BY a ) AS a1
+WHERE a1.a = 1 OR a1.a = 2;
+
+DROP TABLE t1;
+
+
+--echo #
+--echo # WL#8083: Introduce <query expression> parser rule
+--echo # Bug#14743786: PARSE ERROR WITH UNION PARENTHESES ON TOP LEVEL
+--echo #
+
+--echo #
+--echo # Part1: Regression Testing.
+--echo #
+CREATE TABLE t1 ( a INT );
+INSERT INTO t1 VALUES ( 1 );
+
+CREATE TABLE t2 ( a INT );
+INSERT INTO t2 VALUES ( 2 ), ( 2 );
+
+CREATE TABLE t3 ( a INT );
+INSERT INTO t3 VALUES ( 3 ), ( 3 ), ( 3 );
+
+SELECT 1 UNION SELECT 2;
+(SELECT 1) UNION SELECT 2;
+SELECT 1 UNION (SELECT 2);
+(SELECT 1) UNION (SELECT 2);
+
+  SELECT 2 FROM t1 UNION ((SELECT 3 FROM t1));
+ (SELECT 2 FROM t1)  UNION SELECT 3 FROM t1;
+((SELECT 2 FROM t1)) UNION SELECT 3 FROM t1;
+
+(SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1;
+
+(SELECT 1 FROM t1 LIMIT 1) LIMIT 1;
+
+--error ER_PARSE_ERROR
+SELECT a FROM t1 LIMIT 1 UNION ALL SELECT a FROM t1;
+--error ER_NOT_SUPPORTED_YET
+(SELECT 1) UNION (SELECT 2 UNION SELECT 3);
+#--error ER_WRONG_USAGE
+(SELECT a FROM t1 LIMIT 1) UNION ALL (SELECT a FROM t1 ORDER BY a) LIMIT 2;
+#--error ER_WRONG_USAGE
+(SELECT a FROM t1 LIMIT 1) UNION ALL ((SELECT a FROM t1 ORDER BY a)) LIMIT 2;
+
+--error ER_BAD_FIELD_ERROR
+SELECT 1 UNION SELECT 2 FROM t1 ORDER BY a LIMIT 1;
+SELECT 1 UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1);
+--error ER_BAD_FIELD_ERROR
+(SELECT 1 FROM t1 LIMIT 2) UNION  SELECT 2 FROM t1 ORDER BY a LIMIT 1;
+(SELECT 1 FROM t1 LIMIT 2) UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1);
+(SELECT a FROM t1 LIMIT 2) LIMIT 1;
+((SELECT a FROM t1 LIMIT 2)) LIMIT 1;
+(SELECT a FROM t1 LIMIT 2) ORDER BY 1;
+(SELECT 1 FROM t1 LIMIT 2) UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1) LIMIT 1;
+
+--error ER_BAD_FIELD_ERROR
+(SELECT 1 FROM t1 LIMIT 2) UNION (SELECT 2 FROM t1 ORDER BY a LIMIT 1)
+  ORDER BY a;
+
+--error ER_BAD_FIELD_ERROR
+(SELECT 1 FROM t1 LIMIT 1) UNION ((SELECT 2 FROM t1 ORDER BY a LIMIT 2))
+  ORDER BY a;
+
+(SELECT a FROM t2 LIMIT 1) UNION (SELECT a FROM t3 LIMIT 2) LIMIT 1;
+
+(SELECT 1 FROM t1 ORDER BY 1) ORDER BY 1;
+
+--error ER_TABLENAME_NOT_ALLOWED_HERE
+(SELECT a FROM t1 LIMIT 1) ORDER BY t1.a;
+
+--error ER_TABLENAME_NOT_ALLOWED_HERE
+((SELECT a FROM t1 LIMIT 1)) ORDER BY t1.a;
+
+--error ER_TABLENAME_NOT_ALLOWED_HERE
+(SELECT a FROM t1 LIMIT 1) UNION ALL (SELECT 2) ORDER BY t1.b;
+
+--error ER_TABLENAME_NOT_ALLOWED_HERE
+(SELECT a FROM t1 LIMIT 1) UNION ALL ((SELECT 2)) ORDER BY t1.b;
+
+--error ER_TABLENAME_NOT_ALLOWED_HERE
+(SELECT a FROM t1 LIMIT 1) UNION ALL (SELECT a FROM t1 ORDER BY a LIMIT 2)
+  ORDER BY t1.b;
+
+# Generally speaking, we don't support nested unions:
+--error ER_NOT_SUPPORTED_YET
+SELECT 1 UNION ( SELECT 1 UNION SELECT 1 );
+# OTOH union expressions are left-associative by their nature,
+# so "s1 UNION s2 UNION ..." and "(s1 UNION s2) UNION ..." are same,
+# thus the parser accepts nested query expressions at the left hand side:
+( SELECT 1 UNION SELECT 1 ) UNION SELECT 1;
+( (SELECT 1 UNION SELECT 1 ) UNION SELECT 1 ) UNION SELECT 1;
+# But:
+--error ER_NOT_SUPPORTED_YET
+( SELECT 1 UNION ( SELECT 1 UNION SELECT 1 ) UNION SELECT 1 );
+
+# Missing ")":
+--error ER_PARSE_ERROR
+( SELECT 1 UNION ( SELECT 1 UNION SELECT 1 ) UNION SELECT 1;
+
+--error ER_PARSE_ERROR
+SELECT a FROM t1 ORDER BY a UNION SELECT a FROM t1;
+
+(SELECT * FROM t1 LIMIT 1) UNION SELECT * FROM t1;
+(SELECT * FROM t1 ORDER BY a) UNION SELECT * FROM t1;
+
+--error ER_PARSE_ERROR
+SELECT a FROM t1
+UNION
+SELECT a FROM t1 ORDER BY a
+UNION
+SELECT a FROM t1;
+
+(SELECT SQL_CALC_FOUND_ROWS a FROM t1 LIMIT 2)
+UNION
+(SELECT a FROM t2 ORDER BY a) LIMIT 2;
+
+DROP TABLE t1, t2, t3;
+
+delimiter |;
+
+CREATE PROCEDURE p1() BEGIN IF whatever THEN SELECT 1; END IF; END|
+
+delimiter ;|
+
+--error 1054
+CALL p1();
+
+DROP PROCEDURE p1;
+
+--echo #
+--echo # Part 2: Test of changed (fixed) behavior.
+--echo #
+
+CREATE TABLE t1 ( a INT );
+INSERT INTO t1 VALUES ( 1 );
+
+CREATE TABLE t2 ( a INT );
+INSERT INTO t2 VALUES ( 2 ), ( 2 );
+
+CREATE TABLE t3 ( a INT );
+INSERT INTO t3 VALUES ( 3 ), ( 3 ), ( 3 );
+
+   (SELECT 1 FROM t1   UNION   SELECT 2 FROM t1);
+  ((SELECT 1 FROM t1   UNION   SELECT 2 FROM t1));
+   (SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1));
+  ((SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1)));
+  ((SELECT 1 FROM t1   UNION ((SELECT 2 FROM t1))));
+  ((SELECT 1 FROM t1)  UNION   SELECT 2 FROM t1);
+ (((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1);
+((((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1));
+  ((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1));
+ (((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1)));
+((((SELECT 1 FROM t1)) UNION  (SELECT 2 FROM t1)));
+ (((SELECT 1 FROM t1)  UNION ((SELECT 2 FROM t1))));
+((((SELECT 1 FROM t1)) UNION ((SELECT 2 FROM t1))));
+
+(SELECT 1 UNION SELECT 2) ORDER BY 1;
+((SELECT 1 UNION SELECT 2)) ORDER BY 1;
+((SELECT 1) ORDER BY 1);
+((SELECT 1) LIMIT 1);
+(SELECT 1 UNION SELECT 2) LIMIT 1;
+((SELECT 1 UNION SELECT 2)) LIMIT 1;
+
+--error ER_PARSE_ERROR
+(SELECT a FROM t1) LIMIT 1 UNION ALL ((SELECT a FROM t1 ORDER BY a)) LIMIT 2;
+
+DROP TABLE t1, t2, t3;
+
+--echo #
+--echo # Part 3: The <table factor> syntax.
+--echo #
+CREATE TABLE t1 ( a INT );
+INSERT INTO t1 VALUES ( 1 );
+
+CREATE TABLE t2 ( a INT );
+INSERT INTO t2 VALUES ( 2 );
+
+CREATE TABLE t3 ( a INT );
+INSERT INTO t3 VALUES ( 3 );
+
+CREATE TABLE t4 ( a INT );
+INSERT INTO t4 VALUES ( 3 );
+
+SELECT * FROM    (SELECT 1 FROM t1   UNION   SELECT 2 FROM t1) dt;
+SELECT * FROM   ((SELECT 1 FROM t1   UNION   SELECT 2 FROM t1)) dt;
+SELECT * FROM    (SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1)) dt;
+SELECT * FROM   ((SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1))) dt;
+SELECT * FROM   ((SELECT 1 FROM t1   UNION ((SELECT 2 FROM t1)))) dt;
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION   SELECT 2 FROM t1) dt;
+SELECT * FROM  (((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1) dt;
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1)) dt;
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1)) dt;
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1))) dt;
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION  (SELECT 2 FROM t1))) dt;
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION ((SELECT 2 FROM t1)))) dt;
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION ((SELECT 2 FROM t1)))) dt;
+
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM    (SELECT 1 FROM t1   UNION   SELECT 2 FROM t1);
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM   ((SELECT 1 FROM t1   UNION   SELECT 2 FROM t1));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM    (SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM   ((SELECT 1 FROM t1   UNION  (SELECT 2 FROM t1)));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM   ((SELECT 1 FROM t1   UNION ((SELECT 2 FROM t1))));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION   SELECT 2 FROM t1);
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM  (((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1);
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION   SELECT 2 FROM t1));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM   ((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION  (SELECT 2 FROM t1)));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION  (SELECT 2 FROM t1)));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM  (((SELECT 1 FROM t1)  UNION ((SELECT 2 FROM t1))));
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM ((((SELECT 1 FROM t1)) UNION ((SELECT 2 FROM t1))));
+
+SELECT * FROM  ( t1 JOIN t2 ON TRUE );
+SELECT * FROM (( t1 JOIN t2 ON TRUE ));
+
+SELECT * FROM ( t1 JOIN t2 ON TRUE  JOIN t3 ON TRUE );
+SELECT * FROM ((t1 JOIN t2 ON TRUE) JOIN t3 ON TRUE );
+
+SELECT * FROM (t1 INNER JOIN t2 ON (t1.a = t2.a));
+
+--error ER_PARSE_ERROR
+SELECT 1 FROM (SELECT 1 FROM t1 INTO @v) a;
+
+SELECT 1 FROM (t1);
+SELECT 1 FROM ((t1));
+
+SELECT 1 UNION SELECT 2 FROM (t2);
+
+SELECT 1 FROM  (SELECT 2  ORDER BY 1) AS res;
+
+--echo #
+--echo # This syntax is no longer allowed
+--echo #
+#--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT 1 FROM ((SELECT 2) ORDER BY 1) AS res;
+--error ER_PARSE_ERROR
+SELECT 1 FROM ((SELECT 2) a ORDER BY 1) AS res;
+#--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT 1 FROM ((SELECT 2) LIMIT 1) AS res;
+--error ER_PARSE_ERROR
+SELECT 1 FROM ((SELECT 2) a LIMIT 1) AS res;
+
+SELECT * FROM ( t1 AS alias1 );
+SELECT * FROM   t1 AS alias1, t2 AS alias2;
+SELECT * FROM ( t1 AS alias1, t2 AS alias2 );
+
+--error ER_NONUNIQ_TABLE
+SELECT * FROM ( t1 JOIN t2 ON TRUE, t1 JOIN t3 ON TRUE );
+--error ER_PARSE_ERROR
+SELECT * FROM ( t1 JOIN t2 ON TRUE, t1 t11 JOIN t3 ON TRUE ) t1a;
+--error ER_PARSE_ERROR
+SELECT * FROM ( t1 JOIN t2 ON TRUE, SELECT 1 FROM DUAL );
+SELECT * FROM ( t1 JOIN t2 ON TRUE, (SELECT 1 FROM DUAL) t1a );
+SELECT * FROM t1 JOIN t2 ON TRUE, (SELECT 1 FROM DUAL) t1a;
+--error ER_DERIVED_MUST_HAVE_ALIAS
+SELECT * FROM ( SELECT 1 FROM DUAL );
+
+SELECT * FROM ( SELECT 1 FROM DUAL ) t1a;
+
+SELECT * FROM  ( t1, t2 );
+SELECT * FROM (( t1, t2 ));
+
+SELECT * FROM  ( (t1),   t2  );
+SELECT * FROM  (((t1)),  t2  );
+SELECT * FROM  ( (t1),  (t2) );
+SELECT * FROM  (  t1,   (t2) );
+
+((SELECT 1 UNION SELECT 1) UNION SELECT 1);
+SELECT * FROM ((SELECT 1 UNION SELECT 1) UNION SELECT 1) a;
+
+SELECT * FROM (t1, t2) JOIN (t3, t4) ON TRUE;
+SELECT * FROM ((t1, t2) JOIN t3 ON TRUE);
+--error ER_NON_UNIQ_ERROR
+SELECT * FROM t1 JOIN ( t2, t3 ) USING ( a );
+
+DROP TABLE t1, t2, t3, t4;
+
+--echo # Check the format in the note.
+CREATE TABLE t1 (a INT);
+EXPLAIN SELECT 1 FROM (SELECT 1 FROM t1) t;
+DROP TABLE t1;
+
+CREATE TABLE t1 ( a INT );
+CREATE TABLE t2 ( b INT );
+CREATE TABLE t3 ( c INT );
+CREATE TABLE t4 ( d INT );
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2);
+INSERT INTO t3 VALUES (2);
+INSERT INTO t4 VALUES (2);
+
+SELECT * FROM t1 LEFT JOIN ( t2, t3, t4 ) ON a = c;
+
+--error ER_NONUNIQ_TABLE
+SELECT * FROM t1 NATURAL JOIN ((t1 NATURAL JOIN t1), (t1 NATURAL JOIN t1));
+
+DROP TABLE t1, t2, t3, t4;
+
+CREATE TABLE t1 ( a INT );
+CREATE TABLE t2 ( b INT );
+CREATE TABLE t3 ( c INT );
+CREATE TABLE t4 ( d INT );
+CREATE TABLE t5 ( d INT );
+
+SELECT * FROM t5 NATURAL JOIN ((t1 NATURAL JOIN t2), (t3 NATURAL JOIN t4));
+
+SELECT * FROM ((t1 NATURAL JOIN t2), (t3 NATURAL JOIN t4)) NATURAL JOIN t5;
+
+SELECT * FROM t1 JOIN ( t2, t3 ) ON TRUE;
+
+SELECT * FROM ( t1, t2 , t3 );
+SELECT * FROM ( ( t1, t2 ), t3 );
+SELECT * FROM ( ((t1, t2)), t3 );
+SELECT * FROM ( t1, ( t2, t3 ) );
+SELECT * FROM ( t1, ((t2, t3)) );
+
+SELECT * FROM ((( t1, t2 ), t3));
+SELECT * FROM ((((t1, t2)), t3));
+SELECT * FROM ((t1, ( t2, t3 )));
+SELECT * FROM ((t1, ((t2, t3))));
+
+--error ER_VIEW_SELECT_CLAUSE
+CREATE VIEW v1 AS SELECT 1 INTO @v;
+
+CREATE VIEW v1 AS SELECT 1 FROM ( SELECT 1 FROM t1 ) my_table;
+
+DROP TABLE t1, t2, t3, t4, t5;
+DROP VIEW v1;
+
+CREATE TABLE t1( a INT );
+INSERT INTO t1 VALUES (1);
+
+SELECT 1 INTO @v;
+(SELECT 1 INTO @v);
+((SELECT 1 INTO @v));
+
+SELECT 1 FROM t1 INTO @v;
+(SELECT 1 FROM t1 INTO @v);
+((SELECT 1 FROM t1 INTO @v));
+
+--error ER_PARSE_ERROR
+SELECT 1 FROM t1 INTO @v UNION SELECT 1;
+--error ER_PARSE_ERROR
+(SELECT 1 FROM t1 INTO @v) UNION SELECT 1;
+--error ER_PARSE_ERROR
+SELECT 1 FROM t1 INTO @v UNION (SELECT 1);
+--error ER_PARSE_ERROR
+((SELECT 1 FROM t1 INTO @v) UNION (SELECT 1));
+
+--error ER_MISPLACED_INTO
+SELECT 1 INTO @v UNION SELECT 1;
+--error ER_MISPLACED_INTO
+(SELECT 1 INTO @v) UNION SELECT 1;
+--error ER_MISPLACED_INTO
+SELECT 1 INTO @v UNION (SELECT 1);
+--error ER_MISPLACED_INTO
+((SELECT 1 INTO @v) UNION (SELECT 1));
+
+--error ER_TOO_MANY_ROWS
+SELECT 1 UNION SELECT 2 INTO @v;
+--error ER_TOO_MANY_ROWS
+(SELECT 1) UNION SELECT 2 INTO @v;
+--error ER_TOO_MANY_ROWS
+(SELECT 1) UNION (SELECT 2 INTO @v);
+--error ER_TOO_MANY_ROWS
+((SELECT 1) UNION (SELECT 2 INTO @v));
+
+--error ER_TOO_MANY_ROWS
+SELECT 1 UNION SELECT 2 INTO @v FROM t1;
+--error ER_TOO_MANY_ROWS
+(SELECT 1) UNION SELECT 2 INTO @v FROM t1;
+--error ER_TOO_MANY_ROWS
+(SELECT 1) UNION (SELECT 2 INTO @v FROM t1);
+--error ER_TOO_MANY_ROWS
+((SELECT 1) UNION (SELECT 2 INTO @v FROM t1));
+
+SELECT 1 UNION SELECT 1 INTO @v FROM t1;
+(SELECT 1) UNION SELECT 1 INTO @v FROM t1;
+(SELECT 1) UNION (SELECT 1 INTO @v FROM t1);
+((SELECT 1) UNION (SELECT 1 INTO @v FROM t1));
+
+--error ER_MISPLACED_INTO
+SELECT * FROM (SELECT a INTO @v FROM t1) t1a;
+--error ER_MISPLACED_INTO
+SELECT * FROM (SELECT a INTO @v) t1a;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Part 4: The <joined table> syntax.
+--echo #
+CREATE TABLE t1( a INT );
+CREATE TABLE t2( b INT );
+CREATE TABLE t3( c INT );
+CREATE TABLE t4( d INT );
+CREATE TABLE t5( e INT );
+
+--echo # We use EXPLAIN so we can get the parser's interpretation of the
+--echo # nesting. We don't really care about the execution plan.
+
+SET optimizer_switch = 'block_nested_loop=off';
+
+SELECT * FROM t1 JOIN t2;
+SELECT * FROM t1 JOIN t2 ON a = b;
+SELECT * FROM t1 t11 JOIN t1 t12 USING ( a );
+SELECT * FROM t1 INNER JOIN t2;
+SELECT * FROM t1 INNER JOIN t2 ON a = b;
+SELECT * FROM t1 t11 INNER JOIN t1 t12 USING ( a );
+
+SELECT * FROM t1 CROSS JOIN t2;
+SELECT * FROM t1 CROSS JOIN t2 ON a = b;
+SELECT * FROM t1 t11 CROSS JOIN t1 t12 USING ( a );
+
+SELECT * FROM t1 STRAIGHT_JOIN t2;
+SELECT * FROM t1 STRAIGHT_JOIN t2 ON a = b;
+SELECT * FROM t1 t11 STRAIGHT_JOIN t1 t12 USING ( a );
+
+SELECT * FROM t1 t11 NATURAL JOIN t1 t12;
+--error ER_PARSE_ERROR
+SELECT * FROM t1 t11 NATURAL JOIN t1 t12 ON t11.a = t12.a;
+--error ER_PARSE_ERROR
+SELECT * FROM t1 t11 NATURAL JOIN t1 t12 USING ( a );
+SELECT * FROM t1 t11 NATURAL INNER JOIN t1 t12;
+
+--error ER_PARSE_ERROR
+SELECT * FROM t1 LEFT JOIN t2;
+SELECT * FROM t1 LEFT JOIN t2 ON a = b;
+SELECT * FROM t1 t11 LEFT JOIN t1 t12 USING ( a );
+SELECT * FROM t1 NATURAL LEFT JOIN t2;
+--error ER_PARSE_ERROR
+SELECT * FROM t1 LEFT OUTER JOIN t2;
+SELECT * FROM t1 LEFT OUTER JOIN t2 ON a = b;
+SELECT * FROM t1 t11 LEFT OUTER JOIN t1 t12 USING ( a );
+SELECT * FROM t1 NATURAL LEFT OUTER JOIN t2;
+
+--error ER_PARSE_ERROR
+SELECT * FROM t1 RIGHT JOIN t2;
+SELECT * FROM t1 RIGHT JOIN t2 ON a = b;
+SELECT * FROM t1 t11 RIGHT JOIN t1 t12 USING ( a );
+SELECT * FROM t1 NATURAL RIGHT JOIN t2;
+--error ER_PARSE_ERROR
+SELECT * FROM t1 RIGHT OUTER JOIN t2;
+SELECT * FROM t1 RIGHT OUTER JOIN t2 ON a = b;
+SELECT * FROM t1 t11 RIGHT OUTER JOIN t1 t12 USING ( a );
+SELECT * FROM t1 NATURAL RIGHT OUTER JOIN t2;
+
+
+--echo # Right-deep join nesting.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c ON t1.a = t2.b;
+--echo # Right-deep join nesting from t2 and on.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d ON t2.b = t3.c;
+--echo # Right-deep join nesting from t2 and on.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d ON t1.a = t2.b;
+--echo # Left-deep join nesting.
+EXPLAIN SELECT * FROM t1 JOIN t2 ON t1.a = t2.b JOIN t3 ON t2.b = t3.c;
+--echo # A cross join joined with an inner join (i.e. with a join condition).
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t1.a = t2.b;
+EXPLAIN SELECT * FROM t1 t11 JOIN t2 JOIN t1 t12 USING ( a );
+--echo # A left-deep cross join tree joined with an inner join.
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t1.a = t2.b;
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 JOIN t5 ON t1.a = t2.b;
+
+--echo # The different kinds of <table_ref> when used with context-dependent
+--echo # join. Tests the top-down build of the parse tree.
+EXPLAIN SELECT * FROM t1 JOIN (t2) JOIN t3;
+EXPLAIN SELECT * FROM t1 JOIN (SELECT 1 AS b) a JOIN t3;
+EXPLAIN SELECT * FROM t1 JOIN (t2 JOIN t3) JOIN t4;
+EXPLAIN SELECT * FROM t1 JOIN (t2, t3) JOIN t4;
+
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c JOIN t4 ON t1.a = t4.d;
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c JOIN t4 ON t1.a = t2.b;
+EXPLAIN SELECT * FROM t1 t11 JOIN t2 JOIN t1 t12 USING(a) JOIN t1 t13 USING(a);
+EXPLAIN SELECT * FROM t2 JOIN t1 t11 JOIN t1 t12 USING(a) JOIN t1 t13 USING(a);
+
+EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d;
+
+SET optimizer_switch = DEFAULT;
+
+DROP TABLE t1, t2, t3, t4, t5;
+
+--echo # Testing correct nesting of natural joins.
+CREATE TABLE t1( a INT, b int );
+CREATE TABLE t2( a INT, c int );
+CREATE TABLE t3( a INT, d int );
+
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
+INSERT INTO t2 VALUES         (2, 2), (3, 3), (4, 4);
+INSERT INTO t3 VALUES                 (3, 3), (4, 4), (5, 5);
+
+--echo # The two queries below should produce identical result sets.
+--sorted_result
+SELECT * FROM t1 NATURAL LEFT JOIN t2 NATURAL RIGHT JOIN t3;
+--sorted_result
+SELECT * FROM (t1 NATURAL LEFT JOIN t2) NATURAL RIGHT JOIN t3;
+--echo # This result should differ from the result sets above.
+--sorted_result
+SELECT * FROM t1 NATURAL LEFT JOIN (t2 NATURAL RIGHT JOIN t3);
+
+DROP TABLE t1, t2, t3;
+
+
+--echo #
+--echo # WL#8907: Parser refactoring: merge all SELECT rules into one.
+--echo #
+
+--echo # Warning on hints in CREATE or ALTER VIEW:
+
+CREATE VIEW v1 AS SELECT /*+ QB_NAME(a) */ 1;
+ALTER VIEW v1 AS SELECT /*+ QB_NAME(a) */ 1;
+SELECT * FROM v1;
+DROP VIEW v1;
+
+--echo # The "Hints aren't supported in CREATE or ALTER VIEW" warning is masked:
+
+CREATE VIEW v1 AS SELECT /*+ BAD_HINT */ 1;
+ALTER VIEW v1 AS SELECT /*+ BAD_HINT */ 1;
+SELECT * FROM v1;
+DROP VIEW v1;
+
+--echo #
+--echo #
+--echo # Bug#23321895: CRASH IN IS_VIEW_OR_DERIVED OR
+--echo # TABLE_LIST::IS_LEAF_FOR_NAME_RESOLUTION
+--echo #
+CREATE TABLE t1( a INT );
+CREATE TABLE t2( a INT );
+CREATE TABLE t3( a INT );
+CREATE TABLE t4( a INT );
+
+--error ER_UNKNOWN_SYSTEM_VARIABLE
+SELECT 1
+FROM ( SELECT 1 FROM t1 JOIN t2 ON @@q ) AS d
+JOIN t3 LEFT JOIN t4 ON 1;
+
+DROP TABLE t1, t2, t3, t4;
+
+
+--echo #
+--echo # Bug#29205289: PARSER ACCEPTS UNDOCUMENTED SYNTAX: `... = TABLE_ALIAS`
+--echo #
+
+CREATE TABLE t1 (i INT);
+--error ER_PARSE_ERROR
+LOCK TABLES t1=a READ;
+--error ER_PARSE_ERROR
+HANDLER t1 OPEN=a;
+--error ER_PARSE_ERROR
+SELECT * FROM t1=a;
+--error ER_PARSE_ERROR
+SELECT * FROM (SELECT 1)=a;
+--error ER_PARSE_ERROR
+SELECT * FROM t1 JOIN t1=a;
+--error ER_PARSE_ERROR
+UPDATE t1=a SET i=0;
+DROP TABLE t1;
+
+--echo #
+--echo # Bug #22320942: ODBC OUTER JOIN ESCAPE SEQUENCE SYNTAX IS BROKEN
+--echo #
+
+CREATE TEMPORARY TABLE t1 (i INT);
+CREATE TEMPORARY TABLE t2 (i INT);
+
+SELECT * FROM { OJ t1 LEFT JOIN t2 ON TRUE };
+
+--error ER_PARSE_ERROR
+SELECT * FROM { `OJ` t1 LEFT JOIN t2 ON TRUE };
+
+--error ER_PARSE_ERROR
+SELECT * FROM { random_identifier t1 LEFT JOIN t2 ON TRUE };
+
+DROP TABLE t1, t2;
+
+
+SET sql_mode=DEFAULT;
+
+--echo #
+--echo # WL#13559: Deprecate syntax: confusing combinations of UNION and INTO
+--echo #
+
+--echo #
+--echo # No warning expected:
+--echo #
+
+SELECT 1 UNION SELECT 1 INTO @var;
+(SELECT 1 UNION SELECT 1 INTO @var);
+
+SELECT 1 UNION SELECT 1 FROM DUAL INTO @var;
+(SELECT 1 UNION SELECT 1 FROM DUAL INTO @var);
+
+SELECT 1 UNION SELECT 1 FROM DUAL FOR UPDATE INTO @var;
+(SELECT 1 UNION SELECT 1 FROM DUAL FOR UPDATE INTO @var);
+
+--echo #
+--echo # Deprecation warning expected:
+--echo #
+
+SELECT 1 UNION SELECT 1 INTO @var FROM DUAL;
+SELECT 1 UNION (SELECT 1 INTO @var FROM DUAL);
+
+SELECT 1 UNION SELECT 1 FROM DUAL INTO @var FOR UPDATE;
+(SELECT 1 UNION SELECT 1 FROM DUAL INTO @var FOR UPDATE);
+
+SELECT 1 UNION SELECT 1 INTO @var FOR UPDATE;
+(SELECT 1 UNION SELECT 1 INTO @var FOR UPDATE);
+
+--echo #
+--echo # Syntax error expected:
+--echo #
+
+--error ER_PARSE_ERROR
+SELECT 1 UNION (SELECT 1 FROM DUAL INTO @var);

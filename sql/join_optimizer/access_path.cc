@@ -180,7 +180,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case MRR: {
       // equivalence check: same TABLE_SHARE, ref and idx_cond
-      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+      if (!EquivalenceCheckHelper::eq_table_share(
               u.mrr.table,
               other.mrr().table) ||
           !EquivalenceCheckHelper::eq_table_ref(u.mrr.ref,
@@ -197,7 +197,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case FOLLOW_TAIL: {
       // equivalence check: same TABLE_SHARE
-      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+      if (!EquivalenceCheckHelper::eq_table_share(
               u.follow_tail.table,
               other.follow_tail().table)) {
         return false;
@@ -209,7 +209,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
       // Quick select removed
       TABLE *table = u.index_range_scan.used_key_part[0].field->table;
       TABLE *other_table = other.index_range_scan().used_key_part[0].field->table;
-      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+      if (!EquivalenceCheckHelper::eq_table_share(
               table,
               other_table) ||
           !EquivalenceCheckHelper::eq_item(
@@ -221,7 +221,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case DYNAMIC_INDEX_RANGE_SCAN: {
       // equivalence check: same TABLE_SHARE and idx_cond
-      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+      if (!EquivalenceCheckHelper::eq_table_share(
               u.dynamic_index_range_scan.table,
               other.dynamic_index_range_scan().table) ||
           !EquivalenceCheckHelper::eq_item(u.dynamic_index_range_scan.table->file->pushed_idx_cond,
@@ -258,10 +258,10 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case MATERIALIZED_TABLE_FUNCTION: {
       // equivalence check: same TABLE_SHARE and Table_function
-      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+      if (!EquivalenceCheckHelper::eq_table_share(
               u.materialized_table_function.table,
               other.materialized_table_function().table) ||
-          !EquivalenceCheckHelper::eq_table_share_without_icp(
+          !EquivalenceCheckHelper::eq_table_share(
               u.materialized_table_function.table_function->get_table(),
               other.materialized_table_function().table_function->get_table())) {
         return false;
@@ -278,10 +278,10 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
       // equivalence check: same TABLE_SHARE and key.name
-      if (!EquivalenceCheckHelper::eq_table_share_without_icp(
+      if (!EquivalenceCheckHelper::eq_table_share(
               u.nested_loop_semijoin_with_duplicate_removal.table,
               other.nested_loop_semijoin_with_duplicate_removal().table) ||
-          !EquivalenceCheckHelper::eq_table_share_without_icp(
+          !EquivalenceCheckHelper::eq_table_share(
               u.nested_loop_semijoin_with_duplicate_removal.key->table,
               other.nested_loop_semijoin_with_duplicate_removal().key->table)) {
         return false;
@@ -308,8 +308,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case HASH_JOIN: {
       // equivalence check: same JoinPredicate
-      if (u.hash_join.join_predicate != other.hash_join().join_predicate ||
-          u.hash_join.store_rowids != other.hash_join().store_rowids ||
+      if (u.hash_join.store_rowids != other.hash_join().store_rowids ||
           u.hash_join.tables_to_get_rowid_for != other.hash_join().tables_to_get_rowid_for ||
           u.hash_join.allow_spill_to_disk != other.hash_join().allow_spill_to_disk) {
         return false;
@@ -338,7 +337,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
         const st_sort_field *order = &u.sort.filesort->sortorder[i];
         const st_sort_field *other_order = &other.sort().filesort->sortorder[i];
         if (order->reverse != other_order->reverse ||
-            !order->item->eq(other_order->item, false)) {
+            !order->item->eq(other_order->item, true)) {
           return false;
         }
       }
@@ -354,11 +353,9 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case TEMPTABLE_AGGREGATE: {
       // equivalence check: AccessPath
-      if (!EquivalenceCheckHelper::eq_logic_table_share_without_icp(
-              u.temptable_aggregate.table,
-              other.temptable_aggregate().table)) {
-        return false;
-      }
+      // Note the table_name/path of temptable (u.temptable_aggregate.table)
+      // is different from coordinate, thus the equivalence check need rely
+      // on sub-path in worker_table_explain.children.
       if (u.temptable_aggregate.is_final_aggr != other.temptable_aggregate().is_final_aggr ||
           u.temptable_aggregate.ref_slice != other.temptable_aggregate().ref_slice) {
         return false;
@@ -453,13 +450,33 @@ bool AccessPath::operator==(const AccessPath &other) const {
       }
       break;
     }
-    case PX_RECEIVE: {
-      return true;
-    }
+    case PX_RECEIVER_MERGE:
+    case PX_RECEIVE:
     case PX_SEND: {
       return true;
     }
-    case STREAM:
+    case STREAM: {
+      if (u.stream.provide_rowid !=
+              other.stream().provide_rowid ||
+          !EquivalenceCheckHelper::eq_table_share(
+                  u.stream.table,
+                  other.stream().table)) {
+        return false;
+      }
+
+      Temp_table_param * temp_table_param = u.stream.temp_table_param;
+      Temp_table_param * other_temp_table_param = other.stream().temp_table_param; 
+      if (temp_table_param) {
+        if (!temp_table_param->eq(other_temp_table_param)) {
+          return false;
+        }
+        return true;
+      }
+      if (other_temp_table_param) {
+        return false;
+      }
+      return true;
+    }
     case MATERIALIZE_INFORMATION_SCHEMA_TABLE:
     default:
       return false; // not supported

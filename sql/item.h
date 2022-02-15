@@ -4480,6 +4480,7 @@ class Item_param final : public Item, private Settable_routine_parameter {
 
   void mark_json_as_scalar() override { m_json_as_scalar = true; }
 
+  bool json_as_scalar() const { return m_json_as_scalar; }
   /*
     A buffer for string and long data values. Historically all allocated
     values returned from val_str() were treated as eligible to
@@ -6577,7 +6578,7 @@ class Item_cache : public Item_basic_constant {
   bool eq_def(const Field *field) {
     return cached_field != nullptr && cached_field->field->eq_def(field);
   }
-  bool eq(const Item *item, bool) const override { return this == item; }
+  bool eq(const Item *item, bool binary_cmp) const override;
   /**
      Check if saved item has a non-NULL value.
      Will cache value of saved item if not already done.
