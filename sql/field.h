@@ -1055,10 +1055,7 @@ class Field {
   static enum_field_types field_type_merge(enum_field_types, enum_field_types);
   static Item_result result_merge_type(enum_field_types);
   bool gcol_expr_is_equal(const Create_field *field) const;
-  virtual bool eq(const Field *field) const {
-    return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
-            null_bit == field->null_bit && field->type() == type());
-  }
+  virtual bool eq(const Field *field) const;
   virtual bool eq_def(const Field *field) const;
 
   /*

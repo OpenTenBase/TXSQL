@@ -166,6 +166,78 @@ struct AppendPathParameters {
   JOIN *join;
 };
 
+class EquivalenceCheckHelper {
+public:
+  static inline bool eq_table_share (const TABLE *a, const TABLE *b) {
+    if (a == nullptr || b == nullptr) {
+      if (a == nullptr && b == nullptr) {
+        return true;
+      }
+      return false;
+    }
+    return (a->s == b->s);
+  }
+
+  static inline bool eq_table_share_without_icp (const TABLE *a, const TABLE *b) {
+    if (a == nullptr || b == nullptr) {
+      return false;
+    }
+    assert(a->file->pushed_idx_cond == nullptr);
+    assert(b->file->pushed_idx_cond == nullptr);
+    return (a->s == b->s);
+  }
+
+  static inline bool eq_logic_table_share_without_icp (const TABLE *a, const TABLE *b) {
+    if (a == nullptr || b == nullptr) {
+      return false;
+    }
+    assert(a->file->pushed_idx_cond == nullptr);
+    assert(b->file->pushed_idx_cond == nullptr);
+    if (a->s->db.length == b->s->db.length ||
+        a->s->table_name.length == b->s->db.length) {
+      if (strncmp(a->s->db.str, b->s->db.str, a->s->db.length) == 0 &&
+          strncmp(a->s->table_name.str, b->s->table_name.str, a->s->table_name.length) == 0) {
+        return true;
+      }
+      return false;
+    }
+    return false;
+  }
+
+  static inline bool eq_table_ref (const TABLE_REF *a, const TABLE_REF *b) {
+    if (a == nullptr || b == nullptr) {
+      if (a == nullptr && b == nullptr) {
+        return true;
+      }
+      return false;
+    }
+    if (a->key_parts != b->key_parts) {
+      return false;
+    }
+    for (unsigned key_part_idx = 0; key_part_idx < a->key_parts;
+        ++key_part_idx) {
+      if (a->cond_guards[key_part_idx] != b->cond_guards[key_part_idx]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static inline bool eq_item (const Item *a, const Item *b) {
+    if (a != nullptr) {
+      if (b == nullptr) {
+        return false;
+      }
+      // TODO: item equivalence check (recursive call eq_item)
+      return true;
+      //return a->eq(b, false);
+    }
+    if (b != nullptr) {
+      return false;
+    }
+    return true;
+  }
+};
 /**
   Access paths are a query planning structure that correspond 1:1 to iterators,
   in that an access path contains pretty much exactly the information
@@ -880,7 +952,8 @@ struct AccessPath {
     return u.px_send;
   }
 
- private:
+  bool operator==(const AccessPath &other) const;
+
   // We'd prefer if this could be an std::variant, but we don't have C++17 yet.
   // It is private to force all access to be through the type-checking
   // accessors.

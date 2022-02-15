@@ -3047,7 +3047,17 @@ bool Item_field::eq(const Item *item, bool) const {
     and coexist in the top query.
   */
   if (fixed && item_field->fixed)
-    return base_item_field()->field == item_field->base_item_field()->field;
+  {
+    if (current_thd && current_thd->m_equivalence_check_phase) {
+      // for optimizer phase in worker thd
+      if (base_item_field()->field == item_field->base_item_field()->field) {
+        return true;
+      }
+      return base_item_field()->field->eq(item_field->base_item_field()->field);
+    } else {
+      return base_item_field()->field == item_field->base_item_field()->field;
+    }
+  }
   /*
     We may come here when we are trying to find a function in a GROUP BY
     clause from the select list.
