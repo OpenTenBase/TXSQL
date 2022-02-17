@@ -2272,6 +2272,16 @@ static bool decorrelate_equality(TABLE_LIST *sj_nest, Item_func *func,
   // Equalities over row items cannot be decorrelated
   if (outer->type() == Item::ROW_ITEM) return false;
 
+  // execute will not reconstruct Item_outer_ref to
+  // the sj_outer_exprs and sj_inner_exprs
+  // so can't put it to them at prepare phase
+  THD *tmp_thd = current_thd;
+  if (tmp_thd != nullptr && tmp_thd->stmt_arena->is_stmt_prepare()) {
+    if (outer->type() == Item::REF_ITEM) {
+       if (((Item_ref*)outer)->ref_type() == Item_ref::OUTER_REF) return false;
+    }
+  }
+
   if (sj_nest->nested_join->sj_outer_exprs.push_back(outer)) return true;
   if (sj_nest->nested_join->sj_inner_exprs.push_back(inner)) return true;
 

@@ -1,0 +1,31 @@
+create table t1(id int primary key, name varchar(64));
+create table t2(id int primary key, t1_id int, is_delete int, g int);
+insert into t1 values(1, 'n1'), (2, 'n2'), (3, 'n3'), (4, 'n4'), (5, 'n5'), (6, 'n6');
+insert into t2 values(1, 1, 0, 1), (2, 2, 0, 2), (3, 3, 1, 1), (4, 4, 0, 2), (5, 5, 0, 1), (6,6,0,2);
+select (select group_concat(name separator '') from t1 where t1.id in (select t1_id from t2 where t2.g = T.g and is_delete=0)) name from t2 T where is_delete=0 group by g;
+name
+n1n5
+n2n4n6
+prepare stmt from "select (select group_concat(name separator '') from t1 where t1.id in (select t1_id from t2 where t2.g = T.g and is_delete=?)) name from t2 T where is_delete=? group by g";
+prepare stmt1 from "select (select group_concat(name separator '') from t1 where t1.id in (select t1_id from t2 where T.g = t2.g and is_delete=?)) name from t2 T where is_delete=? group by g";
+set @a=0;
+execute stmt using @a, @a;
+name
+n1n5
+n2n4n6
+execute stmt1 using @a, @a;
+name
+n1n5
+n2n4n6
+select (select group_concat(name separator '') from t1 where t1.id in (select t1_id from t2 where t2.g = T.g and is_delete=1)) name from t2 T where is_delete=1 group by g;
+name
+n3
+set @a=1;
+execute stmt using @a, @a;
+name
+n3
+execute stmt1 using @a, @a;
+name
+n3
+drop table t1;
+drop table t2;
