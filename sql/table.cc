@@ -567,6 +567,10 @@ void TABLE_SHARE::destroy() {
   delete view_object;
   view_object = NULL;
 
+  /* release the memory alloc in pke_schema_table */
+  using namespace std;
+  pke_schema_table.~string();
+
 #ifdef HAVE_PSI_TABLE_INTERFACE
   PSI_TABLE_CALL(release_table_share)(m_psi);
 #endif
