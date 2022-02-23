@@ -49,6 +49,7 @@
 #include "sql/sql_const.h"
 #include "sql/sql_digest.h"  // DIGEST_HASH_TO_STRING[_LENGTH]
 #include "sql_string.h"
+#include "sql_class.h"       // THD
 
 class MY_LOCALE;
 class PT_item_list;
@@ -1024,7 +1025,11 @@ class Item_func_conv_charset final : public Item_str_func {
       : Item_str_func(a) {
     DBUG_ASSERT(args[0]->fixed);
 
-    conv_charset = cs;
+    if (cs == &my_charset_utf8mb4_0900_ai_ci &&
+        cs != thd->variables.default_collation_for_utf8mb4)
+      conv_charset = thd->variables.default_collation_for_utf8mb4;
+    else
+      conv_charset = cs;
     if (cache_if_const && args[0]->may_evaluate_const(thd)) {
       uint errors = 0;
       String tmp, *str = args[0]->val_str(&tmp);

@@ -9724,7 +9724,9 @@ simple_expr:
           }
         | CONVERT_SYM '(' expr USING charset_name ')'
           {
-            $$= NEW_PTN Item_func_conv_charset(@$, $3,$5);
+            $$= NEW_PTN Item_func_conv_charset(@$, $3, ($5 != &my_charset_utf8mb4_0900_ai_ci ||
+                                                        $5 == YYTHD->variables.default_collation_for_utf8mb4) ?
+                                                        $5 : YYTHD->variables.default_collation_for_utf8mb4);
           }
         | DEFAULT_SYM '(' simple_ident ')'
           {
