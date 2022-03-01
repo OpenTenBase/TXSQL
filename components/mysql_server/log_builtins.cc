@@ -137,6 +137,10 @@ static mysql_mutex_t THR_LOCK_log_buffered;
   Subsystem initialized and ready to use?
 */
 static bool log_builtins_inited = false;
+/**
+ disable buffer log when startup if log buffered is too much
+*/
+extern bool dynamic_plugins_are_initialized;
 
 /**
   Name of the interface that log-services implements.
@@ -177,6 +181,13 @@ static ulonglong log_buffering_timeout = 0;
 
 /// Does buffer contain SYSTEM or ERROR prio messages? Flush early only then!
 static int log_buffering_flushworthy = false;
+
+#ifndef DBUG_OFF
+#define LOG_BUFFER_DISCARD_THRESHOLD 10
+#else
+#define LOG_BUFFER_DISCARD_THRESHOLD 1000
+#endif
+static bool log_line_buffer_discard = false;
 
 /**
   Timestamp of when we last flushed to traditional error-log
@@ -1611,20 +1622,29 @@ void log_sink_buffer_flush(enum log_sink_buffer_flush_mode mode) {
     here when coming from log.cc's discard_error_log_messages() or
     flush_error_log_messages().
   */
-  if (log_builtins_inited && (mode != LOG_BUFFER_REPORT_AND_KEEP))
+  bool need_lock = (log_builtins_inited && (mode != LOG_BUFFER_REPORT_AND_KEEP));
+  if (need_lock)
     mysql_mutex_lock(&THR_LOCK_log_buffered);
 
   local_head = log_line_buffer_start;             // save list head
   log_line_buffer_start = nullptr;                // empty public list
   log_line_buffer_tail = &log_line_buffer_start;  // adjust tail of public list
 
-  if (log_builtins_inited && (mode != LOG_BUFFER_REPORT_AND_KEEP))
+  if (!dynamic_plugins_are_initialized &&
+      log_line_buffer_discard &&
+      (mode == LOG_BUFFER_REPORT_AND_KEEP)) {
+    /* if buffered log is too much change mode to only write to file and discard */
+    mode = LOG_BUFFER_PROCESS_AND_DISCARD;
+  }
+  if (need_lock)
     mysql_mutex_unlock(&THR_LOCK_log_buffered);
 
   // get head element from list of buffered log events
   llp = local_head;
 
+  uint32_t list_counter = 0;
   while (llp != nullptr) {
+    list_counter++;
     /*
       Forward the buffered lines to log-writers
       (other than the buffered writer), unless
@@ -1769,7 +1789,7 @@ void log_sink_buffer_flush(enum log_sink_buffer_flush_mode mode) {
     llp = local_head;
   }
 
-  if (log_builtins_inited && (mode != LOG_BUFFER_REPORT_AND_KEEP))
+  if (need_lock)
     mysql_mutex_lock(&THR_LOCK_log_buffered);
 
   /*
@@ -1804,9 +1824,15 @@ void log_sink_buffer_flush(enum log_sink_buffer_flush_mode mode) {
       we were processing appended to its end.
     */
     log_line_buffer_start = local_head;
+
+    /* In next loop, it'll try to discard the list. */
+    if (!dynamic_plugins_are_initialized &&
+        list_counter > LOG_BUFFER_DISCARD_THRESHOLD) {
+      log_line_buffer_discard = true;
+    }
   }
 
-  if (log_builtins_inited && (mode != LOG_BUFFER_REPORT_AND_KEEP))
+  if (need_lock)
     mysql_mutex_unlock(&THR_LOCK_log_buffered);
 }
 

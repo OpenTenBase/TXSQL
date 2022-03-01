@@ -1,0 +1,37 @@
+--source include/have_debug.inc
+create database test1;
+set global innodb_checkpoint_disabled=on;
+use test1;
+let $1=1024;
+--disable_query_log
+while ($1)
+{
+  eval create table t$1 (id int primary key);
+  dec $1;
+}
+
+let $2=1024;
+while ($2)
+{
+  eval alter table t$2 engine=innodb;
+  dec $2;
+}
+--enable_query_log
+
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--echo # Crash right after flushing InnoDB redo log
+SET SESSION DEBUG="+d,crash_after_flush_engine_log";
+BEGIN;
+INSERT INTO t1 VALUES(1);
+# 2013 - CR_SERVER_LOST
+--error 2013
+COMMIT;
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the master server with out fix, this will be slow
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+drop database test1;

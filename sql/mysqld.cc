@@ -1759,7 +1759,7 @@ static char restart_event_name[40];
 static NTService Service;  ///< Service object for WinNT
 #endif                     /* _WIN32 */
 
-static bool dynamic_plugins_are_initialized = false;
+bool dynamic_plugins_are_initialized = false;
 
 #ifndef DBUG_OFF
 static const char *default_dbug_option;
