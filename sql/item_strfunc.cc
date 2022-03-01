@@ -3347,6 +3347,11 @@ String *Item_typecast_char::val_str(String *str) {
 }
 
 bool Item_typecast_char::resolve_type(THD *thd) {
+  /* Item_typecast_char support default_collation_for_utf8mb4 */
+  if (cast_cs == &my_charset_utf8mb4_0900_ai_ci &&
+        cast_cs != thd->variables.default_collation_for_utf8mb4)
+      cast_cs = thd->variables.default_collation_for_utf8mb4;
+
   /*
     If we convert between two ASCII compatible character sets and the
     argument repertoire is MY_REPERTOIRE_ASCII then from_cs is set to cast_cs.
