@@ -129,7 +129,6 @@ Reading error logs for validation
 [ PASS ] Error log contains NOTE's with --log-error-verbosity=7 (adjusted to 4) during initialization.
 [ PASS ] Error log contains a NOTE with compiled-in message 'Access denied' when lc_messages_dir does not contain error messages
 [ PASS ] Error log successfully parsed as a json document
-[ PASS ] Expected entry found in the json error log: ER_STARTING_AS
 [ PASS ] Expected entry found in the json error log: Access denied for user 'unknown_user'@'localhost' (using password: NO)
 [ PASS ] Error log messages throttled at three for 'Access denied' messages
 [ PASS ] 'Access denied' messages filtered as per suppression list

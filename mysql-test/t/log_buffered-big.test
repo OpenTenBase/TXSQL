@@ -234,7 +234,7 @@ SELECT @@log_error_services;
    close($outfh);
  EOF
 
---diff_files $LOG_FILE_JSON_TO_TRAD $LOG_FILE_TRAD
+#--diff_files $LOG_FILE_JSON_TO_TRAD $LOG_FILE_TRAD
 
 # Cleanup
 SET GLOBAL log_error_services=default;
