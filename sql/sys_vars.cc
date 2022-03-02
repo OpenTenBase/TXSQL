@@ -7853,4 +7853,11 @@ static Sys_var_bool Sys_cdb_enable_lock_statistics(
     GLOBAL_VAR(cdb_enable_lock_statistics), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_cdb_lock_connect_detect_enabled(
+    "cdb_lock_connect_detect_enabled", "Enable connection check when transaction "
+    "is blocked by row lock. Default is TRUE",
+    GLOBAL_VAR(cdb_lock_connect_check_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
 /* Changes from txsql end. */

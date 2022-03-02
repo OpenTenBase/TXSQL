@@ -580,6 +580,7 @@ struct st_command {
   enum enum_commands type;
   // Line number of the command
   uint lineno;
+  bool noescape;
 };
 
 TYPELIB command_typelib = {array_elements(command_names), "", command_names,
@@ -3352,7 +3353,10 @@ static void do_exec(struct st_command *command, bool run_in_background) {
   init_dynamic_string(&ds_cmd, nullptr, command->query_len + 256);
 
   // Eval the command, thus replacing all environment variables
-  do_eval(&ds_cmd, cmd, command->end, !is_windows);
+  if (command->noescape)
+    do_eval(&ds_cmd, cmd, command->end, false);
+  else
+    do_eval(&ds_cmd, cmd, command->end, !is_windows);
 
   // Check if echo should be replaced with "builtin" echo
   if (builtin_echo[0] && std::strncmp(cmd, "echo", 4) == 0) {
@@ -9182,6 +9186,30 @@ static void get_command_type(struct st_command *command) {
           command->query);
     }
   }
+  //ignore exec result from shell
+  if (command->type == Q_EXEC)
+  {
+    char buffer[32];
+    int len = 0;
+    strncpy(buffer, command->query, sizeof(buffer));
+    len = strlen(buffer);
+    for (int i = 0; i < len; i++)
+    {
+      buffer[i] = tolower(buffer[i]);
+    }
+    char *noescape = strstr(buffer, " noescape ");
+    if (noescape)
+    {
+      command->noescape = true;
+      //remove noescape word from query
+      int pos = noescape - buffer;
+      const int noescape_len = 10;
+      for (int i = 0; i < noescape_len; i++)
+      {
+        command->query[pos + i] = ' ';
+      }
+    }
+  }
 }
 
 /// Record how many milliseconds it took to execute the test file
@@ -9650,6 +9678,7 @@ int main(int argc, char **argv) {
               cur_file->file_name);
   while (!read_command(&command) && !abort_flag) {
     int current_line_inc = 1, processed = 0;
+    command->noescape = false;
     if (command->type == Q_UNKNOWN || command->type == Q_COMMENT_WITH_COMMAND)
       get_command_type(command);
 

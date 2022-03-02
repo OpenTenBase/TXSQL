@@ -3152,7 +3152,8 @@ void innobase_format_name(char *buf, ulint buflen, const char *name) {
  @return true if interrupted */
 bool trx_is_interrupted(const trx_t *trx) /*!< in: transaction */
 {
-  return (trx && trx->mysql_thd && thd_killed(trx->mysql_thd));
+  return ((trx && trx->mysql_thd && thd_killed(trx->mysql_thd))
+      || (trx && trx->connect_broken));
 }
 
 /** Determines if the currently running transaction is in strict mode.

@@ -1,0 +1,52 @@
+--echo #
+--echo # Test for lock hangup
+--echo #
+
+--echo Create database and tables
+
+--connection default
+
+create database tdb1;
+use tdb1;
+create table t1 (f1 int);
+create table t2 (f1 int);
+set global innodb_lock_wait_timeout=300;
+
+--echo #Start transaction and Lock t1 to block session
+begin;
+select * from t1 for update;
+
+--echo #start a client
+#--exec $MYSQL tdb1 -A -e "use tdb1;begin;insert into t1 values (1)"&
+#--exec echo 'echo abc > /tmp/test_`date +%Y%m%d%H`.log' > $MYSQLTEST_VARDIR/tmp/run_client.sh
+--exec echo '$MYSQL tdb1 -A -e "use tdb1;begin;insert into t1 values (1);"&' > $MYSQLTEST_VARDIR/tmp/run_client.sh
+--exec chmod +x $MYSQLTEST_VARDIR/tmp/run_client.sh
+--echo #exec mysql command
+--exec_in_background $MYSQLTEST_VARDIR/tmp/run_client.sh
+
+--echo #Sleep 10 for mysql client send query
+sleep 10;
+
+connect (con1,localhost,root,,,,);
+--connection con1
+#check connection state
+--echo #there should be a insert sql blocked
+--replace_column 1 ## 6 ##
+show processlist;
+
+--echo #kill mysql client
+--exec noescape ps -ef | grep mysql | grep A | grep -v grep | grep tdb1 | awk '{print \$2}' | xargs kill -9
+
+--echo #Sleep 3 second for block query quit
+sleep 3;
+
+--echo #There should not be a insert sql blocked
+--replace_column 1 ## 6 ##
+show processlist;
+
+--echo Cleanup
+--exec rm $MYSQLTEST_VARDIR/tmp/run_client.sh
+connection default;
+rollback;
+drop database tdb1;
+set global innodb_lock_wait_timeout=default;

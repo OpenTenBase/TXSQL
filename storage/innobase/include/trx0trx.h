@@ -1105,6 +1105,8 @@ struct trx_t {
                   doing Non-locking Read-only Read
                   Committed on DD tables */
 #endif            /* UNIV_DEBUG */
+  bool connect_broken;
+
   ulint magic_n;
 
   bool is_read_uncommitted() const {
