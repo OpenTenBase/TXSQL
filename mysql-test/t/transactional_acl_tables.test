@@ -2248,6 +2248,9 @@ RENAME TABLE mysql.tables_priv_bak TO mysql.tables_priv;
 # Remove user mysql.session and re-created as defined in
 # scripts/mysql_system_users.sql
 
+# only tencentroot can modify mysql.session
+connect (tencent_conn, localhost, tencentroot,'', );
+connection tencent_conn;
 DROP USER 'mysql.session'@localhost;
 
 CREATE USER 'mysql.session'@localhost IDENTIFIED WITH caching_sha2_password AS '$A$005$THISISACOMBINATIONOFINVALIDSALTANDPASSWORDTHATMUSTNEVERBRBEUSED' ACCOUNT LOCK;
@@ -2263,6 +2266,8 @@ GRANT BACKUP_ADMIN ON *.* TO 'mysql.session'@localhost;
 GRANT SHUTDOWN ON *.* TO 'mysql.session'@localhost;
 GRANT CONNECTION_ADMIN ON *.* TO 'mysql.session'@localhost;
 GRANT SYSTEM_USER ON *.* TO 'mysql.session'@localhost;
+
+--connection default
 
 --disable_query_log ONCE
 --eval UPDATE mysql.tables_priv SET timestamp ='$sess_user_account_priv' WHERE USER= 'mysql.session'
