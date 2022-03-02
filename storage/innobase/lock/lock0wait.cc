@@ -46,6 +46,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "my_dbug.h"
 
+extern bool cdb_lock_connect_check_enabled;
 /** Print the contents of the lock_sys_t::waiting_threads array. */
 static void lock_wait_table_print(void) {
   ut_ad(lock_wait_mutex_own());
@@ -460,6 +461,7 @@ void lock_reset_wait_and_release_thread_if_suspended(lock_t *lock) {
     lock_wait_release_thread_if_suspended(thr);
   }
 }
+
 static void lock_wait_try_cancel(trx_t *trx, bool timeout) {
   ut_a(trx->lock.wait_lock != nullptr);
   ut_ad(locksys::owns_lock_shard(trx->lock.wait_lock));
@@ -496,6 +498,10 @@ static void lock_wait_try_cancel(trx_t *trx, bool timeout) {
   other transactions waiting behind. */
   lock_cancel_waiting_and_release(trx);
 }
+
+bool thd_connection_alive2(THD *thd);
+bool thd_is_killed(THD *thd);
+
 /** Check if the thread lock wait has timed out. Release its locks if the
  wait has actually timed out. */
 static void lock_wait_check_and_cancel(
@@ -504,9 +510,24 @@ static void lock_wait_check_and_cancel(
 {
   const auto wait_time = std::chrono::steady_clock::now() - slot->suspend_time;
   /* Timeout exceeded or a wrap-around in system time counter */
-  const auto timeout = slot->wait_timeout < std::chrono::seconds{100000000} &&
-                       wait_time > slot->wait_timeout;
+  auto timeout = slot->wait_timeout < std::chrono::seconds{100000000} &&
+                                      wait_time > slot->wait_timeout;
   trx_t *trx = thr_get_trx(slot->thr);
+
+  /* Try to detect trx's connection is alive. If connection
+     is broken, signal timeout and quit.
+  */
+  ut_ad(trx->connect_broken == false);
+  if (cdb_lock_connect_check_enabled) {
+    if (trx->mysql_thd && !thd_is_killed(trx->mysql_thd)
+        && !thd_connection_alive2(trx->mysql_thd)) {
+      timeout = 1;
+      trx->connect_broken = true;
+      ib::info() << "trx " << trx->id << " connection broken. Stop lock waiting!";
+      //yield for other thread
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
 
   if (!trx_is_interrupted(trx) && !timeout) {
     return;

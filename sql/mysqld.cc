@@ -12701,3 +12701,4 @@ bool check_and_update_partial_revokes_sysvar(THD *thd) {
 }
 
 bool cdb_skip_event_scheduler = false;
+bool cdb_lock_connect_check_enabled = true;

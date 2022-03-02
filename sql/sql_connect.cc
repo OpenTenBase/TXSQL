@@ -929,3 +929,27 @@ bool thd_connection_alive(THD *thd) {
     return true;
   return false;
 }
+
+bool thd_connection_alive2(THD *thd)
+{
+  if (!thd->is_classic_protocol())
+    return true;
+
+  if (thd->system_thread != NON_SYSTEM_THREAD)
+    return true;
+
+  NET *net= thd->get_protocol_classic()->get_net();
+  if (!net)
+    return true;
+
+  if (net->error)
+    return false;
+
+  if (!net->vio)
+    return true;
+
+  if (net->vio->mysql_socket.fd != INVALID_SOCKET)
+    return vio_socket_alive(net->vio);
+
+  return true;
+}

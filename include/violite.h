@@ -211,6 +211,7 @@ bool vio_is_no_name_error(int err_code);
 int vio_getnameinfo(const struct sockaddr *sa, char *hostname,
                     size_t hostname_size, char *port, size_t port_size,
                     int flags);
+bool vio_socket_alive(Vio *vio);
 
 extern "C" {
 #include <openssl/opensslv.h>

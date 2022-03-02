@@ -3258,3 +3258,8 @@ void my_eof(THD *thd) {
     tst->add_trx_state(thd, TX_RESULT_SET);
   }
 }
+
+bool thd_is_killed(THD *thd)
+{
+  return thd->killed != THD::NOT_KILLED;
+}

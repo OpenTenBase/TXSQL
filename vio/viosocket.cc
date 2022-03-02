@@ -1274,3 +1274,34 @@ int vio_getnameinfo(const struct sockaddr *sa, char *hostname,
   return getnameinfo(sa, sa_length, hostname, hostname_size, port, port_size,
                      flags);
 }
+
+bool vio_socket_alive(Vio *vio)
+{
+  int r = 0;
+  char buf[16];
+  int sock = vio->mysql_socket.fd;
+  int err = 0;
+  r = recv(sock, buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
+  if (r == -1)
+  {
+    err = errno;
+    if (err == EAGAIN)// || err == EWOULDBLOCK)
+      return true;
+
+    return false;
+  }
+  else if (r == 0)
+  {
+    //When a stream socket peer has performed an orderly shutdown, the
+    //return value will be 0 (the traditional "end-of-file" return).
+    //This means that vio socket has been close
+    return false;
+  }
+  else
+  {
+    return true;
+  }
+
+  return true;
+}
+

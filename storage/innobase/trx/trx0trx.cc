@@ -237,6 +237,8 @@ static void trx_init(trx_t *trx) {
   trx->flush_observer = nullptr;
 
   ++trx->version;
+
+  trx->connect_broken = false;
 }
 
 /** For managing the life-cycle of the trx_t instance that we get
@@ -471,6 +473,8 @@ static trx_t *trx_create_low() {
   /* Should have been either just initialized or .clear()ed by
   trx_free(). */
   ut_a(trx->mod_tables.size() == 0);
+
+  trx->connect_broken = false;
 
   return (trx);
 }
@@ -1399,6 +1403,8 @@ static void trx_start_low(
   }
 
   ut_a(trx->error_state == DB_SUCCESS);
+
+  trx->connect_broken = false;
 
   MONITOR_INC(MONITOR_TRX_ACTIVE);
 }
