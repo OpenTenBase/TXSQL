@@ -3561,3 +3561,100 @@ bool mysql_alter_user(THD *thd, List<LEX_USER> &list, bool if_exists) {
   }  // end if
   return result;
 }
+
+/**
+  Check whether the command [RENAME/DROP/ALTER USER,
+  REVOKE ALL, REVOKE, GRANT] for reserved account should
+  be allowed or not. If the USER is areserved account,
+  but it isn't performed by MySQL itself,the operation
+  should not be executed.
+
+  @param th           The current thread.
+  @param list         The users to check for.
+  @retval false       OK
+  @retval true        Error
+ */
+bool check_reserved_account(THD *thd, List<LEX_USER> &list) {
+  if (list.is_empty()) {
+    return false;
+  }
+  /* Hard code of reserved accounts. */
+  static const char *reserved_accounts[] = {
+    "mysql.sys",
+    "mysql.infoschema",
+    "mysql.session"
+  };
+  bool ret = false;
+  LEX_USER *user_name;
+  List_iterator<LEX_USER> user_list(list);
+  String wrong_users;
+  const char *current_user = thd->security_context()->priv_user().str;
+
+  /* The tencentroot has permission to modify reserved users */
+  if (thd->is_tencent_root) {
+    return false;
+  }
+
+  /* Check whether it is performed by MySQL itself. */
+  if (!current_user || !*current_user)
+    return false;
+  for (const auto system_user : reserved_accounts) {
+    if (my_strcasecmp(system_charset_info,
+        system_user, current_user) == 0) {
+      return false;
+    }
+  }
+
+  /* Find all reserved users in user_list. */
+  while ((user_name = user_list++) != nullptr) {
+    for (const auto system_user : reserved_accounts) {
+      /* If SQL contains user(), user_name->user.str is null */
+      if (user_name->user.str == nullptr)
+        continue;
+      if (my_strcasecmp(system_charset_info,
+          system_user, user_name->user.str) == 0) {
+        ret = true;
+        log_user(thd, &wrong_users, user_name, false);
+        break;
+      }
+    }
+    if (thd->query_plan.get_command() == SQLCOM_RENAME_USER) {
+      break;
+    }
+  }
+  if (ret) {
+    String operation_str;
+    switch (thd->query_plan.get_command())
+    {
+      case SQLCOM_DROP_USER: {
+        operation_str.append("DROP USER");
+        break;
+      }
+      case SQLCOM_RENAME_USER: {
+        operation_str.append("RENAME USER");
+        break;
+      }
+      case SQLCOM_ALTER_USER: {
+        operation_str.append("ALTER USER");
+        break;
+      }
+      case SQLCOM_REVOKE_ALL: {
+        operation_str.append("REVOKE ALL");
+        break;
+      }
+      case SQLCOM_REVOKE: {
+        operation_str.append("REVOKE");
+        break;
+      }
+      case SQLCOM_GRANT: {
+        operation_str.append("GRANT");
+        break;
+      }
+      default:
+        break;
+    }
+    my_error(ER_CANNOT_USER, MYF(0), operation_str.c_ptr_quick(),
+             wrong_users.c_ptr_safe());
+  }
+  return ret;
+}

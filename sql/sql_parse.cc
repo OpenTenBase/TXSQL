@@ -3929,6 +3929,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_DROP_USER: {
+      if (check_reserved_account(thd, lex->users_list))
+        goto error;
       if (check_access(thd, DELETE_ACL, "mysql", nullptr, nullptr, true,
                        true) &&
           check_global_access(thd, CREATE_USER_ACL))
@@ -3941,6 +3943,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_RENAME_USER: {
+      if (check_reserved_account(thd, lex->users_list))
+        goto error;
       if (check_access(thd, UPDATE_ACL, "mysql", nullptr, nullptr, true,
                        true) &&
           check_global_access(thd, CREATE_USER_ACL))
@@ -3950,6 +3954,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_REVOKE_ALL: {
+      if (check_reserved_account(thd, lex->users_list))
+        goto error;
       if (check_access(thd, UPDATE_ACL, "mysql", nullptr, nullptr, true,
                        true) &&
           check_global_access(thd, CREATE_USER_ACL))
@@ -3964,6 +3970,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
     }
     case SQLCOM_REVOKE:
     case SQLCOM_GRANT: {
+      if (check_reserved_account(thd, lex->users_list))
+        goto error;
       /* GRANT ... AS preliminery checks */
       if (lex->grant_as.grant_as_used) {
         if ((first_table || query_block->db)) {
@@ -4668,6 +4676,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_ALTER_USER: {
+      if (check_reserved_account(thd, lex->users_list))
+        goto error;
       LEX_USER *user, *tmp_user;
       bool changing_own_password = false;
       Security_context *sctx = thd->security_context();
