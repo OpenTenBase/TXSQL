@@ -1661,7 +1661,7 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
 
   select->set_sj_candidates(NULL);
 
-  if (select->apply_local_transforms(thd, true))
+  if (select->apply_local_transforms(thd, !returning_result))
     return true; /* purecov: inspected */
 
   if (!multitable && select->is_empty_query()) set_empty_query();

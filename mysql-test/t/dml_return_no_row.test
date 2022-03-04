@@ -11,3 +11,18 @@ update t1 set b = b + 1 where a = 13 txsql_returning *;
 
 drop table t1;
 
+
+# all partion is pruned away
+create table t2 (id varchar(36), value int, primary key(`id`))
+PARTITION BY LIST(murmurHashCodeAndMod(id,64)) (
+    PARTITION p4 VALUES IN (4),
+    PARTITION p10 VALUES IN (10)
+);
+
+delete from t2 where (id = '1') txsql_returning *;
+delete from t2 where (id like '%1%') txsql_returning *;
+
+update t2 set value = value + 1 where (id = '1') txsql_returning *;
+update t2 set value = value + 1 where (id like '%1%') txsql_returning *;
+
+drop table t2;
