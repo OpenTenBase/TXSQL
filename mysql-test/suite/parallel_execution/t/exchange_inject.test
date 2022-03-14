@@ -161,3 +161,26 @@ SELECT (SELECT t2.a FROM t2 WHERE t2.a = t1.a) aa, b, COUNT(         b)
 drop table if exists t1;
 drop table if exists t2;
 drop procedure if exists p1;
+
+--echo #
+--echo # Const non-hidden items in select list
+--echo #
+CREATE TABLE t1 (
+  auto int not null auto_increment,
+  fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+  fld3 char(30) DEFAULT '' NOT NULL,
+  UNIQUE fld1 (fld1),
+  KEY fld3 (fld3),
+  PRIMARY KEY (auto)
+) charset utf8mb4;
+create table t2 (
+ name      char(32) not null,
+ key (name)
+);
+INSERT INTO t1 VALUES (1160,158402,'spates');
+INSERT INTO t2 VALUES ("spates"), ("spates"), ("spates"), ("spates"),("spates"), ("spates"), ("spates"), ("spates");
+
+--echo # t1.fld3 would be a const item.
+select t1.fld3,count(*) from t1,t2 where t1.fld1=158402 and t2.name=t1.fld3 group by t2.name;
+
+drop table t1,t2;

@@ -1331,6 +1331,7 @@ struct AccessPath {
       JOIN *join;
       TABLE *table;
       int ref_slice;
+      bool use_temp_table;
     } px_receiver;
     struct {
       AccessPath *child;
@@ -1338,6 +1339,7 @@ struct AccessPath {
       mem_root_deque<Item *> *send_fields;
       List_item *fields;
       Temp_table_param *temp_table_param;
+      bool use_temp_table;
     } px_send;
   } u;
 };
@@ -1855,12 +1857,14 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
                                     table_map immediate_tables);
 
 inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
-                                         TABLE *table, int ref_slice) {
+                                         TABLE *table, int ref_slice,
+                                         bool use_temp_table) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_RECEIVE;
   path->px_receiver().child = child;
   path->px_receiver().table = table;
   path->px_receiver().ref_slice = ref_slice;
+  path->px_receiver().use_temp_table = use_temp_table;
   return path;
 }
 
@@ -1868,7 +1872,8 @@ inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
                                        TABLE *table,
                                        mem_root_deque<Item *> *send_fields,
                                        List_item *fields,
-                                       Temp_table_param *temp_table_param) {
+                                       Temp_table_param *temp_table_param,
+                                       bool use_temp_table) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_SEND;
   path->px_send().child = child;
@@ -1876,6 +1881,7 @@ inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
   path->px_send().send_fields = send_fields;
   path->px_send().fields = fields;
   path->px_send().temp_table_param = temp_table_param;
+  path->px_send().use_temp_table = use_temp_table;
   return path;
 }
 

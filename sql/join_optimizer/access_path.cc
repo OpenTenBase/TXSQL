@@ -2626,6 +2626,9 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
   old_order = path->temptable_aggregate().table->group;
   if (old_order) final_order = CreateOrderForGroupList(thd, old_order);
 
+  join->final_aggr_tmp_table_param->hidden_field_count =
+      CountHiddenFields(*curr_fields);
+
   // use curr_slice to build temp table for final aggregate.
   tmp_table = create_tmp_table(
       thd, join->final_aggr_tmp_table_param, *curr_fields, final_order,
@@ -2887,7 +2890,8 @@ static AccessPath *CreateExchangeAccessPath(
 
 static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
                                                     AccessPath *const path,
-                                                    TABLE *table);
+                                                    TABLE *table,
+                                                    int ref_slice);
 
 static void FixAccessPathForExchange(AccessPath *const path,
                                      AccessPath *receiver, JOIN *join);
@@ -2937,6 +2941,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
   AccessPath *child = nullptr;
   int child_slice = -1;
   bool alloc_child_group_field = false;
+
+  // If receiver don`t use temporary table, it should set ref slice for child.
+  int output_slice = -1;
 
   switch (path->type) {
     case AccessPath::TABLE_SCAN:
@@ -3035,10 +3042,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::AGGREGATE: {
-      if (inject_here) {
-        fields = &join->tmp_fields[REF_SLICE_SAVED_ORDERED_GROUP_BY];
-        save_sum_func = true;
-      }
+      use_tmp_table = false;
+      table = join->aggr_tmp_table;
+      //output_slice = path->aggregate().output_slice;
 
       child = path->aggregate().child;
       child_slice = REF_SLICE_SAVED_BASE;
@@ -3046,7 +3052,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::TEMPTABLE_AGGREGATE: {
-      fields = &join->tmp_fields[REF_SLICE_SAVED_TMP1];
+      use_tmp_table = false;
+      table = path->temptable_aggregate().table;
+      output_slice = path->temptable_aggregate().ref_slice;
 
       child = path->temptable_aggregate().subquery_path;
       child_slice = REF_SLICE_SAVED_BASE;
@@ -3098,9 +3106,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       exchange =
           CreateExchangeAccessPath(thd, join, path, *fields, save_sum_func,
                                    curr_exchange, alloc_group_field);
-    }
-    else {
-      exchange = CreateExchangeAccessPathUseTable(thd, join, path, table);
+    } else {
+      exchange = CreateExchangeAccessPathUseTable(thd, join, path, table,
+                                                  output_slice);
     }
     thd->lex->m_exchange_number++;
     if (exchange) new_child = true;
@@ -3216,7 +3224,8 @@ static AccessPath *CreateExchangeAccessPath(
                   dbug_print_table(table, "PX_Sender", ref_slice););
   join->exchange_temp_table->push_back(table);
   join->exchange_temp_table_param->push_back(temp_table_param);
-  sender = NewPXSendAccessPath(thd, path, table, nullptr, curr_fields, temp_table_param);
+  sender = NewPXSendAccessPath(thd, path, table, nullptr, curr_fields,
+                               temp_table_param, true);
 
   if (join->alloc_ref_item_slice(thd, ref_slice)) goto inject_err;
 
@@ -3273,7 +3282,7 @@ static AccessPath *CreateExchangeAccessPath(
   join->exchange_temp_table->push_back(table2);
   join->exchange_temp_table_param->push_back(temp_table_param2);
 
-  receiver = NewPXReceiveAccessPath(thd, sender, table2, ref_slice);
+  receiver = NewPXReceiveAccessPath(thd, sender, table2, ref_slice, true);
 
   /*
     ref_items[ref_slice] is covered, because we don`t need to
@@ -3337,14 +3346,16 @@ inject_err:
 
 static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
                                                     AccessPath *const path,
-                                                    TABLE *table) {
+                                                    TABLE *table,
+                                                    int ref_slice) {
   // uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
   // if (record == nullptr) return nullptr;
 
+  assert(table);
   AccessPath *sender = NewPXSendAccessPath(thd, path, table, nullptr,
-    join->fields, nullptr);
+    join->fields, nullptr, false);
   AccessPath *receiver =
-      NewPXReceiveAccessPath(thd, sender, table, -1);
+      NewPXReceiveAccessPath(thd, sender, table, ref_slice, false);
   return receiver;
 }
 
@@ -3382,12 +3393,10 @@ static void rebuild_ref_item(THD *thd, JOIN *join, uint exchange_ref_slice) {
   join->ref_items[exchange_ref_slice] = tmp_ref_items;
 }
 
-static void FixTmpTableParamForFinalTempTableAgg(
-    Temp_table_param *temp_table_param, TABLE *exchange_table, bool use_hash);
-
-static void FixTmpTableParamForFinalAgg(
-    Temp_table_param *temp_table_param, TABLE *exchange_table,
-    List_item *exchange_field);
+static void FixTmpTableParamForFinalAgg(Temp_table_param *param,
+                                                 Temp_table_param *param_sender,
+                                                 TABLE *exchange_table,
+                                                 bool use_hash);
 
 static void FixTmpTableParam(JOIN *join, Temp_table_param *temp_table_param,
                              uint exchange_slice, TABLE *exchange_table,
@@ -3399,7 +3408,7 @@ static void FixAccessPathForExchange(AccessPath *const path,
   const auto &exchange_param = receiver->px_receiver();
 
   // If exchange don`t create temporary table, there`s no need to fix it.
-  if (exchange_param.ref_slice == -1) return ;
+  if (!exchange_param.use_temp_table) return ;
 
   switch (path->type) {
     case AccessPath::NESTED_LOOP_JOIN: {
@@ -3485,6 +3494,8 @@ static void FixAccessPathForExchange(AccessPath *const path,
         }
 
         // step 2
+        Temp_table_param *param_sender =
+            exchange_param.child->px_send().temp_table_param;
         switch (path->type) {
           case AccessPath::AGGREGATE: {
             // reset final_group_feilds
@@ -3499,13 +3510,13 @@ static void FixAccessPathForExchange(AccessPath *const path,
               }
               join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
             }
-            FixTmpTableParamForFinalAgg(temp_table_param, exchange_param.table,
-                                        exchange_fields);
+            FixTmpTableParamForFinalAgg(
+                temp_table_param, param_sender, exchange_param.table, use_hash);
             break;
           }
           case AccessPath::TEMPTABLE_AGGREGATE: {
-            FixTmpTableParamForFinalTempTableAgg(
-                temp_table_param, exchange_param.table, use_hash);
+            FixTmpTableParamForFinalAgg(
+                temp_table_param, param_sender, exchange_param.table, use_hash);
             break;
           }
           default:
@@ -3653,41 +3664,24 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
   }
 }
 
-static void FixTmpTableParamForFinalTempTableAgg(
-    Temp_table_param *temp_table_param, TABLE *exchange_table, bool use_hash) {
-  Mem_root_vector<Copy_field> *copy_fields = &temp_table_param->copy_fields;
+static void FixTmpTableParamForFinalAgg(Temp_table_param *param,
+                                                 Temp_table_param *param_sender,
+                                                 TABLE *exchange_table,
+                                                 bool use_hash) {
+  Mem_root_vector<Copy_field> *copy_fields = &param->copy_fields;
+  Mem_root_vector<Copy_field> *copy_fields_sender = &param_sender->copy_fields;
+  auto copy_field_sender = copy_fields_sender->begin();
   for (auto &copy_field : *copy_fields) {
-    uint16 field_index = copy_field.from_field()->field_index();
-    if (use_hash) {
-      assert(field_index > 0);
-      --field_index;
+    Field *from = copy_field.from_field();
+    Field *sender_from = copy_field_sender->from_field();
+    while (from->table != sender_from->table ||
+           from->field_index() != sender_from->field_index()) {
+      ++copy_field_sender;
+      assert(copy_field_sender != copy_fields_sender->end());
+      sender_from = copy_field_sender->from_field();
     }
+    uint16 field_index = (copy_field_sender++)->to_field()->field_index();
     copy_field.set_from_field(exchange_table->field[field_index]);
-  }
-}
-
-/**
- * @brief Ranks of items are reordered, we need to use the from_field->index
- * to locate the from field in exchange temporary table.
- * 
- * @todo: Merge to FixTmpTableParam
- */
-static void FixTmpTableParamForFinalAgg(
-    Temp_table_param *temp_table_param, TABLE *exchange_table,
-    List_item *exchange_field) {
-  Mem_root_vector<Copy_field> *copy_fields = &temp_table_param->copy_fields;
-  uint num_skip = 0;
-  for (auto &copy_field : *copy_fields) {
-    uint16 field_index = copy_field.from_field()->field_index();
-    uint real_index = field_index + num_skip;
-    // These item will create field in create_tmp_table() but not in
-    // setup_copy_field()
-    while ((*exchange_field)[real_index]->type() == Item::STRING_ITEM ||
-           (*exchange_field)[real_index]->type() == Item::NULL_ITEM) {
-      ++num_skip;
-      ++real_index;
-    }
-    copy_field.set_from_field(exchange_table->field[real_index]);
   }
 }
 
