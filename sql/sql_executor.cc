@@ -3509,8 +3509,8 @@ void JOIN::create_access_paths() {
           thd, this, path, target_path, /*curr_exchange=*/0,
           /*new_child=*/new_child, /*cur_slice*/-1, false);
       if (exchange) {
-        int ref_slice = exchange->px_receiver().ref_slice;
-        if (ref_slice != -1) {
+        if (exchange->px_receiver().use_temp_table) {
+          int ref_slice = exchange->px_receiver().ref_slice;
           fields = &tmp_fields[ref_slice];
         }
         if (new_child)

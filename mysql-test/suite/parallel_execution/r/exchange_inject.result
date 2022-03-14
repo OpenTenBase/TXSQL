@@ -303,3 +303,28 @@ aa	b	COUNT(         b)
 drop table if exists t1;
 drop table if exists t2;
 drop procedure if exists p1;
+#
+# Const non-hidden items in select list
+#
+CREATE TABLE t1 (
+auto int not null auto_increment,
+fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+fld3 char(30) DEFAULT '' NOT NULL,
+UNIQUE fld1 (fld1),
+KEY fld3 (fld3),
+PRIMARY KEY (auto)
+) charset utf8mb4;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+create table t2 (
+name      char(32) not null,
+key (name)
+);
+INSERT INTO t1 VALUES (1160,158402,'spates');
+INSERT INTO t2 VALUES ("spates"), ("spates"), ("spates"), ("spates"),("spates"), ("spates"), ("spates"), ("spates");
+# t1.fld3 would be a const item.
+select t1.fld3,count(*) from t1,t2 where t1.fld1=158402 and t2.name=t1.fld3 group by t2.name;
+fld3	count(*)
+spates	8
+drop table t1,t2;
