@@ -2349,6 +2349,8 @@ bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
   
   if (*avg_count) RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/false);
 
+  join->make_sum_func_const_list(*curr_fields);
+
   // reset aggregate accesspath param
   //path->aggregate().temp_table_param = join->aggr_tmp_table_param;
 
@@ -2741,6 +2743,16 @@ AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *cons
                     &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
   */
   join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
+
+  if (join->sum_funcs_const) {
+    for (size_t idx = 0; idx < join->sum_funcs_const->size(); ++idx) {
+      Item *item;
+      size_t field_idx, ref_idx;
+      std::tie(item, field_idx, ref_idx) = join->sum_funcs_const->at(idx);
+      join->tmp_fields[REF_SLICE_FINAL_AGGREGATE][field_idx + (item->hidden ? 0 : avg_count * 2)] = item;
+      join->ref_items[REF_SLICE_FINAL_AGGREGATE][ref_idx + (item->hidden ? avg_count * 2 : 0)] = item;
+    }
+  }
 
   if (avg_count) {
     if (FixFuncDivForAvg(thd, join, avg_count)) goto build_err;
