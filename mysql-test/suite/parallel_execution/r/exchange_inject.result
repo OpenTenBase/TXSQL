@@ -328,3 +328,21 @@ select t1.fld3,count(*) from t1,t2 where t1.fld1=158402 and t2.name=t1.fld3 grou
 fld3	count(*)
 spates	8
 drop table t1,t2;
+#
+# Const item in type of Item_sum (min(a), max(a))
+#
+create table t1 (a int, b int, key(a, b)) engine=innodb;
+insert into t1 values 
+(94, 46), (31, 438), (61, 152), (78, 123), (88, 411), (122, 118), (0, 177),
+(75, 42), (108, 67), (79, 349), (59, 188), (68, 206), (49, 345), (118, 380),
+(111, 368), (94, 468), (56, 379), (77, 133), (29, 399), (9, 363), (23, 36),
+(116, 390), (119, 368), (87, 351), (123, 411), (24, 398), (34, 202), (28, 499),
+(30, 83), (5, 178), (60, 343), (4, 245), (104, 280), (106, 446), (127, 403),
+(44, 307), (68, 454), (57, 135);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+select min(a), max(a), min(b), max(b) from t1;
+min(a)	max(a)	min(b)	max(b)
+0	127	36	499
+drop table t1;
