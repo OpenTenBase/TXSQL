@@ -77,6 +77,7 @@ class PX_receiver : public RowIterator {
   uint m_active_channels{0};
   int m_ref_slice{0};
   int m_input_slice{0};
+  std::vector<Field *> m_fields;
 };
 
 #endif
