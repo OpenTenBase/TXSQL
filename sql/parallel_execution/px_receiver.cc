@@ -33,7 +33,8 @@ PX_receiver::PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei,
       m_join(join),
       m_source(move(source)),
       m_table(table),
-      m_ref_slice(ref_slice) {}
+      m_ref_slice(ref_slice),
+      m_fields() {}
 
 /**
   Exchange receiver need three phases:
@@ -81,6 +82,12 @@ bool PX_receiver::init() {
 */
 bool PX_receiver::attach() {
   THD *thd = get_thd();
+
+  for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
+    Field *field = *pfield;
+    if (bitmap_is_set(m_table->read_set, field->field_index()))
+      m_fields.push_back(field);
+  }
 
   if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
     assert(m_source.get()->type() == PHY_PX_SEND);
@@ -236,7 +243,7 @@ bool PX_receiver::decompact_row(uchar *data, Size msg_len) {
     re-adjust the ptr of fields to the compact
     row directly.
   */
-  auto size_field = m_table->s->fields;
+  auto size_field = m_fields.size();
 
   /*
     A compct row format without ref info just like follows:
@@ -266,7 +273,7 @@ bool PX_receiver::decompact_row(uchar *data, Size msg_len) {
 
   */
   for (; i < size_field; i++) {
-    item_field = m_table->field[i];
+    item_field = m_fields[i];
     // Determine whether it is a CONST_ITEM or NULL_FIELD
     j = (null_offset >> 3) + 1;
     assert((null_offset & 1) == 0);
