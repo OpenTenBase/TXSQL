@@ -37,6 +37,11 @@ class PX_sender : public RowIterator {
   bool Init() override { return attach(); }
   int Read() override { return send() ? -1 : 0; }
 
+  void StartPSIBatchMode() override { m_source->StartPSIBatchMode(); }
+  void EndPSIBatchModeIfStarted() override {
+    m_source->EndPSIBatchModeIfStarted();
+  }
+
   void set_exchange_info(PX_exchange_info *ex_info) { m_pei = ex_info; }
 
   void SetNullRowFlag(bool is_null_row) override { m_source->SetNullRowFlag(is_null_row);}
