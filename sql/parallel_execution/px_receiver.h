@@ -43,6 +43,15 @@ class PX_receiver : public RowIterator {
   bool Init() override { return attach(); }
   int Read() override { return next() ? -1 : 0; }
 
+  void StartPSIBatchMode() override {
+    // TODO: receiver should send this message to sender through mq.
+    m_source->StartPSIBatchMode();
+  }
+  void EndPSIBatchModeIfStarted() override {
+    // TODO: receiver should send this message to sender through mq.
+    m_source->EndPSIBatchModeIfStarted();
+  }
+
   void set_exchange_info(PX_exchange_info *ex_info) { m_pei = ex_info; }
 
   void SetNullRowFlag(bool is_null_row) override {
