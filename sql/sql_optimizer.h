@@ -375,7 +375,8 @@ class JOIN {
   Temp_table_param tmp_table_param;
   Temp_table_param *aggr_tmp_table_param = nullptr;
   Temp_table_param *final_aggr_tmp_table_param = nullptr;
-  TABLE *final_tmp_table = nullptr;
+  TABLE *aggr_tmp_table = nullptr;
+  TABLE *final_tmpaggr_tmp_table = nullptr;
   MYSQL_LOCK *lock;
 
   enum class RollupState { NONE, INITED, READY };
