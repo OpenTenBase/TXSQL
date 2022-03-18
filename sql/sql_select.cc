@@ -1955,14 +1955,17 @@ void JOIN::destroy() {
     exchange_temp_table_param->clear();
   }
   // Free memory for finalAggr inject
+  if (aggr_tmp_table) {
+    close_tmp_table(aggr_tmp_table);
+  }
   if (aggr_tmp_table_param) {
     aggr_tmp_table_param->cleanup();
   }
-  if (final_tmp_table) {
-    if (final_tmp_table->file != nullptr) {
-      final_tmp_table->file->ha_index_or_rnd_end();
+  if (final_tmpaggr_tmp_table) {
+    if (final_tmpaggr_tmp_table->file != nullptr) {
+      final_tmpaggr_tmp_table->file->ha_index_or_rnd_end();
     }
-    close_tmp_table(final_tmp_table);
+    close_tmp_table(final_tmpaggr_tmp_table);
     // free_tmp_table(final_tmp_table);
   }
   if (final_aggr_tmp_table_param) {
