@@ -128,7 +128,7 @@ bool PX_sender::send() {
 }
 
 bool PX_sender::send_compact_row() {
-  auto compact_fields_size = m_send_fields->size() + PX_HIDDEN_FIELD_COUNT;
+  auto compact_fields_size = m_fields.size() + PX_HIDDEN_FIELD_COUNT;
   std::vector<PX_iovec> out_fields;
   out_fields.reserve(compact_fields_size);
 
@@ -210,10 +210,10 @@ error:
   checked, build m_skip_flag according to m_skip_array.
 */
 bool PX_sender::prepare_compact_row() {
-  auto field_size = m_send_fields->size() + PX_HIDDEN_FIELD_COUNT;
+  auto field_size = m_fields.size() + PX_HIDDEN_FIELD_COUNT;
   m_compact_row = new PX_field_data[field_size];
-  m_skip_array = new bool[2 * m_send_fields->size()];
-  m_skip_flag = new char[m_send_fields->size() / PX_HIDDEN_FIELD_COUNT + 2];
+  m_skip_array = new bool[2 * m_fields.size()];
+  m_skip_flag = new char[m_fields.size() / PX_HIDDEN_FIELD_COUNT + 2];
 
   if (!m_compact_row || !m_skip_array || !m_skip_flag) {
     my_error(ER_OUTOFMEMORY, MYF(0));
@@ -226,7 +226,7 @@ bool PX_sender::prepare_compact_row() {
 
 bool PX_sender::make_compact_row(uint16 &null_len, uint32 &total_copy_bytes) {
   /* The send data can't be empty row. */
-  assert(m_send_fields->size());
+  assert(m_fields.size());
 
   uint i, j;
   uint null_num = 0;

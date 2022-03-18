@@ -309,6 +309,7 @@ drop procedure if exists p1;
 CREATE TABLE t1 (
 auto int not null auto_increment,
 fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+companynr tinyint(2) unsigned zerofill DEFAULT '00' NOT NULL,
 fld3 char(30) DEFAULT '' NOT NULL,
 UNIQUE fld1 (fld1),
 KEY fld3 (fld3),
@@ -317,12 +318,17 @@ PRIMARY KEY (auto)
 Warnings:
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 create table t2 (
 name      char(32) not null,
 key (name)
 );
-INSERT INTO t1 VALUES (1160,158402,'spates');
+INSERT INTO t1 VALUES (346,098005,58,'hopelessness'),(350,098009,58,'imaginable'),(1160,158402,00,'spates');
 INSERT INTO t2 VALUES ("spates"), ("spates"), ("spates"), ("spates"),("spates"), ("spates"), ("spates"), ("spates");
+select t1.fld3 from t1 where companynr = 58 and fld3 like "%imaginable%";
+fld3
+imaginable
 # t1.fld3 would be a const item.
 select t1.fld3,count(*) from t1,t2 where t1.fld1=158402 and t2.name=t1.fld3 group by t2.name;
 fld3	count(*)
