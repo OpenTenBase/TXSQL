@@ -2009,6 +2009,6 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                                        uint curr_exchange, bool &new_child,
                                        int cur_slice, bool alloc_group_field);
 
-bool WalkAccessPathsForCompat(AccessPath *path);
+bool WalkAccessPathsForCompat(AccessPath *path, bool check = true);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H

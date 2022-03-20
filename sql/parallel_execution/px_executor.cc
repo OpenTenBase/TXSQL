@@ -116,6 +116,7 @@ static void *execute_inner_in_worker(void *args)
   thd->lex->destroy();
   thd->end_statement();
   thd->cleanup_after_query();
+  thd->mem_root->Clear();
 
   // mysql_trx_list assert to 0 at last if no release resources.
   thd->release_resources();
@@ -454,6 +455,11 @@ end_workers:
   sql_print_information("finish cleanup after all task thread.");
   worker_pool_cleanup(worker_pool);
 
+  exchange_info->destroy_release();
+  Prealloced_array<THD *, 60>::iterator iter = thd_list.begin();
+   for(; iter != thd_list.end(); ++iter)
+     delete (*iter);
+
   return ret;
 }
 
@@ -510,7 +516,7 @@ bool PX_sequential_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_po
       int child_num_threads = worker_pool->num_threads - parent_num_threads;
 
       // TODO: The following code will be inserted into PX_Receiver::init.
-      exchange_info = new PX_exchange_info(thd(), 
+      exchange_info = new (thd()->mem_root) PX_exchange_info(thd(), 
         PX_GATHER_EXCHANGE, /*exchange_type=*/
         PX_MQ_CHANNEL, /*channel_type=*/
         thd()->variables.cdb_parallel_degree, /*senders=*/

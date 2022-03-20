@@ -61,6 +61,10 @@ class PX_exchange_info {
   uint find_channel_no(uint sender_no, uint receiver_no);
   PX_exchange_channel *get_channel(uint channel_no);
 
+  void destroy_release();
+  void lock() { mysql_mutex_lock(&m_lock); }
+  void unlock() { mysql_mutex_unlock(&m_lock); }
+
  private:
   // The query coordinator.
   THD *m_coordinator_thd{nullptr};
@@ -74,6 +78,7 @@ class PX_exchange_info {
   PX_exchange_type m_type{PX_INVALID_EXCHANGE};
   PX_exchange_format m_format{PX_COMPACT_ROW};
   bool m_need_materialize{false};
+  mysql_mutex_t m_lock;
 };
 
 #endif

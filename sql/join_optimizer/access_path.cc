@@ -538,7 +538,7 @@ bool compat_for_table(TABLE *table) {
   return ret;
 }
 
-bool WalkAccessPathsForCompat(AccessPath *path) {
+bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
   // TODO: more check
   bool parallel_safe = false;
   switch (path->type) {
@@ -568,8 +568,36 @@ bool WalkAccessPathsForCompat(AccessPath *path) {
         parallel_safe = true;
       break;
     }
-    case AccessPath::REF:
-    case AccessPath::REF_OR_NULL:
+    case AccessPath::REF: {
+      TABLE *table = path->ref().table;
+      if (table->s->table_category != TABLE_CATEGORY_USER ||
+          table->s->tmp_table != NO_TMP_TABLE)
+        parallel_safe = false;
+      else if (table->file->stats.records <= 2)
+        parallel_safe = false;
+      else if (!compat_for_table(table))
+        parallel_safe = false;
+      else
+        parallel_safe = true;
+      break;
+    }
+    case AccessPath::REF_OR_NULL: {
+      if (!check) {
+        TABLE *table = path->ref_or_null().table;
+        if (table->s->table_category != TABLE_CATEGORY_USER ||
+            table->s->tmp_table != NO_TMP_TABLE)
+          parallel_safe = false;
+        else if (table->file->stats.records <= 2)
+          parallel_safe = false;
+        else if (!compat_for_table(table))
+          parallel_safe = false;
+        else
+          parallel_safe = true;
+      } else {
+        parallel_safe = false;
+      }
+      break;
+    } 
     case AccessPath::EQ_REF:
     case AccessPath::PUSHED_JOIN_REF:
     case AccessPath::FULL_TEXT_SEARCH: {
@@ -627,28 +655,28 @@ bool WalkAccessPathsForCompat(AccessPath *path) {
       break;
     }
     case AccessPath::NESTED_LOOP_JOIN: {
-      bool o_compat = WalkAccessPathsForCompat(path->nested_loop_join().outer);
-      bool i_compat = WalkAccessPathsForCompat(path->nested_loop_join().inner);
+      bool o_compat = WalkAccessPathsForCompat(path->nested_loop_join().outer, true);
+      bool i_compat = WalkAccessPathsForCompat(path->nested_loop_join().inner, false);
       parallel_safe = o_compat && i_compat;
       break;
     }
     case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
       bool o_compat = WalkAccessPathsForCompat(
-        path->nested_loop_semijoin_with_duplicate_removal().outer);
+        path->nested_loop_semijoin_with_duplicate_removal().outer, true);
       bool i_compat = WalkAccessPathsForCompat(
-        path->nested_loop_semijoin_with_duplicate_removal().inner);
+        path->nested_loop_semijoin_with_duplicate_removal().inner, false);
       parallel_safe = o_compat && i_compat;
       break;
     }
     case AccessPath::BKA_JOIN: {
-      bool o_compat = WalkAccessPathsForCompat(path->bka_join().outer);
-      bool i_compat = WalkAccessPathsForCompat(path->bka_join().inner);
+      bool o_compat = WalkAccessPathsForCompat(path->bka_join().outer, true);
+      bool i_compat = WalkAccessPathsForCompat(path->bka_join().inner, false);
       parallel_safe = o_compat && i_compat;
       break;
     }
     case AccessPath::HASH_JOIN: {
-      bool o_compat = WalkAccessPathsForCompat(path->hash_join().outer);
-      bool i_compat = WalkAccessPathsForCompat(path->hash_join().inner);
+      bool o_compat = WalkAccessPathsForCompat(path->hash_join().outer, true);
+      bool i_compat = WalkAccessPathsForCompat(path->hash_join().inner, false);
       parallel_safe = o_compat && i_compat;
       break;
     }
