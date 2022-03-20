@@ -1,5 +1,6 @@
 #include "include/my_dbug.h"
 #include "sql/sql_class.h"
+#include "sql/mysqld.h"
 #include "px_exchange_info.h"
 #include "px_mq.h"
 #include "px.h"
@@ -25,7 +26,9 @@ PX_exchange_info::PX_exchange_info(THD *thd, PX_exchange_type exchange_type,
       m_receivers(receivers),
       m_type(exchange_type),
       m_format(format),
-      m_need_materialize(need_materialize) {}
+      m_need_materialize(need_materialize) {
+  mysql_mutex_init(key_LOCK_Exchange_Info_Channel, &m_lock, MY_MUTEX_INIT_FAST);
+}
 
 /**
   Create the exchange channels between two dfos, each sender and a receiver
@@ -145,6 +148,7 @@ bool PX_exchange_info::register_sender(THD *sender, uint sender_no) {
   PX_proc *event = nullptr;
   PX_worker_handle *handle = nullptr;
 
+  lock();
   switch (m_channel_type) {
    case PX_MQ_CHANNEL: {
      event = new (m_coordinator_thd->mem_root) PX_proc(sender);
@@ -193,6 +197,7 @@ bool PX_exchange_info::register_sender(THD *sender, uint sender_no) {
      }
     }
   }
+  unlock();
 
   return false;
 }
@@ -214,6 +219,7 @@ bool PX_exchange_info::init_receiver(uint receiver_no) {
   // Find all the channels the receiver will connect to.
   uint nchannels = m_senders;
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
 
@@ -222,6 +228,7 @@ bool PX_exchange_info::init_receiver(uint receiver_no) {
       return true;
     }
   }
+  unlock();
 
   return false;
 }
@@ -230,6 +237,7 @@ bool PX_exchange_info::init_sender(uint sender_no) {
   // Find all the channels the sender will connect to.
   uint nchannels = m_receivers;
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
 
@@ -238,6 +246,7 @@ bool PX_exchange_info::init_sender(uint sender_no) {
       return true;
     }
   }
+  unlock();
 
   return false;
 }
@@ -246,12 +255,14 @@ bool PX_exchange_info::attach_sender(uint sender_no) {
   // Find all the channels the sender will connect to.
   uint nchannels = m_receivers;
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
     if (channel->attach_sender()) {
       return true;
     }
   }
+  unlock();
 
   return false;
 }
@@ -260,12 +271,14 @@ bool PX_exchange_info::attach_receiver(uint receiver_no) {
   // Find all the channels the receiver will connect to.
   uint nchannels = m_senders;
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
     if (channel->attach_receiver()) {
       return true;
     }
   }
+  unlock();
 
   return false;
 }
@@ -274,20 +287,24 @@ void PX_exchange_info::detach_sender(uint sender_no) {
   // Find all the channels the sender will detach.
   uint nchannels = m_receivers;
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
     channel->detach_sender();
   }
+  unlock();
 }
 
 void PX_exchange_info::detach_receiver(uint receiver_no) {
   // Find all the channels the receiver will connect to.
   uint nchannels = m_senders;
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
     channel->detach_receiver();
   }
+  unlock();
 }
 
 void PX_exchange_info::receiver_wait(uint receiver_no) {
@@ -296,15 +313,22 @@ void PX_exchange_info::receiver_wait(uint receiver_no) {
   channel->receiver_wait();
 }
 
+void PX_exchange_info::destroy_release() 
+{
+  mysql_mutex_destroy(&m_lock);
+}
+
 void PX_exchange_info::get_sender_channel(uint sender_no, std::vector<PX_exchange_channel *> &channels) {
   // Find all the channels the sender will sender data to.
   uint nchannels = m_receivers;
   channels.reserve(nchannels);
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
     channels.push_back(channel);
   }
+  unlock();
 }
 
 void PX_exchange_info::get_receiver_channel(uint receiver_no, std::vector<PX_exchange_channel *> &channels) {
@@ -312,10 +336,12 @@ void PX_exchange_info::get_receiver_channel(uint receiver_no, std::vector<PX_exc
   uint nchannels = m_senders;
   channels.reserve(nchannels);
 
+  lock();
   for (uint i = 0; i < nchannels; ++i) {
     PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
     channels.push_back(channel);
   }
+  unlock();
 }
 
 PX_exchange_channel *PX_exchange_info::get_channel(uint channel_no) {
