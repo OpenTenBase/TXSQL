@@ -183,6 +183,7 @@ extern mysql_rwlock_t LOCK_whitelist_array;
 extern PSI_rwlock_key key_rwlock_LOCK_whitelist_array;
 extern PSI_rwlock_key key_LOCK_Sql_Filter_Rule;
 extern PSI_mutex_key key_LOCK_Exchange_Info_Channel;
+extern bool cdb_session_var_privilege_check_enabled;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log;
 extern bool opt_log_replica_updates;

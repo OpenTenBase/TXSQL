@@ -916,6 +916,7 @@ bool Query_expression::finalize(THD *thd) {
 }
 
 void init_exchange_channel(RowIterator *iterator) {
+  iterator = iterator->real_iterator();
   // if (iterator->type() == RowIterator::PHY_PX_SEND)
   //   static_cast<PX_sender*>(iterator)->init();
   if (iterator->type() == RowIterator::PHY_PX_RECEIVE)
@@ -925,6 +926,7 @@ void init_exchange_channel(RowIterator *iterator) {
 }
 
 void attach_exchange_info(RowIterator *iterator, PX_exchange_info *info) {
+  iterator = iterator->real_iterator();
   if (iterator->type() == RowIterator::PHY_PX_SEND)
     static_cast<PX_sender*>(iterator)->set_exchange_info(info);
   if (iterator->type() == RowIterator::PHY_PX_RECEIVE)
