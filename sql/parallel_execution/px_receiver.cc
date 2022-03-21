@@ -49,7 +49,7 @@ bool PX_receiver::init() {
 
   if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
     assert(m_source.get()->type() == PHY_PX_SEND);
-    PX_sender *sender = static_cast<PX_sender*>(m_source.get());
+    PX_sender *sender = static_cast<PX_sender*>(m_source->real_iterator());
     sender->init();
   }
 
@@ -91,7 +91,7 @@ bool PX_receiver::attach() {
 
   if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
     assert(m_source.get()->type() == PHY_PX_SEND);
-    PX_sender *sender = static_cast<PX_sender*>(m_source.get());
+    PX_sender *sender = static_cast<PX_sender*>(m_source->real_iterator());
     sender->attach();
   }
 
@@ -102,7 +102,7 @@ bool PX_receiver::attach() {
 
   if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
     assert(m_source.get()->type() == PHY_PX_SEND);
-    PX_sender *sender = static_cast<PX_sender*>(m_source.get());
+    PX_sender *sender = static_cast<PX_sender*>(m_source->real_iterator());
     while(-1 != sender->Read());
     m_pei->detach_sender(thd->worker_id);
     sender->end();
