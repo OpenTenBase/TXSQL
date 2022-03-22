@@ -1,0 +1,3 @@
+--innodb_buffer_pool_size=128M
+#--cstore=on
+#--columnstore_table_pushdown_rows_threshold=0
