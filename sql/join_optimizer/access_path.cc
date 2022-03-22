@@ -2306,8 +2306,6 @@ bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
       HA_POS_ERROR, "<temp>");
   if (!tmp_table) goto rebuild_err;
   join->aggr_tmp_table = tmp_table;
-  join->exchange_temp_table->push_back(tmp_table);
-  join->exchange_temp_table_param->push_back(&join->tmp_table_param);
 
   // rebuild sum_func_list
   if (join->make_sum_func_list(*curr_fields, /*before_group_by=*/true, /*recompute=*/true))
@@ -2607,8 +2605,6 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
       /*rows_limit=*/HA_POS_ERROR, "<temp>");
   if (!tmp_table) goto build_err;
   join->final_tmpaggr_tmp_table = tmp_table;
-  join->exchange_temp_table->push_back(tmp_table);
-  join->exchange_temp_table_param->push_back(join->final_aggr_tmp_table_param);
 
   if (final_tmp_table_param->items_to_copy &&
       final_tmp_table_param->items_to_copy->size()) {
