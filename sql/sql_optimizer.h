@@ -33,6 +33,7 @@
 #include <cstring>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "field_types.h"
 #include "my_alloc.h"
@@ -641,7 +642,7 @@ class JOIN {
   List_item  *exchange_tmp_fields = nullptr;
 
   // Save const sum funcs for final aggregate
-  vector<std::tuple<Item *, size_t, size_t>> *sum_funcs_const = nullptr;
+  std::vector<std::tuple<Item *, size_t, size_t>> *sum_funcs_const = nullptr;
 
   /// True if plan is const, ie it will return zero or one rows.
   bool plan_is_const() const { return const_tables == primary_tables; }

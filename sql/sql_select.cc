@@ -4195,15 +4195,15 @@ bool JOIN::make_sum_func_list(const mem_root_deque<Item *> &fields,
 bool JOIN::make_sum_func_const_list(const mem_root_deque<Item *> &fields) {
   if (!sum_funcs_const)
     sum_funcs_const =
-        new (thd->mem_root) vector<std::tuple<Item *, size_t, size_t>>();
+        new (thd->mem_root) std::vector<std::tuple<Item *, size_t, size_t>>();
 
   size_t num_hidden_fields = CountHiddenFields(fields);
   size_t idx = 0;
 
   for (Item *item : fields) {
     if (item->type() == Item::SUM_FUNC_ITEM && item->const_item() &&
-        down_cast<Item_sum *>(item)->aggr_select == select_lex) {
-      DBUG_ASSERT(!item->m_is_window_function);
+        down_cast<Item_sum *>(item)->aggr_query_block == query_block) {
+      assert(!item->m_is_window_function);
       size_t ref_item_idx = item->hidden ? fields.size() - idx - 1
                               : idx - num_hidden_fields;
       sum_funcs_const->emplace_back(item, idx, ref_item_idx);
