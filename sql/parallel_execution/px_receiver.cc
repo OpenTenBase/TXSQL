@@ -92,7 +92,7 @@ bool PX_receiver::attach() {
   if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
     assert(m_source.get()->type() == PHY_PX_SEND);
     PX_sender *sender = static_cast<PX_sender*>(m_source->real_iterator());
-    sender->attach();
+    if (sender->attach()) return true;
   }
 
   if (m_pei->attach_receiver(m_receiver_no)) {
