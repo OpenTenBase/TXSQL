@@ -3009,6 +3009,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         } else if(child->type == AccessPath::INDEX_SCAN) {
           use_tmp_table = false;
           table = child->index_scan().table;
+        } else if (child->type == AccessPath::REF) {
+          use_tmp_table = false;
+          table = child->ref().table;
         } else {
           ref_slice = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
                           ? 0
