@@ -3497,7 +3497,7 @@ void JOIN::create_access_paths() {
       path = WalkAccessPathsForAggregationRebuild(thd, this, path);
     }
     
-    if (exchange_inject == true && m_windows.elements == 0) {
+    if (exchange_inject) {
       if (exchange_temp_table == nullptr) {
         exchange_temp_table =
             new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
