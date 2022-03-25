@@ -2872,6 +2872,7 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
         return false;
       case AccessPath::SORT:
         target_path = nullptr;  // Merge sort is not supported yet
+        split_agg = false;
         return false;
       case AccessPath::AGGREGATE:
       case AccessPath::TEMPTABLE_AGGREGATE:
