@@ -226,7 +226,6 @@ bool PX_sender::prepare_compact_row() {
 
 bool PX_sender::make_compact_row(uint16 &null_len, uint32 &total_copy_bytes) {
   /* The send data can't be empty row. */
-  assert(m_fields.size());
 
   uint i, j;
   uint null_num = 0;

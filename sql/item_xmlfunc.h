@@ -74,7 +74,7 @@ class Item_xml_str_func : public Item_str_func {
     if (!nodeset_func_permanent) nodeset_func = nullptr;
   }
   bool check_function_as_value_generator(uchar *) override { return false; }
-
+  enum Functype functype() const override { return XML_FUNC; }
  protected:
   /**
     Parse the specified XPATH expression and initialize @c nodeset_func.

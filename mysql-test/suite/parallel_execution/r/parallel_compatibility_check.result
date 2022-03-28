@@ -1,0 +1,547 @@
+# Infrastructure for Enhanced Prepare once
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+root@localhost
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(2,3,4,5);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
+create table t2(a int, b int, c int, d int);
+insert into t2 values(1,1,1,1);
+insert into t2 values(2,2,2,2);
+insert into t2 values(3,3,3,3);
+insert into t2 values(4,4,4,4);
+insert into t2 values(5,5,5,5);
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+###
+### statement global check
+###
+SET @global_start_value = @@global.transaction_isolation;
+SELECT @@global.transaction_isolation;
+@@global.transaction_isolation
+REPEATABLE-READ
+SET GLOBAL transaction_isolation = SERIALIZABLE;
+tx_isolation check
+SELECT @@transaction_isolation;
+@@transaction_isolation
+SERIALIZABLE
+explain format=tree select sum(b) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select sum(b) from t1;
+sum(b)
+20
+SET @@global.transaction_isolation = @global_start_value;
+SELECT @@global.transaction_isolation;
+@@global.transaction_isolation
+REPEATABLE-READ
+locking_clause check
+explain format=tree select sum(b) from t1 for share;
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select sum(b) from t1 for share;
+sum(b)
+20
+explain format=tree select sum(b) from t1 for update;
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select sum(b) from t1 for update;
+sum(b)
+20
+non-select statement test
+explain format=tree insert into t2 (a, b, c, d) select a,b,c,d from t1;
+EXPLAIN
+-> Insert into t2
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+explain analyze check
+explain analyze select sum(b) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.b)  (actual time=N.NNN..N.NNN rows=1 loops=1)
+    -> Table scan on t1  (cost=0.75 rows=5) (actual time=N.NNN..N.NNN rows=5 loops=1)
+
+sp test
+drop procedure if exists px_1|
+Warnings:
+Note	1305	PROCEDURE test.px_1 does not exist
+create procedure px_1()
+begin
+explain format=tree select sum(b) from t1;
+select sum(b) from t1;
+end|
+call px_1();
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+sum(b)
+20
+drop procedure px_1;
+prepare statement check
+prepare stmt1 from 'explain format=tree select sum(?) from t1';
+set @arg00='b';
+execute stmt1 using @arg00 ;
+EXPLAIN
+-> Aggregate: sum('b')
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+union check
+explain format=tree (select sum(b) from t1) union all (select sum(b) from t2);
+EXPLAIN
+-> Append
+    -> Stream results
+        -> Aggregate: sum(t1.b)
+            -> Table scan on t1  (cost=0.75 rows=5)
+    -> Stream results
+        -> Aggregate: sum(t2.b)
+            -> Table scan on t2  (cost=0.75 rows=5)
+
+(select sum(b) from t1) union all (select sum(b) from t2);
+sum(b)
+20
+15
+contain partition table
+CREATE TABLE t3 (
+id MEDIUMINT NOT NULL AUTO_INCREMENT,
+dt DATE, st VARCHAR(255), uid INT,
+id2nd LONGBLOB, filler VARCHAR(255), PRIMARY KEY(id, dt)
+);
+INSERT INTO t3 (dt, st, uid, id2nd, filler) VALUES
+('1991-03-14', 'Initial Insert', 200, 1234567, 'No Data'),
+('1991-02-26', 'Initial Insert', 201, 1234567, 'No Data'),
+('1992-03-16', 'Initial Insert', 234, 1234567, 'No Data'),
+('1992-07-02', 'Initial Insert', 287, 1234567, 'No Data'),
+('1991-05-26', 'Initial Insert', 256, 1234567, 'No Data'),
+('1991-04-25', 'Initial Insert', 222, 1234567, 'No Data'),
+('1993-03-12', 'Initial Insert', 267, 1234567, 'No Data'),
+('1993-03-14', 'Initial Insert', 291, 1234567, 'No Data'),
+('1991-12-20', 'Initial Insert', 298, 1234567, 'No Data'),
+('1994-10-31', 'Initial Insert', 220, 1234567, 'No Data');
+ALTER TABLE t3 PARTITION BY LIST (YEAR(dt)) (
+PARTITION d1 VALUES IN (1991, 1994),
+PARTITION d2 VALUES IN (1993),
+PARTITION d3 VALUES IN (1992, 1995, 1996)
+);
+ANALYZE TABLE t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	OK
+explain format=tree select sum(uid) from t3;
+EXPLAIN
+-> Aggregate: sum(t3.uid)
+    -> Table scan on t3  (cost=1.75 rows=10)
+
+select sum(uid) from t3;
+sum(uid)
+2476
+DROP TABLE t3;
+myisam table check
+create table t3 (
+id  char(16) not null default '',
+data int not null
+) engine=myisam;
+ANALYZE TABLE t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	Table is already up to date
+insert into t3 values ("foo", 42);
+explain format=tree select sum(data) from t3;
+EXPLAIN
+-> Aggregate: sum('42')
+    -> Rows fetched before execution  (cost=0.00 rows=1)
+
+select sum(data) from t3;
+sum(data)
+42
+DROP TABLE t3;
+rollup check
+EXPLAIN format=tree SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+EXPLAIN
+-> Group aggregate with rollup: sum(t1.b)
+    -> Sort: t1.a  (cost=0.75 rows=5)
+        -> Table scan on t1  (cost=0.75 rows=5)
+
+SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)
+2
+3
+4
+5
+6
+20
+zero row limit
+explain format=tree select * from t1 limit 0;
+EXPLAIN
+-> Zero rows (Zero limit)
+
+select * from t1 limit 0;
+a	b	c	d
+select with distinct check
+explain format=tree select distinct a from t1;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Temporary table with deduplication  (cost=0.75 rows=5)
+        -> Table scan on t1  (cost=0.75 rows=5)
+
+select distinct a from t1;
+a
+1
+2
+3
+4
+5
+select_count check(using innodb parallel query)
+explain format=tree select count(*) from t1;
+EXPLAIN
+-> Count rows in t1
+
+select count(a) from t1;
+count(a)
+5
+windows function check
+explain format=tree SELECT a, b, rank() over ( PARTITION BY a ORDER BY b)  AS ranking FROM t1;
+EXPLAIN
+-> Window aggregate: rank() OVER (PARTITION BY t1.a ORDER BY t1.b ) 
+    -> Sort: t1.a, t1.b  (cost=0.75 rows=5)
+        -> Table scan on t1  (cost=0.75 rows=5)
+
+###
+### Field and datatype check
+###
+MYSQL_TYPE_BLOB check
+CREATE TABLE `testText` (
+`id` int(11) unsigned NOT NULL,
+`before` char(6) NOT NULL DEFAULT 'before',
+`data` text NOT NULL,
+`after` char(5) NOT NULL DEFAULT 'after',
+PRIMARY KEY (`id`) ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO testText (id,data) VALUES (0,repeat('0123456789abcdef',1));
+INSERT INTO testText (id,data) VALUES (1,repeat('0123456789abcdef',510));
+INSERT INTO testText (id,data) VALUES (2,repeat('0123456789abcdef',2));
+ANALYZE TABLE testText;
+Table	Op	Msg_type	Msg_text
+test.testText	analyze	status	OK
+blob field in select lists
+EXPLAIN format=tree SELECT * FROM testText;
+EXPLAIN
+-> Table scan on testText  (cost=0.80 rows=3)
+
+blob field in aggregation function
+EXPLAIN format=tree SELECT SUM(data) FROM testText;
+EXPLAIN
+-> Aggregate: sum(testText.`data`)
+    -> Table scan on testText  (cost=0.80 rows=3)
+
+blob field in where condtion
+EXPLAIN format=tree SELECT count(id) FROM testText WHERE length(data) > 100;
+EXPLAIN
+-> Aggregate: count(testText.id)
+    -> Filter: (length(testText.`data`) > 100)  (cost=0.80 rows=3)
+        -> Table scan on testText  (cost=0.80 rows=3)
+
+table with blob field but blob field not in read_set
+EXPLAIN format=tree SELECT SUM(id) FROM testText;
+EXPLAIN
+-> Aggregate: sum(testText.id)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(testText.id)
+                -> Index scan on testText using PRIMARY  (cost=0.80 rows=3)
+
+SELECT SUM(id) FROM testText;
+SUM(id)
+3
+DROP TABLE testText;
+JSON field check
+create table test_json ( 
+`id` int auto_increment,
+`obj_json` JSON,
+`arr_json` JSON,
+primary key (`id`)
+)engine = InnoDB default charset = utf8mb4;
+insert into test_json (obj_json, arr_json)
+values ('{"key1": "value", "key2": 2019, "time": "2015-07-29 12:18:29.000000"}', 
+'["xin", 2019, null, true, false, "2019-5-14 21:30:00"]');
+insert into test_json (obj_json, arr_json)
+values ('{"key1": "value", "key2": 2019, "time": "2015-07-29 12:18:29.000000"}', 
+'["xin", 2019, null, true, false, "2019-5-14 21:30:00"]');
+insert into test_json (obj_json, arr_json)
+values ('{"key1": "value", "key2": 2019, "time": "2015-07-29 12:18:29.000000"}', 
+'["xin", 2019, null, true, false, "2019-5-14 21:30:00"]');
+ANALYZE TABLE test_json;
+Table	Op	Msg_type	Msg_text
+test.test_json	analyze	status	OK
+json field in select lists
+EXPLAIN format=tree SELECT * FROM test_json;
+EXPLAIN
+-> Table scan on test_json  (cost=0.55 rows=3)
+
+blob field in aggregation function
+EXPLAIN format=tree SELECT SUM(obj_json) FROM test_json;
+EXPLAIN
+-> Aggregate: sum(test_json.obj_json)
+    -> Table scan on test_json  (cost=0.55 rows=3)
+
+table with blob field but blob field not in read_set
+EXPLAIN format=tree SELECT SUM(id) FROM test_json;
+EXPLAIN
+-> Aggregate: sum(test_json.id)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(test_json.id)
+                -> Index scan on test_json using PRIMARY  (cost=0.55 rows=3)
+
+SELECT SUM(id) FROM test_json;
+SUM(id)
+6
+DROP TABLE test_json;
+####
+####parallel table check
+####
+query without non-const primary table
+EXPLAIN FORMAT=TREE SELECT 1;
+EXPLAIN
+-> Rows fetched before execution  (cost=0.00 rows=1)
+
+EXPLAIN FORMAT=TREE SELECT * FROM (select * from t1 where a=1) as tt;
+EXPLAIN
+-> Filter: (t1.a = 1)  (cost=0.75 rows=1)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+parallel table with full text search
+CREATE TABLE ft_test (a VARCHAR(200), b TEXT, FULLTEXT (a,b)) charset utf8mb4;
+INSERT INTO ft_test VALUES('MySQL has now support', 'for full-text search'),
+('Full-text indexes', 'are called collections'),
+('Only MyISAM tables','support collections'),
+('Function MATCH ... AGAINST()','is used to do a search'),
+('Full-text search in MySQL', 'implements vector space model');
+ANALYZE TABLE ft_test;
+Table	Op	Msg_type	Msg_text
+test.ft_test	analyze	status	OK
+SHOW INDEX FROM ft_test;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+ft_test	1	a	1	a	NULL	5	NULL	NULL	YES	FULLTEXT			YES	NULL
+ft_test	1	a	2	b	NULL	5	NULL	NULL	YES	FULLTEXT			YES	NULL
+EXPLAIN FORMAT=tree select * from ft_test where MATCH(a,b) AGAINST ("collections");
+EXPLAIN
+-> Filter: (match ft_test.a,ft_test.b against ('collections'))  (cost=0.35 rows=1)
+    -> Indexed full text search on ft_test using a (a='collections')  (cost=0.35 rows=1)
+
+DROP TABLE ft_test;
+unsafe parallel table scan type check
+CREATE TABLE t4 (f1 INT NOT NULL, f2 INT NOT NULL, PRIMARY KEY(f1, f2));
+INSERT INTO t4 VALUES (1,1), (1,2), (1,3), (1,4), (1,5),(2,1), (2,2), (2,3), (2,4), (2,5);
+INSERT INTO t4 SELECT f1, f2 + 5 FROM t4;
+INSERT INTO t4 SELECT f1, f2 + 10 FROM t4;
+INSERT INTO t4 SELECT f1, f2 + 20 FROM t4;
+INSERT INTO t4 SELECT f1, f2 + 40 FROM t4;
+ANALYZE TABLE t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
+EXPLAIN format=tree SELECT f1, f2 FROM t4 WHERE f2 = 40;
+EXPLAIN
+-> Filter: (t4.f2 = 40)  (cost=6.66 rows=16)
+    -> Index range scan on t4 using index_for_skip_scan(PRIMARY)  (cost=6.66 rows=16)
+
+DROP TABLE t4;
+####
+####parallel unsafe aggregation function check
+####
+explain format=tree select count(a) from t1;
+EXPLAIN
+-> Aggregate: count(t1.a)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: count(t1.a)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
+select count(a) from t1;
+count(a)
+5
+explain format=tree select count(distinct a) from t1;
+EXPLAIN
+-> Aggregate: count(distinct t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select count(distinct a) from t1;
+count(distinct a)
+5
+explain format=tree select sum(a) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.a)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
+select sum(a) from t1;
+sum(a)
+15
+explain format=tree select sum(distinct a) from t1;
+EXPLAIN
+-> Aggregate: sum(distinct t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select sum(distinct a) from t1;
+sum(distinct a)
+15
+explain format=tree select avg(a) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), count(t1.a)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.a), count(t1.a)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
+select avg(a) from t1;
+avg(a)
+3.0000
+explain format=tree select avg(distinct a) from t1;
+EXPLAIN
+-> Aggregate: avg(distinct t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select avg(distinct a) from t1;
+avg(distinct a)
+3.0000
+explain format=tree select VARIANCE(a) from t1;
+EXPLAIN
+-> Aggregate: variance(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select VARIANCE(a) from t1;
+VARIANCE(a)
+2
+explain format=tree select VAR_POP(a) from t1;
+EXPLAIN
+-> Aggregate: variance(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select VAR_POP(a) from t1;
+VAR_POP(a)
+2
+explain format=tree select VAR_SAMP(a) from t1;
+EXPLAIN
+-> Aggregate: var_samp(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select VAR_SAMP(a) from t1;
+VAR_SAMP(a)
+2.5
+explain format=tree select STD(a) from t1;
+EXPLAIN
+-> Aggregate: std(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select STD(a) from t1;
+STD(a)
+1.4142135623730951
+explain format=tree select STDDEV(a) from t1;
+EXPLAIN
+-> Aggregate: std(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select STDDEV(a) from t1;
+STDDEV(a)
+1.4142135623730951
+explain format=tree select STDDEV_POP(a) from t1;
+EXPLAIN
+-> Aggregate: std(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
+select STDDEV_POP(a) from t1;
+STDDEV_POP(a)
+1.4142135623730951
+CREATE TABLE json_test (`key` varchar(8) DEFAULT NULL, `grp` varchar(8) DEFAULT NULL, `val` varchar(8)) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO json_test(`key`, `grp`, `val`) VALUES
+("key1", "g1", "v1"),
+("key2", "g1", "v2"),
+("key3", "g2", "v3");
+explain format=tree SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
+EXPLAIN
+-> Aggregate: json_arrayagg(json_test.`key`)
+    -> Table scan on json_test  (cost=0.55 rows=3)
+
+SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
+keys
+["key1", "key2", "key3"]
+explain format=tree SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
+EXPLAIN
+-> Aggregate: json_objectagg(json_test.`key`,json_test.val)
+    -> Table scan on json_test  (cost=0.55 rows=3)
+
+SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
+key_val
+{"key1": "v1", "key2": "v2", "key3": "v3"}
+DROP TABLE json_test;
+####
+####parallel unsafe aggregation function check
+####
+unsafe json function check
+explain format=tree select CAST('[1,2,3]' as JSON) from t1;
+EXPLAIN
+-> Table scan on t1  (cost=0.75 rows=5)
+
+CREATE TABLE t11 (pk INT AUTO_INCREMENT KEY, id INT DEFAULT 0,
+data JSON NOT NULL,
+UNIQUE KEY zips(id, (CAST(CAST(data AS JSON) AS UNSIGNED ARRAY))));
+INSERT INTO t11(data) VALUES ('[0,1,2]'), ('[10,11,12]');
+EXPLAIN format=tree SELECT pk, id FROM t11 WHERE JSON_CONTAINS(CAST(data AS JSON),'1');
+EXPLAIN
+-> Filter: json_contains(cast(cast(`data` as json) as unsigned array),json'[1]')  (cost=0.45 rows=2)
+    -> Table scan on t11  (cost=0.45 rows=2)
+
+DROP TABLE t11;
+unsafe XML function check
+CREATE TABLE t12(a INT NOT NULL);
+INSERT INTO t12 VALUES (0), (0);
+explain format=tree SELECT 1 FROM t12 ORDER BY(UPDATEXML(a, '1', '1'));
+EXPLAIN
+-> Sort: updatexml(t12.a,'1','1')  (cost=0.45 rows=2)
+    -> Table scan on t12  (cost=0.45 rows=2)
+
+explain format=tree SELECT 1 FROM t12 where UPDATEXML(a, '1', '1');
+EXPLAIN
+-> Filter: (0 <> updatexml(t12.a,'1','1'))  (cost=0.45 rows=2)
+    -> Table scan on t12  (cost=0.45 rows=2)
+
+DROP TABLE t12;
+unsafe sp function check
+drop function if exists t1_sum;
+Warnings:
+Note	1305	FUNCTION test.t1_sum does not exist
+create function t1_sum() returns int return (select sum(b) from t1);
+explain format=tree select *, t1_sum() from t1;
+EXPLAIN
+-> Table scan on t1  (cost=0.75 rows=5)
+
+drop function t1_sum;
+explain format=tree select rand() from t1;
+EXPLAIN
+-> Table scan on t1  (cost=0.75 rows=5)
+
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+drop table t1;
+drop table t2;
+drop database test1;
+drop user user1;

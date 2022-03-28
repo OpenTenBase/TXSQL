@@ -1069,6 +1069,9 @@ class Item_sum_sum : public Item_sum_num {
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
   void pq_fix_result_type(Item_result item_result) override { hybrid_type = item_result; }
+  virtual bool parallel_safe() override {
+    return (sum_func() == SUM_DISTINCT_FUNC) ? false : true;
+  }
 };
 
 class Item_sum_count : public Item_sum_int {
@@ -1120,6 +1123,9 @@ class Item_sum_count : public Item_sum_int {
   const char *func_name() const override { return "count"; }
   Item *copy_or_same(THD *thd) override;
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
+  virtual bool parallel_safe() override {
+    return (sum_func() == COUNT_DISTINCT_FUNC) ? false : true;
+  }
 };
 
 /* Item to get the value of a stored sum function */
@@ -1263,6 +1269,7 @@ class Item_sum_json : public Item_sum {
 
   bool check_wf_semantics1(THD *, Query_block *,
                            Window_evaluation_requirements *) override;
+  virtual bool parallel_safe() override { return false; }
 };
 
 class Item_sum_histogram final : public Item_sum_json {
@@ -1405,6 +1412,10 @@ class Item_sum_avg final : public Item_sum_sum {
     Item_sum_sum::cleanup();
   }
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
+
+  virtual bool parallel_safe() override {
+    return (sum_func() == AVG_DISTINCT_FUNC) ? false : true;
+  }
 };
 
 class Item_sum_variance;
@@ -1542,6 +1553,7 @@ class Item_sum_variance : public Item_sum_num {
   }
   bool check_wf_semantics1(THD *thd, Query_block *select,
                            Window_evaluation_requirements *reqs) override;
+  virtual bool parallel_safe() override { return false; }
 };
 
 class Item_sum_std;
@@ -1583,6 +1595,7 @@ class Item_sum_std : public Item_sum_variance {
   }
   Item *copy_or_same(THD *thd) override;
   enum Item_result result_type() const override { return REAL_RESULT; }
+  virtual bool parallel_safe() override { return false; }
 };
 
 // This class is a string or number function depending on num_func
@@ -2035,6 +2048,7 @@ class Item_udf_sum : public Item_sum {
   void cleanup() override;
   void print(const THD *thd, String *str,
              enum_query_type query_type) const override;
+  virtual bool parallel_safe() override { return false; }
 };
 
 class Item_sum_udf_float final : public Item_udf_sum {
@@ -2279,6 +2293,7 @@ class Item_func_group_concat final : public Item_sum {
    * Temp_table_param should be reset when injected exchange before.
    */
   bool reset(THD *thd);
+  virtual bool parallel_safe() override { return false; }
 };
 
 /**

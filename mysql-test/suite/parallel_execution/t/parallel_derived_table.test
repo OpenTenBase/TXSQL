@@ -1,0 +1,46 @@
+--source include/have_debug.inc
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+CREATE TABLE t1 (a int not null, b char (10) not null);
+insert into t1 values(1,'a'),(2,'b'),(3,'c'),(3,'c');
+CREATE TABLE t2 (a int not null, b char (10) not null);
+insert into t2 values (3,'c'),(4,'d'),(5,'f'),(6,'e');
+ANALYZE TABLE t1,t2;
+
+explain select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+
+connection conn1;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+connect(conn2,localhost,user1,,);
+
+explain select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+
+explain select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+explain format=tree select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+
+--echo dervied table with unsupported function
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+
+drop table t1,t2;
+drop database test1;
+drop user user1;

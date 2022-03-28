@@ -59,5 +59,6 @@ bool pq_support_aggr_functype(Item_sum::Sumfunctype type);
 */
 bool check_sum_func_support(THD *thd, JOIN *join);
 
+extern bool check_px_unsafe_item(Item *item);
 
 #endif /* PX_ITEM_INCLUDED */

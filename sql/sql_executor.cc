@@ -90,6 +90,7 @@
 #include "sql/opt_explain_format.h"
 #include "sql/opt_trace.h"  // Opt_trace_object
 #include "sql/px_exchange.h"  // Exchange_info
+#include "sql/parallel_execution/px_item.h"
 #include "sql/query_options.h"
 #include "sql/record_buffer.h"  // Record_buffer
 #include "sql/sort_param.h"
@@ -3468,6 +3469,119 @@ AccessPath *JOIN::attach_access_path_for_update_or_delete(AccessPath *path) {
   return path;
 }
 
+/**
+  Choose the table to be parallel scan. Now, only the first non-const 
+  parimary table can be the parallel table.
+
+  @param parallel_tab the table will be partition.
+  @return
+    true find the suitable parallel table, false or not
+*/
+bool JOIN::choose_parallel_table(QEP_TAB *parallel_tab) {
+  if (primary_tables == const_tables) {
+    return false;
+  }
+  parallel_tab = &qep_tab[const_tables];
+  TABLE *tb = parallel_tab->table();
+  TABLE_LIST *tbl = parallel_tab->table_ref;
+  assert(tb);
+  assert(tbl);
+  /*
+    Check the table type. These tables can't be choosen as 
+    the parallel table:
+    1) template table
+    2) non-InnoDB table
+    3) partition table
+    4) fulltext match search
+    5) view or derived table
+  */
+  if (tb->s->tmp_table != NO_TMP_TABLE ||    
+      tb->file->ht->db_type != DB_TYPE_INNODB ||
+      tb->part_info || tbl->is_fulltext_searched() ||
+      tbl->is_view_or_derived()) {
+    return false;
+  }
+  /*
+    Check the table scan type. These scan type of parallel table supported:
+    1) TABLE SCAN
+    2) INDEX SCAN
+    3) REF SCAN
+    4) RANGE SCAB(only QUICK_RANGE_SELECT)
+  */
+  if (parallel_tab->type() != JT_ALL &&
+      parallel_tab->type() != JT_INDEX_SCAN &&
+      parallel_tab->type() != JT_REF &&
+      parallel_tab->type() != JT_RANGE) {
+    return false;
+  }
+  // @TODO check the range scan.
+
+  /*
+    Check semi-join strategy. LooseScan strategy and materialize stategy
+    are not supported by paralel query now!
+  */
+  if (parallel_tab->get_sj_strategy() == SJ_OPT_LOOSE_SCAN ||
+      parallel_tab->get_sj_strategy() == SJ_OPT_MATERIALIZE_SCAN) {
+    return false;
+  }
+
+  /* The table can't be explict locked. */
+  if (tbl->lock_descriptor().type > TL_READ_DEFAULT || thd->lex->locking_clause) {
+    return false;
+  }
+
+  parallel_tab->m_parallel_scan = true;
+  return true;
+}
+
+bool JOIN::check_expression_parallel_safe() {
+  for (Item *item : *fields) {
+    if (check_px_unsafe_item(item)) {
+      return false;
+    }
+  }
+
+  // @TODO move the check for where condition to AccessPath::Fileter
+  if (query_block->where_cond() && check_px_unsafe_item(query_block->where_cond())) {
+    return false;
+  }
+  // @TODO move the check for having condtion to AccessPath check
+  if (query_block->having_cond() && check_px_unsafe_item(query_block->having_cond())) {
+    return false;
+  }
+
+  // @TODO move the check for order by list to AccessPath check
+  if (order.order) {
+    ORDER *tmp = nullptr;
+    Item *order_item = nullptr;
+    for (tmp = order.order; tmp; tmp = tmp->next) {
+      order_item = *(tmp->item);
+      if (check_px_unsafe_item(order_item)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool JOIN::check_px_execution() {
+  if (rollup_state != RollupState::NONE ||
+      zero_result_cause != nullptr ||
+      select_distinct ||
+      select_count||
+      fields->size() > MAX_FIELDS ||
+      m_windows.elements) {
+    return false;
+  }
+
+  if (!check_expression_parallel_safe()) {
+    return false;
+  }
+
+  return true;
+}
+
 void JOIN::create_access_paths() {
   assert(m_root_access_path == nullptr);
 
@@ -3476,46 +3590,85 @@ void JOIN::create_access_paths() {
   path = attach_access_path_for_update_or_delete(path);
 
   LEX *lex = thd->lex;
-  AccessPath *target_path = nullptr;  // Where to inject exchange
-  bool split_agg = false;
-  if (!exchange_inject ||
-      FindExchangeInjectPosition(thd, this, path, target_path, split_agg)) {
+  QEP_TAB *parallel_tab = nullptr;
+  bool is_primary_qb = (query_block->type() == enum_explain_type::EXPLAIN_PRIMARY) ||
+                       (query_block->type() == enum_explain_type::EXPLAIN_SIMPLE) ||
+                       (query_block->type() == enum_explain_type::EXPLAIN_UNION);
+
+  // PHASE-1: Do the compatibility check if open the parallel switch.
+  if (!lex->pass_px_check) {
+    m_root_access_path = path;
+    return ;
+  } else if (!lex->check_px_execution()) {
+    lex->pass_px_check = false;
     m_root_access_path = path;
     return ;
   }
 
+  // Only primary qb can choose a parallel table.
+  if (is_primary_qb &&
+      !choose_parallel_table(parallel_tab)) {
+    lex->pass_px_check = false;
+    m_root_access_path = path;
+    return ;
+  }
 
-  if (lex->check_px_execution() && WalkAccessPathsForCompat(path)) {
-    sql_print_information("compatible check passed and begin to insert exchange.");
-    if (thd->variables.cdb_parallel_query_enable && split_agg) {
-      if (exchange_temp_table == nullptr) {
-        exchange_temp_table =
-            new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
-        exchange_temp_table_param =
-            new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
-      }
-      path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+  /*
+    For primary query block, we need to get the maxmium sub accesspath-tree
+    can be parallel executed. 
+  */
+  if (is_primary_qb && !WalkAccessPathsForCompat(path)) {
+    lex->pass_px_check = false;
+    m_root_access_path = path;
+    return ;
+  }
+
+  if (!is_primary_qb) {
+    m_root_access_path = path;
+    return ;
+  }
+
+  // PHASE-2: Find the exchange operator inject position in primary query block.
+  AccessPath *target_path = nullptr;  // Where to inject exchange
+  bool split_agg = false;
+  if (!exchange_inject ||
+      FindExchangeInjectPosition(thd, this, path, target_path, split_agg)) {
+    lex->pass_px_check = false;
+    m_root_access_path = path;
+    return ;
+  }
+
+  sql_print_information("compatible check passed and begin to insert exchange.");
+  // PHASE-3: Rebuild the aggr and sort operator if necessary.
+  if (split_agg) {
+    if (exchange_temp_table == nullptr) {
+      exchange_temp_table =
+          new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
+      exchange_temp_table_param =
+          new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
     }
-    
-    if (exchange_inject) {
-      if (exchange_temp_table == nullptr) {
-        exchange_temp_table =
-            new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
-        exchange_temp_table_param =
-            new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
-      }
-      bool new_child = false;
-      AccessPath *exchange = WalkAccessPathsForExchange(
+    path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+  }
+
+  // PHASE-4: Inject the exchange operators.
+  if (exchange_inject) {
+    if (exchange_temp_table == nullptr) {
+      exchange_temp_table =
+          new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
+      exchange_temp_table_param =
+          new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
+    }
+    bool new_child = false;
+    AccessPath *exchange = WalkAccessPathsForExchange(
           thd, this, path, target_path, /*curr_exchange=*/0,
           /*new_child=*/new_child, /*cur_slice*/-1, false);
-      if (exchange) {
-        if (exchange->px_receiver().use_temp_table) {
-          int ref_slice = exchange->px_receiver().ref_slice;
-          fields = &tmp_fields[ref_slice];
-        }
-        if (new_child)
-          path = exchange;
+    if (exchange) {
+      if (exchange->px_receiver().use_temp_table) {
+        int ref_slice = exchange->px_receiver().ref_slice;
+        fields = &tmp_fields[ref_slice];
       }
+      if (new_child)
+        path = exchange;
     }
   }
 

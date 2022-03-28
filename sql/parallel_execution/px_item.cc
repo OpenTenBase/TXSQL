@@ -35,6 +35,14 @@
 #include "sql/sql_executor.h"
 #include "sql/log.h"
 
+static const char *px_unsafe_func_name[] {
+  "rand",          "json_valid",         "json_length",
+  "json_type",     "json_contains_path", "json_unquote",
+  "st_distance",   "get_lock",           "is_free_lock",
+  "is_used_lock",  "release_lock",       "sleep",
+  "xml_str",       "json_func",          "release_all_locks"
+};
+
 /**
   Check aggregation functype are in PQ_SUPPORT_AGGR_FUNC
   or not.
@@ -282,4 +290,214 @@ void Temp_table_param::pq_copy_from(Temp_table_param *orig_param) {
   bit_fields_as_long = orig_param->bit_fields_as_long;
   group_parts = orig_param->group_parts;
   group_null_parts = orig_param->group_null_parts;
+}
+
+/**
+  Check the data type of the item is parallel unsafe. 
+
+  @return false parallel safe true unsafe
+*/
+static bool check_px_unsafe_datatype(Item *item) {
+  assert(item);
+
+  if (item->data_type() == MYSQL_TYPE_BLOB ||
+      item->data_type() == MYSQL_TYPE_BIT ||
+      item->data_type() == MYSQL_TYPE_JSON ||
+      item->data_type() == MYSQL_TYPE_TINY_BLOB ||
+      item->data_type() == MYSQL_TYPE_MEDIUM_BLOB ||
+      item->data_type() == MYSQL_TYPE_LONG_BLOB ||
+      item->data_type() == MYSQL_TYPE_GEOMETRY) {
+    return true;
+  }
+
+  if (item->type() == Item::FIELD_ITEM) {
+    Field *field = static_cast<Item_field *>(item)->field;
+    assert(field);
+
+    if (field && field->is_gcol()) {
+      return true;
+    }
+
+    if (field->type() == MYSQL_TYPE_BLOB ||
+        field->type() == MYSQL_TYPE_BIT ||
+        field->type() == MYSQL_TYPE_JSON ||
+        field->type() == MYSQL_TYPE_TINY_BLOB ||
+        field->type() == MYSQL_TYPE_MEDIUM_BLOB ||
+        field->type() == MYSQL_TYPE_LONG_BLOB ||
+        field->type() == MYSQL_TYPE_GEOMETRY) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_aggr_func(Item *item) {
+  assert(item);
+
+  if (item->type() == Item::SUM_FUNC_ITEM) {
+    Item_sum *aggr = static_cast<Item_sum *>(item);
+    /* Check parallel safe of the Item_sum */
+    if (!aggr->parallel_safe()) {
+      return true;
+    }
+
+    for (uint i = 0; i < aggr->arg_count; i++) {
+      Item *arg_item = aggr->get_arg(i);
+      assert(arg_item);
+      if (!arg_item || check_px_unsafe_item(arg_item)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_func(Item *item) {
+  assert(item);
+
+  if (item->type() == Item::FUNC_ITEM) {
+    Item_func *func = static_cast<Item_func *>(item);
+
+    // Check parallel unsafe by func type
+    if (func->functype() == Item_func::JSON_FUNC ||
+        func->functype() == Item_func::XML_FUNC ||
+        func->functype() == Item_func::UDF_FUNC ||
+        func->functype() == Item_func::FUNC_SP ||
+        func->functype() == Item_func::SUSERVAR_FUNC ||
+        func->functype() == Item_func::SUSERVAR_FUNC ||
+        func->functype() == Item_func::MATCH_FUNC) {
+      return true;
+    }
+
+    // Check parallel unsafe by func name
+    for (auto funcname : px_unsafe_func_name) {
+      if (!strcmp(func->func_name(), funcname)) {
+        return true;
+      }
+    }
+
+    for (uint i = 0; i < func->arg_count; i++) {
+      Item *arg_item = func->get_arg(i);
+      assert(arg_item);
+      if (!arg_item || check_px_unsafe_item(arg_item)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_cond(Item *item) {
+  assert(item);
+
+  if (item->type() == Item::COND_ITEM) {
+    Item_cond *condition = static_cast<Item_cond *>(item);
+
+    // Check parallel unsafe by func type
+    if (condition->functype() == Item_func::JSON_FUNC ||
+        condition->functype() == Item_func::XML_FUNC ||
+        condition->functype() == Item_func::UDF_FUNC ||
+        condition->functype() == Item_func::FUNC_SP ||
+        condition->functype() == Item_func::SUSERVAR_FUNC ||
+        condition->functype() == Item_func::SUSERVAR_FUNC ||
+        condition->functype() == Item_func::MATCH_FUNC) {
+      return true;
+    }
+
+    Item *arg_item = nullptr;
+    List_iterator_fast<Item> it(*condition->argument_list());
+    for (uint i = 0; (arg_item = it++); i++) {
+      assert(arg_item);
+      if (!arg_item || check_px_unsafe_item(arg_item)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_ref(Item *item) {
+  assert(item);
+  if (item->type() == Item::REF_ITEM) {
+    Item_ref *item_ref = down_cast<Item_ref *>(item);
+    if (!item_ref ||
+        item_ref->ref_type() == Item_ref::OUTER_REF) {
+      return true;
+    }
+
+    if (item_ref->ref[0] && check_px_unsafe_item(item_ref->ref[0])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_row(Item *item) {
+  assert(item);
+
+  if (item->type() == Item::ROW_ITEM) {
+    Item_row *row = down_cast<Item_row *>(item);
+
+    for (uint i = 0; i < row->cols(); i++) {
+      Item *row_item = row->element_index(i);
+      assert(row_item);
+      if (!row_item || check_px_unsafe_item(row_item)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_cache(Item *item) {
+  assert(item);
+
+  if (item->type() == Item::CACHE_ITEM) {
+    Item_cache *cache = dynamic_cast<Item_cache *>(item);
+
+    Item *example = cache->get_example();
+    assert(example);
+    if (!example || check_px_unsafe_item(example)) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+static bool check_px_unsafe_subselect(Item *item) {
+  assert(item);
+
+  // @TODO: do more check
+  if (item->type() == Item::SUBSELECT_ITEM) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/**
+  Check the compatibility of JOIN::fields, which may be
+  exchanged by exchange channel.
+*/
+bool check_px_unsafe_item(Item *item) {
+  if (check_px_unsafe_datatype(item) ||
+      check_px_unsafe_aggr_func(item) ||
+      check_px_unsafe_func(item) ||
+      check_px_unsafe_cond(item) ||
+      check_px_unsafe_ref(item) ||
+      check_px_unsafe_row(item) ||
+      check_px_unsafe_cache(item) ||
+      check_px_unsafe_subselect(item)) {
+    return true;
+  }
+
+  return false;
 }

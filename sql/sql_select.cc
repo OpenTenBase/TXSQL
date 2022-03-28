@@ -4450,6 +4450,19 @@ bool JOIN::make_tmp_tables_info() {
       });
 
   /*
+    Check the fields before optimizer. For the reason that
+    some item will be optimized to Item_field.
+    For example, select * from t1,(select rand(), t2.a,
+    count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+    Item_func rand() will be optimized to Item_field in tmp table.
+  */
+  if (thd->lex->pass_px_check) {
+    if (!thd->lex->check_px_execution()) {
+      thd->lex->pass_px_check = false;
+    }
+  }
+
+  /*
     If the plan is constant, we will not do window tmp table processing
     cf. special code path for handling const plans.
   */

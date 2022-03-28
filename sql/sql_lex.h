@@ -4292,6 +4292,10 @@ struct LEX : public Query_tables_list {
   bool clear_all_name;
   // Whether can use parallel execution.
   bool use_px{false};
+  // Whether the query pass the parallel compatibility check
+  bool pass_px_check{true};
+  // Whether statement contains locking clause.
+  bool locking_clause{false};
 
   LEX();
 

@@ -1,0 +1,99 @@
+--echo # Infrastructure for Enhanced Prepare once
+
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+
+create database test1;
+
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+connection conn1;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+
+connect(conn2,localhost,user1,,);
+
+--disable_query_log
+if (`select locate('materialization', @@optimizer_switch) > 0`)
+{
+  set optimizer_switch='materialization=off';
+}
+if (`select locate('firstmatch', @@optimizer_switch) > 0`)
+{
+  set optimizer_switch='firstmatch=off';
+}
+if (`select locate('duplicateweedout', @@optimizer_switch) > 0`)
+{
+  set optimizer_switch='duplicateweedout=off';
+}
+if (`select locate('index_condition_pushdown', @@optimizer_switch) > 0`)
+{
+  set optimizer_switch='index_condition_pushdown=off';
+}
+if (`select locate('mrr', @@optimizer_switch) > 0`)
+{
+  set optimizer_switch='mrr=off';
+}
+--enable_query_log
+
+set optimizer_switch='semijoin=on,loosescan=on';
+set @old_opt_switch=@@optimizer_switch;
+set optimizer_switch='subquery_materialization_cost_based=off';
+
+create table t1 (a int, b int, index a (a,b));
+create table t2 (a int, index a (a));
+insert into t1 values (1,10), (2,20), (3,30), (4,40);
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+insert into t1
+select rand()*100000+200,rand()*100000 from t0 A, t0 B, t0 C, t0 D;
+insert into t2 values (2), (3), (4), (5);
+ANALYZE TABLE t1,t2;
+
+--echo loosescan stategy check
+--replace_column 10 # 11 #
+explain select * from t2 where t2.a in (select a from t1);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t2 where t2.a in (select a from t1);
+
+--echo materialization stategy check
+set optimizer_switch='semijoin=on,loosescan=off';
+set optimizer_switch='materialization=on';
+--replace_column 10 # 11 #
+explain select * from t2 where t2.a in (select a from t1);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t2 where t2.a in (select a from t1);
+
+--echo firstmatch stategy check
+set optimizer_switch='semijoin=on,materialization=off';
+set optimizer_switch='firstmatch=on';
+--replace_column 10 # 11 #
+explain select * from t2 where t2.a in (select a from t1);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t2 where t2.a in (select a from t1);
+
+--echo duplicateweedout stategy check
+set optimizer_switch='semijoin=on,firstmatch=off';
+set optimizer_switch='duplicateweedout=on';
+--replace_column 10 # 11 #
+explain select * from t2 where t2.a in (select a from t1);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t2 where t2.a in (select a from t1);
+
+set optimizer_switch=default;
+
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+
+drop table t0;
+drop table t1;
+drop table t2;
+drop database test1;
+drop user user1;

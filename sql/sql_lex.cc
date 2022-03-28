@@ -841,43 +841,58 @@ bool LEX::check_preparation_invalid(THD *thd_arg) {
 }
 
 bool LEX::check_px_execution() const {
-  bool ret = false;
-  if (sql_command == SQLCOM_SELECT && !unit->has_user_vars() &&
-      !is_from_ps && !is_from_sp && !unit->is_union() &&
-      current_query_block() && current_query_block()->table_list.elements > 0)
-    ret = true;
+  // Do the statement global check.
+  if (!thd->variables.cdb_parallel_execution_enabled ||
+      !thd->variables.cdb_parallel_query_enable) {
+    return false;
+  }
 
-  // skip that has lock when select.
-  if (query_tables && query_tables->updating) ret = false;
+  // Explain analyze have not supported yet!
+  if (is_explain() && is_explain_analyze) {
+    return false;
+  }
 
-  for (const TABLE_LIST *tl = query_tables; ret && tl != nullptr;
-      tl = tl->next_global) {
-    if (tl->table && tl->table->file && (  // 1. has table
-        nullptr != tl->table->part_info || // 2. not partition table.
-        strncmp(tl->table->file->table_type(), "InnoDB", 6) != 0)) { 
-                                           // 3. must innodb
-      ret = false;
-      break;
+  if (thd->is_attachable_transaction_active() ||
+      thd->tx_isolation == ISO_SERIALIZABLE) {
+    return false;
+  }
+
+  if (locking_clause ||
+      sql_command != SQLCOM_SELECT ||
+      unit->has_user_vars() ||
+      is_from_ps ||
+      is_from_sp ||
+      unit->is_union()) {
+    return false;
+  }
+
+  for (const TABLE_LIST *tl = query_tables; tl != nullptr; tl = tl->next_global) {
+    if (!tl->table ||
+        !tl->table->file) {
+      return false;
+    }
+
+    // Detived table is set TL_READ.
+    if (!tl->is_view_or_derived() &&
+        (tl->table->file->ht->db_type != DB_TYPE_INNODB ||
+         tl->lock_descriptor().type > TL_READ_DEFAULT))  {
+      return false;
     }
   }
 
-  if (ret) {// TODO: more check.
-    mem_root_deque<Item *> *fields = &current_query_block()->fields;
-    for (Item *item : *fields) {
-      if (item->data_type() == MYSQL_TYPE_BLOB ||
-          item->data_type() == MYSQL_TYPE_BIT ||
-          item->data_type() == MYSQL_TYPE_JSON ||
-          item->data_type() == MYSQL_TYPE_TINY_BLOB ||
-          item->data_type() == MYSQL_TYPE_MEDIUM_BLOB ||
-          item->data_type() == MYSQL_TYPE_LONG_BLOB ||
-          item->data_type() == MYSQL_TYPE_GEOMETRY) {
-        ret = false;
-        break;
-      }
-    }
+  // Do the current query block check.
+  if (!current_query_block() ||
+      current_query_block()->table_list.elements < 1) {
+    return false;
   }
 
-  return ret;
+  assert(current_query_block()->join);
+  if (!current_query_block()->join ||
+      !current_query_block()->join->check_px_execution()) {
+    return false;
+  }
+
+  return true;
 }
 
 Yacc_state::~Yacc_state() {

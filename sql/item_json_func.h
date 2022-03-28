@@ -218,6 +218,8 @@ class Item_json_func : public Item_func {
     called if #supports_partial_update returns true.
   */
   void mark_for_partial_update(const Field_json *field);
+
+  enum Functype functype() const override { return JSON_FUNC; }
 };
 
 bool sql_scalar_to_json(Item *arg, const char *calling_function, String *value,

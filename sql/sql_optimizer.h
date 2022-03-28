@@ -158,6 +158,8 @@ class JOIN {
     return query_block->master_query_expression();
   }
 
+  bool check_px_execution();
+
   /// Query block that is optimized and executed using this JOIN
   Query_block *const query_block;
   /// Thread handler
@@ -1093,6 +1095,9 @@ private:
 
   bool alloc_indirection_slices();
 
+  bool choose_parallel_table(QEP_TAB *parallel_tab);
+
+  bool check_expression_parallel_safe();
   /**
     Convert the executor structures to a set of access paths, storing
     the result in m_root_access_path.
