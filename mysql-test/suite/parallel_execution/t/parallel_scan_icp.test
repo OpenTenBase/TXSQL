@@ -1,5 +1,12 @@
 --source include/have_debug.inc
+--disable_ps_protocol
 
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
 #
 # Testing Index Condition Pushdown for Parallel execution
 #
@@ -19,13 +26,23 @@ CREATE TABLE t2 (
 ) ENGINE=InnoDB;
 
 INSERT INTO t2 SELECT a,a,a,a FROM t1;
+ANALYZE TABLE t0,t1,t2;
+
+connection conn1;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+connect(conn2,localhost,user1,,);
 
 --echo # Try a basic case:
-EXPLAIN SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+EXPLAIN FORMAT=TREE SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
 SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
 
-SET debug = '+d,px_force_execute';
-SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
-SET debug = '-d,px_force_execute';
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
 
-DROP TABLE t0,t1,t2;
+drop table t0,t1,t2;
+drop database test1;
+drop user user1;

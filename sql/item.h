@@ -835,6 +835,12 @@ class Item : public Parse_tree_node {
   static void operator delete(void *, MEM_ROOT *,
                               const std::nothrow_t &) noexcept {}
 
+  /**
+     Check the item is parallel safe or not.
+     @retval true the item is parallel safe.
+   */
+  virtual bool parallel_safe() { return true; }
+
   enum Type {
     INVALID_ITEM = 0,
     FIELD_ITEM,
@@ -6534,6 +6540,8 @@ class Item_cache : public Item_basic_constant {
     set_nullable(true);
     null_value = true;
   }
+
+  Item *get_example() { return example; }
 
   void fix_after_pullout(Query_block *parent_query_block,
                          Query_block *removed_query_block) override {

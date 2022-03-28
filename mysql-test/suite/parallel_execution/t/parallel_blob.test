@@ -1,4 +1,12 @@
 --source include/have_debug.inc
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
 
 CREATE TABLE `testText` (
   `id` int(11) unsigned NOT NULL,
@@ -11,11 +19,20 @@ INSERT INTO testText (id,data) VALUES (0,repeat('0123456789abcdef',1));
 INSERT INTO testText (id,data) VALUES (1,repeat('0123456789abcdef',510));
 ANALYZE TABLE testText;
 
-EXPLAIN SELECT * FROM testText;
+connection conn1;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+connect(conn2,localhost,user1,,);
+
+EXPLAIN FORMAT=TREE SELECT * FROM testText;
 SELECT * FROM testText;
 
-SET debug = '+d,px_force_execute';
-SELECT * FROM testText;
-SET debug = '-d,px_force_execute';
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
 
 DROP TABLE testText;
+drop database test1;
+drop user user1;

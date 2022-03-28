@@ -544,9 +544,12 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
   switch (path->type) {
     case AccessPath::TABLE_SCAN: {
       TABLE *table = path->table_scan().table;
-      if (table->s->table_category != TABLE_CATEGORY_USER ||
-          table->s->tmp_table != NO_TMP_TABLE)
+      TABLE_LIST *tl = table->pos_in_table_list;
+      if (tl && tl->is_view_or_derived()) {
+        parallel_safe = true;
+      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
         parallel_safe = false;
+      }
       else if (table->file->stats.records <= 2)
         parallel_safe = false;
       else if (!compat_for_table(table))
@@ -557,9 +560,12 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     }
     case AccessPath::INDEX_SCAN: {
       TABLE *table = path->index_scan().table;
-      if (table->s->table_category != TABLE_CATEGORY_USER ||
-          table->s->tmp_table != NO_TMP_TABLE)
+      TABLE_LIST *tl = table->pos_in_table_list;
+      if (tl && tl->is_view_or_derived()) {
+        parallel_safe = true;
+      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
         parallel_safe = false;
+      }
       else if (table->file->stats.records <= 2)
         parallel_safe = false;
       else if (!compat_for_table(table))
@@ -570,9 +576,12 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     }
     case AccessPath::REF: {
       TABLE *table = path->ref().table;
-      if (table->s->table_category != TABLE_CATEGORY_USER ||
-          table->s->tmp_table != NO_TMP_TABLE)
+      TABLE_LIST *tl = table->pos_in_table_list;
+      if (tl && tl->is_view_or_derived()) {
+        parallel_safe = true;
+      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
         parallel_safe = false;
+      }
       else if (table->file->stats.records <= 2)
         parallel_safe = false;
       else if (!compat_for_table(table))
@@ -584,9 +593,12 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     case AccessPath::REF_OR_NULL: {
       if (!check) {
         TABLE *table = path->ref_or_null().table;
-        if (table->s->table_category != TABLE_CATEGORY_USER ||
-            table->s->tmp_table != NO_TMP_TABLE)
+        TABLE_LIST *tl = table->pos_in_table_list;
+        if (tl && tl->is_view_or_derived()) {
+          parallel_safe = true;
+        } else if (table->s->table_category != TABLE_CATEGORY_USER) {
           parallel_safe = false;
+        }
         else if (table->file->stats.records <= 2)
           parallel_safe = false;
         else if (!compat_for_table(table))
@@ -599,10 +611,13 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
       break;
     } 
     case AccessPath::EQ_REF:
-    case AccessPath::PUSHED_JOIN_REF:
+    case AccessPath::PUSHED_JOIN_REF: {
+      parallel_safe = true;
+      break;
+    }
     case AccessPath::FULL_TEXT_SEARCH: {
       // No children.
-      parallel_safe = true;
+      parallel_safe = false;
       break;
     }
     case AccessPath::CONST_TABLE: {
@@ -618,9 +633,12 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     case AccessPath::INDEX_RANGE_SCAN: {
       const auto &param = path->index_range_scan();
       TABLE *table = param.used_key_part[0].field->table;
-      if (table->s->table_category != TABLE_CATEGORY_USER ||
-          table->s->tmp_table != NO_TMP_TABLE)
+      TABLE_LIST *tl = table->pos_in_table_list;
+      if (tl && tl->is_view_or_derived()) {
+        parallel_safe = true;
+      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
         parallel_safe = false;
+      }
       else if (table->file->stats.records <= 2)
         parallel_safe = false;
       else if (!compat_for_table(table))
@@ -678,6 +696,8 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
       bool o_compat = WalkAccessPathsForCompat(path->hash_join().outer, true);
       bool i_compat = WalkAccessPathsForCompat(path->hash_join().inner, false);
       parallel_safe = o_compat && i_compat;
+      // hash join is not supported in parallel query.
+      parallel_safe = false;
       break;
     }
     case AccessPath::FILTER: {
@@ -708,6 +728,10 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     }
     case AccessPath::LIMIT_OFFSET: {
       parallel_safe = WalkAccessPathsForCompat(path->limit_offset().child);
+      if (parallel_safe) {
+        // only support limit after filesort.
+        parallel_safe = path->limit_offset().child->type == AccessPath::SORT;
+      }
       break;
     }
     case AccessPath::STREAM: {
@@ -716,6 +740,7 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     }
     case AccessPath::MATERIALIZE: {
       parallel_safe = WalkAccessPathsForCompat(path->materialize().table_path);
+      // Check for each query block.
       break;
     }
     case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE: {
@@ -2853,6 +2878,8 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
     switch (subpath->type) {
       case AccessPath::TABLE_SCAN:
       case AccessPath::INDEX_SCAN:
+      case AccessPath::INDEX_RANGE_SCAN:
+      case AccessPath::REF:
       case AccessPath::NESTED_LOOP_JOIN:
       case AccessPath::HASH_JOIN:
       case AccessPath::FILTER:
@@ -2861,7 +2888,6 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
           target_path = subpath;
         }
         return false;
-      case AccessPath::REF:
       case AccessPath::REF_OR_NULL:
       case AccessPath::EQ_REF:
       case AccessPath::PUSHED_JOIN_REF:
@@ -2960,7 +2986,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
 
   switch (path->type) {
     case AccessPath::TABLE_SCAN:
-    case AccessPath::INDEX_SCAN: {
+    case AccessPath::INDEX_SCAN:
+    case AccessPath::INDEX_RANGE_SCAN:
+    case AccessPath::REF: {
       use_tmp_table = false;
       switch(path->type) {
         case AccessPath::TABLE_SCAN: {
@@ -2969,6 +2997,14 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         }
         case AccessPath::INDEX_SCAN: {
           table = path->index_scan().table;
+          break;
+        }
+        case AccessPath::INDEX_RANGE_SCAN: {
+          table = path->index_range_scan().used_key_part[0].field->table;
+          break;
+        }
+        case AccessPath::REF: {
+          table = path->ref().table;
           break;
         }
         default:

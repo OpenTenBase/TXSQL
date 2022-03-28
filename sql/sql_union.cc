@@ -864,8 +864,9 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     /// and generate the parallel execution plan before code generation.
     bool only_one_exchange = thd->lex->only_one_exchange(); // Compatible code.
     if (thd->variables.cdb_parallel_execution_enabled &&
-          thd->lex->check_px_execution() && only_one_exchange)
+        thd->lex->pass_px_check && only_one_exchange) {
       thd->lex->use_px = true;
+    }
     sql_print_information("basic check: %d, only one exchange: %d, ex num: %d",
       thd->lex->check_px_execution(),
       thd->lex->only_one_exchange(), thd->lex->m_exchange_number);

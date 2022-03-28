@@ -1,6 +1,12 @@
 --source include/have_debug.inc
+--disable_ps_protocol
 
-#####Parallel scan test########
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
 
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(
@@ -18,104 +24,72 @@ CREATE TABLE t1(
   dec $loop;
  }
 --enable_query_log
+ANALYZE TABLE t1;
 
+connection conn1;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+
+connect(conn2,localhost,user1,,);
+#####Parallel scan test########
 ###Case 01: TABLE SCAN###
-EXPLAIN SELECT * FROM t1;
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
 SELECT * FROM t1;
-
-SET debug = '+d,px_force_execute';
-SELECT * FROM t1;
-SET debug = '-d,px_force_execute';
 
 ###Case 02: INDEX SCAN###
-EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 SELECT id, col2 from t1 FORCE INDEX(idx_col2);
-SET debug = '+d,px_force_execute';
-SELECT id, col2 from t1 FORCE INDEX(idx_col2);
-SET debug = '-d,px_force_execute';
 
-EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
+EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
-SET debug = '-d,px_force_execute';
+
 
 ###Case 03: RANGE SCAN###
 --echo ###test range = (-inf, end)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = (-inf, end]
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = (start, +inf)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = [start, +inf)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = (start, end)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = [start, end)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = (start, end]
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = [start, end]
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = (-inf, end1] || [start2, +inf)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
-SET debug = '-d,px_force_execute';
 
 --echo ###test range = (start1, end1] || [start2, end2)
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
-SET debug = '-d,px_force_execute';
 
-EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
-SET debug = '+d,px_force_execute';
-SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
-SET debug = '-d,px_force_execute';
 
 ###Case 04: REF SCAN###
 DROP TABLE t1;
@@ -132,15 +106,17 @@ INSERT INTO t1 VALUES (), (), (), ();
 ANALYZE TABLE t1;
 
 EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y';
+EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y';
 SELECT * FROM t1 WHERE c1_idx = 'y';
-SET debug = '+d,px_force_execute';
-SELECT * FROM t1 WHERE c1_idx = 'y';
-SET debug = '-d,px_force_execute';
 
-EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
+EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
 SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
-SET debug = '+d,px_force_execute';
-SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
-SET debug = '-d,px_force_execute';
 
-DROP TABLE t1;
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+
+drop table t1;
+drop database test1;
+drop user user1;

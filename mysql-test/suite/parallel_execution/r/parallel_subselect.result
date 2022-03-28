@@ -1,0 +1,651 @@
+# Infrastructure for Enhanced Prepare once
+# Create tables ...
+create table region  ( r_regionkey  integer not null,
+r_name       char(25) not null,
+r_comment    varchar(152),
+primary key  (r_regionkey));
+create table nation  ( n_nationkey  integer not null,
+n_name       char(25) not null,
+n_regionkey  integer not null,
+n_comment    varchar(152),
+primary key  (n_nationkey));
+create table part  ( p_partkey     integer not null,
+p_name        varchar(55) not null,
+p_mfgr        char(25) not null,
+p_brand       char(10) not null,
+p_type        varchar(25) not null,
+p_size        integer not null,
+p_container   char(10) not null,
+p_retailprice decimal(15,2) not null,
+p_comment     varchar(23) not null,
+primary key   (p_partkey) );
+create table supplier ( s_suppkey     integer not null,
+s_name        char(25) not null,
+s_address     varchar(40) not null,
+s_nationkey   integer not null,
+s_phone       char(15) not null,
+s_acctbal     decimal(15,2) not null,
+s_comment     varchar(101) not null,
+primary key   (s_suppkey));
+create table partsupp ( ps_partkey     integer not null,
+ps_suppkey     integer not null,
+ps_availqty    integer not null,
+ps_supplycost  decimal(15,2)  not null,
+ps_comment     varchar(199) not null,
+primary key    (ps_partkey,ps_suppkey) );
+create table customer ( c_custkey     integer not null,
+c_name        varchar(25) not null,
+c_address     varchar(40) not null,
+c_nationkey   integer not null,
+c_phone       char(15) not null,
+c_acctbal     decimal(15,2)   not null,
+c_mktsegment  char(10) not null,
+c_comment     varchar(117) not null,
+primary key   (c_custkey));
+create table orders  ( o_orderkey       integer not null,
+o_custkey        integer not null,
+o_orderstatus    char(1) not null,
+o_totalprice     decimal(15,2) not null,
+o_orderdate      date not null,
+o_orderpriority  char(15) not null,  
+o_clerk          char(15) not null, 
+o_shippriority   integer not null,
+o_comment        varchar(79) not null,
+primary key      (o_orderkey));
+create table lineitem ( l_orderkey    integer not null,
+l_partkey     integer not null,
+l_suppkey     integer not null,
+l_linenumber  integer not null,
+l_quantity    decimal(15,2) not null,
+l_extendedprice  decimal(15,2) not null,
+l_discount    decimal(15,2) not null,
+l_tax         decimal(15,2) not null,
+l_returnflag  char(1) not null,
+l_linestatus  char(1) not null,
+l_shipdate    date not null,
+l_commitdate  date not null,
+l_receiptdate date not null,
+l_shipinstruct char(25) not null,
+l_shipmode     char(10) not null,
+l_comment      varchar(44) not null,
+primary key    (l_orderkey,l_linenumber));
+# Load data ...
+LOAD DATA INFILE '../../std_data/tpch/customer.tbl' INTO TABLE customer fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/lineitem.tbl' INTO TABLE lineitem fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/nation.tbl' INTO TABLE nation fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/orders.tbl' INTO TABLE orders fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/partsupp.tbl' INTO TABLE partsupp fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/part.tbl' INTO TABLE part fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/region.tbl' INTO TABLE region fields terminated by'|';
+LOAD DATA INFILE '../../std_data/tpch/supplier.tbl' INTO TABLE supplier fields terminated by'|';
+# Create indexes ...
+create index c_custkey_idx on customer(c_custkey);
+create index c_nationkey_idx on customer(c_nationkey);
+create index c_acctbal_idx on customer(c_acctbal);
+create index l_orderkey_idx on lineitem(l_orderkey);
+create index l_partkey_idx on lineitem(l_partkey);
+create index l_suppkey_idx on lineitem(l_suppkey);
+create index l_extendedprice_idx on lineitem(l_extendedprice);
+create index l_quantity_idx on lineitem(l_quantity);
+create index l_discount_idx on lineitem(l_discount);
+create index l_tax_idx on lineitem(l_tax);
+create index o_orderkey_idx on orders(o_orderkey);
+create index o_custkey_idx on orders(o_custkey);
+create index o_totalprice_idx on orders(o_totalprice);
+create index o_orderpriority_idx on orders(o_orderpriority);
+create index o_shippriority_idx on orders(o_shippriority);
+create index p_partkey_idx on part(p_partkey);
+create index p_size_idx on part(p_size);
+create index p_retailprice_idx on part(p_retailprice);
+create index ps_partkey_idx on partsupp(ps_partkey);
+create index ps_suppkey_idx on partsupp(ps_suppkey);
+create index ps_availqty_idx on partsupp(ps_availqty);
+create index s_suppkey_idx on supplier(s_suppkey);
+create index s_nationkey_idx on supplier(s_nationkey);
+create index s_acctbal_idx on supplier(s_acctbal);
+create index i_l_shipdate on lineitem (l_shipdate);
+create index i_l_suppkey_partkey on lineitem (l_partkey, l_suppkey);
+create index i_l_receiptdate on lineitem (l_receiptdate);
+create index i_l_orderkey_quantity on lineitem (l_orderkey, l_quantity);
+create index i_l_commitdate on lineitem (l_commitdate);
+# Analyze tables ...
+analyze table customer, lineitem, nation, orders, part, partsupp, region, supplier;
+Table	Op	Msg_type	Msg_text
+test.customer	analyze	status	OK
+test.lineitem	analyze	status	OK
+test.nation	analyze	status	OK
+test.orders	analyze	status	OK
+test.part	analyze	status	OK
+test.partsupp	analyze	status	OK
+test.region	analyze	status	OK
+test.supplier	analyze	status	OK
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+root@localhost
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+explain format = tree
+select
+s_acctbal,
+s_name,
+n_name,
+p_partkey,
+p_mfgr,
+s_address,
+s_phone,
+s_comment
+from
+part,
+supplier,
+partsupp,
+nation,
+region
+where
+p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and p_size = 32
+and p_type like '%NICKEL'
+	and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'AMERICA'
+	and ps_supplycost = (
+select
+min(ps_supplycost)
+from
+partsupp,
+supplier,
+nation,
+region
+where
+p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'AMERICA'
+	)
+order by
+s_acctbal desc,
+n_name,
+s_name,
+p_partkey
+LIMIT 100;
+EXPLAIN
+-> Limit: 100 row(s)
+    -> Sort: supplier.s_acctbal DESC, nation.n_name, supplier.s_name, part.p_partkey, limit input to 100 row(s) per chunk
+        -> Stream results  (cost=26.42 rows=2)
+            -> Nested loop inner join  (cost=26.42 rows=2)
+                -> Nested loop inner join  (cost=20.98 rows=16)
+                    -> Nested loop inner join  (cost=15.53 rows=16)
+                        -> Nested loop inner join  (cost=13.00 rows=4)
+                            -> Filter: (region.r_name = 'AMERICA')  (cost=0.75 rows=1)
+                                -> Table scan on region  (cost=0.75 rows=5)
+                            -> Filter: (part.p_type like '%NICKEL')  (cost=9.14 rows=4)
+                                -> Index lookup on part using p_size_idx (p_size=32)  (cost=9.14 rows=35)
+                        -> Filter: (partsupp.ps_supplycost = (select #2))  (cost=0.35 rows=4)
+                            -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=0.35 rows=4)
+                            -> Select #2 (subquery in condition; dependent)
+                                -> Aggregate: min(partsupp.ps_supplycost)
+                                    -> Nested loop inner join  (cost=4.20 rows=0)
+                                        -> Nested loop inner join  (cost=2.80 rows=4)
+                                            -> Nested loop inner join  (cost=1.40 rows=4)
+                                                -> Filter: (region.r_name = 'AMERICA')  (cost=0.75 rows=1)
+                                                    -> Table scan on region  (cost=0.75 rows=5)
+                                                -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=0.65 rows=4)
+                                            -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=0.27 rows=1)
+                                        -> Filter: (nation.n_regionkey = region.r_regionkey)  (cost=0.25 rows=0)
+                                            -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=0.25 rows=1)
+                    -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=0.26 rows=1)
+                -> Filter: (nation.n_regionkey = region.r_regionkey)  (cost=0.25 rows=0)
+                    -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=0.25 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'test.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+explain format=tree select
+*
+from (
+select
+ps_partkey,
+sum(ps_supplycost * ps_availqty) as value
+from
+partsupp,
+supplier,
+nation
+where
+ps_suppkey = s_suppkey
+and s_nationkey = n_nationkey
+and n_name = 'GERMANY'
+  group by
+ps_partkey
+) as inner_query
+where
+value > (
+select
+sum(ps_supplycost * ps_availqty) * 0.0001
+from
+partsupp,
+supplier,
+nation
+where
+ps_suppkey = s_suppkey
+and s_nationkey = n_nationkey
+and n_name = 'GERMANY'
+  )
+order by
+value desc;
+EXPLAIN
+-> Sort: inner_query.`value` DESC
+    -> Filter: (inner_query.`value` > (select #3))  (cost=11.67 rows=200)
+        -> Table scan on inner_query  (cost=11.67 rows=200)
+            -> Materialize
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=74.38 rows=200)
+                            -> Nested loop inner join  (cost=4.38 rows=10)
+                                -> Filter: (nation.n_name = 'GERMANY')  (cost=2.75 rows=3)
+                                    -> Table scan on nation  (cost=2.75 rows=25)
+                                -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=0.41 rows=4)
+                            -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=5.20 rows=20)
+        -> Select #3 (subquery in condition; run only once)
+            -> Aggregate: sum((partsupp.ps_supplycost * partsupp.ps_availqty))
+                -> Nested loop inner join  (cost=74.38 rows=200)
+                    -> Nested loop inner join  (cost=4.38 rows=10)
+                        -> Filter: (nation.n_name = 'GERMANY')  (cost=2.75 rows=3)
+                            -> Table scan on nation  (cost=2.75 rows=25)
+                        -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=0.41 rows=4)
+                    -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=5.20 rows=20)
+
+explain select
+c_count,
+count(*) as custdist
+from (
+select
+c_custkey,
+count(o_orderkey) as c_count
+from
+customer left outer join orders on (
+c_custkey = o_custkey
+and o_comment not like '%special%requests%'
+    )
+group by
+c_custkey
+) as c_orders
+group by
+c_count
+order by
+custdist desc,
+c_count desc;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	3562	100.00	Using temporary; Using filesort
+2	DERIVED	customer	NULL	index	PRIMARY,c_custkey_idx,c_nationkey_idx,c_acctbal_idx	c_custkey_idx	4	NULL	1500	100.00	Using index
+2	DERIVED	orders	NULL	ref	o_custkey_idx	o_custkey_idx	4	test.customer.c_custkey	2	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `c_orders`.`c_count` AS `c_count`,count(0) AS `custdist` from (/* select#2 */ select `test`.`customer`.`c_custkey` AS `c_custkey`,count(`test`.`orders`.`o_orderkey`) AS `c_count` from `test`.`customer` left join `test`.`orders` on(((`test`.`orders`.`o_custkey` = `test`.`customer`.`c_custkey`) and (not((`test`.`orders`.`o_comment` like '%special%requests%'))))) where true group by `test`.`customer`.`c_custkey`) `c_orders` group by `c_orders`.`c_count` order by `custdist` desc,`c_orders`.`c_count` desc
+explain format=tree select
+c_count,
+count(*) as custdist
+from (
+select
+c_custkey,
+count(o_orderkey) as c_count
+from
+customer left outer join orders on (
+c_custkey = o_custkey
+and o_comment not like '%special%requests%'
+    )
+group by
+c_custkey
+) as c_orders
+group by
+c_count
+order by
+custdist desc,
+c_count desc;
+EXPLAIN
+-> Sort: custdist DESC, c_orders.c_count DESC
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Table scan on c_orders  (cost=403.23 rows=3562)
+                -> Materialize
+                    -> Group aggregate: count(orders.o_orderkey)
+                        -> Nested loop left join  (cost=1402.03 rows=3563)
+                            -> Index scan on customer using c_custkey_idx  (cost=155.00 rows=1500)
+                            -> Filter: (not((orders.o_comment like '%special%requests%')))  (cost=0.59 rows=2)
+                                -> Index lookup on orders using o_custkey_idx (o_custkey=customer.c_custkey)  (cost=0.59 rows=2)
+
+create view revenue0 (supplier_no, total_revenue) as
+select
+l_suppkey,
+sum(l_extendedprice * (1 - l_discount))
+from
+lineitem
+where
+l_shipdate >= '1995-06-01'
+		and l_shipdate < date_add('1995-06-01', interval '90' day)
+group by
+l_suppkey;
+explain
+select
+s_suppkey,
+s_name,
+s_address,
+s_phone,
+total_revenue
+from
+supplier,
+revenue0
+where
+s_suppkey = supplier_no
+and total_revenue = (
+select
+max(total_revenue)
+from
+revenue0
+)
+order by
+s_suppkey;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	96	10.00	Using where; Using temporary; Using filesort
+1	PRIMARY	supplier	NULL	eq_ref	PRIMARY,s_suppkey_idx	PRIMARY	4	test.revenue0.supplier_no	1	100.00	NULL
+3	DERIVED	lineitem	NULL	range	l_suppkey_idx,i_l_shipdate,i_l_suppkey_partkey	i_l_shipdate	3	NULL	96	100.00	Using index condition; Using temporary
+2	SUBQUERY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	96	100.00	NULL
+4	DERIVED	lineitem	NULL	range	l_suppkey_idx,i_l_shipdate,i_l_suppkey_partkey	i_l_shipdate	3	NULL	96	100.00	Using index condition; Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `test`.`supplier`.`s_suppkey` AS `s_suppkey`,`test`.`supplier`.`s_name` AS `s_name`,`test`.`supplier`.`s_address` AS `s_address`,`test`.`supplier`.`s_phone` AS `s_phone`,`test`.`revenue0`.`total_revenue` AS `total_revenue` from `test`.`supplier` join `test`.`revenue0` where ((`test`.`revenue0`.`total_revenue` = (/* select#2 */ select max(`test`.`revenue0`.`total_revenue`) from `test`.`revenue0`)) and (`test`.`supplier`.`s_suppkey` = `test`.`revenue0`.`supplier_no`)) order by `test`.`supplier`.`s_suppkey`
+explain format=tree
+select
+s_suppkey,
+s_name,
+s_address,
+s_phone,
+total_revenue
+from
+supplier,
+revenue0
+where
+s_suppkey = supplier_no
+and total_revenue = (
+select
+max(total_revenue)
+from
+revenue0
+)
+order by
+s_suppkey;
+EXPLAIN
+-> Sort: supplier.s_suppkey
+    -> Stream results
+        -> Nested loop inner join
+            -> Filter: (revenue0.total_revenue = (select #2))
+                -> Table scan on revenue0  (cost=13.30 rows=96)
+                    -> Materialize
+                        -> Table scan on <temporary>
+                            -> Aggregate using temporary table
+                                -> Index range scan on lineitem using i_l_shipdate, with index condition: ((lineitem.l_shipdate >= DATE'1995-06-01') and (lineitem.l_shipdate < <cache>(('1995-06-01' + interval '90' day))))  (cost=43.46 rows=96)
+                -> Select #2 (subquery in condition; run only once)
+                    -> Aggregate: max(revenue0.total_revenue)
+                        -> Table scan on revenue0  (cost=13.30 rows=96)
+                            -> Materialize
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Index range scan on lineitem using i_l_shipdate, with index condition: ((lineitem.l_shipdate >= DATE'1995-06-01') and (lineitem.l_shipdate < <cache>(('1995-06-01' + interval '90' day))))  (cost=43.46 rows=96)
+            -> Single-row index lookup on supplier using PRIMARY (s_suppkey=revenue0.supplier_no)  (cost=0.26 rows=1)
+
+drop view revenue0;
+explain select
+p_brand,
+p_type,
+p_size,
+count(distinct ps_suppkey) as supplier_cnt
+from
+partsupp,
+part
+where
+p_partkey = ps_partkey
+and p_brand <> 'Brand#45'
+  and p_type not like 'MEDIUM POLISHED%'
+  and p_size in (49, 14, 23, 45, 19, 3, 36, 9)
+and ps_suppkey not in (
+select
+s_suppkey
+from
+supplier
+where
+s_comment like '%Customer%Complaints%'
+  )
+group by
+p_brand,
+p_type,
+p_size
+order by
+supplier_cnt desc,
+p_brand,
+p_type,
+p_size;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	part	NULL	range	PRIMARY,p_partkey_idx,p_size_idx	p_size_idx	4	NULL	319	80.00	Using index condition; Using where; Using temporary; Using filesort
+1	SIMPLE	partsupp	NULL	ref	PRIMARY,ps_partkey_idx	PRIMARY	4	test.part.p_partkey	4	100.00	Using index
+1	SIMPLE	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.partsupp.ps_suppkey	1	100.00	Using where; Not exists
+2	MATERIALIZED	supplier	NULL	ALL	PRIMARY,s_suppkey_idx	NULL	NULL	NULL	100	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`part`.`p_brand` AS `p_brand`,`test`.`part`.`p_type` AS `p_type`,`test`.`part`.`p_size` AS `p_size`,count(distinct `test`.`partsupp`.`ps_suppkey`) AS `supplier_cnt` from `test`.`partsupp` join `test`.`part` anti join (`test`.`supplier`) on(((`<subquery2>`.`s_suppkey` = `test`.`partsupp`.`ps_suppkey`) and (`test`.`supplier`.`s_comment` like '%Customer%Complaints%'))) where ((`test`.`partsupp`.`ps_partkey` = `test`.`part`.`p_partkey`) and (`test`.`part`.`p_brand` <> 'Brand#45') and (not((`test`.`part`.`p_type` like 'MEDIUM POLISHED%'))) and (`test`.`part`.`p_size` in (49,14,23,45,19,3,36,9))) group by `test`.`part`.`p_brand`,`test`.`part`.`p_type`,`test`.`part`.`p_size` order by `supplier_cnt` desc,`test`.`part`.`p_brand`,`test`.`part`.`p_type`,`test`.`part`.`p_size`
+explain format=tree
+select
+p_brand,
+p_type,
+p_size,
+count(distinct ps_suppkey) as supplier_cnt
+from
+partsupp,
+part
+where
+p_partkey = ps_partkey
+and p_brand <> 'Brand#45'
+  and p_type not like 'MEDIUM POLISHED%'
+  and p_size in (49, 14, 23, 45, 19, 3, 36, 9)
+and ps_suppkey not in (
+select
+s_suppkey
+from
+supplier
+where
+s_comment like '%Customer%Complaints%'
+  )
+group by
+p_brand,
+p_type,
+p_size
+order by
+supplier_cnt desc,
+p_brand,
+p_type,
+p_size;
+EXPLAIN
+-> Sort: supplier_cnt DESC, part.p_brand, part.p_type, part.p_size
+    -> Stream results
+        -> Group aggregate: count(distinct partsupp.ps_suppkey)
+            -> Nested loop antijoin  (cost=13199.42 rows=127600)
+                -> Nested loop inner join  (cost=337.33 rows=1276)
+                    -> Sort: part.p_brand, part.p_type, part.p_size  (cost=145.56 rows=319)
+                        -> Filter: ((part.p_brand <> 'Brand#45') and (not((part.p_type like 'MEDIUM POLISHED%'))))  (cost=145.56 rows=319)
+                            -> Index range scan on part using p_size_idx, with index condition: (part.p_size in (49,14,23,45,19,3,36,9))  (cost=145.56 rows=319)
+                    -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=0.25 rows=4)
+                -> Single-row index lookup on <subquery2> using <auto_distinct_key> (s_suppkey=partsupp.ps_suppkey)
+                    -> Materialize with deduplication  (cost=10.75 rows=100)
+                        -> Filter: (supplier.s_comment like '%Customer%Complaints%')  (cost=10.75 rows=100)
+                            -> Table scan on supplier  (cost=10.75 rows=100)
+
+explain 
+select
+sum(l_extendedprice) / 7.0 as avg_yearly
+from
+lineitem,
+part
+where
+p_partkey = l_partkey
+and p_brand = 'Brand#23'
+  and p_container = 'MED BOX'
+  and l_quantity < (
+select
+0.2 * avg(l_quantity)
+from
+lineitem
+where
+l_partkey = p_partkey
+);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	part	NULL	ALL	PRIMARY,p_partkey_idx	NULL	NULL	NULL	2029	1.00	Using where
+1	PRIMARY	lineitem	NULL	ref	l_partkey_idx,l_quantity_idx,i_l_suppkey_partkey	l_partkey_idx	4	test.part.p_partkey	1	100.00	Using where
+2	DEPENDENT SUBQUERY	lineitem	NULL	ref	l_partkey_idx,i_l_suppkey_partkey	l_partkey_idx	4	test.part.p_partkey	1	100.00	NULL
+Warnings:
+Note	1276	Field or reference 'test.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select (sum(`test`.`lineitem`.`l_extendedprice`) / 7.0) AS `avg_yearly` from `test`.`lineitem` join `test`.`part` where ((`test`.`part`.`p_container` = 'MED BOX') and (`test`.`part`.`p_brand` = 'Brand#23') and (`test`.`lineitem`.`l_partkey` = `test`.`part`.`p_partkey`) and (`test`.`lineitem`.`l_quantity` < (/* select#2 */ select (0.2 * avg(`test`.`lineitem`.`l_quantity`)) from `test`.`lineitem` where (`test`.`lineitem`.`l_partkey` = `test`.`part`.`p_partkey`))))
+explain format=tree
+select
+sum(l_extendedprice) / 7.0 as avg_yearly
+from
+lineitem,
+part
+where
+p_partkey = l_partkey
+and p_brand = 'Brand#23'
+  and p_container = 'MED BOX'
+  and l_quantity < (
+select
+0.2 * avg(l_quantity)
+from
+lineitem
+where
+l_partkey = p_partkey
+);
+EXPLAIN
+-> Aggregate: sum(lineitem.l_extendedprice)
+    -> Nested loop inner join  (cost=219.62 rows=32)
+        -> Filter: ((part.p_container = 'MED BOX') and (part.p_brand = 'Brand#23'))  (cost=208.40 rows=20)
+            -> Table scan on part  (cost=208.40 rows=2029)
+        -> Filter: (lineitem.l_quantity < (select #2))  (cost=0.40 rows=2)
+            -> Index lookup on lineitem using l_partkey_idx (l_partkey=part.p_partkey)  (cost=0.40 rows=2)
+            -> Select #2 (subquery in condition; dependent)
+                -> Aggregate: avg(lineitem.l_quantity)
+                    -> Index lookup on lineitem using l_partkey_idx (l_partkey=part.p_partkey)  (cost=0.55 rows=2)
+
+Warnings:
+Note	1276	Field or reference 'test.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+explain 
+select
+cntrycode,
+count(*) as numcust,
+sum(c_acctbal) as totacctbal
+from (
+select
+substr(c_phone, 1, 2) as cntrycode,
+c_acctbal
+from
+customer
+where
+substr(c_phone, 1, 2) in ('13', '31', '23', '29', '30', '18', '17')
+and c_acctbal > (
+select
+avg(c_acctbal)
+from
+customer
+where
+c_acctbal > 0.00
+and substr(c_phone, 1, 2) in ('13', '31', '23', '29', '30', '18', '17')
+)
+and not exists (
+select
+*
+from
+orders
+where
+o_custkey = c_custkey
+)
+) as custsale
+group by
+cntrycode
+order by
+cntrycode;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	customer	NULL	ALL	c_acctbal_idx	NULL	NULL	NULL	1500	43.87	Using where; Using temporary; Using filesort
+1	PRIMARY	<subquery4>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.customer.c_custkey	1	100.00	Using where; Not exists
+4	MATERIALIZED	orders	NULL	index	o_custkey_idx	o_custkey_idx	4	NULL	2000	100.00	Using index
+3	SUBQUERY	customer	NULL	ALL	c_acctbal_idx	NULL	NULL	NULL	1500	90.73	Using where
+Warnings:
+Note	1276	Field or reference 'test.customer.c_custkey' of SELECT #4 was resolved in SELECT #2
+Note	1003	/* select#1 */ select substr(`test`.`customer`.`c_phone`,1,2) AS `cntrycode`,count(0) AS `numcust`,sum(`test`.`customer`.`c_acctbal`) AS `totacctbal` from `test`.`customer` anti join (`test`.`orders`) on((`<subquery4>`.`o_custkey` = `test`.`customer`.`c_custkey`)) where ((substr(`test`.`customer`.`c_phone`,1,2) in ('13','31','23','29','30','18','17')) and (`test`.`customer`.`c_acctbal` > (/* select#3 */ select avg(`test`.`customer`.`c_acctbal`) from `test`.`customer` where ((`test`.`customer`.`c_acctbal` > 0.00) and (substr(`test`.`customer`.`c_phone`,1,2) in ('13','31','23','29','30','18','17')))))) group by substr(`test`.`customer`.`c_phone`,1,2) order by `cntrycode`
+explain format=tree
+select
+cntrycode,
+count(*) as numcust,
+sum(c_acctbal) as totacctbal
+from (
+select
+substr(c_phone, 1, 2) as cntrycode,
+c_acctbal
+from
+customer
+where
+substr(c_phone, 1, 2) in ('13', '31', '23', '29', '30', '18', '17')
+and c_acctbal > (
+select
+avg(c_acctbal)
+from
+customer
+where
+c_acctbal > 0.00
+and substr(c_phone, 1, 2) in ('13', '31', '23', '29', '30', '18', '17')
+)
+and not exists (
+select
+*
+from
+orders
+where
+o_custkey = c_custkey
+)
+) as custsale
+group by
+cntrycode
+order by
+cntrycode;
+EXPLAIN
+-> Sort: custsale.cntrycode
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Nested loop antijoin  (cost=131820.80 rows=1316000)
+                -> Filter: ((substr(customer.c_phone,1,2) in ('13','31','23','29','30','18','17')) and (customer.c_acctbal > (select #3)))  (cost=155.00 rows=658)
+                    -> Table scan on customer  (cost=155.00 rows=1500)
+                    -> Select #3 (subquery in condition; run only once)
+                        -> Aggregate: avg(customer.c_acctbal)
+                            -> Filter: ((customer.c_acctbal > 0.00) and (substr(customer.c_phone,1,2) in ('13','31','23','29','30','18','17')))  (cost=155.00 rows=1361)
+                                -> Table scan on customer  (cost=155.00 rows=1500)
+                -> Single-row index lookup on <subquery4> using <auto_distinct_key> (o_custkey=customer.c_custkey)
+                    -> Materialize with deduplication  (cost=204.50 rows=2000)
+                        -> Index scan on orders using o_custkey_idx  (cost=204.50 rows=2000)
+
+Warnings:
+Note	1276	Field or reference 'test.customer.c_custkey' of SELECT #4 was resolved in SELECT #2
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+START TRANSACTION;
+drop TABLE lineitem;
+drop TABLE orders;
+drop TABLE partsupp;
+drop TABLE part;
+drop TABLE customer;
+drop TABLE supplier;
+drop TABLE nation;
+drop TABLE region;
+COMMIT;
+drop database test1;
+drop user user1;

@@ -296,7 +296,9 @@ class Item_func : public Item_result_field {
     MEMBER_OF_FUNC,
     STRCMP_FUNC,
     TRUE_FUNC,
-    FALSE_FUNC
+    FALSE_FUNC,
+    JSON_FUNC,
+    XML_FUNC
   };
   enum optimize_type {
     OPTIMIZE_NONE,
