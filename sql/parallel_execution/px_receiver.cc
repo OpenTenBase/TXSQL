@@ -100,16 +100,6 @@ bool PX_receiver::attach() {
     return true;
   }
 
-  if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange()) {
-    assert(m_source.get()->type() == PHY_PX_SEND);
-    PX_sender *sender = static_cast<PX_sender*>(m_source->real_iterator());
-    while(-1 != sender->Read());
-    m_pei->detach_sender(thd->worker_id);
-    sender->end();
-    // TODO: only support one-stage parallel.
-    sql_print_information("finish single thread mode receiver execution.");
-  }
-
   return false;
 }
 
@@ -126,6 +116,17 @@ bool PX_receiver::next() {
   // } else {
     SwitchSlice(m_join, m_input_slice);
   // }
+  if (!thd()->variables.cdb_parallel_execution_enabled &&
+      thd()->lex->only_one_exchange()) {
+    assert(m_source.get()->type() == PHY_PX_SEND);
+    PX_sender *sender = static_cast<PX_sender *>(m_source->real_iterator());
+    if (-1 == sender->Read()) {
+      m_pei->detach_sender(thd()->worker_id);
+      sender->end();
+      // TODO: only support one-stage parallel.
+      sql_print_information("finish single thread mode receiver execution.");
+    }
+  }
   bool result = false;
   uchar *data = nullptr;
   Size msg_len = 0;
