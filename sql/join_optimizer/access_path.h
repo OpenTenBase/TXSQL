@@ -67,6 +67,7 @@ struct POSITION;
 struct RelationalExpression;
 struct TABLE;
 struct TABLE_REF;
+struct SplitPosition;
 
 /**
   A specification that two specific relational expressions
@@ -164,6 +165,13 @@ struct Predicate {
 struct AppendPathParameters {
   AccessPath *path;
   JOIN *join;
+};
+
+struct ReceiverParam {
+  int ref_slice;
+  TABLE *table;
+  AccessPath *child;
+  bool use_temp_table;
 };
 
 class EquivalenceCheckHelper {
@@ -334,7 +342,8 @@ struct AccessPath {
 
     // Exchange
     PX_RECEIVE,
-    PX_SEND
+    PX_SEND,
+    PX_RECEIVER_MERGE
   } type;
 
   /// A general enum to describe the safety of a given operation.
@@ -951,6 +960,14 @@ struct AccessPath {
     assert(type == PX_SEND);
     return u.px_send;
   }
+  auto &px_receiver_merge() {
+    assert(type == PX_RECEIVER_MERGE);
+    return u.px_receiver_merge;
+  }
+  const auto &px_receiver_merge() const {
+    assert(type == PX_RECEIVER_MERGE);
+    return u.px_receiver_merge;
+  }
 
   bool operator==(const AccessPath &other) const;
 
@@ -1341,6 +1358,14 @@ struct AccessPath {
       Temp_table_param *temp_table_param;
       bool use_temp_table;
     } px_send;
+    struct {
+      AccessPath *child;
+      Filesort *filesort;
+      JOIN *join;
+      TABLE *table;
+      int ref_slice;
+      bool use_temp_table;
+    } px_receiver_merge;
   } u;
 };
 static_assert(std::is_trivially_destructible<AccessPath>::value,
@@ -1868,6 +1893,20 @@ inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
   return path;
 }
 
+inline AccessPath *NewPXReceiverMergeAccessPath(THD *thd, AccessPath *child,
+                                                Filesort *filesort,
+                                                TABLE *table, int ref_slice,
+                                                bool use_temp_table) {
+  AccessPath *path = new (thd->mem_root) AccessPath;
+  path->type = AccessPath::PX_RECEIVER_MERGE;
+  path->px_receiver_merge().child = child;
+  path->px_receiver_merge().filesort = filesort;
+  path->px_receiver_merge().table = table;
+  path->px_receiver_merge().ref_slice = ref_slice;
+  path->px_receiver_merge().use_temp_table = use_temp_table;
+  return path;
+}
+
 inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
                                        TABLE *table,
                                        mem_root_deque<Item *> *send_fields,
@@ -2002,7 +2041,7 @@ void ExpandSingleFilterAccessPath(THD *thd, AccessPath *path, const JOIN *join,
 table_map GetHashJoinTables(AccessPath *path);
 
 bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
-                                AccessPath *&target_path, bool &split_agg);
+                                AccessPath *&target_path, SplitPosition *split_pos);
 
 // AccessPath *inject_exchange_access_path(QEP_TAB *tab, AccessPath *path,
 //                                         exchange_inject_position position);

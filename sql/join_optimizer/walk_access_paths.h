@@ -250,6 +250,10 @@ void WalkAccessPaths(AccessPath *path, JoinPtr join,
       WalkAccessPaths(path->px_send().child, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
       break;
+    case AccessPath::PX_RECEIVER_MERGE:
+      WalkAccessPaths(path->px_receiver_merge().child, join, cross_query_blocks,
+                      std::forward<Func &&>(func), post_order_traversal);
+      break;
   }
   if (post_order_traversal) {
     if (func(path, join)) {
@@ -356,6 +360,8 @@ void WalkTablesUnderAccessPath(AccessPath *root_path, Func &&func,
             return func(path->px_receiver().table);
           case AccessPath::PX_SEND:
             return func(path->px_send().table);
+          case AccessPath::PX_RECEIVER_MERGE:
+            return func(path->px_receiver_merge().table);
         }
         assert(false);
         return true;

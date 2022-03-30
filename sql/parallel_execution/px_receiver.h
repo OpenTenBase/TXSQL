@@ -17,6 +17,8 @@ class PX_mq_handle;
 class THD;
 class TABLE;
 
+void SwitchSlice(JOIN *join, int slice_num);
+
 /**
   The class represents a exchange receiver backend member.
   A receiver connect to a exchange channel which can
@@ -26,6 +28,9 @@ class PX_receiver : public RowIterator {
  public:
   PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei, JOIN *join,
     unique_ptr_destroy_only<RowIterator> source, TABLE *table, int ref_slice);
+  PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei,
+    unique_ptr_destroy_only<RowIterator> source, TABLE *table);
+  // PX_receiver();
   ~PX_receiver() {}
 
   virtual bool init();

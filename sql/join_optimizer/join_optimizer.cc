@@ -3961,6 +3961,9 @@ string PrintAccessPath(const AccessPath &path, const JoinHypergraph &graph,
     case AccessPath::PX_SEND:
       str += "PX_SEND";
       break;
+    case AccessPath::PX_RECEIVER_MERGE:
+      str += "PX_RECEIVER_MERGE";
+      break;
   }
 
   str += StringPrintf(", cost=%.1f, init_cost=%.1f", path.cost, path.init_cost);

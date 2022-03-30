@@ -36,6 +36,15 @@ PX_receiver::PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei,
       m_ref_slice(ref_slice),
       m_fields() {}
 
+PX_receiver::PX_receiver(THD *thd, uint receiver_no,
+  PX_exchange_info *pei, unique_ptr_destroy_only<RowIterator> source, TABLE *table)
+    : RowIterator(thd),
+      m_thd(thd),
+      m_receiver_no(receiver_no),
+      m_pei(pei),
+      m_source(move(source)),
+      m_table(table) {}
+
 /**
   Exchange receiver need three phases:
   1) register receiver

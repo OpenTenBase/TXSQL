@@ -3630,9 +3630,9 @@ void JOIN::create_access_paths() {
 
   // PHASE-2: Find the exchange operator inject position in primary query block.
   AccessPath *target_path = nullptr;  // Where to inject exchange
-  bool split_agg = false;
+  split_position = {SplitPosition::NO_SPLIT, false};
   if (!exchange_inject ||
-      FindExchangeInjectPosition(thd, this, path, target_path, split_agg)) {
+      FindExchangeInjectPosition(thd, this, path, target_path, &split_position)) {
     lex->pass_px_check = false;
     m_root_access_path = path;
     return ;
@@ -3640,7 +3640,7 @@ void JOIN::create_access_paths() {
 
   sql_print_information("compatible check passed and begin to insert exchange.");
   // PHASE-3: Rebuild the aggr and sort operator if necessary.
-  if (split_agg) {
+  if (split_position.type == SplitPosition::SPLIT_AGG) {
     if (exchange_temp_table == nullptr) {
       exchange_temp_table =
           new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
@@ -3659,12 +3659,15 @@ void JOIN::create_access_paths() {
           new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
     }
     bool new_child = false;
+    bool split_sort = split_position.split_sort;
     AccessPath *exchange = WalkAccessPathsForExchange(
           thd, this, path, target_path, /*curr_exchange=*/0,
           /*new_child=*/new_child, /*cur_slice*/-1, false);
     if (exchange) {
-      if (exchange->px_receiver().use_temp_table) {
-        int ref_slice = exchange->px_receiver().ref_slice;
+      if (split_sort ? exchange->px_receiver_merge().use_temp_table
+                     : exchange->px_receiver().use_temp_table) {
+        int ref_slice = split_sort ? exchange->px_receiver_merge().ref_slice
+                                   : exchange->px_receiver().ref_slice;
         fields = &tmp_fields[ref_slice];
       }
       if (new_child)

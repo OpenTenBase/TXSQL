@@ -106,6 +106,15 @@ struct SARGABLE_PARAM {
   uint num_values;  /* number of values in the above array      */
 };
 
+struct SplitPosition {
+  enum Type {
+    NO_SPLIT = 0,
+    SPLIT_AGG,
+    SPLIT_SORT
+  } type;
+  bool split_sort;
+};
+
 /**
   Wrapper for ORDER* pointer to trace origins of ORDER list
 
@@ -386,9 +395,11 @@ class JOIN {
   RollupState rollup_state;
   bool implicit_grouping;  ///< True if aggregated but no GROUP BY
 
+  /// split position in parallel execution.
+  SplitPosition split_position;
+
   /**
     At construction time, set if SELECT DISTINCT. May be reset to false
-    later, when we set up a temporary table operation that deduplicates for us.
    */
   bool select_distinct;
 
