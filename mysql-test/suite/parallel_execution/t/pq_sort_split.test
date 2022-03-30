@@ -1,0 +1,72 @@
+######################################
+# Test for parallel query sort split #
+######################################
+
+set global cdb_parallel_execution_enabled=1;
+set cdb_parallel_execution_enabled=1;
+set cdb_parallel_query_enable=1;
+set exchange_inject=1;
+
+create table t (
+ period    int not null,
+ name      char(32) not null,
+ companynr int not null,
+ price     double(11,0),
+ price2     double(11,0),
+ key (period),
+ key (name)
+);
+
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1001,"Iranizes",37,5987435,234724);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1002,"violinist",37,28357832,8723648);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1003,"extramarital",37,39654943,235872);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1004,"spates",78,726498,72987523);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1005,"cloakroom",78,98439034,823742);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1006,"gazer",101,834598,27348324);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1007,"hand",154,983543950,29837423);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1008,"tucked",311,234298,3275892);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1009,"gems",447,2374834,9872392);
+INSERT INTO t (period,name,companynr,price,price2) VALUES (1010,"clinker",512,786542,76234234);
+
+create temporary table tmp select * from t;
+
+insert into t select * from tmp;
+insert into tmp select * from t;
+insert into t select * from tmp;
+insert into tmp select * from t;
+insert into t select * from tmp;
+insert into tmp select * from t;
+insert into t select * from tmp;
+
+drop table tmp;
+
+
+--echo #
+--echo # Table scan -> Sort -> PX_send -> PX_receiver_merge
+--echo #
+select price from t order by price;
+
+--echo #
+--echo # Table scan -> Sort -> PX_send -> PX_receiver_merge -> Aggregate
+--echo #
+select companynr,count(distinct price) from t group by companynr;
+
+drop table t;
+
+--echo #
+--echo # length of record is larger than default RECORD_BUFFER_SIZE
+--echo #
+CREATE TABLE `t` (
+  `fld1` int NOT NULL DEFAULT '0',
+  `fld2` char(35) NOT NULL DEFAULT ''
+);
+INSERT INTO t VALUES (000000, 'abcdefg'), (999999, 'hijklmn'), (111111, 'abclkjs'), (222222, 'djklads');
+
+select fld2 from t order by fld2;
+
+--echo #
+--echo # Sort -> PX_send -> PX_receiver_merge -> Limit
+--echo #
+select fld2 from t order by fld2 limit 2;
+
+drop table t;

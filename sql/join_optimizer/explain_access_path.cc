@@ -1165,9 +1165,15 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
           string("Exchange Send dop ") + ")"); //TODO: add dop.
       children.push_back({path->px_send().child});
       break;
+    case AccessPath::PX_RECEIVER_MERGE:
+      description.push_back(
+          string("Exchange Merge Receive dop ") + ")");
+      children.push_back({path->px_receiver_merge().child});
+      break;
   }
   if (path->type == AccessPath::PX_RECEIVE ||
-      path->type == AccessPath::PX_SEND) {
+      path->type == AccessPath::PX_SEND ||
+      path->type == AccessPath::PX_RECEIVER_MERGE) {
     return {description, children};
   }
   if (include_costs && path->num_output_rows >= 0.0) {
