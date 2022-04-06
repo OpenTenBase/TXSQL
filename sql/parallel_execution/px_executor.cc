@@ -383,6 +383,7 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
     worker_new_thd->set_new_thread_id();
     worker_new_thd->m_is_worker = true;
     worker_new_thd->worker_id = i;
+    worker_new_thd->px_coordinator = thd();
 
     std::string sub_query = worker_query;
     worker_new_thd->set_query(sub_query.c_str(), sub_query.length());

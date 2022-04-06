@@ -52,6 +52,7 @@
 #include "prealloced_array.h"
 #include "sql/debug_sync.h"
 #include "sql/thr_malloc.h"
+#include "sql/sql_class.h"
 
 extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *system_charset_info;
 
@@ -105,6 +106,8 @@ static void init_mdl_psi_keys(void) {
   MDL_key::init_psi_keys();
 }
 #endif /* HAVE_PSI_INTERFACE */
+
+static THD *invalid_thd = (THD *)0x1;
 
 /**
   Thread state names to be used in case when we have to wait on resource
@@ -2653,6 +2656,18 @@ bool equivalent(const MDL_ticket *a, const MDL_ticket *b,
 
 MDL_ticket *MDL_context::find_ticket(MDL_request *mdl_request,
                                      enum_mdl_duration *result_duration) {
+  THD *thd = get_thd();
+  /*
+    worker thd in parallel query use the proxy thd to check the mdl.
+    If the mdl lock has't acquired by coordinator, find from the worker.
+  */
+  if (thd && thd != invalid_thd && thd->m_is_worker && thd->px_coordinator) {
+    MDL_ticket *ticket = thd->px_coordinator->mdl_context.find_ticket(mdl_request, result_duration);
+    if (ticket) {
+      return ticket;
+    }
+  }
+
   auto h = m_ticket_store.find(*mdl_request);
   *result_duration = h.m_dur;
   return h.m_ticket;
