@@ -1045,6 +1045,7 @@ class THD : public MDL_context_owner,
 
  public:
   PX_executor *px_executor{nullptr};
+  THD *px_coordinator{nullptr};
   MDL_context mdl_context;
 
   /**

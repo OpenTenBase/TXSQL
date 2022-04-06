@@ -1,0 +1,46 @@
+--echo # Infrastructure for Enhanced Prepare once
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on test1.* to 'user1'@'%';
+
+CREATE TABLE t1 (f1 INT) ENGINE="InnoDB";
+
+connection conn1;
+SET global autocommit=0;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+
+connect(conn2,localhost,user1,,);
+UNLOCK TABLES;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (2);
+
+explain format=tree SELECT f1 FROM t1;
+SELECT f1 FROM t1;
+COMMIT;
+
+UNLOCK TABLES;
+
+connection conn1;
+set global autocommit = 1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+
+drop table t1;
+drop database test1;
+drop user user1;
