@@ -2276,7 +2276,7 @@ ReadView *trx_clone_read_view(trx_t *trx, ReadView *snapshot)
   }
 
   ut_ad(trx->read_view);
-  trx->read_view->clone_from(snapshot);
+  trx->read_view->px_clone_from(snapshot);
 
   return (trx->read_view);
 }
