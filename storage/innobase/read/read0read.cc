@@ -605,6 +605,11 @@ MVCC::read_snapshot(ReadView* &view) {
   return true;
 }
 
+void ReadView::px_clone_from(const ReadView *other) {
+  clone_from(other);
+  m_creator_trx_id = other->m_creator_trx_id;
+}
+
 /**
  Changes from txsql end.
 */

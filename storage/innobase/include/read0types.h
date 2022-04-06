@@ -233,6 +233,8 @@ uint32_t get_state() const {
 
   /** Open a read view by cloning from another read view */
   void open_by_copy(ReadView *other);
+  /** Clone from another read view in parallel execution */
+  void px_clone_from(const ReadView *other);
 
 #ifdef UNIV_DEBUG
   /**

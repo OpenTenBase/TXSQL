@@ -1,0 +1,36 @@
+--echo # Infrastructure for Enhanced Prepare once
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on test1.* to 'user1'@'%';
+
+connection conn1;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+
+connect(conn2,localhost,user1,,);
+create table t1 (id integer, x integer) engine = InnoDB;
+create table t2 (b integer, a integer) engine = InnoDB;
+insert into t1 values(0, 0), (300, 300);
+insert into t2 values(0, 10), (1, 20), (2, 30);
+commit;
+set autocommit=0;
+select * from t2;
+update t2 set a=100 where b=(SELECT x from t1 where id = b FOR UPDATE);
+select * from t2;
+commit;
+
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+
+drop table t1;
+drop table t2;
+drop database test1;
+drop user user1;
