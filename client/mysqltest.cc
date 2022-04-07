@@ -9189,9 +9189,10 @@ static void get_command_type(struct st_command *command) {
   //ignore exec result from shell
   if (command->type == Q_EXEC)
   {
-    char buffer[32];
+    char buffer[33];
     int len = 0;
     strncpy(buffer, command->query, sizeof(buffer));
+    buffer[32] = '\0';
     len = strlen(buffer);
     for (int i = 0; i < len; i++)
     {
