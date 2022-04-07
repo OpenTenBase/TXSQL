@@ -1412,8 +1412,9 @@ struct Quantilers {
     quantiler_arr[index_id].sample_visit_rec(thread_id, mtuple);
   }
 
-  void build_quantiles() {
+  void build_quantiles(size_t parallel_sort_threads) {
     for (int i = 0; i < count; i++) {
+      quantiler_arr[i].sort_parallel = parallel_sort_threads;
       quantiler_arr[i].build_quantiles();
     }
   }
@@ -2494,11 +2495,16 @@ static dberr_t process_pk_row(
     }
 
     /* add fail, buf full, sort and write to file */
-    // err = sort_merge_buf(i, buf, table, col_map, trx, key_numbers, online,
-    //     old_table, new_table);
-    // if (err != DB_SUCCESS) {
-    //   break;
-    // }
+    /* When there are more than one parallel_sort_threads, we do not need to
+    sort merge buf, since there has a partition stage. When there is only one
+    sort thread, merge sort needs each run in order. */
+    if (!quantilers) {
+      err = sort_merge_buf(i, buf, table, col_map, trx, key_numbers, online,
+          old_table, new_table);
+      if (err != DB_SUCCESS) {
+        break;
+      }
+    }
 
     err = write_merge_buf_to_file(i, index_reader_info, tmp_files[i],
         tmpfd, trx, n_rec_to_added, path);
@@ -3945,7 +3951,7 @@ static void check_if_can_use_parallel_ddl(trx_t *trx, dict_index_t **indexes, ul
   return;
 }
 
-/** if there is no so many run, do not use parallel ddl */
+/** if there is no so many run, adjust parallel_sort_threads */
 static void check_if_have_enough_run(merge_file_t *merge_files, int n_indexes,
                                      dict_index_t **indexes, size_t &parallel_sort_threads,
                                      bool skip_pk_sort) {
@@ -5283,7 +5289,7 @@ dberr_t row_merge_build_indexes(
   check_if_have_enough_run(merge_files, n_indexes, indexes, parallel_sort_threads, skip_pk_sort);
 
   if (quantilers && parallel_sort_threads > 1) {
-    quantilers->build_quantiles();
+    quantilers->build_quantiles(parallel_sort_threads);
   }
 
 #ifdef UNIV_DEBUG_PARALLEL_DDL
@@ -5314,7 +5320,10 @@ dberr_t row_merge_build_indexes(
       row_merge_dup_t dup = {sort_idx, table, col_map, 0};
 
       merge_file_wrapper_t *partitioned_sorted_files = nullptr;
-      if (parallel_sort_threads > 1) {
+      /* When parallel_sort_threads is adjusted to 1, but quantilers is not null,
+      it means, in the scan stage, we do not sort merge buffers, thus, we still need the
+      patition stage although parallel_sort_threads is equal to 1. */
+      if (parallel_sort_threads > 1 || quantilers) {
         partitioned_sorted_files = new merge_file_wrapper_t[parallel_sort_threads];
 
         Quantiler *quantiler = &(quantilers->quantiler_arr[i]);
