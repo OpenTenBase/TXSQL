@@ -190,6 +190,19 @@ static void *execute_task_in_worker(void *arg)
 */
 bool PX_task::run(THD *thd)
 {
+  // do the init of worker before the execute for every task.
+  assert(px_table_descriptor && px_table_descriptor->table());
+
+  if (px_table_descriptor) {
+    TABLE *table = px_table_descriptor->table();
+    assert(thd->px_scan_ctx);
+    int error = table->file->px_worker_init(thd->px_scan_ctx);
+    if (error) {
+      table->file->print_error(error, MYF(0));
+      return true;
+    }
+  }
+
   sql_print_information("======>run the task which has itr: %s",
     sub_iterator->str().c_str());
   if (sub_iterator->Init()) return true;
