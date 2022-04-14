@@ -3640,7 +3640,7 @@ void JOIN::create_access_paths() {
   // PHASE-3: Rebuild the aggr and sort operator if necessary.
   if (split_position.type == SplitPosition::SPLIT_AGG ||
       split_position.type == SplitPosition::SPLIT_SORT_AGG) {
-    path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+    path = WalkAccessPathsForAggregationRebuild(thd, this, path, false);
     // Whether the AGG is successfully Rebuilt.
     if (ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {
       query_block->pass_px_check = false;

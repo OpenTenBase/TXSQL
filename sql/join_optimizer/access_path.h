@@ -1937,7 +1937,8 @@ void FindTablesToGetRowidFor(AccessPath *path);
 bool FinalizeMaterializedSubqueries(THD *thd, JOIN *join, AccessPath *path);
 
 AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
-                                                 AccessPath *const path);
+                                                 AccessPath *const path,
+                                                 bool stream_agg);
 
 bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
                                 uint curr_slice, uint *avg_count);
@@ -1947,7 +1948,8 @@ bool RebuildTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path
 
 AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join,
                                           AccessPath *const path,
-                                          uint curr_slice, uint avg_count);
+                                          uint curr_slice, uint avg_count,
+                                          bool stream_agg);
 
 AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join,
                                               AccessPath *const path,
