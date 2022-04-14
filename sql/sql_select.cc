@@ -4434,6 +4434,11 @@ bool JOIN::make_tmp_tables_info() {
   bool materialize_join = false;
   uint curr_tmp_table = const_tables;
   TABLE *exec_tmp_table = nullptr;
+  
+  // save group list for parallel aggregation split.
+  if (!group_list.empty()) {
+    saved_group_list = new (thd->mem_root) ORDER_with_src(group_list);
+  }
 
   auto cleanup_tmp_tables_on_error =
       create_scope_guard([this, &curr_tmp_table] {

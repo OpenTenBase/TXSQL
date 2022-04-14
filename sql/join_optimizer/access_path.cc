@@ -2105,7 +2105,8 @@ table_map GetHashJoinTables(AccessPath *path) {
   @return new accesspath
 */
 AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
-                                                AccessPath *const path) {
+                                                AccessPath *const path,
+                                                bool stream_agg) {
   AccessPath *newFinalAggrPath = nullptr;
   AccessPath *child = nullptr;
   AccessPath *newChild = nullptr;
@@ -2132,7 +2133,7 @@ AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
       }
       // [2] create final Aggregate accesspath
       newFinalAggrPath = BuildFinalAggregateAccessPath(thd, join, path, curr_slice,
-                                                       avg_count);
+                                                       avg_count, stream_agg);
       if (newFinalAggrPath == nullptr) {
         assert(false);
       }
@@ -2167,21 +2168,35 @@ AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
     }
     case AccessPath::FILTER: {
       child = path->filter().child;
-      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child);
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child, stream_agg);
       path->filter().child = newChild;
       break;
     }
     case AccessPath::LIMIT_OFFSET : {
       child = path->limit_offset().child;
-      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child);
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child, stream_agg);
       path->limit_offset().child = newChild;
       break;
     }
     case AccessPath::SORT : {
       child = path->sort().child;
-      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child);
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child, stream_agg);
       path->sort().child = newChild;
       FixSortAccessPathForAggrInject(thd, join, path, REF_SLICE_FINAL_AGGREGATE);
+      break;
+    }
+    case AccessPath::STREAM : {
+      child = path->stream().child;
+      // create final temp_table_param
+      join->final_aggr_tmp_table_param = new Temp_table_param();
+      join->final_aggr_tmp_table_param->pq_copy_from(path->stream().temp_table_param);
+      newChild = WalkAccessPathsForAggregationRebuild(thd, join, child, true);
+      path->stream().child = newChild;
+      path->stream().temp_table_param = join->final_aggr_tmp_table_param;
+      path->stream().table = join->final_tmpaggr_tmp_table;
+      // reset final_tmpaggr_tmp_table to nullptr, or it will be clear
+      // twice in JOIN::destroy.
+      join->final_tmpaggr_tmp_table = nullptr;
       break;
     }
     default:
@@ -2712,13 +2727,20 @@ build_err:
   @return false if successful, true if fail.
 */
 AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
-                                          uint curr_slice, uint avg_count) {
+                                          uint curr_slice, uint avg_count, bool stream_agg) {
   AccessPath *newPath = nullptr;
+  
+  ORDER *final_order = nullptr;
+  TABLE *tmp_table = nullptr;
+  List_item *curr_fields = nullptr;
+  mem_root_deque<Item *> tmp_field(thd->mem_root);
 
-  // use JOIN::tmp_table_param for final aggregate.
-  //join->tmp_table_param.pq_copy_from(path->aggregate().temp_table_param);
-  join->tmp_table_param.copy_fields.clear();
-  join->final_aggr_tmp_table_param = &join->tmp_table_param;
+  if (!stream_agg) {
+    // use JOIN::tmp_table_param for final aggregate.
+    //join->tmp_table_param.pq_copy_from(path->aggregate().temp_table_param);
+    join->tmp_table_param.copy_fields.clear();
+    join->final_aggr_tmp_table_param = &join->tmp_table_param;
+  }
 
   if (join->alloc_ref_item_slice(thd, REF_SLICE_FINAL_AGGREGATE)) goto build_err;
 
@@ -2728,37 +2750,86 @@ AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *cons
   // use aggregate's item to rebuild sum_func of final_aggregate and reset join::fields
   if (join->rebuild_final_sum_funcs(thd, curr_slice, avg_count)) goto build_err;
 
+  curr_fields = &join->tmp_fields[curr_slice];
+
   count_field_types(join->query_block, join->final_aggr_tmp_table_param, *join->fields,
                     /*reset_with_sum_func=*/false, /*save_sum_fields=*/false);
 
-  // reset group_feilds
-  if (!join->group_list.empty()) {
+  // reset group_feilds and group_list(if needed).
+  if (join->saved_group_list != nullptr && !join->saved_group_list->empty()) {
     join->set_ref_item_slice(curr_slice);
-    ORDER *group = join->group_list.order;
+    ORDER *group = join->saved_group_list->order;
+    // reset fields
     join->final_group_feilds.clear();
     for (; group; group = group->next) {
       Cached_item *tmp = new_Cached_item(join->thd, *group->item);
       if (!tmp || join->final_group_feilds.push_front(tmp)) goto build_err;
     }
+    // reset group_list
+    if (stream_agg) {
+      if (group) final_order = CreateOrderForGroupList(thd, group);
+    }
     join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
   }
 
-  /*
-  setup_copy_fields(*join->fields, thd, join->final_aggr_tmp_table_param,
-                    join->ref_items[REF_SLICE_FINAL_AGGREGATE],
-                    &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
-  */
-  join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
+  join->final_aggr_tmp_table_param->hidden_field_count =
+      CountHiddenFields(*curr_fields);
+  
+  if (stream_agg) {
+    // If this is streaming aggregate, we need to create tmp_table.
+    join->set_ref_item_slice(curr_slice);
 
-  if (join->sum_funcs_const) {
-    for (size_t idx = 0; idx < join->sum_funcs_const->size(); ++idx) {
-      Item *item;
-      size_t field_idx, ref_idx;
-      std::tie(item, field_idx, ref_idx) = join->sum_funcs_const->at(idx);
-      join->tmp_fields[REF_SLICE_FINAL_AGGREGATE][field_idx + (item->hidden ? 0 : avg_count * 2)] = item;
-      join->ref_items[REF_SLICE_FINAL_AGGREGATE][ref_idx + (item->hidden ? avg_count * 2 : 0)] = item;
+    uint curr_tmp_table = join->primary_tables;
+    QEP_TAB *tab = &join->qep_tab[curr_tmp_table];
+    if (tab->table()) {
+      close_tmp_table(tab->table());
+      free_tmp_table(tab->table());
+      tab->set_table(nullptr);
+    }
+    tab->tmp_table_param = join->final_aggr_tmp_table_param;
+    
+    tmp_table = create_tmp_table(
+      thd, join->final_aggr_tmp_table_param, *curr_fields, final_order,
+      /*distinct=*/false, /*save_sum_fields=*/true, join->query_block->active_options(),
+      /*rows_limit=*/HA_POS_ERROR, "<temp>");
+    if (!tmp_table) goto build_err;
+    join->final_tmpaggr_tmp_table = tmp_table;
+    tab->set_table(tmp_table);
+
+    if (join->final_aggr_tmp_table_param->items_to_copy &&
+        join->final_aggr_tmp_table_param->items_to_copy->size()) {
+      Func_ptr_array *func_ptr = join->final_aggr_tmp_table_param->items_to_copy;
+      uint end = func_ptr->size();
+      for (uint i = 0; i < end; i++) {
+        Func_ptr &func = func_ptr->at(i);
+        func.set_override_result_field(func.func()->get_result_field());
+      }
+    }
+
+    if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[REF_SLICE_FINAL_AGGREGATE],
+                                 &tmp_field, join->query_block->m_added_non_hidden_fields))
+      goto build_err;
+
+    join->tmp_fields[REF_SLICE_FINAL_AGGREGATE] = tmp_field;
+    join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+  } else {
+    /*
+    setup_copy_fields(*join->fields, thd, join->final_aggr_tmp_table_param,
+                      join->ref_items[REF_SLICE_FINAL_AGGREGATE],
+                      &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
+    */
+    if (join->sum_funcs_const) {
+      for (size_t idx = 0; idx < join->sum_funcs_const->size(); ++idx) {
+        Item *item;
+        size_t field_idx, ref_idx;
+        std::tie(item, field_idx, ref_idx) = join->sum_funcs_const->at(idx);
+        join->tmp_fields[REF_SLICE_FINAL_AGGREGATE][field_idx + (item->hidden ? 0 : avg_count * 2)] = item;
+        join->ref_items[REF_SLICE_FINAL_AGGREGATE][ref_idx + (item->hidden ? avg_count * 2 : 0)] = item;
+      }
     }
   }
+  
+  join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
 
   if (avg_count) {
     if (FixFuncDivForAvg(thd, join, avg_count)) goto build_err;
@@ -2776,6 +2847,10 @@ build_err:
   if (join->final_aggr_tmp_table_param) {
     destroy(join->final_aggr_tmp_table_param);
     join->final_aggr_tmp_table_param = nullptr;
+  }
+  if (tmp_table) {
+    close_tmp_table(tmp_table);
+    free_tmp_table(tmp_table);
   }
   return nullptr;
 }
@@ -2795,11 +2870,26 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
     }
     case AccessPath::FILTER : {
       AccessPath *filter_child = newChild->filter().child;
-      if (filter_child->type == AccessPath::TEMPTABLE_AGGREGATE &&
-          filter_child->temptable_aggregate().is_final_aggr) {
-        new_filesort->tables = std::move(Mem_root_array<TABLE *>(
-          {filter_child->temptable_aggregate().table}));
-        do_fixsort = true;
+      switch (filter_child->type) {
+        case AccessPath::STREAM : {
+          AccessPath *stream_child = filter_child->stream().child;
+          if (stream_child->aggregate().is_final_aggr) {
+            new_filesort->tables = std::move(Mem_root_array<TABLE *>(
+              {filter_child->stream().table}));
+            do_fixsort = true;
+          }
+          break;
+        }
+        case AccessPath::TEMPTABLE_AGGREGATE : {
+          if (filter_child->temptable_aggregate().is_final_aggr) {
+            new_filesort->tables = std::move(Mem_root_array<TABLE *>(
+              {filter_child->temptable_aggregate().table}));
+            do_fixsort = true;
+          }
+          break;
+        }
+        default :
+          break;
       }
       break;
     }
@@ -2811,6 +2901,17 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
           {sort_child->temptable_aggregate().table}));
         do_fixsort = true;
       }
+      break;
+    }
+    case AccessPath::STREAM : {
+      AccessPath *stream_child = newChild->stream().child;
+      if (stream_child->type == AccessPath::AGGREGATE &&
+          stream_child->aggregate().is_final_aggr) {
+        new_filesort->tables = std::move(Mem_root_array<TABLE *>(
+          {newChild->stream().table}));
+        do_fixsort = true;
+      }
+      break;
     }
     default :
       break; 
