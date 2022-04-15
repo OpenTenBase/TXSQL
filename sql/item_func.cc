@@ -6144,7 +6144,7 @@ longlong Item_func_sleep::val_int() {
            = NULL: variable does not exist (if cs == NULL), or
                    could not create variable (if cs != NULL)
 */
-static user_var_entry *get_variable(THD *thd, const Name_string &name,
+user_var_entry *get_variable(THD *thd, const Name_string &name,
                                     const CHARSET_INFO *cs) {
   const std::string key(name.ptr(), name.length());
 

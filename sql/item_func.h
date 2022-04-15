@@ -4145,4 +4145,6 @@ public:
 
 /* Changes from TXSQL end. */
 
+user_var_entry *get_variable(THD *thd, const Name_string &name,
+                                    const CHARSET_INFO *cs);
 #endif /* ITEM_FUNC_INCLUDED */

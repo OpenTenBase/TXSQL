@@ -10,6 +10,7 @@
 #include "sql/log.h" // For debug to be deleted.
 #include "sql/iterators/basic_row_iterators.h"  // TableScanIterator
 #include "sql/parallel_execution/px.h"
+#include "px_optimizer_context.h" // post_init_worker_thd
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
@@ -281,8 +282,11 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
   for (int i = 0; i < num_threads; ++i) {
     THD *worker_new_thd = new THD();
     if (nullptr == worker_new_thd) return true;
-    // TODO: add variables of THD copy.
-    worker_new_thd->variables.optimizer_switch = thd()->variables.optimizer_switch;
+
+    worker_new_thd->m_is_worker = true;
+    // copy variables of coordinator THD for worker
+    post_init_worker_thd(thd(), worker_new_thd);
+
     mysql_change_db(worker_new_thd, thd()->db(), false);
     // THD to thd list for state setting.
     thd_list.push_back(worker_new_thd);
@@ -293,7 +297,6 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     // Set the thread_id of the THD by Global_THD_Manager, in temp table
     // creatation, thread_id is needed to name a temp file in disk.
     worker_new_thd->set_new_thread_id();
-    worker_new_thd->m_is_worker = true;
     worker_new_thd->worker_id = i;
     worker_new_thd->px_coordinator = thd();
     // Set the query to worker THD.

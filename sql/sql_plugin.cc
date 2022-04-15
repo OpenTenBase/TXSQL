@@ -479,7 +479,6 @@ static int test_plugin_options(MEM_ROOT *, st_plugin_int *, int *, char **,
 static bool register_builtin(st_mysql_plugin *, st_plugin_int *,
                              st_plugin_int **);
 static void unlock_variables(struct System_variables *vars);
-static void cleanup_variables(THD *thd, struct System_variables *vars);
 static void plugin_vars_free_values(sys_var *vars);
 static void plugin_var_memalloc_free(struct System_variables *vars);
 static void restore_pluginvar_names(sys_var *first);
@@ -3063,7 +3062,7 @@ static void unlock_variables(struct System_variables *vars) {
   Unlike plugin_vars_free_values() it frees all variables of all plugins,
   it's used on shutdown.
 */
-static void cleanup_variables(THD *thd, struct System_variables *vars) {
+void cleanup_variables(THD *thd, struct System_variables *vars) {
   if (thd) {
     /* Block the Performance Schema from accessing THD::variables. */
     mysql_mutex_lock(&thd->LOCK_thd_data);
@@ -3076,8 +3075,15 @@ static void cleanup_variables(THD *thd, struct System_variables *vars) {
   assert(vars->table_plugin == nullptr);
   assert(vars->temp_table_plugin == nullptr);
 
-  my_free(vars->dynamic_variables_ptr);
-  vars->dynamic_variables_ptr = nullptr;
+  /*
+    in parallel execution, the dynamic_variables_ptr of worker thd
+    may not be initialized (omitted alloc_and_copy_thd_dynamic_variables).
+    The deinit of dynamic_variables_ptr will be done by the coordinator.
+  */
+  if (!thd || !thd->m_is_worker) {
+    my_free(vars->dynamic_variables_ptr);
+    vars->dynamic_variables_ptr = nullptr;
+  }
   vars->dynamic_variables_size = 0;
   vars->dynamic_variables_version = 0;
 
