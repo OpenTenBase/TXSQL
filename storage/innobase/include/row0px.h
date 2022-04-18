@@ -88,7 +88,7 @@ class PX_reader {
   @return error. */
   dberr_t task_dispatch(std::shared_ptr<PX_Ctx> &task);
 
-  dberr_t split();
+  dberr_t split(ulong avg_partitions);
 
   uint get_total_ctxs() { return m_ctxs.size(); }
 
@@ -170,6 +170,8 @@ class PX_reader {
 
   /** For signalling worker threads about events. */
   os_event_t m_event{};
+
+  size_t split_level{0};
 
   friend class PX_Ctx;
   friend class PX_Scan_ctx;
@@ -483,7 +485,7 @@ class PX_Ctx {
  private:
   /** Split the context into sub-ranges and add them to the execution queue.
   @return DB_SUCCESS or error code. */
-  dberr_t split() MY_ATTRIBUTE((warn_unused_result));
+  dberr_t split(size_t split_level) MY_ATTRIBUTE((warn_unused_result));
 
   /** @return true if in error state. */
   bool is_error_set() const MY_ATTRIBUTE((warn_unused_result)) {

@@ -789,6 +789,8 @@ extern const struct _ft_vft ft_vft_result;
                           innodb_parallel_read_threads value. */
 ulong thd_parallel_read_threads(THD *thd);
 
+ulong thd_parallel_avg_partitions(THD *thd);
+
 /** Structure Returned by ha_innobase::ft_init_ext() */
 typedef struct new_ft_info {
   struct _ft_vft *please;
