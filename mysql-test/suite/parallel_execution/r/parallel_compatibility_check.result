@@ -323,8 +323,10 @@ EXPLAIN
 
 EXPLAIN FORMAT=TREE SELECT * FROM (select * from t1 where a=1) as tt;
 EXPLAIN
--> Filter: (t1.a = 1)  (cost=0.75 rows=1)
-    -> Table scan on t1  (cost=0.75 rows=5)
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Filter: (t1.a = 1)  (cost=0.75 rows=1)
+            -> Table scan on t1  (cost=0.75 rows=5)
 
 parallel table with full text search
 CREATE TABLE ft_test (a VARCHAR(200), b TEXT, FULLTEXT (a,b)) charset utf8mb4;

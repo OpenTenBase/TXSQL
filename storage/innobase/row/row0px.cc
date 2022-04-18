@@ -4,6 +4,7 @@
 #include "lock0lock.h"
 #include "trx0trx.h"
 #include "record_buffer.h"
+#include <time.h>  // for performance
 
 extern ICP_RESULT row_search_idx_cond_check(byte *mysql_rec,
                                             row_prebuilt_t *prebuilt,
@@ -18,9 +19,6 @@ extern Record_buffer *row_sel_get_record_buffer(const row_prebuilt_t *prebuilt);
 extern void row_sel_dequeue_cached_row_for_mysql(byte *buf, row_prebuilt_t *prebuilt);
 extern byte *row_sel_fetch_last_buf(row_prebuilt_t *prebuilt);
 extern void row_sel_enqueue_cache_row_for_mysql(byte *mysql_rec,row_prebuilt_t *prebuilt);
-
-/** Tree depth at which we decide to split blocks further. */
-static constexpr size_t SPLIT_THRESHOLD{3};
 
 extern void row_sel_store_row_id_to_prebuilt(
   row_prebuilt_t *prebuilt,  /*!< in/out: prebuilt */
@@ -84,13 +82,12 @@ dberr_t PX_reader::add_scan(trx_t *trx, const PX_Config &config) {
 size_t PX_reader::calulate_split_point() {
   size_t split_point{};
   auto depth = m_scan_ctxs.front()->m_depth;
+  sql_print_information("B+Tree depth is: %d", depth);
+  sql_print_information("ctx size is: %d", m_ctxs.size());
+  sql_print_information("DOP is: %d", max_threads());
 
   if (m_ctxs.size() > max_threads()) {
     split_point = (m_ctxs.size() / max_threads()) * max_threads();
-  } else if (depth < SPLIT_THRESHOLD) {
-    /* If the tree is not very deep then don't split. For smaller tables
-    it is more expensive to split because we end up traversing more blocks. */
-    split_point = max_threads();
   }
 
   return split_point;
@@ -102,16 +99,34 @@ size_t PX_reader::calulate_split_point() {
   Dynamic sencond partition by workers can't keep the interesting order
   of index.
 */
-dberr_t PX_reader::split() {
+dberr_t PX_reader::split(ulong avg_partitions) {
   dberr_t err = DB_SUCCESS;
   size_t i = 0;
-  size_t split_point = calulate_split_point();
+  size_t ctx_size = m_ctxs.size();
+  size_t current_split_level = ++split_level;
+  auto depth = m_scan_ctxs.front()->m_depth;
 
-  for (; i < m_ctxs.size(); ++i) {
+  /*
+    In parallel query split policy, if the count of partitions already
+    more than dop * avg_partitions, don't do split for next level. In 
+    other words, PX_reader will split until the number of partitions
+    > avg_partitions * dop or the exists partitions has only one page.
+  */
+  if (current_split_level >= depth || (ctx_size >= (max_threads() * avg_partitions))) {
+    return err;
+  }
+
+  size_t split_point = calulate_split_point();
+  sql_print_information("split_point is: %d", split_point);
+  sql_print_information("current split level is: %d", current_split_level);
+
+  clock_t start,end;
+  start = clock();
+  for (; i < ctx_size; ++i) {
     auto ctx = dequeue();
 
     if (i >= split_point) {
-      err = ctx->split();
+      err = ctx->split(current_split_level);
       
       if (err != DB_SUCCESS) {
         return err;
@@ -121,7 +136,15 @@ dberr_t PX_reader::split() {
     }
   }
 
-  m_n_tasks = m_ctxs.size();
+  end = clock();
+  sql_print_information("split time is: %d", double(end-start)/CLOCKS_PER_SEC);
+  size_t m_n_tasks = m_ctxs.size();
+  sql_print_information("total tasks is: %d", m_n_tasks);
+
+  
+  if ((m_ctxs.size() < (max_threads() * avg_partitions))) {
+    return split(avg_partitions);
+  }
 
   return err;
 }
@@ -159,8 +182,8 @@ std::shared_ptr<PX_Ctx> PX_reader::dequeue() {
 */
 dberr_t PX_reader::task_dispatch(std::shared_ptr<PX_Ctx> &task) {
   dberr_t err{DB_SUCCESS};
-  sql_print_information("==========>>>> THREAD[%u] LEFT [%d] task.",
-    my_thread_self(), m_ctxs.size());
+  //sql_print_information("==========>>>> THREAD[%u] LEFT [%d] task.",
+  //  my_thread_self(), m_ctxs.size());
 
   /*
     There are two scenario the execution will be terminated:
@@ -758,7 +781,7 @@ PX_Scan_ctx::Iter::~Iter() {
 
 PX_Ctx::~PX_Ctx() {}
 
-dberr_t PX_Ctx::split() {
+dberr_t PX_Ctx::split(size_t split_level) {
   ut_ad(m_range.first->m_tuple == nullptr ||
         dtuple_validate(m_range.first->m_tuple));
   ut_ad(m_range.second->m_tuple == nullptr ||
@@ -772,7 +795,7 @@ dberr_t PX_Ctx::split() {
   m_scan_ctx->index_s_lock();
 
   PX_Scan_ctx::Ranges ranges{};
-  m_scan_ctx->partition(scan_range, ranges, 1);
+  m_scan_ctx->partition(scan_range, ranges, split_level);
 
   if (!ranges.empty()) {
     ranges.back().second = m_range.second;

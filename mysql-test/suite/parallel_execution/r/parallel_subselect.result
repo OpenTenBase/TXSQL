@@ -316,8 +316,8 @@ EXPLAIN
             -> Table scan on c_orders  (cost=403.23 rows=3562)
                 -> Materialize
                     -> Group aggregate: count(orders.o_orderkey)
-                        -> Nested loop left join  (cost=1402.03 rows=3563)
-                            -> Index scan on customer using c_custkey_idx  (cost=155.00 rows=1500)
+                        -> Nested loop left join  (cost=1405.98 rows=3563)
+                            -> Index scan on customer using c_custkey_idx  (cost=158.95 rows=1500)
                             -> Filter: (not((orders.o_comment like '%special%requests%')))  (cost=0.59 rows=2)
                                 -> Index lookup on orders using o_custkey_idx (o_custkey=customer.c_custkey)  (cost=0.59 rows=2)
 
