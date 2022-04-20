@@ -3093,9 +3093,12 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       
       if (cur_slice != -1) {
         if (cur_slice == REF_SLICE_SAVED_BASE) {
-          use_tmp_table = false;
-          if (child->type == AccessPath::TABLE_SCAN) {
-            table = child->table_scan().table;
+          Filesort *filesort = path->sort().filesort;
+          if (filesort->tables.size() == 1) {
+            use_tmp_table = false;
+            table = filesort->tables[0];
+          } else {
+            fields = &join->tmp_fields[cur_slice];
           }
         } else {
           fields = &join->tmp_fields[cur_slice];
