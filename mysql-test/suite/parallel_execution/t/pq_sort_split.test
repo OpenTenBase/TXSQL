@@ -51,6 +51,11 @@ select price from t order by price;
 --echo #
 select companynr,count(distinct price) from t group by companynr;
 
+--echo #
+--echo # Table scan -> Sort -> PX_send -> PX_receiver_merge
+--echo #
+select * from t where price > 98439034 order by price;
+
 drop table t;
 
 --echo #
