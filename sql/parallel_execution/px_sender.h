@@ -22,10 +22,11 @@ class THD;
 class PX_sender : public RowIterator {
  public:
   PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
-            unique_ptr_destroy_only<RowIterator> source,
-            TABLE *table, mem_root_deque<Item *> *send_fields,
+            unique_ptr_destroy_only<RowIterator> source, TABLE *table,
+            mem_root_deque<Item *> *send_fields,
             mem_root_deque<Item *> *shuffle_key,
-            Temp_table_param *temp_table_param);
+            Temp_table_param *temp_table_param,
+            unique_ptr_destroy_only<RowIterator> table_path);
   ~PX_sender() {}
 
   bool init();
@@ -37,15 +38,37 @@ class PX_sender : public RowIterator {
   bool Init() override { return attach(); }
   int Read() override { return send() ? -1 : 0; }
 
-  void StartPSIBatchMode() override { m_source->StartPSIBatchMode(); }
+  void StartPSIBatchMode() override {
+    if (!m_materialize) {
+      m_source->StartPSIBatchMode();
+    } else {
+      m_table_path->StartPSIBatchMode();
+    }
+  }
   void EndPSIBatchModeIfStarted() override {
-    m_source->EndPSIBatchModeIfStarted();
+    if (!m_materialize) {
+      m_source->EndPSIBatchModeIfStarted();
+    } else {
+      m_table_path->EndPSIBatchModeIfStarted();
+    }
   }
 
   void set_exchange_info(PX_exchange_info *ex_info) { m_pei = ex_info; }
 
-  void SetNullRowFlag(bool is_null_row) override { m_source->SetNullRowFlag(is_null_row);}
-  void UnlockRow() override { m_source->UnlockRow(); }
+  void SetNullRowFlag(bool is_null_row) override {
+    if (!m_materialize) {
+      m_source->SetNullRowFlag(is_null_row);
+    } else {
+      m_table_path->SetNullRowFlag(is_null_row);
+    }
+  }
+  void UnlockRow() override {
+    if (!m_materialize) {
+      m_source->UnlockRow();
+    } else {
+      m_table_path->UnlockRow();
+    }
+  }
   virtual std::string str() override { return "PX_Send"; }
   virtual PhysicalRowIteratorType type() override { return PHY_PX_SEND; }
   virtual void adjust_children() override { add_child(m_source.get()); }
@@ -71,6 +94,8 @@ class PX_sender : public RowIterator {
   mem_root_deque<Item *> *m_reshuffle_key{nullptr};
   Temp_table_param *m_temp_table_param{nullptr};
   std::vector<Field *> m_fields;
+  bool m_materialize;
+  unique_ptr_destroy_only<RowIterator> m_table_path;
 };
 
 #endif

@@ -1357,6 +1357,7 @@ struct AccessPath {
       List_item *fields;
       Temp_table_param *temp_table_param;
       bool use_temp_table;
+      AccessPath *table_path;
     } px_send;
     struct {
       AccessPath *child;
@@ -1912,7 +1913,8 @@ inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
                                        mem_root_deque<Item *> *send_fields,
                                        List_item *fields,
                                        Temp_table_param *temp_table_param,
-                                       bool use_temp_table) {
+                                       bool use_temp_table,
+                                       AccessPath *table_path = nullptr) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_SEND;
   path->px_send().child = child;
@@ -1921,6 +1923,7 @@ inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
   path->px_send().fields = fields;
   path->px_send().temp_table_param = temp_table_param;
   path->px_send().use_temp_table = use_temp_table;
+  path->px_send().table_path = table_path;
   return path;
 }
 
