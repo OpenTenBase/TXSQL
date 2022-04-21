@@ -12,9 +12,11 @@
 #define PX_HIDDEN_FIELD_COUNT 4
 
 PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
-    unique_ptr_destroy_only<RowIterator> source, TABLE *table,
-    mem_root_deque<Item *> *send_fields, mem_root_deque<Item *> *shuffle_key,
-    Temp_table_param *temp_table_param)
+                     unique_ptr_destroy_only<RowIterator> source, TABLE *table,
+                     mem_root_deque<Item *> *send_fields,
+                     mem_root_deque<Item *> *shuffle_key,
+                     Temp_table_param *temp_table_param,
+                     unique_ptr_destroy_only<RowIterator> table_path)
     : RowIterator(thd),
       m_thd(thd),
       m_sender_no(thd->worker_id),
@@ -23,7 +25,9 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
       m_table(table),
       m_send_fields(send_fields),
       m_reshuffle_key(shuffle_key),
-      m_temp_table_param(temp_table_param) {}
+      m_temp_table_param(temp_table_param),
+      m_materialize(table_path),
+      m_table_path(move(table_path)) {}
 
 bool PX_sender::init() {
   assert(m_pei);
@@ -68,7 +72,54 @@ bool PX_sender::attach() {
       m_fields.push_back(field);
   }
 
-  return m_source->Init();;
+  bool result = m_source->Init();
+  if (!m_materialize || result) return result;
+
+  // It only runs here if it provides materialization.
+
+  if (!m_table->is_created()) {
+    if (instantiate_tmp_table(thd(), m_table)) {
+      return true;
+    }
+    empty_record(m_table);
+  } else {
+    m_table->file->ha_index_or_rnd_end();  // @todo likely unneeded => remove
+    m_table->file->ha_delete_all_rows();
+  }
+
+  while (true) {
+    int error = m_source->Read();
+    if (error > 0 || thd()->is_error())
+      return true;
+    else if (error < 0)
+      break;
+    else if (thd()->killed) {
+      thd()->send_kill_message();
+      return true;
+    }
+
+    error = m_table->file->ha_write_row(m_table->record[0]);
+    if (error == 0) {
+      continue;
+    }
+
+    // create_ondisk_from_heap will generate error if needed.
+    if (!m_table->file->is_ignorable_error(error)) {
+      bool is_duplicate;
+      if (create_ondisk_from_heap(thd(), m_table, error,
+          /*insert_last_record=*/true, true, &is_duplicate))
+        return true; /* purecov: inspected */
+      // Table's engine changed; index is not initialized anymore.
+      if (m_table->hash_field) m_table->file->ha_index_init(0, false);
+      // if (!is_duplicate) ++*stored_rows;
+    } else {
+      // An ignorable error means duplicate key, ie. we deduplicated
+      // away the row. This is seemingly separate from
+      // check_unique_constraint(), which only checks hash indexes.
+    }
+  }
+
+  return m_table_path->Init();;
 }
 
 /**
@@ -89,11 +140,15 @@ bool PX_sender::send() {
   bool result =false;
   uint16 null_len = 0;
   uint32 total_copy_bytes = 0;
-  result = m_source->Read();
   auto send_format = m_pei->format();
 
-  if (m_temp_table_param && copy_fields_and_funcs(m_temp_table_param, thd()))
-    return true; /* purecov: inspected */
+  if (!m_materialize) {
+    result = m_source->Read();
+    if (m_temp_table_param && copy_fields_and_funcs(m_temp_table_param, thd()))
+      return true; /* purecov: inspected */
+  } else {
+    result = m_table_path->Read();
+  }
 
   // For some reason, items might not store information in fields. (testcase
   // type_bit_innodb:80) we need to do this manually.

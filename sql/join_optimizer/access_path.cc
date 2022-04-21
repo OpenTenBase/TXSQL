@@ -1862,10 +1862,17 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         break;
       }
       case AccessPath::PX_SEND: {
+        unique_ptr_destroy_only<RowIterator> table_iterator = nullptr;
+        if (path->px_send().table_path) {
+          table_iterator =
+              CreateIteratorFromAccessPath(thd, mem_root, path->px_send().table_path,
+                                           join, eligible_for_batch_mode);
+        }
         unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
             thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
         iterator = NewIterator<PX_sender>(thd, mem_root, 0, nullptr, move(child),
-            path->px_send().table, path->px_send().fields, nullptr, path->px_send().temp_table_param);
+            path->px_send().table, path->px_send().fields, nullptr,
+            path->px_send().temp_table_param, move(table_iterator));
         iterator->adjust_children();
         break;
       }

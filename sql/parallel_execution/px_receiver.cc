@@ -74,7 +74,7 @@ bool PX_receiver::init() {
   m_active_channels = m_channels.size();
 
   // m_join = thd->lex->current_select()->join;
-  m_input_slice = m_join->get_ref_item_slice();
+  if (m_join) m_input_slice = m_join->get_ref_item_slice();
 
   return false;
 }
@@ -123,7 +123,7 @@ bool PX_receiver::next() {
   //   // use join->fields, which is the last ref_slice in ref_items actually.
   //   SwitchSlice(m_join, m_ref_slice);
   // } else {
-    SwitchSlice(m_join, m_input_slice);
+  if (m_join) SwitchSlice(m_join, m_input_slice);
   // }
   if (!thd()->variables.cdb_parallel_execution_enabled &&
       thd()->lex->only_one_exchange()) {
@@ -161,7 +161,7 @@ bool PX_receiver::next() {
     decompact_row(data, msg_len);
   }
 
-  SwitchSlice(m_join, m_ref_slice);
+  if (m_join) SwitchSlice(m_join, m_ref_slice);
   return result;
 }
 
