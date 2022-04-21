@@ -75,9 +75,6 @@ using std::pair;
 static inline pair<uchar *, key_part_map> FindKeyBufferAndMap(
     const TABLE_REF *ref);
 
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
-
 ConstIterator::ConstIterator(THD *thd, TABLE *table, TABLE_REF *table_ref,
                              ha_rows *examined_rows)
     : TableRowIterator(thd, table),

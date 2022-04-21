@@ -52,9 +52,6 @@
 #include "sql_string.h"
 #include "template_utils.h"
 
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
-
 IndexRangeScanIterator::IndexRangeScanIterator(
     THD *thd, TABLE *table_arg, ha_rows *examined_rows, double expected_rows,
     uint key_nr, bool need_rows_in_rowid_order, bool reuse_handler,

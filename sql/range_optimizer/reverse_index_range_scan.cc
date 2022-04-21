@@ -31,9 +31,6 @@
 #include "sql/sql_executor.h"
 #include "sql/table.h"
 
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
-
 ReverseIndexRangeScanIterator::ReverseIndexRangeScanIterator(
     THD *thd, TABLE *table, ha_rows *examined_rows, double expected_rows,
     int index, MEM_ROOT *return_mem_root, uint mrr_flags,

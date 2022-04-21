@@ -3048,13 +3048,13 @@ FT_INFO *handler::ft_init_ext(uint flags [[maybe_unused]],
     @retval != 0  Error (error code returned)
 */
 
-int handler::ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, bool reverse_scan) {
+int handler::ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, uint &partitions, bool reverse_scan) {
   int result;
   DBUG_TRACE;
   assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   assert(inited == NONE || inited == INDEX || (inited == PQ));
   inited =
-      (result = px_coordinator_init(dop, keyno, scan_ctx, reverse_scan)) ? NONE : PQ;
+      (result = px_coordinator_init(dop, keyno, scan_ctx, partitions, reverse_scan)) ? NONE : PQ;
   end_range = NULL;
   return result;
 }

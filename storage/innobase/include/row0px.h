@@ -90,6 +90,8 @@ class PX_reader {
 
   dberr_t split();
 
+  uint get_total_ctxs() { return m_ctxs.size(); }
+
   // Disable copying.
   PX_reader(const PX_reader &) = delete;
   PX_reader(const PX_reader &&) = delete;

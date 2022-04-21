@@ -12,7 +12,7 @@
 #include "sql/parallel_execution/px.h"
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
+                         uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
 
 /**
   Attach exchange exec context to exchange receiver and exchange sender of this
@@ -557,12 +557,17 @@ bool PX_sequential_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_po
       void *px_reader = nullptr;
       PX_table_descriptor *descriptor = m_tasks_hash[child_task_id]->px_table_descriptor;
       assert(descriptor);
-      bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
-      px_partition(worker_pool->num_threads, px_reader, descriptor->table(),
-                   descriptor->type(), descriptor->keyno(),
-                   descriptor->ref(), descriptor->reverse_scan());
-      assert(px_reader != nullptr);
+      uint partitions = 0;
+      int error = px_partition(worker_pool->num_threads, px_reader, descriptor->table(),
+                               descriptor->type(), descriptor->keyno(),
+                               descriptor->ref(), descriptor->reverse_scan(), partitions);
+      if (!error) {
+        assert(px_reader);
+        // TODO: change the dop if necessary
+      } else {
+        // TODO: handle the error occurs in px_partition
+        assert(!px_reader);
+      }
       thd()->px_scan_ctx = px_reader;
       for (int i = 0; i < worker_pool->num_threads; ++i) {
         th_arg_array[i]->task_id = child_task_id;
