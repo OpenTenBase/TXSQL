@@ -118,7 +118,7 @@ void PX_proc::wait(ulong timeout, const PSI_stage_info *stage,
 }
 
 bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                  uint keyno, TABLE_REF *ref, bool reverse_scan = false) {
+                  uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions) {
   assert(table);
   int error = 0;
   table->file->px_scan_type = type;
@@ -130,6 +130,10 @@ bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
     table->file->px_ref_key.flag = HA_READ_KEY_OR_NEXT;
   }
 
-  error = table->file->ha_px_coordinator_init(dop, keyno, scan_ctx, reverse_scan);
-  return error ? true : false;
+  error = table->file->ha_px_coordinator_init(dop, keyno, scan_ctx, partitions, reverse_scan);
+  if (error) {
+    table->file->print_error(error, MYF(0));
+  }
+
+  return error;
 }

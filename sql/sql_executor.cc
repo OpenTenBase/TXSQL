@@ -124,9 +124,6 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
-
 static int read_system(TABLE *table);
 static bool alloc_group_fields(JOIN *join, ORDER *group);
 

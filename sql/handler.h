@@ -4754,7 +4754,7 @@ class handler {
 
   int ha_px_end();
 
-  int ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, bool reverse_scan = false);
+  int ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, uint &partitions, bool reverse_scan = false);
 
   int ha_px_worker_next(uchar *buf, void *scan_ctx);
 
@@ -4904,6 +4904,7 @@ class handler {
   virtual int px_coordinator_init(uint dop MY_ATTRIBUTE((unused)),
                                   uint key MY_ATTRIBUTE((unused)),
                                   void *&scan_ctx MY_ATTRIBUTE((unused)),
+                                  uint &partitions MY_ATTRIBUTE((unused)),
                                   bool reverse_scan MY_ATTRIBUTE((unused)) = false) {
     return 0;
   }

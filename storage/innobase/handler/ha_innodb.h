@@ -531,7 +531,8 @@ class ha_innobase : public handler {
   @param[in]      scan_ctx      A scan context created by parallel_scan_init. */
   void parallel_scan_end(void *scan_ctx) override;
 
-  int px_coordinator_init(uint dop, uint key, void *&scan_ctx, bool reverse_scan = false) override;
+  int px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &partitions,
+                          bool reverse_scan = false) override;
 
   int px_full_scan_init(PX_reader *reader, bool reverse_scan = false);
 

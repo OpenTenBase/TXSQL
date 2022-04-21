@@ -11087,7 +11087,7 @@ int ha_innobase::px_ref_scan_init(PX_reader *reader, bool reverse_scan) {
   @retval	errno Failure
   @retval	0 Success 
 */
-int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, bool reverse_scan) {
+int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &partitions, bool reverse_scan) {
   if (dict_table_is_discarded(m_prebuilt->table)) {
     ib_senderrf(ha_thd(), IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
                 m_prebuilt->table->name.m_name);
@@ -11132,13 +11132,18 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, bool r
       break;
   }
 
-  if (result) {
+  if (result == HA_ERR_END_OF_FILE || result == HA_ERR_KEY_NOT_FOUND) {
+    partitions = 0;
+    scan_ctx = reader;
+    return 0;
+  } else if (result) {
     ut::delete_(reader);
     return result;
   }
 
-  // Do the second split if necessary. TODO: need to check here.
+  // Do the second split if necessary.
   reader->split();
+  partitions = reader->get_total_ctxs();
   scan_ctx = reader;
 
   return (0);

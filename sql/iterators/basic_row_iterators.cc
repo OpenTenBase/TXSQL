@@ -52,8 +52,6 @@
 
 using std::string;
 using std::vector;
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan = false);
 
 template <bool Reverse>
 IndexScanIterator<Reverse>::IndexScanIterator(THD *thd, TABLE *table, int idx,
