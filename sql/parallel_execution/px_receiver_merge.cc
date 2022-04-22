@@ -80,14 +80,15 @@ bool PX_receiver_merge::init() {
 /**
   Get the min/max record and then convert to mysql format.
 
-  @return true error occurs or killed, fail read success!
+  @return 1 error occurs or killed, -1 for EOF , 0 for read success.
 */
-bool PX_receiver_merge::next() {
+int PX_receiver_merge::next() {
   mq_record_st *record = get_min_record();
 
+  // TODO: There is no distinction between error and EOF cases.
   if (!record) {
     get_pei()->detach_receiver(get_receiver_no());
-    return true;
+    return -1;
   }
 
   if (get_pei()->format() == PX_COMPACT_ROW) {
@@ -97,7 +98,7 @@ bool PX_receiver_merge::next() {
     assert(0);
   }
 
-  return false;
+  return 0;
 }
 
 void PX_receiver_merge::end() {

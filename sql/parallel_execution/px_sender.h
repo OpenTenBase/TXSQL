@@ -30,13 +30,13 @@ class PX_sender : public RowIterator {
   ~PX_sender() {}
 
   bool init();
-  bool send();
+  int send();
   void end();
 
   bool attach();
 
   bool Init() override { return attach(); }
-  int Read() override { return send() ? -1 : 0; }
+  int Read() override { return send(); }
 
   void StartPSIBatchMode() override {
     if (!m_materialize) {
