@@ -1902,6 +1902,10 @@ void JOIN::destroy() {
     cleanup_item_list(tmp_fields[REF_SLICE_TMP2]);
     cleanup_item_list(tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
     cleanup_item_list(tmp_fields[REF_SLICE_SAVED_TMP1]);
+    cleanup_item_list(tmp_fields[REF_SLICE_SAVED_ORDERED_GROUP_BY]);
+    cleanup_item_list(tmp_fields[REF_SLICE_EXCHANGE_1]);
+    cleanup_item_list(tmp_fields[REF_SLICE_EXCHANGE_2]);
+    cleanup_item_list(tmp_fields[REF_SLICE_EXCHANGE_3]);
     for (uint widx = 0; widx < m_windows.elements; widx++) {
       cleanup_item_list(tmp_fields[REF_SLICE_WIN_1 + widx]);
     }
@@ -1932,7 +1936,6 @@ void JOIN::destroy() {
   }
 
   if (exchange_temp_table) {
-    int exchange_num = exchange_temp_table->size() / 2;
     for (TABLE *table : *exchange_temp_table) {
       if (table->file != nullptr) {
         table->file->ha_index_or_rnd_end();
@@ -1941,8 +1944,9 @@ void JOIN::destroy() {
       free_tmp_table(table);
     }
     exchange_temp_table->clear();
-    for (int index = 0; index < exchange_num; ++index) {
-      cleanup_item_list(tmp_fields[REF_SLICE_WIN_1 + index]);
+  }
+  if (exchange_tmp_fields) {
+    for (uint index = 0; index < MAX_EXCHANGE_NUM; ++index) {
       cleanup_item_list(exchange_tmp_fields[index]);
     }
   }

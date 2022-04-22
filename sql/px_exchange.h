@@ -12,7 +12,7 @@
 typedef Field *SourceItem;
 typedef std::vector<Field *> ExchangeSourceItem;
 constexpr uint EXCHANGE_BUFFER_SIZE = 1UL << 16;
-constexpr uint MAX_EXCHANGE_NUM = 4;
+constexpr uint MAX_EXCHANGE_NUM = 3;
 
 class PX_Gather_base : public TableRowIterator {
  public:
