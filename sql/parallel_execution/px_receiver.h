@@ -34,7 +34,7 @@ class PX_receiver : public RowIterator {
   ~PX_receiver() {}
 
   virtual bool init();
-  virtual bool next();
+  virtual int next();
   virtual void end();
 
   virtual bool attach();
@@ -46,7 +46,7 @@ class PX_receiver : public RowIterator {
   uint senders() { return m_channels.size(); }
 
   bool Init() override { return attach(); }
-  int Read() override { return next() ? -1 : 0; }
+  int Read() override { return next(); }
 
   void StartPSIBatchMode() override {
     // TODO: receiver should send this message to sender through mq.
@@ -70,7 +70,7 @@ class PX_receiver : public RowIterator {
 
 
  private:
-  bool read_compact_row(void **datap, Size *len);
+  int read_compact_row(void **datap, Size *len);
   void mqueue_mmove(uint next_channel, uint active_channels);
   void decompact_field(Field *field, uchar *data, uint &ptr_offset);
 

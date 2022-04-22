@@ -49,12 +49,12 @@ class PX_receiver_merge : public PX_receiver {
   virtual ~PX_receiver_merge() {}
 
   bool init() override;
-  bool next() override;
+  int next() override;
   void end() override;
   
   bool attach() override;
   bool Init() override { return attach(); }
-  int Read() override { return next() ? -1 : 0; }
+  int Read() override { return next(); }
 
  public:
   Filesort *get_filesort() { return m_sort; }

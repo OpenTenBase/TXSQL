@@ -114,10 +114,10 @@ bool PX_receiver::attach() {
 
 /**
   Read from exchange chennels responding to the receiver.
-  
-  @return true error occurs or killed, fail read success!
+
+  @return 0 for success, -1 for EOF and 1 for error
 */
-bool PX_receiver::next() {
+int PX_receiver::next() {
   // if (m_join->select_count) {
   //   // When true, UnqualifiedCountIterator would be used. This iterator directly
   //   // use join->fields, which is the last ref_slice in ref_items actually.
@@ -128,15 +128,17 @@ bool PX_receiver::next() {
   if (!thd()->variables.cdb_parallel_execution_enabled &&
       thd()->lex->only_one_exchange()) {
     assert(m_source.get()->type() == PHY_PX_SEND);
-    PX_sender *sender = static_cast<PX_sender *>(m_source->real_iterator());
-    if (-1 == sender->Read()) {
+    int result = m_source->Read();
+    if (result != 0 ) {
+      PX_sender *sender = static_cast<PX_sender *>(m_source->real_iterator());
       m_pei->detach_sender(thd()->worker_id);
       sender->end();
       // TODO: only support one-stage parallel.
       sql_print_information("finish single thread mode receiver execution.");
+      return result;
     }
   }
-  bool result = false;
+  int result = 0;
   uchar *data = nullptr;
   Size msg_len = 0;
 
@@ -154,7 +156,7 @@ bool PX_receiver::next() {
   */
   if (result || m_thd->killed) {
     m_pei->detach_receiver(m_receiver_no);
-    return true;
+    return result;
   }
 
   if (m_pei->format() == PX_COMPACT_ROW) {
@@ -174,9 +176,9 @@ void PX_receiver::end() {
   manner. If current active channel is empty but has not
   detach, just move to next active channel to read row.
 
-  @return false read success, true fail.
+  @return 0 for success, -1 for EOF and 1 for error.
 */
-bool PX_receiver::read_compact_row(void **datap, Size *len) {
+int PX_receiver::read_compact_row(void **datap, Size *len) {
   uint nvisited = 0;
   THD *thd = get_thd();
 
@@ -190,7 +192,7 @@ bool PX_receiver::read_compact_row(void **datap, Size *len) {
     PX_mq_result read_result = (PX_mq_result)channel->receive(datap, len, /*nowait=*/true);
 
     if (read_result == PX_MQ_SUCCESS) {
-      return false;
+      return 0;
     }
 
     if (read_result == PX_MQ_WOULD_BLOCK) {
@@ -209,7 +211,7 @@ bool PX_receiver::read_compact_row(void **datap, Size *len) {
 
     if (read_result == PX_MQ_ERROR || read_result == PX_MQ_INTERRUPTED) {
       sql_print_error("Recevie data from a channel fail!");
-      return true;
+      return 1;
     }
 
     if (read_result == PX_MQ_DETACHED) {
@@ -221,7 +223,7 @@ bool PX_receiver::read_compact_row(void **datap, Size *len) {
       m_active_channels--;
 
       if (m_active_channels == 0) {
-        return true;
+        return -1;
       }
 
       // Remove the read done channel.
@@ -235,7 +237,7 @@ bool PX_receiver::read_compact_row(void **datap, Size *len) {
     }
   }
 
-  return false;
+  return 0;
 }
 
 /**

@@ -129,25 +129,27 @@ bool PX_sender::attach() {
   2) send row directly
   3) send csi chunk
 
-  @return false success, true fail.
+  @return 0 for success, -1 for EOF and 1 for error
 */
-bool PX_sender::send() {
+int PX_sender::send() {
   /*
     The field counts is 4096 at most, so the null len is less than
     2 * 2^12(4096) / 8 = 2^10 bytes. We can use 2 bytes to store
     the skip flag len info.
   */
-  bool result =false;
+  int result = 0;
   uint16 null_len = 0;
   uint32 total_copy_bytes = 0;
   auto send_format = m_pei->format();
 
   if (!m_materialize) {
     result = m_source->Read();
+    if (result != 0) return result;
     if (m_temp_table_param && copy_fields_and_funcs(m_temp_table_param, thd()))
       return true; /* purecov: inspected */
   } else {
     result = m_table_path->Read();
+    if (result != 0) return result;
   }
 
   // For some reason, items might not store information in fields. (testcase
@@ -165,12 +167,12 @@ bool PX_sender::send() {
   switch (send_format) {
    case PX_COMPACT_ROW: {
      if (prepare_compact_row() || make_compact_row(null_len, total_copy_bytes)) {
-       return true;
+       return 1;
      }
 
-     if (!result && send_compact_row()) {
+     if (send_compact_row()) {
        m_pei->detach_sender(m_sender_no);
-       return true;
+       return 1;
      }
 
      break;
