@@ -640,6 +640,18 @@ enum {
   */
   REF_SLICE_SAVED_BASE,
   /**
+      The slice with pointers to columns of 1st exchange tmp table.
+  */
+  REF_SLICE_EXCHANGE_1,
+  /**
+      The slice with pointers to columns of 2st exchange tmp table.
+  */
+  REF_SLICE_EXCHANGE_2,
+  /**
+      The slice with pointers to columns of 3st exchange tmp table.
+  */
+  REF_SLICE_EXCHANGE_3,
+  /**
      The slice with pointers to columns of 1st tmp table of windowing
   */
   REF_SLICE_WIN_1

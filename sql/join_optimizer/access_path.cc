@@ -3260,7 +3260,7 @@ static AccessPath *CreateExchangeAccessPath(
   mem_root_deque<Item *> tmp_field(thd->mem_root);
   List_item *curr_fields = &tmp_table_fields;
 
-  const uint ref_slice = REF_SLICE_WIN_1 + curr_exchange;
+  const uint ref_slice = REF_SLICE_EXCHANGE_1 + curr_exchange;
 
   const char *table_info_sender = "sender";
   const char *table_info_recv = "receiver";

@@ -206,20 +206,15 @@ bool JOIN::alloc_ref_item_slice(THD *thd_arg, int sliceno) {
 }
 
 bool JOIN::alloc_indirection_slices() {
-  // MAX_EXCHANGE_NUM reserved for exchange, we don`t use these all. In future
-  // we might use REF_SLICE_EXCHANGE. Only one ref_slice for exchange is enough,
-  // because only gather need to store ref_slice and one thread only have one
-  // gather. But in this demo, we inject several exchanges in one thread for
-  // test.
-  const int num_slices = REF_SLICE_WIN_1 + m_windows.elements + MAX_EXCHANGE_NUM;;
+  const uint card = REF_SLICE_WIN_1 + m_windows.elements * 2;
 
   assert(ref_items == nullptr);
-  ref_items = (*THR_MALLOC)->ArrayAlloc<Ref_item_array>(num_slices);
+  ref_items = (*THR_MALLOC)->ArrayAlloc<Ref_item_array>(card);
   if (ref_items == nullptr) return true;
 
   tmp_fields =
       (*THR_MALLOC)
-          ->ArrayAlloc<mem_root_deque<Item *>>(num_slices, *THR_MALLOC);
+          ->ArrayAlloc<mem_root_deque<Item *>>(card, *THR_MALLOC);
   if (tmp_fields == nullptr) return true;
 
   return false;
