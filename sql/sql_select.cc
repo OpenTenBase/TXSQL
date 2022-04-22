@@ -876,7 +876,7 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 
   if (lex->is_explain()) {
     if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
-  } else if (lex->use_px) {
+  } else if (thd->use_px) {
     if (unit->execute_in_parallel(thd)) return true;
   } else {
     if (unit->execute(thd)) return true;
@@ -886,8 +886,6 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
         return false;
     }
   }
-
-  // If execute in parallel finished and check that 
 
   return false;
 }

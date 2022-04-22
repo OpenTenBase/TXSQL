@@ -108,7 +108,7 @@ class PX_executor {
   virtual ~PX_executor() {}
 
   virtual bool prepare_task_for_dfo() { return false; }
-  virtual void do_all_for_workers(THD::killed_state state_to_set) {}
+  virtual void notify_all_workers(THD::killed_state state_to_set) {}
 
  protected:
   THD *thd() const { return m_thd; }
@@ -177,16 +177,21 @@ class PX_coordinator : public PX_executor {
   virtual bool schedule(worker_pool_t *worker_pool) { return false; }
 
   /**
-    Make bridges for tasks in each worker schedulers, for example, two MQs will
-    be needed to bridge <dfo1, dfo2>, <dfo2, root dfo>. Before scheduling tasks
-    two MQs should be created.
+    Create multiple worker threads to rebuild query execution, by re-parsing,
+    re-optimizing and execute.
+
+    @param worker_pool worker pool.
+    @param th_arg_array thread argument array.
   */
-  virtual void create_mq_channel_for_task_pair();
+  virtual bool create_worker_context(worker_pool_t *&worker_pool,
+                                       worker_thread_arg **&th_arg_array);
 
-  virtual void do_all_for_workers(THD::killed_state state_to_set) override;
+  /**
+    Notify SIGNAL to each worker, set task finished when been killed.
 
-  virtual bool check_error(worker_pool_t *worker_pool, 
-                           const char *err_msg) { return false;}
+    @param state_to_set signal.
+  */
+  virtual void notify_all_workers(THD::killed_state state_to_set) override;
 
  protected:
   typedef Prealloced_array<THD *, 60> THD_array;
@@ -235,13 +240,12 @@ class PX_sequential_coordinator : public PX_coordinator {
   virtual bool prepare_task_execution_for_dfo(const std::vector<Dfo*> dfos);
 
   /**
-    Check error of current state.
+    Check equivalence between coordinator and workers.
 
     @param worker_pool worker pool.
-    @param err_msg error msg
+    @return false if equal, true if unequal.
   */
-  virtual bool check_error(worker_pool_t *worker_pool, 
-                           const char *err_msg) override;
+  bool check_equivalence(worker_pool_t *worker_pool);
 
  private:
   PX_exchange_info *exchange_info{nullptr};

@@ -9381,7 +9381,6 @@ bool insert_fields(THD *thd, Query_block *query_block, const char *db_name,
     if (!any_privileges && !(tables->grant.privilege & SELECT_ACL)) {
       field_iterator.set(tables);
       if (!thd->m_is_worker && check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
-      if (!thd->m_is_worker && check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
         return true;
     }
 
