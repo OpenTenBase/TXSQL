@@ -776,7 +776,9 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     default:
       break;
   }
-  sql_print_information("access path %d not compat %d.", path->type, parallel_safe);
+  if (!parallel_safe)
+    sql_print_information("WalkAccessPathsForCompat:%d NO Compat type[%d]",
+      __LINE__, path->type);
   return parallel_safe;
 }
 
@@ -1761,6 +1763,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<WeedoutIterator>(
             thd, mem_root, move(job.children[0]), param.weedout_table,
             param.tables_to_get_rowid_for);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::REMOVE_DUPLICATES: {

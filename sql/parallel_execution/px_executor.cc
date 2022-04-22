@@ -15,8 +15,8 @@ extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE t
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
 
 /**
-  Attach exchange exec context to exchange receiver and exchange sender of this
-  PX_task by traverse.
+  Attach exchange info to exchange receiver and exchange sender of this
+  PX_task by traversing iterator tree.
 */
 void PX_task::attach_exchange_info(RowIterator *iterator)
 {
@@ -37,8 +37,12 @@ bool PX_task::choose_parallel_table_scan()
   bool ret = false;
   PX_table_descriptor *px_descriptor = nullptr;
   RowIterator *child = sub_iterator;
-  // Currently support PHY_TABLE_SCAN/PHY_INDEX_SCAN/PHY_INDEX_RANGE_SCAN/PHY_REF
-  // parallelly scan by PX_reader, choose the left most child of the iterator tree.
+  // Currently support several paralllel scan by PX_reader:
+  // 1. PHY_TABLE_SCAN;
+  // 2. PHY_INDEX_SCAN;
+  // 3. PHY_INDEX_RANGE_SCAN;
+  // 4. PHY_REF
+  // Currently, choose the left most child of the iterator tree.
   while(nullptr != child) {
     if (child->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
         child->type() == RowIterator::PHY_TABLE_SCAN ||
@@ -75,41 +79,38 @@ bool PX_task::choose_parallel_table_scan()
 */
 static void *execute_inner_in_worker(void *args)
 {
-  int error = 0;
+  int error = 1;
   worker_thread_arg *worker_info = (worker_thread_arg *)args;
   THD *thd = worker_info->worker_thd;
   thd->thread_stack = (char *)&thd;
   thd->mem_root = new MEM_ROOT();
+
   // Restore the THD evironment for current_thd.
   current_thd = thd;
   THR_MALLOC = &(thd->mem_root);
-  Parser_state *parser_state = worker_info->parse_state;
-  parser_state->init(thd, thd->query().str, thd->query().length);
+  Parser_state *parser_state = new (thd->mem_root) Parser_state();
+  if (nullptr == parser_state) return nullptr;
+  if (parser_state->init(thd, thd->query().str, thd->query().length))
+    return nullptr;
 
-  sql_print_information("begin to init the THD.");
   // Reset THD for next command.
   mysql_reset_thd_for_next_command(thd);
   lex_start(thd);
-  thd->m_parser_state = parser_state;
-  thd->m_parser_state = nullptr;
 
+  thd->m_parser_state = nullptr;
   // TODO: handle situation const char *found_semicolon = nullptr;
   bool err = thd->get_stmt_da()->is_error();
 
   if (!err) err = parse_sql(thd, parser_state, nullptr);
+  sql_print_information("execute_inner_in_worker:%d parse return[%d]", __LINE__, err);
 
-  sql_print_information("parse sql error: %d", err);
+  if (!err && !thd->is_error()) error = mysql_execute_command(thd, true);
+  sql_print_information("execute_inner_in_worker:%d execute return[%d] state[%d]", 
+    __LINE__, error, thd->px_worker_state);
 
-  if (!err) {
-    if (!thd->is_error()) {
-      error = mysql_execute_command(thd, true);
-      sql_print_information("after mysql execute command return %d", error);
-    }
-  }
-
-  if (error) {
-    thd->worker_arg->error = true;
-    worker_pool_optimize_end(thd->worker_arg);//TODO: check whether exit.
+  if (error && thd->px_worker_state <= PX_WORKER_PARSE_OPTIMIZE) {
+    worker_pool_optimize_end(thd->worker_arg); // Synchronize with coordinator.
+    worker_pool_execute_error(thd->worker_arg);
   }
 
   // LEX cleanup for the local thread execution.
@@ -140,21 +141,6 @@ static void *init_task_handler(void *arg) {
 }
 
 /**
-  The worker task init.
-*/
-// static void *close_task_handler(void *arg) {
-//   worker_thread_arg *worker_info = (worker_thread_arg *)arg;
-//   int task_id = worker_info->task_id;
-//   THD *thd = worker_info->worker_thd;
-//   PX_executor *px_executor = thd->px_executor;
-//   PX_task *task = px_executor->m_tasks_hash[task_id];
-//   // task->set_exchange_info(worker_info->exchange_info);
-//   // task->attach_exchange_info(task->sub_iterator);
-//   static_cast<PX_sender*>(task->ex_sender)->end();
-//   return nullptr;
-// }
-
-/**
   The worker task execution function, get the task id assigned by the coordinator
   and execute it immediately. After the execution, detach it from exec context.
 */
@@ -166,18 +152,12 @@ static void *execute_task_in_worker(void *arg)
   THD *thd = worker_info->worker_thd;
   thd->px_scan_ctx = worker_info->scan_ctx;
   PX_executor *px_executor = thd->px_executor;
-  sql_print_information("px task count is %d in executor. %p",
-    px_executor->m_tasks_hash.size(), px_executor);
   PX_task *task = px_executor->m_tasks_hash[task_id];
   task->run(thd);
-  sql_print_information("finish task and detach receiver [%d]",
-    thd->worker_id);
   // Detach receiver proc from sender MQ handler.
-  // PX_mq_handle **senders = task->exchange_info->get_sender_mqh();
-  // PX_proc *receiver_proc = senders[thd->worker_id-1]->get_receiver();
-  // senders[thd->worker_id-1]->mq_detach(receiver_proc);
   task->exchange_info->detach_sender(thd->worker_id);
   static_cast<PX_sender *>(task->ex_sender)->end();
+  sql_print_information("finish [%d] execute_task_in_worker", thd->worker_id);
   return nullptr;
 }
 
@@ -203,21 +183,22 @@ bool PX_task::run(THD *thd)
     }
   }
 
-  sql_print_information("======>run the task which has itr: %s",
-    sub_iterator->str().c_str());
+  sql_print_information("PX_task::%s:%d task to run in THD[%d]",
+    __FUNCTION__, __LINE__, thd->worker_id);
   if (sub_iterator->Init()) return true;
 
   for (;;) {
     int error = sub_iterator->Read();
 
-    if (error > 0 || thd->is_error()) // TODO: killed in worker.
+    if (DBUG_EVALUATE_IF("test_error_before_sending_data_worker", true, false))
+      my_error(ER_DA_OOM, MYF(0));
+
+    if (error > 0 || thd->is_error())
       return true;
     else if (error < 0)
       break;
-    else if (thd->killed) {
-      thd->send_kill_message();
+    else if (thd->killed)
       return true;
-    }  
   }
 
   return false;
@@ -232,29 +213,40 @@ bool PX_task::run(THD *thd)
 */
 bool PX_task::run_root(THD *thd)
 {
+  if (DBUG_EVALUATE_IF("test_error_before_sending_data_coor", true, false))
+    my_error(ER_DA_OOM, MYF(0));
+
+  // Check other workers' execution, need fallback if error ocurred.
+  if (thd->check_px_error()) {
+    sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
+      __FUNCTION__, __LINE__, thd->px_errno);
+    thd->need_fallback = true;
+    return true;
+  }
   // As coordinator execute last root task, send result to client.
   if (query_result->start_execution(thd))
     return true;
-
   // Send result set metadata of each field in fields array.
   if (query_result->send_result_set_metadata(
         thd, *fields, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
-
   thd->get_stmt_da()->reset_diagnostics_area();
 
+  // Before this point, we can fallback before something goes wrong.
   if (sub_iterator->Init()) return true;
 
   for (;;) {
     int error = sub_iterator->Read();
 
+    if (DBUG_EVALUATE_IF("test_error_in_sending_data", true, false))
+      my_error(ER_DA_OOM, MYF(0));
+
     if (error > 0 || thd->is_error())
       return true;
     else if (error < 0)
       break;
-    else if (thd->killed) {
-      assert(thd->px_executor);
-      thd->px_executor->do_all_for_workers(THD::KILL_QUERY);
+    else if (thd->killed)
+    {
       thd->send_kill_message();
       return true;
     }
@@ -266,19 +258,62 @@ bool PX_task::run_root(THD *thd)
   return query_result->send_eof(thd);
 }
 
-void PX_coordinator::create_mq_channel_for_task_pair()
+void PX_coordinator::notify_all_workers(THD::killed_state state_to_set)
 {
-
-}
-
-void PX_coordinator::do_all_for_workers(THD::killed_state state_to_set)
-{
+  if (thd()->px_scan_ctx) {
+    //PX_reader *px_reader = static_cast<PX_reader*>(thd()->px_scan_ctx);
+    //px_reader->set_task_finished();
+  }
   Prealloced_array<THD *, 60>::iterator iter = thd_list.begin();
   for(; iter != thd_list.end(); ++iter) {
     mysql_mutex_lock(&(*iter)->LOCK_thd_data);
     (*iter)->awake(state_to_set);
     mysql_mutex_unlock(&(*iter)->LOCK_thd_data);
   }
+}
+
+bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
+       worker_thread_arg **&th_arg_array)
+{
+  int num_threads = worker_pool->num_threads;
+  // TODO: bind the task to CPU core, for more stable exection.
+  // Parse and optimize the SQL query, generate the physical tasks for query.
+  for (int i = 0; i < num_threads; ++i) {
+    THD *worker_new_thd = new THD();
+    if (nullptr == worker_new_thd) return true;
+    // TODO: add variables of THD copy.
+    worker_new_thd->variables.optimizer_switch = thd()->variables.optimizer_switch;
+    mysql_change_db(worker_new_thd, thd()->db(), false);
+    // THD to thd list for state setting.
+    thd_list.push_back(worker_new_thd);
+
+    sql_print_information("PX_sequential_coordinator::%s:%d execute SQL[%s] "
+      "in %d-th thread.", __FUNCTION__, __LINE__, thd()->query().str, i);
+
+    // Set the thread_id of the THD by Global_THD_Manager, in temp table
+    // creatation, thread_id is needed to name a temp file in disk.
+    worker_new_thd->set_new_thread_id();
+    worker_new_thd->m_is_worker = true;
+    worker_new_thd->worker_id = i;
+    worker_new_thd->px_coordinator = thd();
+    // Set the query to worker THD.
+    worker_new_thd->set_query(thd()->query().str, thd()->query().length);
+    // In each worker THD, synchronization is needed to keep up with master.
+    worker_new_thd->worker_arg = &worker_pool->thread_args[i];
+    worker_new_thd->worker_arg->worker_thd = worker_new_thd;
+    worker_new_thd->worker_pool = worker_pool;
+
+    th_arg_array[i] = (worker_thread_arg*) malloc(sizeof(worker_thread_arg));
+    // Set the arguments of thread.
+    th_arg_array[i]->worker_thd = worker_new_thd;
+
+    Query_expression *unit = thd()->lex->unit;
+    worker_new_thd->worker_arg->coordinator_root_access_path =
+      nullptr != unit ? unit->root_access_path() : nullptr;
+    worker_new_thd->worker_arg->coordinator_join =
+      unit->is_union() ? nullptr : unit->first_query_block()->join;
+  }
+  return false;
 }
 
 /**
@@ -291,18 +326,18 @@ void PX_coordinator::do_all_for_workers(THD::killed_state state_to_set)
 bool PX_worker::prepare_task_for_dfo()
 {
   // Create tmp table and allocate ref items slice. Create px tasks into
-  // PX_scheduler and ready to schedule. (TODO)
+  // PX_scheduler and ready to schedule. (TODO in multiple stages.)
   for (uint i = 0; i < m_dfo_mgr->m_dfos.size(); ++i) {
     Dfo *dfo = m_dfo_mgr->m_dfos.at(i);
     dfo->m_task_id = dfo->m_dfo_id;
     RowIterator *iter = dfo->m_root_iterator;
     JOIN *join = dfo->m_join;
-    PX_task *task = new (m_thd->mem_root) PX_task(iter, dfo->m_sender, dfo->m_receiver,
-      nullptr, nullptr, join);
+    PX_task *task = new (m_thd->mem_root) PX_task(iter, dfo->m_sender,
+      dfo->m_receiver, nullptr, nullptr, join);
     task->set_task_id(dfo->m_dfo_id);
     m_tasks_hash.insert(std::pair<int64_t, PX_task*>(dfo->m_dfo_id, task));
-    sql_print_information("attach root iterator: %s in thd: %p task id: [%d]",
-      iter->str().c_str(), m_thd, dfo->m_dfo_id);
+    sql_print_information("PX_worker::%s:%d prepare task[%d] of iterator[%s]",
+      __FUNCTION__, __LINE__, dfo->m_dfo_id, iter->str().c_str());
     if (dfo->is_dfo_has_scan() && task->choose_parallel_table_scan())
       return true;
   }
@@ -343,7 +378,6 @@ void PX_worker::loop()
   }
 
   sem_destroy (&thread_arg->sem_task_run);
-  sql_print_information("worker's executing is over.");
 }
 
 /**
@@ -362,49 +396,12 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
   bool ret = false;
   worker_func thread_func;
   int num_threads = worker_pool->num_threads;
-  std::string worker_query(thd()->query().str, thd()->query().length);
   worker_thread_arg **th_arg_array = (worker_thread_arg**)
     malloc(sizeof(worker_thread_arg *) * num_threads);
 
-  for (int i = 0; i < num_threads; ++i)
-    th_arg_array[i] = (worker_thread_arg*) malloc(sizeof(worker_thread_arg));
-
-  // TODO: bind the task to CPU core, for more stable exection.
-  // Parse and optimize the SQL query, generate the physical tasks for query.
-  for (int i = 0; i < num_threads; ++i) {
-    THD *worker_new_thd = new THD();
-    // TODO: add variables of THD copy.
-    worker_new_thd->variables.optimizer_switch = thd()->variables.optimizer_switch;
-    mysql_change_db(worker_new_thd, thd()->db(), false);
-    // THD to thd list for state setting.
-    thd_list.push_back(worker_new_thd);
-    // Set the thread_id of the THD by Global_THD_Manager, in temp table
-    // creatation, thread_id is needed to name a temp file in disk.
-    worker_new_thd->set_new_thread_id();
-    worker_new_thd->m_is_worker = true;
-    worker_new_thd->worker_id = i;
-    worker_new_thd->px_coordinator = thd();
-
-    std::string sub_query = worker_query;
-    worker_new_thd->set_query(sub_query.c_str(), sub_query.length());
-    th_arg_array[i]->worker_thd = worker_new_thd;
-    sql_print_information("create new thd: %s in %d-th thread", sub_query.c_str(), i);
-
-    Parser_state *parse_state = new Parser_state();
-    th_arg_array[i]->parse_state = parse_state;
-
-    // In each worker THD, synchronization is needed to keep up with master.
-    worker_new_thd->worker_arg = &worker_pool->thread_args[i];
-
-    Query_expression *unit = thd()->lex->unit;
-    if (unit != nullptr) {
-      worker_new_thd->worker_arg->coordinator_root_access_path = unit->root_access_path();
-    } else {
-      worker_new_thd->worker_arg->coordinator_root_access_path = nullptr;
-    }
-    worker_new_thd->worker_arg->coordinator_join =
-        unit->is_union() ? nullptr : unit->first_query_block()->join;
-  }
+  // Create multiple threads and rebuild query execution flow.
+  if (create_worker_context(worker_pool, th_arg_array))
+    return true;
 
   thread_func = execute_inner_in_worker;
   worker_pool_set(worker_pool, thread_func, (void **)th_arg_array, num_threads);
@@ -422,19 +419,21 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
   worker_pool_begin_query(worker_pool);
   // Waiting for all worker has done prepare work, adjust semaphore and go on.
   worker_pool_wait_query(worker_pool);
+
   // consistency check between master and workers.
-  if (cdb_plan_equivalence_comparison_enabled) {
-    for (int i = 1; i < num_threads; ++i) {
-      if (!worker_pool->thread_args[i].is_equivalent_plan) {
-        sql_print_error("%d-th/%d thread(%d) generated an unequal plan", i, num_threads, th_arg_array[i]->worker_thd->thread_id());
-        // TODO: fallback to execute in single thread
-        goto end_workers;
-      }
-    }
+  if (cdb_plan_equivalence_comparison_enabled && !check_equivalence(worker_pool))
+    goto end_workers;
+  // Fall back to serial execution if error occured before sending data.
+  if (thd()->check_px_error()) {
+    sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
+      __FUNCTION__, __LINE__, thd()->px_errno);
+    thd()->get_stmt_da()->reset_diagnostics_area();
+    thd()->need_fallback = true;
+    goto end_workers;
   }
 
-  if (check_error(worker_pool, "Parse and Optimize")) return true;
-
+  sql_print_information("PX_sequential_coordinator::%s:%d schedule DFO.",
+    __FUNCTION__, __LINE__);
   /**
     Dispatch tasks to all workers, we dispatch all task pairs(tp) to all workers
     by using the tasks which convert from dfos. like
@@ -445,10 +444,9 @@ bool PX_sequential_coordinator::schedule(worker_pool_t *worker_pool)
                         \ tp1 /           \ tp2 /                  \ tpn /
 
   */
-  sql_print_information("ready to dispatch every tasks to executor.");
-  // TODO: More complex task scheduling.
+  DEBUG_SYNC_C("execute_in_parallel_before_scheduling");
+  // Currently we only support one stage scheduling.
   ret = schedule_dfo_pair_inner(worker_pool, th_arg_array);
-  sql_print_information("finish all tasks in coordinator thread.");
 
 end_workers:
   // Every worker jump out of loop(), 
@@ -466,13 +464,13 @@ end_workers:
   worker_pool_begin_query(worker_pool);
   worker_pool_wait_query(worker_pool);
 
-  sql_print_information("finish cleanup after all task thread.");
+  sql_print_information("PX_sequential_coordinator::%s:%d Cleanup worker pool.",
+    __FUNCTION__, __LINE__);
   worker_pool_cleanup(worker_pool);
 
-  exchange_info->destroy_release();
   Prealloced_array<THD *, 60>::iterator iter = thd_list.begin();
-   for(; iter != thd_list.end(); ++iter)
-     delete (*iter);
+  for(; iter != thd_list.end(); ++iter)
+    delete (*iter);
 
   return ret;
 }
@@ -521,15 +519,6 @@ bool PX_sequential_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_po
       //      parent  <-- 1
       //     /
       //  child  <-- 0
-      Dfo *child = ready_dfos[0];
-      Dfo *parent = ready_dfos[1];
-      int child_task_id = child->m_dfo_id;
-      int parent_task_id = parent->m_dfo_id;
-      // TODO: Cores assignment of chil and parent.
-      int parent_num_threads = worker_pool->num_threads / 2;
-      int child_num_threads = worker_pool->num_threads - parent_num_threads;
-
-      // TODO: The following code will be inserted into PX_Receiver::init.
       exchange_info = new (thd()->mem_root) PX_exchange_info(thd(), 
         PX_GATHER_EXCHANGE, /*exchange_type=*/
         PX_MQ_CHANNEL, /*channel_type=*/
@@ -538,50 +527,74 @@ bool PX_sequential_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_po
         PX_COMPACT_ROW, /*exchange_format=*/
         false/*need_materialize=*/);
 
-      exchange_info->init();
+      if (nullptr == exchange_info) return true;
+      if (exchange_info->init()) return true;
 
-      // Set the arguments of child tasks.
-      for (int i = 0; i < child_num_threads; ++i)
-        th_arg_array[i]->task_id = child_task_id;
-      // Set the arguments of parent tasks.
-      for (int i = 0; i < parent_num_threads; ++i)
-        th_arg_array[i]->task_id = parent_task_id;
-      // Set exchange info to all children tasks and parent tasks.
-      for (int i = 0; i < worker_pool->num_threads; ++i)
-        th_arg_array[i]->exchange_info = exchange_info;
+      Dfo *child = ready_dfos[0];
+      Dfo *parent = ready_dfos[1];
+      int child_task_id = child->m_dfo_id;
+      // int parent_task_id = parent->m_dfo_id;
+      // int parent_num_threads = worker_pool->num_threads / 2;
+      // int child_num_threads = worker_pool->num_threads - parent_num_threads;
 
-      if (prepare_task_execution_for_dfo(ready_dfos)) {
-        ret = true;
-        break;
-      }
+      // // Set the arguments of child tasks.
+      // for (int i = 0; i < child_num_threads; ++i)
+      //   th_arg_array[i]->task_id = child_task_id;
+      // // Set the arguments of parent tasks.
+      // for (int i = 0; i < parent_num_threads; ++i)
+      //   th_arg_array[i]->task_id = parent_task_id;
+      // // Set exchange info to all children tasks and parent tasks.
+      // for (int i = 0; i < worker_pool->num_threads; ++i)
+      //   th_arg_array[i]->exchange_info = exchange_info;
 
-      void *px_reader = nullptr;
+      if (prepare_task_execution_for_dfo(ready_dfos)) return true;
+
       PX_table_descriptor *descriptor = m_tasks_hash[child_task_id]->px_table_descriptor;
       assert(descriptor);
       uint partitions = 0;
-      int error = px_partition(worker_pool->num_threads, px_reader, descriptor->table(),
+      int error = px_partition(worker_pool->num_threads, thd()->px_scan_ctx, descriptor->table(),
                                descriptor->type(), descriptor->keyno(),
                                descriptor->ref(), descriptor->reverse_scan(), partitions);
-      if (!error) {
-        assert(px_reader);
-        // TODO: change the dop if necessary
-      } else {
-        // TODO: handle the error occurs in px_partition
-        assert(!px_reader);
+      if (!error) { // TODO: change the dop if necessary
+        assert(thd()->px_scan_ctx);
+      } else { // TODO: handle the error occurs in px_partition
+        assert(!thd()->px_scan_ctx);
+        if (thd()->killed) return true;
+        if (thd()->check_px_error()) {
+          sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
+            __FUNCTION__, __LINE__, thd()->px_errno);
+          thd()->need_fallback = true;
+          return true;
+        }
+        sql_print_warning("PX_sequential_coordinator::%s:%d px_partition error"
+          "to fallback to serial execution.", __FUNCTION__, __LINE__);
+        thd()->need_fallback = true;
+        return false; 
       }
-      thd()->px_scan_ctx = px_reader;
       for (int i = 0; i < worker_pool->num_threads; ++i) {
         th_arg_array[i]->task_id = child_task_id;
         th_arg_array[i]->exchange_info = exchange_info;
-        th_arg_array[i]->scan_ctx = static_cast<PX_reader*>(px_reader);
+        th_arg_array[i]->scan_ctx = static_cast<PX_reader*>(thd()->px_scan_ctx);
       }
 
+      DEBUG_SYNC_C("execute_in_parallel_scheduling");
       // Prepare for Sender and Receiver init work.
       worker_func thread_func = init_task_handler;
       worker_pool_set(worker_pool, thread_func, (void **)th_arg_array,
                       worker_pool->num_threads);
       worker_pool_begin_task(worker_pool);
       worker_pool_wait_task(worker_pool);
+
+      if (DBUG_EVALUATE_IF("test_error_before_sending_data", true, false))
+        my_error(ER_DA_OOM, MYF(0));
+
+      if (thd()->check_px_error()) {
+        sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
+          __FUNCTION__, __LINE__, thd()->px_errno);
+        thd()->need_fallback = true;
+        return true;
+      }
+
       PX_receiver *r = static_cast<PX_receiver *>(parent->m_receiver);
       r->set_exchange_info(exchange_info);
       r->init();
@@ -591,33 +604,36 @@ bool PX_sequential_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_po
       worker_pool_set(worker_pool, thread_func, (void **)th_arg_array,
                       worker_pool->num_threads);
 
-      // Enter into inner worker's loop() until all tasks have been scheduled, we
-      // use one-by-one task pair scheduling strategy for better control of CPU cores.
+      // Enter into inner worker's loop() until all tasks have been scheduled,
+      // we use one-by-one task pair scheduling strategy for better control
+      // of CPU cores.
       worker_pool_begin_task(worker_pool);
 
-      // After all tasks except root task have been finished, start to schedule root
-      // task and send result to client, Currently only two-stages needed to schedule.
-      sql_print_information("run the root task for the scheduler.");
+      // After all tasks except root task have been finished, start to schedule
+      // root task and send result to client, Currently only two-stages needed
+      // to schedule.
+      DEBUG_SYNC_C("execute_in_parallel_scheduling_before_root");
+      sql_print_information("PX_sequential_coordinator::%s:%d run root task.",
+        __FUNCTION__, __LINE__);
       ret = run_root_dfo_task();
-      sql_print_information("run the root task for the scheduler over.");
 
+      sql_print_information("PX_sequential_coordinator::%s:%d waiting for all.",
+        __FUNCTION__, __LINE__);
       worker_pool_wait_task(worker_pool);
 
-      exchange_info->detach_receiver(0);
-      sql_print_information("detach receiver for the exchange.");
+      if (!thd()->need_fallback && thd()->check_px_error()) { // Throw error when sending data.
+        thd()->get_stmt_da()->reset_diagnostics_area();
+        my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd()->px_errno);
+        return true;
+      }
 
-      // // Close for Sender and Receiver work.
-      // thread_func = close_task_handler;
-      // worker_pool_set(worker_pool, thread_func, (void **)th_arg_array,
-      //                 worker_pool->num_threads);
-      // worker_pool_begin_task(worker_pool);
-      // worker_pool_wait_task(worker_pool);
-      // r = static_cast<PX_receiver *>(parent->m_receiver);
-      // r->end();
-      // exchange_info->clean();
-      // TODO: add clean of exchange info.
+      DEBUG_SYNC_C("execute_in_parallel_scheduling_end");
+      sql_print_information("PX_sequential_coordinator::%s:%d detach receiver.",
+        __FUNCTION__, __LINE__);
+      // TODO: add clean of exchange info. exchange_info->clean();
+      if (exchange_info) exchange_info->release_in_single_stage();
 
-      // Set the child dfo finished, currently only one stage supported.[TODO]
+      // Set the child dfo finished, currently only one stage supported.
       child->set_dfo_finished();
       break;
     }
@@ -631,22 +647,20 @@ bool PX_sequential_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_po
   in coordinator thread, which get the original query from client.
 */
 bool PX_sequential_coordinator::run_root_dfo_task()
-{ 
-  bool ret = false;
+{
   Dfo *root_dfo = dfo_mgr()->m_root_dfo;
   RowIterator *iterator = root_dfo->m_root_iterator;
   RowIterator *receiver = root_dfo->m_receiver;
   Query_result *result = thd()->lex->unit->query_result();
   mem_root_deque<Item *> *fields = thd()->lex->unit->get_field_list();
   JOIN *join = root_dfo->m_join;
+
   PX_task *task = new (thd()->mem_root)
                   PX_task(iterator, nullptr, receiver, result, fields, join);
+  if (nullptr == task) return true;
   task->set_exchange_info(exchange_info);
   task->attach_exchange_info(task->sub_iterator);
-  // Init of task moved to init of task.
-  ret = task->run_root(thd());
-  sql_print_information("execute root task finish and detach the sender");
-  return ret;
+  return task->run_root(thd());;
 }
 
 /**
@@ -682,6 +696,7 @@ bool PX_sequential_coordinator::prepare_task_execution_for_dfo(
     }
 
     task = new (thd()->mem_root) PX_task(iter, sender, receiver, result, fields, join);
+    if (nullptr == task) return true;
     // Choose one TABLE to split for parallelly execution, currently choose the
     // first TABLE in this dfo to parallelly scan.(TODO)
     if (dfo->is_dfo_has_scan() && task->choose_parallel_table_scan())
@@ -693,17 +708,15 @@ bool PX_sequential_coordinator::prepare_task_execution_for_dfo(
   return false;
 }
 
-bool PX_sequential_coordinator::check_error(worker_pool_t *worker_pool, 
-  const char *err_msg) 
+bool PX_sequential_coordinator::check_equivalence(worker_pool_t *worker_pool)
 {
-  // Check error in Coordinator and send error.
-  for (int i = 0; i < worker_pool->num_threads; ++i) {
-    if (worker_pool->thread_args[i].error) {
-      // TODO: add the error famework for px execution.
-      sql_print_warning("worker error px.");
-      my_error(ER_PX_WORKER_ERROR, MYF(0), err_msg);
-      return true;
+  for (int i = 1; i < worker_pool->num_workers; ++i) {
+    if (!worker_pool->thread_args[i].is_equivalent_plan) {
+      sql_print_warning("%d-th/%d thread(%d) generated an unequal plan", i,
+        worker_pool->num_workers, i);
+      thd()->need_fallback = true;
+      return false;
     }
   }
-  return false;
+  return true;
 }

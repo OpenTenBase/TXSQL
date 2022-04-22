@@ -1669,9 +1669,9 @@ void THD::awake(THD::killed_state state_to_set) {
   }
 }
 
-void THD::awake_all_worker_thd(THD::killed_state state_to_set) {
-  if (!m_is_worker)
-    px_executor->do_all_for_workers(state_to_set);
+void THD::awake_all_workers(THD::killed_state state_to_set) {
+  if (!m_is_worker && px_executor)
+    px_executor->notify_all_workers(state_to_set);
 }
 
 /**
@@ -2557,10 +2557,30 @@ void THD::debug_assert_query_locked() const {
 }
 
 void THD::set_query(LEX_CSTRING query_arg) {
-  // DBUG_ASSERT(this == current_thd);
+  if (!variables.cdb_parallel_execution_enabled)
+    assert(this == current_thd);
   mysql_mutex_lock(&LOCK_thd_query);
   m_query_string = query_arg;
   mysql_mutex_unlock(&LOCK_thd_query);
+}
+
+bool THD::check_px_error()
+{
+  bool ret = false;
+  if (killed) return false;
+  for (int i = 0; i < worker_pool->num_threads; ++i) {
+    THD *worker_thd = worker_pool->thread_args[i].worker_thd;
+    if (worker_thd->is_error()) {
+      px_errno = worker_thd->get_stmt_da()->mysql_errno();
+      ret = true;
+      break;
+    }
+  }
+  if (is_error()) {
+    px_errno = get_stmt_da()->mysql_errno();
+    ret = true;
+  }
+  return ret;
 }
 
 /**

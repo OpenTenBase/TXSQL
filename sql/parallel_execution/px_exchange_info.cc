@@ -5,7 +5,6 @@
 #include "px_mq.h"
 #include "px.h"
 #include "sql/log.h"
-
 // The default size of data queue is 1MB
 #define RING_SIZE 1048576
 
@@ -313,8 +312,9 @@ void PX_exchange_info::receiver_wait(uint receiver_no) {
   channel->receiver_wait();
 }
 
-void PX_exchange_info::destroy_release() 
+void PX_exchange_info::release_in_single_stage() 
 {
+  detach_receiver(0);
   mysql_mutex_destroy(&m_lock);
 }
 

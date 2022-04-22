@@ -1888,6 +1888,54 @@ static void copy_bind_parameter_values(THD *thd, PS_PARAM *parameters,
 }
 
 /**
+  Fallback to serial execution if check need fallback and restart statement.
+  The reasons why query needs to fallback to serial execution has:
+  1. unequal query plan (whatever the cause);
+  2. error occured before sending data;
+
+  @param thd            the session
+  @param parser_state   the parser state
+*/
+static void fallback_to_serial_execution(THD *thd,
+                                         Parser_state *parser_state) {
+  // thd->get_stmt_da()->reset_diagnostics_area();
+  sql_print_information("Fall back to serial execution.");
+
+  /* PSI end */
+  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->m_statement_psi = nullptr;
+  thd->m_digest = nullptr;
+
+  // /* SHOW PROFILE end */
+  // #if defined(ENABLED_PROFILING)
+  //         thd->profiling->finish_current_query();
+  // #endif
+
+  // /* SHOW PROFILE begin */
+  // #if defined(ENABLED_PROFILING)
+  //         thd->profiling->start_new_query("continuing");
+  //         thd->profiling->set_query_source(beginning_of_next_stmt, length);
+  // #endif
+
+  /* PSI begin */
+  thd->m_digest = &thd->m_digest_state;
+  thd->m_digest->reset(thd->m_token_array, max_digest_length);
+
+  thd->m_statement_psi = MYSQL_START_STATEMENT(&thd->m_statement_state,
+      com_statement_info[thd->get_command()].m_key,
+      thd->db().str, thd->db().length, thd->charset(), nullptr);
+  THD_STAGE_INFO(thd, stage_starting);
+
+  thd->m_digest = &thd->m_digest_state;
+  thd->m_digest->reset(thd->m_token_array, max_digest_length);
+
+  if (parser_state->init(thd, thd->query().str, thd->query().length))
+    return;
+
+  dispatch_sql_command(thd, parser_state);
+}
+
+/**
   Perform one connection-level (COM_XXXX) command.
 
   @param thd             connection handle
@@ -1922,6 +1970,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
   Sql_cmd_clone *clone_cmd = nullptr;
 
+  thd->need_fallback = false;
   /* SHOW PROFILE instrumentation, begin */
 #if defined(ENABLED_PROFILING)
   thd->profiling->start_new_query();
@@ -2256,6 +2305,9 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                                  com_data->com_query.parameter_count);
 
       dispatch_sql_command(thd, &parser_state);
+
+      // If PX execution fails to execute properly, fallback to serial.
+      if (thd->need_fallback) fallback_to_serial_execution(thd, &parser_state);
 
       // Check if the statement failed and needs to be restarted in
       // another storage engine.
@@ -3274,6 +3326,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
   /* cdb_sql_filter: store matched rules */
   std::vector<cdb_sql_filter::Rule*> matched_rules;
+  /* Set worker execution state to PX_WORKER_PARSE_OPTIMIZE */
+  if (thd->m_is_worker) thd->px_worker_state = PX_WORKER_PARSE_OPTIMIZE;
 
   /*
     If there is a CREATE TABLE...START TRANSACTION command which
@@ -5818,9 +5872,9 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_stateme
     parser_state->m_input.m_compute_digest = true;
 
   LEX *lex = thd->lex;
-  lex->use_px = false;
   lex->locking_clause = false;
   lex->pass_px_check = true;
+  thd->use_px = false;
   const char *found_semicolon = nullptr;
 
   bool err = thd->get_stmt_da()->is_error();
@@ -7186,6 +7240,8 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
           error = ER_KILL_DENIED_ERROR;
         } else {
           tmp->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
+          if (!tmp->m_is_worker && tmp->use_px) tmp->awake_all_workers(
+            only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
           error = 0;
         }
       } else

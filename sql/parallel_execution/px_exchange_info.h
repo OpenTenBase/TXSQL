@@ -61,7 +61,7 @@ class PX_exchange_info {
   uint find_channel_no(uint sender_no, uint receiver_no);
   PX_exchange_channel *get_channel(uint channel_no);
 
-  void destroy_release();
+  void release_in_single_stage();
   void lock() { mysql_mutex_lock(&m_lock); }
   void unlock() { mysql_mutex_unlock(&m_lock); }
 

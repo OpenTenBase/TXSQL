@@ -61,11 +61,11 @@ enum worker_task_type { PARSE_AND_PREPARE = 0, SLICE_TASK };
 */
 typedef struct worker_thread_arg {
   THD                   *worker_thd; // THD thread attach.
-  Parser_state          *parse_state; // Parse state of each THD.
   int                   task_id; // task id of executor.
   worker_task_type      type; // 1. Parse and prepare; 2. Task.
   PX_exchange_info      *exchange_info; // exchange ctx.
   PX_reader             *scan_ctx; // scan_ctx.
+  std::string           query_string; // query string of coordinator.
 
   int                   *num_workers; // tasks cnt.
   sem_t                 sem_parse_optimize_run; // sychonize the main.
@@ -78,7 +78,6 @@ typedef struct worker_thread_arg {
   worker_func           *thread_func; // thread func pointer.
   void                  **thread_func_arg;
 
-  bool                  error;
   AccessPath            *coordinator_root_access_path; // coordinator's plan
   JOIN                  *coordinator_join; // coordinator's JOIN
   bool                  is_equivalent_plan; // equivalent to the coordinator's plan
@@ -114,6 +113,8 @@ int worker_pool_begin_query(worker_pool_t *worker_pool);
 int worker_pool_wait_query(worker_pool_t *worker_pool);
 // Ready to enter loop of PX_worker after optimization and before execution.
 int worker_pool_optimize_end(worker_thread_arg* arg);
+// Ready to enter synchrozation point when meet with error.
+int worker_pool_execute_error(worker_thread_arg* arg);
 
 // Start point of inside sub task run for all workers, control start of tasks.
 int worker_pool_begin_task(worker_pool_t *worker_pool);

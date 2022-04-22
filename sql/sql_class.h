@@ -145,6 +145,7 @@ struct User_level_lock;
 struct YYLTYPE;
 struct worker_thread_arg;
 class RowIterator;
+struct worker_pool_t;
 
 namespace dd {
 namespace cache {
@@ -165,6 +166,10 @@ class PX_executor;
 class PX_coordinator;
 struct Binlog_user_var_event;
 struct LOG_INFO;
+
+enum enum_px_worker_state_type { PX_WORKER_NONE = 0, 
+                                 PX_WORKER_PARSE_OPTIMIZE,
+                                 PX_WORKER_EXECUTE };
 
 typedef struct user_conn USER_CONN;
 struct MYSQL_LOCK;
@@ -1044,8 +1049,12 @@ class THD : public MDL_context_owner,
   }
 
  public:
+  // Whether can use parallel execution.
+  bool use_px{false};
   PX_executor *px_executor{nullptr};
   THD *px_coordinator{nullptr};
+  worker_pool_t *worker_pool{nullptr};
+  uint px_errno{0};
   MDL_context mdl_context;
 
   /**
@@ -1090,29 +1099,17 @@ class THD : public MDL_context_owner,
 
   bool is_legal_column_encrypt_read;
 
+ public:
+  /* Worker execute state type. */
+  enum_px_worker_state_type px_worker_state{PX_WORKER_NONE};
   /* Worker arguments to be assigned tasks. */
   worker_thread_arg *worker_arg{nullptr};
   /* Variables for parallel query. */
   RowIterator *px_iterator{NULL};
-  /* Error occurs in parallele query. */
-  bool px_error{false};
-
-  /* The leader thd of parallel query worker thd. */
-  THD *px_leader{nullptr};
+  /* Need to fallback to normal execution. */
+  bool need_fallback{false};
+  /* Worker id of PX worker. */
   int worker_id{0};
-
-  inline bool is_px_error() {
-    if (px_leader == nullptr) {
-      /** Leader thd. */
-      return px_error;
-    } else {
-      /** Worker thd. */
-      return (px_error || 
-              px_leader->is_killed() ||
-              px_leader->px_error ||
-              px_leader->is_error());
-    }
-  }
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
@@ -1459,6 +1456,14 @@ class THD : public MDL_context_owner,
     assert(is_classic_protocol());
     return pointer_cast<Protocol_classic *>(m_protocol);
   }
+
+  /**
+    Check error before sending data, if occurred, set `need_fallback`
+    to serial execution. And leave log message for user.
+    Check error when sending data, if occurred, return error message
+    to client, here we don't set to fallback to execute.
+  */
+  bool check_px_error();
 
  private:
   Protocol *m_protocol;  // Current protocol
@@ -3066,7 +3071,7 @@ private:
 
   void shutdown_active_vio();
   void awake(THD::killed_state state_to_set);
-  void awake_all_worker_thd(THD::killed_state state_to_set);
+  void awake_all_workers(THD::killed_state state_to_set);
 
   /** Disconnect the associated communication endpoint. */
   void disconnect(bool server_shutdown = false);
