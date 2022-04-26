@@ -867,16 +867,13 @@ bool LEX::check_px_execution() const {
   }
 
   for (const TABLE_LIST *tl = query_tables; tl != nullptr; tl = tl->next_global) {
-    if (!tl->table ||
-        !tl->table->file) {
-      return false;
-    }
-
-    // Detived table is set TL_READ.
-    if (!tl->is_view_or_derived() &&
-        (tl->table->file->ht->db_type != DB_TYPE_INNODB ||
-         tl->lock_descriptor().type > TL_READ_DEFAULT))  {
-      return false;
+    if (!tl->is_view_or_derived()) {
+      if (!tl->table ||
+          !tl->table->file ||
+          (tl->table->file->ht->db_type != DB_TYPE_INNODB ||
+              tl->lock_descriptor().type > TL_READ_DEFAULT)) {
+        return false;
+      }
     }
   }
 
