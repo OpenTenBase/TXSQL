@@ -48,7 +48,8 @@ order by
 	l_returnflag,
 	l_linestatus;
 
-eval explain $Q1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q1;
 eval $Q1;
 
 --echo #TPC-H/TPC-R Minimum Cost Supplier Query (Q2)
@@ -98,7 +99,8 @@ order by
 	p_partkey
 LIMIT 100;
 
-eval explain $Q2;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q2;
 eval $Q2;
 
 --echo #TPC-H/TPC-R Shipping Priority Query (Q3)
@@ -127,7 +129,8 @@ order by
 	o_orderdate
 LIMIT 10;
 
-eval explain $Q3;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q3;
 eval $Q3;
 
 --echo #TPC-H/TPC-R Order Priority Checking Query (Q4)
@@ -154,7 +157,8 @@ group by
 order by
 	o_orderpriority;
 
-eval explain $Q4;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q4;
 eval $Q4;
 
 --echo #TPC-H/TPC-R Local Supplier Volume Query (Q5)
@@ -184,7 +188,8 @@ group by
 order by
 	revenue desc;
 
-eval explain $Q5;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q5;
 eval $Q5;
 
 --echo #TPC-H/TPC-R Forecasting Revenue Change Query (Q6)
@@ -199,7 +204,8 @@ where
 	and l_discount between 0.03 - 0.01 and 0.03 + 0.01
 	and l_quantity < 25;
 
-eval explain $Q6;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q6;
 eval $Q6;
 
 --echo #TPC-H/TPC-R Volume Shipping Query (Q7)
@@ -244,7 +250,8 @@ order by
 	cust_nation,
 	l_year;
 
-eval explain $Q7;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q7;
 eval $Q7;
 
 --echo #TPC-H/TPC-R National Market Share Query (Q8)
@@ -287,7 +294,8 @@ group by
 order by
 	o_year;
 
-eval explain $Q8;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q8;
 eval $Q8;
 
 --echo #TPC-H/TPC-R Product Type Profit Measure Query (Q9)
@@ -325,7 +333,8 @@ order by
 	nation,
 	o_year desc;
 
-eval explain $Q9;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q9;
 eval $Q9;
 
 --echo #TPC-H/TPC-R Returned Item Reporting Query (Q10)
@@ -363,7 +372,8 @@ order by
 	revenue desc
 LIMIT 20;
 
-eval explain $Q10;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q10;
 eval $Q10;
 
 --echo #TPC-H/TPC-R Important Stock Identification Query (Q11)
@@ -396,7 +406,8 @@ group by
 order by
 	value desc;
 
-eval explain $Q11;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q11;
 eval $Q11;
 
 --echo #TPC-H/TPC-R Shipping Modes and Order Priority Query (Q12)
@@ -430,7 +441,8 @@ group by
 order by
 	l_shipmode;
 
-eval explain $Q12;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q12;
 eval $Q12;
 
 --echo #TPC-H/TPC-R Customer Distribution Query (Q13)
@@ -456,7 +468,8 @@ order by
 	custdist desc,
 	c_count desc;
 
-eval explain $Q13;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q13;
 eval $Q13;
 
 --echo #TPC-H/TPC-R Promotion Effect Query (Q14)
@@ -475,7 +488,8 @@ where
 	and l_shipdate >= '1997-07-01'
 	and l_shipdate < date_add( '1997-07-01', interval '1' month);
 
-eval explain $Q14;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q14;
 eval $Q14;
 
 --echo #TPC-H/TPC-R Top Supplier Query (Q15)
@@ -512,7 +526,8 @@ where
 order by
 	s_suppkey;
 
-eval explain $Q15;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q15;
 eval $Q15;
 
 drop view revenue0;
@@ -550,7 +565,8 @@ order by
 	p_type,
 	p_size;
 
-eval explain $Q16;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q16;
 eval $Q16;
 
 --echo #TPC-H/TPC-R Small-Quantity-Order Revenue Query (Q17)
@@ -573,7 +589,8 @@ where
 			l_partkey = p_partkey
 	);
 
-eval explain $Q17;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q17;
 eval $Q17;
 
 --echo #TPC-H/TPC-R Large Volume Customer Query (Q18)
@@ -612,7 +629,8 @@ order by
 	o_orderdate
 LIMIT 100;
 
-eval explain $Q18;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q18;
 eval $Q18;
 
 --echo #TPC-H/TPC-R Discounted Revenue Query (Q19)
@@ -653,7 +671,8 @@ where
 		and l_shipinstruct = 'DELIVER IN PERSON'
 	);
 
-eval explain $Q19;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q19;
 eval $Q19;
 
 --echo #TPC-H/TPC-R Potential Part Promotion Query (Q20)
@@ -696,7 +715,8 @@ where
 order by
 	s_name;
 
-eval explain $Q20;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q20;
 eval $Q20;
 
 --echo #TPC-H/TPC-R Suppliers Who Kept Orders Waiting Query (Q21)
@@ -742,7 +762,8 @@ order by
 	s_name
 LIMIT 100;
 
-eval explain $Q21;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q21;
 eval $Q21;
 
 --echo #TPC-H/TPC-R Global Sales Opportunity Query (Q22)
@@ -785,7 +806,8 @@ group by
 order by
 	cntrycode;
 
-eval explain $Q22;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+eval explain format=tree $Q22;
 eval $Q22;
 
 connection conn1;

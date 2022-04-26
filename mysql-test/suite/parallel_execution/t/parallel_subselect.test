@@ -24,6 +24,8 @@ set global cdb_parallel_execution_enabled = on;
 set global exchange_inject = on;
 
 connect(conn2,localhost,user1,,);
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format = tree
 select
 	s_acctbal,
@@ -70,6 +72,7 @@ order by
 	p_partkey
 LIMIT 100;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree select
   *
 from (
@@ -103,7 +106,7 @@ where
 order by
   value desc;
 
-
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain select
   c_count,
   count(*) as custdist
@@ -125,6 +128,7 @@ order by
   custdist desc,
   c_count desc;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree select
   c_count,
   count(*) as custdist
@@ -158,6 +162,7 @@ create view revenue0 (supplier_no, total_revenue) as
 	group by
 		l_suppkey;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain
 select
 	s_suppkey,
@@ -179,6 +184,7 @@ where
 order by
 	s_suppkey;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree
 select
 	s_suppkey,
@@ -202,6 +208,7 @@ order by
 
 drop view revenue0;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain select
   p_brand,
   p_type,
@@ -233,6 +240,7 @@ order by
   p_type,
   p_size;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree
 select
   p_brand,
@@ -265,6 +273,7 @@ order by
   p_type,
   p_size;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain 
 select
   sum(l_extendedprice) / 7.0 as avg_yearly
@@ -284,6 +293,7 @@ where
       l_partkey = p_partkey
   );
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree
 select
   sum(l_extendedprice) / 7.0 as avg_yearly
@@ -303,6 +313,7 @@ where
       l_partkey = p_partkey
   );
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain 
 select
   cntrycode,
@@ -339,6 +350,7 @@ group by
 order by
   cntrycode;
 
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree
 select
   cntrycode,
