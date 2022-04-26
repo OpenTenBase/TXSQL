@@ -181,31 +181,31 @@ LIMIT 100;
 EXPLAIN
 -> Limit: 100 row(s)
     -> Sort: supplier.s_acctbal DESC, nation.n_name, supplier.s_name, part.p_partkey, limit input to 100 row(s) per chunk
-        -> Stream results  (cost=26.42 rows=2)
-            -> Nested loop inner join  (cost=26.42 rows=2)
-                -> Nested loop inner join  (cost=20.98 rows=16)
-                    -> Nested loop inner join  (cost=15.53 rows=16)
-                        -> Nested loop inner join  (cost=13.00 rows=4)
-                            -> Filter: (region.r_name = 'AMERICA')  (cost=0.75 rows=1)
-                                -> Table scan on region  (cost=0.75 rows=5)
-                            -> Filter: (part.p_type like '%NICKEL')  (cost=9.14 rows=4)
-                                -> Index lookup on part using p_size_idx (p_size=32)  (cost=9.14 rows=35)
-                        -> Filter: (partsupp.ps_supplycost = (select #2))  (cost=0.35 rows=4)
-                            -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=0.35 rows=4)
+        -> Stream results  (cost=*** rows=***)
+            -> Nested loop inner join  (cost=*** rows=***)
+                -> Nested loop inner join  (cost=*** rows=***)
+                    -> Nested loop inner join  (cost=*** rows=***)
+                        -> Nested loop inner join  (cost=*** rows=***)
+                            -> Filter: (region.r_name = 'AMERICA')  (cost=*** rows=***)
+                                -> Table scan on region  (cost=*** rows=***)
+                            -> Filter: (part.p_type like '%NICKEL')  (cost=*** rows=***)
+                                -> Index lookup on part using p_size_idx (p_size=32)  (cost=*** rows=***)
+                        -> Filter: (partsupp.ps_supplycost = (select #2))  (cost=*** rows=***)
+                            -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=*** rows=***)
                             -> Select #2 (subquery in condition; dependent)
                                 -> Aggregate: min(partsupp.ps_supplycost)
-                                    -> Nested loop inner join  (cost=4.20 rows=0)
-                                        -> Nested loop inner join  (cost=2.80 rows=4)
-                                            -> Nested loop inner join  (cost=1.40 rows=4)
-                                                -> Filter: (region.r_name = 'AMERICA')  (cost=0.75 rows=1)
-                                                    -> Table scan on region  (cost=0.75 rows=5)
-                                                -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=0.65 rows=4)
-                                            -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=0.27 rows=1)
-                                        -> Filter: (nation.n_regionkey = region.r_regionkey)  (cost=0.25 rows=0)
-                                            -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=0.25 rows=1)
-                    -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=0.26 rows=1)
-                -> Filter: (nation.n_regionkey = region.r_regionkey)  (cost=0.25 rows=0)
-                    -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=0.25 rows=1)
+                                    -> Nested loop inner join  (cost=*** rows=***)
+                                        -> Nested loop inner join  (cost=*** rows=***)
+                                            -> Nested loop inner join  (cost=*** rows=***)
+                                                -> Filter: (region.r_name = 'AMERICA')  (cost=*** rows=***)
+                                                    -> Table scan on region  (cost=*** rows=***)
+                                                -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=*** rows=***)
+                                            -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=*** rows=***)
+                                        -> Filter: (nation.n_regionkey = region.r_regionkey)  (cost=*** rows=***)
+                                            -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=*** rows=***)
+                    -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=*** rows=***)
+                -> Filter: (nation.n_regionkey = region.r_regionkey)  (cost=*** rows=***)
+                    -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=*** rows=***)
 
 Warnings:
 Note	1276	Field or reference 'test.part.p_partkey' of SELECT #2 was resolved in SELECT #1
@@ -243,25 +243,25 @@ order by
 value desc;
 EXPLAIN
 -> Sort: inner_query.`value` DESC
-    -> Filter: (inner_query.`value` > (select #3))  (cost=11.67 rows=200)
-        -> Table scan on inner_query  (cost=11.67 rows=200)
+    -> Filter: (inner_query.`value` > (select #3))  (cost=*** rows=***)
+        -> Table scan on inner_query  (cost=*** rows=***)
             -> Materialize
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Nested loop inner join  (cost=74.38 rows=200)
-                            -> Nested loop inner join  (cost=4.38 rows=10)
-                                -> Filter: (nation.n_name = 'GERMANY')  (cost=2.75 rows=3)
-                                    -> Table scan on nation  (cost=2.75 rows=25)
-                                -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=0.41 rows=4)
-                            -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=5.20 rows=20)
+                        -> Nested loop inner join  (cost=*** rows=***)
+                            -> Nested loop inner join  (cost=*** rows=***)
+                                -> Filter: (nation.n_name = 'GERMANY')  (cost=*** rows=***)
+                                    -> Table scan on nation  (cost=*** rows=***)
+                                -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=*** rows=***)
+                            -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=*** rows=***)
         -> Select #3 (subquery in condition; run only once)
             -> Aggregate: sum((partsupp.ps_supplycost * partsupp.ps_availqty))
-                -> Nested loop inner join  (cost=74.38 rows=200)
-                    -> Nested loop inner join  (cost=4.38 rows=10)
-                        -> Filter: (nation.n_name = 'GERMANY')  (cost=2.75 rows=3)
-                            -> Table scan on nation  (cost=2.75 rows=25)
-                        -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=0.41 rows=4)
-                    -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=5.20 rows=20)
+                -> Nested loop inner join  (cost=*** rows=***)
+                    -> Nested loop inner join  (cost=*** rows=***)
+                        -> Filter: (nation.n_name = 'GERMANY')  (cost=*** rows=***)
+                            -> Table scan on nation  (cost=*** rows=***)
+                        -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=*** rows=***)
+                    -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=*** rows=***)
 
 explain select
 c_count,
@@ -313,13 +313,13 @@ EXPLAIN
 -> Sort: custdist DESC, c_orders.c_count DESC
     -> Table scan on <temporary>
         -> Aggregate using temporary table
-            -> Table scan on c_orders  (cost=403.23 rows=3562)
+            -> Table scan on c_orders  (cost=*** rows=***)
                 -> Materialize
                     -> Group aggregate: count(orders.o_orderkey)
-                        -> Nested loop left join  (cost=1405.98 rows=3563)
-                            -> Index scan on customer using c_custkey_idx  (cost=158.95 rows=1500)
-                            -> Filter: (not((orders.o_comment like '%special%requests%')))  (cost=0.59 rows=2)
-                                -> Index lookup on orders using o_custkey_idx (o_custkey=customer.c_custkey)  (cost=0.59 rows=2)
+                        -> Nested loop left join  (cost=*** rows=***)
+                            -> Index scan on customer using c_custkey_idx  (cost=*** rows=***)
+                            -> Filter: (not((orders.o_comment like '%special%requests%')))  (cost=*** rows=***)
+                                -> Index lookup on orders using o_custkey_idx (o_custkey=customer.c_custkey)  (cost=*** rows=***)
 
 create view revenue0 (supplier_no, total_revenue) as
 select
@@ -385,19 +385,19 @@ EXPLAIN
     -> Stream results
         -> Nested loop inner join
             -> Filter: (revenue0.total_revenue = (select #2))
-                -> Table scan on revenue0  (cost=13.30 rows=96)
+                -> Table scan on revenue0  (cost=*** rows=***)
                     -> Materialize
                         -> Table scan on <temporary>
                             -> Aggregate using temporary table
-                                -> Index range scan on lineitem using i_l_shipdate, with index condition: ((lineitem.l_shipdate >= DATE'1995-06-01') and (lineitem.l_shipdate < <cache>(('1995-06-01' + interval '90' day))))  (cost=43.46 rows=96)
+                                -> Index range scan on lineitem using i_l_shipdate, with index condition: ((lineitem.l_shipdate >= DATE'1995-06-01') and (lineitem.l_shipdate < <cache>(('1995-06-01' + interval '90' day))))  (cost=*** rows=***)
                 -> Select #2 (subquery in condition; run only once)
                     -> Aggregate: max(revenue0.total_revenue)
-                        -> Table scan on revenue0  (cost=13.30 rows=96)
+                        -> Table scan on revenue0  (cost=*** rows=***)
                             -> Materialize
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
-                                        -> Index range scan on lineitem using i_l_shipdate, with index condition: ((lineitem.l_shipdate >= DATE'1995-06-01') and (lineitem.l_shipdate < <cache>(('1995-06-01' + interval '90' day))))  (cost=43.46 rows=96)
-            -> Single-row index lookup on supplier using PRIMARY (s_suppkey=revenue0.supplier_no)  (cost=0.26 rows=1)
+                                        -> Index range scan on lineitem using i_l_shipdate, with index condition: ((lineitem.l_shipdate >= DATE'1995-06-01') and (lineitem.l_shipdate < <cache>(('1995-06-01' + interval '90' day))))  (cost=*** rows=***)
+            -> Single-row index lookup on supplier using PRIMARY (s_suppkey=revenue0.supplier_no)  (cost=*** rows=***)
 
 drop view revenue0;
 explain select
@@ -472,16 +472,16 @@ EXPLAIN
 -> Sort: supplier_cnt DESC, part.p_brand, part.p_type, part.p_size
     -> Stream results
         -> Group aggregate: count(distinct partsupp.ps_suppkey)
-            -> Nested loop antijoin  (cost=13199.42 rows=127600)
-                -> Nested loop inner join  (cost=337.33 rows=1276)
-                    -> Sort: part.p_brand, part.p_type, part.p_size  (cost=145.56 rows=319)
-                        -> Filter: ((part.p_brand <> 'Brand#45') and (not((part.p_type like 'MEDIUM POLISHED%'))))  (cost=145.56 rows=319)
-                            -> Index range scan on part using p_size_idx, with index condition: (part.p_size in (49,14,23,45,19,3,36,9))  (cost=145.56 rows=319)
-                    -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=0.25 rows=4)
+            -> Nested loop antijoin  (cost=*** rows=***)
+                -> Nested loop inner join  (cost=*** rows=***)
+                    -> Sort: part.p_brand, part.p_type, part.p_size  (cost=*** rows=***)
+                        -> Filter: ((part.p_brand <> 'Brand#45') and (not((part.p_type like 'MEDIUM POLISHED%'))))  (cost=*** rows=***)
+                            -> Index range scan on part using p_size_idx, with index condition: (part.p_size in (49,14,23,45,19,3,36,9))  (cost=*** rows=***)
+                    -> Index lookup on partsupp using PRIMARY (ps_partkey=part.p_partkey)  (cost=*** rows=***)
                 -> Single-row index lookup on <subquery2> using <auto_distinct_key> (s_suppkey=partsupp.ps_suppkey)
-                    -> Materialize with deduplication  (cost=10.75 rows=100)
-                        -> Filter: (supplier.s_comment like '%Customer%Complaints%')  (cost=10.75 rows=100)
-                            -> Table scan on supplier  (cost=10.75 rows=100)
+                    -> Materialize with deduplication  (cost=*** rows=***)
+                        -> Filter: (supplier.s_comment like '%Customer%Complaints%')  (cost=*** rows=***)
+                            -> Table scan on supplier  (cost=*** rows=***)
 
 explain 
 select
@@ -528,14 +528,14 @@ l_partkey = p_partkey
 );
 EXPLAIN
 -> Aggregate: sum(lineitem.l_extendedprice)
-    -> Nested loop inner join  (cost=219.62 rows=32)
-        -> Filter: ((part.p_container = 'MED BOX') and (part.p_brand = 'Brand#23'))  (cost=208.40 rows=20)
-            -> Table scan on part  (cost=208.40 rows=2029)
-        -> Filter: (lineitem.l_quantity < (select #2))  (cost=0.40 rows=2)
-            -> Index lookup on lineitem using l_partkey_idx (l_partkey=part.p_partkey)  (cost=0.40 rows=2)
+    -> Nested loop inner join  (cost=*** rows=***)
+        -> Filter: ((part.p_container = 'MED BOX') and (part.p_brand = 'Brand#23'))  (cost=*** rows=***)
+            -> Table scan on part  (cost=*** rows=***)
+        -> Filter: (lineitem.l_quantity < (select #2))  (cost=*** rows=***)
+            -> Index lookup on lineitem using l_partkey_idx (l_partkey=part.p_partkey)  (cost=*** rows=***)
             -> Select #2 (subquery in condition; dependent)
                 -> Aggregate: avg(lineitem.l_quantity)
-                    -> Index lookup on lineitem using l_partkey_idx (l_partkey=part.p_partkey)  (cost=0.55 rows=2)
+                    -> Index lookup on lineitem using l_partkey_idx (l_partkey=part.p_partkey)  (cost=*** rows=***)
 
 Warnings:
 Note	1276	Field or reference 'test.part.p_partkey' of SELECT #2 was resolved in SELECT #1
@@ -621,16 +621,16 @@ EXPLAIN
 -> Sort: custsale.cntrycode
     -> Table scan on <temporary>
         -> Aggregate using temporary table
-            -> Nested loop antijoin  (cost=131820.80 rows=1316000)
-                -> Filter: ((substr(customer.c_phone,1,2) in ('13','31','23','29','30','18','17')) and (customer.c_acctbal > (select #3)))  (cost=155.00 rows=658)
-                    -> Table scan on customer  (cost=155.00 rows=1500)
+            -> Nested loop antijoin  (cost=*** rows=***)
+                -> Filter: ((substr(customer.c_phone,1,2) in ('13','31','23','29','30','18','17')) and (customer.c_acctbal > (select #3)))  (cost=*** rows=***)
+                    -> Table scan on customer  (cost=*** rows=***)
                     -> Select #3 (subquery in condition; run only once)
                         -> Aggregate: avg(customer.c_acctbal)
-                            -> Filter: ((customer.c_acctbal > 0.00) and (substr(customer.c_phone,1,2) in ('13','31','23','29','30','18','17')))  (cost=155.00 rows=1361)
-                                -> Table scan on customer  (cost=155.00 rows=1500)
+                            -> Filter: ((customer.c_acctbal > 0.00) and (substr(customer.c_phone,1,2) in ('13','31','23','29','30','18','17')))  (cost=*** rows=***)
+                                -> Table scan on customer  (cost=*** rows=***)
                 -> Single-row index lookup on <subquery4> using <auto_distinct_key> (o_custkey=customer.c_custkey)
-                    -> Materialize with deduplication  (cost=204.50 rows=2000)
-                        -> Index scan on orders using o_custkey_idx  (cost=204.50 rows=2000)
+                    -> Materialize with deduplication  (cost=*** rows=***)
+                        -> Index scan on orders using o_custkey_idx  (cost=*** rows=***)
 
 Warnings:
 Note	1276	Field or reference 'test.customer.c_custkey' of SELECT #4 was resolved in SELECT #2
