@@ -3595,26 +3595,23 @@ void JOIN::create_access_paths() {
   path = attach_access_paths_for_having_and_limit(path);
   path = attach_access_path_for_update_or_delete(path);
 
-  LEX *lex = thd->lex;
   QEP_TAB *parallel_tab = nullptr;
-  bool is_primary_qb = (query_block->type() == enum_explain_type::EXPLAIN_PRIMARY) ||
-                       (query_block->type() == enum_explain_type::EXPLAIN_SIMPLE) ||
-                       (query_block->type() == enum_explain_type::EXPLAIN_UNION);
 
   // PHASE-1: Do the compatibility check if open the parallel switch.
-  if (!lex->pass_px_check) {
+  if (!query_expression()->pass_px_check || !query_block->pass_px_check) {
     m_root_access_path = path;
     return ;
-  } else if (!lex->check_px_execution()) {
-    lex->pass_px_check = false;
+  }
+
+  query_block->check_px_execution(thd);
+  if (!query_block->pass_px_check) {
     m_root_access_path = path;
     return ;
   }
 
   // Only primary qb can choose a parallel table.
-  if (is_primary_qb &&
-      !choose_parallel_table(parallel_tab)) {
-    lex->pass_px_check = false;
+  if (!choose_parallel_table(parallel_tab)) {
+    query_block->pass_px_check = false;
     m_root_access_path = path;
     return ;
   }
@@ -3623,13 +3620,8 @@ void JOIN::create_access_paths() {
     For primary query block, we need to get the maxmium sub accesspath-tree
     can be parallel executed. 
   */
-  if (is_primary_qb && !WalkAccessPathsForCompat(path)) {
-    lex->pass_px_check = false;
-    m_root_access_path = path;
-    return ;
-  }
-
-  if (!is_primary_qb) {
+  if (!WalkAccessPathsForCompat(path)) {
+    query_block->pass_px_check = false;
     m_root_access_path = path;
     return ;
   }
@@ -3639,7 +3631,7 @@ void JOIN::create_access_paths() {
   split_position = {SplitPosition::NO_SPLIT, false, nullptr};
   if (!exchange_inject ||
       FindExchangeInjectPosition(thd, this, path, target_path, &split_position)) {
-    lex->pass_px_check = false;
+    query_block->pass_px_check = false;
     m_root_access_path = path;
     return ;
   }
@@ -3651,7 +3643,7 @@ void JOIN::create_access_paths() {
     path = WalkAccessPathsForAggregationRebuild(thd, this, path);
     // Whether the AGG is successfully Rebuilt.
     if (ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {
-      lex->pass_px_check = false;
+      query_block->pass_px_check = false;
       m_root_access_path = path;
       return ;
     }

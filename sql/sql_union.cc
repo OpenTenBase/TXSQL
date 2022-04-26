@@ -713,11 +713,34 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
   ha_rows estimated_rowcount = 0;
   double estimated_cost = 0.0;
+  
+  // Whether all/partial query blocks in union pass compatiblity check.
+  bool all_select_pass_px_check = false;
 
   if (query_result() != nullptr) query_result()->estimated_rowcount = 0;
 
+  // Check whether lex pass parallel compatibilty check.
+  if (thd->lex->pass_px_check && !thd->lex->check_px_execution()) {
+    thd->lex->pass_px_check = false;
+    pass_px_check = false;
+  }
+
   if (thd->variables.exchange_inject && !item && !derived_table) {
     exchange_inject = true;
+  }
+
+  // Check if there is union/union all with limit
+  if (pass_px_check && is_union()) {
+    ha_rows offset = global_parameters()->get_offset(thd);
+    ha_rows limit = global_parameters()->get_limit(thd);
+    if (limit + offset >= limit)
+      limit += offset;
+    else
+      limit = HA_POS_ERROR; /* purecov: inspected */
+    
+    if (limit != HA_POS_ERROR || offset != 0) {
+      pass_px_check = false;
+    }
   }
 
   for (Query_block *query_block = first_query_block(); query_block != nullptr;
@@ -728,6 +751,10 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     if (set_limit(thd, query_block)) return true; /* purecov: inspected */
 
     if (query_block->optimize(thd, finalize_access_paths)) return true;
+
+    if (pass_px_check) {
+      all_select_pass_px_check |= query_block->pass_px_check;
+    }
 
     /*
       Accumulate estimated number of rows.
@@ -837,6 +864,12 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
   set_optimized();  // All query blocks optimized, update the state
 
+  // Confirm whether this unit pass compatibility check, according to
+  // pass_px_execution of all query blocks.
+  if (pass_px_check) {
+    pass_px_check = is_union() ? pass_px_check : all_select_pass_px_check;
+  }
+
   if (item != nullptr) {
     // If we're part of an IN subquery, the containing engine may want to
     // add its own iterators on top, e.g. to materialize us.
@@ -859,6 +892,16 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     } else {
       join = nullptr;
     }
+
+    if (thd->lex->unit == this) {
+      thd->lex->pass_px_check &= pass_px_check;
+      if (thd->lex->pass_px_check && thd->lex->m_exchange_number < 1) {
+        thd->lex->pass_px_check = false;
+      } else if (!thd->lex->pass_px_check && thd->lex->m_exchange_number >= 1) {
+        // TODO 
+      }
+    }
+
     /// Access path has already been generated, traverse the all access path tree
     /// and generate the parallel execution plan before code generation.
     bool only_one_exchange = thd->lex->only_one_exchange(); // Compatible code.
