@@ -866,30 +866,6 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
-  for (const TABLE_LIST *tl = query_tables; tl != nullptr; tl = tl->next_global) {
-    if (!tl->is_derived()) {
-      if (!tl->table ||
-          !tl->table->file ||
-          (tl->table->s->table_category != TABLE_CATEGORY_USER ||
-             tl->table->file->ht->db_type != DB_TYPE_INNODB ||
-             tl->lock_descriptor().type > TL_READ_DEFAULT)) {
-        return false;
-      }
-    }
-  }
-
-  // Do the current query block check.
-  if (!current_query_block() ||
-      current_query_block()->table_list.elements < 1) {
-    return false;
-  }
-
-  assert(current_query_block()->join);
-  if (!current_query_block()->join ||
-      !current_query_block()->join->check_px_execution()) {
-    return false;
-  }
-
   return true;
 }
 
@@ -5024,6 +5000,53 @@ void Query_block::restore_cmd_properties() {
     Window *w;
     while ((w = li++)) w->reset_round();
   }
+}
+
+/**
+  Check whether this query block pass compatibility check;
+*/
+void Query_block::check_px_execution(THD *thd) {
+
+  // Only primary qb can do parallel
+  bool is_primary_qb = (type() == enum_explain_type::EXPLAIN_PRIMARY) ||
+                       (type() == enum_explain_type::EXPLAIN_SIMPLE) ||
+                       (type() == enum_explain_type::EXPLAIN_UNION);
+  if (!is_primary_qb) {
+    pass_px_check = false;
+    return ;
+  }
+
+  // Check select with distinct
+  if (is_distinct()) {
+    pass_px_check = false;
+    return ;
+  }
+
+  for (const TABLE_LIST *tl = table_list.first; tl != nullptr; tl = tl->next_local) {
+    if (!tl->is_derived()) {
+      if (!tl->table ||
+          !tl->table->file ||
+          (tl->table->s->table_category != TABLE_CATEGORY_USER ||
+           tl->table->file->ht->db_type != DB_TYPE_INNODB ||
+           tl->lock_descriptor().type > TL_READ_DEFAULT)) {
+        pass_px_check = false;
+        return ;
+      }
+    }
+  }
+
+  // Do the current query block check.
+  if (table_list.elements < 1) {
+    pass_px_check = false;
+    return ;
+  }
+
+  assert(join);
+  if (!join || !join->check_px_execution()) {
+    pass_px_check = false;
+    return ;
+  }
+
 }
 
 bool Query_options::merge(const Query_options &a, const Query_options &b) {

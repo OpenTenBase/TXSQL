@@ -1,0 +1,188 @@
+--echo # Infrastructure for test parallel union compatibility check
+
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+
+create database test1;
+
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(2,3,4,5);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
+
+create table t2(a int, b int, c int, d int);
+insert into t2 values(1,1,1,1);
+insert into t2 values(2,2,2,2);
+insert into t2 values(3,3,3,3);
+insert into t2 values(4,4,4,4);
+insert into t2 values(5,5,5,5);
+
+create table t3(a int, b int, c int, d int, primary key(a), key idx(b));
+insert into t3 values(1,1,1,1);
+insert into t3 values(2,2,2,2);
+insert into t3 values(3,3,3,3);
+insert into t3 values(4,4,4,4);
+insert into t3 values(5,5,5,5);
+insert into t3 values(6,6,6,6);
+insert into t3 values(7,7,7,7);
+insert into t3 values(8,8,8,8);
+insert into t3 values(9,9,9,9);
+insert into t3 values(10,10,10,10);
+
+create table t4(a int, b int, c int, d int);
+insert into t4 values(100,100,100,100);
+insert into t4 values(200,200,200,200);
+insert into t4 values(300,300,300,300);
+insert into t4 values(400,400,400,400);
+insert into t4 values(500,500,500,500);
+
+connection conn1;
+
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+set global cdb_min_parallel_table_rows = 0;
+
+connect(conn2,localhost,user1,,);
+
+--echo #
+--echo # Basic check for select with union all / union
+--echo #
+
+--echo # Check for union all
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 union all select * from t2;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 union all select * from t2 where a > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t2 where a > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a >=1 union all select * from t1 where b > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t4 union all select * from t1 where b > 1 union all select * from t4;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t4 union all select * from t1 union all select * from t2 where a > 1 union all select * from t3 union all select * from t3 where a > 1;
+
+--echo # Check for union
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 union select * from t2;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 union select * from t2 where a > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t2 where a > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a >=1 union select * from t1 where b > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t4 union select * from t1 where b > 1 union select * from t4;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t4 union select * from t1 union select * from t2 where a > 1 union select * from t3 union select * from t3 where a > 1;
+
+
+--echo #
+--echo # Check for select with union all / union
+--echo # Each query block has complex iterators
+--echo #
+
+--echo # Check for union all
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b union all select b,sum(d) from t3 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union all (select * from t3 where c > 1 and d > 2 order by b,c desc);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree (select * from t3 where c > 1 and d > 3 order by a,b) union all (select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union all (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
+
+--echo # Check for union
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b union select b,sum(d) from t3 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select a,sum(b),sum(d) from t1 group by a union select b,sum(b),avg(d) from t2 group by b union select b,sum(d),avg(c) from t3 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select * from t3 where c > 1 and d > 2 order by b,c desc);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree (select * from t3 where c > 1 and d > 3 order by a,b) union (select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a);
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
+
+
+--echo #
+--echo # Query contains union all / union
+--echo #
+
+--echo # Check for union all
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 union all select * from t2 order by a;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union all (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
+
+--echo # Check for union
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 union select * from t2 order by a;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from t1 where a > 1 union select * from t2 union select * from t3 order by a,b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
+
+
+--echo #
+--echo # Part of branch query blocks don't pass compatibility check
+--echo #
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select sum(a) from t1 group by b union all select variance(a) from t2 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select sum(a) from t1 group by b union select variance(a) from t2 group by b;
+
+--echo #
+--echo # Part of branch query blocks don't pass compatibility check
+--echo #
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select variance(a) from t1 group by b union all select variance(a) from t2 group by b;
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select variance(a) from t1 group by b union select variance(a) from t2 group by b;
+
+
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+set global cdb_min_parallel_table_rows = 5000;
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop database test1;
+drop user user1;
