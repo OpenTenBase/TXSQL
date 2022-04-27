@@ -68,11 +68,6 @@ class PX_reader {
     m_err.store(err, std::memory_order_relaxed);
   }
 
-  /** Increment the m_n_completed. */
-  void incr_completed() { 
-    m_n_completed.fetch_add(1, std::memory_order_relaxed);
-  }
-
   /** Set the m_task_finished. */
   void set_task_finished() {
     m_task_finished.store(true, std::memory_order_relaxed);
@@ -120,12 +115,6 @@ class PX_reader {
     return m_ctxs.empty();
   }
 
-  /** @return true if tasks are still executing. */
-  bool is_active() const MY_ATTRIBUTE((warn_unused_result)) {
-    return (m_n_completed.load(std::memory_order_relaxed) <
-            m_ctx_id.load(std::memory_order_relaxed));
-  }
-
   size_t calulate_split_point();
 
  private:
@@ -152,12 +141,6 @@ class PX_reader {
 
   /** Context ID. Monotonically increasing ID. */
   std::atomic_size_t m_ctx_id{};
-
-  /** Total tasks executed so far. */
-  std::atomic_size_t m_n_completed{};
-
-  /** Total tasks to be executed. */
-  std::atomic_size_t m_n_tasks{};
 
   /** The flag the query has finished. */
   std::atomic<bool> m_task_finished{false};

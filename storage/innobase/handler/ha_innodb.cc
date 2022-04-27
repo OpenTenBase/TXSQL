@@ -11246,13 +11246,12 @@ int ha_innobase::px_worker_next(uchar *buf, void *scan_ctx) {
     err = m_prebuilt->px_ctx->row_search_px(buf, m_prebuilt);
     /*
       There are two scenario when no valid record.
-      1) the index or the PX_Ctx end, just increment the finish count and retry dispatch task.
+      1) the index or the PX_Ctx end, retry dispatch task.
       2) set err when other error occurs.
     */
     if (err != DB_SUCCESS) {
       if (err == DB_END_OF_INDEX || err == DB_END_OF_PX_CTX) {
         m_prebuilt->px_ctx = nullptr;
-        reader->incr_completed();
         continue;
       } else if (!reader->is_error_set()) {
         reader->set_error_state(err);
