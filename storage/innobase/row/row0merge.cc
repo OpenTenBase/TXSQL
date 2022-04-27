@@ -788,6 +788,31 @@ static mem_heap_t *row_merge_heap_create(
   return (heap);
 }
 
+/** Create a memory heap and allocate space for row_merge_rec_offsets()
+ and mrec_buf_t[K + 1].
+ @return memory heap */
+static mem_heap_t *row_merge_heap_create_with_k(
+    const dict_index_t *index, /*!< in: record descriptor */
+    mrec_buf_t **buf,          /*!< out: K buffers */
+    std::vector<ulint *> & offsets,
+    const ulint K)
+{
+  ulint i = 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index);
+  mem_heap_t *heap =
+      mem_heap_create(K * i * sizeof(ulint *) + (K + 1) * sizeof **buf);
+
+  *buf = static_cast<mrec_buf_t *>(mem_heap_alloc(heap, (K + 1) * sizeof **buf));
+
+  for (ulint k = 0; k < K; k++) {
+    ulint * offs = static_cast<ulint *>(mem_heap_alloc(heap, i * sizeof(ulint *)));
+    offsets[k] = offs;
+    offsets[k][0] = i;
+    offsets[k][1] = dict_index_get_n_fields(index);
+  }
+
+  return (heap);
+}
+
 /** Read a merge block from the file system.
  @return true if request was successful, false if fail */
 bool row_merge_read(int fd,                 /*!< in: file descriptor */
@@ -853,6 +878,45 @@ bool row_merge_write(int fd,          /*!< in: file descriptor */
   return err == DB_SUCCESS;
 }
 
+struct cached_offsets_t {
+
+  void init(const dict_index_t *m_index) {
+    offsets = nullptr;
+    index = m_index;
+  }
+
+  void set_offsets(ulint * m_offsets) {
+    const ulint n = dict_index_get_n_fields(index);
+    const ulint offsets_i =
+      1 + REC_OFFS_HEADER_SIZE + n;
+
+    offsets = static_cast<ulint*>(ut_malloc(offsets_i * sizeof(*offsets), mem_key_row_merge_sort));
+    for (ulint i = 0; i < offsets_i; i++) {
+      offsets[i] = m_offsets[i];
+    }
+  }
+
+  void get_cached_offsets(ulint * m_offsets) {
+    const ulint n = dict_index_get_n_fields(index);
+    const ulint offsets_i =
+      1 + REC_OFFS_HEADER_SIZE + n;
+    for (ulint i = 0; i < offsets_i; i++) {
+      m_offsets[i] = offsets[i];
+    }
+  }
+
+  void reset() {
+    index = nullptr;
+    if (offsets) {
+      ut_free(offsets);
+      offsets = nullptr;
+    }
+  }
+
+  ulint *offsets;
+  const dict_index_t *index;
+} cached_offsets;
+
 /** Read a merge record.
  @return pointer to next record, or NULL on I/O error or end of list */
 const byte *row_merge_read_rec(
@@ -870,6 +934,8 @@ const byte *row_merge_read_rec(
   ulint extra_size;
   ulint data_size;
   ulint avail_size;
+
+  bool is_variable = false;
 
   ut_ad(block);
   ut_ad(buf);
@@ -941,7 +1007,15 @@ const byte *row_merge_read_rec(
 
     *mrec = *buf + extra_size;
 
-    rec_deserialize_init_offsets(*mrec, index, offsets);
+    if (cached_offsets.index == index && cached_offsets.offsets) {
+      cached_offsets.get_cached_offsets(offsets);
+    } else {
+      is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
+
+      if (!is_variable && cached_offsets.index == index) {
+        cached_offsets.set_offsets(offsets);
+      }
+    }
 
     data_size = rec_offs_data_size(offsets);
 
@@ -960,7 +1034,15 @@ const byte *row_merge_read_rec(
 
   *mrec = b + extra_size;
 
-  rec_deserialize_init_offsets(*mrec, index, offsets);
+  if (cached_offsets.index == index && cached_offsets.offsets) {
+    cached_offsets.get_cached_offsets(offsets);
+  } else {
+    is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
+
+    if (!is_variable && cached_offsets.index == index) {
+      cached_offsets.set_offsets(offsets);
+    }
+  }
 
   data_size = rec_offs_data_size(offsets);
   ut_ad(extra_size + data_size < sizeof *buf);
@@ -2687,10 +2769,12 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
         if (buf->n_tuples == 0) {
           continue;
         }
-        error = sort_merge_buf(i, buf, table, col_map, trx, key_numbers,
-            online, old_table, new_table);
-        if (error != DB_SUCCESS) {
-          break;
+        if (!quantilers) {
+          error = sort_merge_buf(i, buf, table, col_map, trx, key_numbers,
+              online, old_table, new_table);
+          if (error != DB_SUCCESS) {
+            break;
+          }
         }
         error = write_merge_buf_to_file(i, index_bufs[thread_id], tmp_file_info,
             tmpfd, trx, n_rec_to_added, path);
@@ -2779,6 +2863,32 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
       } \
   } while (0)
 
+/** Write a record via buffer K and read the next record to buffer N.
+@param N number of the buffer (0 to K - 1)
+@param INDEX record descriptor */
+#define ROW_MERGE_WRITE_GET_NEXT_WITH_K_LOW(N, INDEX)          \
+  do {                                                                       \
+    b[K] = row_merge_write_rec(&block[K * srv_sort_buf_size], &buf[K], b[K],     \
+                             of->fd, &of->offset, sr.mrec, sr.offsets);      \
+    if (UNIV_UNLIKELY(!b[K] || ++of->n_rec > file->n_rec)) {                   \
+      goto corrupt;                                                          \
+    }                                                                        \
+    b[N] = const_cast<byte *>(                                               \
+      row_merge_read_rec(&block[N * srv_sort_buf_size], &buf[N], b[N],       \
+        INDEX, file->fd, &foffs[N], &mrec[N], offsets[N]));                  \
+    if (UNIV_UNLIKELY(!b[N])) {                                              \
+      if (mrec[N]) {                                                         \
+        goto corrupt;                                                        \
+      }                                                                      \
+    } \
+    if (mrec[N]) {                                                             \
+      srn.mrec = mrec[N];                                                       \
+      srn.offsets = offsets[N];                                                 \
+      srn.from = N;                                                             \
+      m_pq.push(srn);                                                           \
+    } \
+  } while (0)
+
 #ifdef HAVE_PSI_STAGE_INTERFACE
 #define ROW_MERGE_WRITE_GET_NEXT(N, INDEX, AT_END)  \
   do {                                              \
@@ -2788,6 +2898,8 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
 #define ROW_MERGE_WRITE_GET_NEXT(N, INDEX, AT_END) \
   ROW_MERGE_WRITE_GET_NEXT_LOW(N, INDEX, AT_END)
 #endif /* HAVE_PSI_STAGE_INTERFACE */
+#define ROW_MERGE_WRITE_GET_NEXT_WITH_K(N, INDEX) \
+  ROW_MERGE_WRITE_GET_NEXT_WITH_K_LOW(N, INDEX)
 
 /** Merge two blocks of records on disk and write a bigger block.
 @param[in]	dup	descriptor of index being created
@@ -2884,6 +2996,118 @@ done1:
   b2 = row_merge_write_eof(&block[2 * srv_sort_buf_size], b2, of->fd,
                            &of->offset);
   return b2 ? DB_SUCCESS : DB_CORRUPTION;
+}
+
+struct SortRecord {
+  const mrec_t *mrec;
+  const ulint *offsets;
+  ulint from;
+};
+
+struct SortRecordComparator {
+  void init(dict_index_t *index_param, TABLE *table_param) {
+    index = index_param;
+    table = table_param;
+  }
+  bool operator()(const SortRecord &r1, const SortRecord &r2) {
+    int cmp = cmp_rec_rec_simple(r1.mrec, r2.mrec, r1.offsets, r2.offsets, index, table);
+    return cmp > 0;
+  }
+
+  dict_index_t *index;
+  TABLE *table;
+};
+
+/** Merge K blocks of records on disk and write a bigger block.
+@param[in]	dup	descriptor of index being created
+@param[in]	file	file containing index entries
+@param[in,out]	block	K+1 buffers
+@param[in,out]	foffs	offsets of source lists in the file
+@param[in,out]	of	output file
+@param[in,out]	stage	performance schema accounting object, used by
+ALTER TABLE. If not NULL stage->inc() will be called for each record
+processed.
+@param[in] K-ways merge sort
+@return DB_SUCCESS or error code */
+static MY_ATTRIBUTE((warn_unused_result)) dberr_t
+    row_merge_blocks_with_k(const row_merge_dup_t *dup, const merge_file_t *file,
+                     row_merge_block_t *block, ulint *foffs, merge_file_t *of,
+                     Alter_stage *stage, const ulint K) {
+  mem_heap_t *heap; /*!< memory heap for offsets*/
+
+  mrec_buf_t *buf;     /*!< buffer for handling
+                       split mrec in block[] */
+  std::vector<byte*> b;
+  b.resize(K + 1);
+  std::vector<const mrec_t*> mrec;
+  mrec.resize(K);
+  std::vector<ulint *> offsets;
+  offsets.resize(K);
+
+  SortRecordComparator sr_comparator;
+  sr_comparator.init(dup->index, dup->table);
+  /** Priority queue for ordering the rows. */
+  std::priority_queue<SortRecord, std::vector<SortRecord, ut_allocator<SortRecord>>,
+                      SortRecordComparator> m_pq(sr_comparator);
+
+  SortRecord sr, srn;
+  ulint cur_tuple_processed = 0;
+  static const ulint INC_PROGRESS_STEP = 100;
+
+  heap = row_merge_heap_create_with_k(dup->index, &buf, offsets, K);
+
+  /* Write a record and read the next record.  Split the output
+  file in two halves, which can be merged on the following pass. */
+
+  for (ulint i = 0; i < K; i++) {
+    if (foffs[i] != ULINT_MAX) {
+      if (!row_merge_read(file->fd, foffs[i], &block[srv_sort_buf_size * i])) {
+        goto corrupt;
+      }
+    }
+  }
+  for (ulint i = 0; i <= K; i++) {
+    b[i] = &block[i * srv_sort_buf_size];
+  }
+
+  for (ulint i = 0; i < K; i++) {
+    if (foffs[i] != ULINT_MAX) {
+      b[i] = const_cast<byte *>(row_merge_read_rec(&block[i * srv_sort_buf_size],
+                                                   &buf[i], b[i], dup->index, file->fd,
+                                                   &foffs[i], &mrec[i], offsets[i]));
+      if (UNIV_UNLIKELY(!b[i] && mrec[i])) {
+        goto corrupt;
+      }
+      if (mrec[i]) {
+        sr.mrec = mrec[i];
+        sr.offsets = offsets[i];
+        sr.from = i;
+        m_pq.push(sr);
+      }
+    }
+  }
+
+  while (!m_pq.empty()) {
+    sr = m_pq.top();
+    m_pq.pop();
+    // ib::info() << "rec[" << sr.from << "]=" <<
+    // << rec_printer(mrec[sr.from], 0, offsets[sr.from]).str();
+    ROW_MERGE_WRITE_GET_NEXT_WITH_K(sr.from, dup->index);
+
+    if (++cur_tuple_processed >= INC_PROGRESS_STEP) {
+      stage->inc(cur_tuple_processed);
+      cur_tuple_processed = 0;
+    }
+  }
+
+  mem_heap_free(heap);
+  b[K] = row_merge_write_eof(&block[K * srv_sort_buf_size], b[K], of->fd,
+                           &of->offset);
+  return b[K] ? DB_SUCCESS : DB_CORRUPTION;
+
+corrupt:
+  mem_heap_free(heap);
+  return DB_CORRUPTION;
 }
 
 /** Copy a block of index entries.
@@ -3083,6 +3307,208 @@ ulint *row_merge_sort_init_offset(merge_file_t *file) {
 	return run_offset;
 }
 
+/** Merge disk files with k-ways merge sort.
+@param[in]	trx		transaction
+@param[in]	dup		descriptor of index being created
+@param[in,out]	file		file containing index entries
+@param[in,out]	block		K+1 buffers
+@param[in,out]	tmpfd		temporary file handle
+@param[in,out]	num_run		Number of runs that remain to be merged
+@param[in,out]	run_offset	Array that contains the first offset number
+for each merge run
+@param[in,out]	stage		performance schema accounting object, used by
+ALTER TABLE. If not NULL stage->inc() will be called for each record
+processed.
+@param[in] K-ways merge sort
+@return DB_SUCCESS or error code */
+static dberr_t row_merge_with_k(trx_t *trx, const row_merge_dup_t *dup,
+                         merge_file_t *file, row_merge_block_t *block,
+                         int *tmpfd, ulint *num_run, ulint *run_offset,
+                         ut_stage_alter_t *stage, const ulint K) {
+  ulint foffs[128];
+
+  dberr_t error;   /*!< error code */
+  merge_file_t of; /*!< output file */
+  ulint ihalf[128];
+  ihalf[0] = 0;
+  for (ulint i = 1; i < K; i++) {
+    ihalf[i] = run_offset[*num_run / K * i];
+  }
+
+  /*!< half the input file */
+  ulint n_run = 0;
+  /*!< num of runs generated from this merge */
+
+  UNIV_MEM_ASSERT_W(&block[0], (K + 1) * srv_sort_buf_size);
+
+  ut_ad(ihalf[K - 1] < file->offset);
+
+  ihalf[K] = file->offset;
+
+  of.fd = *tmpfd;
+  of.offset = 0;
+  of.n_rec = 0;
+
+#ifdef POSIX_FADV_SEQUENTIAL
+  /* The input file will be read sequentially, starting from the
+  beginning and the middle.  In Linux, the POSIX_FADV_SEQUENTIAL
+  affects the entire file.  Each block will be read exactly once. */
+  posix_fadvise(file->fd, 0, 0, POSIX_FADV_SEQUENTIAL | POSIX_FADV_NOREUSE);
+#endif /* POSIX_FADV_SEQUENTIAL */
+
+  /* Merge blocks to the output file. */
+  foffs[0] = 0;
+  for (ulint i = 1; i < K; i++) {
+    foffs[i] = ihalf[i];
+  }
+
+  UNIV_MEM_INVALID(run_offset, *num_run * sizeof *run_offset);
+  ulint finish = 0;
+  while (true) {
+    if (trx_is_interrupted(trx)) {
+      return (DB_INTERRUPTED);
+    }
+
+    finish = 0;
+    for (ulint i = 0; i < K; i++) {
+      if (foffs[i] == ihalf[i + 1]) {
+        finish++;
+      }
+    }
+
+    if (finish >= K - 1) {
+      break;
+    }
+
+    /* Remember the offset number for this run */
+    run_offset[n_run++] = of.offset;
+
+    error = row_merge_blocks_with_k(dup, file, block, foffs, &of, stage, K);
+
+    if (error != DB_SUCCESS) {
+      return (error);
+    }
+    for (ulint i = 0; i < K; i++) {
+      if (foffs[i] < ihalf[i + 1]) {
+        foffs[i]++;
+      }
+    }
+  }
+
+  for (ulint i = 0; i < K; i++) {
+    while (foffs[i] < ihalf[i + 1]) {
+      if (UNIV_UNLIKELY(trx_is_interrupted(trx))) {
+        return (DB_INTERRUPTED);
+      }
+      run_offset[n_run++] = of.offset;
+
+      if (!row_merge_blocks_copy(dup->index, file, block, &foffs[i], &of, stage)) {
+        ib::error() << "row_merge_blocks_copy failed, foffs=" << foffs[i]
+                    << " ihalf=" << ihalf[i + 1];
+        return (DB_CORRUPTION);
+      }
+    }
+  }
+
+
+  for (ulint i = 0; i < K; i++) {
+    ut_ad(foffs[i] == ihalf[i + 1]);
+  }
+
+  ut_ad(n_run <= *num_run);
+
+  *num_run = n_run;
+
+  /* Each run can contain one or more offsets. As merge goes on,
+  the number of runs (to merge) will reduce until we have one
+  single run. So the number of runs will always be smaller than
+  the number of offsets in file */
+  ut_ad((*num_run) <= file->offset);
+
+  /* The number of offsets in output file is always equal or
+  smaller than input file */
+  ut_ad(of.offset <= file->offset);
+
+  /* Swap file descriptors for the next pass. */
+  *tmpfd = file->fd;
+  *file = of;
+
+  UNIV_MEM_INVALID(&block[0], (K + 1) * srv_sort_buf_size);
+
+  return (DB_SUCCESS);
+}
+
+
+/** Merge disk files with k-ways merge sort.
+@param[in]	trx	transaction
+@param[in]	dup	descriptor of index being created
+@param[in,out]	file	file containing index entries
+@param[in,out]	block	K+1 buffers
+@param[in,out]	tmpfd	temporary file handle
+@param[in,out]	stage	performance schema accounting object, used by
+ALTER TABLE. If not NULL, stage->begin_phase_sort() will be called initially
+and then stage->inc() will be called for each record processed.
+@return DB_SUCCESS or error code */
+dberr_t row_merge_sort_with_k(trx_t *trx, const row_merge_dup_t *dup,
+                       merge_file_t *file, row_merge_block_t *block, int *tmpfd,
+                       Alter_stage *stage /* = NULL */) {
+  ulint K = file->offset;
+  if (file->offset > (ulint)cdb_parallel_ddl_merge_sort_k_value) {
+    K = (ulint)cdb_parallel_ddl_merge_sort_k_value;
+  }
+  ulint half[128];
+  for (ulint i = 1; i < K; i++) {
+    half[i] = file->offset / K * i;
+  }
+  ulint num_runs;
+  ulint *run_offset;
+  dberr_t error = DB_SUCCESS;
+  DBUG_TRACE;
+
+  /* Record the number of merge runs we need to perform */
+  num_runs = file->offset;
+
+  /* If num_runs are less than 1, nothing to merge */
+  if (num_runs <= 1) {
+    return error;
+  }
+
+  /* "run_offset" records each run's first offset number */
+  run_offset = row_merge_sort_init_offset(file);
+
+
+  /* This tells row_merge() where to start for the first round
+  of merge. */
+  for (ulint i = 1; i < K; i++) {
+    run_offset[half[i]] = half[i];
+  }
+
+  /* The file should always contain at least one byte (the end
+  of file marker).  Thus, it must be at least one block. */
+  ut_ad(file->offset > 0);
+
+  /* Single-threaded merge */
+
+  /* Merge the runs until we have one big run */
+  do {
+    K = std::min(K, num_runs);
+
+    error =
+      row_merge_with_k(trx, dup, file, block,
+        tmpfd, &num_runs, run_offset, stage, K);
+
+    if (error != DB_SUCCESS) {
+      break;
+    }
+
+    UNIV_MEM_ASSERT_RW(run_offset, num_runs * sizeof *run_offset);
+
+  } while (num_runs > 1);
+
+  ut_free(run_offset);
+
+  return error;
+}
 
 /** Merge disk files.
 @param[in]	trx	transaction
@@ -3528,8 +3954,8 @@ static void check_if_have_enough_run(merge_file_t *merge_files, int n_indexes,
       continue;
     }
     if (merge_files[i].offset < parallel_sort_threads) {
-      parallel_sort_threads = 1;
-      break;
+      parallel_sort_threads = merge_files[i].offset;
+      continue;
     }
   }
 }
@@ -3776,16 +4202,22 @@ void parallel_partition_file(
   local_partition_buffers = nullptr;
 }
 
-void parallel_merge_sort(merge_file_wrapper_t *file_wrapper,
+void parallel_merge_sort(ulint id, merge_file_wrapper_t *file_wrapper,
                   trx_t *trx, row_merge_dup_t *dup,
                   Alter_stage *stage, dberr_t& err) {
   err = DB_SUCCESS;
   ut::allocator<row_merge_block_t> alloc(mem_key_row_merge_sort);
   row_merge_block_t *block =
-                    alloc.allocate(3 * srv_sort_buf_size);
-
-  err = row_merge_sort(trx, dup, file_wrapper->file, block, 
-                       &file_wrapper->tmpfd, stage);
+    alloc.allocate((txsql_parallel_ddl_merge_sort_k_value + 1) *
+                          srv_sort_buf_size);
+  if (txsql_parallel_ddl_merge_sort_k_value == 2) {
+    err = row_merge_sort(trx, dup, file_wrapper->file, block,
+        &file_wrapper->tmpfd, stage);
+  }
+  else {
+    err = row_merge_sort_with_k(trx, dup, file_wrapper->file, block,
+        &file_wrapper->tmpfd, stage);
+  }
 
   alloc.deallocate(block);
 }
@@ -3810,7 +4242,7 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
 #ifdef UNIV_DEBUG_PARALLEL_DDL
   auto start_time = std::chrono::steady_clock::now();
 #endif /* UNIV_DEBUG_PARALLEL_DDL */
-
+  cached_offsets.init(index);
   // prepare parallel threads, these threads are for partitioning and then sorting
   const ulint num_runs = file->offset;
   const ulint sort_parallel = quantiler->sort_parallel;
@@ -3877,7 +4309,7 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
   std::vector<dberr_t> sort_results(sort_parallel);
   ulong total_cnt = 0;
   for (uint s = 0; s < sort_parallel; s++) {
-    sort_workers[s] = std::thread(parallel_merge_sort, &output_files[s],
+    sort_workers[s] = std::thread(parallel_merge_sort, s, &output_files[s],
                                   trx, dup, stage, std::ref(sort_results[s]));
     total_cnt += output_files[s].file->n_rec;
   }
@@ -3898,6 +4330,11 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
       break;
     }
   }
+  total_cnt = 0;
+  for (uint s = 0; s < sort_parallel; s++) {
+    total_cnt += output_files[s].file->n_rec;
+  }
+  ut_a(total_cnt == file->n_rec);
   DBUG_EXECUTE_IF(
         "crash_after_merge_sort_before_build_btree",
         sql_print_information("Crashing "
@@ -4926,6 +5363,7 @@ dberr_t row_merge_build_indexes(
       } else if (parallel_sort_threads > 1){
         row_partition_file_destroy(partitioned_sorted_files, parallel_sort_threads);
       }
+      cached_offsets.reset();
 
 #ifdef UNIV_DEBUG_PARALLEL_DDL
       ib::info() << "[TXSQL PARALLEL DDL] Build btree finished, costs(" 
@@ -5043,3 +5481,4 @@ func_exit:
 
   return error;
 }
+

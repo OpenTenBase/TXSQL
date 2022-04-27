@@ -893,6 +893,8 @@ extern ulong opt_myisam_conversion_innodb;
 extern ulong opt_tencent_myisam_conversion_innodb;
 extern const char *myisam_conversion_innodb_names[];
 
+extern unsigned int txsql_parallel_ddl_merge_sort_k_value;
+
 /**
   The thread statistics are summarized as follows:
   1. sync/async io stats
