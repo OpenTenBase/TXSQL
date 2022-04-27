@@ -1130,7 +1130,7 @@ void rec_deserialize_init_offsets(
     ulint *offsets)            /*!< in/out: array of offsets;
                                in: n=rec_offs_n_fields(offsets) */
 {
-  rec_init_offsets_comp_ordinary(rec, true, index, offsets);
+  return rec_init_offsets_comp_ordinary(rec, true, index, offsets);
 }
 
 /** Builds a temporary file record out of a data tuple.

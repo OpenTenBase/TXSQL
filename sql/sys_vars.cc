@@ -7737,6 +7737,13 @@ static Sys_var_bool Sys_cdb_compressed_histogram_enabled(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
 
+static Sys_var_uint Sys_txsql_parallel_ddl_merge_sort_k_value(
+    "txsql_parallel_ddl_merge_sort_k_value",
+    "K-ways merge sort when using parallel ddl.",
+    TENCENT_VAR GLOBAL_VAR(txsql_parallel_ddl_merge_sort_k_value),
+    CMD_LINE(OPT_ARG), VALID_RANGE(2, 64), DEFAULT(2), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
 #ifdef HAVE_POOL_OF_THREADS
 
 static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {

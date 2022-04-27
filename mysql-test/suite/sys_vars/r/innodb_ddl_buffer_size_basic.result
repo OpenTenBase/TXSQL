@@ -36,16 +36,16 @@ VARIABLE_NAME	VARIABLE_VALUE
 innodb_ddl_buffer_size	65536
 set global innodb_ddl_buffer_size=4294967297;
 Warnings:
-Warning	1292	Truncated incorrect innodb_ddl_buffer_size value: '4294967297'
-set session innodb_ddl_buffer_size=4294967297;
+Warning	1292	Truncated incorrect innodb_ddl_buffer_size value: '536870913'
+set session innodb_ddl_buffer_size=536870913;
 Warnings:
-Warning	1292	Truncated incorrect innodb_ddl_buffer_size value: '4294967297'
-set global innodb_ddl_buffer_size=4294967295;
-set session innodb_ddl_buffer_size=4294967295;
+Warning	1292	Truncated incorrect innodb_ddl_buffer_size value: '536870913'
+set global innodb_ddl_buffer_size=536870912;
+set session innodb_ddl_buffer_size=536870912;
 SELECT * FROM performance_schema.global_variables
 WHERE variable_name='innodb_ddl_buffer_size';
 VARIABLE_NAME	VARIABLE_VALUE
-innodb_ddl_buffer_size	4294967295
+innodb_ddl_buffer_size	536870912
 SELECT * FROM performance_schema.session_variables
 WHERE variable_name='innodb_ddl_buffer_size';
 VARIABLE_NAME	VARIABLE_VALUE

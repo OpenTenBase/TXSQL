@@ -1776,6 +1776,8 @@ bool cdb_enable_lock_statistics = false;
 ulong cdb_ignore_filename_length = 0;
 bool cdb_fire_wall_enabled= false;
 
+unsigned int txsql_parallel_ddl_merge_sort_k_value = 2;
+
 /**
   Total memory used in server layer and innodb layer.
 */
