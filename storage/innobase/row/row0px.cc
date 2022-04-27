@@ -26,9 +26,8 @@ extern void row_sel_store_row_id_to_prebuilt(
   const dict_index_t *index, /*!< in: index of the record */
   const ulint *offsets);
 
-PX_reader::PX_reader(size_t max_threads) : m_max_threads(max_threads),
-                                m_ctxs(),
-                                m_n_completed(0) {
+PX_reader::PX_reader(size_t max_threads)
+    : m_max_threads(max_threads), m_ctxs() {
   mutex_create(LATCH_ID_PARALLEL_READ, &m_mutex);
   m_event = os_event_create();             
 }
@@ -73,7 +72,6 @@ dberr_t PX_reader::add_scan(trx_t *trx, const PX_Config &config) {
     return (err);
   }
 
-  m_n_tasks = m_ctxs.size();
   scan_ctx->index_s_unlock();
 
   return (err);
@@ -182,34 +180,21 @@ std::shared_ptr<PX_Ctx> PX_reader::dequeue() {
 */
 dberr_t PX_reader::task_dispatch(std::shared_ptr<PX_Ctx> &task) {
   dberr_t err{DB_SUCCESS};
-  //sql_print_information("==========>>>> THREAD[%u] LEFT [%d] task.",
-  //  my_thread_self(), m_ctxs.size());
 
   /*
-    There are two scenario the execution will be terminated:
-    1) all the tasks in the queue are scaned
-    2) query with limit, the worker set the m_task_finished flag
-    All sleeping workers should be ensure waked up and exit by coordinator.
+    With the contract that all tasks are prepared before any worker starting
+    to consume, getting no more task indicates a worker has done. There is
+    no need to wait for more. See also ha_innobase::px_coordinator_init().
+
+    Note that the contract is completely different from that in Parallel_reader
+    which allows odd tasks to be divided and refilled to the queue after some
+    worker starts to consume.
   */
-  int64_t sig_count = os_event_reset(m_event);
-  for (;;) {
-    auto ctx = dequeue();
-    task = ctx;
+  auto ctx = dequeue();
+  task = ctx;
 
-    while (ctx == nullptr) {
-      bool task_done = m_task_finished.load(std::memory_order_relaxed);
-
-      if (m_n_completed >= m_n_tasks || task_done) {
-        /* Wakeup other worker threads before exiting */
-        os_event_set(m_event);
-        err = DB_END_OF_INDEX;
-        break;
-      } else {
-        os_event_wait_time_low(m_event, std::chrono::microseconds::max(), sig_count);
-      }
-    }
-
-    break;
+  if (ctx == nullptr) {
+    err = DB_END_OF_INDEX;
   }
   
   return err;
