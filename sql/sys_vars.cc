@@ -8832,3 +8832,12 @@ static Sys_var_ulong Sys_cdb_parallel_degree(
     DEFAULT(4), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static Sys_var_ulonglong Sys_cdb_min_parallel_table_rows(
+    "cdb_min_parallel_table_rows",
+    "Minimum number of rows in a parallel table. "
+    "Only tables with rows above the specified "
+    "threshold can be chosen as parallel tables "
+    "which are partitioned across parallel threads.",
+    SESSION_VAR(cdb_min_parallel_table_rows), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(5000), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);

@@ -521,6 +521,10 @@ struct System_variables {
     @sa Sys_cdb_parallel_degree
   */
   ulong cdb_parallel_degree;
+  /**
+    @sa Sys_cdb_min_parallel_table_rows
+  */
+  ulonglong cdb_min_parallel_table_rows;
 };
 
 /**

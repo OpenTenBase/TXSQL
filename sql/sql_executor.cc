@@ -3498,6 +3498,15 @@ bool JOIN::choose_parallel_table(QEP_TAB *parallel_tab) {
       tbl->is_view_or_derived()) {
     return false;
   }
+
+  /*
+    Check records in table.
+    If it is less than cdb_min_parallel_table_rows, refuse to do parallel execution.
+  */
+  if (tb->file->stats.records < thd->variables.cdb_min_parallel_table_rows) {
+    return false;
+  }
+
   /*
     Check the table scan type. These scan type of parallel table supported:
     1) TABLE SCAN
