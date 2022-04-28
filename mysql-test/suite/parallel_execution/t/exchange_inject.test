@@ -33,8 +33,12 @@ delimiter ;|
 call p1(10);
 --enable_query_log
 
-set exchange_inject=1;
-set cdb_parallel_query_enable = 1;
+set cdb_parallel_query_enable = on;
+set cdb_parallel_execution_enabled = on;
+set exchange_inject = on;
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
 
 --echo #
 --echo # Table scan -> exchange
@@ -246,3 +250,41 @@ DROP TABLE t1, t2;
 DROP USER test@localhost;
 DROP USER test2@localhost;
 set @@global.autocommit= @start_autocommit;
+
+--echo #
+--echo # Sort under join
+--echo # join -> px_merge_sort -> px_send -> sort -> scan
+create table t1(a int, b int);
+insert into t1 values(1,1);
+insert into t1 values(3,3);
+insert into t1 values(2,2);
+insert into t1 values(5,5);
+insert into t1 values(4,4);
+insert into t1 values(10,10);
+insert into t1 values(6,6);
+insert into t1 values(8,8);
+insert into t1 values(7,7);
+insert into t1 values(9,9);
+create table t2(a int, b int, primary key(a), key idx(b));
+insert into t2 values(1,1);
+insert into t2 values(2,2);
+insert into t2 values(3,3);
+insert into t2 values(4,4);
+insert into t2 values(5,5);
+insert into t2 values(6,6);
+insert into t2 values(7,7);
+insert into t2 values(8,8);
+insert into t2 values(9,9);
+insert into t2 values(10,10);
+analyze table t1,t2;
+select * from t2 join t1 on t2.a = t1.a where t2.a > 1;
+explain format=tree select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
+select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
+drop table t1,t2;
+
+set cdb_parallel_query_enable = off;
+set cdb_parallel_execution_enabled = off;
+set exchange_inject = off;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
