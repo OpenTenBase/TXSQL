@@ -3059,16 +3059,20 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
                   ? join->fields
                   : &join->tmp_fields[REF_SLICE_SAVED_BASE];
-      // In One-stage parallel, we don`t walk deeper.
-      // child = path->nested_loop_join().outer;
+
+      // Only the first table can be parallelized now
+      child = path->nested_loop_join().outer;
+      child_slice = REF_SLICE_SAVED_BASE;
       break;
     }
     case AccessPath::HASH_JOIN: {
       fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
                   ? join->fields
                   : &join->tmp_fields[REF_SLICE_SAVED_BASE];
-      // In One-stage parallel, we don`t walk deeper.
-      // child = path->hash_join().outer;
+
+      // Only the first table can be parallelized now
+      child = path->hash_join().outer;
+      child_slice = REF_SLICE_SAVED_BASE;
       break;
     }
     case AccessPath::FILTER: {
