@@ -2902,6 +2902,25 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
 }
 
 /**
+ * @return true for the equation is satisfied, false otherwise
+ */
+static bool group_field_eq_sort_list(List<Cached_item> group_fields,
+                                     ORDER *sort_order) {
+  auto first = group_fields.begin();
+  ORDER *second = sort_order;
+  for (; first != group_fields.end() && second;
+       ++first, second = second->next) {
+    if ((first->get_item())->eq(*second->item, true)) {
+      continue;
+    } else {
+      return false;
+    }
+  }
+  if (first != group_fields.end() || second) return false;
+  return true;
+}
+
+/**
  * @param path  Raw access path
  * @param target_path Where to inject exchange.
  * @return true if not inject, false otherwise.
@@ -2933,8 +2952,16 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
       case AccessPath::STREAM:
         return false;
       case AccessPath::SORT:
-        target_path = subpath;  // Merge sort is not supported yet
-        split_pos->type = SplitPosition::SPLIT_SORT;
+        if (split_pos->type == SplitPosition::SPLIT_AGG &&
+            target_path->type == AccessPath::AGGREGATE &&
+            group_field_eq_sort_list(join->group_fields,
+                                     subpath->sort().filesort->m_order)) {
+          split_pos->type = SplitPosition::SPLIT_SORT_AGG;
+          split_pos->filesort = subpath->sort().filesort;
+        } else {
+          target_path = subpath;
+          split_pos->type = SplitPosition::SPLIT_SORT;
+        }
         split_pos->split_sort = true;
         return false;
       case AccessPath::AGGREGATE:
@@ -3477,13 +3504,28 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
       join->fields, nullptr, false);
   AccessPath *receiver = nullptr;
   if (do_receiver_merge) {
-    Filesort *curr_file_sort = path->sort().filesort;
-    Filesort *final_file_sort = new (thd->mem_root) Filesort(
-        thd, Mem_root_array<TABLE *>(thd->mem_root, curr_file_sort->tables),
-        curr_file_sort->keep_buffers, curr_file_sort->m_order,
-        curr_file_sort->limit, curr_file_sort->m_remove_duplicates,
-        curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
-    
+    Filesort *final_file_sort = nullptr;
+    if (path->type == AccessPath::SORT){
+      Filesort *curr_file_sort = path->sort().filesort;
+      final_file_sort = new (thd->mem_root) Filesort(thd,
+          Mem_root_array<TABLE *>(thd->mem_root, curr_file_sort->tables),
+          curr_file_sort->keep_buffers,
+          curr_file_sort->m_order, curr_file_sort->limit,
+          curr_file_sort->m_remove_duplicates,
+          curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
+    } else {
+      Filesort *curr_file_sort = join->split_position.filesort;
+      // Split sort and agg
+      assert(ref_slice > 0);
+      join->set_ref_item_slice(ref_slice);
+      final_file_sort = new (thd->mem_root) Filesort(thd,
+          {table}, curr_file_sort->keep_buffers,
+          curr_file_sort->m_order, curr_file_sort->limit,
+          curr_file_sort->m_remove_duplicates,
+          curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
+      join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+    }
+    assert(final_file_sort);
     receiver = NewPXReceiverMergeAccessPath(thd, sender, final_file_sort,
         table, ref_slice, false);
   } else {

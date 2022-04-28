@@ -1,9 +1,7 @@
 set cdb_parallel_query_enable = on;
 set cdb_parallel_execution_enabled = on;
 set exchange_inject = on;
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+set cdb_min_parallel_table_rows = 2;
 #
 # Table scan -> exchange
 #
@@ -454,10 +452,73 @@ a	b	a	b
 8	8	8	8
 9	9	9	9
 10	10	10	10
+#
+#  Push aggregation with sort down to parallelism.
+#
+explain format=tree select sql_big_result a, sum(b) from t1 group by a order by a;
+EXPLAIN
+-> Group aggregate: sum(t1.b)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group aggregate: sum(t1.b)
+                -> Sort: t1.a  (cost=1.25 rows=10)
+                    -> Table scan on t1  (cost=1.25 rows=10)
+
+select sql_big_result a, sum(b) from t1 group by a order by a;
+a	sum(b)
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+explain format=tree select sql_big_result a, sum(b) from t1 group by a order by NULL;
+EXPLAIN
+-> Group aggregate: sum(t1.b)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group aggregate: sum(t1.b)
+                -> Sort: t1.a  (cost=1.25 rows=10)
+                    -> Table scan on t1  (cost=1.25 rows=10)
+
+select sql_big_result a, sum(b) from t1 group by a order by NULL;
+a	sum(b)
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+# Sort may not be a direct child of AGG, but in its subtree.
+explain format=tree select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
+EXPLAIN
+-> Group aggregate: sum(t1.b)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group aggregate: sum(t1.b)
+                -> Nested loop inner join  (cost=4.75 rows=10)
+                    -> Sort: t1.a  (cost=1.25 rows=10)
+                        -> Filter: ((t1.a > 1) and (t1.a is not null))  (cost=1.25 rows=10)
+                            -> Table scan on t1  (cost=1.25 rows=10)
+                    -> Single-row index lookup on t2 using PRIMARY (a=t1.a)  (cost=0.26 rows=1)
+
+select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
+a	sum(t1.b)
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
 drop table t1,t2;
-set cdb_parallel_query_enable = off;
-set cdb_parallel_execution_enabled = off;
-set exchange_inject = off;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;

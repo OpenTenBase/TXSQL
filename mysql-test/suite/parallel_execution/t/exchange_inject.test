@@ -36,9 +36,7 @@ call p1(10);
 set cdb_parallel_query_enable = on;
 set cdb_parallel_execution_enabled = on;
 set exchange_inject = on;
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+set cdb_min_parallel_table_rows = 2;
 
 --echo #
 --echo # Table scan -> exchange
@@ -280,11 +278,15 @@ analyze table t1,t2;
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1;
 explain format=tree select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
-drop table t1,t2;
+--echo #
+--echo #  Push aggregation with sort down to parallelism.
+--echo #
+explain format=tree select sql_big_result a, sum(b) from t1 group by a order by a;
+select sql_big_result a, sum(b) from t1 group by a order by a;
+explain format=tree select sql_big_result a, sum(b) from t1 group by a order by NULL;
+select sql_big_result a, sum(b) from t1 group by a order by NULL;
+--echo # Sort may not be a direct child of AGG, but in its subtree.
+explain format=tree select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
+select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 
-set cdb_parallel_query_enable = off;
-set cdb_parallel_execution_enabled = off;
-set exchange_inject = off;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
+drop table t1,t2;

@@ -3636,7 +3636,7 @@ void JOIN::create_access_paths() {
 
   // PHASE-2: Find the exchange operator inject position in primary query block.
   AccessPath *target_path = nullptr;  // Where to inject exchange
-  split_position = {SplitPosition::NO_SPLIT, false};
+  split_position = {SplitPosition::NO_SPLIT, false, nullptr};
   if (!exchange_inject ||
       FindExchangeInjectPosition(thd, this, path, target_path, &split_position)) {
     lex->pass_px_check = false;
@@ -3646,7 +3646,8 @@ void JOIN::create_access_paths() {
 
   sql_print_information("compatible check passed and begin to insert exchange.");
   // PHASE-3: Rebuild the aggr and sort operator if necessary.
-  if (split_position.type == SplitPosition::SPLIT_AGG) {
+  if (split_position.type == SplitPosition::SPLIT_AGG ||
+      split_position.type == SplitPosition::SPLIT_SORT_AGG) {
     if (exchange_temp_table == nullptr) {
       exchange_temp_table =
           new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
