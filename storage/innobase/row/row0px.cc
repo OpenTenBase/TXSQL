@@ -541,7 +541,16 @@ dberr_t PX_Scan_ctx::partition(const PX_Scan_range &scan_range,
   err = create_ranges(scan_range, m_config.m_index->page, 0, split_level,
                       ranges, &mtr);
 
-  /* In non-reverse scan, the last record can be null. */
+  /*
+    In forward scan, for a PX_Ctx, contains a range [start, end).
+    The start cursor must exits because the scan is from start to
+    end, in other word, move from start from end. The end can be 
+    set to null which indicates the range of [start, +inf).
+    In create_ranges, make a Range just set the start, the end is
+    set when create the next range, so the last Range's end is null.
+    For this reason, set the end of last range if the end of scan_range
+    exists.
+  */
   if (!m_config.m_reverse_scan && err == DB_SUCCESS &&
       scan_range.m_end != nullptr && !ranges.empty()) {
     auto &iter = ranges.back().second;
@@ -557,9 +566,12 @@ dberr_t PX_Scan_ctx::partition(const PX_Scan_range &scan_range,
     }
   }
 
-  /* In reverse scan, the last record must exists. */
-  if (m_config.m_reverse_scan && err == DB_SUCCESS &&
-      scan_range.m_start == nullptr && !ranges.empty()) {
+  /*
+    In reverse scan, for a PX_Ctx, contains a range (start, end].
+    The end tuple must exists because the scan is backward, in
+    other word, move from end to start.
+  */
+  if (m_config.m_reverse_scan && err == DB_SUCCESS && !ranges.empty()) {
     /* Restore position before use the pcur. */
     bool same_user_rec = false;
     sel_restore_position_for_mysql(&same_user_rec, BTR_SEARCH_LEAF, m_config.m_last_pcur, false, &mtr);
@@ -569,9 +581,15 @@ dberr_t PX_Scan_ctx::partition(const PX_Scan_range &scan_range,
     page_cursor->index = m_config.m_index;
     iter = create_persistent_cursor(*page_cursor, &mtr);
 
-    /* Set the left tuple of first range to null. */
-    auto &first_iter = ranges.front().first;
-    first_iter = std::make_shared<Iter>();
+    /*
+      Set the left tuple of first range to null if the 
+      start of scan range is nullptr, because the start
+      of a range must be a invalid tuple for the range.
+    */
+    if (scan_range.m_start == nullptr) {
+      auto &first_iter = ranges.front().first;
+      first_iter = std::make_shared<Iter>();
+    }
   }
 
   mtr.commit();

@@ -1,0 +1,53 @@
+--source include/have_debug.inc
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT,
+        KEY idx_col2(col2)
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+--enable_query_log
+ANALYZE TABLE t1;
+
+connection conn1;
+SET @saved_cdb_parallel_query_enable =@@cdb_parallel_query_enable;
+SET @saved_cdb_parallel_execution_enabled =@@cdb_parallel_execution_enabled;
+SET @saved_exchange_inject =@@exchange_inject;
+SET @saved_cdb_min_parallel_table_rows=@@cdb_min_parallel_table_rows;
+
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+set global cdb_min_parallel_table_rows = 0;
+
+connect(conn2,localhost,user1,,);
+
+EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8 order by col2 DESC;
+SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8 order by col2 DESC;
+
+connection conn1;
+set global cdb_parallel_query_enable = @saved_cdb_parallel_query_enable;
+set global cdb_parallel_execution_enabled = @saved_cdb_parallel_execution_enabled;
+set global exchange_inject = @saved_exchange_inject;
+set global cdb_min_parallel_table_rows = @saved_cdb_min_parallel_table_rows;
+
+drop table t1;
+drop database test1;
+drop user user1;
