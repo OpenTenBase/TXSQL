@@ -10913,7 +10913,7 @@ int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tupl
   */
   m_prebuilt->px_reading = true;
   auto saved_ipc = m_prebuilt->idx_cond;
-  m_prebuilt->idx_cond = false;
+  m_prebuilt->idx_cond = FALSE;
   int err = index_read(table->record[0], range_key->key, key_len, key_flag);
   m_prebuilt->idx_cond = saved_ipc;
   m_prebuilt->px_reading = false;
@@ -11118,6 +11118,14 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
   innobase_register_trx(ht, ha_thd(), trx);
   trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
   trx_assign_read_view(trx);
+  /*
+    When m_prebuilt->sql_stat_start = TRUE, the index_read will
+    call build_template function, which will reset m_prebuilt->idx_cond
+    to true. So even parallel parition disable index condition pushdown
+    when make partition range boundary tupel, the index read will
+    reopen it. See details in index_read.
+  */
+  m_prebuilt->sql_stat_start = FALSE;
 
   auto reader = ut::new_withkey<PX_reader>(
       UT_NEW_THIS_FILE_PSI_KEY, dop);
