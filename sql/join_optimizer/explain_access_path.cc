@@ -1246,6 +1246,161 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
   return {description, children};
 }
 
+ExplainData GetChildrenFromAccessPath(const AccessPath *path, JOIN *join) {
+  vector<string> description;
+  vector<ExplainData::Child> children;
+  switch (path->type) {
+    case AccessPath::TABLE_SCAN:
+      AddChildrenFromPushedCondition(path->table_scan().table, &children);
+      break;
+    case AccessPath::INDEX_SCAN: {
+      TABLE *table = path->index_scan().table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::REF: {
+      TABLE *table = path->ref().table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::REF_OR_NULL: {
+      TABLE *table = path->ref_or_null().table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::EQ_REF: {
+      TABLE *table = path->eq_ref().table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::PUSHED_JOIN_REF: {
+      break;
+    }
+    case AccessPath::FULL_TEXT_SEARCH: {
+      break;
+    }
+    case AccessPath::CONST_TABLE: {
+      break;
+    }
+    case AccessPath::MRR: {
+      TABLE *table = path->mrr().table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::FOLLOW_TAIL:
+      AddChildrenFromPushedCondition(path->follow_tail().table, &children);
+      break;
+    case AccessPath::INDEX_RANGE_SCAN: {
+      TABLE *table = path->index_range_scan().used_key_part[0].field->table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::INDEX_MERGE:
+    case AccessPath::ROWID_INTERSECTION:
+    case AccessPath::ROWID_UNION:
+    case AccessPath::INDEX_SKIP_SCAN:
+    case AccessPath::GROUP_INDEX_SKIP_SCAN:
+    case AccessPath::REMOVE_DUPLICATES_ON_INDEX:
+    case AccessPath::DELETE_ROWS:
+    case AccessPath::UPDATE_ROWS: {
+      break;
+    }
+    case AccessPath::DYNAMIC_INDEX_RANGE_SCAN: {
+      TABLE *table = path->dynamic_index_range_scan().table;
+      AddChildrenFromPushedCondition(table, &children);
+      break;
+    }
+    case AccessPath::TABLE_VALUE_CONSTRUCTOR:
+    case AccessPath::FAKE_SINGLE_ROW:
+    case AccessPath::ZERO_ROWS:
+    case AccessPath::ZERO_ROWS_AGGREGATED:
+    case AccessPath::MATERIALIZED_TABLE_FUNCTION:
+    case AccessPath::UNQUALIFIED_COUNT:
+      break;
+    case AccessPath::NESTED_LOOP_JOIN:
+      children.push_back({path->nested_loop_join().outer});
+      children.push_back({path->nested_loop_join().inner});
+      break;
+    case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL:
+      children.push_back(
+          {path->nested_loop_semijoin_with_duplicate_removal().outer});
+      children.push_back(
+          {path->nested_loop_semijoin_with_duplicate_removal().inner});
+      break;
+    case AccessPath::BKA_JOIN:
+      children.push_back({path->bka_join().outer, "Batch input rows"});
+      children.push_back({path->bka_join().inner});
+      break;
+    case AccessPath::HASH_JOIN: {
+      children.push_back({path->hash_join().outer});
+      children.push_back({path->hash_join().inner, "Hash"});
+      break;
+    }
+    case AccessPath::FILTER:
+      children.push_back({path->filter().child});
+      GetAccessPathsFromItem(path->filter().condition, "condition", &children);
+      break;
+    case AccessPath::SORT: {
+      children.push_back({path->sort().child});
+      break;
+    }
+    case AccessPath::AGGREGATE: {
+      children.push_back({path->aggregate().child});
+      break;
+    }
+    case AccessPath::TEMPTABLE_AGGREGATE: {
+      children.push_back({path->temptable_aggregate().subquery_path});
+      break;
+    }
+    case AccessPath::LIMIT_OFFSET: {
+      children.push_back({path->limit_offset().child});
+      break;
+    }
+    case AccessPath::STREAM:
+      children.push_back({path->stream().child});
+      break;
+    case AccessPath::MATERIALIZE:
+      ExplainMaterializeAccessPath(path, join, &description, &children, /*explain_analyze=*/false);
+      break;
+    case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE:
+      break;
+    case AccessPath::APPEND:
+      for (const AppendPathParameters &child : *path->append().children) {
+        children.push_back({child.path, "", child.join});
+      }
+      break;
+    case AccessPath::WINDOW: {
+      children.push_back({path->window().child});
+      break;
+    }
+    case AccessPath::WEEDOUT: {
+      children.push_back({path->weedout().child});
+      break;
+    }
+    case AccessPath::REMOVE_DUPLICATES:
+      children.push_back({path->remove_duplicates().child});
+      break;
+    case AccessPath::ALTERNATIVE: {
+      children.push_back({path->alternative().child});
+      children.push_back({path->alternative().table_scan_path});
+      break;
+    }
+    case AccessPath::CACHE_INVALIDATOR:
+      children.push_back({path->cache_invalidator().child});
+      break;
+    case AccessPath::PX_RECEIVE:
+      children.push_back({path->px_receiver().child});
+      break;
+    case AccessPath::PX_SEND:
+      children.push_back({path->px_send().child});
+      break;
+    case AccessPath::PX_RECEIVER_MERGE:
+      children.push_back({path->px_receiver_merge().child});
+      break;
+  }
+  return {description, children};
+}
+
 string PrintQueryPlan(int level, AccessPath *path, JOIN *join,
                       bool is_root_of_join,
                       vector<string> *tokens_for_force_subplan) {
@@ -1432,8 +1587,8 @@ PlanEquivalenceData CheckAndExplainAccessPath(
     default:
       break;
   }
-  worker_table_explain = ExplainAccessPath(worker_path, worker_join, /*include_costs=*/true);
-  coordinator_table_explain = ExplainAccessPath(coordinator_path, coordinator_join, /*include_costs=*/true);
+  worker_table_explain = GetChildrenFromAccessPath(worker_path, worker_join);
+  coordinator_table_explain = GetChildrenFromAccessPath(coordinator_path, coordinator_join);
 end:
   return {level, coordinator_table_explain.children, worker_table_explain.children};
 }
@@ -1467,29 +1622,17 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
     bool child_is_root_of_join = worker_subjoin != worker_join;
     JOIN *coordinator_subjoin = bothPlan.coordinator_path_children[i].join != nullptr ?
         bothPlan.coordinator_path_children[i].join : coordinator_join;
-    // update empty condition
-    if (!bothPlan.worker_path_children[i].description.empty()) {
-      are_equivalent = CheckPlanEquivalence(
-                          level + bothPlan.level + 1,
-                          bothPlan.coordinator_path_children[i].path,
-                          coordinator_subjoin,
-                          bothPlan.worker_path_children[i].path,
-                          worker_subjoin,
-                          child_is_root_of_join);
-    } else {
-      are_equivalent = CheckPlanEquivalence(
-                          level + bothPlan.level,
-                          bothPlan.coordinator_path_children[i].path,
-                          coordinator_subjoin,
-                          bothPlan.worker_path_children[i].path,
-                          worker_subjoin,
-                          child_is_root_of_join);
-    }
 
-    if (!are_equivalent) {
+    if (!CheckPlanEquivalence(level + bothPlan.level + 1,
+                              bothPlan.coordinator_path_children[i].path,
+                              coordinator_subjoin,
+                              bothPlan.worker_path_children[i].path,
+                              worker_subjoin,
+                              child_is_root_of_join)) {
       return false;
     }
   }
+
   if (is_root_of_join) {
     if (coordinator_path->type == AccessPath::ZERO_ROWS) {
       if (worker_path->type == AccessPath::ZERO_ROWS) {
@@ -1513,5 +1656,6 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
       i++;
     }
   }
+
   return true;
 }
