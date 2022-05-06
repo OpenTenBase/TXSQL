@@ -3148,25 +3148,25 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
     }
     case AccessPath::SORT: {
       child = path->sort().child;
-      
-      if (cur_slice != -1) {
-        if (cur_slice == REF_SLICE_SAVED_BASE) {
-          Filesort *filesort = path->sort().filesort;
-          if (filesort->tables.size() == 1) {
-            use_tmp_table = false;
-            table = filesort->tables[0];
-          } else {
-            fields = &join->tmp_fields[cur_slice];
-          }
-        } else {
-          fields = &join->tmp_fields[cur_slice];
-        }
-      } else {
-        fields = join->ref_items[REF_SLICE_TMP2].is_null()
-                    ? join->ref_items[REF_SLICE_TMP1].is_null()
-                          ? join->fields
-                          : &join->tmp_fields[REF_SLICE_TMP1]
-                    : &join->tmp_fields[REF_SLICE_TMP2];
+
+      Filesort *filesort = path->sort().filesort;
+      if (filesort->tables.size() == 1) {
+        use_tmp_table = false;
+        table = filesort->tables[0];
+      }
+
+      if (cur_slice == -1) {
+        cur_slice = join->ref_items[REF_SLICE_TMP2].is_null()
+                        ? join->ref_items[REF_SLICE_TMP1].is_null()
+                              ? join->ref_items[REF_SLICE_SAVED_BASE].is_null()
+                                    ? 0
+                                    : REF_SLICE_SAVED_BASE
+                              : REF_SLICE_TMP1
+                        : REF_SLICE_TMP2;
+      }
+
+      if (use_tmp_table) {
+        fields = cur_slice ? &join->tmp_fields[cur_slice] : join->fields;
       }
 
       child_slice = cur_slice;
@@ -3240,13 +3240,25 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
           CreateExchangeAccessPath(thd, join, path, *fields, save_sum_func,
                                    curr_exchange, alloc_group_field,
                                    join->split_position.split_sort);
+      /*
+        Tmp table created by exchange might use some type of fields that are not
+        supported by Message Queue. In this case try to create exchange without
+        new tmp table.
+      */
+      if (!exchange && table) {
+        exchange = CreateExchangeAccessPathUseTable(
+            thd, join, path, table, output_slice,
+            join->split_position.split_sort);
+      }
     } else {
       exchange = CreateExchangeAccessPathUseTable(thd, join, path, table,
                                                   output_slice,
                                                   join->split_position.split_sort);
     }
-    thd->lex->m_exchange_number++;
-    if (exchange) new_child = true;
+    if (exchange) {
+      thd->lex->m_exchange_number++;
+      new_child = true;
+    }
   }
 
   if (stop_walk) return exchange;
@@ -3301,7 +3313,16 @@ static AccessPath *CreateExchangeAccessPath(
   }
   AccessPath *sender = nullptr, *receiver = nullptr;
   TABLE *table = nullptr, *table2 = nullptr;
-  // uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
+
+
+  /*
+    Save the original result fields of items in case of falling back.
+  */
+  vector<Field *> result_fields;
+  result_fields.reserve(tmp_table_fields.size());
+  for (Item *item : tmp_table_fields) {
+    result_fields.push_back(item->get_tmp_table_field());
+  }
 
   Temp_table_param *temp_table_param = nullptr, *temp_table_param2 = nullptr;
 
@@ -3314,13 +3335,6 @@ static AccessPath *CreateExchangeAccessPath(
   const char *table_info_recv = "receiver";
   char *table_alias_sender = nullptr;
   char *table_alias_recv = nullptr;
-
-  if (join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
-    if (join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) goto inject_err;
-
-    join->copy_ref_item_slice(REF_SLICE_SAVED_BASE, REF_SLICE_ACTIVE);
-    join->tmp_fields[REF_SLICE_SAVED_BASE] = tmp_table_fields;
-  }
 
   /*
     1. Create sender
@@ -3345,7 +3359,8 @@ static AccessPath *CreateExchangeAccessPath(
       thd, temp_table_param, *curr_fields, /*group=*/nullptr,
       /*distinct=*/false, save_sum_fields, join->query_block->active_options(),
       HA_POS_ERROR, table_alias_sender);
-  if (!table) goto inject_err;
+  // The new field may not be compatible with message queues
+  if (!table || !compat_for_table(table)) goto inject_err;
 
   if (temp_table_param->items_to_copy &&
       temp_table_param->items_to_copy->size()) {
@@ -3363,6 +3378,12 @@ static AccessPath *CreateExchangeAccessPath(
   sender = NewPXSendAccessPath(thd, path, table, nullptr, curr_fields,
                                temp_table_param, true);
 
+  if (join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
+    if (join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) goto inject_err;
+
+    join->copy_ref_item_slice(REF_SLICE_SAVED_BASE, REF_SLICE_ACTIVE);
+    join->tmp_fields[REF_SLICE_SAVED_BASE] = tmp_table_fields;
+  }
   if (join->alloc_ref_item_slice(thd, ref_slice)) goto inject_err;
 
   if (save_sum_fields) {
@@ -3472,6 +3493,10 @@ inject_err:
   if (table) {
     close_tmp_table(table);
     free_tmp_table(table);
+    uint idx = 0;
+    for (Item *item : tmp_table_fields) {
+      item->set_result_field(result_fields[idx++]);
+    }
   }
   if (sender) {
     sender->px_send().table = nullptr;
