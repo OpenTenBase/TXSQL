@@ -522,3 +522,34 @@ a	sum(t1.b)
 9	9
 10	10
 drop table t1,t2;
+#
+# Temp fields created for exchange are of type BLOB, changing exchange send mode from Item to field
+#
+CREATE TABLE t1 (id int NOT NULL auto_increment, st varchar(255) NOT NULL, u int(11) NOT NULL, primary key (id));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t1 (st, u) VALUES ('a',1),('A',1),('aa',1),('AA',1),('aaa',0),('BBB',0);
+# Exchange use table of sort instead of creating new tmp table
+explain format=tree select if(u=1,binary st,st) s from t1 order by s;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: if((t1.u = 1),cast(t1.st as char charset binary),t1.st)  (cost=0.85 rows=6)
+            -> Table scan on t1  (cost=0.85 rows=6)
+
+select if(u=1,binary st,st) s from t1 order by s;
+s
+A
+AA
+BBB
+a
+aa
+aaa
+# Fall back
+explain format=tree select if(t1.u=1,binary t1.st,t2.st) s from t1 join t1 as t2 on t1.id = t2.id;
+EXPLAIN
+-> Nested loop inner join  (cost=2.95 rows=6)
+    -> Table scan on t1  (cost=0.85 rows=6)
+    -> Single-row index lookup on t2 using PRIMARY (id=t1.id)  (cost=0.27 rows=1)
+
+drop table t1;

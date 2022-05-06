@@ -290,3 +290,15 @@ explain format=tree select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.
 select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 
 drop table t1,t2;
+
+--echo #
+--echo # Temp fields created for exchange are of type BLOB, changing exchange send mode from Item to field
+--echo #
+CREATE TABLE t1 (id int NOT NULL auto_increment, st varchar(255) NOT NULL, u int(11) NOT NULL, primary key (id));
+INSERT INTO t1 (st, u) VALUES ('a',1),('A',1),('aa',1),('AA',1),('aaa',0),('BBB',0);
+--echo # Exchange use table of sort instead of creating new tmp table
+explain format=tree select if(u=1,binary st,st) s from t1 order by s;
+select if(u=1,binary st,st) s from t1 order by s;
+--echo # Fall back
+explain format=tree select if(t1.u=1,binary t1.st,t2.st) s from t1 join t1 as t2 on t1.id = t2.id;
+drop table t1;
