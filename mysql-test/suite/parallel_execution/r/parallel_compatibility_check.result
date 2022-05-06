@@ -540,6 +540,20 @@ explain format=tree select rand() from t1;
 EXPLAIN
 -> Table scan on t1  (cost=0.75 rows=5)
 
+unsafe multi statement check
+select * from t1;select * from t2||||
+a	b	c	d
+1	2	3	4
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
 set global cdb_parallel_query_enable = off;
 set global cdb_parallel_execution_enabled = off;
 set global exchange_inject = off;
