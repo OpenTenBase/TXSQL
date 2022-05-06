@@ -305,6 +305,11 @@ explain format=tree select *, t1_sum() from t1;
 drop function t1_sum;
 explain format=tree select rand() from t1;
 
+--echo unsafe multi statement check
+delimiter ||||;
+select * from t1;select * from t2||||
+delimiter ;||||
+
 connection conn1;
 set global cdb_parallel_query_enable = off;
 set global cdb_parallel_execution_enabled = off;

@@ -2281,6 +2281,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       thd->profiling->set_query_source(thd->query().str, thd->query().length);
 #endif
 
+      thd->lex->pass_px_check = true;
       const LEX_CSTRING orig_query = thd->query();
 
       Parser_state parser_state;
@@ -2848,6 +2849,7 @@ done:
   thd->set_command(COM_SLEEP);
   thd->set_proc_info(nullptr);
   thd->lex->sql_command = SQLCOM_END;
+  thd->lex->pass_px_check = true;
 
   /* Performance Schema Interface instrumentation, end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
@@ -5873,7 +5875,6 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_stateme
 
   LEX *lex = thd->lex;
   lex->locking_clause = false;
-  lex->pass_px_check = true;
   thd->use_px = false;
   const char *found_semicolon = nullptr;
 
@@ -5900,6 +5901,8 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_stateme
     if (!err) err = invoke_post_parse_rewrite_plugins(thd, false);
 
     found_semicolon = parser_state->m_lip.found_semicolon;
+    // set found_simicolon is true when found semicolon in multi statement.
+    if (found_semicolon) lex->pass_px_check = false;
   }
 
   if (thd->variables.cdb_opt_outline_enabled && !err) 

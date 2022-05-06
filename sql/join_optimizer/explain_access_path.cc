@@ -1305,6 +1305,9 @@ ExplainData GetChildrenFromAccessPath(const AccessPath *path, JOIN *join) {
     case AccessPath::UPDATE_ROWS: {
       break;
     }
+    case AccessPath::TABLE_SAMPLE:
+      AddChildrenFromPushedCondition(path->table_sample().table, &children);
+      break;
     case AccessPath::DYNAMIC_INDEX_RANGE_SCAN: {
       TABLE *table = path->dynamic_index_range_scan().table;
       AddChildrenFromPushedCondition(table, &children);
@@ -1334,6 +1337,11 @@ ExplainData GetChildrenFromAccessPath(const AccessPath *path, JOIN *join) {
     case AccessPath::HASH_JOIN: {
       children.push_back({path->hash_join().outer});
       children.push_back({path->hash_join().inner, "Hash"});
+      break;
+    }
+    case AccessPath::SORT_MERGE_JOIN: {
+      children.push_back({path->sort_merge_join().outer, "Merge"});
+      children.push_back({path->sort_merge_join().inner});
       break;
     }
     case AccessPath::FILTER:
