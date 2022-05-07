@@ -1344,9 +1344,9 @@ struct AccessPath {
       AccessPath *child;
       TABLE *table;
       mem_root_deque<Item *> *send_fields;
-      List_item *fields;
       Temp_table_param *temp_table_param;
       bool use_temp_table;
+      bool use_item;
       AccessPath *table_path;
     } px_send;
     struct {
@@ -1900,19 +1900,18 @@ inline AccessPath *NewPXReceiverMergeAccessPath(THD *thd, AccessPath *child,
 
 inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
                                        TABLE *table,
-                                       mem_root_deque<Item *> *send_fields,
-                                       List_item *fields,
+                                       List_item *send_fields,
                                        Temp_table_param *temp_table_param,
-                                       bool use_temp_table,
+                                       bool use_temp_table, bool use_item,
                                        AccessPath *table_path = nullptr) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_SEND;
   path->px_send().child = child;
   path->px_send().table = table;
   path->px_send().send_fields = send_fields;
-  path->px_send().fields = fields;
   path->px_send().temp_table_param = temp_table_param;
   path->px_send().use_temp_table = use_temp_table;
+  path->px_send().use_item = use_item;
   path->px_send().table_path = table_path;
   return path;
 }
@@ -2047,7 +2046,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                                        AccessPath *const path,
                                        AccessPath *const target_path,
                                        uint curr_exchange, bool &new_child,
-                                       int cur_slice, bool alloc_group_field);
+                                       int cur_slice, bool alloc_group_field,
+                                       bool in_join);
 
 bool compat_for_table(TABLE *table);
 

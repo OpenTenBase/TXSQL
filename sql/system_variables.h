@@ -517,6 +517,7 @@ struct System_variables {
     @sa Sys_exchange_inject
   */
   bool exchange_inject;
+  bool exchange_inject_use_item;
   /**
     @sa Sys_cdb_parallel_degree
   */

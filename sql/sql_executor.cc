@@ -3661,7 +3661,7 @@ void JOIN::create_access_paths() {
     bool split_sort = split_position.split_sort;
     AccessPath *exchange = WalkAccessPathsForExchange(
           thd, this, path, target_path, /*curr_exchange=*/0,
-          /*new_child=*/new_child, /*cur_slice*/-1, false);
+          /*new_child=*/new_child, /*cur_slice*/-1, false, /*in_join=*/false);
     if (exchange) {
       if (split_sort ? exchange->px_receiver_merge().use_temp_table
                      : exchange->px_receiver().use_temp_table) {

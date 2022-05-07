@@ -280,7 +280,7 @@ select sql_big_result a, sum(b) from t1 group by a order by NULL;
 explain format=tree select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 --echo #
---echo # Agg after Stream is not supported to split. Execute in serial mode.
+--echo # Agg after Stream.
 --echo #
 explain format=tree select sql_big_result a, sum(b) from t1 group by a order by sum(b);
 select sql_big_result a, sum(b) from t1 group by a order by sum(b);
