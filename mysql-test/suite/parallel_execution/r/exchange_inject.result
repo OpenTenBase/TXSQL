@@ -391,9 +391,6 @@ DROP TABLE t1, t2;
 DROP USER test@localhost;
 DROP USER test2@localhost;
 set @@global.autocommit= @start_autocommit;
-#
-# Sort under join
-# join -> px_merge_sort -> px_send -> sort -> scan
 create table t1(a int, b int);
 insert into t1 values(1,1);
 insert into t1 values(3,3);
@@ -420,6 +417,9 @@ analyze table t1,t2;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 test.t2	analyze	status	OK
+#
+# Sort under join
+# join -> px_merge_sort -> px_send -> sort -> scan
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1;
 a	b	a	b
 3	3	3	3
@@ -512,6 +512,29 @@ EXPLAIN
 
 select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 a	sum(t1.b)
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+#
+# Agg after Stream is not supported to split. Execute in serial mode.
+#
+explain format=tree select sql_big_result a, sum(b) from t1 group by a order by sum(b);
+EXPLAIN
+-> Sort: `sum(b)`
+    -> Stream results
+        -> Group aggregate: sum(t1.b)
+            -> Sort: t1.a  (cost=1.25 rows=10)
+                -> Table scan on t1  (cost=1.25 rows=10)
+
+select sql_big_result a, sum(b) from t1 group by a order by sum(b);
+a	sum(b)
+1	1
 2	2
 3	3
 4	4

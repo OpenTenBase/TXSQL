@@ -3648,13 +3648,13 @@ void JOIN::create_access_paths() {
   // PHASE-3: Rebuild the aggr and sort operator if necessary.
   if (split_position.type == SplitPosition::SPLIT_AGG ||
       split_position.type == SplitPosition::SPLIT_SORT_AGG) {
-    if (exchange_temp_table == nullptr) {
-      exchange_temp_table =
-          new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
-      exchange_temp_table_param =
-          new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
-    }
     path = WalkAccessPathsForAggregationRebuild(thd, this, path);
+    // Whether the AGG is successfully Rebuilt.
+    if (ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {
+      lex->pass_px_check = false;
+      m_root_access_path = path;
+      return ;
+    }
   }
 
   // PHASE-4: Inject the exchange operators.
