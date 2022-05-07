@@ -25,7 +25,7 @@ class PX_sender : public RowIterator {
             unique_ptr_destroy_only<RowIterator> source, TABLE *table,
             mem_root_deque<Item *> *send_fields,
             mem_root_deque<Item *> *shuffle_key,
-            Temp_table_param *temp_table_param,
+            Temp_table_param *temp_table_param, bool use_item,
             unique_ptr_destroy_only<RowIterator> table_path);
   ~PX_sender() {}
 
@@ -82,6 +82,8 @@ public:
   bool send_compact_row();
   bool prepare_compact_row();
   bool make_compact_row(uint16 &null_len, uint32 &total_copy_bytes);
+  bool compact_items(uint &null_num, uint32 &total_copy_bytes);
+  bool compact_fields(uint &null_num, uint32 &total_copy_bytes);
   uint32 make_compact_field(Field *field, PX_field_data *px_field);
 
   uint cal_reshuffle_channel(mem_root_deque<Item *> *reshuffle_key);
@@ -94,13 +96,17 @@ public:
   PX_exchange_info *m_pei{nullptr};
   unique_ptr_destroy_only<RowIterator> m_source;
   TABLE *m_table{nullptr};
-  mem_root_deque<Item *> *m_send_fields{nullptr};
   PX_field_data *m_compact_row{nullptr};
   bool *m_skip_array{nullptr};
   char *m_skip_flag{nullptr};
+  mem_root_deque<Item *> *m_send_fields{nullptr};
   mem_root_deque<Item *> *m_reshuffle_key{nullptr};
   Temp_table_param *m_temp_table_param{nullptr};
   std::vector<Field *> m_fields;
+  size_t m_field_size;
+  bool m_use_item;  // If true, exchange would send the result of items.
+                    // Otherwise, exchange would send the field in table
+                    // directly.
   bool m_materialize;
   unique_ptr_destroy_only<RowIterator> m_table_path;
 };

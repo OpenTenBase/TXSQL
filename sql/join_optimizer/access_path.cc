@@ -1827,16 +1827,16 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
 
           iterator = NewIterator<PX_sender>(
               thd, mem_root, 0, nullptr, move(child), path->px_send().table,
-              path->px_send().fields, nullptr, path->px_send().temp_table_param,
-              move(table_iterator));
+              path->px_send().send_fields, nullptr, path->px_send().temp_table_param,
+              path->px_send().use_item, move(table_iterator));
           iterator->adjust_children();
         } else {
           unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
               thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
           iterator = NewIterator<PX_sender>(
               thd, mem_root, 0, nullptr, move(child), path->px_send().table,
-              path->px_send().fields, nullptr, path->px_send().temp_table_param,
-              nullptr);
+              path->px_send().send_fields, nullptr, path->px_send().temp_table_param,
+              path->px_send().use_item, nullptr);
           iterator->adjust_children();
         }
         break;
@@ -3093,11 +3093,33 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
  * 
  * @return exchange which has influence to the parent of this path or nullptr
  */
+
+/**
+ * Traverse access path to inject exchange.
+ * (1) Create exchange up to target_path using CreateExchangeAccessPath(), the
+ * new exchange access path will be the parent of this path.
+ *
+ * (2) If the child is injected exchange, call FixAccessPathForExchange() to
+ * fix the data flow from exchange to this access path. If the exchange has
+ * influence to the parent this path, return the exchange to parent.
+ *
+ * @param thd
+ * @param join
+ * @param path          current exchange
+ * @param target_path   access path to be injected exchange
+ * @param curr_exchange index for current exchange
+ * @param new_child     true if exchange injected below
+ * @param cur_slice     current ref_slice in join
+ * @param alloc_group_field  need to refine group by list for aggregate.
+ * @param in_join       exchange injected below join can only use field mode.
+ * @return exchange if injected, nullptr otherwise.
+ */
 AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                                        AccessPath *const path,
                                        AccessPath *const target_path,
                                        uint curr_exchange, bool &new_child,
-                                       int cur_slice, bool alloc_group_field) {
+                                       int cur_slice, bool alloc_group_field,
+                                       bool in_join) {
   assert(target_path);
 
   bool return_follow = false;
@@ -3117,6 +3139,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
   int child_slice = -1;
   bool alloc_child_group_field = false;
 
+  bool child_in_join = in_join;
+
   // If receiver don`t use temporary table, it should set ref slice for child.
   int output_slice = -1;
 
@@ -3125,7 +3149,16 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
     case AccessPath::INDEX_SCAN:
     case AccessPath::INDEX_RANGE_SCAN:
     case AccessPath::REF: {
-      use_tmp_table = false;
+      if (thd->variables.exchange_inject_use_item && !in_join) {
+        use_tmp_table = true;
+        int ref_slice = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
+                            ? 0
+                            : REF_SLICE_SAVED_BASE;
+        fields = ref_slice ? &join->tmp_fields[ref_slice] : join->fields;
+      } else {
+        use_tmp_table = false;
+      }
+
       switch(path->type) {
         case AccessPath::TABLE_SCAN: {
           table = path->table_scan().table;
@@ -3156,11 +3189,11 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       // Only the first table can be parallelized now
       child = path->nested_loop_join().outer;
       child_slice = REF_SLICE_SAVED_BASE;
+      child_in_join = true;
       break;
     }
     case AccessPath::FILTER: {
       child = path->filter().child;
-
       if (cur_slice == -1) {
         cur_slice = join->ref_items[REF_SLICE_TMP1].is_null()
                         ? REF_SLICE_SAVED_BASE
@@ -3185,6 +3218,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         }
       } else {
         ref_slice = cur_slice;
+      }
+      if (thd->variables.exchange_inject_use_item && !in_join) {
+        use_tmp_table = true;
       }
 
       if (use_tmp_table) {
@@ -3231,6 +3267,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::AGGREGATE: {
+      // Tmp table has been created in the stage of split
       use_tmp_table = false;
       table = join->aggr_tmp_table;
       //output_slice = path->aggregate().output_slice;
@@ -3241,6 +3278,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::TEMPTABLE_AGGREGATE: {
+      // There is no item to be calculated, just use the tmp table of
+      // TEMPTABLE_AGGREGATE
       use_tmp_table = false;
       table = path->temptable_aggregate().table;
       output_slice = path->temptable_aggregate().ref_slice;
@@ -3313,7 +3352,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
   int next_exchange_slice = inject_here ? curr_exchange + 1 : curr_exchange;
   exchange_following = WalkAccessPathsForExchange(
       thd, join, child, target_path, next_exchange_slice, have_new_child,
-      child_slice, alloc_child_group_field);
+      child_slice, alloc_child_group_field, child_in_join);
   if (exchange_following) {
     FixAccessPathForExchange(path, exchange_following, join,
         join->split_position.split_sort);
@@ -3418,8 +3457,8 @@ static AccessPath *CreateExchangeAccessPath(
                   dbug_print_table(table, "PX_Sender", ref_slice););
   join->exchange_temp_table->push_back(table);
   join->exchange_temp_table_param->push_back(temp_table_param);
-  sender = NewPXSendAccessPath(thd, path, table, nullptr, curr_fields,
-                               temp_table_param, true);
+  sender = NewPXSendAccessPath(thd, path, table, curr_fields, temp_table_param,
+                               true, true);
 
   if (join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
     if (join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) goto inject_err;
@@ -3565,8 +3604,8 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
                                                     int ref_slice,
                                                     bool do_receiver_merge) {
   assert(table);
-  AccessPath *sender = NewPXSendAccessPath(thd, path, table, nullptr,
-      join->fields, nullptr, false);
+  AccessPath *sender =
+      NewPXSendAccessPath(thd, path, table, nullptr, nullptr, false, false);
   AccessPath *receiver = nullptr;
   if (do_receiver_merge) {
     Filesort *final_file_sort = nullptr;
@@ -3606,13 +3645,13 @@ AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
     AccessPath *table_path =
         NewTableScanAccessPath(thd, table, /*count_examined_rows=*/false);
     AccessPath *sender =
-        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, nullptr, false,
+        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, false, false,
                             table_path);
     AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, table, -1, false);
     return receiver;
   } else {
     AccessPath *sender =
-        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, nullptr, false,
+        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, false, false,
                             nullptr);
     AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, table, -1, false);
     return receiver;

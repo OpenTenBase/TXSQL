@@ -7853,6 +7853,7 @@ static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {
 #ifdef _WIN32
   tp_set_max_threads(threadpool_max_threads);
 #endif
+
   return false;
 }
 
@@ -8841,3 +8842,15 @@ static Sys_var_ulonglong Sys_cdb_min_parallel_table_rows(
     SESSION_VAR(cdb_min_parallel_table_rows), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, ULLONG_MAX), DEFAULT(5000), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_exchange_inject(
+    "exchange_inject",
+    "exchange_inject"
+    "exchange_inject",
+    SESSION_VAR(exchange_inject), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_exchange_inject_use_item(
+    "exchange_inject_use_item",
+    "exchange_inject_use_item"
+    "exchange_inject_use_item",
+    SESSION_VAR(exchange_inject_use_item), CMD_LINE(OPT_ARG), DEFAULT(false));

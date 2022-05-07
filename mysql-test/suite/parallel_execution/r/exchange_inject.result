@@ -492,15 +492,18 @@ a	sum(t1.b)
 9	9
 10	10
 #
-# Agg after Stream is not supported to split. Execute in serial mode.
+# Agg after Stream.
 #
 explain format=tree select sql_big_result a, sum(b) from t1 group by a order by sum(b);
 EXPLAIN
 -> Sort: `sum(b)`
     -> Stream results
         -> Group aggregate: sum(t1.b)
-            -> Sort: t1.a  (cost=1.25 rows=10)
-                -> Table scan on t1  (cost=1.25 rows=10)
+            -> Exchange Merge Receive dop )
+                -> Exchange Send dop )
+                    -> Group aggregate: sum(t1.b)
+                        -> Sort: t1.a  (cost=1.25 rows=10)
+                            -> Table scan on t1  (cost=1.25 rows=10)
 
 select sql_big_result a, sum(b) from t1 group by a order by sum(b);
 a	sum(b)
