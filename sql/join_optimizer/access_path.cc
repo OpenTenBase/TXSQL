@@ -2928,28 +2928,37 @@ static bool group_field_eq_sort_list(List<Cached_item> group_fields,
 bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
                                 AccessPath *&target_path,  SplitPosition *split_pos) {
   assert(target_path == nullptr);
-  auto find_exchange_inject_position = [thd, join, &target_path, split_pos](
-                                           AccessPath *subpath, const JOIN *) {
+  // WalkAccessPaths would not stop when the callback return true if the parent
+  // node has another branch.
+  bool stop_walk = false;
+  auto find_exchange_inject_position = [thd, join, &target_path, split_pos,
+                                        &stop_walk](AccessPath *subpath,
+                                                    const JOIN *) {
+    if (stop_walk) return true;
     switch (subpath->type) {
+      // Iterators that could be injected exchange.
       case AccessPath::TABLE_SCAN:
       case AccessPath::INDEX_SCAN:
       case AccessPath::INDEX_RANGE_SCAN:
       case AccessPath::REF:
       case AccessPath::NESTED_LOOP_JOIN:
-      case AccessPath::HASH_JOIN:
       case AccessPath::FILTER:
-      case AccessPath::MATERIALIZE:
         if (target_path == nullptr) {
           target_path = subpath;
         }
         return false;
+
+      // Iterators that should not be injected exchange but can appear in the
+      // plan tree.
       case AccessPath::REF_OR_NULL:
       case AccessPath::EQ_REF:
       case AccessPath::PUSHED_JOIN_REF:
       case AccessPath::CONST_TABLE:
-        return false;
-      case AccessPath::LIMIT_OFFSET:  // Insert before limit
       case AccessPath::STREAM:
+        return false;
+
+      // Iterators that cannot be parallized directly.
+      case AccessPath::LIMIT_OFFSET:
         return false;
       case AccessPath::SORT:
         if (split_pos->type == SplitPosition::SPLIT_AGG &&
@@ -2974,14 +2983,17 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
           split_pos->split_sort = false;
         }
         return false;
-      default:
-        target_path = nullptr;  // Not supported yet
+
+      // Iterators that are not supported.
+      default:  // TODO: list all types of Accesspath
+        target_path = nullptr;
+        stop_walk = true;
         return true;
     }
   };
 
-  WalkAccessPaths(path, /*join=*/nullptr,
-                  WalkAccessPathPolicy::STOP_AT_MATERIALIZATION,
+  WalkAccessPaths(path, /*join=*/join,
+                  WalkAccessPathPolicy::ENTIRE_QUERY_BLOCK,
                   find_exchange_inject_position);
 
   return (target_path == nullptr);
@@ -3092,16 +3104,6 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       child_slice = REF_SLICE_SAVED_BASE;
       break;
     }
-    case AccessPath::HASH_JOIN: {
-      fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
-                  ? join->fields
-                  : &join->tmp_fields[REF_SLICE_SAVED_BASE];
-
-      // Only the first table can be parallelized now
-      child = path->hash_join().outer;
-      child_slice = REF_SLICE_SAVED_BASE;
-      break;
-    }
     case AccessPath::FILTER: {
       child = path->filter().child;
 
@@ -3206,19 +3208,6 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
 
-    case AccessPath::MATERIALIZE: {
-      use_tmp_table = false;
-      table = path->materialize().param->table;
-
-      // TODO: multiple subquery
-      if (path->materialize().param->query_blocks.size() > 1)
-        return nullptr;
-      
-      assert(path->materialize().param->query_blocks.size());
-      // child = path->materialize().param->query_blocks[0].subquery_path;
-
-      break;
-    }
     default:
       return nullptr;
       // assert(false);
@@ -3836,18 +3825,6 @@ static void FixAccessPathForExchange(AccessPath *const path,
 
       break;
     }
-    case AccessPath::MATERIALIZE: {
-      auto param = path->materialize().param;
-      // TODO: multiple subquery
-      auto &copy_fields = param->query_blocks[0].temp_table_param->copy_fields;
-      for (Copy_field &copy_field : copy_fields) {
-        Field *from_field =
-            exchange_param.table->field[copy_field.to_field()->field_index()];
-        assert(from_field != nullptr);
-        copy_field.set_from_field(from_field);
-      }
-      break;
-    }
     default:
       assert(false);
   }
@@ -3876,9 +3853,6 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
       break;
     case AccessPath::STREAM:
       path->stream().child = receiver;
-      break;
-    case AccessPath::MATERIALIZE:
-      path->materialize().param->query_blocks[0].subquery_path = receiver;
       break;
     default:
       assert(false);
