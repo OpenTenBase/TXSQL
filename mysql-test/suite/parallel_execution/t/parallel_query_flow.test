@@ -44,11 +44,14 @@ insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
 
+create table t4(a int, b int, c int, d int);
+
 connection conn1;
 
 set global cdb_parallel_query_enable = on;
 set global cdb_parallel_execution_enabled = on;
 set global exchange_inject = on;
+set global cdb_min_parallel_table_rows = 1;
 
 connect(conn2,localhost,user1,,);
 
@@ -59,77 +62,124 @@ connect(conn2,localhost,user1,,);
 # 3. range index scan
 # 4. ref scan
 select * from t2;
+explain format=tree select * from t2;
 select * from t2 where a = 3;
+explain format=tree select * from t2 where a = 3;
 select * from t3;
+explain format=tree select * from t3;
 select * from t3 where a between 1 and 9; # bug not insert ex
+explain format=tree select * from t3 where a between 1 and 9; # bug not insert ex
 select * from t3 where b > 2 and b < 10; # bug not insert ex
+explain format=tree select * from t3 where b > 2 and b < 10; # bug not insert ex
 select * from t3 where a < 10 and b > 2; # bug not insert ex
+explain format=tree select * from t3 where a < 10 and b > 2; # bug not insert ex
 
 # Physical Only has scan(filter) + sort.
 # 1. scan + sort
 # 2. scan + sort + filter
 # 3. scan + filter + sort + join
 select * from t3 order by b,c;
+explain format=tree select * from t3 order by b,c;
 select * from t3 order by b,c desc;
+explain format=tree select * from t3 order by b,c desc;
 select * from t3 where c > 1 order by d;
+explain format=tree select * from t3 where c > 1 order by d;
 select * from t3 where c > 1 and d > 3 order by a,b;
+explain format=tree select * from t3 where c > 1 and d > 3 order by a,b;
 select * from t3 where c > 1 and d > 2 order by b,c desc;
+explain format=tree select * from t3 where c > 1 and d > 2 order by b,c desc;
 select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a; #bug not insert ex
+explain format=tree select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a; #bug not insert ex
 select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a; #bug not insert ex
+explain format=tree select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a; #bug not insert ex
 select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc; # but not insert ex
+explain format=tree select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc; # but not insert ex
 
 # Scalar group by test in parallel mode.
 # 1. basic case
 # 2. complex expressions inside aggregation function, like sum(b+1)
 # 3. more complex expressions like variance(b),case when
 select sum(b) from t1;
+explain format=tree select sum(b) from t1;
 select max(b) from t1;
+explain format=tree select max(b) from t1;
 select min(c) from t1;
+explain format=tree select min(c) from t1;
 select count(b) from t1;
+explain format=tree select count(b) from t1;
 select sum(a), sum(b), sum(c), sum(d) from t1;
+explain format=tree select sum(a), sum(b), sum(c), sum(d) from t1;
 select sum(a), sum(b), count(c), count(d) from t1;
+explain format=tree select sum(a), sum(b), count(c), count(d) from t1;
 select sum(a), sum(b), avg(c), avg(d) from t1;
+explain format=tree select sum(a), sum(b), avg(c), avg(d) from t1;
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
+explain format=tree select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
 select sum(a), sum(b), 1+sum(c) from t1;
+explain format=tree select sum(a), sum(b), 1+sum(c) from t1;
 select variance(a) from t1;
+explain format=tree select variance(a) from t1;
 select sum(a), variance(b), avg(c) from t1;
+explain format=tree select sum(a), variance(b), avg(c) from t1;
 select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
+explain format=tree select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
 select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
+explain format=tree select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
 
 # Group by test in parallel mode.
 # 1. basic case
 # 2. complex expressions inside aggregation function, like a+1,avg(b+1)
 # 3. more complex expressions like variance(b),case when
 select a,sum(b) from t1 group by a;
+explain format=tree select a,sum(b) from t1 group by a;
 select a,max(b) from t1 group by a;
+explain format=tree select a,max(b) from t1 group by a;
 select a,b,sum(c) from t1 group by a,b;
+explain format=tree select a,b,sum(c) from t1 group by a,b;
 select a,b,sum(c),avg(d) from t1 group by a,b;
+explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b;
 select a,b,avg(c),avg(d) from t1 group by a,b;
+explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b;
 select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
+explain format=tree select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
 select a,b,sum(c+1),sum(d+10) from t1 group by a,b; 
+explain format=tree select a,b,sum(c+1),sum(d+10) from t1 group by a,b; 
 select a,b,sum(c+1),avg(d+100) from t1 group by a,b; 
+explain format=tree select a,b,sum(c+1),avg(d+100) from t1 group by a,b; 
 select a,b,1+sum(c),avg(d) from t1 group by a,b;
+explain format=tree select a,b,1+sum(c),avg(d) from t1 group by a,b;
 
 # Group by test in parallel mode with sort.
 # 1. basic case
 # 2. complex expressions inside aggregation function, like a+1,avg(b+1)
 # 3. more complex expressions like variance(b),case when
 select a,sum(b) from t1 group by a order by a;
+explain format=tree select a,sum(b) from t1 group by a order by a;
 select a,max(b) from t1 group by a order by a;
+explain format=tree select a,max(b) from t1 group by a order by a;
 select a,b,sum(c) from t1 group by a,b order by a,b;
+explain format=tree select a,b,sum(c) from t1 group by a,b order by a,b;
 select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
+explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
 select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
+explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
 select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
+explain format=tree select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
 
 # Join test in parallel mode.
 # 1. basic case
 # 2. complex expressions inside aggregation function, like a+1,avg(b+1)
 # 3. more complex expressions like variance(b),case when
 select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
 select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
 select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;
 
 #================================kill query============================
 # under two situations: (open unequal check and not open)
@@ -153,6 +203,22 @@ connection conn3;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
+connect(conn31,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='execute_in_parallel_before SIGNAL waiting wait_for killed';
+--send select a,sum(b) from t4 group by a union select a,b from t2 order by a;
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL QUERY $id
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn31;
+--error ER_QUERY_INTERRUPTED
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
 # before execute in parallel scheduling.
 connect(conn4,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
@@ -166,6 +232,22 @@ SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 SET DEBUG_SYNC= 'now SIGNAL killed';
 
 connection conn4;
+--error ER_QUERY_INTERRUPTED
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+connect(conn41,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='execute_in_parallel_before_scheduling SIGNAL waiting wait_for killed';
+--send select a,sum(b) from t1 group by a union select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL QUERY $id
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn41;
 --error ER_QUERY_INTERRUPTED
 --reap;
 SET DEBUG_SYNC = 'RESET';
@@ -191,7 +273,7 @@ SET DEBUG_SYNC = 'RESET';
 #connect(conn6,localhost,root,,);
 #--let $id= `SELECT CONNECTION_ID()`
 #set debug_sync='execute_in_parallel_scheduling_before_root SIGNAL waiting wait_for killed';
-#--send select t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
+#--send select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
 
 #connection conn1;
 #SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -225,12 +307,13 @@ SET DEBUG_SYNC = 'RESET';
 # 2. handle error when sending data in coordinator.
 # 3. handle error when sending data in worker.
 connection conn3;
-set session debug="+d, test_error_before_sending_data_coor";
-select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c)  from t1 join t2 where t1.a = t2.a group by t1.a;
-connection conn4;
+#set session debug="+d, test_error_before_sending_data_coor";
+#select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c)  from t1 join t2 where t1.a = t2.a group by t1.a;
+#connection conn4;
 set session debug="+d, test_error_before_sending_data";
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
-connection conn5;
+connect(conn8,localhost,root,,);
+connection conn8;
 set session debug="+d, test_error_in_sending_data";
 --error ER_PX_EXECUTE_ERROR
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
@@ -244,9 +327,11 @@ connection conn1;
 set global cdb_parallel_query_enable = off;
 set global cdb_parallel_execution_enabled = off;
 set global exchange_inject = off;
+set global cdb_min_parallel_table_rows = 5000;
 
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t4;
 drop database test1;
 drop user user1;

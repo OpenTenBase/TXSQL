@@ -180,6 +180,8 @@ std::shared_ptr<PX_Ctx> PX_reader::dequeue() {
 */
 dberr_t PX_reader::task_dispatch(std::shared_ptr<PX_Ctx> &task) {
   dberr_t err{DB_SUCCESS};
+  sql_print_information("==========>>>> THREAD[%u] LEFT [%d] task.",
+   my_thread_self(), m_ctxs.size());
 
   /*
     With the contract that all tasks are prepared before any worker starting

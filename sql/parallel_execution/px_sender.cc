@@ -19,7 +19,7 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
                      unique_ptr_destroy_only<RowIterator> table_path)
     : RowIterator(thd),
       m_thd(thd),
-      m_sender_no(thd->worker_id),
+      m_sender_no(0),
       m_pei(pei),
       m_source(move(source)),
       m_table(table),
@@ -31,7 +31,7 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
 
 bool PX_sender::init() {
   assert(m_pei);
-
+  m_sender_no = m_thd->task_executor_id;
   /*
     The init of sender contains three phases:
     1) register sender, create the execution context of sender for channel. 
@@ -61,6 +61,58 @@ bool PX_sender::init() {
     true  - if the receiver has not register.
 */
 bool PX_sender::attach() {
+  if (init()) return true;
+
+  bool result = m_source->Init();
+  if (result) goto err;
+
+  if (m_materialize) {
+    if (!m_table->is_created()) {
+      if (instantiate_tmp_table(thd(), m_table)) {
+        goto err;
+      }
+      empty_record(m_table);
+    } else {
+      m_table->file->ha_index_or_rnd_end();  // @todo likely unneeded => remove
+      m_table->file->ha_delete_all_rows();
+    }
+
+    while (true) {
+      int error = m_source->Read();
+      if (error > 0 || thd()->is_error())
+        goto err;
+      else if (error < 0)
+        break;
+      else if (thd()->killed) {
+        thd()->send_kill_message();
+        goto err;
+      }
+
+      error = m_table->file->ha_write_row(m_table->record[0]);
+      if (error == 0) {
+        continue;
+      }
+
+      // create_ondisk_from_heap will generate error if needed.
+      if (!m_table->file->is_ignorable_error(error)) {
+        bool is_duplicate;
+        if (create_ondisk_from_heap(thd(), m_table, error, true, true, &is_duplicate))
+          goto err; /* purecov: inspected */
+        // Table's engine changed; index is not initialized anymore.
+        if (m_table->hash_field) m_table->file->ha_index_init(0, false);
+        // if (!is_duplicate) ++*stored_rows;
+      } else {
+        // An ignorable error means duplicate key, ie. we deduplicated
+        // away the row. This is seemingly separate from
+        // check_unique_constraint(), which only checks hash indexes.
+      }
+    }
+    if (m_table_path->Init()) goto err;
+  }
+
+  schedule_post(); // post for schedule the dfo pair.
+  synchronize(); // synchronize the receiver and sender init.
+
   if (m_pei->attach_sender(m_sender_no)) {
     assert(0);
     return true;
@@ -72,54 +124,12 @@ bool PX_sender::attach() {
       m_fields.push_back(field);
   }
 
-  bool result = m_source->Init();
-  if (!m_materialize || result) return result;
+  return false;
 
-  // It only runs here if it provides materialization.
+ err:
+  schedule_post(); // post for schedule the dfo pair.
 
-  if (!m_table->is_created()) {
-    if (instantiate_tmp_table(thd(), m_table)) {
-      return true;
-    }
-    empty_record(m_table);
-  } else {
-    m_table->file->ha_index_or_rnd_end();  // @todo likely unneeded => remove
-    m_table->file->ha_delete_all_rows();
-  }
-
-  while (true) {
-    int error = m_source->Read();
-    if (error > 0 || thd()->is_error())
-      return true;
-    else if (error < 0)
-      break;
-    else if (thd()->killed) {
-      thd()->send_kill_message();
-      return true;
-    }
-
-    error = m_table->file->ha_write_row(m_table->record[0]);
-    if (error == 0) {
-      continue;
-    }
-
-    // create_ondisk_from_heap will generate error if needed.
-    if (!m_table->file->is_ignorable_error(error)) {
-      bool is_duplicate;
-      if (create_ondisk_from_heap(thd(), m_table, error,
-          /*insert_last_record=*/true, true, &is_duplicate))
-        return true; /* purecov: inspected */
-      // Table's engine changed; index is not initialized anymore.
-      if (m_table->hash_field) m_table->file->ha_index_init(0, false);
-      // if (!is_duplicate) ++*stored_rows;
-    } else {
-      // An ignorable error means duplicate key, ie. we deduplicated
-      // away the row. This is seemingly separate from
-      // check_unique_constraint(), which only checks hash indexes.
-    }
-  }
-
-  return m_table_path->Init();;
+  return true;
 }
 
 /**
@@ -513,4 +523,13 @@ void PX_sender::end() {
     delete [] m_skip_flag;
     m_skip_flag = nullptr;
   }
+}
+
+void PX_sender::schedule_post() {
+  if (m_pei->is_top_exchange()) m_pei->schedule_senders_post();
+}
+
+void PX_sender::synchronize() {
+  m_role == SYN_KEY ? m_pei->exchange_senders_post()
+                    : m_pei->exchange_wait();
 }

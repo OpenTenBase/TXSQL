@@ -33,9 +33,11 @@ insert into t3 values(7,7,7,7);
 insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
+create table t4(a int, b int, c int, d int);
 set global cdb_parallel_query_enable = on;
 set global cdb_parallel_execution_enabled = on;
 set global exchange_inject = on;
+set global cdb_min_parallel_table_rows = 1;
 select * from t2;
 a	b	c	d
 1	1	1	1
@@ -43,9 +45,22 @@ a	b	c	d
 3	3	3	3
 4	4	4	4
 5	5	5	5
+explain format=tree select * from t2;
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Table scan on t2  (cost=0.75 rows=5)
+
 select * from t2 where a = 3;
 a	b	c	d
 3	3	3	3
+explain format=tree select * from t2 where a = 3;
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Filter: (t2.a = 3)  (cost=0.75 rows=1)
+            -> Table scan on t2  (cost=0.75 rows=5)
+
 select * from t3;
 a	b	c	d
 1	1	1	1
@@ -58,6 +73,12 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
+explain format=tree select * from t3;
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Table scan on t3  (cost=1.25 rows=10)
+
 select * from t3 where a between 1 and 9;
 a	b	c	d
 1	1	1	1
@@ -69,6 +90,13 @@ a	b	c	d
 7	7	7	7
 8	8	8	8
 9	9	9	9
+explain format=tree select * from t3 where a between 1 and 9;
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
+            -> Index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+
 select * from t3 where b > 2 and b < 10;
 a	b	c	d
 3	3	3	3
@@ -78,6 +106,12 @@ a	b	c	d
 7	7	7	7
 8	8	8	8
 9	9	9	9
+explain format=tree select * from t3 where b > 2 and b < 10;
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Index range scan on t3 using idx, with index condition: ((t3.b > 2) and (t3.b < 10))  (cost=3.41 rows=7)
+
 select * from t3 where a < 10 and b > 2;
 a	b	c	d
 3	3	3	3
@@ -87,6 +121,13 @@ a	b	c	d
 7	7	7	7
 8	8	8	8
 9	9	9	9
+explain format=tree select * from t3 where a < 10 and b > 2;
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Filter: ((t3.a < 10) and (t3.b > 2))  (cost=2.06 rows=7)
+            -> Index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+
 select * from t3 order by b,c;
 a	b	c	d
 1	1	1	1
@@ -99,6 +140,13 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
+explain format=tree select * from t3 order by b,c;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: t3.b, t3.c  (cost=1.25 rows=10)
+            -> Table scan on t3  (cost=1.25 rows=10)
+
 select * from t3 order by b,c desc;
 a	b	c	d
 1	1	1	1
@@ -111,6 +159,13 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
+explain format=tree select * from t3 order by b,c desc;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: t3.b, t3.c DESC  (cost=1.25 rows=10)
+            -> Table scan on t3  (cost=1.25 rows=10)
+
 select * from t3 where c > 1 order by d;
 a	b	c	d
 2	2	2	2
@@ -122,6 +177,14 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
+explain format=tree select * from t3 where c > 1 order by d;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: t3.d  (cost=1.25 rows=10)
+            -> Filter: (t3.c > 1)  (cost=1.25 rows=10)
+                -> Table scan on t3  (cost=1.25 rows=10)
+
 select * from t3 where c > 1 and d > 3 order by a,b;
 a	b	c	d
 4	4	4	4
@@ -131,6 +194,14 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
+explain format=tree select * from t3 where c > 1 and d > 3 order by a,b;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: t3.a, t3.b  (cost=1.25 rows=10)
+            -> Filter: ((t3.c > 1) and (t3.d > 3))  (cost=1.25 rows=10)
+                -> Table scan on t3  (cost=1.25 rows=10)
+
 select * from t3 where c > 1 and d > 2 order by b,c desc;
 a	b	c	d
 3	3	3	3
@@ -141,12 +212,30 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
+explain format=tree select * from t3 where c > 1 and d > 2 order by b,c desc;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: t3.b, t3.c DESC  (cost=1.25 rows=10)
+            -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=10)
+                -> Table scan on t3  (cost=1.25 rows=10)
+
 select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
 a	b	c	d	a	b	c	d
 2	2	2	2	2	2	2	2
 3	3	3	3	3	3	3	3
 4	4	4	4	4	4	4	4
 5	5	5	5	5	5	5	5
+explain format=tree select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
+EXPLAIN
+-> Nested loop inner join  (cost=2.50 rows=5)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Sort: t2.a  (cost=0.75 rows=5)
+                -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+    -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
+
 select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a;
 a	b	c	d	a	b	c	d	a	b	c	d
 1	2	3	4	1	1	1	1	1	1	1	1
@@ -154,54 +243,171 @@ a	b	c	d	a	b	c	d	a	b	c	d
 3	4	5	6	3	3	3	3	3	3	3	3
 4	5	6	7	4	4	4	4	4	4	4	4
 5	6	7	8	5	5	5	5	5	5	5	5
+explain format=tree select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a;
+EXPLAIN
+-> Sort: t1.a
+    -> Stream results  (cost=4.25 rows=5)
+        -> Nested loop inner join  (cost=4.25 rows=5)
+            -> Inner hash join (t2.a = t1.a)  (cost=3.50 rows=5)
+                -> Table scan on t2  (cost=0.07 rows=5)
+                -> Hash
+                    -> Filter: (t1.a is not null)  (cost=0.75 rows=5)
+                        -> Table scan on t1  (cost=0.75 rows=5)
+            -> Single-row index lookup on t3 using PRIMARY (a=t1.a)  (cost=0.07 rows=1)
+
 select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc;
 a	b	c	d	a	b	c	d
 5	6	7	8	5	5	5	5
 4	5	6	7	4	4	4	4
 3	4	5	6	3	3	3	3
 2	3	4	5	2	2	2	2
+explain format=tree select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc;
+EXPLAIN
+-> Sort: t1.b DESC
+    -> Stream results  (cost=1.53 rows=8)
+        -> Left hash join (t2.a = t1.a)  (cost=1.53 rows=8)
+            -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+                -> Table scan on t1  (cost=0.75 rows=5)
+            -> Hash
+                -> Table scan on t2  (cost=0.45 rows=5)
+
 select sum(b) from t1;
 sum(b)
 20
+explain format=tree select sum(b) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.b)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select max(b) from t1;
 max(b)
 6
+explain format=tree select max(b) from t1;
+EXPLAIN
+-> Aggregate: max(t1.b)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: max(t1.b)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select min(c) from t1;
 min(c)
 3
+explain format=tree select min(c) from t1;
+EXPLAIN
+-> Aggregate: min(t1.c)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: min(t1.c)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select count(b) from t1;
 count(b)
 5
+explain format=tree select count(b) from t1;
+EXPLAIN
+-> Aggregate: count(t1.b)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: count(t1.b)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a), sum(b), sum(c), sum(d) from t1;
 sum(a)	sum(b)	sum(c)	sum(d)
 15	20	25	30
+explain format=tree select sum(a), sum(b), sum(c), sum(d) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a), sum(b), count(c), count(d) from t1;
 sum(a)	sum(b)	count(c)	count(d)
 15	20	5	5
+explain format=tree select sum(a), sum(b), count(c), count(d) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a), sum(b), avg(c), avg(d) from t1;
 sum(a)	sum(b)	avg(c)	avg(d)
 15	20	5.0000	6.0000
+explain format=tree select sum(a), sum(b), avg(c), avg(d) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
 sum(a+1)	count(b)	avg(c+10)	avg(d+100)
 20	5	15.0000	106.0000
+explain format=tree select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
+EXPLAIN
+-> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a), sum(b), 1+sum(c) from t1;
 sum(a)	sum(b)	1+sum(c)
 15	20	26
+explain format=tree select sum(a), sum(b), 1+sum(c) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
+                -> Table scan on t1  (cost=0.75 rows=5)
+
 select variance(a) from t1;
 variance(a)
 2
+explain format=tree select variance(a) from t1;
+EXPLAIN
+-> Aggregate: variance(t1.a)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a), variance(b), avg(c) from t1;
 sum(a)	variance(b)	avg(c)
 15	2	5.0000
+explain format=tree select sum(a), variance(b), avg(c) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
+    -> Table scan on t1  (cost=0.75 rows=5)
+
 select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
 sum(a)	variance(b)	avg(c)
 14	1.25	5.5000
+explain format=tree select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
+EXPLAIN
+-> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
+    -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
 a	sum(b)	variance(b)
 2	3	0
 3	4	0
 4	5	0
 5	6	0
+explain format=tree select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Aggregate using temporary table
+        -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+            -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,sum(b) from t1 group by a;
 a	sum(b)
 1	2
@@ -209,6 +415,16 @@ a	sum(b)
 3	4
 4	5
 5	6
+explain format=tree select a,sum(b) from t1 group by a;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,max(b) from t1 group by a;
 a	max(b)
 1	2
@@ -216,6 +432,16 @@ a	max(b)
 3	4
 4	5
 5	6
+explain format=tree select a,max(b) from t1 group by a;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,sum(c) from t1 group by a,b;
 a	b	sum(c)
 1	2	3
@@ -223,6 +449,16 @@ a	b	sum(c)
 3	4	5
 4	5	6
 5	6	7
+explain format=tree select a,b,sum(c) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,sum(c),avg(d) from t1 group by a,b;
 a	b	sum(c)	avg(d)
 1	2	3	4.0000
@@ -230,6 +466,16 @@ a	b	sum(c)	avg(d)
 3	4	5	6.0000
 4	5	6	7.0000
 5	6	7	8.0000
+explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on 
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,avg(c),avg(d) from t1 group by a,b;
 a	b	avg(c)	avg(d)
 1	2	3.0000	4.0000
@@ -237,6 +483,16 @@ a	b	avg(c)	avg(d)
 3	4	5.0000	6.0000
 4	5	6.0000	7.0000
 5	6	7.0000	8.0000
+explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on 
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
 a+1	b	avg(c)	avg(d)
 2	2	3.0000	4.0000
@@ -244,6 +500,16 @@ a+1	b	avg(c)	avg(d)
 4	4	5.0000	6.0000
 5	5	6.0000	7.0000
 6	6	7.0000	8.0000
+explain format=tree select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on 
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
 a	b	sum(c+1)	sum(d+10)
 1	2	4	14
@@ -251,6 +517,16 @@ a	b	sum(c+1)	sum(d+10)
 3	4	6	16
 4	5	7	17
 5	6	8	18
+explain format=tree select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,sum(c+1),avg(d+100) from t1 group by a,b;
 a	b	sum(c+1)	avg(d+100)
 1	2	4	104.0000
@@ -258,6 +534,16 @@ a	b	sum(c+1)	avg(d+100)
 3	4	6	106.0000
 4	5	7	107.0000
 5	6	8	108.0000
+explain format=tree select a,b,sum(c+1),avg(d+100) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on 
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,1+sum(c),avg(d) from t1 group by a,b;
 a	b	1+sum(c)	avg(d)
 1	2	4	4.0000
@@ -265,6 +551,16 @@ a	b	1+sum(c)	avg(d)
 3	4	6	6.0000
 4	5	7	7.0000
 5	6	8	8.0000
+explain format=tree select a,b,1+sum(c),avg(d) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on 
+                    -> Aggregate using temporary table
+                        -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,sum(b) from t1 group by a order by a;
 a	sum(b)
 1	2
@@ -272,6 +568,17 @@ a	sum(b)
 3	4
 4	5
 5	6
+explain format=tree select a,sum(b) from t1 group by a order by a;
+EXPLAIN
+-> Sort: t1.a
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,max(b) from t1 group by a order by a;
 a	max(b)
 1	2
@@ -279,6 +586,17 @@ a	max(b)
 3	4
 4	5
 5	6
+explain format=tree select a,max(b) from t1 group by a order by a;
+EXPLAIN
+-> Sort: t1.a
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,sum(c) from t1 group by a,b order by a,b;
 a	b	sum(c)
 1	2	3
@@ -286,6 +604,17 @@ a	b	sum(c)
 3	4	5
 4	5	6
 5	6	7
+explain format=tree select a,b,sum(c) from t1 group by a,b order by a,b;
+EXPLAIN
+-> Sort: t1.a, t1.b
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
 a	b	sum(c)	avg(d)
 1	2	3	4.0000
@@ -293,6 +622,17 @@ a	b	sum(c)	avg(d)
 3	4	5	6.0000
 4	5	6	7.0000
 5	6	7	8.0000
+explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
+EXPLAIN
+-> Sort: t1.a, t1.b
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on 
+                        -> Aggregate using temporary table
+                            -> Table scan on t1  (cost=0.75 rows=5)
+
 select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
 a	b	avg(c)	avg(d)
 1	2	3.0000	4.0000
@@ -300,6 +640,17 @@ a	b	avg(c)	avg(d)
 3	4	5.0000	6.0000
 4	5	6.0000	7.0000
 5	6	7.0000	8.0000
+explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
+EXPLAIN
+-> Sort: t1.a, t1.b
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on 
+                        -> Aggregate using temporary table
+                            -> Table scan on t1  (cost=0.75 rows=5)
+
 select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
 a+1	b	avg(c)
 2	2	3.0000
@@ -307,6 +658,17 @@ a+1	b	avg(c)
 4	4	5.0000
 5	5	6.0000
 6	6	7.0000
+explain format=tree select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
+EXPLAIN
+-> Sort: `a+1`, t1.b
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on 
+                        -> Aggregate using temporary table
+                            -> Table scan on t1  (cost=0.75 rows=5)
+
 select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
 a	max(t1.b)
 1	2
@@ -314,6 +676,19 @@ a	max(t1.b)
 3	4
 4	5
 5	6
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=4.50 rows=5)
+                            -> Table scan on t1  (cost=0.75 rows=5)
+                            -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                -> Table scan on t2  (cost=0.27 rows=5)
+
 select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
 a	min(t1.b)	avg(t1.c)
 1	2	3.0000
@@ -321,6 +696,19 @@ a	min(t1.b)	avg(t1.c)
 3	4	5.0000
 4	5	6.0000
 5	6	7.0000
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on 
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=4.50 rows=5)
+                            -> Table scan on t1  (cost=0.75 rows=5)
+                            -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                -> Table scan on t2  (cost=0.27 rows=5)
+
 select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
 a	sum(t1.b)	avg(t1.c)
 1	2	3.0000
@@ -328,6 +716,20 @@ a	sum(t1.b)	avg(t1.c)
 3	4	5.0000
 4	5	6.0000
 5	6	7.0000
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
+EXPLAIN
+-> Sort: t2.a
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on 
+                        -> Aggregate using temporary table
+                            -> Nested loop inner join  (cost=4.50 rows=5)
+                                -> Table scan on t1  (cost=0.75 rows=5)
+                                -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                    -> Table scan on t2  (cost=0.27 rows=5)
+
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
 t1.a+1	max(t1.b)
 2	2
@@ -335,6 +737,19 @@ t1.a+1	max(t1.b)
 4	4
 5	5
 6	6
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
+EXPLAIN
+-> Table scan on <temp>
+    -> Aggregate using temporary table
+        -> Exchange Receive dop )
+            -> Exchange Send dop )
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=4.50 rows=5)
+                            -> Table scan on t1  (cost=0.75 rows=5)
+                            -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                -> Table scan on t2  (cost=0.27 rows=5)
+
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;
 t1.a+1	max(t1.b)
 2	2
@@ -342,6 +757,20 @@ t1.a+1	max(t1.b)
 4	4
 5	5
 6	6
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;
+EXPLAIN
+-> Sort: `t1.a+1`
+    -> Table scan on <temp>
+        -> Aggregate using temporary table
+            -> Exchange Receive dop )
+                -> Exchange Send dop )
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Nested loop inner join  (cost=4.50 rows=5)
+                                -> Table scan on t1  (cost=0.75 rows=5)
+                                -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                    -> Table scan on t2  (cost=0.27 rows=5)
+
 set debug_sync='execute_in_parallel_before SIGNAL waiting wait_for killed';
 select a,sum(b) from t1 group by a order by a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -349,8 +778,22 @@ KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
+set debug_sync='execute_in_parallel_before SIGNAL waiting wait_for killed';
+select a,sum(b) from t4 group by a union select a,b from t2 order by a;;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+KILL QUERY <id>;
+SET DEBUG_SYNC= 'now SIGNAL killed';
+ERROR 70100: Query execution was interrupted
+SET DEBUG_SYNC = 'RESET';
 set debug_sync='execute_in_parallel_before_scheduling SIGNAL waiting wait_for killed';
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+KILL QUERY <id>;
+SET DEBUG_SYNC= 'now SIGNAL killed';
+ERROR 70100: Query execution was interrupted
+SET DEBUG_SYNC = 'RESET';
+set debug_sync='execute_in_parallel_before_scheduling SIGNAL waiting wait_for killed';
+select a,sum(b) from t1 group by a union select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -375,14 +818,6 @@ a	sum(t1.b)	avg(t1.c)
 4	5	6.0000
 5	6	7.0000
 SET DEBUG_SYNC = 'RESET';
-set session debug="+d, test_error_before_sending_data_coor";
-select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c)  from t1 join t2 where t1.a = t2.a group by t1.a;
-a	min(t1.b)	avg(t1.c)
-1	2	3.0000
-2	3	4.0000
-3	4	5.0000
-4	5	6.0000
-5	6	7.0000
 set session debug="+d, test_error_before_sending_data";
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
 t1.a+1	max(t1.b)
@@ -404,8 +839,10 @@ a	sum(b)	variance(b)
 set global cdb_parallel_query_enable = off;
 set global cdb_parallel_execution_enabled = off;
 set global exchange_inject = off;
+set global cdb_min_parallel_table_rows = 5000;
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t4;
 drop database test1;
 drop user user1;

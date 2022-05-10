@@ -26,7 +26,13 @@ PX_exchange_info::PX_exchange_info(THD *thd, PX_exchange_type exchange_type,
       m_type(exchange_type),
       m_format(format),
       m_need_materialize(need_materialize) {
-  mysql_mutex_init(key_LOCK_Exchange_Info_Channel, &m_lock, MY_MUTEX_INIT_FAST);
+  m_barrier = new (thd->mem_root) PX_stage_barrier(senders, receivers);
+}
+
+void PX_exchange_info::set_dop(uint senders, uint receivers) {
+  m_barrier->set_number(senders, receivers);
+  m_senders = senders;
+  m_receivers = receivers;
 }
 
 /**
@@ -67,6 +73,8 @@ bool PX_exchange_info::init() {
     channel->init();
     m_channels.push_back(channel);
   }
+  mysql_mutex_init(key_LOCK_Exchange_Info_Channel, &m_lock, MY_MUTEX_INIT_FAST);
+  m_barrier->init();
 
   return false;
 }
@@ -312,9 +320,10 @@ void PX_exchange_info::receiver_wait(uint receiver_no) {
   channel->receiver_wait();
 }
 
-void PX_exchange_info::release_in_single_stage() 
+void PX_exchange_info::release_in_stage_over() 
 {
   detach_receiver(0);
+  m_barrier->destroy();
   mysql_mutex_destroy(&m_lock);
 }
 

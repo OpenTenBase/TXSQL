@@ -656,6 +656,9 @@ class MaterializeIterator final : public TableRowIterator {
     return &m_table_iter_profiler;
   }
 
+  virtual std::string str() override { return "Materialize"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_MATERIALIZE; }
+
  private:
   Mem_root_array<materialize_iterator::QueryBlock>
       m_query_blocks_to_materialize;

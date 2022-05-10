@@ -4447,6 +4447,7 @@ class handler {
 
   key_range px_ref_key;
   enum PX_SCAN_TYPE px_scan_type;
+  void *px_scan_ctx{nullptr};
  private:
   Record_buffer *m_record_buffer = nullptr;  ///< Buffer for multi-row reads.
   /*

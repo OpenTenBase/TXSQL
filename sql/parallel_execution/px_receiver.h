@@ -57,24 +57,28 @@ class PX_receiver : public RowIterator {
     m_source->EndPSIBatchModeIfStarted();
   }
 
-  void set_exchange_info(PX_exchange_info *ex_info) { m_pei = ex_info; }
-
   void SetNullRowFlag(bool is_null_row) override {
     if (is_null_row) { m_table->set_null_row();
     } else { m_table->reset_null_row(); }
   }
   void UnlockRow() override { m_table->file->unlock_row(); }
+
+  void set_exchange_info(PX_exchange_info *pei) { m_pei = pei; }
+  PX_exchange_info *get_pei() const { return m_pei; }
+
   virtual std::string str() override { return "PX_RECEIVE"; }
   virtual PhysicalRowIteratorType type() override { return PHY_PX_RECEIVE; }
   virtual void adjust_children() override { add_child(m_source.get()); }
-
 
  private:
   int read_compact_row(void **datap, Size *len);
   void mqueue_mmove(uint next_channel, uint active_channels);
   void decompact_field(Field *field, uchar *data, uint &ptr_offset);
+  void schedule_post();
+  void synchronize();
 
  public:
+  SynchronizeRoleType m_role{SYN_LOCK};
   std::vector<PX_exchange_channel *> m_channels;
 
  private:

@@ -136,6 +136,11 @@ class RowIterator {
     PHY_PX_SEND
   }physical_row_iterator_type;
 
+  enum SynchronizeRoleType {
+    SYN_LOCK = 0,
+    SYN_KEY
+  }synchronize_role_type;
+
  public:
   // NOTE: Iterators should typically be instantiated using NewIterator,
   // in sql/iterators/timing_iterator.h.

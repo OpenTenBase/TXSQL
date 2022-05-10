@@ -484,6 +484,7 @@ longlong Item::val_int_from_datetime() {
   }
 }
 
+
 longlong Item::val_int_from_string() {
   assert(fixed);
   StringBuffer<MY_INT64_NUM_DECIMAL_DIGITS + 1> tmp;

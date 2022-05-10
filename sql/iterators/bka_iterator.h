@@ -140,6 +140,13 @@ class BKAIterator final : public RowIterator {
     m_inner_input->EndPSIBatchModeIfStarted();
   }
 
+  virtual std::string str() override { return "BKA_JOIN"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_BKA_JOIN; }
+  virtual void adjust_children() override {
+    add_child(m_outer_input.get());
+    add_child(m_inner_input.get());
+  }
+
  private:
   /// Clear out the MEM_ROOT and prepare for reading rows anew.
   void BeginNewBatch();

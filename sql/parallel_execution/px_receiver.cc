@@ -76,6 +76,9 @@ bool PX_receiver::init() {
   // m_join = thd->lex->current_select()->join;
   if (m_join) m_input_slice = m_join->get_ref_item_slice();
 
+  schedule_post(); // post for schedule the dfo pair.
+  synchronize(); // synchronize the receiver and sender init.
+
   return false;
 }
 
@@ -91,6 +94,8 @@ bool PX_receiver::init() {
 */
 bool PX_receiver::attach() {
   THD *thd = get_thd();
+
+  if (init()) return true;
 
   for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
     Field *field = *pfield;
@@ -155,7 +160,7 @@ int PX_receiver::next() {
     receiver from the channels.
   */
   if (result || m_thd->killed) {
-    m_pei->detach_receiver(m_receiver_no);
+    // m_pei->detach_receiver(m_receiver_no);
     return result;
   }
 
@@ -395,4 +400,13 @@ void PX_receiver::mqueue_mmove(uint next_channel, uint active_channels) {
   memmove(&m_channels[next_channel],
           &m_channels[next_channel + 1],
           sizeof(PX_exchange_channel *) * (active_channels - next_channel));
+}
+
+void PX_receiver::schedule_post() {
+  if (!m_pei->is_top_exchange()) m_pei->schedule_receivers_post();
+}
+
+void PX_receiver::synchronize() {
+  m_role == SYN_KEY ? m_pei->exchange_receivers_post()
+                    : m_pei->exchange_wait();
 }

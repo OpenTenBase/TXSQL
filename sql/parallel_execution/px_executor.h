@@ -41,70 +41,59 @@ class JOIN;
 class QEP_TAB;
 
 /**
-  PX_task is the description class for a task. It mainly contains the execution
-  plan subtree in this task(the start is the scan iterator or exchange receiver,
-  and the end is the root iterator or exchange sender). For some special tasks,
-  like the leaf node task contains QEP_TAB for dynamic segmentation, and middle
-  node has exchange execution context.
+  PX_task is the description class for a task. It mainly contains the
+  execution plan subtree in this task(the start is scan iterator or
+  exchange receiver, and end is the root iterator or exchange sender).
 */
 class PX_task {
  public:
-  PX_task()
-    : sub_iterator(nullptr),
-      ex_sender(nullptr),
-      ex_receiver(),
-      query_result(nullptr),
-      fields(nullptr),
-      join(nullptr),
-      task_id(-1) {}
-  PX_task(RowIterator *itr, RowIterator *sender, RowIterator *receiver,
-    Query_result *qr, mem_root_deque<Item*> *f, JOIN *j)
-    : sub_iterator(itr),
-      ex_sender(sender),
-      ex_receiver(receiver),
-      query_result(qr),
-      fields(f),
-      join(j),
-      task_id(-1) {}
+  PX_task(RowIterator *itr): sub_iterator(itr) {}
 
   bool run(THD *thd);
   bool run_root(THD *thd);
 
-  void set_task_id(int id) { task_id = id; }
-  void set_exchange_info(PX_exchange_info *info) { exchange_info = info; }
-  void attach_exchange_info(RowIterator *iterator);
-  bool choose_parallel_table_scan();
-
- public:
-  PX_table_descriptor *px_table_descriptor{nullptr};
-
-  PX_exchange_info *exchange_info{nullptr};  // exchange execute context.
-  RowIterator *sub_iterator;  // physical plan of sub task.
-  RowIterator *ex_sender, *ex_receiver;  // sender and receiver of sub task.
+  RowIterator *root_iterator() const { return sub_iterator; }
 
  private:
-  /**
-    Query result of sub task. Interface of Query_result_mq is join and m_handle.
-    We extract the fields array from join->tmp_fields_array, and send the data
-    by m_handle, put data into MQ, currently used by root task.
-  */
-  Query_result *query_result;
-  mem_root_deque<Item *> *fields;  // item array of the MQ in and out.
-  JOIN *join;  // JOIN structure of this task which is subset of whole plan.
-  int task_id;  // task id info.
+  RowIterator *sub_iterator{nullptr}; // physical plan of sub task.
 };
 
 /**
-  Base class for coordinator and worker, in the design, the coordinator and the
-  worker have the same execution plan, the same DFO sequence and the same task
-  array. So the coordinator can direct workers to do some tasks.
+  Worker execute context keep the threads group of dfo, describe the
+  scheduling context information.
+*/
+class Worker_exec_ctx {
+ public:
+  Worker_exec_ctx(Dfo *dfo, uint size): m_dfo(dfo)
+  {
+    bitmap_init(&bitmap, nullptr, size);
+  }
+  virtual ~Worker_exec_ctx() { bitmap_free(&bitmap); }
+  void restore_parent_exec_ctx(const Worker_exec_ctx& parent)
+  {
+    m_dfo = parent.dfo();
+    bitmap_copy(&bitmap, &parent.bitmap);
+  }
+  Dfo *dfo() const { return m_dfo; }
+
+  void set_group_id(int id) { task_group_id = id; }
+  int group_id() const { return task_group_id; }
+
+  MY_BITMAP bitmap; // workers' bitmap of current task.
+ private:
+  int task_group_id{0}; // task group id.
+  Dfo *m_dfo; // dfo of the worker execute.
+};
+
+/**
+  Base class for coordinator and worker, in the design, the coordinator
+  and the worker have the same execution plan, the same DFO sequence and
+  same task array. So coordinator can direct workers to do some tasks.
 */
 class PX_executor {
  public:
   PX_executor(Dfo_mgr *dfo_mgr, THD *thd)
-    : m_tasks_hash(),
-      m_dfo_mgr(dfo_mgr),
-      m_thd(thd) {}
+    : m_dfo_mgr(dfo_mgr), m_thd(thd) {}
   virtual ~PX_executor() {}
 
   virtual bool prepare_task_for_dfo() { return false; }
@@ -124,9 +113,10 @@ class PX_executor {
 };
 
 /**
-  PX_worker is derived class of PX_executor as execution worker. It is embedded
-  in the process of mysql_execute_command. The loop waits for the coordinator to
-  assign tasks to it and then executes these tasks, it will only work stupidly.
+  PX_worker is derived class of PX_executor as execution worker. It is
+  embedded in the process of mysql_execute_command. The loop waits for
+  the coordinator to assign tasks to it and then executes these tasks,
+  it will only work stupidly.
 */
 class PX_worker : public PX_executor {
  public:
@@ -134,57 +124,77 @@ class PX_worker : public PX_executor {
   ~PX_worker() {}
 
   /**
-    In a SQL execution process in worker thread, each worker goes to loop and
-    waits for the distribution of tasks. When it receives an instruction to do
-    the n-th task, differ from the classic architecture is that the coordinator
-    passes the task id to the worker, not copy of the subplan.
+    In worker's SQL execution process in worker thread, worker goes to
+    loop and waits for the distribution of tasks. When it receives an
+    instruction to do the n-th task, differ from the classic
+    architecture is that the coordinator passes the task id to worker,
+    not copy of the subplan.
 
-    After worker completes the assigned task, coordinator will be responsible
+    After worker completes assigned task, coordinator will be responsible
     for synchronization between coordinator and workers.
   */
   virtual void loop();
 
   /**
-    After getting the DFO tree, the DFO tree is completely consistent on the
-    coordinator and the worker. All tasks are then pushed into a queue before
-    the worker executes a task, prepare for execution.
+    After getting DFO tree, the DFO tree is completely consistent on
+    the coordinator and workers. All tasks are then pushed into array
+    before the worker executes a task, prepare for execution.
   */
   virtual bool prepare_task_for_dfo() override;
 };
 
 /**
-  PX_coordinator is derived class of PX_coordinator as coordinator. PX_coordinator
-  provides a schedule function that can be extended, for example, we support simple
-  one-to-one scheduling strategy, and will also support embedded scheduling with
-  union operators, or full pipeline scheduling with better performance.
+  PX_coordinator is derived class of PX_executor. PX_coordinator provides
+  a schedule function that can be extended, for example, we support the
+  one-to-one scheduling strategy, or full pipeline scheduling with better
+  performance in the future.
 
-  Based on these, we will design a strategy for choosing schedulers later(TODO).
+  Based on these, we will design a strategy for choosing schedulers later.
 
-  Currently, we only implement PX_sequential_coordinator which support one-to-one.
+  Currently, we only implement PX_parallel_coordinator.
 */
 class PX_coordinator : public PX_executor {
  public:
-  PX_coordinator(Dfo_mgr *dfo_mgr, THD *thd) :
-    PX_executor(dfo_mgr, thd) {}
+  PX_coordinator(Dfo_mgr *dfo_mgr, THD *thd) :PX_executor(dfo_mgr, thd) {}
   ~PX_coordinator() {}
 
   /**
-    Schedule tasks to each worker, responsible for the synchronization. This is
-    a extendable interface which can implement more scheduling strategy.
+    Schedule tasks to each worker, responsible for synchronization. This
+    is extendable interface which can implement more scheduling strategy.
 
     @param worker_pool worker pool.
+    @return true when error, false when success.
   */
-  virtual bool schedule(worker_pool_t *worker_pool) { return false; }
+  virtual bool schedule(worker_pool_t *worker_pool);
 
   /**
-    Create multiple worker threads to rebuild query execution, by re-parsing,
-    re-optimizing and execute.
+    Inner schedule method, which control dispatch tasks in scheduler.
+
+    @param worker_pool worker pool
+    @param th_arg_array thread arguments array
+    @return true when error, false when success.
+  */
+  virtual bool schedule_dfo_pair_inner(worker_pool_t *worker_pool,
+                 worker_thread_arg **th_arg_array) { return false; }
+
+  /**
+    Create multiple worker threads to rebuild query execution, by parse,
+    prepare, optimize and execute.
 
     @param worker_pool worker pool.
     @param th_arg_array thread argument array.
+    @return true when error, false when success.
   */
   virtual bool create_worker_context(worker_pool_t *&worker_pool,
-                                       worker_thread_arg **&th_arg_array);
+                 worker_thread_arg **&th_arg_array);
+
+  /**
+    At last, after all tasks are scheduled except root dfo, root task
+    will be executed, currently, we set root task run in coordinator.
+
+    @return true when error, false when success.
+  */
+  virtual bool run_root_dfo_task();
 
   /**
     Notify SIGNAL to each worker, set task finished when been killed.
@@ -192,52 +202,6 @@ class PX_coordinator : public PX_executor {
     @param state_to_set signal.
   */
   virtual void notify_all_workers(THD::killed_state state_to_set) override;
-
- protected:
-  typedef Prealloced_array<THD *, 60> THD_array;
-  THD_array thd_list{4};
-};
-
-/**
-  Sequential scheduler schedules all tasks one-to-one and assigns them to each
-  worker for execution. In the process, exchange receiver contains a temporary
-  table that can cache the full amount of data.
-*/
-class PX_sequential_coordinator : public PX_coordinator {
- public:
-  PX_sequential_coordinator(Dfo_mgr *dfo_mgr, THD *thd) :
-    PX_coordinator(dfo_mgr, thd) {}
-  ~PX_sequential_coordinator() {}
-
-  /**
-    One-to-one scheduling strategy
-
-    @param worker_pool worker pool.
-  */
-  virtual bool schedule(worker_pool_t *worker_pool) override;
-
-  /**
-    Schedule <child, parent> pair, there are only two dfos in scheduling process
-    every time, send task instructions(task id) to workers.
-
-    @param worker_pool worker pool.
-    @param th_arg_array worker thread arguments.
-  */
-  virtual bool schedule_dfo_pair_inner(worker_pool_t *worker_pool,
-                 worker_thread_arg **th_arg_array);
-
-  /**
-    At last, after all tasks whose parent task is not root dfo, root task will
-    be executed, currently, we set root task always to run in coordinator.
-  */
-  bool run_root_dfo_task();
-
-  /**
-    Prepare tasks for parent and child dfo, ready to schedule.
-
-    @param dfos only contains two dfos, child and parent.
-  */
-  virtual bool prepare_task_execution_for_dfo(const std::vector<Dfo*> dfos);
 
   /**
     Check equivalence between coordinator and workers.
@@ -247,8 +211,56 @@ class PX_sequential_coordinator : public PX_coordinator {
   */
   bool check_equivalence(worker_pool_t *worker_pool);
 
+ protected:
+  PX_exchange_info *exchange_info{nullptr}; // current exchange info.
+  typedef Prealloced_array<THD *, 60> THD_array;
+  THD_array thd_list{4}; // THD array for all workers.
+};
+
+/**
+  This coordinator schedule all tasks by dfo pair. PX_COORDINATOR is
+  needed to gather data from lower iterator tree.
+*/
+class PX_parallel_coordinator : public PX_coordinator {
+ public:
+  PX_parallel_coordinator(Dfo_mgr *dfo_mgr, THD *thd)
+    : PX_coordinator(dfo_mgr, thd) {}
+  ~PX_parallel_coordinator() {}
+
+  /**
+    Schedule <child, parent> pair, there are more than two dfos in
+    process, send task instructions(task id) to workers.
+
+    @param worker_pool worker pool.
+    @param th_arg_array worker thread arguments.
+  */
+  virtual bool schedule_dfo_pair_inner(worker_pool_t *worker_pool,
+                 worker_thread_arg **th_arg_array) override;
+
  private:
-  PX_exchange_info *exchange_info{nullptr};
+  /**
+    Set exchange info when scheduling dfo pair.
+
+    @param num_workers number of workers.
+    @param args thread func arguments.
+    @param child child execute ctx.
+    @param parent parent execute ctx.
+    @param last_parent last parent execute ctx.
+  */
+  void attach_exchange_info(int num_workers, worker_thread_arg **args,
+         Worker_exec_ctx *last_parent,
+         Worker_exec_ctx *child, Worker_exec_ctx *parent);
+
+  /**
+    Prepare for scheduling the single dfo, set the arguments.
+  
+    @param num_workers number of workers.
+    @param args thread func arguments.
+    @param exec_ctx execute ctx.
+  */
+  void prepare_schedule_single_dfo(int num_workers,
+         worker_thread_arg **args, Worker_exec_ctx *exec_ctx);
+
 };
 
 #endif  // PX_EXECUTOR_INCLUDED
