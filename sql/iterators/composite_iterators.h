@@ -885,6 +885,14 @@ class AppendIterator final : public RowIterator {
   void SetNullRowFlag(bool is_null_row) override;
   void UnlockRow() override;
 
+  virtual std::string str() override { return "Append"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_APPEND; }
+  virtual void adjust_children() override {
+    for (const auto &sub_iterator : m_sub_iterators) {
+      add_child(sub_iterator.get());
+    }
+  }
+
  private:
   std::vector<unique_ptr_destroy_only<RowIterator>> m_sub_iterators;
   size_t m_current_iterator_index = 0;

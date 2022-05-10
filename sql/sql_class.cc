@@ -2568,7 +2568,7 @@ bool THD::check_px_error()
 {
   bool ret = false;
   if (killed) return false;
-  for (int i = 0; i < worker_pool->num_threads; ++i) {
+  for (int i = 0; i < worker_pool->num_workers; ++i) {
     THD *worker_thd = worker_pool->thread_args[i].worker_thd;
     if (worker_thd->is_error()) {
       px_errno = worker_thd->get_stmt_da()->mysql_errno();

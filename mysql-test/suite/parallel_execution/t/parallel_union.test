@@ -1,0 +1,201 @@
+--echo # Infrastructure for test parallel union/union-all execution
+# test plan:
+# 1. test the basic function which contains union/union all.
+# 2. test the framework details which contains error thrown out and kill query.
+
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+
+--disable_ps_protocol
+
+--disable_query_log
+call mtr.add_suppression("THD::check_error_before_sending_data");
+--enable_query_log
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+
+create database test1;
+
+create user 'user1'@'%';
+grant all on test1.* to 'user1'@'%';
+
+# Build the test case schema.
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(1,1,1,1);
+insert into t1 values(2,3,4,5);
+insert into t1 values(2,2,2,2);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
+
+create table t2(a int, b int, c int, d int);
+insert into t2 values(1,1,1,1);
+insert into t2 values(2,2,2,2);
+insert into t2 values(3,3,3,3);
+insert into t2 values(4,4,4,4);
+insert into t2 values(5,5,5,5);
+
+create table t3(a int, b int, c int, d int, primary key(a), key idx(b));
+insert into t3 values(1,1,1,1);
+insert into t3 values(2,2,2,2);
+insert into t3 values(3,3,3,3);
+insert into t3 values(4,4,4,4);
+insert into t3 values(5,5,5,5);
+insert into t3 values(6,6,6,6);
+insert into t3 values(7,7,7,7);
+insert into t3 values(8,8,8,8);
+insert into t3 values(9,9,9,9);
+insert into t3 values(10,10,10,10);
+
+create table t4(a int, b int, c int, d int);
+insert into t4 values(100,100,100,100);
+
+connection conn1;
+
+set global cdb_parallel_query_enable = on;
+set global cdb_parallel_execution_enabled = on;
+set global exchange_inject = on;
+set global cdb_min_parallel_table_rows = 1;
+
+connect(conn2,localhost,user1,,);
+
+#================================basic function============================
+# Diffrent query block number.
+# 1. two query blocks.
+# 2. tree query blocks.
+# 3. more query blocks.
+# 4. partition or not.
+--sorted_result
+select * from t1 union select * from t2;
+explain format=tree select * from t1 union select * from t2;
+--sorted_result
+select * from t1 union all select * from t2;
+explain format=tree select * from t1 union all select * from t2;
+--sorted_result
+select * from t1 union select * from t2 where a > 1;
+explain format=tree select * from t1 union select * from t2 where a > 1;
+--sorted_result
+select * from t1 union all select * from t2 where a > 1;
+explain format=tree select * from t1 union all select * from t2 where a > 1;
+--sorted_result
+select * from t1 where a > 1 union select * from t2 where a > 1;
+explain format=tree select * from t1 where a > 1 union select * from t2 where a > 1;
+--sorted_result
+select * from t1 where a > 1 union all select * from t2 where a > 1;
+explain format=tree select * from t1 where a > 1 union all select * from t2 where a > 1;
+--sorted_result
+select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
+explain format=tree select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
+--sorted_result
+select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
+explain format=tree select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
+--sorted_result
+select * from t1 where a >=1 union select * from t1 where b > 1;
+explain format=tree select * from t1 where a >=1 union select * from t1 where b > 1;
+--sorted_result
+select * from t1 where a >=1 union all select * from t1 where b > 1;
+explain format=tree select * from t1 where a >=1 union all select * from t1 where b > 1;
+--sorted_result
+select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
+explain format=tree select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
+--sorted_result
+select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
+explain format=tree select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
+--sorted_result
+select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
+explain format=tree select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
+--sorted_result
+select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
+explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
+--sorted_result
+select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
+explain format=tree select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
+--sorted_result
+select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
+explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
+--sorted_result
+select * from t1 where a > 1 union select * from t4 union select * from t1 where b > 1 union select * from t4;
+explain format=tree select * from t1 where a > 1 union select * from t4 union select * from t1 where b > 1 union select * from t4;
+--sorted_result
+select * from t1 where a > 1 union all select * from t4 union all select * from t1 where b > 1 union all select * from t4;
+explain format=tree select * from t1 where a > 1 union all select * from t4 union all select * from t1 where b > 1 union all select * from t4;
+--sorted_result
+select * from t1 where a > 1 union select * from t4 union select * from t1 union select * from t2 where a > 1 union select * from t3 union select * from t3 where a > 1;
+explain format=tree select * from t1 where a > 1 union select * from t4 union select * from t1 union select * from t2 where a > 1 union select * from t3 union select * from t3 where a > 1;
+--sorted_result
+select * from t1 where a > 1 union all select * from t4 union all select * from t1 union all select * from t2 where a > 1 union all select * from t3 union all select * from t3 where a > 1;
+explain format=tree select * from t1 where a > 1 union all select * from t4 union all select * from t1 union all select * from t2 where a > 1 union all select * from t3 union all select * from t3 where a > 1;
+
+# each query block has complex iterators, like orderby, groupby, join.
+# 1. has order by 
+# 2. has group by.
+# 3. join.
+# 4. more complex iterator tree in each query block.
+--sorted_result
+(select * from t1 order by b) union (select * from t2 order by c); #confuse
+explain format=tree (select * from t1 order by b) union (select * from t2 order by c); #confuse
+--sorted_result
+(select * from t1 order by b) union all (select * from t2 order by c); #confuse
+explain format=tree (select * from t1 order by b) union all (select * from t2 order by c); #confuse
+--sorted_result
+select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b;
+explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b;
+--sorted_result
+select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b;
+explain format=tree select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b;
+--sorted_result
+select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b union select b,sum(d) from t3 group by b;
+explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b union select b,sum(d) from t3 group by b;
+--sorted_result
+select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b union all select b,sum(d) from t3 group by b;
+explain format=tree select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b union all select b,sum(d) from t3 group by b;
+--sorted_result
+select a,sum(b),sum(d) from t1 group by a union select b,sum(b),avg(d) from t2 group by b union select b,sum(d),avg(c) from t3 group by b;
+explain format=tree select a,sum(b),sum(d) from t1 group by a union select b,sum(b),avg(d) from t2 group by b union select b,sum(d),avg(c) from t3 group by b;
+--sorted_result
+select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
+explain format=tree select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
+--sorted_result
+(select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select * from t3 where c > 1 and d > 2 order by b,c desc);
+explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select * from t3 where c > 1 and d > 2 order by b,c desc);
+--sorted_result
+(select * from t3 where c > 1 and d > 3 order by a,b) union all (select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a);
+explain format=tree (select * from t3 where c > 1 and d > 3 order by a,b) union all (select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a);
+--sorted_result
+(select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
+explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
+#--sorted_result # right not index ex
+#(select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a) union all (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc); # right not index ex
+
+# query contains union/union-all
+# 1. followed by limit.
+# 2. union/union-all as a subquery.
+--sorted_result
+select * from t1 union select * from t2 order by a;
+explain format=tree select * from t1 union select * from t2 order by a;
+--sorted_result
+select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
+explain format=tree select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
+#--sorted_result
+#select * from t1 union select * from t2 limit 2; 
+--sorted_result
+select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
+explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
+
+#=========================================================================
+
+connection conn1;
+set global cdb_parallel_query_enable = off;
+set global cdb_parallel_execution_enabled = off;
+set global exchange_inject = off;
+set global cdb_min_parallel_table_rows=5000;
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop database test1;
+drop user user1;

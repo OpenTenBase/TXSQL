@@ -30,98 +30,103 @@
 #include <semaphore.h>
 #include <sys/types.h>
 
-#include "sql/sql_lex.h"
-#include "sql/sql_class.h"
-#include "sql/parallel_execution/px_exchange_info.h"
+#include "sql/sql_lex.h" // JOIN
+#include "sql/sql_class.h" // THD
+#include "sql/parallel_execution/px_exchange_info.h" // PX_exchange_info
+#include "sql/parallel_execution/px_dfo.h" // PX_dfo
+#include "my_base.h" // mutex lock
+#include "mysql/psi/mysql_thread.h" // mysql_mutex_t
 
 class PX_reader;
+class Worker_exec_ctx;
 
 typedef void *(*worker_func)(void *);
-
-/* Atomic operation, add 1 to n and return old value */
-static inline unsigned int fetch_and_inc(unsigned int* n)
-{
-  unsigned int oldval;
-
-  __asm__ __volatile__(
-    "movl $1, %0 \n"
-    "lock xaddl	%0, (%1) \n"
-      : "=a" (oldval) : "b" (n));
-
-  return oldval;
-}
 
 enum worker_task_type { PARSE_AND_PREPARE = 0, SLICE_TASK };
 
 /**
-  Thread arguments between coordinator and workers, There are two main funcs:
-  1. Parse SQL, prepare and optimization.
-  2. Multiple tasks which get from coordinator.
-  Also, synchronization should be maintained by this worker_thread_arg.
+  Thread arguments between coordinator and workers, two levels:
+  1. SQL parse, prepare, optimize and execute.
+  2. Task execute in single dfo pair scheduling.
+  Also, worker_thread_arg maintained synchronization between them.
 */
 typedef struct worker_thread_arg {
+  worker_func           *thread_func; // thread func pointer.
+  void                  **thread_func_arg;
+  /* Thread function arguments for all workers. */
   THD                   *worker_thd; // THD thread attach.
   int                   task_id; // task id of executor.
-  worker_task_type      type; // 1. Parse and prepare; 2. Task.
   PX_exchange_info      *exchange_info; // exchange ctx.
   PX_reader             *scan_ctx; // scan_ctx.
   std::string           query_string; // query string of coordinator.
 
+  /* Sychronzation arguments between coordinator and workers. */
+  worker_task_type      type; // 1. Parse and prepare; 2. Task.
   int                   *num_workers; // tasks cnt.
-  sem_t                 sem_parse_optimize_run; // sychonize the main.
-  sem_t                 sem_task_run; // sychonize the workers.
-  unsigned              *num_workers_done; // finished workers cnt.
-  sem_t                 *sem_workers_done; // sem all workers done.
-  sem_t                 *sem_tasks_done; // tasks done in loop.
+  pthread_semphore_t    sem_outer; // sychonize the main.
+  pthread_semphore_t    sem_inner; // sychonize the tasks.
+  std::atomic<int>      *num_workers_done; // finished workers cnt.
+  pthread_semphore_t    *sem_workers_done; // sem all workers done.
+  pthread_semphore_t    *sem_tasks_done; // sem all tasks done.
   int                   *finished; // every workers finished.
-
-  worker_func           *thread_func; // thread func pointer.
-  void                  **thread_func_arg;
-
+  MY_BITMAP             ***bitmap; // bitmap of the whole SQL execution.
+  uint64_t              *bitmap_map; // map of the bitmap.
+  mysql_mutex_t         *mutex_task; // control tasks barrier.
+  PX_exchange_context   **px_exchange_context; // px exchange context.
+  /* Used for check equivalence between coordinator and workers. */
   AccessPath            *coordinator_root_access_path; // coordinator's plan
   JOIN                  *coordinator_join; // coordinator's JOIN
   bool                  is_equivalent_plan; // equivalent to the coordinator's plan
 } worker_thread_arg;
 
 typedef struct worker_pool_t {
-  int                   num_threads; // tasks cnt.
-  int                   num_workers;
-  unsigned              num_workers_done; // finished workers cnt.
-  sem_t                 sem_workers_done; // sem all workers done.
-  sem_t                 sem_tasks_done; // tasks done in loop.
-  int                   finished; // every workers finished.
-  worker_func           thread_func; // thread func pointer.
-  worker_task_type      type; // 1. Parse and prepare; 2. Task.
-  void                  **args;
   pthread_t             *threads;
   worker_thread_arg     *thread_args;
+  worker_func           thread_func; // thread func pointer.
+  void                  **args;
+
+  worker_task_type      type; // 1. Parse and prepare; 2. Task.
+  int                   num_workers; // workers SQL PX execution need.
+  std::atomic<int>      num_workers_done; // finished workers cnt.
+  pthread_semphore_t    sem_workers_done; // sem all workers done.
+  pthread_semphore_t    sem_tasks_done; // sem all tasks done.
+  int                   finished; // every workers finished.
+  MY_BITMAP             **bitmap; // bitmap of the task execution.
+  uint64_t              bitmap_map; // most 64 right deep tree.
+  mysql_mutex_t         mutex_task; // control tasks barrier.
+  PX_exchange_context   *px_exchange_context; // px exchange context.
+
+  MY_BITMAP             threads_bitmap; // threads bitmap one query use.
 } worker_pool_t;
 
-/**
-  Create multiple worker pool to start worker executions, there are two levels
-  of synchronization. The outside is query barrier, which exists in the pointer
-  between optimization and execution, the inside is task barrier, which barrie
-  at every workers' task finishs.
-*/
-worker_pool_t* worker_pool_create(int num_threads);
-int worker_pool_set(worker_pool_t *worker_pool, worker_func thread_func,
-                     void **args, int num_workers);
+// Create worker pool to start worker executions, there are two levels
+// of synchronization. The outside is query barrier, which exists in the
+// pointer between optimization and execution, inside is task barrier,
+// which barrie at every workers' task finish.
+worker_pool_t* create_worker_threads(int num_threads);
+// Set the threads arguments when start every worker group.
+void set_threads_args(worker_pool_t *worker_pool, worker_func thread_func,
+                      void **args, int num_workers);
+// allocate threads for group id, set bitmap of workers.
+bool allocate_threads(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
 
-// Start point of outside parse and optimize steps for all workers.
-int worker_pool_begin_query(worker_pool_t *worker_pool);
-// Waiting point of outside parse and optiize steps for all workers.
-int worker_pool_wait_query(worker_pool_t *worker_pool);
-// Ready to enter loop of PX_worker after optimization and before execution.
-int worker_pool_optimize_end(worker_thread_arg* arg);
-// Ready to enter synchrozation point when meet with error.
-int worker_pool_execute_error(worker_thread_arg* arg);
+// Start outside steps for all workers: parse and optimize.
+bool query_execute_start(worker_pool_t *worker_pool);
+// Outside parse and optimize barrier for all workers.
+bool query_execute_barrier(worker_pool_t *worker_pool);
+// Signal for opening barrier after worker finish parse and optimize.
+bool optimize_finsh_signal(worker_thread_arg* arg);
+// Handle with error before optimize for workers.
+void handle_optimize_finish_error(worker_thread_arg* arg);
 
-// Start point of inside sub task run for all workers, control start of tasks.
-int worker_pool_begin_task(worker_pool_t *worker_pool);
-// Waiting point of inside sub task run for all workers, control end of tasks.
-int worker_pool_wait_task(worker_pool_t *worker_pool);
+// Start inside task execution in idx threads' group.
+bool task_execute_start(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
+// Inside task execution barrier in idx threads' group.
+bool task_execute_barrier(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
+// Signal for opening barrier after worker finish task.
+void task_finish_signal(worker_thread_arg *arg);
 
-int worker_pool_destroy(worker_pool_t *worker_pool);
-int worker_pool_cleanup(worker_pool_t *worker_pool);
+bool worker_pool_destroy(worker_pool_t *worker_pool);
+void worker_pool_cleanup(worker_pool_t *worker_pool);
 
 #endif // PX_WORKERPOOL_INCLUDED

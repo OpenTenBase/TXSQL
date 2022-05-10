@@ -482,7 +482,6 @@ static bool check_px_unsafe_subselect(Item *item) {
   return false;
 }
 
-
 /**
   Check the compatibility of JOIN::fields, which may be
   exchanged by exchange channel.

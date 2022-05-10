@@ -146,6 +146,8 @@ struct YYLTYPE;
 struct worker_thread_arg;
 class RowIterator;
 struct worker_pool_t;
+class PX_exchange_info;
+class PX_exchange_context;
 
 namespace dd {
 namespace cache {
@@ -1049,12 +1051,6 @@ class THD : public MDL_context_owner,
   }
 
  public:
-  // Whether can use parallel execution.
-  bool use_px{false};
-  PX_executor *px_executor{nullptr};
-  THD *px_coordinator{nullptr};
-  worker_pool_t *worker_pool{nullptr};
-  uint px_errno{0};
   MDL_context mdl_context;
 
   /**
@@ -1110,6 +1106,22 @@ class THD : public MDL_context_owner,
   bool need_fallback{false};
   /* Worker id of PX worker. */
   int worker_id{0};
+  /* Task id of Sender or Receiver. */
+  int task_executor_id{0};
+  /* Thread group id of task. */
+  int thread_group_id{-1};
+  /* Whether SQL use px execution. */
+  bool use_px{false};
+  /* Coordinator executor. */
+  PX_executor *px_executor{nullptr};
+  /* Main THD.(? why here.) */
+  THD *px_coordinator{nullptr};
+  /* Worker pool of SQL PX execution. */
+  worker_pool_t *worker_pool{nullptr};
+  /* PX error of all workers. */
+  uint px_errno{0};
+  /* PX exchange ctx. */
+  PX_exchange_context *px_exchange_context{nullptr};
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;

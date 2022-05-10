@@ -604,7 +604,10 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
       parallel_safe = false;
       break;
     }
-    case AccessPath::ZERO_ROWS:
+    case AccessPath::ZERO_ROWS: {
+      parallel_safe = false;
+      break;
+    }
     case AccessPath::ZERO_ROWS_AGGREGATED:
     case AccessPath::MATERIALIZED_TABLE_FUNCTION:
     case AccessPath::UNQUALIFIED_COUNT: {
@@ -688,8 +691,8 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
       break;
     }
     case AccessPath::APPEND: {
-      // Currently we forbid this situation.
-      parallel_safe = false;
+      // check for each children
+      parallel_safe = true;
       break;
     }
     case AccessPath::WINDOW: {
@@ -1284,6 +1287,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<NestedLoopIterator>(
             thd, mem_root, move(job.children[0]), move(job.children[1]),
             param.join_type, param.pfs_batch_mode);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
@@ -1319,6 +1323,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             move(job.children[1]), thd->variables.join_buff_size,
             param.mrr_length_per_rec, param.rec_per_key, param.store_rowids,
             param.tables_to_get_rowid_for, mrr_iterator, param.join_type);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::HASH_JOIN: {
@@ -1400,6 +1405,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             param.allow_spill_to_disk, join_type,
             join_predicate->expr->join_conditions, probe_input_batch_mode,
             hash_table_generation);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::SORT_MERGE_JOIN: {
@@ -1463,6 +1469,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         }
         iterator = NewIterator<FilterIterator>(
             thd, mem_root, move(job.children[0]), param.condition);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::SORT: {
@@ -1479,6 +1486,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<SortingIterator>(
             thd, mem_root, filesort, move(job.children[0]), num_rows_estimate,
             param.tables_to_get_rowid_for, examined_rows);
+        iterator->adjust_children();
         if (filesort->m_remove_duplicates) {
           filesort->tables[0]->duplicate_removal_iterator =
               down_cast<SortingIterator *>(iterator->real_iterator());
@@ -1502,6 +1510,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             TableCollection(tables, /*store_rowids=*/false,
                             /*tables_to_get_rowid_for=*/0),
             param.rollup, param.is_final_aggr);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::TEMPTABLE_AGGREGATE: {
@@ -1526,7 +1535,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             temptable_aggregate_iterator::CreateIterator(
                 thd, move(job.children[0]), param.temp_table_param, param.table,
                 move(job.children[1]), join, param.ref_slice, param.is_final_aggr));
-
+        iterator->adjust_children();
         break;
       }
       case AccessPath::LIMIT_OFFSET: {
@@ -1545,6 +1554,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<LimitOffsetIterator>(
             thd, mem_root, move(job.children[0]), param.limit, param.offset,
             param.count_all_rows, param.reject_multiple_rows, send_records);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::STREAM: {
@@ -1557,6 +1567,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<StreamingIterator>(
             thd, mem_root, move(job.children[0]), param.temp_table_param,
             param.table, param.provide_rowid, param.join, param.ref_slice);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::MATERIALIZE: {
@@ -1632,7 +1643,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             materialize_iterator::CreateIterator(thd, std::move(query_blocks),
                                                  param, move(table_iterator),
                                                  subjoin));
-
+        iterator->adjust_children();
         break;
       }
       case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE: {
@@ -1645,6 +1656,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<MaterializeInformationSchemaTableIterator>(
             thd, mem_root, move(job.children[0]), param.table_list,
             param.condition);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::APPEND: {
@@ -1672,6 +1684,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
           children.push_back(move(child));
         }
         iterator = NewIterator<AppendIterator>(thd, mem_root, move(children));
+        iterator->adjust_children();
         break;
       }
       case AccessPath::WINDOW: {
@@ -1715,6 +1728,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<RemoveDuplicatesIterator>(
             thd, mem_root, move(job.children[0]), join, param.group_items,
             param.group_items_size);
+        iterator->adjust_children();
         break;
       }
       case AccessPath::REMOVE_DUPLICATES_ON_INDEX: {
@@ -1804,18 +1818,27 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         break;
       }
       case AccessPath::PX_SEND: {
-        unique_ptr_destroy_only<RowIterator> table_iterator = nullptr;
         if (path->px_send().table_path) {
-          table_iterator =
-              CreateIteratorFromAccessPath(thd, mem_root, path->px_send().table_path,
-                                           join, eligible_for_batch_mode);
+          unique_ptr_destroy_only<RowIterator> table_iterator =
+              CreateIteratorFromAccessPath(thd, path->px_send().table_path,
+                                        join, eligible_for_batch_mode);
+          unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
+              thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
+
+          iterator = NewIterator<PX_sender>(
+              thd, mem_root, 0, nullptr, move(child), path->px_send().table,
+              path->px_send().fields, nullptr, path->px_send().temp_table_param,
+              move(table_iterator));
+          iterator->adjust_children();
+        } else {
+          unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
+              thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
+          iterator = NewIterator<PX_sender>(
+              thd, mem_root, 0, nullptr, move(child), path->px_send().table,
+              path->px_send().fields, nullptr, path->px_send().temp_table_param,
+              nullptr);
+          iterator->adjust_children();
         }
-        unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-            thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
-        iterator = NewIterator<PX_sender>(thd, mem_root, 0, nullptr, move(child),
-            path->px_send().table, path->px_send().fields, nullptr,
-            path->px_send().temp_table_param, move(table_iterator));
-        iterator->adjust_children();
         break;
       }
       case AccessPath::PX_RECEIVER_MERGE: {
@@ -3468,6 +3491,27 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
     receiver = NewPXReceiveAccessPath(thd, sender, table, ref_slice, false);
   }
   return receiver;
+}
+
+AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
+                                              TABLE *table, bool is_append) {
+  assert(table);
+
+  if (is_append) {
+    AccessPath *table_path =
+        NewTableScanAccessPath(thd, table, /*count_examined_rows=*/false);
+    AccessPath *sender =
+        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, nullptr, false,
+                            table_path);
+    AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, table, -1, false);
+    return receiver;
+  } else {
+    AccessPath *sender =
+        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, nullptr, false,
+                            nullptr);
+    AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, table, -1, false);
+    return receiver;
+  }
 }
 
 /**

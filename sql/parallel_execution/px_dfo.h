@@ -26,6 +26,10 @@
 #include "sql/iterators/row_iterator.h"  // RowIterator
 #include "sql/sql_class.h"  // THD
 #include "prealloced_array.h"  // Prealloced_array
+#include "px_exchange_info.h"  // PX_exchange_info
+#include <unordered_map>
+
+enum dfo_type{NO_TYPE_DFO = 0, LEAF_DFO, INTERNAL_DFO, ROOT_DFO};
 
 /**
   One Dfo is a Dataflow Operator which can be parallely executed, now we split
@@ -36,54 +40,61 @@
 */
 class Dfo {
  public:
-  Dfo()
-    : m_is_root_dfo(false),
-      m_has_scan(false),
-      m_finished(false),
-      m_active(false),
-      m_child_dfos(4),
-      m_dfo_id(0),
-      m_root_iterator(nullptr),
-      m_sender(nullptr),
-      m_receiver(nullptr),
-      m_join(nullptr),
-      m_task_id(-1) {}
-  
-  bool m_is_root_dfo;  // Whether is root dfo.
-  bool m_has_scan;  // leaf node dfo.
-  bool m_finished;  // has finished already.
-  bool m_active;  // still active dfo, still executing.
-  Prealloced_array<Dfo*, 4> m_child_dfos;  // children dfos.
-  int64_t m_dfo_id;  // dfo id.
-  RowIterator *m_root_iterator;  // root iterator.
-  RowIterator *m_sender, *m_receiver; // sender and receiver.
-  Dfo *m_parent_dfo;  // parent dfo.
-  JOIN *m_join;  // join
-  int m_task_id;  // task id info.
+  Dfo() : m_dfo_type(NO_TYPE_DFO), m_finished(false), m_active(false),
+    m_dfo_id(0), m_root_iterator(nullptr), m_parent_dfo(nullptr),
+    m_left_most(false), m_child_dfos(4), m_px_scan_ctx(nullptr) {}
+  ~Dfo() {}
 
+  void set_dfo_type(dfo_type type) { m_dfo_type = type; }
+  void set_dfo_finished(bool finish) { m_finished = finish; }
+  void set_dfo_active() { m_active = true; }
+  void set_dfo_id(int64_t dfo_counter_id) { m_dfo_id = dfo_counter_id; }
+  void set_dfo_dop(int64_t dop) { m_dop = dop; } 
+  void set_root_iterator(RowIterator *root) { m_root_iterator = root; }
   void set_parent_dfo(Dfo *dfo) { m_parent_dfo = dfo; }
+  void set_left_most() { m_left_most = true; }
   void add_child_dfo(Dfo *dfo) { m_child_dfos.push_back(dfo); }
 
-  void set_dfo_finished() { m_finished = true; }
+  bool is_root_dfo() const { return m_dfo_type == ROOT_DFO; }
+  bool is_leaf_dfo() const { return m_dfo_type == LEAF_DFO; }
+  bool is_internal_dfo() const { return m_dfo_type == INTERNAL_DFO; }
   bool is_dfo_finished() const { return m_finished; }
-  void set_dfo_active() { m_active = true; }
   bool is_dfo_active() const { return m_active; }
-  void set_dfo_has_scan() { m_has_scan = true; }
-  bool is_dfo_has_scan() const { return m_has_scan; }
+  int64_t dfo_id() const { return m_dfo_id; }
+  int64_t dop() const { return m_dop; }
+  RowIterator *root_iterator() const { return m_root_iterator; }
+  Dfo *parent_dfo() const { return m_parent_dfo; }
+  bool left_most() const { return m_left_most; }
+
+ private:
+  dfo_type m_dfo_type;  // dfo type{leaf, internal, root}
+  bool m_finished;  // has finished already.
+  bool m_active;  // still active dfo, still executing.
+  int64_t m_dfo_id;  // dfo id.
+  int64_t m_dop;  // dop of this dfo.
+  RowIterator *m_root_iterator;  // root iterator.
+  Dfo *m_parent_dfo;  // parent dfo.
+  bool m_left_most; // left most child.
+
+ public:
+  Prealloced_array<Dfo*, 4> m_child_dfos;  // children dfos.
+  void *m_px_scan_ctx{nullptr};  // px scan ctx.
 };
 
 /**
   Dfo manager split iterator by PX_Send and root iterator, A dfo tree generated
   by splitting, the normalization step should be added to adjust mysql-specific
   execution logic.
+
+  mainly include three steps:
+  1. Split dfo tree by PX_receiver and PX_sender;
+  2. Allocate resource for receiver and sender;
+  3. Set sychronization for iterator tree;
 */
 class Dfo_mgr {
  public:
-  Dfo_mgr(THD *thd)
-    : m_root_dfo(nullptr),
-      m_thd(thd),
-      m_root_iterator(nullptr),
-      m_dfo_id_counter(0) {}
+  Dfo_mgr(THD *thd) : m_root_dfo(nullptr), m_thd(thd),
+    m_root_iterator(nullptr), m_dfo_id_counter(0), m_total_threads(0) {}
 
   /**
     Split the iterator tree into DFOs' tree by exchange consumer pointer of the
@@ -94,7 +105,8 @@ class Dfo_mgr {
     @param parent_dfo parent dfo
     @return false success, true fail.
   */
-  bool do_split_iterator_tree(RowIterator *iterator, Dfo *&parent_dfo);
+  bool do_split(RowIterator *parent_iterator,
+         RowIterator *iterator, Dfo *&parent_dfo);
 
   /**
     Get the ready dfos array which has only two elements, a child and a parent.
@@ -105,27 +117,59 @@ class Dfo_mgr {
   */
   bool get_ready_dfos(std::vector<Dfo*> &dfos) const;
 
-  Dfo *root_dfo() const { return m_root_dfo; }
+  /**
+    Analyze the iterator tree and do a simple resource allocation, create
+    every PX_exchange_info when meet with PX_receiver iterator.
+    At last, we set the synchronization topology for the dfo tree.
+  */
+  void analyze_resource_allocation();
+
+  /**
+    Since there is two phases in exchange initialization, so we need to set
+    synchronization info between iterator tree.
+  */
+  void set_synchronization_info_for_dfo_tree(RowIterator *iterator);
 
  public:
-  std::vector<Dfo*> m_dfos;
-  Dfo* m_root_dfo;
+  Dfo *root_dfo() const { return m_root_dfo; }
+  void set_total_cores(int64_t cores) { m_total_threads = cores; }
+  int64_t cores() const { return m_total_threads; }
+
+ public:
+  Dfo* m_root_dfo; // Dfo tree which generate this SQL.
+  std::vector<Dfo*> m_normalized_dfo_tree;  // dfo array which post order.
+  std::unordered_map<int64_t, Dfo*> m_dfos_hash;  // dfo hash table.
 
  private:
   /**
     create dfo for certain iterator tree.
 
-    @param join join structure of the whole plan
     @param iterator iterator tree
     @param dfo out argument
     @return true error, false success
   */
-  bool create_dfo(JOIN *join, RowIterator *iterator, Dfo *&dfo);
+  bool create_dfo(RowIterator *iterator, Dfo *&dfo);
+
+  /**
+    @brief Create a exchange info between sender and receiver.
+
+    @param dfo_id PX dfo id.
+    @param iterator PX receiver iterator.
+    @return true error, false success
+   */
+  bool create_exchange_info(int64_t dfo_id, RowIterator *iterator);
+
+  /**
+    Partition scan when dfo has scan iterator, we set need_fallback and
+    fallback to serial execution if the scan iterator can not be partitioned.
+  */
+  bool partition_scan(Dfo *dfo, size_t &dop);
 
  private:
-  THD *m_thd;
-  RowIterator *m_root_iterator;
-  int64_t m_dfo_id_counter;  // dfo id.
+  THD *m_thd; // THD handle.
+  RowIterator *m_root_iterator;  // root iterator of the SQL.
+  int64_t m_dfo_id_counter; // counter id for all dfo.
+  int64_t m_total_threads; // cores' number SQL will use.
 };
 
 #endif  // PX_DFO_INCLUDED

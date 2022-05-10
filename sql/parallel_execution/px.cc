@@ -65,6 +65,66 @@ void px_init_psi_keys(void) {
 void px_init_psi_keys(void) {}
 #endif /* HAVE_PSI_INTERFACE */
 
+void PX_stage_barrier::set_number(uint senders, uint receivers)
+{
+  m_senders = senders;
+  m_receivers = receivers;
+}
+
+void PX_stage_barrier::init() {
+  pthread_semphore_init(&m_exchange_sem, 0, 0);
+  pthread_semphore_init(&m_stage_barrier_sem, 0, 0);
+}
+
+void PX_stage_barrier::destroy()
+{
+  pthread_semphore_destroy(&m_exchange_sem);
+  pthread_semphore_destroy(&m_stage_barrier_sem);
+}
+
+void PX_stage_barrier::exchange_wait()
+{
+  pthread_semphore_wait(&m_exchange_sem);
+}
+
+void PX_stage_barrier::exchange_senders_post()
+{
+  uint done = 0;
+  done = sender_done.fetch_add(1, std::memory_order_relaxed)+1;
+  if (done == m_senders)
+    pthread_semphore_post(&m_exchange_sem);
+}
+
+void PX_stage_barrier::exchange_receivers_post()
+{
+  uint done = 0;
+  done = receiver_done.fetch_add(1, std::memory_order_relaxed)+1;
+  if (done == m_receivers)
+    for (uint i = 0; i < m_senders; ++i)
+      pthread_semphore_post(&m_exchange_sem);
+}
+
+void PX_stage_barrier::schedule_wait()
+{
+  pthread_semphore_wait(&m_stage_barrier_sem);
+}
+
+void PX_stage_barrier::schedule_receivers_post()
+{
+  uint done = 0;
+  done = stage_done.fetch_add(1, std::memory_order_relaxed)+1;
+  if (done == m_receivers) // TODO: open all senders.
+    pthread_semphore_post(&m_stage_barrier_sem);
+}
+
+void PX_stage_barrier::schedule_senders_post()
+{
+  uint done = 0;
+  done = stage_done.fetch_add(1, std::memory_order_relaxed)+1;
+  if (done == m_senders)
+    pthread_semphore_post(&m_stage_barrier_sem);
+}
+
 PX_proc::PX_proc(THD *thd) : m_thd(thd), m_notified() {
   mysql_mutex_init(key_px_thd_lock, &m_thd_lock, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_px_thd_cond, &m_thd_cond);

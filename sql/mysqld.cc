@@ -12431,7 +12431,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_statistics_tasks_pool, "LOCK_stats_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_Exchange_Info_Channel, "Exchange_Info_Channel_mutex", 0, 0, PSI_DOCUMENT_ME}
+  { &key_LOCK_Exchange_Info_Channel, "Exchange_Info_Channel_mutex", 0, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_Running_Task_Barrier, "key_LOCK_Running_Task_Barrier_mutex", 0, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -13176,3 +13177,4 @@ bool txsql_parallel_copy_ddl = false;
 bool cdb_optimize_gtid_lock = false;
 bool cdb_plan_equivalence_comparison_enabled = false;
 PSI_mutex_key key_LOCK_Exchange_Info_Channel;
+PSI_mutex_key key_LOCK_Running_Task_Barrier;

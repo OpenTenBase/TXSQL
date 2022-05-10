@@ -3083,7 +3083,7 @@ int handler::ha_px_end() {
   DBUG_TRACE;
 
   /* For the parallel query test, just call px_coordinator_end here. */
-  if ((result = px_coordinator_end(table->in_use->px_scan_ctx)) != 0) {
+  if ((result = px_coordinator_end(table->file->px_scan_ctx)) != 0) {
     return result;
   }
 
@@ -6815,7 +6815,7 @@ int DsMrr_impl::dsmrr_init(RANGE_SEQ_IF *seq_funcs, void *seq_init_param,
   THD *const thd = table->in_use;  // current THD
 
   // For parallel query, always set use_default_impl = true.
-  if ((thd && thd->px_executor) ||
+  if ((thd && thd->use_px) ||
       !hint_key_state(thd, table->pos_in_table_list, h->active_index,
                       MRR_HINT_ENUM, OPTIMIZER_SWITCH_MRR) ||
       mode & (HA_MRR_USE_DEFAULT_IMPL | HA_MRR_SORTED))  // DS-MRR doesn't sort

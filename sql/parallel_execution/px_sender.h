@@ -53,8 +53,6 @@ class PX_sender : public RowIterator {
     }
   }
 
-  void set_exchange_info(PX_exchange_info *ex_info) { m_pei = ex_info; }
-
   void SetNullRowFlag(bool is_null_row) override {
     if (!m_materialize) {
       m_source->SetNullRowFlag(is_null_row);
@@ -69,9 +67,16 @@ class PX_sender : public RowIterator {
       m_table_path->UnlockRow();
     }
   }
+
+  void set_exchange_info(PX_exchange_info *pei) { m_pei = pei; }
+  PX_exchange_info *get_pei() const { return m_pei; }
+
   virtual std::string str() override { return "PX_Send"; }
   virtual PhysicalRowIteratorType type() override { return PHY_PX_SEND; }
   virtual void adjust_children() override { add_child(m_source.get()); }
+
+public:
+  SynchronizeRoleType m_role{SYN_LOCK};
 
  private:
   bool send_compact_row();
@@ -80,6 +85,8 @@ class PX_sender : public RowIterator {
   uint32 make_compact_field(Field *field, PX_field_data *px_field);
 
   uint cal_reshuffle_channel(mem_root_deque<Item *> *reshuffle_key);
+  void schedule_post();
+  void synchronize();
 
  private:
   THD *m_thd{nullptr};

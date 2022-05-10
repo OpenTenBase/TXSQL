@@ -82,6 +82,8 @@ class PT_hint_list;
 extern int HINT_PARSER_parse(THD *thd, Hint_scanner *scanner,
                              PT_hint_list **ret);
 
+extern bool compat_for_table(TABLE *table);
+
 static int lex_one_token(Lexer_yystype *yylval, THD *thd);
 
 static constexpr const int MAX_SELECT_NESTING{sizeof(nesting_map) * 8 - 1};
@@ -861,8 +863,7 @@ bool LEX::check_px_execution() const {
       sql_command != SQLCOM_SELECT ||
       unit->has_user_vars() ||
       is_from_ps ||
-      is_from_sp ||
-      unit->is_union()) {
+      is_from_sp) {
     return false;
   }
 

@@ -2049,4 +2049,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
 
 bool WalkAccessPathsForCompat(AccessPath *path, bool check = true);
 
+AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
+                                              TABLE *table, bool is_append = false);
+
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H

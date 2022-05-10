@@ -18,6 +18,9 @@
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_mutex.h"
 
+#include "semaphore.h"
+#include <atomic> // fetch_add
+
 class THD;
 struct TABLE;
 struct TABLE_REF;
@@ -40,6 +43,12 @@ typedef mysql_mutex_t spin_lock_t;
 #define SpinLockRelease(lock) mysql_mutex_unlock(lock)
 #define SpinLockFree(lock) mysql_mutex_destroy(lock)
 
+#define pthread_semphore_t sem_t
+#define pthread_semphore_init(A,B,C) sem_init((A),(B),(C))
+#define pthread_semphore_wait(A) sem_wait((A))
+#define pthread_semphore_post(A) sem_post((A))
+#define pthread_semphore_destroy(A) sem_destroy((A))
+
 /* Notify given thread. */
 #define SetLatch(proc) (proc)->notify()
 
@@ -54,6 +63,34 @@ typedef mysql_mutex_t spin_lock_t;
   The status of a backend thread
 */
 enum PX_handle_status { NOT_YET_STARTED = 0, STARTED, KILLED };
+
+class PX_stage_barrier {
+ public:
+  PX_stage_barrier(uint senders, uint receivers)
+   : m_senders(senders), m_receivers(receivers) {}
+  ~PX_stage_barrier() {}
+
+  void init(); // Init the stage barrier.
+  void destroy(); // Destroy the stage barrier.
+  void set_number(uint senders, uint receivers);
+
+  void exchange_wait(); // wait for sender/receiver finished.
+  void exchange_senders_post(); // sender post.
+  void exchange_receivers_post(); // receiver post.
+
+  void schedule_wait(); // wait for one stage begin.
+  void schedule_receivers_post(); // post stage begin.
+  void schedule_senders_post(); // post stage begin.
+
+ private:
+  std::atomic<uint> sender_done{0}; // number of sender done
+  std::atomic<uint> receiver_done{0}; // number of receiver done.
+  std::atomic<uint> stage_done{0}; // number of done when switch stage
+  uint m_senders; // number of senders for one exchange.
+  uint m_receivers; // number of receivers for one exchange.
+  pthread_semphore_t m_exchange_sem;
+  pthread_semphore_t m_stage_barrier_sem;
+};
 
 /**
   This class represents a counterpart handle of the message queue handle.
