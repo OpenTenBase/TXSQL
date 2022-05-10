@@ -74,15 +74,6 @@ select sum(col1)+1 from t2;
 select avg(col1) from t2;
 
 --echo #
---echo # Index scan -> exchange -> Aggregate -> exchange
---echo #
-select distinct col2 from t1;
---echo #
---echo # Table scan-> materialize -> exchange
---echo #
-select distinct col1 from t1;
-
---echo #
 --echo # Table scan -> Sort -> exchange -> Nested loop join -> exchange
 --echo #
 select * from t1 join t2 on t1.id=t2.id order by t1.col1;
@@ -305,4 +296,35 @@ explain format=tree select if(u=1,binary st,st) s from t1 order by s;
 select if(u=1,binary st,st) s from t1 order by s;
 --echo # Fall back
 explain format=tree select if(t1.u=1,binary t1.st,t2.st) s from t1 join t1 as t2 on t1.id = t2.id;
+drop table t1;
+
+create table t1(a int, b int, c int);
+insert into t1 values (1,1,1), (2,1,1), (3,3,3), (3,4,4), (4,5,5), (5,5,5);
+create temporary table tmp as (select * from t1);
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+drop table tmp;
+alter table t1 add index idx(a,b);
+analyze table t1;
+--echo #
+--echo # When using the AGGREGATE operator for deduplication, 
+--echo # merge sort must be used to ensure that the input of the final agg is in order.
+--echo #
+explain format=tree select distinct a from t1 where b>2;
+select distinct a from t1 where b>2;
+explain format=tree select distinct a, b from t1 where c>2;
+select distinct a, b from t1 where c>2;
+--echo # Deduplication has been optimized away.
+explain format=tree select distinct a from t1 where a=2;
+--echo # Not supported
+explain format=tree select count(distinct b) from t1;
 drop table t1;

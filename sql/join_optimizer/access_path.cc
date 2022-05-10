@@ -2926,6 +2926,13 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
           target_path = subpath;
           split_pos->type = SplitPosition::SPLIT_AGG;
           split_pos->split_sort = false;
+          // When using the AGGREGATE operator for deduplication, merge sort
+          // must be used to ensure that the input of the Final AGGREGATE is in
+          // order.
+          if (join->query_block->is_distinct() && !join->group_list.empty()) {
+            split_pos->split_sort = true;
+            split_pos->filesort = nullptr;
+          }
         }
         return false;
 
@@ -3185,9 +3192,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
             join->split_position.split_sort);
       }
     } else {
-      exchange = CreateExchangeAccessPathUseTable(thd, join, path, table,
-                                                  output_slice,
-                                                  join->split_position.split_sort);
+      exchange =
+          CreateExchangeAccessPathUseTable(thd, join, path, table, output_slice,
+                                           join->split_position.split_sort);
     }
     if (exchange) {
       thd->lex->m_exchange_number++;
@@ -3455,16 +3462,13 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
                                                     TABLE *table,
                                                     int ref_slice,
                                                     bool do_receiver_merge) {
-  // uchar *record = new (thd->mem_root) uchar[EXCHANGE_BUFFER_SIZE];
-  // if (record == nullptr) return nullptr;
-
   assert(table);
   AccessPath *sender = NewPXSendAccessPath(thd, path, table, nullptr,
       join->fields, nullptr, false);
   AccessPath *receiver = nullptr;
   if (do_receiver_merge) {
     Filesort *final_file_sort = nullptr;
-    if (path->type == AccessPath::SORT){
+    if (path->type == AccessPath::SORT) {
       Filesort *curr_file_sort = path->sort().filesort;
       final_file_sort = new (thd->mem_root) Filesort(thd,
           Mem_root_array<TABLE *>(thd->mem_root, curr_file_sort->tables),
@@ -3472,17 +3476,30 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
           curr_file_sort->m_order, curr_file_sort->limit,
           curr_file_sort->m_remove_duplicates,
           curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
+      // TODO: returns a result of type bool
+      if (!final_file_sort) return nullptr;
     } else {
-      Filesort *curr_file_sort = join->split_position.filesort;
-      // Split sort and agg
-      assert(ref_slice > 0);
-      join->set_ref_item_slice(ref_slice);
-      final_file_sort = new (thd->mem_root) Filesort(thd,
-          {table}, curr_file_sort->keep_buffers,
-          curr_file_sort->m_order, curr_file_sort->limit,
-          curr_file_sort->m_remove_duplicates,
-          curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
-      join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+      // When using the AGGREGATE operator for deduplication, merge sort must be
+      // used to ensure that the input of the final agg is in order.
+      if (!join->split_position.filesort) {
+        assert(!join->group_list.empty());
+        final_file_sort = new (thd->mem_root)
+            Filesort(thd, {table}, false, join->group_list.order, HA_POS_ERROR,
+                     false, false, false);
+        if (!final_file_sort) return nullptr;
+      } else {
+        Filesort *curr_file_sort = join->split_position.filesort;
+        // Split sort and agg
+        assert(ref_slice > 0);
+        join->set_ref_item_slice(ref_slice);
+        final_file_sort = new (thd->mem_root) Filesort(thd,
+            {table}, curr_file_sort->keep_buffers,
+            curr_file_sort->m_order, curr_file_sort->limit,
+            curr_file_sort->m_remove_duplicates,
+            curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
+        join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+        if (!final_file_sort) return nullptr;
+      }
     }
     assert(final_file_sort);
     receiver = NewPXReceiverMergeAccessPath(thd, sender, final_file_sort,

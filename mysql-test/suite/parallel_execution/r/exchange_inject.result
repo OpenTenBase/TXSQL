@@ -107,36 +107,6 @@ select avg(col1) from t2;
 avg(col1)
 4.5000
 #
-# Index scan -> exchange -> Aggregate -> exchange
-#
-select distinct col2 from t1;
-col2
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-#
-# Table scan-> materialize -> exchange
-#
-select distinct col1 from t1;
-col1
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-#
 # Table scan -> Sort -> exchange -> Nested loop join -> exchange
 #
 select * from t1 join t2 on t1.id=t2.id order by t1.col1;
@@ -574,5 +544,71 @@ EXPLAIN
 -> Nested loop inner join  (cost=2.95 rows=6)
     -> Table scan on t1  (cost=0.85 rows=6)
     -> Single-row index lookup on t2 using PRIMARY (id=t1.id)  (cost=0.27 rows=1)
+
+drop table t1;
+create table t1(a int, b int, c int);
+insert into t1 values (1,1,1), (2,1,1), (3,3,3), (3,4,4), (4,5,5), (5,5,5);
+create temporary table tmp as (select * from t1);
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+insert into tmp select * from t1;
+insert into t1 select * from tmp;
+drop table tmp;
+alter table t1 add index idx(a,b);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+#
+# When using the AGGREGATE operator for deduplication, 
+# merge sort must be used to ensure that the input of the final agg is in order.
+#
+explain format=tree select distinct a from t1 where b>2;
+EXPLAIN
+-> Group (no aggregates)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group (no aggregates)
+                -> Filter: (t1.b > 2)  (cost=141.05 rows=466)
+                    -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+
+select distinct a from t1 where b>2;
+a
+3
+4
+5
+explain format=tree select distinct a, b from t1 where c>2;
+EXPLAIN
+-> Group (no aggregates)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group (no aggregates)
+                -> Filter: (t1.c > 2)  (cost=141.05 rows=466)
+                    -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+
+select distinct a, b from t1 where c>2;
+a	b
+3	3
+3	4
+4	5
+5	5
+# Deduplication has been optimized away.
+explain format=tree select distinct a from t1 where a=2;
+EXPLAIN
+-> Group (computed in earlier step, no aggregates)
+    -> Filter: (t1.a = 2)  (cost=2.18 rows=1)
+        -> Index range scan on t1 using index_for_group_by(idx)  (cost=2.18 rows=1)
+
+# Not supported
+explain format=tree select count(distinct b) from t1;
+EXPLAIN
+-> Aggregate: count(distinct t1.b)
+    -> Index scan on t1 using idx  (cost=141.05 rows=1398)
 
 drop table t1;
