@@ -870,8 +870,9 @@ bool LEX::check_px_execution() const {
     if (!tl->is_derived()) {
       if (!tl->table ||
           !tl->table->file ||
-          (tl->table->file->ht->db_type != DB_TYPE_INNODB ||
-              tl->lock_descriptor().type > TL_READ_DEFAULT)) {
+          (tl->table->s->table_category != TABLE_CATEGORY_USER ||
+             tl->table->file->ht->db_type != DB_TYPE_INNODB ||
+             tl->lock_descriptor().type > TL_READ_DEFAULT)) {
         return false;
       }
     }

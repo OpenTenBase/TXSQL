@@ -560,74 +560,14 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
   // TODO: more check
   bool parallel_safe = false;
   switch (path->type) {
-    case AccessPath::TABLE_SCAN: {
-      TABLE *table = path->table_scan().table;
-      TABLE_LIST *tl = table->pos_in_table_list;
-      if (tl && tl->is_view_or_derived()) {
-        parallel_safe = true;
-      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
-        parallel_safe = false;
-      }
-      else if (table->file->stats.records <= 2)
-        parallel_safe = false;
-      else if (!compat_for_table(table))
-        parallel_safe = false;
-      else
-        parallel_safe = true;
+    case AccessPath::TABLE_SCAN:
+    case AccessPath::INDEX_SCAN:
+    case AccessPath::REF:
+    case AccessPath::REF_OR_NULL:
+    case AccessPath::INDEX_RANGE_SCAN: {
+      parallel_safe = true;
       break;
     }
-    case AccessPath::INDEX_SCAN: {
-      TABLE *table = path->index_scan().table;
-      TABLE_LIST *tl = table->pos_in_table_list;
-      if (tl && tl->is_view_or_derived()) {
-        parallel_safe = true;
-      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
-        parallel_safe = false;
-      }
-      else if (table->file->stats.records <= 2)
-        parallel_safe = false;
-      else if (!compat_for_table(table))
-        parallel_safe = false;
-      else
-        parallel_safe = true;
-      break;
-    }
-    case AccessPath::REF: {
-      TABLE *table = path->ref().table;
-      TABLE_LIST *tl = table->pos_in_table_list;
-      if (tl && tl->is_view_or_derived()) {
-        parallel_safe = true;
-      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
-        parallel_safe = false;
-      }
-      else if (table->file->stats.records <= 2)
-        parallel_safe = false;
-      else if (!compat_for_table(table))
-        parallel_safe = false;
-      else
-        parallel_safe = true;
-      break;
-    }
-    case AccessPath::REF_OR_NULL: {
-      if (!check) {
-        TABLE *table = path->ref_or_null().table;
-        TABLE_LIST *tl = table->pos_in_table_list;
-        if (tl && tl->is_view_or_derived()) {
-          parallel_safe = true;
-        } else if (table->s->table_category != TABLE_CATEGORY_USER) {
-          parallel_safe = false;
-        }
-        else if (table->file->stats.records <= 2)
-          parallel_safe = false;
-        else if (!compat_for_table(table))
-          parallel_safe = false;
-        else
-          parallel_safe = true;
-      } else {
-        parallel_safe = false;
-      }
-      break;
-    } 
     case AccessPath::EQ_REF:
     case AccessPath::PUSHED_JOIN_REF: {
       parallel_safe = true;
@@ -646,24 +586,6 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     case AccessPath::FOLLOW_TAIL: {
       // No children.
       parallel_safe = true;
-      break;
-    }
-    case AccessPath::INDEX_RANGE_SCAN: {
-      const auto &param = path->index_range_scan();
-      TABLE *table = param.used_key_part[0].field->table;
-      TABLE_LIST *tl = table->pos_in_table_list;
-      if (tl && tl->is_view_or_derived()) {
-        parallel_safe = true;
-      } else if (table->s->table_category != TABLE_CATEGORY_USER) {
-        parallel_safe = false;
-      }
-      else if (table->file->stats.records <= 2)
-        parallel_safe = false;
-      else if (!compat_for_table(table))
-        parallel_safe = false;
-      else
-        parallel_safe = true;
-      
       break;
     }
     case AccessPath::INDEX_MERGE:
