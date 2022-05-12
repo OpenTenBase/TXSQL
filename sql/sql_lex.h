@@ -986,18 +986,6 @@ class Query_expression {
   bool finalize(THD *thd);
 
   /**
-    Traverse access paths and add exchange operator to acess paths, then split
-    the whole access path tree into multiple dfos, schedule the multiple dfos
-    among created physical threads.
-
-    Except that, MQ items' ref must be added into whole path.
-
-    @param thd Thread handle.
-    @param path root access path for traversing.
-  */
-  bool parallelize(THD *thd, AccessPath *path);
-
-  /**
     Do everything that would be needed before running Init() on the root
     iterator. In particular, clear out data from previous execution iterations,
     if needed.
