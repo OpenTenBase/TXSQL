@@ -548,6 +548,7 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
       if (task_execute_barrier(worker_pool, &child_desc)) return true;
 
       if (thd()->need_fallback) return false; // Fallback to serial execution.
+      if (thd()->killed) return true; // been killed.
       if (!thd()->need_fallback && thd()->check_px_error()) {
         // Throw error 'ER_PX_EXECUTE_ERROR' when sending data.
         thd()->get_stmt_da()->reset_diagnostics_area();

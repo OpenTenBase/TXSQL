@@ -58,7 +58,7 @@ connection conn1;
 set global cdb_parallel_query_enable = on;
 set global cdb_parallel_execution_enabled = on;
 set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 1;
+set global cdb_min_parallel_table_rows = 2;
 
 connect(conn2,localhost,user1,,);
 

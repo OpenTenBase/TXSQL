@@ -694,12 +694,6 @@ static bool finalize_full_text_functions(THD *thd,
   return false;
 }
 
-bool Query_expression::parallelize(THD *, AccessPath *) {
-  // Add exchange to access path tree.
-  // if (traverse_access_path_tree(thd, m_root_access_path)) return true;
-  return false;
-}
-
 bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
                                 bool create_iterators,
                                 bool finalize_access_paths) {
@@ -1545,6 +1539,7 @@ bool Query_expression::execute_in_parallel(THD *thd) {
   if (!thd->m_is_worker) {
     DEBUG_SYNC_C("execute_in_parallel_before");
     debug_print_dfo(dfo_mgr->root_dfo());
+    if (thd->is_error()) return true; // error occured before schedule.
     if (thd->need_fallback) return false; // fall back to serial execution.
     sql_print_information("SELECT_LEX_UNIT::%s:%d coordinator start schedule.",
       __FUNCTION__, __LINE__);
@@ -1553,7 +1548,6 @@ bool Query_expression::execute_in_parallel(THD *thd) {
     PX_coordinator *coordinator = nullptr;
     coordinator = new (thd->mem_root) PX_parallel_coordinator(dfo_mgr, thd);
     thd->px_executor = coordinator; // set px_executor to THD
-    if (coordinator->prepare_task_for_dfo()) return true;
 
     // Create worker executor to execute tasks received, set num_threads.
     worker_pool_t *worker_pool = create_worker_threads(dfo_mgr->cores());

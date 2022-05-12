@@ -10913,7 +10913,7 @@ int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tupl
   */
   m_prebuilt->px_reading = true;
   auto saved_ipc = m_prebuilt->idx_cond;
-  m_prebuilt->idx_cond = FALSE;
+  m_prebuilt->idx_cond = false;
   int err = index_read(table->record[0], range_key->key, key_len, key_flag);
   m_prebuilt->idx_cond = saved_ipc;
   m_prebuilt->px_reading = false;
@@ -11125,7 +11125,7 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
     when make partition range boundary tupel, the index read will
     reopen it. See details in index_read.
   */
-  m_prebuilt->sql_stat_start = FALSE;
+  m_prebuilt->sql_stat_start = false;
 
   auto reader = ut::new_withkey<PX_reader>(
       UT_NEW_THIS_FILE_PSI_KEY, dop);

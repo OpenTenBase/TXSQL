@@ -40,7 +40,7 @@ insert into t4 values(100,100,100,100);
 set global cdb_parallel_query_enable = on;
 set global cdb_parallel_execution_enabled = on;
 set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 1;
+set global cdb_min_parallel_table_rows = 2;
 select * from t1 union select * from t2;
 a	b	c	d
 1	1	1	1
