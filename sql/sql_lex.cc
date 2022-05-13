@@ -5017,12 +5017,6 @@ void Query_block::check_px_execution(THD *thd) {
     return ;
   }
 
-  // Check select with distinct
-  if (is_distinct()) {
-    pass_px_check = false;
-    return ;
-  }
-
   for (const TABLE_LIST *tl = table_list.first; tl != nullptr; tl = tl->next_local) {
     if (!tl->is_derived()) {
       if (!tl->table ||

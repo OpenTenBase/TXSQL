@@ -2911,11 +2911,11 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
             group_field_eq_sort_list(join->group_fields,
                                      subpath->sort().filesort->m_order)) {
           split_pos->type = SplitPosition::SPLIT_SORT_AGG;
-          split_pos->filesort = subpath->sort().filesort;
         } else {
           target_path = subpath;
           split_pos->type = SplitPosition::SPLIT_SORT;
         }
+        split_pos->filesort = subpath->sort().filesort;
         split_pos->split_sort = true;
         return false;
       case AccessPath::AGGREGATE:
@@ -2926,10 +2926,11 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
           target_path = subpath;
           split_pos->type = SplitPosition::SPLIT_AGG;
           split_pos->split_sort = false;
-          // When using the AGGREGATE operator for deduplication, merge sort
-          // must be used to ensure that the input of the Final AGGREGATE is in
-          // order.
-          if (join->query_block->is_distinct() && !join->group_list.empty()) {
+          // Stream AGGREGATE used for grouping requires group columns can be
+          // read in order. merge sort must be used to ensure that the input of
+          // the Final AGGREGATE is in order.
+          if (subpath->type == AccessPath::AGGREGATE &&
+              !join->group_list.empty()) {
             split_pos->split_sort = true;
             split_pos->filesort = nullptr;
           }
@@ -3468,10 +3469,10 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
   AccessPath *receiver = nullptr;
   if (do_receiver_merge) {
     Filesort *final_file_sort = nullptr;
-    if (path->type == AccessPath::SORT) {
-      Filesort *curr_file_sort = path->sort().filesort;
+    if (join->split_position.filesort) {
+      Filesort *curr_file_sort = join->split_position.filesort;
       final_file_sort = new (thd->mem_root) Filesort(thd,
-          Mem_root_array<TABLE *>(thd->mem_root, curr_file_sort->tables),
+          {table},
           curr_file_sort->keep_buffers,
           curr_file_sort->m_order, curr_file_sort->limit,
           curr_file_sort->m_remove_duplicates,
@@ -3479,27 +3480,13 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
       // TODO: returns a result of type bool
       if (!final_file_sort) return nullptr;
     } else {
-      // When using the AGGREGATE operator for deduplication, merge sort must be
-      // used to ensure that the input of the final agg is in order.
-      if (!join->split_position.filesort) {
-        assert(!join->group_list.empty());
-        final_file_sort = new (thd->mem_root)
-            Filesort(thd, {table}, false, join->group_list.order, HA_POS_ERROR,
-                     false, false, false);
-        if (!final_file_sort) return nullptr;
-      } else {
-        Filesort *curr_file_sort = join->split_position.filesort;
-        // Split sort and agg
-        assert(ref_slice > 0);
-        join->set_ref_item_slice(ref_slice);
-        final_file_sort = new (thd->mem_root) Filesort(thd,
-            {table}, curr_file_sort->keep_buffers,
-            curr_file_sort->m_order, curr_file_sort->limit,
-            curr_file_sort->m_remove_duplicates,
-            curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
-        join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
-        if (!final_file_sort) return nullptr;
-      }
+      // When using the AGGREGATE operator for grouping, merge sort must be used
+      // to ensure that the input of the final agg is in order.
+      assert(!join->group_list.empty());
+      final_file_sort = new (thd->mem_root)
+          Filesort(thd, {table}, false, join->group_list.order, HA_POS_ERROR,
+                    false, false, false);
+      if (!final_file_sort) return nullptr;
     }
     assert(final_file_sort);
     receiver = NewPXReceiverMergeAccessPath(thd, sender, final_file_sort,
