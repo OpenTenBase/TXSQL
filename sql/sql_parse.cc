@@ -2282,6 +2282,14 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 #endif
 
       thd->lex->pass_px_check = true;
+
+#if defined(ENABLED_DEBUG_SYNC)
+  /* Check the Debug Sync Facility. See debug_sync.cc. */
+  if (check_debug_sync_for_px(thd)) {
+    thd->lex->pass_px_check = false;
+  }
+#endif /* defined(ENABLED_DEBUG_SYNC) */
+
       const LEX_CSTRING orig_query = thd->query();
 
       Parser_state parser_state;
@@ -2850,6 +2858,13 @@ done:
   thd->set_proc_info(nullptr);
   thd->lex->sql_command = SQLCOM_END;
   thd->lex->pass_px_check = true;
+
+#if defined(ENABLED_DEBUG_SYNC)
+  /* Check the Debug Sync Facility. See debug_sync.cc. */
+  if (check_debug_sync_for_px(thd)) {
+    thd->lex->pass_px_check = false;
+  }
+#endif /* defined(ENABLED_DEBUG_SYNC) */
 
   /* Performance Schema Interface instrumentation, end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
