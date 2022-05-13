@@ -2001,4 +2001,25 @@ void conditional_sync_point_for_timestamp(std::string name) {
                          std::to_string(current_thd->start_time.tv_sec));
 }
 
+/**
+  Check whether dbug sync is set.
+
+  @param[in]        thd             thread handle
+
+  @return           status
+    @retval         true            dbug sync is set
+    @retval         false           not set
+  
+  @note
+    This function is used to check whether the current query statement
+    execute with dbug sync. If dbug sync is set, we will not allow this
+    statement do parallel execution.
+*/
+bool check_debug_sync_for_px(THD *thd) {
+  if (thd->debug_sync_control && thd->debug_sync_control->ds_active) {
+    return true;
+  }
+  return false;
+}
+
 #endif /* defined(ENABLED_DEBUG_SYNC) */
