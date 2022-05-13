@@ -316,9 +316,15 @@ drop table tmp;
 alter table t1 add index idx(a,b);
 analyze table t1;
 --echo #
---echo # When using the AGGREGATE operator for deduplication, 
+--echo # When using the AGGREGATE operator for grouping, 
 --echo # merge sort must be used to ensure that the input of the final agg is in order.
 --echo #
+explain format=tree select a, sum(b) from t1 group by a;
+select a, sum(b) from t1 group by a;
+explain format=tree select a, b, sum(c) from t1 group by a, b;
+select a, b, sum(c) from t1 group by a, b;
+explain format=tree select a, b, sum(c) from t1 group by a, b order by a, b;
+select a, b, sum(c) from t1 group by a, b order by a, b;
 explain format=tree select distinct a from t1 where b>2;
 select distinct a from t1 where b>2;
 explain format=tree select distinct a, b from t1 where c>2;

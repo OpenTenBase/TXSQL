@@ -566,9 +566,56 @@ analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 #
-# When using the AGGREGATE operator for deduplication, 
+# When using the AGGREGATE operator for grouping, 
 # merge sort must be used to ensure that the input of the final agg is in order.
 #
+explain format=tree select a, sum(b) from t1 group by a;
+EXPLAIN
+-> Group aggregate: sum(t1.b)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group aggregate: sum(t1.b)
+                -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+
+select a, sum(b) from t1 group by a;
+a	sum(b)
+1	233
+2	233
+3	1631
+4	1165
+5	1165
+explain format=tree select a, b, sum(c) from t1 group by a, b;
+EXPLAIN
+-> Group aggregate: sum(t1.c)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group aggregate: sum(t1.c)
+                -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+
+select a, b, sum(c) from t1 group by a, b;
+a	b	sum(c)
+1	1	233
+2	1	233
+3	3	699
+3	4	932
+4	5	1165
+5	5	1165
+explain format=tree select a, b, sum(c) from t1 group by a, b order by a, b;
+EXPLAIN
+-> Group aggregate: sum(t1.c)
+    -> Exchange Merge Receive dop )
+        -> Exchange Send dop )
+            -> Group aggregate: sum(t1.c)
+                -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+
+select a, b, sum(c) from t1 group by a, b order by a, b;
+a	b	sum(c)
+1	1	233
+2	1	233
+3	3	699
+3	4	932
+4	5	1165
+5	5	1165
 explain format=tree select distinct a from t1 where b>2;
 EXPLAIN
 -> Group (no aggregates)
