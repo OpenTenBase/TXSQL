@@ -39,6 +39,9 @@ insert into t4 values(200,200,200,200);
 insert into t4 values(300,300,300,300);
 insert into t4 values(400,400,400,400);
 insert into t4 values(500,500,500,500);
+create table t5(a mediumtext);
+INSERT INTO t5 VALUES ('a'),('b');
+CREATE TABLE t6 (b varchar(20));
 set global cdb_parallel_query_enable = on;
 set global cdb_parallel_execution_enabled = on;
 set global exchange_inject = on;
@@ -855,6 +858,16 @@ EXPLAIN
                     -> Aggregate using temporary table
                         -> Table scan on t2  (cost=*** rows=***)
 
+#
+# Union's temporary table contains incompatible fields.
+#
+explain format=tree SELECT left(a,100000000) FROM t5 UNION  SELECT b FROM t6;
+EXPLAIN
+-> Table scan on <union temporary>  (cost=*** rows=***)
+    -> Union materialize with deduplication
+        -> Table scan on t5  (cost=*** rows=***)
+        -> Table scan on t6  (cost=*** rows=***)
+
 set global cdb_parallel_query_enable = off;
 set global cdb_parallel_execution_enabled = off;
 set global exchange_inject = off;
@@ -863,5 +876,7 @@ drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
+drop table t5;
+drop table t6;
 drop database test1;
 drop user user1;

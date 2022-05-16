@@ -44,6 +44,11 @@ insert into t4 values(300,300,300,300);
 insert into t4 values(400,400,400,400);
 insert into t4 values(500,500,500,500);
 
+create table t5(a mediumtext);
+INSERT INTO t5 VALUES ('a'),('b');
+
+CREATE TABLE t6 (b varchar(20));
+
 connection conn1;
 
 set global cdb_parallel_query_enable = on;
@@ -173,6 +178,11 @@ explain format=tree select variance(a) from t1 group by b union all select varia
 --replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree select variance(a) from t1 group by b union select variance(a) from t2 group by b;
 
+--echo #
+--echo # Union's temporary table contains incompatible fields.
+--echo #
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree SELECT left(a,100000000) FROM t5 UNION  SELECT b FROM t6;
 
 connection conn1;
 set global cdb_parallel_query_enable = off;
@@ -184,5 +194,7 @@ drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
+drop table t5;
+drop table t6;
 drop database test1;
 drop user user1;

@@ -716,7 +716,8 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
   if (query_result() != nullptr) query_result()->estimated_rowcount = 0;
 
   // Check whether lex pass parallel compatibilty check.
-  if (thd->lex->pass_px_check && !thd->lex->check_px_execution()) {
+  if (thd->lex->pass_px_check && (!thd->lex->check_px_execution() ||
+                                  (table && !compat_for_table(table)))) {
     thd->lex->pass_px_check = false;
     pass_px_check = false;
   }
