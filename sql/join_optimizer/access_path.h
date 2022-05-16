@@ -2047,6 +2047,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                                        uint curr_exchange, bool &new_child,
                                        int cur_slice, bool alloc_group_field);
 
+bool compat_for_table(TABLE *table);
+
 bool WalkAccessPathsForCompat(AccessPath *path, bool check = true);
 
 AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
