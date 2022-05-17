@@ -9996,6 +9996,12 @@ ER_PX_OUT_OF_THREADS
 ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT
   eng "CDB: thread(%lu) optimization context (%s) mismatch"
 
+ER_WARN_BAD_PARALLEL_DEGREE
+  eng "Invalid degree of parallelism"
+
+ER_WARN_UNSUPPORTED_PARALLEL
+  eng "PARALLEL hint is supported by top-level standalone SELECT statements only"
+
 #
 # End of MyRocks specific client messages
 #

@@ -286,6 +286,108 @@ class PT_hint_max_execution_time : public PT_hint {
   }
 };
 
+/**
+  Parse tree hint object for PARALLEL hint.
+*/
+
+// This hint can be divided into two parts: table hint and dop hint. The table
+// hint is effective within a query block, the dop hint is effective within the
+// whole statement(global)
+class PT_hint_parallel : public PT_hint {
+  Hint_param_table table_name;
+  ulong degree;
+  // If table hint is ineffective, the degree hint is also ineffective.
+  bool effective_hint;
+  // see append_args()
+  bool contextualized;
+
+  typedef PT_hint super;
+
+ public:
+  explicit PT_hint_parallel(Hint_param_table &table_name_arg,
+                            bool switch_state_arg)
+      : PT_hint(PARALLEL_HINT_ENUM, switch_state_arg),
+        table_name(table_name_arg),
+        degree(UINT_MAX32),
+        effective_hint(false),
+        contextualized(false) {}
+
+  explicit PT_hint_parallel(ulong degree_arg)
+      : PT_hint(PARALLEL_HINT_ENUM, true),
+        table_name({NULL_CSTR, NULL_CSTR}),
+        degree(degree_arg),
+        effective_hint(false),
+        contextualized(false) {}
+
+  explicit PT_hint_parallel(Hint_param_table &table_name_arg, ulong degree_arg,
+                            bool switch_state_arg)
+      : PT_hint(PARALLEL_HINT_ENUM, switch_state_arg),
+        table_name(table_name_arg),
+        degree(degree_arg ? degree_arg
+                          : UINT_MAX32),  // PARALLEL(t, 0) == NO_PARALLEL(t)
+        effective_hint(false),
+        contextualized(false) {}
+
+  ulong get_degree() {
+    assert(effective_hint);
+    return degree;
+  }
+
+  void set_effective_hint(bool effective_hint_arg){
+    effective_hint = effective_hint_arg;
+  }
+
+  bool is_effective_hint(){
+    return effective_hint;
+  }
+  /**
+    Function initializes PARALLEL hint
+
+    @param pc   Pointer to Parse_context object
+
+    @return  true in case of error,
+             false otherwise
+  */
+  bool contextualize(Parse_context *pc) override;
+
+  // table_name will be printed by table hint belong to Opt_hints_table.
+  void append_args(const THD *thd, String *str) const override {
+    // Print table_name if table hint having not being specified to
+    // Opt_hints_table.
+    if (!contextualized && table_name.table.str && table_name.table.length) {
+      append_identifier(thd, str, table_name.table.str,
+        table_name.table.length);
+      str->append(STRING_WITH_LEN("@"));
+      append_identifier(thd, str, table_name.opt_query_block.str,
+        table_name.opt_query_block.length);
+      str->append(STRING_WITH_LEN(","));
+    }
+    if (degree != UINT_MAX32) {
+      str->append_ulonglong(degree);
+    }
+  }
+  void print_irregular_hints(const THD *thd, String *str) {
+    /* Print parallel hints */
+    str->append("PARALLEL");
+    str->append(STRING_WITH_LEN("("));
+    if (!table_name.table.str && !table_name.table.length) {
+      append_args(thd, str);
+      str->append(STRING_WITH_LEN(") "));
+    } else {
+      append_identifier(thd, str, table_name.table.str,
+        table_name.table.length);
+      str->append(STRING_WITH_LEN("@"));
+      append_identifier(thd, str, table_name.opt_query_block.str,
+        table_name.opt_query_block.length);
+      if (UINT_MAX32 != degree) {
+        str->append(STRING_WITH_LEN(", "));
+        append_args(thd, str);
+      }
+      str->append(STRING_WITH_LEN(") "));
+    }
+  }
+};
+
 class PT_hint_sys_var : public PT_hint {
   const LEX_CSTRING sys_var_name;
   Item *sys_var_value;

@@ -20,6 +20,66 @@ class Change_cur_select {
   Query_block *saved_select;
 };
 
+// Check whether the parallel table is consistent with the table specified by
+// the parallel hint
+void check_parallel_table_hint(const THD *thd, bool do_parallel) {
+  for (Query_block *select = thd->lex->all_query_blocks_list; select;
+       select = select->next_select_in_list()) {
+    Opt_hints_qb *qb_hint = select->opt_hints_qb;
+    if (!qb_hint || !qb_hint->is_specified(PARALLEL_TABLE_HINT_ENUM)) {
+      continue;
+    }
+
+    JOIN *join = select->join;
+    for (QEP_TAB *tab = join->qep_tab; tab && tab->table_ref; tab++) {
+      Opt_hints_table *table_hint = tab->table_ref->opt_hints_table;
+      if (!table_hint || !table_hint->is_set_parallel_hint())
+        continue;
+
+      bool do_parallel_scan_hint = table_hint->do_parallel_scan();
+      if (!tab->m_parallel_scan && do_parallel_scan_hint) {
+        if (do_parallel) {
+          push_warning(current_thd, Sql_condition::SL_WARNING,
+                       ER_WARN_UNSUPPORTED_PARALLEL,
+                       "parallel hint has no effect, not the chosen table.");
+        } else {
+          push_warning(current_thd, Sql_condition::SL_WARNING,
+                       ER_WARN_UNSUPPORTED_PARALLEL,
+                       "parallel hint has no effect, statement cannot be "
+                       "executed in parallel.");
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Set the degree hint effective when table hint is effective, if these two
+ * hints are actually part of one parallel hint.
+ */
+void set_parallel_degree_hint(const THD *thd, TABLE_LIST *tbl) {
+  Opt_hints_global *global_hints = thd->lex->opt_hints_global;
+  if (hint_table_state(thd, tbl, PARALLEL_TABLE_DEGREE_HINT_ENUM, 0)) {
+    assert(global_hints->is_specified(PARALLEL_HINT_ENUM));
+    global_hints->parallel_hint->set_effective_hint(true);
+  }
+}
+
+/**
+ * @return degree hint if found, UINT_MAX32 otherwise
+ */
+ulong get_parallel_degree_hint(const THD *thd) {
+  ulong degree_hint = UINT_MAX32;
+  Opt_hints_global *global_hints = thd->lex->opt_hints_global;
+  if (global_hints && global_hints->is_specified(PARALLEL_HINT_ENUM) &&
+      global_hints->parallel_hint->is_effective_hint()) {
+    PT_hint_parallel *parallel_hint = global_hints->parallel_hint;
+    assert(parallel_hint);
+    degree_hint = parallel_hint->get_degree();
+  }
+  return degree_hint;
+}
+
 /**
  * Compatibility check of execution plans and parallelization optimization and
  * transformation of plans that pass the check.

@@ -85,6 +85,9 @@ enum opt_hints_enum {
   ORDER_INDEX_HINT_ENUM,
   DERIVED_CONDITION_PUSHDOWN_HINT_ENUM,
   SORT_MERGE_JOIN_HINT_ENUM,
+  PARALLEL_HINT_ENUM,
+  PARALLEL_TABLE_DEGREE_HINT_ENUM,
+  PARALLEL_TABLE_HINT_ENUM,
   MAX_HINT_ENUM
 };
 
@@ -343,6 +346,7 @@ class Opt_hints {
                                      String *str [[maybe_unused]]) {}
 };
 
+class PT_hint_parallel;
 /**
   User define optimizer hints banding to lex.
  */
@@ -400,16 +404,19 @@ class Opt_hints_global : public Opt_hints {
  public:
   PT_hint_max_execution_time *max_exec_time;
   Sys_var_hint *sys_var_hint;
+  PT_hint_parallel *parallel_hint;
 
   Opt_hints_global(MEM_ROOT *mem_root_arg)
       : Opt_hints(nullptr, nullptr, mem_root_arg) {
     max_exec_time = nullptr;
     sys_var_hint = nullptr;
+    parallel_hint = nullptr;
   }
 
   void append_name(const THD *, String *) override {}
   PT_hint *get_complex_hints(opt_hints_enum type) override;
   void print_irregular_hints(const THD *thd, String *str) override;
+  bool is_resolved(opt_hints_enum type_arg) override;
 };
 
 class PT_qb_level_hint;
@@ -468,6 +475,10 @@ class Opt_hints_qb : public Opt_hints {
     str->append(STRING_WITH_LEN("@"));
     append_identifier(thd, str, get_print_name()->str,
                       get_print_name()->length);
+  }
+
+  bool ignore_print(opt_hints_enum type_arg) const override {
+    return (type_arg == PARALLEL_TABLE_HINT_ENUM);
   }
 
   PT_hint *get_complex_hints(opt_hints_enum type) override;
@@ -682,6 +693,39 @@ class Opt_hints_table : public Opt_hints {
                              Key_map *available_keys_to_use,
                              opt_hints_enum type_arg);
   bool update_index_hint_maps(THD *thd, TABLE *tbl);
+
+  /**
+    return true if already set parallel hint.
+  */
+  bool is_set_parallel_hint() {
+    return (is_specified(PARALLEL_TABLE_HINT_ENUM) ||
+            is_specified(PARALLEL_TABLE_DEGREE_HINT_ENUM));
+  }
+
+  /**
+    return true if PARALLE(this)
+  */
+  bool do_parallel_scan() {
+    if (!is_set_parallel_hint()) return false;
+
+    if (get_switch(PARALLEL_TABLE_HINT_ENUM) ||
+        get_switch(PARALLEL_TABLE_DEGREE_HINT_ENUM)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+    return true if NO_PARALLE(this)
+  */
+  bool not_do_parallel_scan() {
+    if (is_specified(PARALLEL_TABLE_HINT_ENUM) &&
+        !get_switch(PARALLEL_TABLE_HINT_ENUM)) {
+      return true;
+    }
+    return false;
+  }
 };
 
 /**

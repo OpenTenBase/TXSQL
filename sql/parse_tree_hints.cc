@@ -520,6 +520,94 @@ bool PT_hint_max_execution_time::contextualize(Parse_context *pc) {
   return false;
 }
 
+bool PT_hint_parallel::contextualize(Parse_context *pc) {
+  if (super::contextualize(pc)) return true;
+
+  if (pc->thd->lex->sql_command != SQLCOM_SELECT ||  // not a SELECT statement
+      pc->thd->lex->sphead)                          // or in a SP/trigger/event
+  {
+    push_warning(pc->thd, Sql_condition::SL_WARNING,
+                 ER_WARN_UNSUPPORTED_PARALLEL,
+                 ER_THD(pc->thd, ER_WARN_UNSUPPORTED_PARALLEL));
+    return false;
+  }
+
+  bool is_degree_hint = UINT_MAX32 != degree;
+  bool is_table_hint = (table_name.table.length && table_name.table.str);
+
+  // Set gloabl parallel degree
+  bool set_global = false;
+  Opt_hints_global *global_hint = get_global_hints(pc);
+  if (is_degree_hint) {
+    if (global_hint->is_specified(PARALLEL_HINT_ENUM)) {
+      // Hint duplication: /*+ parallel(n) ... parallel(m) */
+      print_warn(pc->thd, ER_WARN_CONFLICTING_HINT, nullptr, nullptr, nullptr,
+                 this);
+      return false;
+    } else {
+      set_global = true;
+    }
+  }
+
+  // Set parallel table for query block and table
+  bool set_qb = false, set_table = false;
+  Opt_hints_qb *qb = find_qb_hints(pc, &table_name.opt_query_block, this);
+  if (qb == nullptr) return false;
+  Opt_hints_table *table_hint = get_table_hints(pc, &table_name, qb);
+  if (is_table_hint) {
+    // There can be many NO_PARALLEL hints, but only one PARALLEL hint in qb.
+    if (qb->is_specified(PARALLEL_TABLE_HINT_ENUM)) {
+      if (switch_on() && qb->get_switch(PARALLEL_TABLE_HINT_ENUM)) {
+        // Hint duplication: /*+ parallel(t1) ... parallel(t2) */
+        print_warn(pc->thd, ER_WARN_CONFLICTING_HINT, nullptr, nullptr, nullptr,
+                   this);
+        return false;
+      }
+    } else if (switch_on()) {
+      set_qb = true;
+    }
+
+    // There can be only one of PARALLEL\NO_PARALLEL hint in table.
+    if (table_hint->is_set_parallel_hint()) {
+      // Hint duplication: /*+ parallel(t1) ... no_parallel(t1) */
+      print_warn(pc->thd, ER_WARN_CONFLICTING_HINT, nullptr, nullptr, nullptr,
+                 this);
+      return false;
+    } else {
+      set_table = true;
+    }
+  }
+
+  // Take effect only if both two parameters do not conflict with other hints.
+  if(set_global) {
+    global_hint->parallel_hint = this;
+    global_hint->set_switch(true, PARALLEL_HINT_ENUM, false);
+    // If table hint is ineffective, the degree hint is also ineffective.
+    // The effectivity of table hint will be check in px_optimize.
+    if (!is_table_hint) {
+      effective_hint = true;
+    }
+    pc->thd->lex->pass_px_check = (switch_on() && (degree != 0));
+  }
+  if (set_qb) {
+    qb->set_switch(true, PARALLEL_TABLE_HINT_ENUM, false);
+  }
+  if (set_table) {
+    if (is_degree_hint && switch_on()) {
+      // PARALLEL_TABLE_DEGREE_HINT_ENUM is used here instead of the
+      // PARALLEL_HINT_ENUM is because the hint is a switch type and can be
+      // printed directly. see st_opt_hint_info.
+      table_hint->set_switch(true, PARALLEL_TABLE_DEGREE_HINT_ENUM, false);
+    } else {
+      table_hint->set_switch(switch_on(), PARALLEL_TABLE_HINT_ENUM, false);
+    }
+  }
+  contextualized = true;
+
+  return false;
+}
+
+
 bool PT_hint_sys_var::contextualize(Parse_context *pc) {
   if (!sys_var_value) {
     // No warning here, warning is issued by parser.

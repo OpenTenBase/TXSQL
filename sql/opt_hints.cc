@@ -86,6 +86,9 @@ struct st_opt_hint_info opt_hint_info[] = {
     {"ORDER_INDEX", false, false, false},
     {"DERIVED_CONDITION_PUSHDOWN", true, true, false},
     {"SORT_MERGE_JOIN", false, false, false},
+    {"PARALLEL", false, false, false},
+    {"PARALLEL", false, true, false},
+    {"PARALLEL", false, true, false},
     {nullptr, false, false, false}};
 
 /**
@@ -192,12 +195,20 @@ void Opt_hints::check_unresolved(THD *thd) {
 PT_hint *Opt_hints_global::get_complex_hints(opt_hints_enum type) {
   if (type == MAX_EXEC_TIME_HINT_ENUM) return max_exec_time;
 
+  if (type == PARALLEL_HINT_ENUM) return parallel_hint;
   assert(0);
   return nullptr;
 }
 
 void Opt_hints_global::print_irregular_hints(const THD *thd, String *str) {
   if (sys_var_hint) sys_var_hint->print(thd, str);
+}
+
+bool Opt_hints_global::is_resolved(opt_hints_enum type_arg) {
+  if (type_arg == PARALLEL_HINT_ENUM) {
+    return parallel_hint->is_effective_hint();
+  }
+  return Opt_hints::is_resolved(type_arg);
 }
 
 Opt_hints_qb::Opt_hints_qb(Opt_hints *opt_hints_arg, MEM_ROOT *mem_root_arg,
@@ -575,7 +586,7 @@ bool is_compound_hint(opt_hints_enum type_arg) {
       type_arg == INDEX_MERGE_HINT_ENUM || type_arg == SKIP_SCAN_HINT_ENUM ||
       type_arg == INDEX_HINT_ENUM || type_arg == JOIN_INDEX_HINT_ENUM ||
       type_arg == GROUP_INDEX_HINT_ENUM || type_arg == ORDER_INDEX_HINT_ENUM ||
-      type_arg == SORT_MERGE_JOIN_HINT_ENUM);
+      type_arg == SORT_MERGE_JOIN_HINT_ENUM || type_arg == PARALLEL_HINT_ENUM);
 }
 
 PT_hint *Opt_hints_table::get_complex_hints(opt_hints_enum type) {
