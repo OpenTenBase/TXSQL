@@ -5,6 +5,7 @@
 #include "sql/join_optimizer/walk_access_paths.h"
 #include "sql/parallel_execution/px_executor.h"  // PX_PRINT_INFO
 #include "sql/parallel_execution/px_item.h"
+#include "sql/parallel_execution/px_optimizer.h"  // set_parallel_degree_hint()
 
 /**
  * @return true if exchange safe, false otherwise.
@@ -41,6 +42,13 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
   */
   TABLE_LIST *tbl = tb->pos_in_table_list;
   assert(tb && tbl);
+
+  // Parallel hint.
+  if (tbl->opt_hints_table &&
+      tbl->opt_hints_table->not_do_parallel_scan()) {
+    return false;
+  }
+
   if (tb->s->tmp_table != NO_TMP_TABLE ||
       tb->file->ht->db_type != DB_TYPE_INNODB || tb->part_info ||
       tb->s->table_category != TABLE_CATEGORY_USER ||
@@ -58,6 +66,10 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
     return false;
   }
 
+  // The dop hint is effective within the whole statement. Set the degree hint
+  // effective when table hint is effective, if these two hints are actually
+  // part of one parallel hint.
+  set_parallel_degree_hint(thd, tbl);
   return true;
 }
 

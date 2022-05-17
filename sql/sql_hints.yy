@@ -133,6 +133,10 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 %token SORT_MERGE_JOIN_HINT 1050
 %token NO_SORT_MERGE_JOIN_HINT 1051
 
+
+%token PARALLEL_HINT 1052
+%token NO_PARALLEL_HINT 1053
+
 /*
   YYUNDEF in internal to Bison. Please don't change its number, or change
   it in sync with YYUNDEF in sql_yacc.yy.
@@ -155,6 +159,7 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 %type <hint>
   hint
   max_execution_time_hint
+  parallel_hint
   index_level_hint
   table_level_hint
   qb_level_hint
@@ -187,6 +192,8 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
   HINT_ARG_TEXT
   HINT_IDENT_OR_NUMBER_WITH_SCALE
   MAX_EXECUTION_TIME_HINT
+  PARALLEL_HINT
+  NO_PARALLEL_HINT
   opt_qb_name
   set_var_ident
   set_var_text_value
@@ -232,10 +239,60 @@ hint:
         | qb_level_hint
         | qb_name_hint
         | max_execution_time_hint
+        | parallel_hint
         | set_var_hint
         | resource_group_hint
         ;
 
+
+parallel_hint:
+          PARALLEL_HINT '(' hint_param_table_ext ')'
+          {
+            {
+              $$= NEW_PTN PT_hint_parallel($3, true);
+              if ($$ == NULL)
+                YYABORT; // OOM
+            }
+          }
+        | PARALLEL_HINT '(' HINT_ARG_NUMBER ')'
+          {
+            longlong n;
+            if (parse_int(&n, $3.str, $3.length) || n > UINT_MAX32)
+            {
+              scanner->syntax_warning(ER_THD(thd,
+                                             ER_WARN_BAD_PARALLEL_DEGREE));
+              $$= NULL;
+            }
+            else
+            {
+              $$= NEW_PTN PT_hint_parallel(n);
+              if ($$ == NULL)
+                YYABORT; // OOM
+            }
+          }
+        | PARALLEL_HINT '(' hint_param_table_ext ',' HINT_ARG_NUMBER ')'
+          {
+            longlong n;
+            if (parse_int(&n, $5.str, $5.length) || n > UINT_MAX32)
+            {
+              scanner->syntax_warning(ER_THD(thd,
+                                             ER_WARN_BAD_PARALLEL_DEGREE));
+              $$= NULL;
+            }
+            else
+            {
+              $$= NEW_PTN PT_hint_parallel($3, n, (n > 0));
+              if ($$ == NULL)
+                YYABORT; // OOM
+            }
+          }
+        | NO_PARALLEL_HINT '(' hint_param_table_ext ')'
+          {
+            $$= NEW_PTN PT_hint_parallel($3, false);
+            if ($$ == NULL)
+              YYABORT; // OOM
+          }
+        ;
 
 max_execution_time_hint:
           MAX_EXECUTION_TIME_HINT '(' HINT_ARG_NUMBER ')'

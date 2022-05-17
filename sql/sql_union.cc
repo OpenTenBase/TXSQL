@@ -823,6 +823,7 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
       thd->need_fallback = true;
       return true;
     }
+    check_parallel_table_hint(thd, thd->lex->pass_px_check);
   }
 
   if (item != nullptr) {

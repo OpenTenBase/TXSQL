@@ -1,5 +1,7 @@
 #include "px_dfo.h"
 #include "sql/iterators/row_iterator.h"  // RowIterator
+#include "sql/parallel_execution/px_interface.h" // px_max_parallel_threads
+#include "sql/parallel_execution/px_optimizer.h"  // get_parallel_degree_hint
 #include "sql/parallel_execution/px_receiver.h"  // PX_receiver
 #include "sql/parallel_execution/px_sender.h"  // PX_sender
 #include "sql/sql_lex.h"  // LEX
@@ -215,31 +217,38 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
             return true;
           }
 
-          int err = px_partition(default_dop, child->m_px_scan_ctx, desc->table(),
+          size_t given_dop = get_parallel_degree_hint(m_thd);
+          // If given_dop was 0, this place could not be entered.
+          assert(given_dop > 0);
+          if (given_dop == UINT_MAX32) {
+            given_dop = default_dop;
+          }
+
+          int err = px_partition(given_dop, child->m_px_scan_ctx, desc->table(),
                                  desc->type(), desc->keyno(), desc->ref(), desc->reverse_scan(),
                                  partitions);    
           if (err) {
             PX_PRINT_ERROR(
                 "partitioning table %s (%llu rows) with default dop %lu "
                 "got error %d",
-                desc->table()->alias, desc->table()->file->stats.records, default_dop, err);
+                desc->table()->alias, desc->table()->file->stats.records, given_dop, err);
             return true;
           }
 
           assert(child->m_px_scan_ctx);
           PX_PRINT_INFO(
-              "partitioning table %s (%llu rows) with default dop %lu "
+              "partitioning table %s (%llu rows) with dop %lu "
               "got %u partitions",
-              desc->table()->alias, desc->table()->file->stats.records, default_dop, partitions);
-          size_t dop = partitions;
+              desc->table()->alias, desc->table()->file->stats.records, given_dop, partitions);
+          size_t real_dop = partitions;
           /*
             No dynamic partition suggests EOF for the iterator. There
             still should be one thread to process the empty source.
            */
-          dop = dop < 1 ? 1 : dop;
-          dop = dop > default_dop ? default_dop : dop;
-          child->set_dfo_dop(dop);
-          exchange_info->set_num_senders(dop);
+          real_dop = real_dop < 1 ? 1 : real_dop;
+          real_dop = real_dop > given_dop ? given_dop : real_dop;
+          child->set_dfo_dop(real_dop);
+          exchange_info->set_num_senders(real_dop);
         } else {
           exchange_info->set_num_senders(child->dop());
         }
