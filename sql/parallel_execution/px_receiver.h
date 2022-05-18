@@ -8,6 +8,7 @@
 #include "px.h"
 #include "sql/table.h"
 #include "sql/iterators/row_iterator.h"
+#include <vector>
 
 #include "px_exchange_info.h" // PX_exchange_handles
 
@@ -32,7 +33,8 @@ void SwitchSlice(JOIN *join, int slice_num);
 class PX_receiver : public RowIterator {
  public:
   PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei, JOIN *join,
-    unique_ptr_destroy_only<RowIterator> source, TABLE *table, int ref_slice);
+              unique_ptr_destroy_only<RowIterator> source,
+              std::vector<TABLE *> *tables, int ref_slice);
   ~PX_receiver() {}
 
   bool Init() override;
@@ -50,16 +52,21 @@ class PX_receiver : public RowIterator {
   }
 
   void SetNullRowFlag(bool is_null_row) override {
-    if (is_null_row) { m_table->set_null_row();
-    } else { m_table->reset_null_row(); }
+    if (is_null_row) {
+      for (TABLE *table : *m_tables) table->set_null_row();
+    } else {
+      for (TABLE *table : *m_tables) table->reset_null_row();
+    }
   }
-  void UnlockRow() override { m_table->file->unlock_row(); }
+  void UnlockRow() override {
+    for (TABLE *table : *m_tables) table->file->unlock_row();
+  }
 
   void set_exchange_info(PX_exchange_info *pei) { m_pei = pei; }
   PX_exchange_info *get_pei() const { return m_pei; }
   uint get_receiver_id() { return m_receiver_id; }
   PX_exchange_info *get_pei() { return m_pei; }
-  TABLE *get_table() { return m_table; }
+  TABLE *get_table() { return m_tables->at(0); }
   PX_codec *get_codec() { return m_codec; }
 
   virtual std::string str() override { return "PX_RECEIVE"; }
@@ -85,7 +92,7 @@ class PX_receiver : public RowIterator {
   uint m_receiver_id{INT_MAX};
 
   /// The table providing record buffer, record[0].
-  TABLE *m_table{nullptr};
+  const std::vector<TABLE *> *m_tables{nullptr};
   /// Decoder output fields
   std::vector<Field *> m_fields;
   /// The decoder

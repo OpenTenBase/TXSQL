@@ -1811,7 +1811,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
             thd, mem_root, path->px_receiver().child, join, eligible_for_batch_mode);
         iterator = NewIterator<PX_receiver>(thd, mem_root, 0, nullptr, join, move(child),
-            path->px_receiver().table, path->px_receiver().ref_slice);
+            path->px_receiver().tables, path->px_receiver().ref_slice);
         iterator->adjust_children();
         break;
       }
@@ -1824,7 +1824,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
               thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
 
           iterator = NewIterator<PX_sender>(
-              thd, mem_root, 0, nullptr, move(child), path->px_send().table,
+              thd, mem_root, 0, nullptr, move(child), path->px_send().tables,
               path->px_send().send_fields, nullptr, path->px_send().temp_table_param,
               path->px_send().use_item, move(table_iterator));
           iterator->adjust_children();
@@ -1832,7 +1832,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
           unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
               thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
           iterator = NewIterator<PX_sender>(
-              thd, mem_root, 0, nullptr, move(child), path->px_send().table,
+              thd, mem_root, 0, nullptr, move(child), path->px_send().tables,
               path->px_send().send_fields, nullptr, path->px_send().temp_table_param,
               path->px_send().use_item, nullptr);
           iterator->adjust_children();
@@ -1842,7 +1842,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
       case AccessPath::PX_RECEIVER_MERGE: {
         unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
             thd, mem_root, path->px_receiver_merge().child, join, eligible_for_batch_mode);
-        iterator = NewIterator<PX_receiver_merge>(thd, mem_root, 0, nullptr, path->px_receiver_merge().table,
+        iterator = NewIterator<PX_receiver_merge>(thd, mem_root, 0, nullptr, path->px_receiver_merge().tables,
             path->px_receiver_merge().filesort, move(child), join, path->px_receiver_merge().ref_slice);
         iterator->adjust_children();
         break;
@@ -2970,7 +2970,8 @@ static bool group_field_eq_sort_list(List<Cached_item> group_fields,
  * @return true if not inject, false otherwise.
  */
 bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
-                                AccessPath *&target_path,  SplitPosition *split_pos) {
+                                AccessPath *&target_path,
+                                SplitPosition *split_pos) {
   assert(target_path == nullptr);
   // WalkAccessPaths would not stop when the callback return true if the parent
   // node has another branch.
@@ -2982,20 +2983,61 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
     switch (subpath->type) {
       // Iterators that could be injected exchange.
       case AccessPath::TABLE_SCAN:
+        if (split_pos->tables) {
+          split_pos->tables->push_back(subpath->table_scan().table);
+        }
+        if (target_path == nullptr) {
+          target_path = subpath;
+        }
+        return false;
       case AccessPath::INDEX_SCAN:
+        if (split_pos->tables) {
+          split_pos->tables->push_back(subpath->index_scan().table);
+        }
+        if (target_path == nullptr) {
+          target_path = subpath;
+        }
+        return false;
       case AccessPath::INDEX_RANGE_SCAN:
+        if (split_pos->tables) {
+          split_pos->tables->push_back(subpath->index_range_scan().used_key_part[0].field->table);
+        }
+        if (target_path == nullptr) {
+          target_path = subpath;
+        }
+        return false;
       case AccessPath::REF:
-      case AccessPath::NESTED_LOOP_JOIN:
+        if (split_pos->tables) {
+          split_pos->tables->push_back(subpath->ref().table);
+        }
+        if (target_path == nullptr) {
+          target_path = subpath;
+        }
+        return false;
       case AccessPath::FILTER:
         if (target_path == nullptr) {
           target_path = subpath;
+        }
+        return false;
+      case AccessPath::NESTED_LOOP_JOIN:
+        if (target_path == nullptr) {
+          target_path = subpath;
+          split_pos->tables = new (thd->mem_root) vector<TABLE *>();
         }
         return false;
 
       // Iterators that should not be injected exchange but can appear in the
       // plan tree.
       case AccessPath::REF_OR_NULL:
+        if (split_pos->tables) {
+          split_pos->tables->push_back(subpath->ref_or_null().table);
+        }
+        return false;
       case AccessPath::EQ_REF:
+        if (split_pos->tables) {
+          split_pos->tables->push_back(subpath->eq_ref().table);
+        }
+        return false;
       case AccessPath::PUSHED_JOIN_REF:
       case AccessPath::CONST_TABLE:
       case AccessPath::STREAM:
@@ -3013,6 +3055,10 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
         } else {
           target_path = subpath;
           split_pos->type = SplitPosition::SPLIT_SORT;
+        }
+        if (split_pos->tables) {
+          destroy(split_pos->tables);
+          split_pos->tables = nullptr;
         }
         split_pos->filesort = subpath->sort().filesort;
         split_pos->split_sort = true;
@@ -3056,11 +3102,11 @@ static AccessPath *CreateExchangeAccessPath(
     mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields,
     uint curr_exchange, bool alloc_group_field, bool do_receiver_merge);
 
-static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
-                                                    AccessPath *const path,
-                                                    TABLE *table,
-                                                    int ref_slice,
-                                                    bool do_receiver_merge);
+static AccessPath *CreateExchangeAccessPathUseTables(THD *thd, JOIN *join,
+                                                     AccessPath *const path,
+                                                     vector<TABLE *> *tables,
+                                                     int ref_slice,
+                                                     bool merge_sort);
 
 static void FixAccessPathForExchange(AccessPath *const path,
                                      AccessPath *receiver, JOIN *join,
@@ -3181,12 +3227,26 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::NESTED_LOOP_JOIN: {
-      fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
-                  ? join->fields
-                  : &join->tmp_fields[REF_SLICE_SAVED_BASE];
+      use_tmp_table = false;
+
+      if (!in_join &&
+          DBUG_EVALUATE_IF("exchange_inject_use_item", true, false)) {
+        use_tmp_table = true;
+        fields = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
+                    ? join->fields
+                    : &join->tmp_fields[REF_SLICE_SAVED_BASE];
+      }
 
       // Only the first table can be parallelized now
       child = path->nested_loop_join().outer;
+      child_slice = REF_SLICE_SAVED_BASE;
+      child_in_join = true;
+      break;
+    }
+    case AccessPath::HASH_JOIN: {
+      assert(!inject_here);
+
+      child = path->hash_join().inner;
       child_slice = REF_SLICE_SAVED_BASE;
       child_in_join = true;
       break;
@@ -3317,6 +3377,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
   //}
 
   if (inject_here) {
+      vector<TABLE *> *&tables = join->split_position.tables;
+
     if (use_tmp_table) {
       assert(fields != nullptr);
       exchange =
@@ -3328,15 +3390,22 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         supported by Message Queue. In this case try to create exchange without
         new tmp table.
       */
-      if (!exchange && table) {
-        exchange = CreateExchangeAccessPathUseTable(
-            thd, join, path, table, output_slice,
-            join->split_position.split_sort);
+      if (!exchange && (table || tables)) {
+        use_tmp_table = false;
       }
-    } else {
-      exchange =
-          CreateExchangeAccessPathUseTable(thd, join, path, table, output_slice,
-                                           join->split_position.split_sort);
+    }
+    if (!use_tmp_table) {
+      if (!tables) {
+        assert(table);
+        tables = new (thd->mem_root) vector<TABLE *>();
+        if (!tables) return nullptr;
+        tables->push_back(table);
+      }
+      assert(tables->size());
+
+      exchange = CreateExchangeAccessPathUseTables(
+          thd, join, path, tables, output_slice,
+          join->split_position.split_sort);
     }
     if (exchange) {
       thd->lex->m_exchange_number++;
@@ -3396,6 +3465,7 @@ static AccessPath *CreateExchangeAccessPath(
   }
   AccessPath *sender = nullptr, *receiver = nullptr;
   TABLE *table = nullptr, *table2 = nullptr;
+  vector<TABLE *> *tables_s = nullptr, *tables_r = nullptr;
 
 
   /*
@@ -3445,6 +3515,10 @@ static AccessPath *CreateExchangeAccessPath(
   // The new field may not be compatible with message queues
   if (!table || !compat_for_table(table)) goto inject_err;
 
+  tables_s = new (thd->mem_root) vector<TABLE *>();
+  if (!tables_s) goto inject_err;
+  tables_s->push_back(table);
+
   if (temp_table_param->items_to_copy &&
       temp_table_param->items_to_copy->size()) {
     Func_ptr_array *func_ptr = temp_table_param->items_to_copy;
@@ -3458,8 +3532,8 @@ static AccessPath *CreateExchangeAccessPath(
                   dbug_print_table(table, "PX_Sender", ref_slice););
   join->exchange_temp_table->push_back(table);
   join->exchange_temp_table_param->push_back(temp_table_param);
-  sender = NewPXSendAccessPath(thd, path, table, curr_fields, temp_table_param,
-                               true, true);
+  sender = NewPXSendAccessPath(thd, path, tables_s, curr_fields,
+                               temp_table_param, true, true);
 
   if (join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
     if (join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) goto inject_err;
@@ -3508,6 +3582,7 @@ static AccessPath *CreateExchangeAccessPath(
       /*distinct=*/false, /*save_sum_funcs=*/false,
       join->query_block->active_options(), HA_POS_ERROR, table_alias_recv);
   if (!table2) goto inject_err;
+
   if (temp_table_param2->items_to_copy &&
       temp_table_param2->items_to_copy->size()) {
     Func_ptr_array *func_ptr = temp_table_param2->items_to_copy;
@@ -3522,6 +3597,10 @@ static AccessPath *CreateExchangeAccessPath(
   join->exchange_temp_table->push_back(table2);
   join->exchange_temp_table_param->push_back(temp_table_param2);
 
+  tables_r = new (thd->mem_root) vector<TABLE *>();
+  if (!tables_r) goto inject_err;
+  tables_r->push_back(table2);
+
   if (do_receiver_merge) {
     Filesort *curr_file_sort = path->sort().filesort;
     Filesort *final_file_sort = new (thd->mem_root) Filesort(thd, {table2},
@@ -3529,9 +3608,11 @@ static AccessPath *CreateExchangeAccessPath(
         curr_file_sort->m_remove_duplicates,
         curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
     receiver = NewPXReceiverMergeAccessPath(thd, sender, final_file_sort,
-        table2, ref_slice, true);
+                                            tables_r, ref_slice, true);
   } else {
-    receiver = NewPXReceiveAccessPath(thd, sender, table2, ref_slice, true);
+    
+    receiver =
+        NewPXReceiveAccessPath(thd, sender, tables_r, ref_slice, true);
   }
 
   /*
@@ -3582,7 +3663,7 @@ inject_err:
     }
   }
   if (sender) {
-    sender->px_send().table = nullptr;
+    sender->px_send().tables = nullptr;
   }
   if (temp_table_param2) {
     destroy(temp_table_param2);
@@ -3593,22 +3674,27 @@ inject_err:
     free_tmp_table(table);
   }
   if (receiver) {
-    do_receiver_merge ? receiver->px_receiver_merge().table = nullptr
-                      : receiver->px_receiver().table = nullptr;
+    do_receiver_merge ? receiver->px_receiver_merge().tables = nullptr
+                      : receiver->px_receiver().tables = nullptr;
   }
   return nullptr;
 }
 
-static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
-                                                    AccessPath *const path,
-                                                    TABLE *table,
-                                                    int ref_slice,
-                                                    bool do_receiver_merge) {
-  assert(table);
-  AccessPath *sender =
-      NewPXSendAccessPath(thd, path, table, nullptr, nullptr, false, false);
+static AccessPath *CreateExchangeAccessPathUseTables(THD *thd, JOIN *join,
+                                                     AccessPath *const path,
+                                                     vector<TABLE *> *tables,
+                                                     int ref_slice,
+                                                     bool merge_sort) {
+  assert(tables && tables->size());
+  AccessPath *sender = NewPXSendAccessPath(thd, path, tables, nullptr,
+                                           nullptr, false, false);
+
   AccessPath *receiver = nullptr;
-  if (do_receiver_merge) {
+
+  if (merge_sort) {
+    assert(tables->size() == 1);
+    TABLE *table = tables->at(0);
+
     Filesort *final_file_sort = nullptr;
     if (join->split_position.filesort) {
       Filesort *curr_file_sort = join->split_position.filesort;
@@ -3631,9 +3717,10 @@ static AccessPath *CreateExchangeAccessPathUseTable(THD *thd, JOIN *join,
     }
     assert(final_file_sort);
     receiver = NewPXReceiverMergeAccessPath(thd, sender, final_file_sort,
-        table, ref_slice, false);
+        tables, ref_slice, false);
   } else {
-    receiver = NewPXReceiveAccessPath(thd, sender, table, ref_slice, false);
+    receiver =
+        NewPXReceiveAccessPath(thd, sender, tables, ref_slice, false);
   }
   return receiver;
 }
@@ -3642,19 +3729,23 @@ AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
                                               TABLE *table, bool is_append) {
   assert(table);
 
+  vector<TABLE *> *tables = new (thd->mem_root) vector<TABLE *>();
+  if (!tables) return nullptr;
+  tables->push_back(table);
+
   if (is_append) {
     AccessPath *table_path =
         NewTableScanAccessPath(thd, table, /*count_examined_rows=*/false);
     AccessPath *sender =
-        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, false, false,
+        NewPXSendAccessPath(thd, path, tables, nullptr, nullptr, false, false,
                             table_path);
-    AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, table, -1, false);
+    AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, tables, -1, false);
     return receiver;
   } else {
-    AccessPath *sender =
-        NewPXSendAccessPath(thd, path, table, nullptr, nullptr, false, false,
-                            nullptr);
-    AccessPath *receiver = NewPXReceiveAccessPath(thd, sender, table, -1, false);
+    AccessPath *sender = NewPXSendAccessPath(thd, path, tables, nullptr,
+                                             nullptr, false, false, nullptr);
+    AccessPath *receiver =
+        NewPXReceiveAccessPath(thd, sender, tables, -1, false);
     return receiver;
   }
 }
@@ -3708,13 +3799,13 @@ static void GetExchangeParam(ReceiverParam *receiver_param, AccessPath *receiver
   if (do_merge_sort) {
     const auto &px_merge_receive = receiver->px_receiver_merge();
     receiver_param->ref_slice = px_merge_receive.ref_slice;
-    receiver_param->table = px_merge_receive.table;
+    receiver_param->table = px_merge_receive.tables->at(0);
     receiver_param->child = px_merge_receive.child;
     receiver_param->use_temp_table = px_merge_receive.use_temp_table;
   } else {
     const auto &px_receive = receiver->px_receiver();
     receiver_param->ref_slice = px_receive.ref_slice;
-    receiver_param->table = px_receive.table;
+    receiver_param->table = px_receive.tables->at(0);
     receiver_param->child = px_receive.child;
     receiver_param->use_temp_table = px_receive.use_temp_table;
   }
@@ -3733,6 +3824,9 @@ static void FixAccessPathForExchange(AccessPath *const path,
 
   switch (path->type) {
     case AccessPath::NESTED_LOOP_JOIN: {
+      break;
+    }
+    case AccessPath::HASH_JOIN: {
       break;
     }
     case AccessPath::FILTER: {
@@ -3947,6 +4041,10 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
     case AccessPath::NESTED_LOOP_JOIN:
       path->nested_loop_join().outer = receiver;
       break;
+    case AccessPath::HASH_JOIN: {
+      path->hash_join().inner = receiver;
+      break;
+    }
     case AccessPath::FILTER:
       path->filter().child = receiver;
       break;

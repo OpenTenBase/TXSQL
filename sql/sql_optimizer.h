@@ -110,6 +110,7 @@ struct SplitPosition {
   enum Type { NO_SPLIT = 0, SPLIT_AGG, SPLIT_SORT, SPLIT_SORT_AGG } type;
   bool split_sort;
   Filesort *filesort;
+  std::vector<TABLE *> *tables;  ///< Tables reserved for exchange
 };
 
 /**

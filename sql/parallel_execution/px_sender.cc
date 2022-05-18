@@ -12,10 +12,11 @@
 #include "field_types.h"
 
 PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
-                     unique_ptr_destroy_only<RowIterator> source, TABLE *table,
+                     unique_ptr_destroy_only<RowIterator> source,
+                     std::vector<TABLE *> *tables,
                      mem_root_deque<Item *> *send_fields,
                      mem_root_deque<Item *> *shuffle_key,
-                     Temp_table_param *temp_table_param,  bool use_item,
+                     Temp_table_param *temp_table_param, bool use_item,
                      unique_ptr_destroy_only<RowIterator> table_path)
     : RowIterator(thd),
       m_source(move(source)),
@@ -26,7 +27,7 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
       m_handles(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)),
       m_use_item(use_item),
       m_temp_table_param(temp_table_param),
-      m_table(table),
+      m_tables(tables),
       m_fields(),
       m_send_fields(send_fields),
       m_reshuffle_key(shuffle_key) {}
@@ -67,14 +68,16 @@ bool PX_sender::Init() {
   }
 
   if (m_materialize) {
-    if (!m_table->is_created()) {
-      if (instantiate_tmp_table(thd(), m_table)) {
+    assert(m_tables->size() == 1);
+    TABLE *tmp_table = m_tables->at(0);
+    if (!tmp_table->is_created()) {
+      if (instantiate_tmp_table(thd(), tmp_table)) {
         goto err;
       }
-      empty_record(m_table);
+      empty_record(tmp_table);
     } else {
-      m_table->file->ha_index_or_rnd_end();  // @todo likely unneeded => remove
-      m_table->file->ha_delete_all_rows();
+      tmp_table->file->ha_index_or_rnd_end();  // @todo likely unneeded => remove
+      tmp_table->file->ha_delete_all_rows();
     }
 
     while (true) {
@@ -88,18 +91,19 @@ bool PX_sender::Init() {
         goto err;
       }
 
-      error = m_table->file->ha_write_row(m_table->record[0]);
+      error = tmp_table->file->ha_write_row(tmp_table->record[0]);
       if (error == 0) {
         continue;
       }
 
       // create_ondisk_from_heap will generate error if needed.
-      if (!m_table->file->is_ignorable_error(error)) {
+      if (!tmp_table->file->is_ignorable_error(error)) {
         bool is_duplicate;
-        if (create_ondisk_from_heap(thd(), m_table, error, true, true, &is_duplicate))
+        if (create_ondisk_from_heap(thd(), tmp_table, error, true, true,
+                                    &is_duplicate))
           goto err; /* purecov: inspected */
         // Table's engine changed; index is not initialized anymore.
-        if (m_table->hash_field) m_table->file->ha_index_init(0, false);
+        if (tmp_table->hash_field) tmp_table->file->ha_index_init(0, false);
         // if (!is_duplicate) ++*stored_rows;
       } else {
         // An ignorable error means duplicate key, ie. we deduplicated
@@ -115,10 +119,12 @@ bool PX_sender::Init() {
     assert(m_send_fields->size());
     if (m_codec->init(m_send_fields, nullptr)) goto err;
   } else {
-    for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
-      Field *field = *pfield;
-      if (bitmap_is_set(m_table->read_set, field->field_index()))
-        m_fields.push_back(field);
+    for (const TABLE *table : *m_tables) {
+      for (Field **pfield = table->field; *pfield != nullptr; ++pfield) {
+        Field *field = *pfield;
+        if (bitmap_is_set(table->read_set, field->field_index()))
+          m_fields.push_back(field);
+      }
     }
     if (m_codec->init(nullptr, &m_fields)) goto err;
   }

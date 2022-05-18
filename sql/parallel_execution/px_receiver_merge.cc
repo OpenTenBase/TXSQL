@@ -7,10 +7,11 @@
 #include "sql/sql_optimizer.h"
 #include "sql/log.h"
 
-PX_receiver_merge::PX_receiver_merge(THD *thd, uint receiver_id, PX_exchange_info *pei,
-    TABLE *table, Filesort *sort, unique_ptr_destroy_only<RowIterator> source,
-    JOIN *join, int ref_slice)
-    : PX_receiver(thd, receiver_id, pei, join, move(source), table, ref_slice),
+PX_receiver_merge::PX_receiver_merge(
+    THD *thd, uint receiver_id, PX_exchange_info *pei, std::vector<TABLE *> *tables,
+    Filesort *sort, unique_ptr_destroy_only<RowIterator> source, JOIN *join,
+    int ref_slice)
+    : PX_receiver(thd, receiver_id, pei, join, move(source), tables, ref_slice),
       m_join(join),
       m_ref_slice(ref_slice),
       m_sort_param(nullptr),
