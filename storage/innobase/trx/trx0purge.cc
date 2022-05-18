@@ -1319,8 +1319,6 @@ static bool trx_purge_truncate_marked_undo_low(space_id_t space_num,
   /* Do the truncate.  This will change the space_id of the marked_space. */
   bool success = trx_undo_truncate_tablespace(marked_space);
 
-  // undo::spaces->x_unlock();
-
   if (!success) {
     /* Note: In case of error we don't enable the rsegs nor unmark the
      tablespace. So the tablespace will continue to remain inactive. */
