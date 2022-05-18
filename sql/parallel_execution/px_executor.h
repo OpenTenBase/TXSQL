@@ -99,7 +99,7 @@ class Worker_exec_ctx {
 class PX_executor {
  public:
   PX_executor(Dfo_mgr *dfo_mgr, THD *thd)
-    : m_dfo_mgr(dfo_mgr), m_thd(thd) {}
+    : m_dfo_mgr(dfo_mgr), m_thd(thd), m_proc(thd) {}
   virtual ~PX_executor() {}
 
   PX_executor *coordinator() {
@@ -113,6 +113,7 @@ class PX_executor {
     return (m_thd->m_is_worker ? m_thd->px_coordinator : m_thd)->query_id;
   }
   uint thread_id() const { return m_thd->thread_id(); }
+  PX_proc *proc() { return &m_proc; }
 
   virtual bool prepare_task_for_dfo() { return false; }
   virtual void notify_all_workers(THD::killed_state state_to_set) {}
@@ -128,6 +129,7 @@ class PX_executor {
  protected:
   Dfo_mgr *m_dfo_mgr;
   THD *m_thd;
+  PX_proc m_proc;
 };
 
 /**

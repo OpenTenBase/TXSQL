@@ -83,10 +83,10 @@ static void *execute_task_in_worker(void *arg)
   THD *thd = worker_info->worker_thd;
   thd->px_scan_ctx = worker_info->scan_ctx;
   PX_task *task = thd->px_executor->m_tasks_hash[worker_info->task_id];
+  // @TODO: need to process return value
   task->run(thd);
-  // Detach receiver proc from sender MQ handler.
-  worker_info->exchange_info->detach_sender(thd->task_executor_id);
-  static_cast<PX_sender *>(task->root_iterator())->end();
+  /* Call End function for exchange operator. */
+  static_cast<PX_sender *>(task->root_iterator())->End();
   return nullptr;
 }
 
@@ -531,7 +531,6 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         if (task_execute_start(worker_pool, &parent_desc)) return true;
         parent->set_dfo_active();
       }
-      if (!exchange_info->is_top_exchange()) exchange_info->schedule_wait();
       if (thd()->killed) return true; // be killed.
 
       // Prepare for child dfo execution threads.
@@ -544,7 +543,6 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         // Post for start of the tasks on every workers.
         if (task_execute_start(worker_pool, &child_desc)) return true;
       }
-      if (exchange_info->is_top_exchange()) exchange_info->schedule_wait();
 
       sql_print_information("PX_parallel_coordinator::%s:%d Child map[%d], "
         "Parent map[%d]", __FUNCTION__, __LINE__,
@@ -566,7 +564,6 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
 
       DEBUG_SYNC_C("execute_in_parallel_scheduling_end");
       // TODO: add clean of exchange info. exchange_info->clean();
-      if (exchange_info) exchange_info->release_in_stage_over();
 
       // Set the child dfo finished, currently only one stage supported.
       child->set_dfo_finished(true);

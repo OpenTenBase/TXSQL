@@ -111,6 +111,7 @@
 #include "sql/tztime.h"
 #include "sql_string.h"
 #include "sql/parallel_execution/px_receiver_merge.h"
+#include "sql/parallel_execution/px_codec.h"
 #include "template_utils.h"
 
 using std::max;
@@ -2430,8 +2431,6 @@ bool heap_compare_records(int a, int b, void *arg) {
 
   PX_receiver_merge *merge_sort = static_cast<PX_receiver_merge *>(arg);
   const Filesort *filesort = merge_sort->get_filesort();
-  THD *thd = merge_sort->get_thd();
-  assert(filesort && current_thd == thd);
 
   uchar *key_0 = merge_sort->get_key(0);
   uchar *key_1 = merge_sort->get_key(1);
@@ -2451,8 +2450,7 @@ bool heap_compare_records(int a, int b, void *arg) {
     3. generate sort key
   */
   mq_record_st *compare_a = merge_sort->get_record(a);
-  convert_res = merge_sort->decompact_row(
-      compare_a->m_data, compare_a->m_length);
+  convert_res = merge_sort->get_codec()->decode(compare_a->m_data, compare_a->m_length);
 
   if (!convert_res) return true;
 
@@ -2461,8 +2459,7 @@ bool heap_compare_records(int a, int b, void *arg) {
   }
 
   mq_record_st *compare_b = merge_sort->get_record(b);
-  convert_res = merge_sort->decompact_row(
-      compare_b->m_data, compare_b->m_length);
+  convert_res = merge_sort->get_codec()->decode(compare_b->m_data, compare_b->m_length);
 
   if (!convert_res) return true;
 

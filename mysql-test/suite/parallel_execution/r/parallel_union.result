@@ -860,7 +860,7 @@ EXPLAIN
                                     -> Aggregate using temporary table
                                         -> Table scan on t2  (cost=0.75 rows=5)
                 -> Group aggregate: sum(t3.d)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d)
                                 -> Index scan on t3 using idx  (cost=1.25 rows=10)
@@ -910,7 +910,7 @@ EXPLAIN
                                         -> Table scan on t2  (cost=0.75 rows=5)
             -> Stream results
                 -> Group aggregate: sum(t3.d)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d)
                                 -> Index scan on t3 using idx  (cost=1.25 rows=10)
@@ -958,7 +958,7 @@ EXPLAIN
                                     -> Aggregate using temporary table
                                         -> Table scan on t2  (cost=0.75 rows=5)
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                                 -> Index scan on t3 using idx  (cost=1.25 rows=10)
@@ -1008,7 +1008,7 @@ EXPLAIN
                                         -> Table scan on t2  (cost=0.75 rows=5)
             -> Stream results
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                                 -> Index scan on t3 using idx  (cost=1.25 rows=10)

@@ -3,13 +3,13 @@
 #include "px_sender.h"
 #include "px_exchange_info.h"
 #include "px_exchange_channel.h"
+#include "px_executor.h"
+#include "px_codec.h"
 #include "include/my_dbug.h"
 #include "sql/query_result.h"
 #include "sql/log.h"
 #include "sql/sql_class.h"
 #include "field_types.h"
-
-#define PX_HIDDEN_FIELD_COUNT 4
 
 PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
                      unique_ptr_destroy_only<RowIterator> source, TABLE *table,
@@ -18,56 +18,53 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
                      Temp_table_param *temp_table_param,  bool use_item,
                      unique_ptr_destroy_only<RowIterator> table_path)
     : RowIterator(thd),
-      m_thd(thd),
-      m_sender_no(0),
-      m_pei(pei),
       m_source(move(source)),
-      m_table(table),
-      m_send_fields(send_fields),
-      m_reshuffle_key(shuffle_key),
-      m_temp_table_param(temp_table_param),
-      m_fields(),
-      m_field_size(0),
-      m_use_item(use_item),
       m_materialize(table_path),
-      m_table_path(move(table_path)) {}
+      m_table_path(move(table_path)),
+      m_pei(pei),
+      m_sender_id(0),
+      m_handles(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)),
+      m_use_item(use_item),
+      m_temp_table_param(temp_table_param),
+      m_table(table),
+      m_fields(),
+      m_send_fields(send_fields),
+      m_reshuffle_key(shuffle_key) {}
 
-bool PX_sender::init() {
-  assert(m_pei);
-  m_sender_no = m_thd->task_executor_id;
-  /*
-    The init of sender contains three phases:
-    1) register sender, create the execution context of sender for channel. 
-    2) init sender, create the sender's backend handle.
-    3) attach sender, set the countpart's handle for sender, this phase must
-    execute after the register of receivers of corresponding channels.
-  */
-  if (m_pei->register_sender(m_thd, m_sender_no)) {
-    return true;
+PX_proc *PX_sender::me() const { return thd()->px_executor->proc(); }
+
+bool PX_sender::Init() {
+  assert(m_pei && !m_codec && m_handles.empty());
+
+  // Register and get receiver id.
+  if (m_pei->register_proc(me(), /*as_sender=*/true, m_sender_id)) {
+    goto err;
   }
 
-  if (m_pei->init_sender(m_sender_no)) {
-    return true;
+  // Attach to all connected channels.
+  if (m_pei->attach(me(), /*as_sender=*/true, m_sender_id, m_handles)) {
+    goto err;
   }
 
-  return false;
-}
+  // Create codec.
+  switch (m_pei->format()) {
+    case PX_COMPACT_ROW: {
+      m_codec = new (thd()->mem_root) PX_compact_codec(thd(), m_use_item, m_temp_table_param);
+      if (m_codec == nullptr) {
+        my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "creating codec",
+                 "PX_sender::register_to_exchange()");
+        goto err;
+      }
+      break;
+    }
+    default:
+      assert(0);
+      goto err;
+  }
 
-/**
-  Set the worker_handle to sender.
-  If attach success, which indicates the receiver has
-  register to channel, so the sender can start to send
-  data.
-
-  @returns
-    false  - if the sender attach success
-    true  - if the receiver has not register.
-*/
-bool PX_sender::attach() {
-  if (init()) return true;
-
-  bool result = m_source->Init();
-  if (result) goto err;
+  if (m_source->Init()) {
+    goto err;
+  }
 
   if (m_materialize) {
     if (!m_table->is_created()) {
@@ -113,418 +110,92 @@ bool PX_sender::attach() {
     if (m_table_path->Init()) goto err;
   }
 
-  schedule_post(); // post for schedule the dfo pair.
-  synchronize(); // synchronize the receiver and sender init.
-
-  if (m_pei->attach_sender(m_sender_no)) {
-    assert(0);
-    return true;
-  }
-
-  for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
-    Field *field = *pfield;
-    if (bitmap_is_set(m_table->read_set, field->field_index()))
-      m_fields.push_back(field);
-  }
-
+  // Set up codec with its input items or fields.
   if (m_use_item) {
-    /* The send data can't be empty row. */
     assert(m_send_fields->size());
-    m_field_size = m_send_fields->size();
+    if (m_codec->init(m_send_fields, nullptr)) goto err;
   } else {
-    m_field_size = m_fields.size();
+    for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
+      Field *field = *pfield;
+      if (bitmap_is_set(m_table->read_set, field->field_index()))
+        m_fields.push_back(field);
+    }
+    if (m_codec->init(nullptr, &m_fields)) goto err;
   }
 
   return false;
 
- err:
-  schedule_post(); // post for schedule the dfo pair.
-
+err:
+  detach();
   return true;
 }
 
 /**
-  Send data to PX_receiver through exchange channel.
-  There are mutli kinds of strategies for send:
-  1) send row with compact format
-  2) send row directly
-  3) send csi chunk
+  Send data to selected channels.
 
   @return 0 for success, -1 for EOF and 1 for error
 */
-int PX_sender::send() {
-  /*
-    The field counts is 4096 at most, so the null len is less than
-    2 * 2^12(4096) / 8 = 2^10 bytes. We can use 2 bytes to store
-    the skip flag len info.
-  */
-  int result = 0;
-  uint16 null_len = 0;
-  uint32 total_copy_bytes = 0;
-  auto send_format = m_pei->format();
+int PX_sender::Read() {
+  std::vector<PX_iovec> out_fields;
+  int result = 1;
+#ifndef DBUG_OFF
+  String buf;
+#endif
 
-  if (!m_materialize) {
-    result = m_source->Read();
-    if (result != 0) return result;
-  } else {
-    result = m_table_path->Read();
-    if (result != 0) return result;
+  if (!m_materialize) result = m_source->Read();
+  else result = m_table_path->Read();
+
+  if (result || thd()->killed) goto end;
+
+  // Convert read data to protocol format.
+  if (m_codec->encode(out_fields)) {
+    result = 1;
+    goto end;
   }
 
-  switch (send_format) {
-    case PX_COMPACT_ROW: {
-      if (prepare_compact_row() || make_compact_row(null_len, total_copy_bytes)) {
-        return 1;
-      }
+#ifndef DBUG_OFF
+  for (auto &handle : m_handles) {
+    buf.append(" ");
+    buf.append_ulonglong(handle->channel_id());
+  }
+  PX_PRINT_DEBUG("send to channels%s", buf.c_ptr_safe());
+#endif
 
-      if (send_compact_row()) {
-        m_pei->detach_sender(m_sender_no);
-        return 1;
-      }
+  for (auto &handle: m_handles) {
+    // TODO skip unmatch handle m_reshuffle_key m_sender_id
 
-      break;
+    PX_io_error error = handle->send(out_fields.data(), out_fields.size(),
+                                     /*nowait=*/false);
+
+    // Never gets non-blocking because of it is a blocking send.
+    assert(error != PX_IO_WOULD_BLOCK);
+
+    /*
+      Because data flow must be ended by the producer side, any send that is
+      not successful indicates an error.
+     */
+    if (error != PX_IO_OK) {
+      result = 1;
+      goto end;
     }
-    default:
-      break;
   }
+
+  result = 0;
+
+end:
+  if (result) detach();
 
   return result;
 }
 
-bool PX_sender::send_compact_row() {
-  auto compact_fields_size = m_field_size + PX_HIDDEN_FIELD_COUNT;
-  std::vector<PX_iovec> out_fields;
-  out_fields.reserve(compact_fields_size);
-
-  for (uint i = 0; i < compact_fields_size; ++i) {
-    if (!m_compact_row[i].m_need_send) {
-      continue;
-    } else {
-      PX_iovec fld;
-      fld.data = (const char*)m_compact_row[i].m_ptr;
-      fld.len = m_compact_row[i].m_len;
-      out_fields.push_back(fld);
-    }
-  }
-
-  /*
-    Find the channels should send data to firstly.
-    Then send data.
-    For PX_GATHER_EXCHANGE, the sender only need to
-    send row to a gather receiver.
-    For PX_RESHUFFLE_EXCHANGE, the sender should
-    calculate the receiver no according to the
-    m_reshuffle_key throush a hash function. Then
-    send row to the receiver.
-    For PX_BOARDCAST_EXCHANGE, the sender should
-    send the row to every receivers.
-  */
-  std::vector<PX_exchange_channel *> channels;
-  m_pei->get_sender_channel(m_sender_no, channels);
-  PX_mq_result res;
-
-  for (auto channel : channels) {
-    assert(channel);
-
-    if (m_pei->type() == PX_RESHUFFLE_EXCHANGE) {
-      assert(m_reshuffle_key);
-
-      uint receiver_no = cal_reshuffle_channel(m_reshuffle_key);
-
-      if (m_pei->find_channel_no(m_sender_no, receiver_no) != channel->get_channel_no()) {
-        continue;
-      }
-    }
-
-    res = (PX_mq_result)channel->send_row(out_fields.data(), out_fields.size(), /*nowait=*/false);
-
-    switch (res) {
-     case PX_MQ_DETACHED:
-     case PX_MQ_ERROR:
-     case PX_MQ_INTERRUPTED: {
-       goto error;
-       break;
-     }
-     case PX_MQ_SUCCESS:
-     case PX_MQ_WOULD_BLOCK:
-       break;
-     default:
-       assert(0);
-       break;
-    }
-  }
-
-  return false;
-
-error:
-  sql_print_error("Send compact row to exchange channel fail!");
-  return true;
-}
-
-/**
-  m_skip_array is the encoded bool array for const_item and null field.
-  Each item use two bool in m_skip_array. The first bool indicates the
-  item is const string item, the sencond bool indicates the result field
-  of the item is null field. So, There are four cases:
-    (0, 0)   =>  NOT_CONST_ITEM & NON_NULL_FIELD
-    (0, 1)   =>  NOT_CONST_ITEM & NULL_FIELD
-    (1, 0)   =>  CONST_ITEM & NON_NULL_FIELD
-    (1, 1)   =>  CONST_ITEM & NULL_FIELD
-  m_skip_flag use tow bits to encoded a item. After all items has been
-  checked, build m_skip_flag according to m_skip_array.
-*/
-bool PX_sender::prepare_compact_row() {
-  m_compact_row = new PX_field_data[m_field_size + PX_HIDDEN_FIELD_COUNT];
-  m_skip_array = new bool[2 * m_field_size];
-  m_skip_flag = new char[m_field_size / PX_HIDDEN_FIELD_COUNT + 2];
-
-  if (!m_compact_row || !m_skip_array || !m_skip_flag) {
-    my_error(ER_OUTOFMEMORY, MYF(0));
-    sql_print_error("PX_sender::prepare_compact_row error!");
-    return true;
-  }
-
-  return false;
-}
-
-bool PX_sender::make_compact_row(uint16 &null_len, uint32 &total_copy_bytes) {
-  uint null_num = 0;
-
-  if (m_use_item) {
-    if (compact_items(null_num, total_copy_bytes)) return true;
-  } else {
-    if (compact_fields(null_num, total_copy_bytes)) return true;
-  }
-
-  /*
-    Make the m_skip_flag according to to m_skip_array.
-    Each field use 2 bits to indicate its const/null flag.
-    So 4 field use 1 byte in m_skip_flag and the first byte
-    is reserved for the header(4 fields).
-  */
-  null_len = ((null_num % 8 == 0) ? null_num / 8 : null_num / 8 + 1) + 1;
-  memset(m_skip_flag, 0, null_len);
-
-  uint i, j;
-  for (i = 0; i < null_num; i++) {
-    if (m_skip_array[i]) {
-      j = (i >> 3) + 1;
-      m_skip_flag[j] += 1 << (7 - (i & 7));
-    }
-  }
-
-  /*
-    Make the compact row hidden fields. There are 4
-    hidden fields for a compact row.
-    1) total_copy_bytes: the legnth of payload will be
-    sent to exchange channel.
-    2) handle::ref: the ref of the row used in stable
-    output.
-    3) null_len: the length of m_skip_flag in bytes.
-    4) m_skip_flag: the bit array indicates a item
-    is const_item or has a null result field in
-    sender tmp table.
-  */
-  m_compact_row[3].m_ptr = (uchar *)m_skip_flag;
-  m_compact_row[3].m_len = null_len;
-  total_copy_bytes += null_len;
-
-  m_compact_row[2].m_ptr = (uchar *)&null_len;
-  m_compact_row[2].m_len = 2;
-  total_copy_bytes += 2;
-
-  /* The m_encoded_row_data[1] is reserved for stable output. */
-  m_compact_row[1].m_need_send = false;
-
-  m_compact_row[0].m_ptr = (uchar *)&total_copy_bytes;
-  m_compact_row[0].m_len = 4;
-
-  return false;
-}
-
-bool PX_sender::compact_items(uint &null_num, uint32 &total_copy_bytes) {
-  size_t fields_idx = PX_HIDDEN_FIELD_COUNT;
-  Field *result_field = nullptr;
-  for (Item *item : *m_send_fields) {
-    /*
-      Skip the send of const items (except FIELD_ITEM) and items that are of
-      type NULL_ITEM, STRING_ITEM in compact row format. Const items that are of
-      type FIELD_ITEM should be sent, because the sender and receiver created
-      temporary tables, respectively, the item is not const on the Receiver.
-    */
-    assert(fields_idx < m_field_size + PX_HIDDEN_FIELD_COUNT);
-    if ((item->const_item() && item->type() != Item::FIELD_ITEM) ||
-        item->type() == Item::NULL_ITEM || item->type() == Item::STRING_ITEM) {
-      assert(item->const_item() || item->basic_const_item());
-
-      m_skip_array[null_num++] = 1;
-      m_skip_array[null_num++] = 0;
-      m_compact_row[fields_idx++].m_need_send = false;
-      continue;
-    }
-
-    /*
-      1)For Item_field, sent the field directly because there is no need
-      to copy it to parallel execution sender tmp table.
-      2)For Item_func, write the result to parallel execution sender tmp
-      table by save_in_field firstly.
-    */
-    if (item->type() == Item::FIELD_ITEM) {
-      result_field = down_cast<Item_field *>(item)->field;
-    } else {
-      result_field = item->get_result_field();
-      const type_conversion_status ret =
-          item->save_in_field(result_field, true);
-      // TODO: Push warning to coordinator
-      if (ret != TYPE_OK && ret != TYPE_NOTE_TIME_TRUNCATED &&
-          ret != TYPE_NOTE_TRUNCATED) {
-        return true;
-      }
-    }
-
-    m_skip_array[null_num++] = 0;
-    m_skip_array[null_num++] = result_field->is_null() ? 1 : 0;
-
-    /* Skip the send of null field. */
-    if (m_skip_array[null_num - 1]) {
-      m_compact_row[fields_idx++].m_need_send = false;
-      continue;
-    }
-
-    total_copy_bytes +=
-        make_compact_field(result_field, &m_compact_row[fields_idx]);
-    fields_idx++;
-  }
-  return false;
-}
-
-bool PX_sender::compact_fields(uint &null_num, uint32 &total_copy_bytes) {
-  /**
-   * Copy fields and calculate functions to the tmp table of exchange.
-   */
-  if (m_temp_table_param && copy_fields_and_funcs(m_temp_table_param, thd()))
-    return true; /* purecov: inspected */
-
-  size_t fields_idx = PX_HIDDEN_FIELD_COUNT;
-
-  for (Field *field : m_fields) {
-    assert(fields_idx < m_field_size + PX_HIDDEN_FIELD_COUNT);
-    if (MYSQL_TYPE_NULL == field->type()) {
-      m_skip_array[null_num++] = 1;
-      m_skip_array[null_num++] = 0;
-      m_compact_row[fields_idx++].m_need_send = false;
-      continue;
-    }
-
-    m_skip_array[null_num++] = 0;
-    m_skip_array[null_num++] = field->is_null() ? 1 : 0;
-
-    /* Skip the send of null field. */
-    if (m_skip_array[null_num - 1]) {
-      m_compact_row[fields_idx++].m_need_send = false;
-      continue;
-    }
-
-    total_copy_bytes += make_compact_field(field, &m_compact_row[fields_idx]);
-    fields_idx++;
-  }
-  return false;
-}
-
-uint32 PX_sender::make_compact_field(Field *field, PX_field_data *px_field) {
-  switch (field->type()) {
-   case MYSQL_TYPE_BOOL:
-   case MYSQL_TYPE_DECIMAL:
-   case MYSQL_TYPE_TINY:
-   case MYSQL_TYPE_SHORT:
-   case MYSQL_TYPE_LONG:
-   case MYSQL_TYPE_FLOAT:
-   case MYSQL_TYPE_DOUBLE:
-   case MYSQL_TYPE_NULL:
-   case MYSQL_TYPE_TIMESTAMP:
-   case MYSQL_TYPE_LONGLONG:
-   case MYSQL_TYPE_INT24:
-   case MYSQL_TYPE_DATE:
-   case MYSQL_TYPE_TIME:
-   case MYSQL_TYPE_DATETIME:
-   case MYSQL_TYPE_YEAR:
-   case MYSQL_TYPE_NEWDATE:
-
-   case MYSQL_TYPE_TIMESTAMP2:
-   case MYSQL_TYPE_DATETIME2:
-   case MYSQL_TYPE_TIME2:
-   case MYSQL_TYPE_TYPED_ARRAY:
-
-   case MYSQL_TYPE_NEWDECIMAL:
-   case MYSQL_TYPE_ENUM:
-   case MYSQL_TYPE_SET:
-   case MYSQL_TYPE_STRING:{
-     px_field->m_ptr = field->field_ptr();
-     px_field->m_len = field->pack_length();
-     break;
-   }
-
-   case MYSQL_TYPE_BIT: {
-     // Not supported yet.
-     assert(0);
-     break;
-   }
-
-   case MYSQL_TYPE_VARCHAR:
-   case MYSQL_TYPE_VAR_STRING: {
-     Field_varstring *from = static_cast<Field_varstring *>(field);
-     px_field->m_ptr = from->field_ptr();
-     px_field->m_len = from->get_length_bytes() + from->data_length();
-     break;
-   }
-
-   case MYSQL_TYPE_JSON:
-   case MYSQL_TYPE_TINY_BLOB:
-   case MYSQL_TYPE_MEDIUM_BLOB:
-   case MYSQL_TYPE_LONG_BLOB:
-   case MYSQL_TYPE_BLOB:
-   case MYSQL_TYPE_GEOMETRY: {
-     assert(0);
-     break;
-   }
-   default: {
-     // MYSQL_TYPE_INVALID
-     assert(0);
-     break;
-   }
-  }
-
-  px_field->m_need_send = true;
-  return px_field->m_len;
-}
-
-uint PX_sender::cal_reshuffle_channel(mem_root_deque<Item *> *reshuffle_key) {
-  // @TODO: the reshuffle has not yes supported!
-  return 0;
-}
-
-void PX_sender::end() {
-  if (m_compact_row) {
-    delete [] m_compact_row;
-    m_compact_row = nullptr;
-  }
-
-  if (m_skip_array) {
-    delete [] m_skip_array;
-    m_skip_array = nullptr;
-  }
-
-  if (m_skip_flag) {
-    delete [] m_skip_flag;
-    m_skip_flag = nullptr;
+void PX_sender::End() {
+  if (m_codec) {
+    destroy(m_codec);
   }
 }
 
-void PX_sender::schedule_post() {
-  if (m_pei->is_top_exchange()) m_pei->schedule_senders_post();
-}
-
-void PX_sender::synchronize() {
-  m_role == SYN_KEY ? m_pei->exchange_senders_post()
-                    : m_pei->exchange_wait();
+void PX_sender::detach() {
+  for (auto &handle : m_handles) {
+    handle->detach();
+  }
 }

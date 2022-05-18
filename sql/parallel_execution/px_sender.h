@@ -1,23 +1,30 @@
 #ifndef PX_SENDER_INCLUDED
 #define PX_SENDER_INCLUDED
 
+#include "px_executor.h"
+
 #include "my_base.h"
 #include "mem_root_deque.h"
 #include "sql/iterators/row_iterator.h"
 #include "sql/sql_tmp_table.h"
 #include "sql/sql_optimizer.h"  // JOIN
 
+#include "px_exchange_info.h" // PX_exchange_handles
+
 class Field;
 class Item;
 class PX_exchange_info;
-class PX_mq_handle;
-class PX_field_data;
+class PX_exchange_handle;
 class TABLE;
 class THD;
+class PX_codec;
 
 /**
-  The PX_sender represents a exchange sender. A PX_sender
-  will connect with each PX_receiver through a PX_exchange_channel.
+  A bridging iterator that takes an exchange as data sink.
+
+  It is effectively an exchange client.
+
+  Any source row is encoded to a message then sent through the exchange.
 */
 class PX_sender : public RowIterator {
  public:
@@ -29,14 +36,10 @@ class PX_sender : public RowIterator {
             unique_ptr_destroy_only<RowIterator> table_path);
   ~PX_sender() {}
 
-  bool init();
-  int send();
-  void end();
+  bool Init() override;
+  int Read() override;
+  void End();
 
-  bool attach();
-
-  bool Init() override { return attach(); }
-  int Read() override { return send(); }
 
   void StartPSIBatchMode() override {
     if (!m_materialize) {
@@ -75,40 +78,36 @@ class PX_sender : public RowIterator {
   virtual PhysicalRowIteratorType type() override { return PHY_PX_SEND; }
   virtual void adjust_children() override { add_child(m_source.get()); }
 
-public:
-  SynchronizeRoleType m_role{SYN_LOCK};
-
  private:
-  bool send_compact_row();
-  bool prepare_compact_row();
-  bool make_compact_row(uint16 &null_len, uint32 &total_copy_bytes);
-  bool compact_items(uint &null_num, uint32 &total_copy_bytes);
-  bool compact_fields(uint &null_num, uint32 &total_copy_bytes);
-  uint32 make_compact_field(Field *field, PX_field_data *px_field);
+  bool register_to_exchange();
+  bool attach();
+  void detach();
+  PX_proc *me() const;
 
-  uint cal_reshuffle_channel(mem_root_deque<Item *> *reshuffle_key);
-  void schedule_post();
-  void synchronize();
-
- private:
-  THD *m_thd{nullptr};
-  uint m_sender_no{INT_MAX};
-  PX_exchange_info *m_pei{nullptr};
   unique_ptr_destroy_only<RowIterator> m_source;
-  TABLE *m_table{nullptr};
-  PX_field_data *m_compact_row{nullptr};
-  bool *m_skip_array{nullptr};
-  char *m_skip_flag{nullptr};
-  mem_root_deque<Item *> *m_send_fields{nullptr};
-  mem_root_deque<Item *> *m_reshuffle_key{nullptr};
-  Temp_table_param *m_temp_table_param{nullptr};
-  std::vector<Field *> m_fields;
-  size_t m_field_size;
-  bool m_use_item;  // If true, exchange would send the result of items.
-                    // Otherwise, exchange would send the field in table
-                    // directly.
   bool m_materialize;
+  /// Temporary table for materialization
   unique_ptr_destroy_only<RowIterator> m_table_path;
+
+  /// Exchange instance
+  PX_exchange_info *m_pei{nullptr};
+  uint m_sender_id{INT_MAX};
+
+  /// Channel handles to send messages
+  PX_exchange_handles m_handles;
+
+  bool m_use_item;
+  Temp_table_param *m_temp_table_param{nullptr};
+  /// The encoder
+  PX_codec *m_codec{nullptr};
+
+  TABLE *m_table{nullptr};
+  /// Encoder input fields
+  std::vector<Field *> m_fields;
+  /// Encoder input items
+  mem_root_deque<Item *> *m_send_fields{nullptr};
+
+  mem_root_deque<Item *> *m_reshuffle_key{nullptr};
 };
 
 #endif

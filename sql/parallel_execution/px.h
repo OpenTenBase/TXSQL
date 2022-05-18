@@ -78,12 +78,19 @@
 class THD;
 struct TABLE;
 struct TABLE_REF;
+class QEP_TAB;
+class Item;
+template <class Element_type>
+class mem_root_deque;
+struct MEM_ROOT;
 
 extern PSI_mutex_key key_px_thd_lock;
 extern PSI_cond_key key_px_thd_cond;
 
 extern PSI_mutex_key key_px_mq_lock;
 extern PSI_memory_key key_px_mq_memory;
+
+extern uint rehash_for_px(mem_root_deque<Item *> *key);
 
 typedef void *(*malloc_func_t)(size_t size);
 typedef void (*free_func_t)(void *);
@@ -113,55 +120,33 @@ typedef mysql_mutex_t spin_lock_t;
 /* Reset event state. No need for cond var. */
 #define ResetLatch(proc)
 
+class PX_mem_allocator {
+ public:
+  PX_mem_allocator() {}
+  virtual ~PX_mem_allocator() {}
+  virtual MEM_ROOT *get_mem_allocator() = 0;
+};
+
 /**
   The status of a backend thread
 */
 enum PX_handle_status { NOT_YET_STARTED = 0, STARTED, KILLED };
-
-class PX_stage_barrier {
- public:
-  PX_stage_barrier(uint senders, uint receivers)
-   : m_senders(senders), m_receivers(receivers) {}
-  ~PX_stage_barrier() {}
-
-  void init(); // Init the stage barrier.
-  void destroy(); // Destroy the stage barrier.
-  void set_number(uint senders, uint receivers);
-
-  void exchange_wait(); // wait for sender/receiver finished.
-  void exchange_senders_post(); // sender post.
-  void exchange_receivers_post(); // receiver post.
-
-  void schedule_wait(); // wait for one stage begin.
-  void schedule_receivers_post(); // post stage begin.
-  void schedule_senders_post(); // post stage begin.
-
- private:
-  std::atomic<uint> sender_done{0}; // number of sender done
-  std::atomic<uint> receiver_done{0}; // number of receiver done.
-  std::atomic<uint> stage_done{0}; // number of done when switch stage
-  uint m_senders; // number of senders for one exchange.
-  uint m_receivers; // number of receivers for one exchange.
-  pthread_semphore_t m_exchange_sem;
-  pthread_semphore_t m_stage_barrier_sem;
-};
 
 /**
   This class represents a counterpart handle of the message queue handle.
 */
 class PX_worker_handle {
  public:
-  PX_worker_handle(THD *thd) : m_thd(thd) {}
+  PX_worker_handle(uint id) : m_id(id) {}
   virtual ~PX_worker_handle() {}
 
   // FIXME: the worker thread may have switched to the next task.
   virtual PX_handle_status check_worker_status() = 0;
 
-  THD *thd() { return m_thd; }
+  uint id() const { return m_id; }
 
  private:
-  /// The thread of the counterpart of the message queue handle
-  THD *m_thd;
+  uint m_id;
 };
 
 /**
@@ -181,6 +166,7 @@ class PX_proc {
   void wait(ulong timeout, const PSI_stage_info *stage, const char *src_func,
             const char *src_file, uint src_line);
 
+  PX_handle_status check_status();
  private:
   /// The backend thread
   THD *m_thd;

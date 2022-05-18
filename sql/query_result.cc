@@ -56,15 +56,9 @@
 #include "sql/system_variables.h"
 #include "sql/visible_fields.h"
 #include "sql_string.h"
-#include "sql/log.h"
 #include "template_utils.h"  // pointer_cast
 
-#include "sql/parallel_execution/px_mq.h"
-#include "sql/parallel_execution/px_exchange_info.h"
-
 using std::min;
-
-#define PX_ENCODED_ROW_HEADER_LENGTH 4
 
 uint Query_result::field_count(const mem_root_deque<Item *> &fields) const {
   return CountVisibleFields(fields);

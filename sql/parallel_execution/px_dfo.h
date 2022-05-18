@@ -124,12 +124,6 @@ class Dfo_mgr {
   */
   void analyze_resource_allocation();
 
-  /**
-    Since there is two phases in exchange initialization, so we need to set
-    synchronization info between iterator tree.
-  */
-  void set_synchronization_info_for_dfo_tree(RowIterator *iterator);
-
  public:
   Dfo *root_dfo() const { return m_root_dfo; }
   void set_total_cores(int64_t cores) { m_total_threads = cores; }
