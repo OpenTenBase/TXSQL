@@ -9,45 +9,37 @@
 #include "sql/table.h"
 #include "sql/iterators/row_iterator.h"
 
+#include "px_exchange_info.h" // PX_exchange_handles
+
 class Field;
 class Item;
 class PX_exchange_info;
-class PX_exchange_channel;
-class PX_mq_handle;
+class PX_exchange_handle;
+class PX_codec;
 class THD;
 class TABLE;
 
 void SwitchSlice(JOIN *join, int slice_num);
 
 /**
-  The class represents a exchange receiver backend member.
-  A receiver connect to a exchange channel which can
-  communicate with a exchange sender. 
+  A bridging iterator that takes an exchange as data source.
+
+  It is effectively an exchange client.
+
+  Any message received through the exchange is decoded and saved in a record
+  buffer so that upper iterators can access.
 */
 class PX_receiver : public RowIterator {
  public:
-  PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei, JOIN *join,
+  PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei, JOIN *join,
     unique_ptr_destroy_only<RowIterator> source, TABLE *table, int ref_slice);
-  PX_receiver(THD *thd, uint receiver_no, PX_exchange_info *pei,
-    unique_ptr_destroy_only<RowIterator> source, TABLE *table);
-  // PX_receiver();
   ~PX_receiver() {}
 
-  virtual bool init();
-  virtual int next();
-  virtual void end();
+  bool Init() override;
+  int Read() override;
+  virtual void End();
 
-  virtual bool attach();
-  bool decompact_row(uchar *data, Size msg_len);
-  uint get_receiver_no() { return m_receiver_no; }
-  PX_exchange_info *get_pei() { return m_pei; }
-  THD *get_thd() { return m_thd; }
-  TABLE *get_table() { return m_table; }
-  uint senders() { return m_channels.size(); }
-
-  bool Init() override { return attach(); }
-  int Read() override { return next(); }
-
+ public:
   void StartPSIBatchMode() override {
     // TODO: receiver should send this message to sender through mq.
     m_source->StartPSIBatchMode();
@@ -65,37 +57,47 @@ class PX_receiver : public RowIterator {
 
   void set_exchange_info(PX_exchange_info *pei) { m_pei = pei; }
   PX_exchange_info *get_pei() const { return m_pei; }
+  uint get_receiver_id() { return m_receiver_id; }
+  PX_exchange_info *get_pei() { return m_pei; }
+  TABLE *get_table() { return m_table; }
+  PX_codec *get_codec() { return m_codec; }
 
   virtual std::string str() override { return "PX_RECEIVE"; }
   virtual PhysicalRowIteratorType type() override { return PHY_PX_RECEIVE; }
   virtual void adjust_children() override { add_child(m_source.get()); }
 
  private:
-  int read_compact_row(void **datap, Size *len);
-  void mqueue_mmove(uint next_channel, uint active_channels);
-  void decompact_field(Field *field, uchar *data, uint &ptr_offset);
-  void schedule_post();
-  void synchronize();
+  int receive(void **datap, Size *len);
+  PX_proc *me() const;
 
- public:
-  SynchronizeRoleType m_role{SYN_LOCK};
-  std::vector<PX_exchange_channel *> m_channels;
+ protected:
+  void detach();
+
+  /// Channel handles to receive messages
+  PX_exchange_handles m_handles;
 
  private:
-  THD *m_thd{nullptr};
-  uint m_receiver_no{INT_MAX};
-  PX_exchange_info *m_pei{nullptr};
   JOIN *m_join{nullptr};
   unique_ptr_destroy_only<RowIterator> m_source;
-  // The exchange receiver tmp table.
+
+  /// Exchange instance
+  PX_exchange_info *m_pei{nullptr};
+  uint m_receiver_id{INT_MAX};
+
+  /// The table providing record buffer, record[0].
   TABLE *m_table{nullptr};
-  /** The next channel to receive data. */
-  uint m_next_channel{0};
-  /** The number of left channels. */
-  uint m_active_channels{0};
+  /// Decoder output fields
+  std::vector<Field *> m_fields;
+  /// The decoder
+  PX_codec *m_codec{nullptr};
+
+  /// The channel to read
+  uint m_cursor{0};
+  /// The number of consecutive empty channels
+  uint m_skip_count{0};
+
   int m_ref_slice{0};
   int m_input_slice{0};
-  std::vector<Field *> m_fields;
 };
 
 #endif

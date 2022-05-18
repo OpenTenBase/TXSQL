@@ -4,365 +4,241 @@
 #include "px_exchange_info.h"
 #include "px_mq.h"
 #include "px.h"
+#include "px_executor.h"
 #include "sql/log.h"
-// The default size of data queue is 1MB
+
+// The default size of message queue.
 #define RING_SIZE 1048576
 
-class PX_worker_handle_impl : public PX_worker_handle {
- public:
-  PX_worker_handle_impl(THD *thd) : PX_worker_handle(thd) {}
-  PX_handle_status check_worker_status() override {
-    // FIXME: return a reasonable status.
-    return STARTED;
-  }
-};
+/**
+  Compute consumer id by key.
+*/
+uint rehash_for_px(mem_root_deque<Item *> *key) {
+  // TODO: implment the function.
+  assert(0);
+  return 0;
+}
 
 PX_exchange_info::PX_exchange_info(THD *thd, PX_exchange_type exchange_type,
-    PX_channel_type type, uint senders, uint receivers, PX_exchange_format format, bool need_materialize)
+    PX_channel_type type, uint senders, uint receivers, PX_exchange_format format,
+    bool need_materialize, reshuffle_func_t reshuffle_func)
     : m_coordinator_thd(thd),
       m_channel_type(type),
+      m_format(format),
+      m_type(exchange_type),
+      reshuffle_func(reshuffle_func),
       m_senders(senders),
       m_receivers(receivers),
-      m_type(exchange_type),
-      m_format(format),
-      m_need_materialize(need_materialize) {
-  m_barrier = new (thd->mem_root) PX_stage_barrier(senders, receivers);
+      m_channels(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)),
+      m_proc_handles(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)),
+      m_live_handles(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)) {
+  assert(exchange_type == PX_GATHER_EXCHANGE);
 }
 
 void PX_exchange_info::set_dop(uint senders, uint receivers) {
-  m_barrier->set_number(senders, receivers);
   m_senders = senders;
   m_receivers = receivers;
 }
 
 /**
-  Create the exchange channels between two dfos, each sender and a receiver
-  will connect to a channel.
+  Initialize registries.
+
+  Note that all the registries are preallocated before concurrent access, thus
+  no further lock is required. Concurrent access to any entry itself is not a
+  problem of the registry.
 
   @return true if fail, false if success.
 */
 bool PX_exchange_info::init() {
-  assert(m_senders && m_receivers);
-  uint nchannels = m_senders * m_receivers;
-  m_channels.reserve(nchannels);
+  assert(m_senders && m_receivers && !m_inited);
+#ifndef DBUG_OFF
+  m_inited = true;
+#endif
 
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = nullptr;
-
-    switch (m_channel_type) {
-      case PX_MQ_CHANNEL: {
-        channel = new (m_coordinator_thd->mem_root)
-            PX_mq_channel(i, RING_SIZE, m_coordinator_thd);
-
-        if (!channel) {
-          my_error(ER_OUTOFMEMORY, MYF(0));
-          sql_print_error("init Parallel execution exchange info error!");
-          return true;
-        }
-
-        break;
-      }
-      default: {
-        // not support yes!
-        assert(0);
-        return true;
-        break;
-      }
-    }
-
-    channel->init();
-    m_channels.push_back(channel);
-  }
-  mysql_mutex_init(key_LOCK_Exchange_Info_Channel, &m_lock, MY_MUTEX_INIT_FAST);
-  m_barrier->init();
-
-  return false;
-}
-
-/**
-  Register for a exchange receiver thread. 
-
-  @return true if fail, false if success.
-*/
-bool PX_exchange_info::register_receiver(THD *receiver, uint receiver_no) {
-  assert(receiver_no < m_receivers);
-  PX_proc *event = nullptr;
-  PX_worker_handle *handle = nullptr;
-
-  switch (m_channel_type) {
-   case PX_MQ_CHANNEL: {
-     event = new (m_coordinator_thd->mem_root) PX_proc(receiver);
-
-     if (!event) {
-       my_error(ER_OUTOFMEMORY, MYF(0));
-       sql_print_error("fail to register exchange receiver in parallel execution!");
-       return true;
-     }
-
-     handle = new (m_coordinator_thd->mem_root) PX_worker_handle_impl(receiver);
-
-     if (!handle) {
-       my_error(ER_OUTOFMEMORY, MYF(0));
-       sql_print_error("fail to register exchange receiver in parallel execution!");
-       return true;
-     }
-     
-     break;
-    }
-   default: {
-     // not support yet!
-     assert(0);
-     return true;
-     break;
-   }
-  }
+  PX_PRINT_INFO("exchange %u init with %u senders and %u receivers",
+                m_exchange_id, m_senders, m_receivers);
 
   /*
-    Find all the channel the receiver will create connection.
-    Then register the receiver to these channels.
-  */
-  uint nchannels = m_senders;
+    There will be:
 
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
+      - one channel per each pair of producer and receiver.
+      - one live handle per each processor, to detect liveness.
+      - one process slot per each processor, to wake up.
 
-    switch (m_channel_type) {
-     case PX_MQ_CHANNEL: {
-       PX_mq_channel *mq_channel = down_cast<PX_mq_channel *>(channel);
-       mq_channel->register_receiver_handle(handle);
-       mq_channel->register_reciever_event(event);
-       break;
-     }
-     default: {
-       // not support yet!
-       assert(0);
-       return true;
-       break;
-     }
+    The channels and live handles are allocated and polulated, while the process
+    slots are just allocated leaving each processor to register independently.
+
+    All these contexts are maintained in coordinator memory root because its
+    lifetime properly include that of all workers.
+
+    See also peer_slot().
+   */
+
+  try {
+    m_channels.resize(num_channels());
+    m_live_handles.resize(num_procs());
+    m_proc_handles.resize(num_procs());
+
+    for (uint i = 0; i < num_channels(); i++) {
+      PX_exchange_channel *channel = create_channel(i, m_channel_type);
+      if (!channel) goto err;
+      m_channels.at(i) = channel;
     }
+
+    for (uint i = 0; i < num_procs(); i++) {
+      PX_worker_handle *live_handle = new (m_coordinator_thd->mem_root)
+          PX_worker_handle_impl(this, i);
+      if (!live_handle) goto oom;
+      m_live_handles.at(i) = live_handle;
+    }
+
+    return false;
+  } catch (...) {
+    goto oom;
   }
 
-  return false;
+oom:
+  my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_exchange_info::init()");
+
+err:
+  return true;
 }
 
 /**
-  Register for a exchange sender thread. 
+  Create a channel of given type.
 
-  @return true if fail, false if success.
+  @return the created channel or nullptr on failure.
 */
-bool PX_exchange_info::register_sender(THD *sender, uint sender_no) {
-  assert(sender_no < m_senders);
-  PX_proc *event = nullptr;
-  PX_worker_handle *handle = nullptr;
-
-  lock();
+PX_exchange_channel *PX_exchange_info::create_channel(
+    uint channel_id, PX_channel_type channel_type) {
+  PX_exchange_channel *channel = nullptr;
   switch (m_channel_type) {
-   case PX_MQ_CHANNEL: {
-     event = new (m_coordinator_thd->mem_root) PX_proc(sender);
-
-     if (!event) {
-       my_error(ER_OUTOFMEMORY, MYF(0));
-       sql_print_error("fail to register exchange sender in parallel execution!");
-       return true;
-     }
-
-     handle = new (m_coordinator_thd->mem_root) PX_worker_handle_impl(sender);
-
-     if (!handle) {
-       my_error(ER_OUTOFMEMORY, MYF(0));
-       sql_print_error("fail to register exchange sender in parallel execution!");
-       return true;
-     }
-     
-     break;
-   }
-   default: {
-     // not support yet!
-     assert(0);
-     return true;
-     break;
-   }
-  }
-
-  uint nchannels = m_receivers;
-
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
-
-    switch (m_channel_type) {
-     case PX_MQ_CHANNEL: {
-       PX_mq_channel *mq_channel = down_cast<PX_mq_channel *>(channel);
-       mq_channel->register_sender_handle(handle);
-       mq_channel->register_sender_event(event);
-       break;
-     }
-     default: {
-       // not support yet!
-       assert(0);
-       return true;
-       break;
-     }
+    case PX_MQ_CHANNEL: {
+      const Size ring_size = RING_SIZE;
+      char *ring_buffer = (char *)m_coordinator_thd->mem_root->Alloc(ring_size);
+      channel = new (m_coordinator_thd->mem_root)
+          PX_mq_channel(channel_id, ring_buffer, ring_size);
+      if (!ring_buffer || !channel) {
+        my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_exchange_info::create_channel()");
+      }
+      break;
+    }
+    default: {
+      assert(0);
+      break;
     }
   }
-  unlock();
 
-  return false;
+  return channel;
 }
 
 /**
-  Clean the exchange info.
+  Register a proc to the exchange and get its id.
+
+  A sender's id distinguishes it among all senders.
+  A receiver's id distinguishes it among all receivers.
+
+  The function is supposed to be invoked by the processor. Since the registry
+  is preallocated, it is safe to be concurrently accessed without locking.
+
+  @param[in]  me         The proc to register
+  @param[in]  as_sender  The proc is a sender
+  @param[out] id         The allocated id
+
   @return true if fail, false if success.
 */
+bool PX_exchange_info::register_proc(PX_proc *me, bool as_sender, uint &id) {
+  assert(me && m_inited);
+
+  if (as_sender) {
+    const uint new_id = m_sender_id.fetch_add(1);
+    assert(new_id < m_senders);
+
+    uint p = slot(new_id, as_sender);
+    PX_PRINT_INFO("register proc %u as sender %u to in exchange %u", p, new_id,
+                  m_exchange_id);
+
+    // Register proc handle so that live handle can check its status
+    m_proc_handles.at(p) = me;
+
+    // Set the proc handle to connected channels.
+    for (uint i = new_id * m_receivers, j = 0; j < m_receivers; i++, j++) {
+      m_channels.at(i)->set_sender(me);
+    }
+
+    id = new_id;
+  } else {
+    const uint new_id = m_receiver_id.fetch_add(1);
+    assert(new_id < m_receivers);
+
+    const uint p = slot(new_id, as_sender);
+    PX_PRINT_INFO("register proc %u as receiver %u in exchange %u", p, new_id,
+                  m_exchange_id);
+
+    // Register proc handle so that live handle can check its status
+    m_proc_handles.at(p) = me;
+
+    // Set the proc handle to connected channels.
+    for (uint i = new_id; i < num_channels(); i += m_receivers) {
+      m_channels.at(i)->set_receiver(me);
+    }
+
+    id = new_id;
+  }
+
+  return false;
+}
+
+bool PX_exchange_info::deregister_proc(bool as_sender, uint id) {
+  // TODO interacts with live handle.
+  return false;
+}
+
 void PX_exchange_info::clean() {
-  uint nchannels = m_channels.size();
-
-  for (uint i = 0; i < nchannels; ++i) {
-    m_channels[i]->clean();
-    destroy(m_channels[i]);
+  for (auto &channel : m_channels) {
+    destroy(channel);
+  }
+  for (auto &handle: m_live_handles) {
+    destroy(handle);
   }
 }
 
-bool PX_exchange_info::init_receiver(uint receiver_no) {
-  // Find all the channels the receiver will connect to.
-  uint nchannels = m_senders;
+/**
+  Attach given processor to all connected channels.
 
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
+  @param me            Thread context of the caller.
+  @param as_sender     As a sender
+  @param id            Id of the processor
+  @param[out] handles  The set of handles to access the channels.
 
-    if (channel->init_receiver()) {
-      sql_print_error("fail to init exchange receiver in parallel execution!");
-      return true;
+  @return false on success, true on error.
+ */
+bool PX_exchange_info::attach(PX_proc *me, bool as_sender, uint id,
+                              PX_exchange_handles &handles) {
+  PX_PRINT_INFO("attach as %s %u", (as_sender ? "sender" : "receiver"), id);
+
+  auto attach_channel = [&](PX_exchange_channel *channel) {
+    PX_exchange_handle *handle;
+    if (channel->attach(me, handle)) return true;
+
+    // Set up the live handle of its peer processor
+    uint slot = peer_slot(handle->channel_id(), id, as_sender);
+    assert(slot < m_receivers + m_senders);
+    handle->set_worker_handle(m_live_handles.at(slot));
+
+    handles.push_back(handle);
+    return false;
+  };
+
+  if (as_sender) {
+    for (uint i = id * m_receivers, j = 0; j < m_receivers; i++, j++) {
+      if (attach_channel(m_channels.at(i))) return true;
+    }
+  } else {
+    for (uint i = id; i < num_channels(); i += m_receivers) {
+      if (attach_channel(m_channels.at(i))) return true;
     }
   }
-  unlock();
 
   return false;
 }
-
-bool PX_exchange_info::init_sender(uint sender_no) {
-  // Find all the channels the sender will connect to.
-  uint nchannels = m_receivers;
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
-
-    if (channel->init_sender()) {
-      sql_print_error("fail to init exchange sender in parallel execution!");
-      return true;
-    }
-  }
-  unlock();
-
-  return false;
-}
-
-bool PX_exchange_info::attach_sender(uint sender_no) {
-  // Find all the channels the sender will connect to.
-  uint nchannels = m_receivers;
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
-    if (channel->attach_sender()) {
-      return true;
-    }
-  }
-  unlock();
-
-  return false;
-}
-
-bool PX_exchange_info::attach_receiver(uint receiver_no) {
-  // Find all the channels the receiver will connect to.
-  uint nchannels = m_senders;
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
-    if (channel->attach_receiver()) {
-      return true;
-    }
-  }
-  unlock();
-
-  return false;
-}
-
-void PX_exchange_info::detach_sender(uint sender_no) {
-  // Find all the channels the sender will detach.
-  uint nchannels = m_receivers;
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
-    channel->detach_sender();
-  }
-  unlock();
-}
-
-void PX_exchange_info::detach_receiver(uint receiver_no) {
-  // Find all the channels the receiver will connect to.
-  uint nchannels = m_senders;
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
-    channel->detach_receiver();
-  }
-  unlock();
-}
-
-void PX_exchange_info::receiver_wait(uint receiver_no) {
-  // Find the channel of (0, receiver_no).
-  PX_exchange_channel *channel = get_channel(find_channel_no(0, receiver_no));
-  channel->receiver_wait();
-}
-
-void PX_exchange_info::release_in_stage_over() 
-{
-  detach_receiver(0);
-  m_barrier->destroy();
-  mysql_mutex_destroy(&m_lock);
-}
-
-void PX_exchange_info::get_sender_channel(uint sender_no, std::vector<PX_exchange_channel *> &channels) {
-  // Find all the channels the sender will sender data to.
-  uint nchannels = m_receivers;
-  channels.reserve(nchannels);
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(sender_no, i));
-    channels.push_back(channel);
-  }
-  unlock();
-}
-
-void PX_exchange_info::get_receiver_channel(uint receiver_no, std::vector<PX_exchange_channel *> &channels) {
-  // Find all the channels the receiver will recevie data from.
-  uint nchannels = m_senders;
-  channels.reserve(nchannels);
-
-  lock();
-  for (uint i = 0; i < nchannels; ++i) {
-    PX_exchange_channel *channel = get_channel(find_channel_no(i, receiver_no));
-    channels.push_back(channel);
-  }
-  unlock();
-}
-
-PX_exchange_channel *PX_exchange_info::get_channel(uint channel_no) {
-  uint nchannel = m_channels.size();
-  assert(nchannel > 0 && nchannel > channel_no);
-
-  return m_channels[channel_no];
-}
-
-uint PX_exchange_info::find_channel_no(uint sender_no, uint receiver_no) {
-  assert(sender_no < m_senders && receiver_no < m_receivers);
-
-  return sender_no * m_receivers + receiver_no;
-}
-

@@ -7,159 +7,178 @@
 #include "px_mq.h"
 #include "sql/log.h"
 
-PX_mq_channel::PX_mq_channel(uint channel_no, Size size, THD *coordiantor)
-    : PX_exchange_channel(channel_no),
-      m_size(size),
-      m_coordinator_thd(coordiantor) {}
+#include "px_executor.h"
+#include "px.h"
+
+PX_mq_channel::PX_mq_channel(uint channel_no, char *ring_buffer, Size size)
+    : PX_exchange_channel(channel_no), m_mq(ring_buffer, size) {}
 
 PX_mq_channel::~PX_mq_channel() {}
 
-bool PX_mq_channel::init() {
-  assert(m_size);
-  assert(m_coordinator_thd);
+void PX_mq_channel::set_sender(PX_proc *me) {
+  assert(me);
+  m_mq.set_sender(me);
+}
 
-  m_mq = new (m_coordinator_thd->mem_root) PX_mq(m_size, malloc, free);
+void PX_mq_channel::set_receiver(PX_proc *me) {
+  assert(me);
+  m_mq.set_receiver(me);
+}
 
-  if (m_mq == nullptr) {
-    my_error(ER_OUTOFMEMORY, MYF(0), (uint32)m_size);
-    return true;
+#ifndef DBUG_OFF
+static const char *cstr(PX_mq_result res) {
+  const char *s = "???";
+  switch (res) {
+    case PX_MQ_SUCCESS:
+      s = "PX_MQ_SUCCESS";
+      break;
+    case PX_MQ_WOULD_BLOCK:
+      s = "PX_MQ_WOULD_BLOCK";
+      break;
+    case PX_MQ_DETACHED:
+      s = "PX_MQ_DETACHED";
+      break;
+    case PX_MQ_ERROR:
+      s = "PX_MQ_ERROR";
+      break;
+    case PX_MQ_INTERRUPTED:
+      s = "PX_MQ_INTERRUPTED";
+      break;
+    default:
+      assert(0);
+      break;
+  }
+  return s;
+}
+#endif
+
+typedef void *(*malloc_func_t)(size_t size);
+typedef void (*free_func_t)(void *);
+
+static void *px_malloc(size_t size) {
+  // TODO psi
+  return my_malloc(PSI_INSTRUMENT_ME, size, MYF(MY_WME));
+}
+
+static void px_free(void *ptr) {
+  my_free(ptr);
+}
+
+class PX_exchange_handle_mq : public PX_exchange_handle {
+ public:
+  PX_exchange_handle_mq(uint channel_id, PX_mq *mq, PX_proc *me)
+      : PX_exchange_handle(channel_id), m_handle(mq, me, px_malloc, px_free) {}
+
+  PX_io_error send(PX_iovec *iov, int iovcnt, bool nowait) override {
+    PX_mq_result result = m_handle.sendv(iov, iovcnt, nowait);
+
+#ifndef DBUG_OFF
+    uint n = 0;
+    char buf[513];
+    char *p = buf, *end = buf + 512;
+    for (int i = 0; i < iovcnt; i++) {
+      n += iov[i].len;
+      for (Size j = 0; j < iov[i].len && p < end; j++, p += 2) {
+        sprintf(p, "%02x", *((char*)iov[i].data + j));
+      }
+    }
+    if (p > end) {
+      *end = '\0';
+    } else {
+      *p = '\0';
+    }
+    if (n > 256) {
+      *(end-1) = '.';
+      *(end-2) = '.';
+    }
+    PX_PRINT_DEBUG("send to channel %u %s %u bytes in %d iov", channel_id(), cstr(result), n, iovcnt);
+    PX_PRINT_DEBUG("%s", buf);
+#endif
+
+    return convert_mq_result_to_error(result);
   }
 
-  if (m_mq->init()) {
+  PX_io_error receive(void **datap, Size *len, bool nowait) override {
+    PX_mq_result result = m_handle.receive(len, datap, nowait);
+
+#ifndef DBUG_OFF
+    char buf[513];
+    char *p = buf, *end = buf + 512;
+    if (result == PX_MQ_SUCCESS) {
+      for (Size i = 0; i < *len && p < end; i++, p += 2) {
+        sprintf(p, "%02x", *((char*)(*datap) + i));
+      }
+      if (p > end) {
+        *end = '\0';
+      } else {
+        *p = '\0';
+      }
+      if (*len > 256) {
+        *(end-1) = '.';
+        *(end-2) = '.';
+      }
+    }
+    PX_PRINT_DEBUG("receive from channel %u %s %lu bytes", channel_id(), cstr(result), *len);
+    if (result == PX_MQ_SUCCESS) {
+      PX_PRINT_DEBUG("%s", buf);
+    }
+#endif
+
+    return convert_mq_result_to_error(result);
+  }
+
+  void set_worker_handle(PX_worker_handle *worker_handle) override {
+    m_handle.set_worker_handle(worker_handle);
+    PX_PRINT_INFO("set peer %u", worker_handle->id());
+  }
+  void detach() override {
+    PX_PRINT_INFO("detach from channel %u", channel_id());
+    m_handle.detach();
+    // Allocated by PX_mq_channel::attach().
+    destroy(this);
+    px_free(this);
+  }
+
+ private:
+  PX_io_error convert_mq_result_to_error(PX_mq_result result) const {
+    PX_io_error res;
+    switch (result) {
+      case PX_MQ_SUCCESS:
+        res = PX_IO_OK;
+        break;
+      case PX_MQ_WOULD_BLOCK:
+        res = PX_IO_WOULD_BLOCK;
+        break;
+      case PX_MQ_ERROR:
+      case PX_MQ_INTERRUPTED:
+        res = PX_IO_ERROR;
+        break;
+      case PX_MQ_DETACHED:
+        res = PX_IO_EOF;
+        break;
+      default:
+        assert(0);
+        res = PX_IO_ERROR;
+        break;
+    }
+    return res;
+  }
+
+  PX_mq_handle m_handle;
+};
+
+bool PX_mq_channel::attach(PX_proc *me, PX_exchange_handle *&handle) {
+  // Attach sender to channel after regiter of sender.
+  PX_PRINT_INFO("attach to channel %u", id());
+
+  // Will be deallocated by PX_exchange_handle_mq::detach().
+  handle = (PX_exchange_handle_mq*) px_malloc(sizeof(PX_exchange_handle_mq));
+  if (handle == nullptr) {
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_mq_channel::attach()");
+    PX_PRINT_ERROR("attach to channel %u failed", id());
     return true;
   }
+  new (handle) PX_exchange_handle_mq(id(), &m_mq, me);
 
   return false;
 }
-
-int PX_mq_channel::send_row(PX_iovec *iov, int iovcnt, bool nowait) {
-  return m_sender->sendv(iov, iovcnt, nowait);
-}
-
-int PX_mq_channel::receive(void **datap, Size *len, bool nowait) {
-  return m_receiver->receive(len, datap, nowait);
-}
-
-void PX_mq_channel::register_sender_handle(PX_worker_handle *handle) {
-  m_sender_handle = handle;
-}
-
-void PX_mq_channel::register_receiver_handle(PX_worker_handle *handle) {
-  m_receiver_handle = handle;
-}
-
-void PX_mq_channel::register_sender_event(PX_proc *event) {
-  assert(event);
-  m_sender_event = event;
-  m_mq->set_sender(m_sender_event);
-}
-
-void PX_mq_channel::register_reciever_event(PX_proc *event) {
-  assert(event);
-  m_receiver_event = event;
-  m_mq->set_receiver(m_receiver_event);
-}
-
-bool PX_mq_channel::init_sender() {
-  // We must register sender event before call init_sender.
-  assert(m_coordinator_thd);
-  assert(m_sender_event && m_sender_handle);
-  assert(!m_sender);
-
-  m_sender = new (m_coordinator_thd->mem_root) PX_mq_handle(m_mq, m_sender_event, malloc, free);
-
-  if (m_sender == nullptr) {
-    my_error(ER_OUTOFMEMORY, MYF(0), (uint32)m_size);
-    return true;
-  }
-
-  return 0;
-}
-
-bool PX_mq_channel::init_receiver() {
-  // We must register receiver event before call init_receiver.
-  assert(m_coordinator_thd);
-  assert(m_receiver_event && m_receiver_handle);
-  assert(!m_receiver);
-
-  m_receiver = new (m_coordinator_thd->mem_root) PX_mq_handle(m_mq, m_receiver_event, malloc, free);
-
-  if (m_receiver == nullptr) {
-    my_error(ER_OUTOFMEMORY, MYF(0), (uint32)m_size);
-    return true;
-  }
-
-  return 0;
-}
-
-bool PX_mq_channel::attach_sender() {
-  // The attach of sender must after the register of receiver.
-  if (!m_receiver_handle) {
-    sql_print_error("Attach sender must after register of receiver!");
-    return true;
-  }
-
-  m_sender->set_worker_handle(m_receiver_handle);
-  return false;
-}
-
-bool PX_mq_channel::attach_receiver() {
-  // The attach of receiver must after the register of sender.
-  if (!m_sender_handle) {
-    sql_print_error("Attach receiver must after register of sender!");
-    return true;
-  }
-
-  m_receiver->set_worker_handle(m_sender_handle);
-  return false;
-}
-
-void PX_mq_channel::detach_sender() {
-  assert(m_sender);
-
-  m_sender->detach();
-}
-
-void PX_mq_channel::detach_receiver() {
-  assert(m_receiver);
-
-  m_receiver->detach();
-}
-
-void PX_mq_channel::receiver_wait() {
-  WaitLatch(m_receiver_event, /*timeout=*/100);
-  ResetLatch(m_receiver_event);
-}
-
-void PX_mq_channel::clean() {
-  if (m_mq) {
-    destroy(m_mq);
-  }
-
-  if (m_sender_event) {
-    destroy(m_sender_event);
-  }
-
-  if (m_receiver_event) {
-    destroy(m_receiver_event);
-  }
-
-  if (m_sender_handle) {
-    destroy(m_sender_handle);
-  }
-
-  if (m_receiver_handle) {
-    destroy(m_receiver_handle);
-  }
-
-  if (m_sender) {
-    destroy(m_sender);
-  }
-
-  if (m_receiver) {
-    destroy(m_receiver);
-  }
-}
-
-
-

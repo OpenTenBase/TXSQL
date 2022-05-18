@@ -47,8 +47,6 @@ template <class Element_type>
 class mem_root_deque;
 
 struct TABLE_LIST;
-class Field;
-class TABLE;
 
 /*
   This is used to get result from a query
@@ -152,8 +150,6 @@ class Query_result {
   */
   virtual void cleanup(THD *) { /* do nothing */
   }
-
-  virtual PX_mq_handle *get_mq_handler() { return nullptr; }
 
   /**
     Checks if this Query_result intercepts and transforms the result set.

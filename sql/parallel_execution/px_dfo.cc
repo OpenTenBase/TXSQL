@@ -101,7 +101,8 @@ bool Dfo_mgr::create_exchange_info(int64_t dfo_id, RowIterator *iterator)
           0, /*senders=*/
           0, /*receivers=*/
           PX_COMPACT_ROW, /*exchange_format=*/
-          false); /*need_materialize=*/
+          false, /*need_materialize=*/
+          rehash_for_px); /*reshuffle_func_t=*/
     if (nullptr == exchange_info) return true;
     if (!m_thd->m_is_worker)
       sql_print_information("Dfo_mgr::%s:%d %d-th exchange info created.",
@@ -237,42 +238,4 @@ bool Dfo_mgr::partition_scan(Dfo *dfo, size_t &dop)
     }
   }
   return false;
-}
-
-void Dfo_mgr::set_synchronization_info_for_dfo_tree(RowIterator *iterator)
-{
-  // Post-order traversal to set sychronzation of the dfo tree.
-  for (unsigned i = 0; i < iterator->m_children.size(); ++i) {
-    set_synchronization_info_for_dfo_tree(iterator->m_children.at(i));
-    if (iterator->type() == RowIterator::PHY_PX_RECEIVE) {
-      PX_receiver *receiver = static_cast<PX_receiver*>(iterator);
-      PX_sender *sender = static_cast<PX_sender*>(iterator->m_children[0]);
-      uint exchange_id = sender->get_pei()->exchange_id();
-      Dfo *dfo = m_dfos_hash[exchange_id]; // exchange id is same as dfo id.
-      // Synchronization topology for the dfo tree, we set sender and receiver:
-      // For sender iterator the synchronization rule is:
-      // 1. As leaf node, make him KEY role.
-      // 2. As middle node, as first child, make him LOCK role.
-      // 3. As middle node, as right child, make him KEY role.
-      // For receiver iterator the sychrnization rule is:
-      // 1. As parent of leaf node, make him LOCK role.
-      // 2. As middle node, as parent of first child, make him KEY role.
-      // 3. As middle node, as parent of right child, make him LOCK role.
-      // Currently we do following setting.
-      if (dfo->is_leaf_dfo() && dfo->parent_dfo()->is_root_dfo()) {
-        // Currently two dfo scheduling, we keep it special.
-        sender->m_role = RowIterator::SynchronizeRoleType::SYN_LOCK;
-        receiver->m_role = RowIterator::SynchronizeRoleType::SYN_KEY;
-      } else if (dfo->is_leaf_dfo()) {
-        sender->m_role = RowIterator::SynchronizeRoleType::SYN_KEY;
-        receiver->m_role = RowIterator::SynchronizeRoleType::SYN_LOCK;
-      } else if (dfo->is_internal_dfo() && dfo->left_most()) {
-        sender->m_role = RowIterator::SynchronizeRoleType::SYN_LOCK;
-        receiver->m_role = RowIterator::SynchronizeRoleType::SYN_KEY;
-      } else {
-        sender->m_role = RowIterator::SynchronizeRoleType::SYN_KEY;
-        receiver->m_role = RowIterator::SynchronizeRoleType::SYN_LOCK;
-      }
-    }
-  }
 }

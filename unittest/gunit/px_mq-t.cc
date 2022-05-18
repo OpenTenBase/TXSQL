@@ -137,8 +137,8 @@ std::array<char, 2> Message_store_random::s_charset = {'x', 'y'};
 
 class Mock_worker_handle : public PX_worker_handle {
  public:
-  Mock_worker_handle(PX_handle_status status)
-      : PX_worker_handle(nullptr), m_status(status) {}
+  Mock_worker_handle(uint id, PX_handle_status status)
+      : PX_worker_handle(id), m_status(status) {}
 
   void die() { m_status = KILLED; }
   void start() { m_status = STARTED; }
@@ -238,8 +238,8 @@ TEST_F(PX_mq_test, SingleThread) {
   thd_r.server_id = 1;
   thd_r.set_new_thread_id();
 
-  Mock_worker_handle wh_s(NOT_YET_STARTED);
-  Mock_worker_handle wh_r(NOT_YET_STARTED);
+  Mock_worker_handle wh_s(0, NOT_YET_STARTED);
+  Mock_worker_handle wh_r(1, NOT_YET_STARTED);
 
   // A sequence of crafted messages ('1' 'aaaaaaaaaa' '' '4444') will be
   // sent through the 32-byte queue. They are 8-byte (MAXIMUM_ALIGNOF) aligned:
@@ -247,9 +247,8 @@ TEST_F(PX_mq_test, SingleThread) {
   // 6161xxxxxxxxxx 0000000000000000 0400000000000000 34343434xxxxxxxx
 
   const size_t RING_SIZE = 32;
-  //std::unique_ptr<char> ptr(new char[RING_SIZE]);
-  PX_mq mq(RING_SIZE, malloc, free);
-  mq.init();
+  std::unique_ptr<char[]> ptr(new char[RING_SIZE]);
+  PX_mq mq(ptr.get(), RING_SIZE);
   //memset(ptr.get(), 0xff, RING_SIZE);
 
   PX_proc proc_s(&thd_s);
@@ -365,13 +364,12 @@ TEST_F(PX_mq_test, Concurrent) {
   receiver_thd.server_id = 1;
   receiver_thd.set_new_thread_id();
 
-  Mock_worker_handle sender_handle(NOT_YET_STARTED);
-  Mock_worker_handle receiver_handle(NOT_YET_STARTED);
+  Mock_worker_handle sender_handle(0, NOT_YET_STARTED);
+  Mock_worker_handle receiver_handle(1, NOT_YET_STARTED);
 
   const size_t RING_SIZE = 1024;
-  //std::unique_ptr<char> ptr(new char[RING_SIZE]);
-  PX_mq mq(RING_SIZE, malloc, free);
-  mq.init();
+  std::unique_ptr<char[]> ptr(new char[RING_SIZE]);
+  PX_mq mq(ptr.get(), RING_SIZE);
 
   Sender_thread sender;
   Receiver_thread receiver;

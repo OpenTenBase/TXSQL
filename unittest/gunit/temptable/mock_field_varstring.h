@@ -56,6 +56,9 @@ class Mock_field_varstring : public Field_varstring {
     table_name = &table_name_buf;
   }
 
+  void make_writable() { bitmap_set_bit(table->write_set, field_index()); }
+  void make_readable() { bitmap_set_bit(table->read_set, field_index()); }
+
  private:
   uchar buffer[MAX_FIELD_VARCHARLENGTH + 1];
 

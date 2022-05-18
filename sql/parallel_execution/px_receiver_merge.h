@@ -48,31 +48,25 @@ class PX_receiver_merge : public PX_receiver {
       JOIN *join, int ref_slice);
   virtual ~PX_receiver_merge() {}
 
-  bool init() override;
-  int next() override;
-  void end() override;
-  
-  bool attach() override;
-  bool Init() override { return attach(); }
-  int Read() override { return next(); }
+  bool Init() override;
+  int Read() override;
+  void End() override;
 
  public:
   Filesort *get_filesort() { return m_sort; }
-
   Sort_param *get_sort_param() { return m_sort_param; }
-
   mq_record_st *get_record(uint k) {
     assert(k < senders());
     mq_record_st *record = m_min_records[k];
     return record;
   }
-
   uchar *get_key(int i) {
     assert(0 <= i && i < 2);
     return keys[i];
   }
 
  private:
+  uint senders() { return m_handles.size(); }
   /** alloc space for sort */
   bool alloc();
   /** build the binary heap */
