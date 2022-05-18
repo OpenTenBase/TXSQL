@@ -29,8 +29,8 @@ class PX_codec;
 class PX_sender : public RowIterator {
  public:
   PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
-            unique_ptr_destroy_only<RowIterator> source, TABLE *table,
-            mem_root_deque<Item *> *send_fields,
+            unique_ptr_destroy_only<RowIterator> source,
+            std::vector<TABLE *> *tables, mem_root_deque<Item *> *send_fields,
             mem_root_deque<Item *> *shuffle_key,
             Temp_table_param *temp_table_param, bool use_item,
             unique_ptr_destroy_only<RowIterator> table_path);
@@ -101,7 +101,7 @@ class PX_sender : public RowIterator {
   /// The encoder
   PX_codec *m_codec{nullptr};
 
-  TABLE *m_table{nullptr};
+  const std::vector<TABLE *> *m_tables{nullptr};
   /// Encoder input fields
   std::vector<Field *> m_fields;
   /// Encoder input items

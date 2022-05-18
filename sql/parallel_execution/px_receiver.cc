@@ -17,15 +17,16 @@ void SwitchSlice(JOIN *join, int slice_num) {
 }
 
 PX_receiver::PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei,
-  JOIN *join, unique_ptr_destroy_only<RowIterator> source,
-  TABLE *table, int ref_slice)
+                         JOIN *join,
+                         unique_ptr_destroy_only<RowIterator> source,
+                         std::vector<TABLE *> *tables, int ref_slice)
     : RowIterator(thd),
       m_handles(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)),
       m_join(join),
       m_source(move(source)),
       m_pei(pei),
       m_receiver_id(receiver_id),
-      m_table(table),
+      m_tables(tables),
       m_fields(),
       m_ref_slice(ref_slice) {}
 
@@ -45,10 +46,12 @@ bool PX_receiver::Init() {
   }
 
   // Create codec and set its output fields.
-  for (Field **pfield = m_table->field; *pfield != nullptr; ++pfield) {
-    Field *field = *pfield;
-    if (bitmap_is_set(m_table->read_set, field->field_index()))
-      m_fields.push_back(field);
+  for (const TABLE *table : *m_tables) {
+    for (Field **pfield = table->field; *pfield != nullptr; ++pfield) {
+      Field *field = *pfield;
+      if (bitmap_is_set(table->read_set, field->field_index()))
+        m_fields.push_back(field);
+    }
   }
   switch (m_pei->format()) {
     case PX_COMPACT_ROW: {
@@ -124,7 +127,9 @@ int PX_receiver::Read() {
 
   // Decode received data to table fields.
 #ifndef DBUG_OFF
-  memset(m_table->record[0], 255, m_table->s->reclength);
+  for (TABLE *table : *m_tables) {
+    memset(table->record[0], 255, table->s->reclength);
+  }
 #endif
   if (m_codec->decode(data, len)) {
     assert(0);

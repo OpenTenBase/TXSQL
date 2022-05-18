@@ -357,11 +357,11 @@ void WalkTablesUnderAccessPath(AccessPath *root_path, Func &&func,
           case AccessPath::UPDATE_ROWS:
             return false;
           case AccessPath::PX_RECEIVE:
-            return func(path->px_receiver().table);
+            return func(path->px_receiver().tables->at(0));
           case AccessPath::PX_SEND:
-            return func(path->px_send().table);
+            return func(path->px_send().tables->at(0));
           case AccessPath::PX_RECEIVER_MERGE:
-            return func(path->px_receiver_merge().table);
+            return func(path->px_receiver_merge().tables->at(0));
         }
         assert(false);
         return true;

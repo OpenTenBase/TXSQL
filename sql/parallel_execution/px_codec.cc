@@ -389,11 +389,19 @@ int PX_compact_codec::decode(uchar *data, Size len) {
 int PX_compact_codec::decompact_field(
     Field *field, bool is_null, uchar *data, uint &ptr_offset) {
   if (is_null) {
-    field->set_null();
+    if (field->is_nullable() || field->is_tmp_nullable()) {
+      field->set_null();
+    } else {
+      field->table->set_null_row();
+    }
     return 0;
   }
 
-  field->set_notnull();
+  if (field->is_nullable() || field->is_tmp_nullable()) {
+    field->set_notnull();
+  } else {
+    field->table->reset_null_row();
+  }
 
   int result = 0;
   switch (field->type()) {

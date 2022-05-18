@@ -3629,7 +3629,7 @@ void JOIN::create_access_paths() {
 
   // PHASE-2: Find the exchange operator inject position in primary query block.
   AccessPath *target_path = nullptr;  // Where to inject exchange
-  split_position = {SplitPosition::NO_SPLIT, false, nullptr};
+  split_position = {SplitPosition::NO_SPLIT, false, nullptr, nullptr};
   if (!exchange_inject ||
       FindExchangeInjectPosition(thd, this, path, target_path, &split_position)) {
     query_block->pass_px_check = false;

@@ -1336,13 +1336,13 @@ struct AccessPath {
     struct {
       AccessPath *child;
       JOIN *join;
-      TABLE *table;
+      std::vector<TABLE *> *tables;
       int ref_slice;
       bool use_temp_table;
     } px_receiver;
     struct {
       AccessPath *child;
-      TABLE *table;
+      std::vector<TABLE *> *tables;
       mem_root_deque<Item *> *send_fields;
       Temp_table_param *temp_table_param;
       bool use_temp_table;
@@ -1353,7 +1353,7 @@ struct AccessPath {
       AccessPath *child;
       Filesort *filesort;
       JOIN *join;
-      TABLE *table;
+      std::vector<TABLE *> *tables;
       int ref_slice;
       bool use_temp_table;
     } px_receiver_merge;
@@ -1873,12 +1873,12 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
                                     table_map immediate_tables);
 
 inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
-                                         TABLE *table, int ref_slice,
-                                         bool use_temp_table) {
+                                          std::vector<TABLE *> *tables,
+                                          int ref_slice, bool use_temp_table) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_RECEIVE;
   path->px_receiver().child = child;
-  path->px_receiver().table = table;
+  path->px_receiver().tables = tables;
   path->px_receiver().ref_slice = ref_slice;
   path->px_receiver().use_temp_table = use_temp_table;
   return path;
@@ -1886,20 +1886,21 @@ inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
 
 inline AccessPath *NewPXReceiverMergeAccessPath(THD *thd, AccessPath *child,
                                                 Filesort *filesort,
-                                                TABLE *table, int ref_slice,
+                                                std::vector<TABLE *> *tables,
+                                                int ref_slice,
                                                 bool use_temp_table) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_RECEIVER_MERGE;
   path->px_receiver_merge().child = child;
   path->px_receiver_merge().filesort = filesort;
-  path->px_receiver_merge().table = table;
+  path->px_receiver_merge().tables = tables;
   path->px_receiver_merge().ref_slice = ref_slice;
   path->px_receiver_merge().use_temp_table = use_temp_table;
   return path;
 }
 
 inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
-                                       TABLE *table,
+                                       std::vector<TABLE *> *tables,
                                        List_item *send_fields,
                                        Temp_table_param *temp_table_param,
                                        bool use_temp_table, bool use_item,
@@ -1907,7 +1908,7 @@ inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_SEND;
   path->px_send().child = child;
-  path->px_send().table = table;
+  path->px_send().tables = tables;
   path->px_send().send_fields = send_fields;
   path->px_send().temp_table_param = temp_table_param;
   path->px_send().use_temp_table = use_temp_table;

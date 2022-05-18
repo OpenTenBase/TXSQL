@@ -292,8 +292,6 @@ INSERT INTO t1 (st, u) VALUES ('a',1),('A',1),('aa',1),('AA',1),('aaa',0),('BBB'
 --echo # Exchange use table of sort instead of creating new tmp table
 explain format=tree select if(u=1,binary st,st) s from t1 order by s;
 select if(u=1,binary st,st) s from t1 order by s;
---echo # Fall back
-explain format=tree select if(t1.u=1,binary t1.st,t2.st) s from t1 join t1 as t2 on t1.id = t2.id;
 drop table t1;
 
 create table t1(a int, b int, c int);
