@@ -268,7 +268,7 @@ class PX_parallel_coordinator : public PX_coordinator {
 
   /**
     Prepare for scheduling the single dfo, set the arguments.
-  
+
     @param num_workers number of workers.
     @param args thread func arguments.
     @param exec_ctx execute ctx.
