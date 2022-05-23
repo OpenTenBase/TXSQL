@@ -18,7 +18,6 @@
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_mutex.h"
 
-#include "semaphore.h"
 #include <atomic> // fetch_add
 
 /**
@@ -113,12 +112,6 @@ typedef mysql_mutex_t spin_lock_t;
 #define SpinLockAcquire(lock) mysql_mutex_lock(lock)
 #define SpinLockRelease(lock) mysql_mutex_unlock(lock)
 #define SpinLockFree(lock) mysql_mutex_destroy(lock)
-
-#define pthread_semphore_t sem_t
-#define pthread_semphore_init(A,B,C) sem_init((A),(B),(C))
-#define pthread_semphore_wait(A) sem_wait((A))
-#define pthread_semphore_post(A) sem_post((A))
-#define pthread_semphore_destroy(A) sem_destroy((A))
 
 /* Notify given thread. */
 #define SetLatch(proc) (proc)->notify()

@@ -49,7 +49,7 @@ static void *rebuild_query_execution(void *args)
   lex_start(thd);
 
   thd->m_parser_state = nullptr;
-  // TODO: handle situation const char *found_semicolon = nullptr;
+  // handle found_semicolon situation forbidden.
   bool err = thd->get_stmt_da()->is_error();
 
   if (!err) err = parse_sql(thd, parser_state, nullptr);
@@ -90,7 +90,6 @@ static void *execute_task_in_worker(void *arg)
   thd->px_scan_ctx = worker_info->scan_ctx;
   PX_task *task = PX_EXECUTOR(thd)->m_tasks_hash[worker_info->task_id];
   PX_PRINT_INFO("worker %d run task %d", thd->worker_id, worker_info->task_id);
-  // @TODO: need to process return value
   task->run(thd);
   /* Call End function for exchange operator. */
   static_cast<PX_sender *>(task->root_iterator())->End();
@@ -222,7 +221,7 @@ bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
 #ifndef DBUG_OFF
   debug_print_dfo("dfo tree: ", dfo_mgr->root_dfo(), 0);
 #endif
-  if (thd->is_error()) goto err_finish;
+  if (thd->is_error() || thd->killed) goto err_finish;
 
   worker_pool = create_worker_threads(requested_cores);
   if (!worker_pool) {
@@ -467,7 +466,7 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
   // TODO: bind the task to CPU core, for more stable exection.
   // Parse and optimize the SQL query, generate the physical tasks for query.
   for (int i = 0; i < worker_pool->num_workers; ++i) {
-    THD *worker_new_thd = new THD();
+    THD *worker_new_thd = worker_pool->thread_args[i].worker_thd;
     if (nullptr == worker_new_thd) return true;
 
     worker_new_thd->m_is_worker = true;
@@ -572,9 +571,9 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
                        \                           /
                         \ worker parse | optimize /
   */
-  if (query_execute_start(worker_pool)) goto end_workers;
+  if (begin_query(worker_pool)) goto end_workers;
   // Waiting workers done prepare work, adjust semaphore and go on.
-  if (query_execute_barrier(worker_pool)) goto end_workers;
+  if (wait_workers_generate_plan(worker_pool, thd())) goto end_workers;
 
   // Back to serial execution if error occurred before sending data.
   if (thd()->check_px_error()) {
@@ -609,21 +608,8 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
 
 end_workers:
   // Every worker jump out of loop()
-  if (worker_pool_destroy(worker_pool)) goto clean_workers;
+  schedule_over(worker_pool, thd());
 
-  /** 
-    Every worker exist from THD thread, after these step, only one
-    thread remain to cleanup query execution in coordinator.
-        /tpn\          /worker exit\
-       /     \        /             \
-    ---  tpn barrier--> worker exit--coordinator cleamup-->finish
-       \     /        \             /
-        \tpn/          \worker exit/
-  */
-  if (query_execute_start(worker_pool)) goto clean_workers;
-  if (query_execute_barrier(worker_pool)) goto clean_workers;
-
-clean_workers:
   PX_PRINT_INFO("clean up worker pool");
   worker_pool_cleanup(worker_pool);
 
@@ -645,7 +631,7 @@ bool PX_coordinator::check_equivalence(worker_pool_t *worker_pool)
       thd()->need_fallback = true;
       PX_PRINT_ERROR("worker %d of %d got an unequal plan",
                      i, worker_pool->num_workers);
-      assert(false);
+      // assert(false);
       return false;
     }
   }
@@ -688,7 +674,10 @@ void PX_worker::loop()
 
   PX_PRINT_INFO("worker %d enter task loop", thd()->worker_id);
   while (true) {
-    sem_wait (&thread_arg->sem_inner);
+    wait_for_begin_task (thread_arg);
+    if (thread_arg->worker_thd->killed)
+      break;
+
     if (*thread_arg->finished)
       break;
 
@@ -699,9 +688,8 @@ void PX_worker::loop()
     (*thread_func)(thread_func_arg);
 
     // Lock here.
-    task_finish_signal(thread_arg);
+    finish_task(thread_arg);
   }
-  sem_destroy (&thread_arg->sem_inner);
 }
 
 /**
@@ -798,7 +786,7 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         // Enter into inner worker's loop() to run task of one stage,
         // we use one-by-one task pair scheduling strategy for better control
         // of CPU cores.
-        if (task_execute_start(worker_pool, &parent_desc)) return true;
+        if (begin_task(worker_pool, &parent_desc)) return true;
         parent->set_dfo_active();
       }
       if (thd()->killed) return true; // be killed.
@@ -811,7 +799,7 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         // Set the arguments of child tasks, set the dfo active at last.
         prepare_schedule_single_dfo(num_workers, th_arg_array, &child_desc);
         // Post for start of the tasks on every workers.
-        if (task_execute_start(worker_pool, &child_desc)) return true;
+        if (begin_task(worker_pool, &child_desc)) return true;
       }
 
       PX_PRINT_INFO("Child map[%d] Parent map[%d]",
@@ -820,7 +808,7 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
       DEBUG_SYNC_C("execute_in_parallel_scheduling_before_root");
       if (parent->is_root_dfo()) run_root_dfo_task();
 
-      if (task_execute_barrier(worker_pool, &child_desc)) return true;
+      if (wait_workers_finish_task(worker_pool, &child_desc)) return true;
 
       if (thd()->need_fallback) return false; // Fallback to serial execution.
       if (thd()->killed) return true; // been killed.

@@ -36,13 +36,28 @@
 #include "sql/parallel_execution/px_dfo.h" // PX_dfo
 #include "my_base.h" // mutex lock
 #include "mysql/psi/mysql_thread.h" // mysql_mutex_t
+#include "my_psi_config.h"
+#include "mysql/psi/mysql_cond.h"
+#include "mysql/psi/mysql_mutex.h"
+#include "mysql/components/services/bits/mysql_cond_bits.h"
+#include "mysql/components/services/bits/mysql_mutex_bits.h"
+#include "mysql/components/services/bits/psi_cond_bits.h"
+#include "mysql/components/services/bits/psi_mutex_bits.h"
+#include "mysql/components/services/bits/psi_stage_bits.h"
 
 class PX_reader;
 class Worker_exec_ctx;
 
+typedef Prealloced_array<THD *, 60> THD_array;
 typedef void *(*worker_func)(void *);
 
-enum worker_task_type { PARSE_AND_PREPARE = 0, SLICE_TASK };
+typedef struct cond_with_lock_t {
+  mysql_cond_t COND_worker_signal; // condition for worker start.
+  mysql_mutex_t LOCK_worker_signal; // mutex for worker start.
+  PSI_cond_key key_COND_worker_signal; // PSI key for condition.
+  PSI_mutex_key key_LOCK_worker_signal; // PSI key for mutex.
+  int flag_COND_signal; // flag for condition to wait.
+} cond_with_lock_t; // use for synchronize of down instrument flows.
 
 /**
   Thread arguments between coordinator and workers, two levels:
@@ -61,16 +76,18 @@ typedef struct worker_thread_arg {
   std::string           query_string; // query string of coordinator.
 
   /* Sychronzation arguments between coordinator and workers. */
-  worker_task_type      type; // 1. Parse and prepare; 2. Task.
   int                   *num_workers; // tasks cnt.
-  pthread_semphore_t    sem_outer; // sychonize the main.
-  pthread_semphore_t    sem_inner; // sychonize the tasks.
+
+  cond_with_lock_t      sem_worker_signal; // sychonize the tasks.
+  cond_with_lock_t      sem_task_signal; // sychonize the tasks.
+  std::atomic<int>      *num_query_done; // finished query cnt.
   std::atomic<int>      *num_workers_done; // finished workers cnt.
-  pthread_semphore_t    *sem_workers_done; // sem all workers done.
-  pthread_semphore_t    *sem_tasks_done; // sem all tasks done.
+  cond_with_lock_t      *sem_workers_done; // sem all workers done.
+  cond_with_lock_t      *sem_tasks_done; // sem all tasks done.
+  cond_with_lock_t      *sem_query_done; // sem all workers' query done.
   int                   *finished; // every workers finished.
   MY_BITMAP             ***bitmap; // bitmap of the whole SQL execution.
-  uint64_t              *bitmap_map; // map of the bitmap.
+  MY_BITMAP             **bitmap_map; // map of the bitmap.
   mysql_mutex_t         *mutex_task; // control tasks barrier.
   PX_exchange_context   **px_exchange_context; // px exchange context.
   /* Used for check equivalence between coordinator and workers. */
@@ -85,14 +102,15 @@ typedef struct worker_pool_t {
   worker_func           thread_func; // thread func pointer.
   void                  **args;
 
-  worker_task_type      type; // 1. Parse and prepare; 2. Task.
   int                   num_workers; // workers SQL PX execution need.
+  std::atomic<int>      num_query_done; // finished query cnt.
   std::atomic<int>      num_workers_done; // finished workers cnt.
-  pthread_semphore_t    sem_workers_done; // sem all workers done.
-  pthread_semphore_t    sem_tasks_done; // sem all tasks done.
+  cond_with_lock_t      sem_workers_done; // sem all workers done.
+  cond_with_lock_t      sem_tasks_done; // sem all tasks done.
+  cond_with_lock_t      sem_query_done; // sem all query done.
   int                   finished; // every workers finished.
   MY_BITMAP             **bitmap; // bitmap of the task execution.
-  uint64_t              bitmap_map; // most 64 right deep tree.
+  MY_BITMAP             *bitmap_map; // most 64 right deep tree.
   mysql_mutex_t         mutex_task; // control tasks barrier.
   PX_exchange_context   *px_exchange_context; // px exchange context.
 
@@ -104,29 +122,41 @@ typedef struct worker_pool_t {
 // pointer between optimization and execution, inside is task barrier,
 // which barrie at every workers' task finish.
 worker_pool_t* create_worker_threads(int num_threads);
+// Init the px condition with lock.
+void px_condition_init(cond_with_lock_t *condition_with_lock);
 // Set the threads arguments when start every worker group.
 void set_threads_args(worker_pool_t *worker_pool, worker_func thread_func,
                       void **args, int num_workers);
 // allocate threads for group id, set bitmap of workers.
 bool allocate_threads(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
 
+
 // Start outside steps for all workers: parse and optimize.
-bool query_execute_start(worker_pool_t *worker_pool);
+bool begin_query(worker_pool_t *worker_pool);
 // Outside parse and optimize barrier for all workers.
-bool query_execute_barrier(worker_pool_t *worker_pool);
+bool wait_workers_generate_plan(worker_pool_t *worker_pool, THD *thd);
+// wait for signal for begin query.
+void wait_for_begin_query(worker_thread_arg *arg);
 // Signal for opening barrier after worker finish parse and optimize.
 bool optimize_finsh_signal(worker_thread_arg* arg);
 // Handle with error before optimize for workers.
 void handle_optimize_finish_error(worker_thread_arg* arg);
+// Signal for finish the query, set the query finish flag.
+void finish_query(worker_thread_arg* arg);
+
 
 // Start inside task execution in idx threads' group.
-bool task_execute_start(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
+bool begin_task(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
 // Inside task execution barrier in idx threads' group.
-bool task_execute_barrier(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
+bool wait_workers_finish_task(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
+// Signal for start task begin and wait.
+void wait_for_begin_task(worker_thread_arg *arg);
 // Signal for opening barrier after worker finish task.
-void task_finish_signal(worker_thread_arg *arg);
+void finish_task(worker_thread_arg *arg);
 
-bool worker_pool_destroy(worker_pool_t *worker_pool);
+
+void schedule_over(worker_pool_t *worker_pool, THD *thd);
 void worker_pool_cleanup(worker_pool_t *worker_pool);
+void destroy_cond_for_worker(cond_with_lock_t *cond);
 
 #endif // PX_WORKERPOOL_INCLUDED
