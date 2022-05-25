@@ -471,8 +471,6 @@ static bool check_px_unsafe_subselect(Item *item) {
   assert(item);
 
   if (item->type() == Item::SUBSELECT_ITEM) {
-    return true;
-
     Item_subselect *subselect = down_cast<Item_subselect *>(item);
     Query_expression *unit = subselect->unit;
     // Subselect may not have been optimized here, see Item_subselect::exec().
@@ -516,8 +514,7 @@ static bool check_xchg_unsafe_func_ptr(Func_ptr *func) {
   @return false if parallel safe, true otherwise.
 */
 bool check_px_unsafe_item(Item *item) {
-  if (check_xchg_unsafe_datatype(item) ||  // TODO: This line should be removed for new compat check.
-      check_px_unsafe_aggr_func(item) ||
+  if (check_px_unsafe_aggr_func(item) ||
       check_px_unsafe_func(item) ||
       check_px_unsafe_cond(item) ||
       check_px_unsafe_ref(item) ||
@@ -538,7 +535,7 @@ bool check_px_unsafe_sum_funcs(JOIN *join) {
   assert(join);
   Item_sum **sum_funcs = join->sum_funcs, *sum_item;
   while ((sum_item = *(sum_funcs++))) {
-    if (check_px_unsafe_item(sum_item)) return true;  // TODO: Change to check_px_unsafe_aggr_func for new compat check.
+    if (check_px_unsafe_aggr_func(sum_item)) return true;
   }
   return false;
 }

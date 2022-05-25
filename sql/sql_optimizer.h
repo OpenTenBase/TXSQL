@@ -87,6 +87,9 @@ class mem_root_deque;
     1    We can skip sorting.
 */
 bool test_if_skip_smj_sort(TABLE *tab, ORDER_with_src &order, int keynr, bool reverse);
+namespace px_access_path {
+struct Split_Position;
+}
 
 // Key_use has a trivial destructor, no need to run it from Mem_root_array.
 typedef Mem_root_array<Key_use> Key_use_array;
@@ -105,13 +108,6 @@ struct SARGABLE_PARAM {
   Field *field;     /* field against which to check sargability */
   Item **arg_value; /* values of potential keys for lookups     */
   uint num_values;  /* number of values in the above array      */
-};
-
-struct SplitPosition {
-  enum Type { NO_SPLIT = 0, SPLIT_AGG, SPLIT_SORT, SPLIT_SORT_AGG } type;
-  bool split_sort;
-  Filesort *filesort;
-  std::vector<TABLE *> *tables;  ///< Tables reserved for exchange
 };
 
 /**
@@ -165,8 +161,6 @@ class JOIN {
   Query_expression *query_expression() const {
     return query_block->master_query_expression();
   }
-
-  bool check_px_execution();
 
   /// Query block that is optimized and executed using this JOIN
   Query_block *const query_block;
@@ -393,9 +387,6 @@ class JOIN {
   enum class RollupState { NONE, INITED, READY };
   RollupState rollup_state;
   bool implicit_grouping;  ///< True if aggregated but no GROUP BY
-
-  /// split position in parallel execution.
-  SplitPosition split_position;
 
   /**
     At construction time, set if SELECT DISTINCT. May be reset to false

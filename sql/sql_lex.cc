@@ -5018,46 +5018,6 @@ void Query_block::restore_cmd_properties() {
   }
 }
 
-/**
-  Check whether this query block pass compatibility check;
-*/
-void Query_block::check_px_execution(THD *thd) {
-  // Only primary qb can do parallel
-  bool is_primary_qb = (type() == enum_explain_type::EXPLAIN_PRIMARY) ||
-                       (type() == enum_explain_type::EXPLAIN_SIMPLE) ||
-                       (type() == enum_explain_type::EXPLAIN_UNION);
-  if (!is_primary_qb) {
-    pass_px_check = false;
-    return ;
-  }
-
-  for (const TABLE_LIST *tl = table_list.first; tl != nullptr; tl = tl->next_local) {
-    if (!tl->is_derived()) {
-      if (!tl->table ||
-          !tl->table->file ||
-          (tl->table->s->table_category != TABLE_CATEGORY_USER ||
-           tl->table->file->ht->db_type != DB_TYPE_INNODB ||
-           tl->lock_descriptor().type > TL_READ_DEFAULT)) {
-        pass_px_check = false;
-        return ;
-      }
-    }
-  }
-
-  // Do the current query block check.
-  if (table_list.elements < 1) {
-    pass_px_check = false;
-    return ;
-  }
-
-  assert(join);
-  if (!join || !join->check_px_execution()) {
-    pass_px_check = false;
-    return ;
-  }
-
-}
-
 bool Query_options::merge(const Query_options &a, const Query_options &b) {
   query_spec_options = a.query_spec_options | b.query_spec_options;
   return false;

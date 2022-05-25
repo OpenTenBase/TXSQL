@@ -743,10 +743,6 @@ class Query_expression {
 
   bool exchange_inject;
 
-  /// Whether all query blocks in this select_lex_unit pass parallel
-  /// execution check.
-  bool pass_px_check{true};
-
   /// @return true for a query expression without UNION or multi-level ORDER
   bool is_simple() const { return !(is_union() || fake_query_block); }
 
@@ -859,6 +855,8 @@ class Query_expression {
     check that the cardinality doesn't exceed 1.
   */
   bool m_reject_multiple_rows{false};
+
+  AccessPath *m_max_px_subpath{nullptr};
 
   /// @return true if query expression can be merged into an outer query
   bool is_mergeable() const;
@@ -1903,8 +1901,6 @@ class Query_block {
   /// using the field's index in a derived table.
   Item *get_derived_expr(uint expr_index);
 
-  void check_px_execution(THD *thd);
-
   // ************************************************
   // * Members (most of these should not be public) *
   // ************************************************
@@ -2233,9 +2229,6 @@ class Query_block {
 
   /// Whether the query block has user_vars
   bool has_user_vars{false};
-
-  /// Whether this qb pass compatibility check;
-  bool pass_px_check{true};
 
  private:
   friend class Query_expression;
