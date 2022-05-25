@@ -53,6 +53,7 @@
 #include "sql/sql_update.h"
 #include "sql/table.h"
 #include "sql/iterators/sort_merge_join_iterator.h"
+#include "sql/parallel_execution/px_access_path.h" // Split_Position
 #include "sql/parallel_execution/px_item.h"
 #include "sql/px_exchange.h"
 #include "sql/parallel_execution/px_sender.h"
@@ -2953,168 +2954,77 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
   }
 }
 
-/**
- * @return true for the equation is satisfied, false otherwise
- */
-static bool group_field_eq_sort_list(List<Cached_item> group_fields,
-                                     ORDER *sort_order) {
-  auto first = group_fields.begin();
-  ORDER *second = sort_order;
-  for (; first != group_fields.end() && second;
-       ++first, second = second->next) {
-    if ((first->get_item())->eq(*second->item, true)) {
-      continue;
-    } else {
-      return false;
-    }
-  }
-  if (first != group_fields.end() || second) return false;
-  return true;
-}
-
-/**
- * @param path  Raw access path
- * @param target_path Where to inject exchange.
- * @return true if not inject, false otherwise.
- */
-bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
-                                AccessPath *&target_path,
-                                SplitPosition *split_pos) {
-  assert(target_path == nullptr);
-  // WalkAccessPaths would not stop when the callback return true if the parent
-  // node has another branch.
-  bool stop_walk = false;
-  auto find_exchange_inject_position = [thd, join, &target_path, split_pos,
-                                        &stop_walk](AccessPath *subpath,
-                                                    const JOIN *) {
-    if (stop_walk) return true;
+void GetExchangeTables(px_access_path::Split_Position *split_pos) {
+  assert(split_pos && split_pos->m_tables);
+  auto find_tables = [split_pos](AccessPath *subpath, const JOIN *) {
     switch (subpath->type) {
-      // Iterators that could be injected exchange.
       case AccessPath::TABLE_SCAN:
-        if (split_pos->tables) {
-          split_pos->tables->push_back(subpath->table_scan().table);
-        }
-        if (target_path == nullptr) {
-          target_path = subpath;
-        }
+        split_pos->m_tables->push_back(subpath->table_scan().table);
         return false;
       case AccessPath::INDEX_SCAN:
-        if (split_pos->tables) {
-          split_pos->tables->push_back(subpath->index_scan().table);
-        }
-        if (target_path == nullptr) {
-          target_path = subpath;
-        }
+        split_pos->m_tables->push_back(subpath->index_scan().table);
         return false;
       case AccessPath::INDEX_RANGE_SCAN:
-        if (split_pos->tables) {
-          split_pos->tables->push_back(subpath->index_range_scan().used_key_part[0].field->table);
-        }
-        if (target_path == nullptr) {
-          target_path = subpath;
-        }
+        split_pos->m_tables->push_back(subpath->index_range_scan().used_key_part[0].field->table);
         return false;
       case AccessPath::REF:
-        if (split_pos->tables) {
-          split_pos->tables->push_back(subpath->ref().table);
-        }
-        if (target_path == nullptr) {
-          target_path = subpath;
-        }
+        split_pos->m_tables->push_back(subpath->ref().table);
         return false;
       case AccessPath::FILTER:
-        if (target_path == nullptr) {
-          target_path = subpath;
-        }
         return false;
       case AccessPath::NESTED_LOOP_JOIN:
-        if (target_path == nullptr) {
-          target_path = subpath;
-          split_pos->tables = new (thd->mem_root) vector<TABLE *>();
-        }
         return false;
-
-      // Iterators that should not be injected exchange but can appear in the
-      // plan tree.
       case AccessPath::REF_OR_NULL:
-        if (split_pos->tables) {
-          split_pos->tables->push_back(subpath->ref_or_null().table);
-        }
+        split_pos->m_tables->push_back(subpath->ref_or_null().table);
         return false;
       case AccessPath::EQ_REF:
-        if (split_pos->tables) {
-          split_pos->tables->push_back(subpath->eq_ref().table);
-        }
+        split_pos->m_tables->push_back(subpath->eq_ref().table);
         return false;
       case AccessPath::PUSHED_JOIN_REF:
-      case AccessPath::CONST_TABLE:
-      case AccessPath::STREAM:
         return false;
-
-      // Iterators that cannot be parallized directly.
+      case AccessPath::CONST_TABLE:
+        return false;
+      case AccessPath::STREAM:
+        split_pos->m_tables->push_back(subpath->stream().table);
+        return true;
+      case AccessPath::MATERIALIZE:
+        split_pos->m_tables->push_back(subpath->materialize().param->table);
+        return true;
       case AccessPath::LIMIT_OFFSET:
         return false;
       case AccessPath::SORT:
-        if (split_pos->type == SplitPosition::SPLIT_AGG &&
-            target_path->type == AccessPath::AGGREGATE &&
-            group_field_eq_sort_list(join->group_fields,
-                                     subpath->sort().filesort->m_order)) {
-          split_pos->type = SplitPosition::SPLIT_SORT_AGG;
-        } else {
-          target_path = subpath;
-          split_pos->type = SplitPosition::SPLIT_SORT;
-        }
-        if (split_pos->tables) {
-          destroy(split_pos->tables);
-          split_pos->tables = nullptr;
-        }
-        split_pos->filesort = subpath->sort().filesort;
-        split_pos->split_sort = true;
         return false;
-      case AccessPath::AGGREGATE:
+      case AccessPath::AGGREGATE: {
+        TABLE *table = split_pos->m_join->aggr_tmp_table;
+        assert(table);
+        split_pos->m_tables->push_back(table);
+        return true;
+      }
       case AccessPath::TEMPTABLE_AGGREGATE:
-        if (check_px_unsafe_sum_funcs(join)) {
-          target_path = nullptr;
-        } else {
-          target_path = subpath;
-          split_pos->type = SplitPosition::SPLIT_AGG;
-          split_pos->split_sort = false;
-          // Stream AGGREGATE used for grouping requires group columns can be
-          // read in order. merge sort must be used to ensure that the input of
-          // the Final AGGREGATE is in order.
-          if (subpath->type == AccessPath::AGGREGATE &&
-              !join->group_list.empty()) {
-            split_pos->split_sort = true;
-            split_pos->filesort = nullptr;
-          }
-        }
+        split_pos->m_tables->push_back(subpath->temptable_aggregate().table);
+        return true;
+      case AccessPath::WEEDOUT:
         return false;
-
-      // Iterators that are not supported.
-      default:  // TODO: list all types of Accesspath
-        target_path = nullptr;
-        stop_walk = true;
+      case AccessPath::REMOVE_DUPLICATES:
+        return false;
+      default:
         return true;
     }
   };
 
-  WalkAccessPaths(path, /*join=*/join,
-                  WalkAccessPathPolicy::ENTIRE_QUERY_BLOCK,
-                  find_exchange_inject_position);
-
-  return (target_path == nullptr);
+  WalkAccessPaths(split_pos->m_target, /*join=*/nullptr,
+                  WalkAccessPathPolicy::STOP_AT_MATERIALIZATION, find_tables);
 }
 
 static AccessPath *CreateExchangeAccessPath(
     THD *thd, JOIN *join, AccessPath *const path,
-    mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields,
-    uint curr_exchange, bool alloc_group_field, bool do_receiver_merge);
+    mem_root_deque<Item *> &tmp_table_fields,
+    px_access_path::Split_Position *split_pos, bool save_sum_fields,
+    uint curr_exchange, bool alloc_group_field);
 
-static AccessPath *CreateExchangeAccessPathUseTables(THD *thd, JOIN *join,
-                                                     AccessPath *const path,
-                                                     vector<TABLE *> *tables,
-                                                     int ref_slice,
-                                                     bool merge_sort);
+static AccessPath *CreateExchangeAccessPathUseTables(
+    THD *thd, JOIN *join, AccessPath *const path, vector<TABLE *> *tables,
+    int ref_slice, px_access_path::Split_Position *split_pos);
 
 static void FixAccessPathForExchange(AccessPath *const path,
                                      AccessPath *receiver, JOIN *join,
@@ -3167,6 +3077,7 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
  * @return exchange if injected, nullptr otherwise.
  */
 AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
+                                       px_access_path::Split_Position *split_pos,
                                        AccessPath *const path,
                                        AccessPath *const target_path,
                                        uint curr_exchange, bool &new_child,
@@ -3181,7 +3092,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
 
   if(curr_exchange >= MAX_EXCHANGE_NUM) return nullptr;
 
-  bool use_tmp_table = true;  // if true, create temporary table.
+  bool use_tmp_table = false;  // if true, create temporary table.
   TABLE *table = nullptr;
 
   List_item *fields = nullptr;
@@ -3266,26 +3177,9 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                         ? REF_SLICE_SAVED_BASE
                         : REF_SLICE_TMP1;
       }
+      if (split_pos->m_tables) use_tmp_table = false;
 
-      uint ref_slice = 0;
-      if (cur_slice == REF_SLICE_SAVED_BASE) {
-        if (child->type == AccessPath::TABLE_SCAN) {
-          use_tmp_table = false;
-          table = child->table_scan().table;
-        } else if(child->type == AccessPath::INDEX_SCAN) {
-          use_tmp_table = false;
-          table = child->index_scan().table;
-        } else if (child->type == AccessPath::REF) {
-          use_tmp_table = false;
-          table = child->ref().table;
-        } else {
-          ref_slice = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
-                          ? 0
-                          : REF_SLICE_SAVED_BASE;
-        }
-      } else {
-        ref_slice = cur_slice;
-      }
+      uint ref_slice = cur_slice;
       if (!in_join &&
           DBUG_EVALUATE_IF("exchange_inject_use_item", true, false)) {
         use_tmp_table = true;
@@ -3304,11 +3198,11 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         }
       }
 
+      child_slice = ref_slice;
       break;
     }
     case AccessPath::SORT: {
       child = path->sort().child;
-
       Filesort *filesort = path->sort().filesort;
       if (filesort->tables.size() == 1) {
         use_tmp_table = false;
@@ -3377,8 +3271,17 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         return nullptr;
       }
 
-      //assert(param.param->query_blocks[0].copy_fields_and_items);
       child = param.param->query_blocks[0].subquery_path;
+      if (param.param->ref_slice == REF_SLICE_TMP2) {
+        child_slice = REF_SLICE_TMP1;
+      } else if (param.param->ref_slice == REF_SLICE_TMP1) {
+        child_slice = REF_SLICE_SAVED_BASE;
+      }
+      break;
+    }
+    case AccessPath::WEEDOUT: {
+      assert(!inject_here);
+      child = path->weedout().child;
       break;
     }
 
@@ -3391,20 +3294,17 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
 
   const bool stop_walk =
       (inject_here || !child);  // We only need to inject one exchange.
-  //if ((path->type != AccessPath::AGGREGATE &&
-  //     path->type != AccessPath::TEMPTABLE_AGGREGATE)) {
-  //  inject_here = false;
-  //}
 
   if (inject_here) {
-      vector<TABLE *> *&tables = join->split_position.tables;
+      vector<TABLE *> *&tables = split_pos->m_tables;
 
     if (use_tmp_table) {
+      if (in_join) return nullptr;
       assert(fields != nullptr);
       exchange =
-          CreateExchangeAccessPath(thd, join, path, *fields, save_sum_func,
-                                   curr_exchange, alloc_group_field,
-                                   join->split_position.split_sort);
+          CreateExchangeAccessPath(thd, join, path, *fields, split_pos,
+                                   save_sum_func, curr_exchange,
+                                   alloc_group_field);
       /*
         Tmp table created by exchange might use some type of fields that are not
         supported by Message Queue. In this case try to create exchange without
@@ -3425,7 +3325,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
 
       exchange = CreateExchangeAccessPathUseTables(
           thd, join, path, tables, output_slice,
-          join->split_position.split_sort);
+          split_pos);
     }
     if (exchange) {
       thd->lex->m_exchange_number++;
@@ -3441,11 +3341,11 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
   assert(child != nullptr);
   int next_exchange_slice = inject_here ? curr_exchange + 1 : curr_exchange;
   exchange_following = WalkAccessPathsForExchange(
-      thd, join, child, target_path, next_exchange_slice, have_new_child,
-      child_slice, alloc_child_group_field, child_in_join);
+      thd, join, split_pos, child, target_path, next_exchange_slice,
+      have_new_child, child_slice, alloc_child_group_field, child_in_join);
   if (exchange_following) {
     FixAccessPathForExchange(path, exchange_following, join,
-        join->split_position.split_sort);
+        split_pos->m_split_sort);
     if (have_new_child) {
       ConnectAccessPathWithChildExchange(path, exchange_following);
     }
@@ -3475,8 +3375,9 @@ static void rebuild_ref_item(THD *thd, JOIN *join, uint exchange_ref_slice);
  */
 static AccessPath *CreateExchangeAccessPath(
     THD *thd, JOIN *join, AccessPath *const path,
-    mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields,
-    uint curr_exchange, bool alloc_group_field, bool do_receiver_merge) {
+    mem_root_deque<Item *> &tmp_table_fields,
+    px_access_path::Split_Position *split_pos,
+    bool save_sum_fields, uint curr_exchange, bool alloc_group_field) {
   if (join->exchange_tmp_fields == nullptr) {
     join->exchange_tmp_fields =
         (*THR_MALLOC)
@@ -3621,10 +3522,11 @@ static AccessPath *CreateExchangeAccessPath(
   if (!tables_r) goto inject_err;
   tables_r->push_back(table2);
 
-  if (do_receiver_merge) {
-    Filesort *curr_file_sort = path->sort().filesort;
-    Filesort *final_file_sort = new (thd->mem_root) Filesort(thd, {table2},
-        curr_file_sort->keep_buffers, curr_file_sort->m_order, curr_file_sort->limit,
+  if (split_pos->m_split_sort) {
+    Filesort *curr_file_sort = split_pos->m_filesort;
+    Filesort *final_file_sort = new (thd->mem_root) Filesort(
+        thd, {table2}, curr_file_sort->keep_buffers, curr_file_sort->m_order,
+        curr_file_sort->limit,
         curr_file_sort->m_remove_duplicates,
         curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
     receiver = NewPXReceiverMergeAccessPath(thd, sender, final_file_sort,
@@ -3694,36 +3596,35 @@ inject_err:
     free_tmp_table(table);
   }
   if (receiver) {
-    do_receiver_merge ? receiver->px_receiver_merge().tables = nullptr
-                      : receiver->px_receiver().tables = nullptr;
+    split_pos->m_split_sort ? receiver->px_receiver_merge().tables = nullptr
+                            : receiver->px_receiver().tables = nullptr;
   }
   return nullptr;
 }
 
-static AccessPath *CreateExchangeAccessPathUseTables(THD *thd, JOIN *join,
-                                                     AccessPath *const path,
-                                                     vector<TABLE *> *tables,
-                                                     int ref_slice,
-                                                     bool merge_sort) {
+
+static AccessPath *CreateExchangeAccessPathUseTables(
+    THD *thd, JOIN *join, AccessPath *const path, std::vector<TABLE *> *tables,
+    int ref_slice, px_access_path::Split_Position *split_pos) {
   assert(tables && tables->size());
   AccessPath *sender = NewPXSendAccessPath(thd, path, tables, nullptr,
                                            nullptr, false, false);
 
   AccessPath *receiver = nullptr;
 
-  if (merge_sort) {
+  if (split_pos->m_split_sort) {
     assert(tables->size() == 1);
     TABLE *table = tables->at(0);
 
     Filesort *final_file_sort = nullptr;
-    if (join->split_position.filesort) {
-      Filesort *curr_file_sort = join->split_position.filesort;
-      final_file_sort = new (thd->mem_root) Filesort(thd,
-          {table},
-          curr_file_sort->keep_buffers,
-          curr_file_sort->m_order, curr_file_sort->limit,
-          curr_file_sort->m_remove_duplicates,
-          curr_file_sort->m_force_sort_rowids, false); //TODO reset sort_before_group
+    if (split_pos->m_filesort) {
+      Filesort *curr_file_sort = split_pos->m_filesort;
+      final_file_sort = new (thd->mem_root)
+          Filesort(thd, {table}, curr_file_sort->keep_buffers,
+                   curr_file_sort->m_order, curr_file_sort->limit,
+                   curr_file_sort->m_remove_duplicates,
+                   curr_file_sort->m_force_sort_rowids,
+                   false);  // TODO reset sort_before_group
       // TODO: returns a result of type bool
       if (!final_file_sort) return nullptr;
     } else {
@@ -4061,6 +3962,24 @@ static void FixAccessPathForExchange(AccessPath *const path,
       break;
     }
     case AccessPath::MATERIALIZE: {
+      /*
+      const auto &param = path->materialize().param;
+      auto tmp_table_param = param->query_blocks[0].temp_table_param;
+      if (!tmp_table_param) break;
+      int output_slice = param->ref_slice;
+      int input_slice = -1;
+      assert(output_slice != -1);
+      if (output_slice == REF_SLICE_TMP2) {
+        input_slice = REF_SLICE_TMP1;
+      } else {
+        input_slice = REF_SLICE_SAVED_BASE;
+      }
+      FixTmpTableParam(join, tmp_table_param, exchange_param.ref_slice,
+                       exchange_param.table, input_slice, output_slice);
+      break;
+      */
+    }
+    case AccessPath::WEEDOUT: {
       assert(false);
       break;
     }
@@ -4099,6 +4018,10 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
       break;
     case AccessPath::MATERIALIZE: {
       path->materialize().param->query_blocks[0].subquery_path = receiver;
+      break;
+    }
+    case AccessPath::WEEDOUT: {
+      path->weedout().child = receiver;
       break;
     }
     default:

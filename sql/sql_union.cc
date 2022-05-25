@@ -697,35 +697,7 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
   ha_rows estimated_rowcount = 0;
   double estimated_cost = 0.0;
 
-  // Whether all/partial query blocks in union pass compatiblity check.
-  bool all_select_pass_px_check = false;
-
   if (query_result() != nullptr) query_result()->estimated_rowcount = 0;
-
-  // Check whether lex pass parallel compatibilty check.
-  if (thd->lex->pass_px_check && (!thd->lex->check_px_execution() ||
-                                  (table && !compat_for_table(table)))) {
-    thd->lex->pass_px_check = false;
-    pass_px_check = false;
-  }
-
-  if (!item && !derived_table) {
-    exchange_inject = true;
-  }
-
-  // Check if there is union/union all with limit
-  if (pass_px_check && is_union()) {
-    ha_rows offset = global_parameters()->get_offset(thd);
-    ha_rows limit = global_parameters()->get_limit(thd);
-    if (limit + offset >= limit)
-      limit += offset;
-    else
-      limit = HA_POS_ERROR; /* purecov: inspected */
-
-    if (limit != HA_POS_ERROR || offset != 0) {
-      pass_px_check = false;
-    }
-  }
 
   for (Query_block *query_block = first_query_block(); query_block != nullptr;
        query_block = query_block->next_query_block()) {
@@ -735,10 +707,6 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     if (set_limit(thd, query_block)) return true; /* purecov: inspected */
 
     if (query_block->optimize(thd, finalize_access_paths)) return true;
-
-    if (pass_px_check) {
-      all_select_pass_px_check |= query_block->pass_px_check;
-    }
 
     /*
       Accumulate estimated number of rows.
@@ -848,20 +816,13 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
   set_optimized();  // All query blocks optimized, update the state
 
-#if 0
   if (thd->lex->unit == this) {
-    JOIN *join = unit->fake_select_lex ? unit->fake_select_lex->join
-                                    : unit->first_select()->join;
+    JOIN *join = fake_query_block ? fake_query_block->join
+                                 : first_query_block()->join;
     if (px_optimize(thd, join, root_access_path())) {
+      thd->need_fallback = true;
       return true;
     }
-  }
-#endif
-
-  // Confirm whether this unit pass compatibility check, according to
-  // pass_px_execution of all query blocks.
-  if (pass_px_check) {
-    pass_px_check = is_union() ? pass_px_check : all_select_pass_px_check;
   }
 
   if (item != nullptr) {
@@ -885,15 +846,6 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
       join = fake_query_block->join;
     } else {
       join = nullptr;
-    }
-
-    if (thd->lex->unit == this) {
-      thd->lex->pass_px_check &= pass_px_check;
-      if (thd->lex->pass_px_check && thd->lex->m_exchange_number < 1) {
-        thd->lex->pass_px_check = false;
-      } else if (!thd->lex->pass_px_check && thd->lex->m_exchange_number >= 1) {
-        // TODO
-      }
     }
 
     /// Access path has already been generated, traverse the all access path tree
@@ -1123,11 +1075,6 @@ void Query_expression::create_access_paths(THD *thd) {
         /*reject_multiple_rows=*/false);
     EstimateMaterializeCost(thd, param.path);
     param.path = MoveCompositeIteratorsFromTablePath(param.path);
-    if (exchange_inject && is_union() && (thd->lex->m_exchange_number>=1)) {
-      param.path =
-          CreateExchangeAccessPathForUnion(thd, param.path, tmp_table);
-      thd->lex->m_exchange_number++;
-    }
     param.join = nullptr;
     union_all_sub_paths->push_back(param);
   }
@@ -1159,11 +1106,6 @@ void Query_expression::create_access_paths(THD *thd) {
     // Just append all the UNION ALL sub-blocks.
     assert(streaming_allowed);
     m_root_access_path = NewAppendAccessPath(thd, union_all_sub_paths);
-    if (exchange_inject && is_union() && (thd->lex->m_exchange_number>=1)) {
-      m_root_access_path =
-          CreateExchangeAccessPathForUnion(thd, m_root_access_path, tmp_table, true);
-      thd->lex->m_exchange_number++;
-    }
   }
 
   // NOTE: If there's a fake_query_block, its JOIN's iterator already handles

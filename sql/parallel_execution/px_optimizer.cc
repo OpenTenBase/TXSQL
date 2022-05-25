@@ -1,6 +1,7 @@
 #include "sql/parallel_execution/px_optimizer.h"
 
 #include "sql/join_optimizer/access_path.h"
+#include "sql/join_optimizer/walk_access_paths.h" // WalkAccessPathPolicy
 #include "sql/parallel_execution/px_access_path.h"
 #include "sql/sql_class.h"
 #include "sql/sql_union.h"
@@ -82,17 +83,24 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   return false;
 }
 
-/**
-    Generate parallel execution plan for this query expression.
-    
-    Whether a query expression can do parallel exection determines on this query pass
-    compatibility check and split positions are found in it. In this case, attempt to
-    transform a serial execution plan into a plan that can be executed in parallel.
-    
-    @param split_positions It means all possible exchange insertion points.
-    @param mat_access_paths All Materialize and Append which need to be fixed.
+static void FixAccessPathForUnit(AccessPath *target_path, JOIN *join, bool is_union);
 
-    @return false for sucessful, true for error.
+static void FixAccessPathForUnion(AccessPath *target_path);
+
+/**
+  Generate the parallel execution plan with given exchange descriptions.
+
+  An exchange description provides necessary information to inject a pair of
+  exchange nodes (sender and receiver) at a certain position in the access path
+  tree, and to split special operations like aggregation and order into a pair
+  of operations (local and final) enclosing the exchange nodes.
+
+  With these modifications, a serial plan thus becomes a parallel one.
+
+  @param split_positions Exchange descriptions
+  @param mat_access_paths Special access paths that need to be fixed
+
+  @return false on success, true on error.
 */
 bool px_generate_plan(THD *thd,
     std::vector<px_access_path::Split_Position> *split_positions,
@@ -111,13 +119,14 @@ bool px_generate_plan(THD *thd,
       AccessPath *root_path = nullptr;
       if (target_path->type == AccessPath::MATERIALIZE) {
         TABLE *table = target_path->materialize().param->table;
-        root_path = 
+        root_path =
             CreateExchangeAccessPathForUnion(thd, target_path, table);
       } else if (target_path->type == AccessPath::APPEND) {
         root_path =
             CreateExchangeAccessPathForUnion(thd, target_path,
               join->query_expression()->get_union_result()->table, true);
       }
+      if (root_path == nullptr) return true;
       join->query_expression()->set_root_access_path(root_path);
       thd->lex->m_exchange_number++;
       continue;
@@ -141,7 +150,7 @@ bool px_generate_plan(THD *thd,
       continue;
     }
 
-    /**
+    /*
       If this unit is simple, it's root_access_path is set to root_access_path of
       first_select.
     */
@@ -162,9 +171,13 @@ bool px_generate_plan(THD *thd,
     }
   }
 
-  /**
-    Branch accesspath of materialize/append may be changed, it's necessary to fix the
-    connection of them.
+  /*
+    Fix connections for unions.
+
+    A union is represented by MATERIALIZE (UNION) or APPEND (UNION ALL). The
+    root access path of a union branch may be changed by injecting a pair of
+    exchange operators between the branch and the union, so that the branch can
+    be run in parallel. In this case, the connection should be fixed.
   */
   if (mat_access_paths->size() != 0) {
     for (AccessPath *target_path : *mat_access_paths) {
@@ -177,16 +190,30 @@ bool px_generate_plan(THD *thd,
   return false;
 }
 
+/**
+  Generate partial parallel plan for the partial serial plan in a query block.
+
+  Any aggregate operation should be split into a pair of aggregates, one
+  processes partial inputs on each worker and gets partial results, and the
+  other combines the partial results to final result.
+
+  Currently we stick to JOIN because we have not built a uniform input model
+  for data references yet, which may cross access paths. It is future work.
+
+  @param split_positions Exchange descriptions
+
+  @return false on success, true on error.
+*/
 bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
   assert(is_optimized() && !is_px_generated());
   AccessPath *root_path = root_access_path();
-  
+
   // PHASE-1: Rebuild the aggr operator if necessary.
   if (split_position->m_split_agg) {
     root_path = WalkAccessPathsForAggregationRebuild(thd, this, root_path, false);
 
     // Whether the AGG is successfully Rebuilt.
-    if (ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {
+    if (!root_path || ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {
       assert(false); // For test
       return true;
     }
@@ -199,12 +226,28 @@ bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
         new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
     exchange_temp_table_param =
         new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
+    if (!exchange_temp_table || !exchange_temp_table_param) {
+      assert(false);
+      return true;
+    }
   }
   bool new_child = false;
   bool split_sort = split_position->m_split_sort;
+  assert(!split_position->m_tables);
+  split_position->m_tables = new (thd->mem_root) std::vector<TABLE *>();
+  if (!split_position->m_tables) return true;
+  GetExchangeTables(split_position);
+  assert(split_position->m_tables->size());
   AccessPath *exchange = WalkAccessPathsForExchange(
-        thd, this, root_path, split_position->m_target, /*curr_exchange=*/0,
-        /*new_child=*/new_child, /*cur_slice*/-1, false, /*in_join=*/false);
+        thd, this, split_position, root_path, split_position->m_target,
+        /*curr_exchange=*/0, /*new_child=*/new_child, /*cur_slice*/-1,
+        false, /*in_join=*/false);
+
+  if (thd->is_error() || thd->lex->m_exchange_number == old_exchange_num) {
+    assert(false); // For test
+    return true;
+  }
+
   if (exchange) {
     if (split_sort ? exchange->px_receiver_merge().use_temp_table
                    : exchange->px_receiver().use_temp_table) {
@@ -217,11 +260,116 @@ bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
   }
   m_root_access_path = root_path;
 
-  if (thd->lex->m_exchange_number == old_exchange_num) {
-    assert(false); // For test
-    return true;
-  }
   set_px_generated();
 
   return false;
+}
+
+/**
+  Fix connections for unit.
+
+  For parallel execution, parallel optimization will be done after serial
+  optimization of all query blocks. So, branch query block of unit may
+  be changed, it's necessary to substitute the old branch qb by parallel-
+  optimized qb.
+
+  @param target_path accesspath need to be fixed.
+  @param join
+  @param is_union fix for MATERIALIZE/APPEND or not.
+*/
+static void FixAccessPathForUnit(AccessPath *target_path, JOIN *join, bool is_union) {
+  if (is_union) {
+    FixAccessPathForUnion(target_path);
+    return ;
+  }
+
+  AccessPath *path = nullptr;
+  const auto scan_functor = [&path](AccessPath *sub_path, const JOIN *) {
+    switch(sub_path->type) {
+      case AccessPath::STREAM: {
+        path = sub_path;
+        return true;
+      }
+      default:
+        return false;
+    }
+  };
+  WalkAccessPaths(target_path, /*join=*/nullptr,
+                  WalkAccessPathPolicy::ENTIRE_TREE, scan_functor);
+  if (path == nullptr) return ;
+  path->stream().child = join->root_access_path();
+  /*
+  if (path->stream().copy_fields_and_items_in_materialize) {
+    TABLE *dst_table = path->stream().table;
+    if (join->tmp_table_param.items_to_copy) {
+      join->tmp_table_param.items_to_copy = nullptr;
+      ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                         &join->tmp_table_param);
+    }
+  }
+  */
+}
+
+/**
+  Fix connections for unions.
+
+  A union is represented by MATERIALIZE (UNION) or APPEND (UNION ALL). The
+  root access path of a union branch may be changed by injecting a pair of
+  exchange operators between the branch and the union, so that the branch can
+  be run in parallel. In this case, the connection should be fixed.
+
+  One exception is that MATERIALIZE created in QB to materialize results also
+  need to be fixed.
+
+  @param target_path MATERIALIZE or APPEND accesspath
+*/
+static void FixAccessPathForUnion(AccessPath *target_path) {
+  switch (target_path->type) {
+    case AccessPath::MATERIALIZE: {
+      MaterializePathParameters *param = target_path->materialize().param;
+      TABLE *dst_table = param->table;
+      for (MaterializePathParameters::QueryBlock &query_block :
+           param->query_blocks) {
+        JOIN *join = query_block.join;
+        AccessPath *qb_root_path = join->root_access_path();
+        if (!join->is_px_generated()) continue;
+        if (query_block.subquery_path != qb_root_path) {
+          query_block.subquery_path = qb_root_path;
+        }
+        // Fix items_to_copy
+        if (join->tmp_table_param.items_to_copy) {
+          join->tmp_table_param.items_to_copy = nullptr;
+          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                             &join->tmp_table_param);
+        }
+      }
+      break;
+    }
+    case AccessPath::APPEND: {
+      for (AppendPathParameters app_param :
+           *target_path->append().children) {
+        AccessPath *child = app_param.path;
+        if (child->type == AccessPath::MATERIALIZE) {
+          continue;
+        }
+        AccessPath *stream_path = app_param.path;
+        JOIN *join = app_param.join;
+        AccessPath *qb_root_path = join->root_access_path();
+        if (!join->is_px_generated()) continue;
+        if (stream_path->stream().child != qb_root_path) {
+          stream_path->stream().child = qb_root_path;
+        }
+        TABLE *dst_table = stream_path->stream().table;
+        // Fix items_to_copy
+        if (join->tmp_table_param.items_to_copy) {
+          join->tmp_table_param.items_to_copy = nullptr;
+          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                              &join->tmp_table_param);
+        }
+      }
+      break;
+    }
+    default:
+      assert(false);
+  }
 }

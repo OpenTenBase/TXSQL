@@ -45,6 +45,9 @@
 #include "sql/parallel_execution/px.h"
 
 enum class AggType;
+namespace px_access_path {
+struct Split_Position;
+}
 
 template <class T>
 class Bounds_checked_array;
@@ -2039,15 +2042,13 @@ void ExpandSingleFilterAccessPath(THD *thd, AccessPath *path, const JOIN *join,
 /// Returns the tables that are part of a hash join.
 table_map GetHashJoinTables(AccessPath *path);
 
-bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
-                                AccessPath *&target_path, SplitPosition *split_pos);
-
 // AccessPath *inject_exchange_access_path(QEP_TAB *tab, AccessPath *path,
 //                                         exchange_inject_position position);
 void FixSortAccessPath(JOIN *join, AccessPath *path, TABLE *const new_table,
                        int ref_slice);
 
 AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
+                                       px_access_path::Split_Position *split_pos,
                                        AccessPath *const path,
                                        AccessPath *const target_path,
                                        uint curr_exchange, bool &new_child,
@@ -2060,5 +2061,7 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check = true);
 
 AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
                                               TABLE *table, bool is_append = false);
+
+void GetExchangeTables(px_access_path::Split_Position *split_pos);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H

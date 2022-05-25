@@ -1590,90 +1590,6 @@ AccessPath *MoveCompositeIteratorsFromTablePath(AccessPath *path) {
   return path;
 }
 
-static void FixAccessPathForUnion(AccessPath *target_path) {
-  switch (target_path->type) {
-    case AccessPath::MATERIALIZE: {
-      MaterializePathParameters *param = target_path->materialize().param;
-      TABLE *dst_table = param->table;
-      for (MaterializePathParameters::QueryBlock &query_block :
-           param->query_blocks) {
-        JOIN *join = query_block.join;
-        AccessPath *qb_root_path = join->root_access_path();
-        if (!join->is_px_generated()) continue;
-        if (query_block.subquery_path != qb_root_path) {
-          query_block.subquery_path = qb_root_path;
-        }
-        // Fix items_to_copy
-        if (join->tmp_table_param.items_to_copy) {
-          join->tmp_table_param.items_to_copy = nullptr;
-          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
-                             &join->tmp_table_param);
-        }
-      }
-      break;
-    }
-    case AccessPath::APPEND: {
-      for (AppendPathParameters app_param :
-           *target_path->append().children) {
-        AccessPath *child = app_param.path;
-        if (child->type == AccessPath::MATERIALIZE) {
-          continue;
-        }
-        AccessPath *stream_path = app_param.path;
-        JOIN *join = app_param.join;
-        AccessPath *qb_root_path = join->root_access_path();
-        if (!join->is_px_generated()) continue;
-        if (stream_path->stream().child != qb_root_path) {
-          stream_path->stream().child = qb_root_path;
-        }
-        TABLE *dst_table = stream_path->stream().table;
-        // Fix items_to_copy
-        if (join->tmp_table_param.items_to_copy) {
-          join->tmp_table_param.items_to_copy = nullptr;
-          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
-                              &join->tmp_table_param);
-        }
-      }
-      break; 
-    }
-    default:
-      assert(false);
-  }
-}
-
-void FixAccessPathForUnit(AccessPath *target_path, JOIN *join, bool is_union) {
-  if (is_union) {
-    FixAccessPathForUnion(target_path);
-    return ;
-  }
-  
-  AccessPath *path = nullptr;
-  const auto scan_functor = [&path](AccessPath *sub_path, const JOIN *) {
-    switch(sub_path->type) {
-      case AccessPath::STREAM: {
-        path = sub_path;
-        return true;
-      }
-      default:
-        return false;
-    }
-  };
-  WalkAccessPaths(target_path, /*join=*/nullptr,
-                  WalkAccessPathPolicy::ENTIRE_TREE, scan_functor);
-  if (path == nullptr) return ;
-  path->stream().child = join->root_access_path();
-  /*
-  if (path->stream().copy_fields_and_items_in_materialize) {
-    TABLE *dst_table = path->stream().table;
-    if (join->tmp_table_param.items_to_copy) {
-      join->tmp_table_param.items_to_copy = nullptr;
-      ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
-                         &join->tmp_table_param);
-    }
-  }
-  */
-}
-
 AccessPath *GetAccessPathForDerivedTable(
     THD *thd, TABLE_LIST *table_ref, TABLE *table, bool rematerialize,
     Mem_root_array<const AccessPath *> *invalidators, bool need_rowid,
@@ -3656,108 +3572,12 @@ bool JOIN::check_expression_parallel_safe() {
   return true;
 }
 
-bool JOIN::check_px_execution() {
-  if (rollup_state != RollupState::NONE ||
-      zero_result_cause != nullptr ||
-      select_distinct ||
-      select_count||
-      fields->size() > MAX_FIELDS ||
-      m_windows.elements) {
-    return false;
-  }
-
-  if (!check_expression_parallel_safe()) {
-    return false;
-  }
-
-  return true;
-}
-
 void JOIN::create_access_paths() {
   assert(m_root_access_path == nullptr);
 
   AccessPath *path = create_root_access_path_for_join();
   path = attach_access_paths_for_having_and_limit(path);
   path = attach_access_path_for_update_or_delete(path);
-
-  QEP_TAB *parallel_tab = nullptr;
-
-  // PHASE-1: Do the compatibility check if open the parallel switch.
-  if (!query_expression()->pass_px_check || !query_block->pass_px_check) {
-    m_root_access_path = path;
-    return ;
-  }
-
-  query_block->check_px_execution(thd);
-  if (!query_block->pass_px_check) {
-    m_root_access_path = path;
-    return ;
-  }
-
-  // Only primary qb can choose a parallel table.
-  if (!choose_parallel_table(parallel_tab)) {
-    query_block->pass_px_check = false;
-    m_root_access_path = path;
-    return ;
-  }
-
-  /*
-    For primary query block, we need to get the maxmium sub accesspath-tree
-    can be parallel executed. 
-  */
-  if (!WalkAccessPathsForCompat(path)) {
-    query_block->pass_px_check = false;
-    m_root_access_path = path;
-    return ;
-  }
-
-  // PHASE-2: Find the exchange operator inject position in primary query block.
-  AccessPath *target_path = nullptr;  // Where to inject exchange
-  split_position = {SplitPosition::NO_SPLIT, false, nullptr, nullptr};
-  if (!exchange_inject ||
-      FindExchangeInjectPosition(thd, this, path, target_path, &split_position)) {
-    query_block->pass_px_check = false;
-    m_root_access_path = path;
-    return ;
-  }
-
-  sql_print_information("compatible check passed and begin to insert exchange.");
-  // PHASE-3: Rebuild the aggr and sort operator if necessary.
-  if (split_position.type == SplitPosition::SPLIT_AGG ||
-      split_position.type == SplitPosition::SPLIT_SORT_AGG) {
-    path = WalkAccessPathsForAggregationRebuild(thd, this, path, false);
-    // Whether the AGG is successfully Rebuilt.
-    if (ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {
-      query_block->pass_px_check = false;
-      m_root_access_path = path;
-      return ;
-    }
-  }
-
-  // PHASE-4: Inject the exchange operators.
-  if (exchange_inject) {
-    if (exchange_temp_table == nullptr) {
-      exchange_temp_table =
-          new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
-      exchange_temp_table_param =
-          new (thd->mem_root) mem_root_deque<Temp_table_param *>(thd->mem_root);
-    }
-    bool new_child = false;
-    bool split_sort = split_position.split_sort;
-    AccessPath *exchange = WalkAccessPathsForExchange(
-          thd, this, path, target_path, /*curr_exchange=*/0,
-          /*new_child=*/new_child, /*cur_slice*/-1, false, /*in_join=*/false);
-    if (exchange) {
-      if (split_sort ? exchange->px_receiver_merge().use_temp_table
-                     : exchange->px_receiver().use_temp_table) {
-        int ref_slice = split_sort ? exchange->px_receiver_merge().ref_slice
-                                   : exchange->px_receiver().ref_slice;
-        fields = &tmp_fields[ref_slice];
-      }
-      if (new_child)
-        path = exchange;
-    }
-  }
 
   m_root_access_path = path;
 }

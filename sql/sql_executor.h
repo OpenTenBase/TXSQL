@@ -647,12 +647,4 @@ AccessPath *ConnectJoins(plan_idx upper_first_idx, plan_idx first_idx,
                          qep_tab_map *unhandled_duplicates,
                          table_map *conditions_depend_on_outer_tables);
 
-/**
-  For parallel execution, parallel optimization will be done after serial
-  optimization of all query blocks. So, branch query block of unit may
-  be changed, it's necessary to substitute the old branch qb by parallel-
-  optimized qb.
-*/
-void FixAccessPathForUnit(AccessPath *target_path, JOIN *join, bool is_union);
-
 #endif /* SQL_EXECUTOR_INCLUDED */
