@@ -8031,7 +8031,7 @@ static int parse_args(int argc, char **argv) {
   if (!record) {
     /* Check that the result file exists */
     if (result_file_name && access(result_file_name, F_OK) != 0)
-      die("The specified result file '%s' does not exist", result_file_name);
+      log_msg("The specified result file '%s' does not exist", result_file_name);
   }
 
   return 0;
