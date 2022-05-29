@@ -1897,6 +1897,7 @@ void THD::cleanup_after_query() {
 
   // Reuse in the lifecycle of the top statement.
   if (!in_sub_stmt) {
+    // may return before end_optimization_context(), reset it
     m_is_optimizing = false;
     ha_stats_id = 0;
     index_dive_id = 0;
@@ -2347,7 +2348,6 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
       first_successful_insert_id_in_prev_stmt;
   backup->first_successful_insert_id_in_cur_stmt =
       first_successful_insert_id_in_cur_stmt;
-  backup->m_is_optimizing = m_is_optimizing;
 
   if ((!lex->requires_prelocking() || is_update_query(lex->sql_command)) &&
       !is_current_stmt_binlog_format_row()) {
@@ -2407,7 +2407,6 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
       backup->first_successful_insert_id_in_prev_stmt;
   first_successful_insert_id_in_cur_stmt =
       backup->first_successful_insert_id_in_cur_stmt;
-  m_is_optimizing = backup->m_is_optimizing;
   current_found_rows = backup->current_found_rows;
   previous_found_rows = backup->previous_found_rows;
   set_sent_row_count(backup->sent_row_count);
