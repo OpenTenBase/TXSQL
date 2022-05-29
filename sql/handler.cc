@@ -132,6 +132,7 @@
 #include "uniques.h"  // Unique_on_insert
 #include "varlen_sort.h"
 #include "sql/histograms/histogram.h"  // Histogram
+#include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
 
 /**
   @def MYSQL_TABLE_IO_WAIT

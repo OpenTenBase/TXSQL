@@ -418,6 +418,7 @@ extern char *opt_protocol_compression_algorithms;
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
 extern bool cdb_plan_equivalence_comparison_enabled;
+extern bool cdb_optimization_context_cache_enabled;
 
 extern bool cdb_optimize_large_trans_binlog;
 extern bool cdb_sql_statistics;

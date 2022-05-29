@@ -148,6 +148,7 @@ PSI_memory_key key_memory_thread_pool_connection;
 PSI_memory_key key_memory_hot_update_metadata;
 PSI_memory_key key_memory_statistics_manager;
 PSI_memory_key key_memory_statistics_task;
+PSI_memory_key key_memory_optimizer_context;
 
 #ifdef HAVE_PSI_INTERFACE
 
@@ -398,6 +399,8 @@ static PSI_memory_info all_server_memory[] = {
     {&key_memory_statistics_manager,"statistics_manager", 0, 0,
      PSI_DOCUMENT_ME},
     {&key_memory_statistics_task,"statistics_manager_task", 0, 0,
+     PSI_DOCUMENT_ME},
+    {&key_memory_optimizer_context, "optimization context for parallel execution", 0, 0,
      PSI_DOCUMENT_ME}};
 
 void register_server_memory_keys() {

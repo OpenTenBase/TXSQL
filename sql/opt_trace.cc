@@ -789,7 +789,7 @@ const char *Opt_trace_context::flag_names[] = {"enabled", "one_line", "default",
 
 const char *Opt_trace_context::feature_names[] = {
     "greedy_search",      "range_optimizer", "dynamic_range",
-    "repeated_subselect", "default",         NullS};
+    "repeated_subselect", "statistics",      "default",       NullS};
 
 const Opt_trace_context::feature_value Opt_trace_context::default_features =
     Opt_trace_context::feature_value(Opt_trace_context::GREEDY_SEARCH |

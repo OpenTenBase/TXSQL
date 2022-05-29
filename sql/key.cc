@@ -42,6 +42,9 @@
 #include "sql/sql_error.h"
 #include "sql/table.h"
 #include "sql_string.h"
+#include "sql/current_thd.h"    // current_thd
+#include "sql/sql_class.h"      // THD
+#include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
 
 using std::max;
 using std::min;
@@ -53,6 +56,66 @@ bool KEY::is_functional_index() const {
     }
   }
   return false;
+}
+
+double KEY::in_memory_estimate() const {
+  if (OPT_STATS_ENABLED(current_thd, table)) {
+    double tmp_estimate;
+    if(!OPT_STATS_GET(in_memory_estimate, current_thd,
+                      this, tmp_estimate)) {
+      return tmp_estimate;
+    }
+    // Never miss because info() result is cached.
+    assert(0);
+  }
+
+  assert(m_in_memory_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
+              (m_in_memory_estimate >= 0.0 && m_in_memory_estimate <= 1.0));
+
+  return m_in_memory_estimate;
+}
+
+bool KEY::has_records_per_key(uint key_part_no) const {
+  assert(key_part_no < actual_key_parts);
+
+  if (OPT_STATS_ENABLED(current_thd, table)) {
+    bool has_rec_per_key;
+    if(!OPT_STATS_GET(has_records_per_key, current_thd,
+                      this, key_part_no, has_rec_per_key)) {
+      return has_rec_per_key;
+    }
+    // Never miss because info() result is cached.
+    assert(0);
+  }
+
+  return ((rec_per_key_float &&
+              rec_per_key_float[key_part_no] != REC_PER_KEY_UNKNOWN) ||
+          (rec_per_key && rec_per_key[key_part_no] != 0));
+}
+
+rec_per_key_t KEY::records_per_key(uint key_part_no) const {
+  assert(key_part_no < actual_key_parts);
+
+  if (OPT_STATS_ENABLED(current_thd, table)) {
+    rec_per_key_t tmp_rec_per_key;
+    if(!OPT_STATS_GET(records_per_key, current_thd,
+                      this, key_part_no, tmp_rec_per_key)) {
+      return tmp_rec_per_key;
+    }
+    // Never miss because info() result is cached.
+    assert(0);
+  }
+
+  /*
+    If the storage engine has provided rec per key estimates as float
+    then use this. If not, use the integer version.
+  */
+  if (rec_per_key_float[key_part_no] != REC_PER_KEY_UNKNOWN)
+    return rec_per_key_float[key_part_no];
+
+  return (rec_per_key[key_part_no] != 0)
+              ? static_cast<rec_per_key_t>(rec_per_key[key_part_no])
+              : REC_PER_KEY_UNKNOWN;
 }
 
 /*

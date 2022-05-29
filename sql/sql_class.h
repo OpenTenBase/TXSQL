@@ -148,6 +148,7 @@ class RowIterator;
 struct worker_pool_t;
 class PX_exchange_info;
 class PX_exchange_context;
+class Stats_cache;
 
 namespace dd {
 namespace cache {
@@ -762,6 +763,7 @@ class Sub_statement_state {
   bool enable_slow_log;
   SAVEPOINT *savepoints;
   enum enum_check_fields check_for_truncated_fields;
+  bool m_is_optimizing;
 };
 
 inline char const *show_system_thread(enum_thread_type thread) {
@@ -2105,10 +2107,17 @@ private:
     bool m_transaction_rollback_request;
   };
 
+  /* Allocate Stats_cache */
+  MEM_ROOT stats_cache_alloc;
+
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
   bool m_is_worker{false};
+  /// An explicit mark for optimization phase.
+  bool m_is_optimizing{false};
   bool m_equivalence_check_phase{false};
+  /// Interface object to the statistics module
+  Stats_cache *opt_stats;
 
  private:
   /**

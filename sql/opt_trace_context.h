@@ -192,6 +192,7 @@ class Opt_trace_context {
      @li "dynamic_range" = the range optimization performed for each record
                            when access method is dynamic range
      @li "repeated_subselect" = the repeated execution of subselects
+     @li "statistics" = optimizer statistics
      @li "default".
   */
   static const char *feature_names[];
@@ -202,6 +203,7 @@ class Opt_trace_context {
     RANGE_OPTIMIZER = 1 << 1,
     DYNAMIC_RANGE = 1 << 2,
     REPEATED_SUBSELECT = 1 << 3,
+    STATISTICS = 1 << 4,
     /*
       If you add here, update feature_value of empty implementation
       and default_features!
