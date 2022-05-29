@@ -138,7 +138,6 @@ SET(TESTS
   inplace_vector
   integer_digits
   intrusive_list_iterator
-  key
   like_range
   m_string
   mdl
@@ -168,7 +167,6 @@ SET(TESTS
   mysys_my_time
   mysys_my_write
   mysys_pathfuncs
-  opt_recperkey
   overflow_bitset
   partitioned_rwlock
   pattern_matcher
@@ -203,6 +201,8 @@ ENDFOREACH()
 
 # Add tests (link them with gunit/gmock libraries and the server libraries)
 SET(SERVER_TESTS
+  key
+  opt_recperkey
   character_set_deprecation
   compare_access_paths
   connect_joins

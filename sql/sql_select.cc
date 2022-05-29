@@ -129,6 +129,7 @@
 #include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
 #include "sql/parallel_execution/px_executor.h"  // PX_coordinator
 #include "sql/parallel_execution/px_workerpool.h"  // worker_pool
+#include "sql/parallel_execution/px_optimizer_context.h"  // begin_optimization_context end_optimization_context
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/log.h"
 #include "sql_string.h"
@@ -861,6 +862,8 @@ bool optimize_secondary_engine(THD *thd) {
 bool Sql_cmd_dml::execute_inner(THD *thd) {
   Query_expression *unit = lex->unit;
 
+  begin_optimization_context(thd);
+
   if (unit->optimize(thd, /*materialize_destination=*/nullptr,
                      /*create_iterators=*/true, /*finalize_access_paths=*/true))
     return true;
@@ -873,6 +876,10 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 
   // We know by now that execution will complete (successful or with error)
   lex->set_exec_completed();
+
+  if (end_optimization_context(thd)) {
+    return true;
+  }
 
   if (lex->is_explain()) {
     if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */

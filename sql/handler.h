@@ -3918,6 +3918,10 @@ class ha_statistics {
         update_time(0),
         block_size(0),
         table_in_mem_estimate(IN_MEMORY_ESTIMATE_UNKNOWN) {}
+
+  void copy_from(const ha_statistics *other) {
+    memcpy(this, other, sizeof(ha_statistics));
+  }
 };
 
 /**

@@ -1,0 +1,127 @@
+--echo ###############################################
+--echo # pq optimization context copy test
+--echo ###############################################
+--echo # 1) test reading handler::stats
+--echo # 2) test reading the value of index dive and handler::stats
+
+--source include/have_optimizer_trace.inc
+
+--echo
+--echo # 1) test reading const table and handler::stats
+--echo
+CREATE TABLE t1 (
+  f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
+  f2 varchar(16) collate latin1_swedish_ci
+);
+CREATE TABLE t2 (
+  f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
+  f3 varchar(16) collate latin1_swedish_ci
+);
+
+INSERT INTO t1 VALUES ('bla','blah');
+INSERT INTO t1 VALUES ('blc','blad');
+INSERT INTO t1 VALUES ('bld','blad');
+INSERT INTO t2 VALUES ('bla','sheep');
+INSERT INTO t2 VALUES ('blc','sheep');
+INSERT INTO t2 VALUES ('bld','sheep');
+
+SET optimizer_trace="enabled=on";
+SET optimizer_trace_features="statistics=on";
+SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
+SELECT * FROM information_schema.optimizer_trace;
+SET optimizer_trace="enabled=off";
+DROP TABLE t1,t2;
+
+--echo
+--echo # 2) test reading the value of index dive and handler::stats
+--echo
+CREATE TABLE t2 (
+  auto int not null auto_increment,
+  fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+  companynr tinyint(2) unsigned zerofill DEFAULT '00' NOT NULL,
+  fld3 char(30) DEFAULT '' NOT NULL,
+  fld4 char(35) DEFAULT '' NOT NULL,
+  fld5 char(35) DEFAULT '' NOT NULL,
+  fld6 char(4) DEFAULT '' NOT NULL,
+  UNIQUE fld1 (fld1),
+  KEY fld3 (fld3),
+  PRIMARY KEY (auto)
+);
+
+create table t3 (
+ period    int not null,
+ name      char(32) not null,
+ companynr int not null,
+ price     double(11,0),
+ price2     double(11,0),
+ key (period),
+ key (name)
+);
+
+--disable_query_log
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1001,"Iranizes",37,5987435,234724);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1002,"violinist",37,28357832,8723648);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1003,"extramarital",37,39654943,235872);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1004,"spates",78,726498,72987523);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1005,"cloakroom",78,98439034,823742);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1006,"gazer",101,834598,27348324);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1007,"hand",154,983543950,29837423);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1008,"tucked",311,234298,3275892);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1009,"gems",447,2374834,9872392);
+INSERT INTO t3 (period,name,companynr,price,price2) VALUES (1010,"clinker",512,786542,76234234);
+
+
+create temporary table tmp engine = myisam select * from t3;
+
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+#insert into tmp select * from t3;
+#insert into t3 select * from tmp;
+
+alter table t3 add t2nr int not null auto_increment primary key first;
+
+drop table tmp;
+
+INSERT INTO t2 VALUES (1,000001,00,'Omaha','teethe','neat','');
+INSERT INTO t2 VALUES (2,011401,37,'breaking','dreaded','Steinberg','W');
+INSERT INTO t2 VALUES (3,011402,37,'Romans','scholastics','jarring','');
+INSERT INTO t2 VALUES (1160,158402,00,'spates','bulkheads','penny','');
+INSERT INTO t2 VALUES (1161,158401,00,'cloakroom','undeclared','Flagler','');
+INSERT INTO t2 VALUES (1162,068013,00,'gazer','displacements','stoned','');
+INSERT INTO t2 VALUES (1163,068012,00,'hand','nieces','cranes','');
+INSERT INTO t2 VALUES (1164,068203,00,'tucked','coeducation','masterful','');
+INSERT INTO t2 VALUES (1165,088205,00,'gems','brassy','biracial','');
+--enable_query_log
+
+SET optimizer_trace="enabled=on";
+SET optimizer_trace_features="statistics=on";
+
+select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3;
+SELECT * FROM information_schema.optimizer_trace;
+
+select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
+SELECT * FROM information_schema.optimizer_trace;
+
+select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 group by t3.name;
+SELECT * FROM information_schema.optimizer_trace;
+
+SET optimizer_trace="enabled=off";
+
+drop table t2,t3;
+
+

@@ -116,6 +116,7 @@
 #include "sql/system_variables.h"
 #include "sql/table_cache.h"               // table_cache_manager
 #include "sql/table_trigger_dispatcher.h"  // Table_trigger_dispatcher
+#include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
 #include "sql/thd_raii.h"
 #include "sql/thr_malloc.h"
 #include "sql/trigger_def.h"
@@ -6580,8 +6581,21 @@ int TABLE_LIST::fetch_number_of_rows() {
                      ->estimated_rowcount,
                  // Recursive reference is never a const table
                  (ha_rows)PLACEHOLDER_TABLE_ROW_ESTIMATE);
-  } else
-    error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+  } else {
+    //error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+    ha_statistics *stats = nullptr;
+    if (OPT_STATS_ENABLED(current_thd, table)) {
+      error = OPT_STATS_GET(ha_stats, current_thd, table, stats);
+    }
+    if(!stats) {
+      error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+      if (!error && OPT_STATS_ENABLED(current_thd, table)) {
+        error = OPT_STATS_SET(ha_info, current_thd, table);
+      }
+    } else {
+      table->file->stats.copy_from(stats);
+    }
+  }
   return error;
 }
 

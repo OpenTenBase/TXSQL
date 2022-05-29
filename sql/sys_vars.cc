@@ -3540,7 +3540,8 @@ static Sys_var_flagset Sys_optimizer_trace_features(
     " optimizer_trace_features=option=val[,option=val...], where option is "
     "one "
     "of"
-    " {greedy_search, range_optimizer, dynamic_range, repeated_subselect}"
+    " {greedy_search, range_optimizer, dynamic_range, repeated_subselect, "
+    "statistics}"
     " and val is one of {on, off, default}",
     SESSION_VAR(optimizer_trace_features), CMD_LINE(REQUIRED_ARG),
     Opt_trace_context::feature_names,
@@ -8823,6 +8824,15 @@ static Sys_var_bool Sys_cdb_plan_equivalence_comparison_enabled(
     "workers and the coordinator for parallel execution.",
     GLOBAL_VAR(cdb_plan_equivalence_comparison_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_cdb_optimization_context_cache_enabled(
+    "cdb_optimization_context_cache_enabled",
+    "When enabled, every statistics call is cached for reuse in "
+    "the lifecycle of a statement.",
+    GLOBAL_VAR(cdb_optimization_context_cache_enabled),
+    CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
 

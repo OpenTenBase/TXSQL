@@ -114,6 +114,7 @@
 #include "template_utils.h"
 #include "thr_mutex.h"
 #include "parallel_execution/px_executor.h"  //PX_executor
+#include "sql/parallel_execution/px_optimizer_context.h" // Stats_cache
 
 /* Changes from TXSQL start. */
 #include "rpl_handler.h"
@@ -677,6 +678,7 @@ THD::THD(bool enable_plugins)
       m_trans_fixed_log_file(nullptr),
       m_trans_end_pos(0),
       m_transaction(new Transaction_ctx()),
+      stats_cache_alloc(key_memory_optimizer_context, 16384 /* 16 kB */),
       m_attachable_trx(nullptr),
       table_map_for_update(0),
       m_examined_row_count(0),
@@ -790,6 +792,7 @@ THD::THD(bool enable_plugins)
   m_resource_group_ctx.m_switch_resource_group_str[0] = '\0';
   m_resource_group_ctx.m_warn = 0;
   m_safe_to_display.store(false);
+  opt_stats = new (&stats_cache_alloc) Stats_cache(&stats_cache_alloc);
 
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_query, &LOCK_thd_query, MY_MUTEX_INIT_FAST);
@@ -1475,6 +1478,8 @@ THD::~THD() {
 
   if (!release_resources_done()) release_resources();
 
+  opt_stats->clear();
+
   clear_next_event_pos();
 
   /* Ensure that no one is using THD */
@@ -1883,6 +1888,15 @@ void THD::cleanup_after_query() {
   if (rli_slave) rli_slave->cleanup_after_query();
   // Set the default "cute" mode for the execution environment:
   check_for_truncated_fields = CHECK_FIELD_IGNORE;
+
+  // Reuse in the lifecycle of the top statement.
+  if (!in_sub_stmt) {
+    m_is_optimizing = false;
+    opt_stats->clear();
+    // Mark the memory as ready for reuse.
+    stats_cache_alloc.Clear();
+    opt_stats = new (&stats_cache_alloc) Stats_cache(&stats_cache_alloc);
+  }
 }
 
 /*
@@ -2322,6 +2336,7 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
       first_successful_insert_id_in_prev_stmt;
   backup->first_successful_insert_id_in_cur_stmt =
       first_successful_insert_id_in_cur_stmt;
+  backup->m_is_optimizing = m_is_optimizing;
 
   if ((!lex->requires_prelocking() || is_update_query(lex->sql_command)) &&
       !is_current_stmt_binlog_format_row()) {
@@ -2381,6 +2396,7 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
       backup->first_successful_insert_id_in_prev_stmt;
   first_successful_insert_id_in_cur_stmt =
       backup->first_successful_insert_id_in_cur_stmt;
+  m_is_optimizing = backup->m_is_optimizing;
   current_found_rows = backup->current_found_rows;
   previous_found_rows = backup->previous_found_rows;
   set_sent_row_count(backup->sent_row_count);

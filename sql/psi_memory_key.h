@@ -173,5 +173,6 @@ extern PSI_memory_key key_memory_write_set_extraction;
 extern PSI_memory_key key_memory_thread_pool_connection;
 extern PSI_memory_key key_memory_statistics_manager;
 extern PSI_memory_key key_memory_statistics_task;
+extern PSI_memory_key key_memory_optimizer_context;
 
 #endif  // PSI_MEMORY_KEY_INCLUDED
