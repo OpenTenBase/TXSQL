@@ -452,40 +452,6 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
           ]
         }
       ]
-    },
-    {
-      "join_execution": {
-        "select#": 1,
-        "steps": [
-          {
-            "sorting_table": "t2",
-            "filesort_information": [
-              {
-                "direction": "asc",
-                "expression": "`t2`.`fld3`"
-              }
-            ],
-            "filesort_priority_queue_optimization": {
-              "usable": false,
-              "cause": "not applicable (no LIMIT)"
-            },
-            "filesort_execution": [
-            ],
-            "filesort_summary": {
-              "memory_available": 262144,
-              "key_size": 488,
-              "row_size": 618,
-              "max_rows_per_buffer": 15,
-              "num_rows_estimate": 15,
-              "num_rows_found": 0,
-              "num_initial_chunks_spilled_to_disk": 0,
-              "peak_memory_used": 0,
-              "sort_algorithm": "none",
-              "sort_mode": "<varlen_sort_key, packed_additional_fields>"
-            }
-          }
-        ]
-      }
     }
   ]
 }	0	0
@@ -772,6 +738,19 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
           {
             "considering_tmp_tables": [
             ]
+          },
+          {
+            "creating_tmp_table": {
+              "tmp_table_info": {
+                "columns": 2,
+                "row_length": 137,
+                "key_length": 0,
+                "unique_constraint": false,
+                "makes_grouped_rows": false,
+                "cannot_insert_duplicates": false,
+                "location": "TempTable"
+              }
+            }
           }
         ]
       }
@@ -826,13 +805,6 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
           ]
         }
       ]
-    },
-    {
-      "join_execution": {
-        "select#": 1,
-        "steps": [
-        ]
-      }
     }
   ]
 }	0	0
@@ -968,7 +940,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                   ],
                   "best_covering_index_scan": {
                     "index": "name",
-                    "cost": 4837.06,
+                    "cost": 4832.54,
                     "chosen": false,
                     "cause": "cost"
                   },
@@ -994,7 +966,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                         "using_mrr": false,
                         "index_only": true,
                         "rows": 7596,
-                        "cost": 881.166,
+                        "cost": 880.337,
                         "chosen": true
                       }
                     ],
@@ -1013,7 +985,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                       ]
                     },
                     "rows_for_plan": 7596,
-                    "cost_for_plan": 881.166,
+                    "cost_for_plan": 880.337,
                     "chosen": true
                   }
                 }
@@ -1033,7 +1005,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                       "access_type": "ref",
                       "index": "name",
                       "rows": 7596,
-                      "cost": 881.156,
+                      "cost": 880.327,
                       "chosen": true
                     },
                     {
@@ -1048,7 +1020,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                 },
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 7596,
-                "cost_for_plan": 881.156,
+                "cost_for_plan": 880.327,
                 "chosen": true
               }
             ]
@@ -1096,6 +1068,19 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                 "table": "`t3`"
               }
             ]
+          },
+          {
+            "creating_tmp_table": {
+              "tmp_table_info": {
+                "columns": 2,
+                "row_length": 137,
+                "key_length": 0,
+                "unique_constraint": false,
+                "makes_grouped_rows": false,
+                "cannot_insert_duplicates": false,
+                "location": "TempTable"
+              }
+            }
           }
         ]
       }
@@ -1164,7 +1149,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
               "name": "PRIMARY",
               "in_memory_estimate": 1,
               "records_per_key": [
-                1
+                4.5
               ],
               "records_in_range": [
               ]
@@ -1173,7 +1158,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
               "name": "fld1",
               "in_memory_estimate": 1,
               "records_per_key": [
-                1
+                4.5
               ],
               "records_in_range": [
               ]
@@ -1182,8 +1167,8 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
               "name": "fld3",
               "in_memory_estimate": 1,
               "records_per_key": [
-                1,
-                1
+                4.5,
+                4.5
               ],
               "records_in_range": [
               ]
@@ -1191,13 +1176,6 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
           ]
         }
       ]
-    },
-    {
-      "join_execution": {
-        "select#": 1,
-        "steps": [
-        ]
-      }
     }
   ]
 }	0	0

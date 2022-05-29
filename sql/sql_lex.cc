@@ -5007,6 +5007,11 @@ void Query_block::restore_cmd_properties() {
   Check whether this query block pass compatibility check;
 */
 void Query_block::check_px_execution(THD *thd) {
+  // Optimization context cache is to ensure the consistency of query plans
+  if (!cdb_optimization_context_cache_enabled) {
+    pass_px_check = false;
+    return;
+  }
 
   // Only primary qb can do parallel
   bool is_primary_qb = (type() == enum_explain_type::EXPLAIN_PRIMARY) ||

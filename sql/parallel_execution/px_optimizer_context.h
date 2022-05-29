@@ -45,13 +45,24 @@ struct MEM_ROOT;
       (table)->s->table_category == TABLE_CATEGORY_USER)
 
 #define OPT_STATS_CACHE(thd) \
-  (thd)->opt_stats
+  ((thd)->m_is_worker ? (thd)->px_coordinator->opt_stats : (thd)->opt_stats)
 
 #define OPT_STATS_GET(type, thd, ...) \
   OPT_STATS_CACHE(thd)->get_##type(__VA_ARGS__)
 
 #define OPT_STATS_SET(type, thd, ...) \
   OPT_STATS_CACHE(thd)->set_##type(__VA_ARGS__)
+
+#define OPT_STATS_CHECK(err, type, thd) \
+  do { if (!err) (thd)->type##_id++; } while (0)
+
+#define OPT_STATS_ERR(type, thd) \
+  {                                                                       \
+    sql_print_warning("optimization context: Thread(%d) optimization"     \
+                      "context mismatch (%s)", (thd)->thread_id(), type); \
+    my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),            \
+              (thd)->thread_id(), type);                                  \
+  }
 
 /**
   The key standing for arguments of records_in_range(). Used to look up

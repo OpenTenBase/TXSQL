@@ -6586,11 +6586,14 @@ int TABLE_LIST::fetch_number_of_rows() {
     ha_statistics *stats = nullptr;
     if (OPT_STATS_ENABLED(current_thd, table)) {
       error = OPT_STATS_GET(ha_stats, current_thd, table, stats);
+      OPT_STATS_CHECK(error, ha_stats, current_thd);
+      assert(stats || !current_thd->m_is_worker);
     }
     if(!stats) {
       error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
       if (!error && OPT_STATS_ENABLED(current_thd, table)) {
         error = OPT_STATS_SET(ha_info, current_thd, table);
+        OPT_STATS_CHECK(error, ha_stats, current_thd);
       }
     } else {
       table->file->stats.copy_from(stats);
