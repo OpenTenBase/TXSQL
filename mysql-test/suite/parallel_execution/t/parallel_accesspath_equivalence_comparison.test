@@ -5,9 +5,9 @@
 --echo ###############################################
 --echo # Inconsistent accesspath may caused by: 
 --echo #  1) optimizer_switch changes
---echo #  2) TODO: sql_mode changes
---echo #  3) TODO: charset changes
---echo #  3) TODO: thd.variables
+--echo #  2) user vars changes
+--echo #  3) charset changes
+--echo #  3) thd.variables
 --echo #  4) TODO: statistics info
 --echo #  5) TODO: const table ref
 --echo #  6) additional tests that may cause exceptions

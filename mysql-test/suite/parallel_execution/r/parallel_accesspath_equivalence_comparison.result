@@ -4,9 +4,9 @@
 ###############################################
 # Inconsistent accesspath may caused by: 
 #  1) optimizer_switch changes
-#  2) TODO: sql_mode changes
-#  3) TODO: charset changes
-#  3) TODO: thd.variables
+#  2) user vars changes
+#  3) charset changes
+#  3) thd.variables
 #  4) TODO: statistics info
 #  5) TODO: const table ref
 #  6) additional tests that may cause exceptions

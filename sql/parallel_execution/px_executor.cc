@@ -296,9 +296,6 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
   // Waiting workers done prepare work, adjust semaphore and go on.
   if (query_execute_barrier(worker_pool)) goto end_workers;
 
-  // consistency check between master and workers.
-  if (cdb_plan_equivalence_comparison_enabled && !check_equivalence(worker_pool))
-    goto end_workers;
   // Back to serial execution if error occurred before sending data.
   if (thd()->check_px_error()) {
     sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
@@ -307,6 +304,10 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
     thd()->need_fallback = true;
     goto end_workers;
   }
+
+  // consistency check between master and workers.
+  if (!check_equivalence(worker_pool))
+    goto end_workers;
 
   sql_print_information("PX_sequential_coordinator::%s:%d schedule DFO.",
     __FUNCTION__, __LINE__);
@@ -364,9 +365,11 @@ bool PX_coordinator::check_equivalence(worker_pool_t *worker_pool)
 {
   for (int i = 1; i < worker_pool->num_workers; ++i) {
     if (!worker_pool->thread_args[i].is_equivalent_plan) {
-      sql_print_warning("%d-th/%d thread(%d) generated an unequal plan", i,
-        worker_pool->num_workers, i);
       thd()->need_fallback = true;
+      // TODO delete in release version
+      sql_print_warning("%d-th/%d thread generated an unequal plan",
+                        i, worker_pool->num_workers);
+      assert(false);
       return false;
     }
   }
