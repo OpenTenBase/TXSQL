@@ -1515,6 +1515,27 @@ bool Query_expression::execute(THD *thd) {
   return ExecuteIteratorQuery(thd);
 }
 
+bool Query_expression::check_plan_equivalence(THD *thd) {
+  int base_level = 0;
+  JOIN *join = first_query_block()->join;
+  thd->m_equivalence_check_phase = true;
+
+  thd->worker_arg->is_equivalent_plan =
+      CheckPlanEquivalence(base_level,
+                           thd->worker_arg->coordinator_root_access_path,
+                           thd->worker_arg->coordinator_join,
+                           root_access_path(),
+                           is_union() ? nullptr : join,
+                           /*is_root_of_join=*/!is_union());
+  // TODO delete in release version
+  sql_print_information("optimization context debug: %d-thread generated an %sequal plan",
+                         thd->thread_id(),
+                         thd->worker_arg->is_equivalent_plan ? "" : "un");
+  thd->m_equivalence_check_phase = false;
+
+  return thd->worker_arg->is_equivalent_plan;
+}
+
 /**
   Execute a query expression that may be a UNION and/or have an ordered result
   in parallel execution mode, here coordinator and worker behave differently.
@@ -1561,23 +1582,14 @@ bool Query_expression::execute_in_parallel(THD *thd) {
     sql_print_information("SELECT_LEX_UNIT::%s:%d worker start execute.",
       __FUNCTION__, __LINE__);
     // check plan equivalence
-    if (cdb_plan_equivalence_comparison_enabled) {
-      int base_level = 0;
-      JOIN *join = first_query_block()->join;
-      thd->m_equivalence_check_phase = true;
-      thd->worker_arg->is_equivalent_plan =
-          CheckPlanEquivalence(base_level,
-                              thd->worker_arg->coordinator_root_access_path,
-                              thd->worker_arg->coordinator_join,
-                              root_access_path(),
-                              is_union() ? nullptr : join,
-                              /*is_root_of_join=*/!is_union());
-      //TODO goto end if plan inequivalence
-      sql_print_information("%d-thread generated an %sequal plan",
-                            thd->thread_id(),
-                            thd->worker_arg->is_equivalent_plan ? "" : "un");
-      thd->m_equivalence_check_phase = false;
+    if (!check_plan_equivalence(thd)) {
+      sql_print_warning("optimization context: Thread(%d) optimization "
+                        "context mismatch (%s)", thd->thread_id(), "unequal plan");
+      my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
+              (thd)->thread_id(), "unequal plan");
+      return true;
     }
+
     // Generate worker executor and waiting for instructions.
     PX_worker *worker = new (thd->mem_root) PX_worker(dfo_mgr, thd);
     thd->px_executor = worker; // set px_executor to THD
