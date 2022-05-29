@@ -447,6 +447,39 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
 
   mysql_mutex_unlock(&worker_thd->LOCK_thd_data);
 
+  // 5. copy other vars in thd
+  // for LOAD DATA INFILE
+  worker_thd->file_id = coordinator_thd->file_id;
+  // remote (peer) port
+  worker_thd->peer_port = coordinator_thd->peer_port;
+  worker_thd->start_time = coordinator_thd->start_time;
+  worker_thd->user_time = coordinator_thd->user_time;
+  worker_thd->start_utime = coordinator_thd->start_utime;
+  //worker_thd->utime_after_lock = coordinator_thd->utime_after_lock;
+
+  worker_thd->time_zone_used = coordinator_thd->time_zone_used;
+  worker_thd->rand_used = coordinator_thd->rand_used;
+
+  // is null
+  worker_thd->arg_of_last_insert_id_function =
+      coordinator_thd->arg_of_last_insert_id_function;
+  worker_thd->first_successful_insert_id_in_prev_stmt =
+    coordinator_thd->first_successful_insert_id_in_prev_stmt;
+  worker_thd->first_successful_insert_id_in_prev_stmt_for_binlog =
+    coordinator_thd->first_successful_insert_id_in_prev_stmt_for_binlog;
+  worker_thd->first_successful_insert_id_in_cur_stmt =
+    coordinator_thd->first_successful_insert_id_in_cur_stmt;
+  worker_thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt =
+    coordinator_thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt;
+
+  // copy source value of user() / Item_func_user
+  worker_thd->m_security_ctx = coordinator_thd->m_security_ctx;
+  worker_thd->m_main_security_ctx.set_user_ptr(
+      coordinator_thd->security_context()->user().str,
+      coordinator_thd->security_context()->user().length);
+  worker_thd->m_main_security_ctx.set_host_or_ip_ptr(
+      coordinator_thd->security_context()->host_or_ip().str,
+      coordinator_thd->security_context()->host_or_ip().length);
   return false;
 }
 
