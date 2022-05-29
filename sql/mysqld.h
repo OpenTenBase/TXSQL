@@ -472,6 +472,13 @@ extern bool auto_perf_node_request;
 extern char cdb_statistics_host[HOSTNAME_LENGTH + 1];
 extern uint cdb_statistics_port;
 /**
+  Cache versions to detect changes, used as optimistic locking
+  for parallel execution.
+*/
+extern std::atomic<long long> outline_reload_version;
+extern std::atomic<long long> optimizer_cost_reload_version;
+extern std::atomic<long long> rewriter_plugin_reload_version;
+/**
   Variable to check if connection related options are set
   as part of keyring migration.
 */

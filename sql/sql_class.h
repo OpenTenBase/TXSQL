@@ -2125,6 +2125,13 @@ private:
   */
   int ha_stats_id;
   int index_dive_id;
+  /**
+    Marking the optimizer related version before optimization in coordinator
+    to verify that versions after optimization in workers.
+  */
+  long long saved_outline_reload_version;
+  long long saved_optimizer_cost_reload_version;
+  long long saved_rewriter_plugin_reload_version;
 
  private:
   /**

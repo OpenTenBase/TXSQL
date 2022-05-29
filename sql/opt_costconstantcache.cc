@@ -437,6 +437,7 @@ static void read_cost_constants(Cost_model_constants *cost_constants) {
 void init_optimizer_cost_module(bool enable_plugins) {
   assert(cost_constant_cache == nullptr);
   cost_constant_cache = new Cost_constant_cache();
+  optimizer_cost_reload_version = 0L;
   cost_constant_cache->init();
   /*
     Initialize max_key_length and max_key_part_length for internal temporary
@@ -454,5 +455,8 @@ void delete_optimizer_cost_module() {
 }
 
 void reload_optimizer_cost_constants() {
-  if (cost_constant_cache) cost_constant_cache->reload();
+  if (cost_constant_cache) {
+    optimizer_cost_reload_version++;
+    cost_constant_cache->reload();
+  }
 }

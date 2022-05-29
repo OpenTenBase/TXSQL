@@ -124,4 +124,110 @@ SET optimizer_trace="enabled=off";
 
 drop table t2,t3;
 
+--echo
+--echo # 3) test copying outline version
+--echo
+connect(conn_user1,localhost,root,,);
+# Save the original settings, to be restored at the end of test
+SET @cdb_opt_outline_saved = @@global.cdb_opt_outline_enabled;
 
+CREATE TABLE t1 (
+  f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
+  f2 varchar(16) collate latin1_swedish_ci
+);
+CREATE TABLE t2 (
+  f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
+  f3 varchar(16) collate latin1_swedish_ci
+);
+
+INSERT INTO t1 VALUES ('bla','blah');
+INSERT INTO t1 VALUES ('blc','blad');
+INSERT INTO t1 VALUES ('bld','blad');
+INSERT INTO t2 VALUES ('bla','sheep');
+INSERT INTO t2 VALUES ('blc','sheep');
+INSERT INTO t2 VALUES ('bld','sheep');
+
+set global cdb_opt_outline_enabled = on;
+
+--sorted_result
+select * from mysql.outline;
+# SET DEBUG_SYNC= 'before_worker_optimize SIGNAL in_sync WAIT_FOR continue';
+--sorted_result
+SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1;
+
+connect(conn_user2,localhost,root,,);
+connection conn_user2;
+# SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
+outline "SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1" set outline_info "OUTLINE:SELECT * FROM t1 use index(primary) LEFT JOIN t2 on t1.f1=t2.f1";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+# SET DEBUG_SYNC= 'now SIGNAL continue';
+
+connection conn_user1;
+sleep 2;
+truncate table mysql.outline;
+outline flush;
+
+# Restore saved state
+SET @@global.cdb_opt_outline_enabled = @cdb_opt_outline_saved;
+
+--echo
+--echo # 4) test copying optimizer cost version
+--echo
+connection conn_user1;
+# SET DEBUG_SYNC= 'before_worker_optimize SIGNAL in_sync WAIT_FOR continue';
+SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1;
+
+# Clean up tables
+DROP TABLE t2;
+DROP TABLE t1;
+
+connection conn_user2;
+# SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
+--replace_column 3 #
+SELECT * FROM mysql.server_cost;
+
+FLUSH OPTIMIZER_COSTS;
+# SET DEBUG_SYNC= 'now SIGNAL continue';
+
+--echo
+--echo # 5) test copying rewriter plugin version
+--echo
+connection conn_user1;
+--source suite/query_rewrite_plugins/include/have_plugin_rewriter.inc
+
+CREATE TABLE t1 ( c1 INTEGER primary key, c2 INTEGER );
+CREATE TABLE t2 ( c1 INTEGER primary key, c2 INTEGER );
+INSERT INTO t1 VALUES (1, 2), (2, 0), (3, 1), (4, 3), (5, 4), (6, 1), (7, 2);
+INSERT INTO t2 VALUES (1, 1), (3, 3), (4, 0), (6, 3), (9, 1), (8, 10);
+
+--source suite/query_rewrite_plugins/include/install_rewriter.inc
+
+# SET DEBUG_SYNC= 'before_worker_optimize SIGNAL in_sync WAIT_FOR continue';
+SELECT * FROM t1 JOIN t2 ON ( t1.c1 = t2.c1 AND t2.c2 > 2 );
+
+connection conn_user2;
+# SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
+
+SET sql_mode = 'PIPES_AS_CONCAT';
+
+INSERT INTO query_rewrite.rewrite_rules( pattern, replacement  )
+VALUES ( 'SELECT * FROM test.t1 JOIN test.t2 ON ' ||
+         '( test.t1.c1 = test.t2.c1 AND test.t1.c2 > ? )',
+         'SELECT * FROM test.t1 JOIN test.t2 ON ' ||
+         '( test.t1.c1 = test.t2.c1 AND test.t2.c2 > ? )' );
+
+CALL query_rewrite.flush_rewrite_rules();
+
+SELECT * FROM query_rewrite.rewrite_rules;
+
+# SET DEBUG_SYNC= 'now SIGNAL continue';
+
+SET sql_mode = DEFAULT;
+
+connection conn_user1;
+DROP TABLE t1;
+DROP TABLE t2;
+--source suite/query_rewrite_plugins/include/uninstall_rewriter.inc
