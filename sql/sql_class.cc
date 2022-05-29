@@ -1189,6 +1189,9 @@ void THD::init(void) {
     ALTER USER statements.
   */
   m_disable_password_validation = false;
+
+  ha_stats_id = 0;
+  index_dive_id = 0;
 }
 
 void THD::init_query_mem_roots() {
@@ -1892,6 +1895,8 @@ void THD::cleanup_after_query() {
   // Reuse in the lifecycle of the top statement.
   if (!in_sub_stmt) {
     m_is_optimizing = false;
+    ha_stats_id = 0;
+    index_dive_id = 0;
     opt_stats->clear();
     // Mark the memory as ready for reuse.
     stats_cache_alloc.Clear();

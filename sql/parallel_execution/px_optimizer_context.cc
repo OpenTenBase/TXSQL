@@ -464,5 +464,19 @@ bool end_optimization_context(THD *thd) {
     }
   }
 
+  if (OPT_STATS_RUNNING(thd) && thd->m_is_worker && !thd->in_sub_stmt) {
+    assert(thd->px_coordinator);
+
+    if (thd->ha_stats_id != thd->px_coordinator->ha_stats_id) {
+      OPT_STATS_ERR("ha_stats_id", thd);
+      return true;
+    } else if (thd->index_dive_id != thd->px_coordinator->index_dive_id) {
+      OPT_STATS_ERR("index_dive_id", thd);
+      return true;
+    } else if (!thd->use_px) {
+      OPT_STATS_ERR("execution mode", thd);
+      return true;
+    }
+  }
   return false;
 }

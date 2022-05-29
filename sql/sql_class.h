@@ -2118,6 +2118,13 @@ private:
   bool m_equivalence_check_phase{false};
   /// Interface object to the statistics module
   Stats_cache *opt_stats;
+  /**
+    The number of calls of each interface in Stats_cache is used to
+    verify the consistency of optimization between worker threads and
+    the coordinator thread.
+  */
+  int ha_stats_id;
+  int index_dive_id;
 
  private:
   /**
