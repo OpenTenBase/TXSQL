@@ -5794,7 +5794,9 @@ void THD::reset_for_next_command() {
     thd->get_transaction()->reset_unsafe_rollback_flags(
         Transaction_ctx::SESSION);
   }
-  assert(thd->security_context() == &thd->m_main_security_ctx);
+
+  if (!thd->m_is_worker)
+    assert(thd->security_context() == &thd->m_main_security_ctx);
   thd->thread_specific_used = false;
 
   if (opt_bin_log) {
