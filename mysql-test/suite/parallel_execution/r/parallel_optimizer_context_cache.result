@@ -3,6 +3,12 @@
 ###############################################
 # 1) test reading handler::stats
 # 2) test reading the value of index dive and handler::stats
+# 3) test optimization context with DETERMINISTIC FUNCTION
+# 4) test optimization context with sub stmt
+# 5) test copying resource of now()
+# 6) test cache status counter
+# 7) test copying resource of user()
+# 8) test copying resource of last insert id
 
 # 1) test reading const table and handler::stats
 
@@ -940,7 +946,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                   ],
                   "best_covering_index_scan": {
                     "index": "name",
-                    "cost": 4832.54,
+                    "cost": 4837.06,
                     "chosen": false,
                     "cause": "cost"
                   },
@@ -966,7 +972,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                         "using_mrr": false,
                         "index_only": true,
                         "rows": 7596,
-                        "cost": 880.337,
+                        "cost": 881.166,
                         "chosen": true
                       }
                     ],
@@ -985,7 +991,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                       ]
                     },
                     "rows_for_plan": 7596,
-                    "cost_for_plan": 880.337,
+                    "cost_for_plan": 881.166,
                     "chosen": true
                   }
                 }
@@ -1005,7 +1011,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                       "access_type": "ref",
                       "index": "name",
                       "rows": 7596,
-                      "cost": 880.327,
+                      "cost": 881.156,
                       "chosen": true
                     },
                     {
@@ -1020,7 +1026,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                 },
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 7596,
-                "cost_for_plan": 880.327,
+                "cost_for_plan": 881.156,
                 "chosen": true
               }
             ]
@@ -1182,85 +1188,101 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
 SET optimizer_trace="enabled=off";
 drop table t2,t3;
 
-# 3) test copying outline version
+# 3) test optimization context with DETERMINISTIC FUNCTION
 
-SET @cdb_opt_outline_saved = @@global.cdb_opt_outline_enabled;
-CREATE TABLE t1 (
-f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
-f2 varchar(16) collate latin1_swedish_ci
-);
-CREATE TABLE t2 (
-f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
-f3 varchar(16) collate latin1_swedish_ci
-);
-INSERT INTO t1 VALUES ('bla','blah');
-INSERT INTO t1 VALUES ('blc','blad');
-INSERT INTO t1 VALUES ('bld','blad');
-INSERT INTO t2 VALUES ('bla','sheep');
-INSERT INTO t2 VALUES ('blc','sheep');
-INSERT INTO t2 VALUES ('bld','sheep');
-set global cdb_opt_outline_enabled = on;
-select * from mysql.outline;
-Id	Digest	Digest_text	Outline_text
-SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1;
-f1	f2	f1	f3
-bla	blah	bla	sheep
-blc	blad	blc	sheep
-bld	blad	bld	sheep
-outline "SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1" set outline_info "OUTLINE:SELECT * FROM t1 use index(primary) LEFT JOIN t2 on t1.f1=t2.f1";
-select * from mysql.outline;
-Id	Digest	Digest_text	Outline_text
-1	8fd045e290fdd76ff2cb44892f4f1f8a115651dbee171f5b5443a35d9e5409d8	select * from (`test`.`t1` left join `test`.`t2` on((`t1`.`f1` = `t2`.`f1`)))	select * from (`test`.`t1` USE INDEX (PRIMARY) left join `test`.`t2` on((`t1`.`f1` = `t2`.`f1`)))
-show cdb_outline_info;
-origin	outline	hit
-select * from (`test`.`t1` left join `test`.`t2` on((`t1`.`f1` = `t2`.`f1`)))	select * from (`test`.`t1` USE INDEX (PRIMARY) left join `test`.`t2` on((`t1`.`f1` = `t2`.`f1`)))	0
-truncate table mysql.outline;
-outline flush;
-SET @@global.cdb_opt_outline_enabled = @cdb_opt_outline_saved;
-
-# 4) test copying optimizer cost version
-
-SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1;
-f1	f2	f1	f3
-bla	blah	bla	sheep
-blc	blad	blc	sheep
-bld	blad	bld	sheep
-DROP TABLE t2;
-DROP TABLE t1;
-SELECT * FROM mysql.server_cost;
-cost_name	cost_value	last_update	comment	default_value
-disk_temptable_create_cost	NULL	#	NULL	20
-disk_temptable_row_cost	NULL	#	NULL	0.5
-key_compare_cost	NULL	#	NULL	0.05
-memory_temptable_create_cost	NULL	#	NULL	1
-memory_temptable_row_cost	NULL	#	NULL	0.1
-row_evaluate_cost	NULL	#	NULL	0.1
-FLUSH OPTIMIZER_COSTS;
-
-# 5) test copying rewriter plugin version
-
-CREATE TABLE t1 ( c1 INTEGER primary key, c2 INTEGER );
-CREATE TABLE t2 ( c1 INTEGER primary key, c2 INTEGER );
-INSERT INTO t1 VALUES (1, 2), (2, 0), (3, 1), (4, 3), (5, 4), (6, 1), (7, 2);
-INSERT INTO t2 VALUES (1, 1), (3, 3), (4, 0), (6, 3), (9, 1), (8, 10);
-# Query rewrite plugin was installed.
-SELECT * FROM t1 JOIN t2 ON ( t1.c1 = t2.c1 AND t2.c2 > 2 );
-c1	c2	c1	c2
-3	1	3	3
-6	1	6	3
-SET sql_mode = 'PIPES_AS_CONCAT';
-INSERT INTO query_rewrite.rewrite_rules( pattern, replacement  )
-VALUES ( 'SELECT * FROM test.t1 JOIN test.t2 ON ' ||
-'( test.t1.c1 = test.t2.c1 AND test.t1.c2 > ? )',
-'SELECT * FROM test.t1 JOIN test.t2 ON ' ||
-'( test.t1.c1 = test.t2.c1 AND test.t2.c2 > ? )' );
-CALL query_rewrite.flush_rewrite_rules();
-SELECT * FROM query_rewrite.rewrite_rules;
-id	pattern	pattern_database	replacement	enabled	message
-1	SELECT * FROM test.t1 JOIN test.t2 ON ( test.t1.c1 = test.t2.c1 AND test.t1.c2 > ? )	NULL	SELECT * FROM test.t1 JOIN test.t2 ON ( test.t1.c1 = test.t2.c1 AND test.t2.c2 > ? )	YES	NULL
-SET sql_mode = DEFAULT;
-DROP TABLE t1;
-DROP TABLE t2;
+CREATE FUNCTION crc(_text TEXT) RETURNS BIGINT(20) UNSIGNED DETERMINISTIC
+RETURN CONV(LEFT(MD5(_text),16),16,10);
 Warnings:
-Warning	1620	Plugin is busy and will be uninstalled on shutdown
-# Query rewrite plugin was queued for uninstalling.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE t121 (
+id bigint(20) UNSIGNED NOT NULL
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t121 (id) VALUES (crc('photos'));
+INSERT INTO t121 (id) VALUES (crc('photos1'));
+CREATE TABLE `t8` (
+`pseudo` varchar(35) character set latin1 NOT NULL default '',
+`email` varchar(60) character set latin1 NOT NULL default '',
+PRIMARY KEY  (`pseudo`),
+UNIQUE KEY `email` (`email`)
+) ENGINE=MyISAM CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+INSERT INTO t8 (pseudo,email) VALUES ('joce','test');
+INSERT INTO t8 (pseudo,email) VALUES ('joce1','test1');
+INSERT INTO t8 (pseudo,email) VALUES ('2joce1','2test1');
+return before end_optimization_context
+SELECT pseudo FROM t8 WHERE pseudo=(SELECT pseudo FROM t8 WHERE pseudo LIKE '%joce%');
+ERROR 21000: Subquery returns more than 1 row
+analyze table t121;
+Table	Op	Msg_type	Msg_text
+test.t121	analyze	status	OK
+ALTER TABLE t121 ADD INDEX idx (id);
+
+# 4) test optimization context with sub stmt
+
+SELECT * FROM t121 FORCE INDEX (idx) WHERE (id = crc('photos')) AND TRUE;
+id
+15460588431078774149
+DROP FUNCTION crc;
+drop table t8,t121;
+
+# 5) test copying resource of now()
+
+CREATE TABLE t111(c1 DATE NOT NULL PRIMARY KEY, c2 DATE NULL, c3 INT,
+INDEX idx2(c2)) ENGINE=InnoDB;
+SET TIMESTAMP=1235553613;
+INSERT INTO t111 VALUES(NOW(),NOW(),3),
+(ADDTIME(NOW(),'1 01:01:01'),ADDTIME(NOW(),'1 01:01:01'),4),
+(ADDTIME(NOW(),'2 01:01:01'),ADDTIME(NOW(),'2 01:01:01'),5),
+(ADDTIME(NOW(),'3 01:01:01'),ADDTIME(NOW(),'3 01:01:01'),6);
+Warnings:
+Note	1292	Incorrect date value: '2009-02-25 12:20:13' for column 'c1' at row 1
+Note	1292	Incorrect date value: '2009-02-25 12:20:13' for column 'c2' at row 1
+Note	1292	Incorrect date value: '2009-02-26 13:21:14' for column 'c1' at row 2
+Note	1292	Incorrect date value: '2009-02-26 13:21:14' for column 'c2' at row 2
+Note	1292	Incorrect date value: '2009-02-27 13:21:14' for column 'c1' at row 3
+Note	1292	Incorrect date value: '2009-02-27 13:21:14' for column 'c2' at row 3
+Note	1292	Incorrect date value: '2009-02-28 13:21:14' for column 'c1' at row 4
+Note	1292	Incorrect date value: '2009-02-28 13:21:14' for column 'c2' at row 4
+SELECT * FROM t111 WHERE c1 > ADDTIME(NOW(),'1 01:01:01') ORDER BY c1 DESC;
+c1	c2	c3
+2009-02-28	2009-02-28	6
+2009-02-27	2009-02-27	5
+drop table t111;
+
+# 6) test cache status counter
+
+CREATE TABLE t131(wildstr VARCHAR(10), str VARCHAR(10), like_result INTEGER)
+COLLATE utf8mb4_0900_ai_ci;
+INSERT INTO t131 VALUES('abc', 'abc', 1), ('AbC', 'aBc', 1), ('_bc', 'abc', 1),
+('a_c', 'abc', 1), ('ab_', 'abc', 1), ('%c', 'abc', 1), ('a%c', 'abc', 1),
+('a%', 'abc', 1), ('a%d_f', 'abcdef', 1), ('a%d%g', 'abcdefg', 1),
+('a_c_e', 'abcde', 1), ('a%%de', 'abcde', 1), ('a__de', 'abcde', 1),
+(_utf16 0x65700025636E005F5E93, _utf16 0x65706C49636E5B575E93, 1),
+('a\\', 'a\\', 1);
+SELECT wildstr, str, like_result FROM t131 WHERE (str LIKE wildstr) <>
+like_result;
+wildstr	str	like_result
+drop table t131;
+
+# 7) test copying resource of user()
+
+create table t101 (a char(10)) character set latin1;
+select * from t101 where a=version();
+a
+select * from t101 where a=database();
+a
+select * from t101 where a=user();
+a
+drop table t101;
+
+# 8) test copying resource of last insert id
+
+set @@session.sql_auto_is_null=1;
+create table t91 (a int not null auto_increment,b int not null,primary key (a,b));
+insert into t91 SET A=NULL,B=1;
+insert into t91 SET a=null,b=2;
+select * from t91 where a is null;
+a	b
+2	2
+drop table t91;

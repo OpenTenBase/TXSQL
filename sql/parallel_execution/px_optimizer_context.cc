@@ -272,7 +272,12 @@ bool Stats_cache::set_ha_info(const TABLE *table) {
       return true;
     }
     for (ulong j = 0; j < key->actual_key_parts; j++) {
-      tmp_rec_per_keys_float[j] = key->rec_per_key_float[j];
+      if (key->rec_per_key_float[j] != REC_PER_KEY_UNKNOWN)
+        tmp_rec_per_keys_float[j] = key->rec_per_key_float[j];
+      else if (key->rec_per_key[j] != 0)
+        tmp_rec_per_keys_float[j] = static_cast<rec_per_key_t>(key->rec_per_key[j]);
+      else
+        tmp_rec_per_keys_float[j] = REC_PER_KEY_UNKNOWN;
     }
 
     records_per_key_map.emplace(key_args, tmp_rec_per_keys_float);
@@ -484,10 +489,8 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
 }
 
 void begin_optimization_context(THD *thd) {
-  assert(!thd->m_is_optimizing);
-  thd->m_is_optimizing = true;
   // copy the optimizer related version before optimization in coordinator
-  if (OPT_STATS_RUNNING(thd) && !thd->m_is_worker) {
+  if (!OPT_STATS_RUNNING(thd) && !thd->m_is_worker) {
     /*
       TODO deep copy outline / optimizer cost / rewriter
       At present, since they will not be modified frequently, we only
@@ -497,11 +500,14 @@ void begin_optimization_context(THD *thd) {
     thd->saved_optimizer_cost_reload_version = optimizer_cost_reload_version;
     thd->saved_rewriter_plugin_reload_version = rewriter_plugin_reload_version;
   }
+
+  if (!thd->in_sub_stmt)
+    thd->m_is_optimizing = true;
+
+  return;
 }
 
 bool end_optimization_context(THD *thd) {
-  assert(thd->m_is_optimizing);
-  thd->m_is_optimizing = false;
   if (cdb_optimization_context_cache_enabled) {
     if (unlikely(thd->opt_trace.is_started())) {
       OPT_STATS_CACHE(thd)->trace_stats(thd);
@@ -537,5 +543,9 @@ bool end_optimization_context(THD *thd) {
       return true;
     }
   }
+
+  if (!thd->in_sub_stmt)
+    thd->m_is_optimizing = false;
+
   return false;
 }

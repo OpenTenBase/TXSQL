@@ -763,7 +763,6 @@ class Sub_statement_state {
   bool enable_slow_log;
   SAVEPOINT *savepoints;
   enum enum_check_fields check_for_truncated_fields;
-  bool m_is_optimizing;
 };
 
 inline char const *show_system_thread(enum_thread_type thread) {
