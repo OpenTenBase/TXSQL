@@ -44,6 +44,7 @@
 #include "plugin/rewriter/rule.h"  // Rewrite_result
 #include "plugin/rewriter/services.h"
 #include "template_utils.h"
+#include "sql/mysqld.h"  // rewriter_plugin_reload_version
 
 using std::string;
 
@@ -222,6 +223,7 @@ static int rewriter_plugin_init(MYSQL_PLUGIN plugin_ref) {
   status_var_reload_error = false;
   status_var_number_loaded_rules = 0;
   status_var_number_reloads = 0;
+  rewriter_plugin_reload_version = 0L;
 
   rewriter = new Rewriter();
   /*
@@ -263,6 +265,7 @@ static bool reload(MYSQL_THD thd) {
 
 static bool lock_and_reload(MYSQL_THD thd) {
   mysql_rwlock_wrlock(&LOCK_table);
+  ++rewriter_plugin_reload_version;
   status_var_reload_error = reload(thd);
   status_var_number_loaded_rules = rewriter->get_number_loaded_rules();
   ++status_var_number_reloads;

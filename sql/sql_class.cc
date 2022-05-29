@@ -1192,6 +1192,9 @@ void THD::init(void) {
 
   ha_stats_id = 0;
   index_dive_id = 0;
+  saved_outline_reload_version = -1L;
+  saved_optimizer_cost_reload_version = -1L;
+  saved_rewriter_plugin_reload_version = -1L;
 }
 
 void THD::init_query_mem_roots() {
@@ -1897,6 +1900,9 @@ void THD::cleanup_after_query() {
     m_is_optimizing = false;
     ha_stats_id = 0;
     index_dive_id = 0;
+    saved_outline_reload_version = -1L;
+    saved_optimizer_cost_reload_version = -1L;
+    saved_rewriter_plugin_reload_version = -1L;
     opt_stats->clear();
     // Mark the memory as ready for reuse.
     stats_cache_alloc.Clear();

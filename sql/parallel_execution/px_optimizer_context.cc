@@ -453,6 +453,17 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
 void begin_optimization_context(THD *thd) {
   assert(!thd->m_is_optimizing);
   thd->m_is_optimizing = true;
+  // copy the optimizer related version before optimization in coordinator
+  if (OPT_STATS_RUNNING(thd) && !thd->m_is_worker) {
+    /*
+      TODO deep copy outline / optimizer cost / rewriter
+      At present, since they will not be modified frequently, we only
+      check whether they have been modified (version number).
+    */
+    thd->saved_outline_reload_version = outline_reload_version;
+    thd->saved_optimizer_cost_reload_version = optimizer_cost_reload_version;
+    thd->saved_rewriter_plugin_reload_version = rewriter_plugin_reload_version;
+  }
 }
 
 bool end_optimization_context(THD *thd) {
@@ -466,12 +477,27 @@ bool end_optimization_context(THD *thd) {
 
   if (OPT_STATS_RUNNING(thd) && thd->m_is_worker && !thd->in_sub_stmt) {
     assert(thd->px_coordinator);
+    assert(thd->px_coordinator->saved_outline_reload_version != -1L);
+    assert(thd->px_coordinator->saved_optimizer_cost_reload_version != -1L);
+    assert(thd->px_coordinator->saved_rewriter_plugin_reload_version != -1L);
 
     if (thd->ha_stats_id != thd->px_coordinator->ha_stats_id) {
       OPT_STATS_ERR("ha_stats_id", thd);
       return true;
     } else if (thd->index_dive_id != thd->px_coordinator->index_dive_id) {
       OPT_STATS_ERR("index_dive_id", thd);
+      return true;
+    } else if (thd->px_coordinator->saved_outline_reload_version !=
+        outline_reload_version) {
+      OPT_STATS_ERR("outline version", thd);
+      return true;
+    } else if (thd->px_coordinator->saved_optimizer_cost_reload_version !=
+        optimizer_cost_reload_version) {
+      OPT_STATS_ERR("optimizer_cost version", thd);
+      return true;
+    } else if (thd->px_coordinator->saved_rewriter_plugin_reload_version !=
+        rewriter_plugin_reload_version) {
+      OPT_STATS_ERR("rewriter version", thd);
       return true;
     } else if (!thd->use_px) {
       OPT_STATS_ERR("execution mode", thd);
