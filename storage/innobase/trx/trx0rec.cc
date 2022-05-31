@@ -2599,6 +2599,9 @@ bool trx_undo_prev_version_build(
       if (missing_extern) {
         /* treat as a fresh insert, not to
         cause assertion error at the caller. */
+        if (update != nullptr) {
+          update->reset();
+        }
         return true;
       }
     }
