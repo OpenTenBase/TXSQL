@@ -485,6 +485,10 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
   worker_thd->m_main_security_ctx.set_host_or_ip_ptr(
       coordinator_thd->security_context()->host_or_ip().str,
       coordinator_thd->security_context()->host_or_ip().length);
+
+  if (coordinator_thd->is_cmd_skip_readonly())
+    worker_thd->set_skip_readonly_check();
+
   return false;
 }
 
