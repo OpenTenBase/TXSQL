@@ -140,3 +140,16 @@ explain format=tree select any_value(a), sum(b) from (select * from t1 order by 
 select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
 
 drop table t1;
+
+--echo #######################################
+--echo # 6) test Item_values_column::eq, testcase copy from main.table_value_constructor
+--echo #######################################
+CREATE TABLE t0(a INT, b INT);
+INSERT INTO t0 VALUES(1, 10), (2, 20);
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
+
+SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
+
+drop table t0;

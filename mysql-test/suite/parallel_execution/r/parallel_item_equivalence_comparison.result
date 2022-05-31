@@ -264,3 +264,23 @@ select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
 any_value(a)	sum(b)
 1	100
 drop table t1;
+#######################################
+# 6) test Item_values_column::eq, testcase copy from main.table_value_constructor
+#######################################
+CREATE TABLE t0(a INT, b INT);
+INSERT INTO t0 VALUES(1, 10), (2, 20);
+explain format=tree SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
+EXPLAIN
+-> Exchange Receive dop )
+    -> Exchange Send dop )
+        -> Filter: <in_optimizer>((t0.a,t0.b),<exists>(select #2))  (cost=*** rows=***)
+            -> Table scan on t0  (cost=*** rows=***)
+            -> Select #2 (subquery in condition; dependent)
+                -> Filter: ((<cache>(t0.a) = column_0) and (<cache>(t0.b) = column_1) and <is_not_null_test>(column_0) and <is_not_null_test>(column_1))
+                    -> Rows fetched before execution  (cost=*** rows=***)
+
+SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
+a	b
+1	10
+2	20
+drop table t0;
