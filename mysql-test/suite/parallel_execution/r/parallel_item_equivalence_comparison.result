@@ -202,3 +202,65 @@ INSERT INTO t1 VALUES(1),(1),(2),(2);
 SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
 ERROR 21000: Subquery returns more than 1 row
 DROP TABLE t1;
+create table tt1(a int, b int);
+insert into tt1 (a) values(1),(2);
+analyze table tt1;
+Table	Op	Msg_type	Msg_text
+test.tt1	analyze	status	OK
+explain format = tree select
+(with recursive dt as
+(select tt1.a as a union select a+1 from dt where a<10)
+select dt1.a from dt dt1 where dt1.a=tt1.a
+) as subq
+from tt1;
+EXPLAIN
+-> Table scan on tt1  (cost=*** rows=***)
+-> Select #2 (subquery in projection; dependent)
+    -> Single-row index lookup on dt1 using <auto_distinct_key> (a=tt1.a)
+        -> Materialize recursive CTE dt with deduplication
+            -> Rows fetched before execution  (cost=*** rows=***)
+            -> Repeat until convergence
+                -> Filter: (dt.a < 10)  (cost=*** rows=***)
+                    -> Scan new records on dt  (cost=*** rows=***)
+
+Warnings:
+Note	1276	Field or reference 'test.tt1.a' of SELECT #3 was resolved in SELECT #1
+Note	1276	Field or reference 'test.tt1.a' of SELECT #2 was resolved in SELECT #1
+select
+(with recursive dt as
+(select tt1.a as a union select a+1 from dt where a<10)
+select dt1.a from dt dt1 where dt1.a=tt1.a
+) as subq
+from tt1;
+subq
+1
+2
+drop table tt1;
+#######################################
+# 5) test Item_view_ref::eq, testcase copy from main.group_by_fd_no_prot
+#######################################
+SET @old_sql_mode = @@sql_mode;
+SET @@sql_mode='ONLY_FULL_GROUP_BY';
+create table t1(
+a int,
+b int not null,
+c int not null,
+d int,
+unique key(b,c),
+unique key(b,d)
+);
+insert into t1 (a,b) values(1,10),(1,20),(2,30),(2,40);
+Warnings:
+Warning	1364	Field 'c' doesn't have a default value
+explain format=tree select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> Exchange Receive dop )
+        -> Exchange Send dop )
+            -> Aggregate: sum(t1.b)
+                -> Table scan on t1  (cost=*** rows=***)
+
+select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
+any_value(a)	sum(b)
+1	100
+drop table t1;

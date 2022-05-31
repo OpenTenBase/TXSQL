@@ -94,3 +94,49 @@ INSERT INTO t1 VALUES(1),(1),(2),(2);
 --error ER_SUBQUERY_NO_1_ROW
 SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
 DROP TABLE t1;
+
+#######################################
+# 4) test MaterializePathParameters::eq with temptable, testcase copy from main.derived_correlated
+#######################################
+create table tt1(a int, b int);
+insert into tt1 (a) values(1),(2);
+analyze table tt1;
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format = tree select
+  (with recursive dt as
+    (select tt1.a as a union select a+1 from dt where a<10)
+   select dt1.a from dt dt1 where dt1.a=tt1.a
+  ) as subq
+from tt1;
+
+select
+  (with recursive dt as
+    (select tt1.a as a union select a+1 from dt where a<10)
+   select dt1.a from dt dt1 where dt1.a=tt1.a
+  ) as subq
+from tt1;
+
+drop table tt1;
+
+--echo #######################################
+--echo # 5) test Item_view_ref::eq, testcase copy from main.group_by_fd_no_prot
+--echo #######################################
+SET @old_sql_mode = @@sql_mode;
+SET @@sql_mode='ONLY_FULL_GROUP_BY';
+create table t1(
+a int,
+b int not null,
+c int not null,
+d int,
+unique key(b,c),
+unique key(b,d)
+);
+insert into t1 (a,b) values(1,10),(1,20),(2,30),(2,40);
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
+
+select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
+
+drop table t1;
