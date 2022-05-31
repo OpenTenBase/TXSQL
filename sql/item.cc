@@ -10534,8 +10534,15 @@ Item_values_column::Item_values_column(THD *thd, Item *ref) : super(thd, ref) {
 /* purecov: begin deadcode */
 
 bool Item_values_column::eq(const Item *item, bool binary_cmp) const {
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    const Item *it = const_cast<Item *>(item)->real_item();
+    if (type() == it->type()) {
+      return m_aggregated_used_tables == it->used_tables();
+    }
+    return false;
+  }
   assert(false);
-  const Item *it = item->real_item();
+  const Item *it = const_cast<Item *>(item)->real_item();
   return m_value_ref && m_value_ref->eq(it, binary_cmp);
 }
 
