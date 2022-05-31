@@ -8626,8 +8626,12 @@ bool Item_view_ref::eq(const Item *item, bool) const {
     if (item_ref->ref_type() == VIEW_REF) {
       Item *item_ref_ref = *(item_ref->ref);
       if (current_thd && current_thd->m_equivalence_check_phase) {
-        if (strcmp(db_name, item_ref->db_name) != 0 ||
-            strcmp(table_name, item_ref->table_name) != 0 ||
+        bool db_name_eq = 
+            (db_name && item_ref->db_name)
+                ? (strcmp(db_name, item_ref->db_name) == 0)
+                : (!db_name && !item_ref->db_name)
+                    ? true : false;
+        if (!db_name_eq || strcmp(table_name, item_ref->table_name) != 0 ||
             strcmp(field_name, item_ref->field_name) != 0) {
           return false;
         }
