@@ -57,11 +57,13 @@ bool MaterializePathParameters::eq(const MaterializePathParameters *other) const
   }
 
   if (cte != nullptr) {
-    if (other->cte == nullptr) {
+    if (other->cte == nullptr ||
+        cte->tmp_tables.size() != other->cte->tmp_tables.size()) {
       return false;
     }
-    TABLE_LIST *other_table_ref = other->cte->tmp_tables[0];
+    int tmp_table_id = 0;
     for (TABLE_LIST *table_ref : cte->tmp_tables) {
+      TABLE_LIST *other_table_ref = other->cte->tmp_tables[tmp_table_id++];
       if (other_table_ref == nullptr) {
         return false;
       }
@@ -69,10 +71,6 @@ bool MaterializePathParameters::eq(const MaterializePathParameters *other) const
                                                   other_table_ref->table)) {
         return false;
       }
-      other_table_ref++;
-    }
-    if (other_table_ref != nullptr) {
-      return false;
     }
   }
 
