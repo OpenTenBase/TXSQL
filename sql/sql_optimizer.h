@@ -53,6 +53,7 @@
 #include "sql/sql_select.h"  // Key_use
 #include "sql/table.h"
 #include "sql/temp_table_param.h"
+#include "sql/parallel_execution/px_access_path.h"
 
 enum class Subquery_strategy : int;
 enum exchange_inject_position;
@@ -667,6 +668,9 @@ class JOIN {
   bool plan_is_single_table() { return primary_tables - const_tables == 1; }
 
   bool optimize(bool finalize_access_paths);
+
+  bool px_generate_plan(px_access_path::Split_Position *split_position);
+
   void reset();
   bool prepare_result();
   void destroy();
@@ -793,6 +797,8 @@ class JOIN {
   enum_plan_state get_plan_state() const { return plan_state; }
   bool is_optimized() const { return optimized; }
   void set_optimized() { optimized = true; }
+  bool is_px_generated() const { return px_generated; }
+  void set_px_generated() { px_generated = true; }
   bool is_executed() const { return executed; }
   void set_executed() { executed = true; }
 
@@ -856,6 +862,8 @@ class JOIN {
 
  private:
   bool optimized{false};  ///< flag to avoid double optimization in EXPLAIN
+
+  bool px_generated{false}; ///< flag to sign parallel optimization
 
   /**
     Set by exec(), reset by reset(). Note that this needs to be set

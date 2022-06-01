@@ -894,6 +894,8 @@ class Query_expression {
     m_root_iterator.reset();
   }
 
+  void set_root_access_path(AccessPath *root_path) { m_root_access_path = root_path; }
+
   /**
     Ensures that there are iterators created for the access paths created
     by optimize(), even if it was called with create_access_paths = false.
@@ -1142,6 +1144,8 @@ class Query_expression {
     explain_marker.
   */
   friend bool parse_view_definition(THD *thd, TABLE_LIST *view_ref);
+
+  Query_result_union *get_union_result() { return union_result; }
 };
 
 typedef Bounds_checked_array<Item *> Ref_item_array;

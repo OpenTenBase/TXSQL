@@ -85,6 +85,7 @@
 #include "sql/opt_hints.h"    // hint_table_state
 #include "sql/opt_trace.h"    // Opt_trace_object
 #include "sql/opt_trace_context.h"
+#include "sql/parallel_execution/px_access_path.h"
 #include "sql/parse_tree_node_base.h"
 #include "sql/parser_yystype.h"
 #include "sql/query_options.h"

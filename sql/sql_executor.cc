@@ -1590,6 +1590,90 @@ AccessPath *MoveCompositeIteratorsFromTablePath(AccessPath *path) {
   return path;
 }
 
+static void FixAccessPathForUnion(AccessPath *target_path) {
+  switch (target_path->type) {
+    case AccessPath::MATERIALIZE: {
+      MaterializePathParameters *param = target_path->materialize().param;
+      TABLE *dst_table = param->table;
+      for (MaterializePathParameters::QueryBlock &query_block :
+           param->query_blocks) {
+        JOIN *join = query_block.join;
+        AccessPath *qb_root_path = join->root_access_path();
+        if (!join->is_px_generated()) continue;
+        if (query_block.subquery_path != qb_root_path) {
+          query_block.subquery_path = qb_root_path;
+        }
+        // Fix items_to_copy
+        if (join->tmp_table_param.items_to_copy) {
+          join->tmp_table_param.items_to_copy = nullptr;
+          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                             &join->tmp_table_param);
+        }
+      }
+      break;
+    }
+    case AccessPath::APPEND: {
+      for (AppendPathParameters app_param :
+           *target_path->append().children) {
+        AccessPath *child = app_param.path;
+        if (child->type == AccessPath::MATERIALIZE) {
+          continue;
+        }
+        AccessPath *stream_path = app_param.path;
+        JOIN *join = app_param.join;
+        AccessPath *qb_root_path = join->root_access_path();
+        if (!join->is_px_generated()) continue;
+        if (stream_path->stream().child != qb_root_path) {
+          stream_path->stream().child = qb_root_path;
+        }
+        TABLE *dst_table = stream_path->stream().table;
+        // Fix items_to_copy
+        if (join->tmp_table_param.items_to_copy) {
+          join->tmp_table_param.items_to_copy = nullptr;
+          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                              &join->tmp_table_param);
+        }
+      }
+      break; 
+    }
+    default:
+      assert(false);
+  }
+}
+
+void FixAccessPathForUnit(AccessPath *target_path, JOIN *join, bool is_union) {
+  if (is_union) {
+    FixAccessPathForUnion(target_path);
+    return ;
+  }
+  
+  AccessPath *path = nullptr;
+  const auto scan_functor = [&path](AccessPath *sub_path, const JOIN *) {
+    switch(sub_path->type) {
+      case AccessPath::STREAM: {
+        path = sub_path;
+        return true;
+      }
+      default:
+        return false;
+    }
+  };
+  WalkAccessPaths(target_path, /*join=*/nullptr,
+                  WalkAccessPathPolicy::ENTIRE_TREE, scan_functor);
+  if (path == nullptr) return ;
+  path->stream().child = join->root_access_path();
+  /*
+  if (path->stream().copy_fields_and_items_in_materialize) {
+    TABLE *dst_table = path->stream().table;
+    if (join->tmp_table_param.items_to_copy) {
+      join->tmp_table_param.items_to_copy = nullptr;
+      ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                         &join->tmp_table_param);
+    }
+  }
+  */
+}
+
 AccessPath *GetAccessPathForDerivedTable(
     THD *thd, TABLE_LIST *table_ref, TABLE *table, bool rematerialize,
     Mem_root_array<const AccessPath *> *invalidators, bool need_rowid,
