@@ -303,6 +303,7 @@ static void* thread_func_in_worker(void *arg)
   int num_workers_done = 0;
   worker_thread_arg *thread_arg = (worker_thread_arg *) arg;
   void *thread_func_arg;
+  my_thread_init();
 
   while (true) { // Execute once.
     sem_wait (&thread_arg->sem_outer);
@@ -331,5 +332,7 @@ static void* thread_func_in_worker(void *arg)
     pthread_semphore_post(thread_arg->sem_workers_done);
   }
 
+  my_thread_end();
+  my_thread_exit(nullptr);
   return nullptr;
 }

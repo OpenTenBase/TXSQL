@@ -21,6 +21,60 @@
 #include "semaphore.h"
 #include <atomic> // fetch_add
 
+/**
+  Get parallel thread context, PX_executor, for given THD pointer.
+
+  A parallel thread context provides access to the topology of all parallel
+  executors for a given statement as well as lower-level thread context.
+
+  For sequential execution, the context is nullptr.
+ */
+#define PX_EXECUTOR(thd) (thd)->px_executor
+
+#ifndef DBUG_OFF
+
+/*
+  These macros provide convenient access to information for debugging purpose.
+  They work only when THD::px_executor is set.
+ */
+
+#define PX_QUERY_ID \
+    (PX_EXECUTOR(current_thd) ? PX_EXECUTOR(current_thd)->query_id() : 0)
+
+#define PX_COORDINATOR_ID \
+    (PX_EXECUTOR(current_thd) ? \
+         PX_EXECUTOR(current_thd)->coordinator()->thread_id() : 0)
+
+#define PX_WORKER_ID \
+    (PX_EXECUTOR(current_thd) ? PX_EXECUTOR(current_thd)->thread_id() : 0)
+
+#define PX_TEXT(fmt, ...) \
+    ("px:%ld:%u:%u: " fmt, PX_QUERY_ID, PX_COORDINATOR_ID, PX_WORKER_ID, \
+     ##__VA_ARGS__)
+
+/*
+  These macros are built on the DBUG package (dbug.cc), thus under the control
+  of the dbug sysvar:
+
+    set global debug='+d,pinfo,perror:N';
+
+  Note that parallel workers do not have full support for DBUG. It is a hack to
+  set the global variable. See also Sys_var_dbug.
+ */
+#define PX_PRINT_ERROR(fmt, ...) DBUG_PRINT("perror", PX_TEXT(fmt, ##__VA_ARGS__))
+#define PX_PRINT_WARN(fmt, ...) DBUG_PRINT("pwarn", PX_TEXT(fmt, ##__VA_ARGS__))
+#define PX_PRINT_INFO(fmt, ...) DBUG_PRINT("pinfo", PX_TEXT(fmt, ##__VA_ARGS__))
+#define PX_PRINT_DEBUG(fmt, ...) DBUG_PRINT("pdebug", PX_TEXT(fmt, ##__VA_ARGS__))
+
+#else
+
+#define PX_PRINT_ERROR(fmt, ...)
+#define PX_PRINT_WARN(fmt, ...)
+#define PX_PRINT_INFO(fmt, ...)
+#define PX_PRINT_DEBUG(fmt, ...)
+
+#endif // DBUG_OFF
+
 class THD;
 struct TABLE;
 struct TABLE_REF;
