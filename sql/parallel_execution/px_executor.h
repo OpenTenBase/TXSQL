@@ -104,7 +104,7 @@ class PX_executor {
 
   PX_executor *coordinator() {
     if (m_thd->m_is_worker) {
-      DBUG_ASSERT(!m_thd->px_coordinator->m_is_worker);
+      assert(!m_thd->px_coordinator->m_is_worker);
       return m_thd->px_coordinator->px_executor;
     }
     return this;

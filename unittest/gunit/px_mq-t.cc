@@ -42,7 +42,7 @@ class Message {
 
  private:
   size_t m_length;
-  std::unique_ptr<char> m_payload;
+  std::unique_ptr<char[]> m_payload;
 };
 
 class Message_store {
