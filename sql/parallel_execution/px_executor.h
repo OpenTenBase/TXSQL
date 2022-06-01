@@ -86,15 +86,33 @@ class Worker_exec_ctx {
 };
 
 /**
-  Base class for coordinator and worker, in the design, the coordinator
-  and the worker have the same execution plan, the same DFO sequence and
-  same task array. So coordinator can direct workers to do some tasks.
+  Base class for parallel thread context.
+
+  A parallel thread context provides access to the topology of all parallel
+  executors for a given statement, parallel information for the current thread,
+  and lower-level thread context.
+
+  There are two kinds of parallel threads, the coordinator and the workers. Each
+  has the same execution plan, DFO sequence and task list, as a result the
+  coordinator can ask workers to run a task by its id rather than a deep copy.
 */
 class PX_executor {
  public:
   PX_executor(Dfo_mgr *dfo_mgr, THD *thd)
     : m_dfo_mgr(dfo_mgr), m_thd(thd) {}
   virtual ~PX_executor() {}
+
+  PX_executor *coordinator() {
+    if (m_thd->m_is_worker) {
+      DBUG_ASSERT(!m_thd->px_coordinator->m_is_worker);
+      return m_thd->px_coordinator->px_executor;
+    }
+    return this;
+  }
+  query_id_t query_id() const {
+    return (m_thd->m_is_worker ? m_thd->px_coordinator : m_thd)->query_id;
+  }
+  uint thread_id() const { return m_thd->thread_id(); }
 
   virtual bool prepare_task_for_dfo() { return false; }
   virtual void notify_all_workers(THD::killed_state state_to_set) {}
