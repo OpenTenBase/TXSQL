@@ -7,6 +7,7 @@
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/iterators/row_iterator.h"  // RowIterator
 #include "sql/protocol.h" // Protocol
+#include "sql/pfs_batch_mode.h"  // PFSBatchMode
 #include "sql/log.h" // For debug to be deleted.
 #include "sql/iterators/basic_row_iterators.h"  // TableScanIterator
 #include "sql/parallel_execution/px.h"
@@ -101,6 +102,8 @@ bool PX_task::run(THD *thd)
     __FUNCTION__, __LINE__, thd->worker_id);
   if (sub_iterator->Init()) return true;
 
+  PFSBatchMode pfs_batch_mode(sub_iterator);
+
   for (;;) {
     int error = sub_iterator->Read();
 
@@ -158,6 +161,8 @@ bool PX_task::run_root(THD *thd)
 
   // Before this point, we can fallback before something goes wrong.
   if (sub_iterator->Init()) return true;
+
+  PFSBatchMode pfs_batch_mode(sub_iterator);
 
   for (;;) {
     int error = sub_iterator->Read();
