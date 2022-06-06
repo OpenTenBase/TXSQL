@@ -201,4 +201,19 @@ s
 15
 DROP TABLE t;
 DROP TABLE t1;
+#
+# sum_funcs with no rows in table
+#
+CREATE TABLE t (a int);
+select sum(a), count(a), avg(a), max(a), min(a) from t;
+sum(a)	count(a)	avg(a)	max(a)	min(a)
+NULL	0	NULL	NULL	NULL
+select sum(7), count(7), avg(7), max(7), min(7) from t;
+sum(7)	count(7)	avg(7)	max(7)	min(7)
+NULL	0	NULL	NULL	NULL
+insert into t values (null);
+select count(a) as b from t where a=0 having b >=0;
+b
+0
+DROP TABLE t;
 # --include set_px_to_saved.inc

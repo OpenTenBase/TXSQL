@@ -206,6 +206,11 @@ Item_sum **Item_sum_count::pq_rebuild_item(THD *thd, Query_block *select) {
   if (new_sum_item == nullptr || new_sum_item->pq_copy_item(thd, select, this)) {
     return nullptr;
   }
+
+  // Sign sum create for count.
+  Item_sum_sum *item_sum = down_cast<Item_sum_sum *>(new_sum_item);
+  item_sum->pq_set_create_for_count(true);
+
   item_sum_list[0] = new_sum_item;
   item_sum_list[1] = nullptr; // End marker.
   return item_sum_list;

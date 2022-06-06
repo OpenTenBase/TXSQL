@@ -1039,6 +1039,8 @@ class Item_sum_sum : public Item_sum_num {
   */
   ulonglong m_frame_null_count;
 
+  bool pq_create_for_count = false;
+
  public:
   Item_sum_sum(const POS &pos, Item *item_par, bool distinct, PT_window *window)
       : Item_sum_num(pos, item_par, window),
@@ -1071,6 +1073,9 @@ class Item_sum_sum : public Item_sum_num {
   void pq_fix_result_type(Item_result item_result) override { hybrid_type = item_result; }
   virtual bool parallel_safe() override {
     return (sum_func() == SUM_DISTINCT_FUNC) ? false : true;
+  }
+  void pq_set_create_for_count(bool is_create_for_count){
+    pq_create_for_count = is_create_for_count;
   }
 };
 

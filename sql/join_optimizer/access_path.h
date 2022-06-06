@@ -42,6 +42,9 @@
 #include "sql/sql_class.h"
 #include "sql/parallel_execution/px_mq.h"
 #include "sql/sql_lex.h"
+#include "sql/parallel_execution/px.h"
+
+enum class AggType;
 
 template <class T>
 class Bounds_checked_array;
@@ -1242,7 +1245,7 @@ struct AccessPath {
     struct {
       AccessPath *child;
       bool rollup;
-      bool is_final_aggr;
+      AggType px_agg_type;
     } aggregate;
     struct {
       AccessPath *subquery_path;
@@ -1250,7 +1253,7 @@ struct AccessPath {
       TABLE *table;
       AccessPath *table_path;
       int ref_slice;
-      bool is_final_aggr;
+      AggType px_agg_type;
     } temptable_aggregate;
     struct {
       AccessPath *child;
@@ -1585,18 +1588,19 @@ AccessPath *NewSortAccessPath(THD *thd, AccessPath *child, Filesort *filesort,
 
 inline AccessPath *NewAggregateAccessPath(THD *thd, AccessPath *child,
                                           bool rollup,
-                                          bool is_final_aggr = false) {
+                                          AggType px_agg_type = AggType::PX_NONE) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::AGGREGATE;
   path->aggregate().child = child;
   path->aggregate().rollup = rollup;
-  path->aggregate().is_final_aggr = is_final_aggr;
+  path->aggregate().px_agg_type = px_agg_type;
   return path;
 }
 
 inline AccessPath *NewTemptableAggregateAccessPath(
     THD *thd, AccessPath *subquery_path, Temp_table_param *temp_table_param,
-    TABLE *table, AccessPath *table_path, int ref_slice, bool is_final_aggr = false) {
+    TABLE *table, AccessPath *table_path, int ref_slice,
+    AggType px_agg_type = AggType::PX_NONE) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::TEMPTABLE_AGGREGATE;
   path->temptable_aggregate().subquery_path = subquery_path;
@@ -1604,7 +1608,7 @@ inline AccessPath *NewTemptableAggregateAccessPath(
   path->temptable_aggregate().table = table;
   path->temptable_aggregate().table_path = table_path;
   path->temptable_aggregate().ref_slice = ref_slice;
-  path->temptable_aggregate().is_final_aggr = is_final_aggr;
+  path->temptable_aggregate().px_agg_type = px_agg_type;
   return path;
 }
 

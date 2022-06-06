@@ -1844,6 +1844,11 @@ Item *Item_sum_sum::copy_or_same(THD *thd) {
 }
 
 void Item_sum_sum::clear() {
+  if (pq_create_for_count) {
+    sum = 0;
+    null_value = false;
+    return ;
+  }
   null_value = true;
   if (hybrid_type == DECIMAL_RESULT) {
     curr_dec_buff = 0;
