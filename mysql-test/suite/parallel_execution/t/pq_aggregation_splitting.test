@@ -153,4 +153,18 @@ select sum(col1) s from t1 group by t1col2 order by s;
 DROP TABLE t;
 DROP TABLE t1;
 
+--echo #
+--echo # sum_funcs with no rows in table
+--echo #
+CREATE TABLE t (a int);
+
+select sum(a), count(a), avg(a), max(a), min(a) from t;
+select sum(7), count(7), avg(7), max(7), min(7) from t;
+
+insert into t values (null);
+
+select count(a) as b from t where a=0 having b >=0;
+
+DROP TABLE t;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc

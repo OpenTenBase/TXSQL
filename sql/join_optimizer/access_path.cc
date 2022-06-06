@@ -346,7 +346,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
     case AGGREGATE: {
       // equivalence check: AccessPath
       if (u.aggregate.rollup != other.aggregate().rollup ||
-          u.aggregate.is_final_aggr != other.aggregate().is_final_aggr) {
+          u.aggregate.px_agg_type != other.aggregate().px_agg_type) {
         return false;
       }
       break;
@@ -356,7 +356,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
       // Note the table_name/path of temptable (u.temptable_aggregate.table)
       // is different from coordinate, thus the equivalence check need rely
       // on sub-path in worker_table_explain.children.
-      if (u.temptable_aggregate.is_final_aggr != other.temptable_aggregate().is_final_aggr ||
+      if (u.temptable_aggregate.px_agg_type != other.temptable_aggregate().px_agg_type ||
           u.temptable_aggregate.ref_slice != other.temptable_aggregate().ref_slice) {
         return false;
       }
@@ -1507,7 +1507,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             thd, mem_root, move(job.children[0]), join,
             TableCollection(tables, /*store_rowids=*/false,
                             /*tables_to_get_rowid_for=*/0),
-            param.rollup, param.is_final_aggr);
+            param.rollup, param.px_agg_type);
         iterator->adjust_children();
         break;
       }
@@ -1532,7 +1532,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = unique_ptr_destroy_only<RowIterator>(
             temptable_aggregate_iterator::CreateIterator(
                 thd, move(job.children[0]), param.temp_table_param, param.table,
-                move(job.children[1]), join, param.ref_slice, param.is_final_aggr));
+                move(job.children[1]), join, param.ref_slice, param.px_agg_type));
         iterator->adjust_children();
         break;
       }
@@ -2372,6 +2372,7 @@ bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
 
   // reset aggregate accesspath param
   //path->aggregate().temp_table_param = join->aggr_tmp_table_param;
+  path->aggregate().px_agg_type = AggType::PX_LOCAL_AGG;
 
   return false;
 
@@ -2468,6 +2469,7 @@ bool RebuildTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path
   path->temptable_aggregate().table = tab->table();
   path->temptable_aggregate().table_path = table_path;
   path->temptable_aggregate().temp_table_param = tab->tmp_table_param;
+  path->temptable_aggregate().px_agg_type = AggType::PX_LOCAL_AGG;
   return false;
 
 rebuild_err:
@@ -2637,6 +2639,9 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
   // rebuild final_sum_funcs
   if (join->rebuild_final_sum_funcs(thd, curr_slice, avg_count)) goto build_err;
 
+  // reset ref_items of REF_SLICE_TMP1
+  RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/true);
+
   curr_fields = &join->tmp_fields[curr_slice];
 
   count_field_types(join->query_block, join->final_aggr_tmp_table_param, *curr_fields,
@@ -2690,7 +2695,7 @@ AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *
   table_path = NewTableScanAccessPath(thd, tmp_table, /*count_examined_rows=*/false);
   newPath = NewTemptableAggregateAccessPath(thd, path, join->final_aggr_tmp_table_param,
                                             tmp_table, table_path, REF_SLICE_FINAL_AGGREGATE,
-                                            /*is_final_aggr=*/true);
+                                            /*px_agg_type=*/AggType::PX_FINAL_AGG);
 
   return newPath;
 
@@ -2747,6 +2752,9 @@ AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *cons
 
   // use aggregate's item to rebuild sum_func of final_aggregate and reset join::fields
   if (join->rebuild_final_sum_funcs(thd, curr_slice, avg_count)) goto build_err;
+
+  // reset ref_items of REF_SLICE_ORDERED_GROUP_BY
+  RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/true);
 
   curr_fields = &join->tmp_fields[curr_slice];
 
@@ -2837,7 +2845,7 @@ AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *cons
 
   // create final aggregate AccessPath.
   newPath = NewAggregateAccessPath(thd, path,
-                                   path->aggregate().rollup, /*is_final_aggr=*/true);
+                                   path->aggregate().rollup, /*px_agg_type=*/AggType::PX_FINAL_AGG);
 
   return newPath;
 
@@ -2859,7 +2867,7 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
   auto &new_filesort = path->sort().filesort;
   switch (newChild->type) {
     case AccessPath::TEMPTABLE_AGGREGATE : {
-      if (newChild->temptable_aggregate().is_final_aggr) {
+      if (newChild->temptable_aggregate().px_agg_type == AggType::PX_FINAL_AGG) {
         new_filesort->tables = std::move(Mem_root_array<TABLE *>(
           {newChild->temptable_aggregate().table}));
         do_fixsort = true;
@@ -2871,7 +2879,7 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
       switch (filter_child->type) {
         case AccessPath::STREAM : {
           AccessPath *stream_child = filter_child->stream().child;
-          if (stream_child->aggregate().is_final_aggr) {
+          if (stream_child->aggregate().px_agg_type == AggType::PX_FINAL_AGG) {
             new_filesort->tables = std::move(Mem_root_array<TABLE *>(
               {filter_child->stream().table}));
             do_fixsort = true;
@@ -2879,7 +2887,7 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
           break;
         }
         case AccessPath::TEMPTABLE_AGGREGATE : {
-          if (filter_child->temptable_aggregate().is_final_aggr) {
+          if (filter_child->temptable_aggregate().px_agg_type == AggType::PX_FINAL_AGG) {
             new_filesort->tables = std::move(Mem_root_array<TABLE *>(
               {filter_child->temptable_aggregate().table}));
             do_fixsort = true;
@@ -2894,7 +2902,7 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
     case AccessPath::SORT : {
       AccessPath *sort_child = newChild->sort().child;
       if (sort_child->type == AccessPath::TEMPTABLE_AGGREGATE &&
-          sort_child->temptable_aggregate().is_final_aggr) {
+          sort_child->temptable_aggregate().px_agg_type == AggType::PX_FINAL_AGG) {
         new_filesort->tables = std::move(Mem_root_array<TABLE *>(
           {sort_child->temptable_aggregate().table}));
         do_fixsort = true;
@@ -2904,7 +2912,7 @@ void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
     case AccessPath::STREAM : {
       AccessPath *stream_child = newChild->stream().child;
       if (stream_child->type == AccessPath::AGGREGATE &&
-          stream_child->aggregate().is_final_aggr) {
+          stream_child->aggregate().px_agg_type == AggType::PX_FINAL_AGG) {
         new_filesort->tables = std::move(Mem_root_array<TABLE *>(
           {newChild->stream().table}));
         do_fixsort = true;
@@ -3859,12 +3867,12 @@ static void FixAccessPathForExchange(AccessPath *const path,
       switch (path->type) {
         case AccessPath::AGGREGATE: {
           //temp_table_param = path->aggregate().temp_table_param;
-          is_final_agg = path->aggregate().is_final_aggr;
+          is_final_agg = (path->aggregate().px_agg_type == AggType::PX_FINAL_AGG);
           break;
         }
         case AccessPath::TEMPTABLE_AGGREGATE: {
           temp_table_param = path->temptable_aggregate().temp_table_param;
-          is_final_agg = path->temptable_aggregate().is_final_aggr;
+          is_final_agg = (path->temptable_aggregate().px_agg_type == AggType::PX_FINAL_AGG);
           use_hash = (path->temptable_aggregate().table->hash_field != nullptr);
           break;
         }

@@ -174,12 +174,12 @@ int LimitOffsetIterator::Read() {
 
 AggregateIterator::AggregateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> source, JOIN *join,
-    TableCollection tables, bool rollup, bool is_final_aggr)
+    TableCollection tables, bool rollup, AggType agg_type)
     : RowIterator(thd),
       m_source(move(source)),
       m_join(join),
       m_rollup(rollup),
-      m_is_final_aggr(is_final_aggr),
+      m_agg_type(agg_type),
       m_tables(std::move(tables)) {
   const size_t upper_data_length = ComputeRowSizeUpperBound(m_tables);
   m_first_row_this_group.reserve(upper_data_length);
@@ -260,7 +260,7 @@ int AggregateIterator::Read() {
             // hypergraph optimizer, so we don't need its special logic either.
             m_source->SetNullRowFlag(true);
           } else {
-            if (m_join->clear_fields(&m_save_nullinfo)) {
+            if (m_join->clear_fields(&m_save_nullinfo, m_agg_type)) {
               return 1;
             }
           }
@@ -421,7 +421,7 @@ int AggregateIterator::Read() {
         // See the call to clear_fields().
         m_source->SetNullRowFlag(false);
       } else if (m_save_nullinfo != 0) {
-        m_join->restore_fields(m_save_nullinfo);
+        m_join->restore_fields(m_save_nullinfo, m_agg_type);
         m_save_nullinfo = 0;
       }
       SetRollupLevel(INT_MAX);  // Higher-level iterators up above should not
@@ -1352,7 +1352,7 @@ class TemptableAggregateIterator final : public TableRowIterator {
       THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
       Temp_table_param *temp_table_param, TABLE *table,
       unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-      int ref_slice, bool is_final_aggr);
+      int ref_slice, AggType agg_type);
 
   bool Init() override;
   int Read() override;
@@ -1402,8 +1402,8 @@ class TemptableAggregateIterator final : public TableRowIterator {
   */
   Profiler m_table_iter_profiler;
 
-   /// Whether this is a final aggregate
-  bool m_is_final_aggr;
+  /// Whether this is a final aggregate
+  AggType m_agg_type;
 
   // See MaterializeIterator::doing_hash_deduplication().
   bool using_hash_key() const { return table()->hash_field; }
@@ -1442,14 +1442,14 @@ TemptableAggregateIterator<Profiler>::TemptableAggregateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
     Temp_table_param *temp_table_param, TABLE *table,
     unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-    int ref_slice, bool is_final_aggr)
+    int ref_slice, AggType agg_type)
     : TableRowIterator(thd, table),
       m_subquery_iterator(move(subquery_iterator)),
       m_table_iterator(move(table_iterator)),
       m_temp_table_param(temp_table_param),
       m_join(join),
       m_ref_slice(ref_slice),
-      m_is_final_aggr(is_final_aggr) {}
+      m_agg_type(agg_type) {}
 
 template <typename Profiler>
 bool TemptableAggregateIterator<Profiler>::Init() {
@@ -1699,14 +1699,14 @@ RowIterator *temptable_aggregate_iterator::CreateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
     Temp_table_param *temp_table_param, TABLE *table,
     unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-    int ref_slice, bool is_final_aggr) {
+    int ref_slice, AggType agg_type) {
   if (thd->lex->is_explain_analyze) {
     RowIterator *const table_iter_ptr = table_iterator.get();
 
     auto iter =
         new (thd->mem_root) TemptableAggregateIterator<IteratorProfilerImpl>(
             thd, move(subquery_iterator), temp_table_param, table,
-            move(table_iterator), join, ref_slice, is_final_aggr);
+            move(table_iterator), join, ref_slice, agg_type);
 
     /*
       Provide timing data for the iterator that iterates over the temporary
@@ -1719,7 +1719,7 @@ RowIterator *temptable_aggregate_iterator::CreateIterator(
     return new (thd->mem_root)
         TemptableAggregateIterator<DummyIteratorProfiler>(
             thd, move(subquery_iterator), temp_table_param, table,
-            move(table_iterator), join, ref_slice, is_final_aggr);
+            move(table_iterator), join, ref_slice, agg_type);
   }
 }
 

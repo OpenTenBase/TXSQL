@@ -739,8 +739,8 @@ class JOIN {
   /** Cleanup this JOIN. Not a full cleanup. reusable? */
   void cleanup();
 
-  bool clear_fields(table_map *save_nullinfo);
-  void restore_fields(table_map save_nullinfo);
+  bool clear_fields(table_map *save_nullinfo, AggType agg_type);
+  void restore_fields(table_map save_nullinfo, AggType agg_type);
 
   /**
     Return whether the caller should send a row even if the join

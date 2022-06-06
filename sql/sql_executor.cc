@@ -5302,7 +5302,21 @@ bool change_to_use_tmp_fields_except_sums(mem_root_deque<Item *> *fields,
   @returns false if success, true if error
 */
 
-bool JOIN::clear_fields(table_map *save_nullinfo) {
+bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
+  if (agg_type == AggType::PX_FINAL_AGG) {
+    // Set all column values from all input tables to NULL.
+    if (!aggr_tmp_table->has_null_row()) {
+      if (aggr_tmp_table->const_table) aggr_tmp_table->save_null_flags();
+      aggr_tmp_table->set_null_row();
+    }
+    if (copy_fields(final_aggr_tmp_table_param, thd)) return true;
+    if (final_aggr_sum_funcs) {
+      Item_sum *func, **func_ptr = final_aggr_sum_funcs;
+      while ((func = *(func_ptr++))) func->clear();
+    }
+    return false;
+  }
+  // Set all column values from all input tables to NULL.
   for (uint tableno = 0; tableno < primary_tables; tableno++) {
     QEP_TAB *const tab = qep_tab + tableno;
     TABLE *const table = tab->table_ref->table;
@@ -5311,6 +5325,15 @@ bool JOIN::clear_fields(table_map *save_nullinfo) {
       if (table->const_table) table->save_null_flags();
       table->set_null_row();  // All fields are NULL
     }
+  }
+  if (copy_fields((agg_type == AggType::PX_LOCAL_AGG) ? aggr_tmp_table_param
+                                                      : &tmp_table_param, thd)) {
+    return true;
+  }
+
+  if (sum_funcs) {
+    Item_sum *func, **func_ptr = sum_funcs;
+    while ((func = *(func_ptr++))) func->clear();
   }
   return false;
 }
@@ -5323,8 +5346,14 @@ bool JOIN::clear_fields(table_map *save_nullinfo) {
   @note Const tables must have their NULL value flags restored,
         @see JOIN::clear_fields().
 */
-void JOIN::restore_fields(table_map save_nullinfo) {
+void JOIN::restore_fields(table_map save_nullinfo, AggType agg_type) {
   assert(save_nullinfo);
+
+  if (agg_type == AggType::PX_FINAL_AGG) {
+    if (aggr_tmp_table->const_table) aggr_tmp_table->restore_null_flags();
+    aggr_tmp_table->reset_null_row();
+    return ;
+  }
 
   for (uint tableno = 0; tableno < primary_tables; tableno++) {
     QEP_TAB *const tab = qep_tab + tableno;
