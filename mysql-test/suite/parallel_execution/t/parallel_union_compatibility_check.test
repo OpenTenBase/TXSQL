@@ -51,10 +51,7 @@ CREATE TABLE t6 (b varchar(20));
 
 connection conn1;
 
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 0;
+--source suite/parallel_execution/inc/save_and_set_px.inc
 
 connect(conn2,localhost,user1,,);
 
@@ -185,10 +182,7 @@ explain format=tree select variance(a) from t1 group by b union select variance(
 explain format=tree SELECT left(a,100000000) FROM t5 UNION  SELECT b FROM t6;
 
 connection conn1;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
-set global cdb_min_parallel_table_rows = 5000;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
 
 drop table t1;
 drop table t2;

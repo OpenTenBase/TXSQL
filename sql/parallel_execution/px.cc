@@ -23,6 +23,9 @@ PSI_cond_key key_px_thd_cond;
 PSI_mutex_key key_px_mq_lock;
 PSI_memory_key key_px_mq_memory;
 
+/// The maximum number of parallel workers to use for parallel execution.
+unsigned long px_max_parallel_threads;
+
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_info all_px_mutexes[] = {
     {&key_px_thd_lock, "PX::LOCK_thd", 0, 0, PSI_DOCUMENT_ME},

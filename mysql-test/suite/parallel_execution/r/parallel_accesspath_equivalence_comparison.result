@@ -11,6 +11,7 @@
 #  5) TODO: const table ref
 #  6) additional tests that may cause exceptions
 ###############################################
+# --include save_and_set_px.inc
 # 1) test plan changed by optimizer_switch
 select @@optimizer_switch;
 @@optimizer_switch
@@ -1649,13 +1650,13 @@ ERROR 42000: Result consisted of more than one row
 ((SELECT 1) UNION (SELECT 2 INTO @v));
 ERROR 42000: Result consisted of more than one row
 SELECT 1 UNION SELECT 2 INTO @v FROM t1;
-ERROR 42000: Result consisted of more than one row
+ERROR HY000: PX execute error of errno[1172].
 (SELECT 1) UNION SELECT 2 INTO @v FROM t1;
-ERROR 42000: Result consisted of more than one row
+ERROR HY000: PX execute error of errno[1172].
 (SELECT 1) UNION (SELECT 2 INTO @v FROM t1);
-ERROR 42000: Result consisted of more than one row
+ERROR HY000: PX execute error of errno[1172].
 ((SELECT 1) UNION (SELECT 2 INTO @v FROM t1));
-ERROR 42000: Result consisted of more than one row
+ERROR HY000: PX execute error of errno[1172].
 SELECT 1 UNION SELECT 1 INTO @v FROM t1;
 Warnings:
 Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
@@ -2018,3 +2019,4 @@ Warning	3962	The INTO clause is deprecated inside query blocks of query expressi
 #
 SELECT 1 UNION (SELECT 1 FROM DUAL INTO @var);
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @var)' at line 1
+# --include set_px_to_saved.inc

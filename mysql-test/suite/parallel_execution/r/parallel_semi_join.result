@@ -10,9 +10,7 @@ root@localhost
 create database test1;
 create user 'user1'@'%';
 grant all on *.* to 'user1'@'%';
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+# --include save_and_set_px.inc
 set optimizer_switch='semijoin=on,loosescan=on';
 set @old_opt_switch=@@optimizer_switch;
 set optimizer_switch='subquery_materialization_cost_based=off';
@@ -55,15 +53,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`<subquery2>`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Nested loop inner join  (cost=*** rows=***)
-            -> Filter: (t2.a is not null)  (cost=*** rows=***)
-                -> Index scan on t2 using a  (cost=*** rows=***)
-            -> Single-row index lookup on <subquery2> using <auto_distinct_key> (a=t2.a)
-                -> Materialize with deduplication  (cost=*** rows=***)
-                    -> Filter: (t1.a is not null)  (cost=*** rows=***)
-                        -> Index scan on t1 using a  (cost=*** rows=***)
+-> Nested loop inner join  (cost=*** rows=***)
+    -> Filter: (t2.a is not null)  (cost=*** rows=***)
+        -> Index scan on t2 using a  (cost=*** rows=***)
+    -> Single-row index lookup on <subquery2> using <auto_distinct_key> (a=t2.a)
+        -> Materialize with deduplication  (cost=*** rows=***)
+            -> Filter: (t1.a is not null)  (cost=*** rows=***)
+                -> Index scan on t1 using a  (cost=*** rows=***)
 
 firstmatch stategy check
 set optimizer_switch='semijoin=on,materialization=off';
@@ -101,9 +97,7 @@ EXPLAIN
         -> Index lookup on t1 using a (a=t2.a)  (cost=*** rows=***)
 
 set optimizer_switch=default;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
+# --include set_px_to_saved.inc
 drop table t0;
 drop table t1;
 drop table t2;

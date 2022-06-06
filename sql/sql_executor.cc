@@ -3501,9 +3501,10 @@ bool JOIN::choose_parallel_table(QEP_TAB *parallel_tab) {
 
   /*
     Check records in table.
-    If it is less than cdb_min_parallel_table_rows, refuse to do parallel execution.
+    If it is less than px_parallel_table_record_threshold, refuse to do parallel execution.
   */
-  if (tb->file->stats.records < thd->variables.cdb_min_parallel_table_rows) {
+  if (tb->file->stats.records <
+      thd->variables.px_parallel_table_record_threshold) {
     return false;
   }
 

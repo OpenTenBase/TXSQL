@@ -34,10 +34,7 @@ insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
 create table t4(a int, b int, c int, d int);
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 1;
+# --include save_and_set_px.inc
 select * from t2;
 a	b	c	d
 1	1	1	1
@@ -818,7 +815,7 @@ a	sum(t1.b)	avg(t1.c)
 4	5	6.0000
 5	6	7.0000
 SET DEBUG_SYNC = 'RESET';
-set session debug="+d, test_error_before_sending_data";
+set global debug="+d, test_error_before_sending_data";
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
 t1.a+1	max(t1.b)
 2	2
@@ -826,20 +823,20 @@ t1.a+1	max(t1.b)
 4	4
 5	5
 6	6
-set session debug="+d, test_error_in_sending_data";
+set global debug="-d, test_error_before_sending_data";
+set global debug="+d, test_error_in_sending_data";
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
 ERROR HY000: PX execute error of errno[3950].
-set session debug="+d, test_error_before_sending_data_worker";
+set global debug="-d, test_error_in_sending_data";
+set global debug="+d, test_error_before_sending_data_worker";
 select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
 a	sum(b)	variance(b)
 2	3	0
 3	4	0
 4	5	0
 5	6	0
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
-set global cdb_min_parallel_table_rows = 5000;
+set global debug="-d, test_error_before_sending_data_worker";
+# --include set_px_to_saved.inc
 drop table t1;
 drop table t2;
 drop table t3;

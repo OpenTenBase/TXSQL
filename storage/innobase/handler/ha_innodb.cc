@@ -1185,7 +1185,7 @@ static MYSQL_THDVAR_BOOL(txsql_parallel_ddl, PLUGIN_VAR_OPCMDARG,
                          "Enable parallel ddl. Default is FALSE.", nullptr, nullptr,
                          /* default */ false);
 
-static MYSQL_THDVAR_ULONG(parallel_avg_partitions, PLUGIN_VAR_RQCMDARG,
+static MYSQL_THDVAR_ULONG(px_partitions_per_worker, PLUGIN_VAR_RQCMDARG,
                           "Average number of partitions a worker could get in parallel query.",
                           nullptr, nullptr, 13, /* Default. */
                           0,          /* Minimum. */
@@ -2202,8 +2202,8 @@ size_t thd_txsql_ddl_threads(THD *thd) noexcept { return THDVAR(thd, txsql_ddl_t
 
 bool thd_txsql_parallel_ddl(THD *thd) noexcept { return THDVAR(thd, txsql_parallel_ddl); }
 
-ulong thd_parallel_avg_partitions(THD *thd) {
-  return (THDVAR(thd, parallel_avg_partitions));
+ulong thd_px_partitions_per_worker(THD *thd) {
+  return (THDVAR(thd, px_partitions_per_worker));
 }
 
 /** Check if statement is of type INSERT .... SELECT that involves
@@ -11159,7 +11159,8 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
     return result;
   }
 
-  ulong avg_partitions = thd_parallel_avg_partitions(m_prebuilt->trx->mysql_thd);
+  ulong avg_partitions =
+      thd_px_partitions_per_worker(m_prebuilt->trx->mysql_thd);
   reader->split(avg_partitions);
   partitions = reader->get_total_ctxs();
   scan_ctx = reader;
@@ -24797,7 +24798,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(log_checksums),
     MYSQL_SYSVAR(commit_concurrency),
     MYSQL_SYSVAR(concurrency_tickets),
-    MYSQL_SYSVAR(parallel_avg_partitions),
+    MYSQL_SYSVAR(px_partitions_per_worker),
     MYSQL_SYSVAR(compression_level),
     MYSQL_SYSVAR(ddl_buffer_size),
     MYSQL_SYSVAR(ddl_threads),

@@ -512,7 +512,7 @@ void begin_optimization_context(THD *thd) {
 }
 
 bool end_optimization_context(THD *thd) {
-  if (cdb_optimization_context_cache_enabled) {
+  if (OPT_STATS_RUNNING(thd)) {
     if (unlikely(thd->opt_trace.is_started())) {
       OPT_STATS_CACHE(thd)->trace_stats(thd);
     }

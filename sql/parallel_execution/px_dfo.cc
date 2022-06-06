@@ -163,7 +163,7 @@ void Dfo_mgr::analyze_resource_allocation()
       Dfo *parent = ready_dfos[1];
       parent->set_dfo_dop(1); // Set parent dfo dop to 1 currently.
       if (child->is_leaf_dfo()) { // Set child dfo dop to (max-1)
-        child_dop = m_thd->variables.cdb_parallel_degree - 1;
+        child_dop = m_thd->variables.px_parallel_degree - 1;
         // Currently we choose the left most child leaf iterator.
         if (partition_scan(child, child_dop)) return;
       } else { // Set child dfo dop to 1 currently.
@@ -179,7 +179,7 @@ void Dfo_mgr::analyze_resource_allocation()
       child->set_dfo_finished(true);
     }
   }
-  set_total_cores(m_thd->variables.cdb_parallel_degree); // TODO
+  set_total_cores(m_thd->variables.px_parallel_degree); // TODO
   // Reset finish flag for dfos in original normalized dfo tree.
   for (unsigned i = 0; i < m_normalized_dfo_tree.size(); ++i)
     m_normalized_dfo_tree.at(i)->set_dfo_finished(false);

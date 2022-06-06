@@ -2285,7 +2285,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Check the Debug Sync Facility. See debug_sync.cc. */
-  if (check_debug_sync_for_px(thd)) {
+  if (check_debug_sync_for_px(thd) &&
+      DBUG_EVALUATE_IF("disable_debug_sync_check", false, true)) {
     thd->lex->pass_px_check = false;
   }
 #endif /* defined(ENABLED_DEBUG_SYNC) */
@@ -2861,7 +2862,8 @@ done:
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Check the Debug Sync Facility. See debug_sync.cc. */
-  if (check_debug_sync_for_px(thd)) {
+  if (check_debug_sync_for_px(thd) &&
+      DBUG_EVALUATE_IF("disable_debug_sync_check", false, true)) {
     thd->lex->pass_px_check = false;
   }
 #endif /* defined(ENABLED_DEBUG_SYNC) */

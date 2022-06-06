@@ -2583,8 +2583,7 @@ void THD::debug_assert_query_locked() const {
 }
 
 void THD::set_query(LEX_CSTRING query_arg) {
-  if (!variables.cdb_parallel_execution_enabled)
-    assert(this == current_thd);
+  assert(PX_ENABLED(this) || this == current_thd);
   mysql_mutex_lock(&LOCK_thd_query);
   m_query_string = query_arg;
   mysql_mutex_unlock(&LOCK_thd_query);

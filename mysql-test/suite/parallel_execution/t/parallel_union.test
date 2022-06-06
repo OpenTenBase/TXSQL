@@ -55,10 +55,8 @@ insert into t4 values(100,100,100,100);
 
 connection conn1;
 
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 2;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+set px_parallel_table_record_threshold = 2;
 
 connect(conn2,localhost,user1,,);
 
@@ -188,10 +186,7 @@ explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d
 #=========================================================================
 
 connection conn1;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
-set global cdb_min_parallel_table_rows=5000;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
 
 drop table t1;
 drop table t2;

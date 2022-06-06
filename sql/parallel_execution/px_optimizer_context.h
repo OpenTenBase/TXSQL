@@ -23,6 +23,8 @@
 #ifndef PX_OPTIMIZER_CONTEXT_INCLUDED
 #define PX_OPTIMIZER_CONTEXT_INCLUDED
 
+#include "px_interface.h"
+
 #include "mysql/psi/mysql_thread.h" // mysql_mutex_t
 #include "my_base.h"                // key_part_map
 #include "my_alloc.h"               // free_root
@@ -37,7 +39,7 @@ class ha_statistics;
 struct MEM_ROOT;
 
 #define OPT_STATS_RUNNING(thd) \
-  (cdb_optimization_context_cache_enabled && \
+  (px_max_parallel_threads > 0 && \
       thd && (thd)->m_is_optimizing)
 
 #define OPT_STATS_ENABLED(thd, TABLE) \

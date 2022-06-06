@@ -42,10 +42,7 @@ insert into t4 values(500,500,500,500);
 create table t5(a mediumtext);
 INSERT INTO t5 VALUES ('a'),('b');
 CREATE TABLE t6 (b varchar(20));
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 0;
+# --include save_and_set_px.inc
 #
 # Basic check for select with union all / union
 #
@@ -481,7 +478,7 @@ EXPLAIN
                                         -> Table scan on t2  (cost=*** rows=***)
             -> Stream results
                 -> Group aggregate: sum(t3.d)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d)
                                 -> Index scan on t3 using idx  (cost=*** rows=***)
@@ -509,7 +506,7 @@ EXPLAIN
                                         -> Table scan on t2  (cost=*** rows=***)
             -> Stream results
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                                 -> Index scan on t3 using idx  (cost=*** rows=***)
@@ -613,7 +610,7 @@ EXPLAIN
                                     -> Aggregate using temporary table
                                         -> Table scan on t2  (cost=*** rows=***)
                 -> Group aggregate: sum(t3.d)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d)
                                 -> Index scan on t3 using idx  (cost=*** rows=***)
@@ -639,7 +636,7 @@ EXPLAIN
                                     -> Aggregate using temporary table
                                         -> Table scan on t2  (cost=*** rows=***)
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                    -> Exchange Receive dop )
+                    -> Exchange Merge Receive dop )
                         -> Exchange Send dop )
                             -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                                 -> Index scan on t3 using idx  (cost=*** rows=***)
@@ -833,30 +830,26 @@ EXPLAIN
 #
 explain format=tree select variance(a) from t1 group by b union all select variance(a) from t2 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Append
-            -> Stream results
-                -> Table scan on <temporary>
-                    -> Aggregate using temporary table
-                        -> Table scan on t1  (cost=*** rows=***)
-            -> Stream results
-                -> Table scan on <temporary>
-                    -> Aggregate using temporary table
-                        -> Table scan on t2  (cost=*** rows=***)
+-> Append
+    -> Stream results
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> Table scan on t1  (cost=*** rows=***)
+    -> Stream results
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> Table scan on t2  (cost=*** rows=***)
 
 explain format=tree select variance(a) from t1 group by b union select variance(a) from t2 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
-                -> Table scan on <temporary>
-                    -> Aggregate using temporary table
-                        -> Table scan on t1  (cost=*** rows=***)
-                -> Table scan on <temporary>
-                    -> Aggregate using temporary table
-                        -> Table scan on t2  (cost=*** rows=***)
+-> Table scan on <union temporary>  (cost=*** rows=***)
+    -> Union materialize with deduplication
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> Table scan on t1  (cost=*** rows=***)
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> Table scan on t2  (cost=*** rows=***)
 
 #
 # Union's temporary table contains incompatible fields.
@@ -868,10 +861,7 @@ EXPLAIN
         -> Table scan on t5  (cost=*** rows=***)
         -> Table scan on t6  (cost=*** rows=***)
 
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
-set global cdb_min_parallel_table_rows = 5000;
+# --include set_px_to_saved.inc
 drop table t1;
 drop table t2;
 drop table t3;

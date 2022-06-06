@@ -64,17 +64,13 @@ analyze table t4;
 
 
 connection conn1;
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+--source suite/parallel_execution/inc/save_and_set_px.inc
 
 connect(conn2,localhost,user1,,);
 select distinct a1 from t4 where pk_col not in (1,2,3,4);
 
 connection conn1;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
 
 drop table t4;
 drop database test1;

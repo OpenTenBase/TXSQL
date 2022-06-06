@@ -54,18 +54,14 @@ create index idx12672_2 on t4 (a1,a2,b);
 analyze table t4;
 Table	Op	Msg_type	Msg_text
 test.t4	analyze	status	OK
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+# --include save_and_set_px.inc
 select distinct a1 from t4 where pk_col not in (1,2,3,4);
 a1
 a
 b
 c
 d
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
+# --include set_px_to_saved.inc
 drop table t4;
 drop database test1;
 drop user user1;

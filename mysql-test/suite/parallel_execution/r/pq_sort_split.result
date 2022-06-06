@@ -1,6 +1,4 @@
-set global cdb_parallel_execution_enabled=1;
-set global cdb_parallel_query_enable=1;
-set global exchange_inject=1;
+# --include save_and_set_px.inc
 create table t (
 period    int not null auto_increment,
 price     int not null,
@@ -1169,6 +1167,4 @@ fld2
 abcdefg
 abclkjs
 drop table t;
-set global cdb_parallel_execution_enabled=0;
-set global cdb_parallel_query_enable=0;
-set global exchange_inject=0;
+# --include set_px_to_saved.inc

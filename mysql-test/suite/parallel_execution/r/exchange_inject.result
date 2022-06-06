@@ -1,7 +1,5 @@
-set cdb_parallel_query_enable = on;
-set cdb_parallel_execution_enabled = on;
-set exchange_inject = on;
-set cdb_min_parallel_table_rows = 2;
+# --include save_and_set_px.inc
+set px_parallel_table_record_threshold = 2;
 #
 # Table scan -> exchange
 #
@@ -662,3 +660,4 @@ EXPLAIN
     -> Index scan on t1 using idx  (cost=141.05 rows=1398)
 
 drop table t1;
+# --include set_px_to_saved.inc

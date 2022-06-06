@@ -48,10 +48,7 @@ create table t4(a int, b int, c int, d int);
 
 connection conn1;
 
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
 
 connect(conn2,localhost,user1,,);
 
@@ -307,27 +304,26 @@ SET DEBUG_SYNC = 'RESET';
 # 2. handle error when sending data in coordinator.
 # 3. handle error when sending data in worker.
 connection conn3;
-#set session debug="+d, test_error_before_sending_data_coor";
+#set global debug="+d, test_error_before_sending_data_coor";
 #select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c)  from t1 join t2 where t1.a = t2.a group by t1.a;
 #connection conn4;
-set session debug="+d, test_error_before_sending_data";
+set global debug="+d, test_error_before_sending_data";
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
+set global debug="-d, test_error_before_sending_data";
 connect(conn8,localhost,root,,);
 connection conn8;
-set session debug="+d, test_error_in_sending_data";
+set global debug="+d, test_error_in_sending_data";
 --error ER_PX_EXECUTE_ERROR
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
+set global debug="-d, test_error_in_sending_data";
 connection conn7;
-set session debug="+d, test_error_before_sending_data_worker";
+set global debug="+d, test_error_before_sending_data_worker";
 select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
-
+set global debug="-d, test_error_before_sending_data_worker";
 #=========================================================================
 
 connection conn1;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
-set global cdb_min_parallel_table_rows = 5000;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
 
 drop table t1;
 drop table t2;

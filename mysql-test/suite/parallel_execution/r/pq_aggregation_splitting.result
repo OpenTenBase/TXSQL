@@ -1,5 +1,4 @@
-set cdb_parallel_query_enable = 1;
-set exchange_inject=1;
+# --include save_and_set_px.inc
 #
 # create test table
 #
@@ -202,3 +201,4 @@ s
 15
 DROP TABLE t;
 DROP TABLE t1;
+# --include set_px_to_saved.inc

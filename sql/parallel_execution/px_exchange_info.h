@@ -165,6 +165,11 @@ class PX_exchange_info {
   bool m_top_exchange{false};
   /// The query coordinator
   THD *m_coordinator_thd;
+  /**
+    Exchange buffer size. There will be one buffer per each pair of sender
+    and receiver.
+   */
+  uint m_exchange_buffer_size;
 
   /// Channel type
   PX_channel_type m_channel_type{PX_INVALID_CHANNEL};
