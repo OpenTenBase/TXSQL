@@ -3149,7 +3149,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
     case AccessPath::INDEX_SCAN:
     case AccessPath::INDEX_RANGE_SCAN:
     case AccessPath::REF: {
-      if (thd->variables.exchange_inject_use_item && !in_join) {
+      if (!in_join &&
+          DBUG_EVALUATE_IF("exchange_inject_use_item", true, false)) {
         use_tmp_table = true;
         int ref_slice = join->ref_items[REF_SLICE_SAVED_BASE].is_null()
                             ? 0
@@ -3219,7 +3220,8 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       } else {
         ref_slice = cur_slice;
       }
-      if (thd->variables.exchange_inject_use_item && !in_join) {
+      if (!in_join &&
+          DBUG_EVALUATE_IF("exchange_inject_use_item", true, false)) {
         use_tmp_table = true;
       }
 

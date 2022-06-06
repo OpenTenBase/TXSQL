@@ -130,9 +130,7 @@ root@localhost
 create database test1;
 create user 'user1'@'%';
 grant all on *.* to 'user1'@'%';
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+# --include save_and_set_px.inc
 explain format = tree
 select
 s_acctbal,
@@ -634,9 +632,7 @@ EXPLAIN
 
 Warnings:
 Note	1276	Field or reference 'test.customer.c_custkey' of SELECT #4 was resolved in SELECT #2
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
+# --include set_px_to_saved.inc
 START TRANSACTION;
 drop TABLE lineitem;
 drop TABLE orders;

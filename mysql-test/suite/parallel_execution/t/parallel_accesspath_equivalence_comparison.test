@@ -13,6 +13,8 @@
 --echo #  6) additional tests that may cause exceptions
 --echo ###############################################
 
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
 --echo # 1) test plan changed by optimizer_switch
 select @@optimizer_switch;
 
@@ -1218,13 +1220,13 @@ SELECT 1 UNION SELECT 2 INTO @v;
 --error ER_TOO_MANY_ROWS
 ((SELECT 1) UNION (SELECT 2 INTO @v));
 
---error ER_TOO_MANY_ROWS
+--error ER_PX_EXECUTE_ERROR
 SELECT 1 UNION SELECT 2 INTO @v FROM t1;
---error ER_TOO_MANY_ROWS
+--error ER_PX_EXECUTE_ERROR
 (SELECT 1) UNION SELECT 2 INTO @v FROM t1;
---error ER_TOO_MANY_ROWS
+--error ER_PX_EXECUTE_ERROR
 (SELECT 1) UNION (SELECT 2 INTO @v FROM t1);
---error ER_TOO_MANY_ROWS
+--error ER_PX_EXECUTE_ERROR
 ((SELECT 1) UNION (SELECT 2 INTO @v FROM t1));
 
 SELECT 1 UNION SELECT 1 INTO @v FROM t1;
@@ -1463,3 +1465,5 @@ SELECT 1 UNION SELECT 1 INTO @var FOR UPDATE;
 
 --error ER_PARSE_ERROR
 SELECT 1 UNION (SELECT 1 FROM DUAL INTO @var);
+
+--source suite/parallel_execution/inc/set_px_to_saved.inc

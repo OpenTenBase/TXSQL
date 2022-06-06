@@ -20,18 +20,14 @@ INSERT INTO testText (id,data) VALUES (1,repeat('0123456789abcdef',510));
 ANALYZE TABLE testText;
 
 connection conn1;
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
+--source suite/parallel_execution/inc/save_and_set_px.inc
 connect(conn2,localhost,user1,,);
 
 EXPLAIN FORMAT=TREE SELECT * FROM testText;
 SELECT * FROM testText;
 
 connection conn1;
-set global cdb_parallel_query_enable = off;
-set global cdb_parallel_execution_enabled = off;
-set global exchange_inject = off;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
 
 DROP TABLE testText;
 drop database test1;

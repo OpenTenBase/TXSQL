@@ -48,6 +48,7 @@
 #include "sql/mysqld.h"  // table_alias_charset
 #include "sql/nested_join.h"
 #include "sql/opt_hints.h"
+#include "sql/parallel_execution/px_interface.h"  // PX_ENABLED
 #include "sql/parse_location.h"
 #include "sql/parse_tree_nodes.h"  // PT_with_clause
 #include "sql/protocol.h"
@@ -844,8 +845,7 @@ bool LEX::check_preparation_invalid(THD *thd_arg) {
 
 bool LEX::check_px_execution() const {
   // Do the statement global check.
-  if (!thd->variables.cdb_parallel_execution_enabled ||
-      !thd->variables.cdb_parallel_query_enable) {
+  if (!PX_ENABLED(thd)) {
     return false;
   }
 
@@ -5007,12 +5007,6 @@ void Query_block::restore_cmd_properties() {
   Check whether this query block pass compatibility check;
 */
 void Query_block::check_px_execution(THD *thd) {
-  // Optimization context cache is to ensure the consistency of query plans
-  if (!cdb_optimization_context_cache_enabled) {
-    pass_px_check = false;
-    return;
-  }
-
   // Only primary qb can do parallel
   bool is_primary_qb = (type() == enum_explain_type::EXPLAIN_PRIMARY) ||
                        (type() == enum_explain_type::EXPLAIN_SIMPLE) ||

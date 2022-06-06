@@ -7,9 +7,6 @@
 #include "px_executor.h"
 #include "sql/log.h"
 
-// The default size of message queue.
-#define RING_SIZE 1048576
-
 /**
   Compute consumer id by key.
 */
@@ -23,6 +20,7 @@ PX_exchange_info::PX_exchange_info(THD *thd, PX_exchange_type exchange_type,
     PX_channel_type type, uint senders, uint receivers, PX_exchange_format format,
     bool need_materialize, reshuffle_func_t reshuffle_func)
     : m_coordinator_thd(thd),
+      m_exchange_buffer_size(thd->variables.px_exchange_buffer_size),
       m_channel_type(type),
       m_format(format),
       m_type(exchange_type),
@@ -114,7 +112,7 @@ PX_exchange_channel *PX_exchange_info::create_channel(
   PX_exchange_channel *channel = nullptr;
   switch (m_channel_type) {
     case PX_MQ_CHANNEL: {
-      const Size ring_size = RING_SIZE;
+      const Size ring_size = m_exchange_buffer_size;
       char *ring_buffer = (char *)m_coordinator_thd->mem_root->Alloc(ring_size);
       channel = new (m_coordinator_thd->mem_root)
           PX_mq_channel(channel_id, ring_buffer, ring_size);

@@ -505,27 +505,14 @@ struct System_variables {
   bool log_profile_in_slow_log;
   uint txsql_extend_slow_log_level;
   ulonglong log_slow_verbosity;
-  /*
-    @sa Sys_cdb_parallel_query_enable
-  */
-  bool cdb_parallel_query_enable;
-  /**
-    @sa Sys_cdb_parallel_execution_enable
-  */
-  bool cdb_parallel_execution_enabled;
-  /**
-    @sa Sys_exchange_inject
-  */
-  bool exchange_inject;
-  bool exchange_inject_use_item;
-  /**
-    @sa Sys_cdb_parallel_degree
-  */
-  ulong cdb_parallel_degree;
-  /**
-    @sa Sys_cdb_min_parallel_table_rows
-  */
-  ulonglong cdb_min_parallel_table_rows;
+  /// @sa Sys_px_parallel_degree
+  ulong px_parallel_degree;
+  /// @sa Sys_px_parallel_table_record_threshold
+  ulonglong px_parallel_table_record_threshold;
+  /// @sa Sys_px_parallel_cost_threshold
+  double px_parallel_cost_threshold;
+  /// @sa Sys_px_exchange_buffer_size
+  ulong px_exchange_buffer_size;
 };
 
 /**

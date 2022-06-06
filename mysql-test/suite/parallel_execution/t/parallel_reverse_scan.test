@@ -27,15 +27,7 @@ CREATE TABLE t1(
 ANALYZE TABLE t1;
 
 connection conn1;
-SET @saved_cdb_parallel_query_enable =@@cdb_parallel_query_enable;
-SET @saved_cdb_parallel_execution_enabled =@@cdb_parallel_execution_enabled;
-SET @saved_exchange_inject =@@exchange_inject;
-SET @saved_cdb_min_parallel_table_rows=@@cdb_min_parallel_table_rows;
-
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 0;
+--source suite/parallel_execution/inc/save_and_set_px.inc
 
 connect(conn2,localhost,user1,,);
 
@@ -43,10 +35,7 @@ EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8 order by col2 DESC;
 
 connection conn1;
-set global cdb_parallel_query_enable = @saved_cdb_parallel_query_enable;
-set global cdb_parallel_execution_enabled = @saved_cdb_parallel_execution_enabled;
-set global exchange_inject = @saved_exchange_inject;
-set global cdb_min_parallel_table_rows = @saved_cdb_min_parallel_table_rows;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
 
 drop table t1;
 drop database test1;

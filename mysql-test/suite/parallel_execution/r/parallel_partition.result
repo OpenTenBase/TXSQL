@@ -10,26 +10,16 @@ create database test1;
 create user 'user1'@'%';
 grant all on *.* to 'user1'@'%';
 CREATE TABLE t1(a INT);
-SET @saved_cdb_parallel_query_enable =@@cdb_parallel_query_enable;
-SET @saved_cdb_parallel_execution_enabled =@@cdb_parallel_execution_enabled;
-SET @saved_exchange_inject =@@exchange_inject;
-SET @saved_cdb_min_parallel_table_rows=@@cdb_min_parallel_table_rows;
 SET @saved_autocommit =@@autocommit;
-set global cdb_parallel_query_enable = on;
-set global cdb_parallel_execution_enabled = on;
-set global exchange_inject = on;
-set global cdb_min_parallel_table_rows = 0;
 set global autocommit=0;
+# --include save_and_set_px.inc
 START TRANSACTION;
 INSERT INTO t1 VALUES (1), (2), (3);
 SELECT * FROM t1;
 a
 ROLLBACK;
 ROLLBACK;
-set global cdb_parallel_query_enable = @saved_cdb_parallel_query_enable;
-set global cdb_parallel_execution_enabled = @saved_cdb_parallel_execution_enabled;
-set global exchange_inject = @saved_exchange_inject;
-set global cdb_min_parallel_table_rows = @saved_cdb_min_parallel_table_rows;
+# --include set_px_to_saved.inc
 set global autocommit= @saved_autocommit;
 drop table t1;
 drop database test1;

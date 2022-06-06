@@ -95,6 +95,7 @@
 #include "sql/window.h"  // Window
 #include "template_utils.h"
 #include "sql/table.h"
+#include "sql/parallel_execution/px_interface.h" // PX_ENABLED
 #include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
 #include "sql/parallel_execution/px_executor.h"  // PX_coordinator
 #include "sql/parallel_execution/px_workerpool.h"  // worker_pool
@@ -722,7 +723,7 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     pass_px_check = false;
   }
 
-  if (thd->variables.exchange_inject && !item && !derived_table) {
+  if (!item && !derived_table) {
     exchange_inject = true;
   }
 
@@ -933,7 +934,7 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     /// If cdb_parallel_execution_enabled if off, and at least one exchange in
     /// access path tree, execute the iterator tree by using plan which has only
     /// one exchange. single thread mode.
-    if (!thd->variables.cdb_parallel_execution_enabled && thd->lex->only_one_exchange())
+    if (!PX_ENABLED(thd) && thd->lex->only_one_exchange())
       create_single_thread_iterators(thd);
   }
 
@@ -1433,7 +1434,7 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
     });
 
     /// Init the exchange info when is single thread mode.
-    if (!thd->variables.cdb_parallel_execution_enabled &&
+    if (!PX_ENABLED(thd) &&
         thd->lex->only_one_exchange() && exchange_info)
       init_exchange_info(thd);
 

@@ -871,6 +871,22 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   // Calculate the current statement cost.
   accumulate_statement_cost(lex);
 
+  /*
+    FIXME: use cost threshold as a prerequiste rather than a postfix to avoid
+    fallback overhead for small statements. However, it requires that parallel
+    optimization is completely after sequential optimization.
+
+    TODO: The test against cost theshold is not reliable. A postfix is expected.
+   */
+#if 0
+  if (thd->use_px &&
+      thd->m_current_query_cost < thd->variables.px_parallel_cost_threshold) {
+    thd->use_px = false;
+    thd->need_fallback = true; // fall back to serial execution.
+    return false;
+  }
+#endif
+
   // Perform secondary engine optimizations, if needed.
   if (optimize_secondary_engine(thd)) return true;
 

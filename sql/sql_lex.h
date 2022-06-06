@@ -1051,11 +1051,6 @@ class Query_expression {
   bool set_limit(THD *thd, Query_block *provider);
   bool has_any_limit() const;
 
-  // bool px_single_thread_mode(THD *thd) const {
-  //   return !thd->variables.cdb_parallel_execution_enabled &&
-  //     thd->lex->only_one_exchange();
-  // }
-
   inline bool is_union() const;
   bool union_needs_tmp_table(LEX *lex);
   /// @returns true if mixes UNION DISTINCT and UNION ALL

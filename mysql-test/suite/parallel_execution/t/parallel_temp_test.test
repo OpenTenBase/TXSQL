@@ -3,6 +3,8 @@
 --echo # PQ temporary test file, which will be deleted in the future
 --echo #######################################
 
+--skip Test requires 'obsolete core tests'
+
 --echo Unsupported column type(LONGBLOB)
 
 CREATE TABLE t1 (a LONGBLOB) ENGINE=INNODB;
