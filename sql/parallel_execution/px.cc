@@ -25,6 +25,8 @@ PSI_memory_key key_px_mq_memory;
 
 /// The maximum number of parallel workers to use for parallel execution.
 unsigned long px_max_parallel_threads;
+/// Force fallback in execution phase. It is for testing purpose.
+bool px_fallback_in_execution = false;
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_info all_px_mutexes[] = {
