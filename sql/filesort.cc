@@ -2452,7 +2452,7 @@ bool heap_compare_records(int a, int b, void *arg) {
   mq_record_st *compare_a = merge_sort->get_record(a);
   convert_res = merge_sort->get_codec()->decode(compare_a->m_data, compare_a->m_length);
 
-  if (!convert_res) return true;
+  if (convert_res) return true;
 
   if (sort_param) {
     sort_param->make_sortkey(key_0, key_len, filesort->tables);
@@ -2461,7 +2461,7 @@ bool heap_compare_records(int a, int b, void *arg) {
   mq_record_st *compare_b = merge_sort->get_record(b);
   convert_res = merge_sort->get_codec()->decode(compare_b->m_data, compare_b->m_length);
 
-  if (!convert_res) return true;
+  if (convert_res) return true;
 
   if (sort_param) {
     sort_param->make_sortkey(key_1, key_len, filesort->tables);
