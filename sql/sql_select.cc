@@ -900,6 +900,11 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   if (lex->is_explain()) {
     if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
   } else if (thd->use_px) {
+    // Fallback to serial if turn px_fallback_in_execution on.
+    if (px_fallback_in_execution) {
+      thd->need_fallback = true;
+      return false;
+    }
     if (unit->execute_in_parallel(thd)) return true;
   } else {
     if (unit->execute(thd)) return true;

@@ -513,6 +513,8 @@ struct System_variables {
   double px_parallel_cost_threshold;
   /// @sa Sys_px_exchange_buffer_size
   ulong px_exchange_buffer_size;
+  /// @sa Sys_px_fallback_in_execution
+  bool px_fallback_in_execution;
 };
 
 /**

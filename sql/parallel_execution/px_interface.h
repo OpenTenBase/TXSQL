@@ -12,6 +12,6 @@
 extern void px_init_psi_keys(void);
 
 extern unsigned long px_max_parallel_threads;
-
+extern bool px_fallback_in_execution;
 
 #endif

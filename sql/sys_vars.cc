@@ -8842,3 +8842,12 @@ static Sys_var_ulonglong Sys_px_exchange_buffer_size(
     CMD_LINE(OPT_ARG),
     VALID_RANGE(128, ULONG_MAX), DEFAULT(1048576), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_px_fallback_in_execution(
+    "px_fallback_in_execution",
+    "Always fallback to sequential execution in execution phase. "
+    "It is for testing purpose only.",
+    TENCENT_VAR GLOBAL_VAR(px_fallback_in_execution),
+    CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
