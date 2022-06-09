@@ -3261,6 +3261,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         fields = cur_slice ? &join->tmp_fields[cur_slice] : join->fields;
       }
 
+      output_slice = cur_slice ? cur_slice : -1;
       child_slice = cur_slice;
       return_follow = true;
 

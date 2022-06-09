@@ -660,4 +660,138 @@ EXPLAIN
     -> Index scan on t1 using idx  (cost=141.05 rows=1398)
 
 drop table t1;
+#
+# common-test.inc
+#
+CREATE TABLE t2 (
+auto int not null auto_increment,
+fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+companynr tinyint(2) unsigned zerofill DEFAULT '00' NOT NULL,
+fld3 char(30) DEFAULT '' NOT NULL,
+fld4 char(35) DEFAULT '' NOT NULL,
+fld5 char(35) DEFAULT '' NOT NULL,
+fld6 char(4) DEFAULT '' NOT NULL,
+UNIQUE fld1 (fld1),
+KEY fld3 (fld3),
+PRIMARY KEY (auto)
+);
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+create table t3 (
+period    int not null,
+name      char(32) not null,
+companynr int not null,
+price     double(11,0),
+price2     double(11,0),
+key (period),
+key (name)
+);
+Warnings:
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+create temporary table tmp select * from t3;
+Warnings:
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+alter table t3 add t2nr int not null auto_increment primary key first;
+drop table tmp;
+analyze table t2,t3;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+explain format=tree
+select fld3,period,price,price2 from t2,t3 where t2.fld1=t3.t2nr and period >= 1001 and period <= 1002 and t2.companynr = 37 order by fld3,period, price;
+EXPLAIN
+-> Exchange Merge Receive dop )
+    -> Exchange Send dop )
+        -> Sort: t2.fld3, t3.period, t3.price
+            -> Stream results  (cost=255.79 rows=24)
+                -> Nested loop inner join  (cost=255.79 rows=24)
+                    -> Filter: (t2.companynr = 37)  (cost=123.90 rows=120)
+                        -> Table scan on t2  (cost=123.90 rows=1199)
+                    -> Filter: ((t2.fld1 = t3.t2nr) and (t3.period >= 1001) and (t3.period <= 1002))  (cost=1.00 rows=0)
+                        -> Single-row index lookup on t3 using PRIMARY (t2nr=t2.fld1)  (cost=1.00 rows=1)
+
+select fld3,period,price,price2 from t2,t3 where t2.fld1=t3.t2nr and period >= 1001 and period <= 1002 and t2.companynr = 37 order by fld3,period, price;
+fld3	period	price	price2
+admonishing	1002	28357832	8723648
+analyzable	1002	28357832	8723648
+annihilates	1001	5987435	234724
+Antares	1002	28357832	8723648
+astound	1001	5987435	234724
+audiology	1001	5987435	234724
+Augustine	1002	28357832	8723648
+Baird	1002	28357832	8723648
+bewilderingly	1001	5987435	234724
+breaking	1001	5987435	234724
+Conley	1001	5987435	234724
+dentally	1002	28357832	8723648
+dissociate	1002	28357832	8723648
+elite	1001	5987435	234724
+eschew	1001	5987435	234724
+Eulerian	1001	5987435	234724
+flanking	1001	5987435	234724
+foldout	1002	28357832	8723648
+funereal	1002	28357832	8723648
+galling	1002	28357832	8723648
+Graves	1001	5987435	234724
+grazing	1001	5987435	234724
+groupings	1001	5987435	234724
+handgun	1001	5987435	234724
+humility	1002	28357832	8723648
+impulsive	1002	28357832	8723648
+inch	1001	5987435	234724
+intelligibility	1001	5987435	234724
+jarring	1001	5987435	234724
+lawgiver	1001	5987435	234724
+lectured	1002	28357832	8723648
+Merritt	1002	28357832	8723648
+neonatal	1001	5987435	234724
+offload	1002	28357832	8723648
+parters	1002	28357832	8723648
+pityingly	1002	28357832	8723648
+puddings	1002	28357832	8723648
+Punjab	1001	5987435	234724
+quitter	1002	28357832	8723648
+realtor	1001	5987435	234724
+relaxing	1001	5987435	234724
+repetitions	1001	5987435	234724
+resumes	1001	5987435	234724
+Romans	1002	28357832	8723648
+rusting	1001	5987435	234724
+scholastics	1001	5987435	234724
+skulking	1002	28357832	8723648
+stated	1002	28357832	8723648
+suites	1002	28357832	8723648
+sureties	1001	5987435	234724
+testicle	1002	28357832	8723648
+tinily	1002	28357832	8723648
+tragedies	1001	5987435	234724
+trimmings	1001	5987435	234724
+vacuuming	1001	5987435	234724
+ventilate	1001	5987435	234724
+wallet	1001	5987435	234724
+Weissmuller	1002	28357832	8723648
+Wotan	1002	28357832	8723648
+drop table t2,t3;
 # --include set_px_to_saved.inc
