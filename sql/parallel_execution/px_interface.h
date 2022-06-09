@@ -9,7 +9,9 @@
 
 #define PX_ENABLED(thd) (px_max_parallel_threads > 0)
 
-extern void px_init_psi_keys(void);
+bool px_init(void);
+void px_destroy(void);
+
 
 extern unsigned long px_max_parallel_threads;
 extern bool px_fallback_in_execution;

@@ -801,6 +801,7 @@ MySQL clients support the protocol:
 #include "sql/mysqld_thd_manager.h"              // Global_THD_manager
 #include "sql/opt_costconstantcache.h"           // delete_optimizer_cost_module
 #include "sql/options_mysqld.h"                  // OPT_THREAD_CACHE_SIZE
+#include "sql/parallel_execution/px_interface.h" // px_init px_destroy
 #include "sql/partitioning/partition_handler.h"  // partitioning_init
 #include "sql/persisted_variable.h"              // Persisted_variables_cache
 #include "sql/plugin_table.h"
@@ -2763,6 +2764,7 @@ static void clean_up(bool print_message) {
   acl_free(true);
   grant_free();
   sql_statistics_deinit();
+  px_destroy();
   hostname_cache_free();
   range_optimizer_free();
   item_func_sleep_free();
@@ -6428,6 +6430,7 @@ static int init_server_components() {
   }
 
   sql_statistics_init();
+  px_init();
 
   randominit(&sql_rand, (ulong)server_start_time, (ulong)server_start_time / 2);
   setup_fpu();
