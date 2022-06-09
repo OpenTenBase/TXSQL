@@ -79,6 +79,7 @@ static inline void dict_mem_fill_index_struct(
   index->last_sel_cur = nullptr;
 #ifndef UNIV_HOTBACKUP
   new (&index->rec_cache) rec_cache_t();
+  new (&index->cached_offs_pddl) cached_offsets_t();
 
 #endif /* UNIV_HOTBACKUP */
 #ifdef UNIV_DEBUG

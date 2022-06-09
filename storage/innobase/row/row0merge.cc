@@ -878,45 +878,6 @@ bool row_merge_write(int fd,          /*!< in: file descriptor */
   return err == DB_SUCCESS;
 }
 
-struct cached_offsets_t {
-
-  void init(const dict_index_t *m_index) {
-    offsets = nullptr;
-    index = m_index;
-  }
-
-  void set_offsets(ulint * m_offsets) {
-    const ulint n = dict_index_get_n_fields(index);
-    const ulint offsets_i =
-      1 + REC_OFFS_HEADER_SIZE + n;
-
-    offsets = static_cast<ulint*>(ut_malloc(offsets_i * sizeof(*offsets), mem_key_row_merge_sort));
-    for (ulint i = 0; i < offsets_i; i++) {
-      offsets[i] = m_offsets[i];
-    }
-  }
-
-  void get_cached_offsets(ulint * m_offsets) {
-    const ulint n = dict_index_get_n_fields(index);
-    const ulint offsets_i =
-      1 + REC_OFFS_HEADER_SIZE + n;
-    for (ulint i = 0; i < offsets_i; i++) {
-      m_offsets[i] = offsets[i];
-    }
-  }
-
-  void reset() {
-    index = nullptr;
-    if (offsets) {
-      ut_free(offsets);
-      offsets = nullptr;
-    }
-  }
-
-  ulint *offsets;
-  const dict_index_t *index;
-} cached_offsets;
-
 /** Read a merge record.
  @return pointer to next record, or NULL on I/O error or end of list */
 const byte *row_merge_read_rec(
@@ -1007,15 +968,17 @@ const byte *row_merge_read_rec(
 
     *mrec = *buf + extra_size;
 
-    if (cached_offsets.index == index && cached_offsets.offsets) {
-      cached_offsets.get_cached_offsets(offsets);
-    } else {
-      is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
+    if (index->cached_offs_pddl.is_cached.load()) {
+			const_cast<dict_index_t *> (index)->cached_offs_pddl.get_cached_offsets(
+				offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
+		} else {
+			is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
 
-      if (!is_variable && cached_offsets.index == index) {
-        cached_offsets.set_offsets(offsets);
-      }
-    }
+			if (!is_variable && index->cached_offs_pddl.is_init.load()) {
+				const_cast<dict_index_t *> (index)->cached_offs_pddl.set_offsets(
+					offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
+			}
+		}
 
     data_size = rec_offs_data_size(offsets);
 
@@ -1034,15 +997,18 @@ const byte *row_merge_read_rec(
 
   *mrec = b + extra_size;
 
-  if (cached_offsets.index == index && cached_offsets.offsets) {
-    cached_offsets.get_cached_offsets(offsets);
-  } else {
-    is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
-
-    if (!is_variable && cached_offsets.index == index) {
-      cached_offsets.set_offsets(offsets);
-    }
-  }
+  if (index->cached_offs_pddl.is_cached.load()) {
+		const_cast<dict_index_t *> (index)->cached_offs_pddl.get_cached_offsets(
+			offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
+	} else {
+		is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
+		// if we don't initilize index->cached_offs_pddl, do not
+		// cache offsets.
+		if (!is_variable && index->cached_offs_pddl.is_init.load()) {
+			const_cast<dict_index_t *> (index)->cached_offs_pddl.set_offsets(
+				offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
+		}
+	}
 
   data_size = rec_offs_data_size(offsets);
   ut_ad(extra_size + data_size < sizeof *buf);
@@ -4248,7 +4214,7 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
 #ifdef UNIV_DEBUG_PARALLEL_DDL
   auto start_time = std::chrono::steady_clock::now();
 #endif /* UNIV_DEBUG_PARALLEL_DDL */
-  cached_offsets.init(index);
+  index->cached_offs_pddl.init();
   // prepare parallel threads, these threads are for partitioning and then sorting
   const ulint num_runs = file->offset;
   const ulint sort_parallel = quantiler->sort_parallel;
@@ -5372,7 +5338,7 @@ dberr_t row_merge_build_indexes(
       } else if (parallel_sort_threads > 1){
         row_partition_file_destroy(partitioned_sorted_files, parallel_sort_threads);
       }
-      cached_offsets.reset();
+      const_cast<dict_index_t *> (sort_idx)->cached_offs_pddl.reset();
 
 #ifdef UNIV_DEBUG_PARALLEL_DDL
       ib::info() << "[TXSQL PARALLEL DDL] Build btree finished, costs(" 
