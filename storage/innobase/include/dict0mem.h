@@ -76,6 +76,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <set>
 #include <string>
 #include <vector>
+#include <atomic>
+#include <mutex>
 
 /* Forward declaration. */
 struct ib_rbt_t;
@@ -999,6 +1001,47 @@ struct rec_cache_t {
   size_t nullable_cols{0};
 };
 
+struct cached_offsets_t
+{
+	cached_offsets_t() {}
+
+	void init() {
+		is_init.store(true);
+	}
+
+	void set_offsets(ulint *m_offsets, ulint offsets_i) {
+		cache_offset_mutex.lock();
+		if (!is_cached.load()) {
+			offsets = static_cast<ulint *>(ut_malloc(offsets_i * sizeof(*offsets), mem_key_row_merge_sort));
+			for (ulint i = 0; i < offsets_i; i++) {
+				offsets[i] = m_offsets[i];
+			}
+			is_cached.store(true);
+		}
+		cache_offset_mutex.unlock();
+	}
+
+	void get_cached_offsets(ulint *m_offsets, ulint offsets_i) {
+		for (ulint i = 0; i < offsets_i; i++) {
+			m_offsets[i] = offsets[i];
+		}
+	}
+
+	void reset() {
+		if (offsets) {
+			ut_free(offsets);
+			offsets = nullptr;
+		}
+		is_init.store(false);
+		is_cached.store(false);
+	}
+
+	ulint *offsets;
+	std::atomic<bool> is_cached{false};
+	std::atomic<bool> is_init{false};
+	std::mutex cache_offset_mutex;
+};
+
 /** Cache position of last inserted or selected record by caching record
 and holding reference to the block where record resides.
 Note: We don't commit mtr and hold it beyond a transaction lifetime as this is
@@ -1256,6 +1299,8 @@ struct dict_index_t {
 
   /** Flag whether need to fill dd tables when it's a fulltext index. */
   bool fill_dd;
+
+  cached_offsets_t cached_offs_pddl;
 
   /** Set instant nullable
   @param[in]  n  nullable fields before first INSTANT ADD */
