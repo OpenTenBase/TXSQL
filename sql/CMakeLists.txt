@@ -358,6 +358,7 @@ SET(SQL_PX_SOURCES
   parallel_execution/my_thread_barrier.cc
   parallel_execution/px_optimizer_context.cc
   parallel_execution/px_codec.cc
+  parallel_execution/px_resource_mgr.cc
 )
 
 SET(SQL_SHARED_SOURCES
