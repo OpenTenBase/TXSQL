@@ -14,6 +14,7 @@
 #include "px_optimizer_context.h" // post_init_worker_thd
 #include "sql/join_optimizer/access_path.h" // Access_path
 #include "sql/join_optimizer/explain_access_path.h" // CheckPlanEquivalence
+#include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
@@ -194,7 +195,14 @@ bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
 
   // Create exchange channels.
   if (thd->px_exchange_context->init()) {
-    goto err_finish;
+    goto err;
+  }
+
+  if (!PX_resource_manager::get_instance()->acquire(requested_cores)) {
+    PX_PRINT_WARN("failed to acquire %ld cores", requested_cores);
+    my_error(ER_PX_OUT_OF_THREADS, MYF(0), (int)requested_cores);
+    thd->need_fallback = true;
+    goto err;
   }
 
   PX_PRINT_INFO("acquired %ld cores", requested_cores);
@@ -217,10 +225,14 @@ bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
 
   goto finish;
 
+err:
+  return true;
+
 err_finish:
   res = true;
 
 finish:
+  PX_resource_manager::get_instance()->release(requested_cores);
   return res;
 }
 
@@ -786,6 +798,9 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         // Throw error 'ER_PX_EXECUTE_ERROR' when sending data.
         thd()->get_stmt_da()->reset_diagnostics_area();
         my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd()->px_errno);
+        mysql_mutex_lock(&LOCK_inc_px_stmt_error);
+        px_stmt_error++;
+        mysql_mutex_unlock(&LOCK_inc_px_stmt_error);
         return true;
       }
 

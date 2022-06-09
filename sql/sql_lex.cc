@@ -854,6 +854,11 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
+  // By definition, zero px_parallel_degree disables parallel execution.
+  if (!thd->variables.px_parallel_degree) {
+    return false;
+  }
+
   if (thd->is_attachable_transaction_active() ||
       thd->tx_isolation == ISO_SERIALIZABLE) {
     return false;

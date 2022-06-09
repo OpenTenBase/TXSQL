@@ -1903,6 +1903,10 @@ static void fallback_to_serial_execution(THD *thd,
   // thd->get_stmt_da()->reset_diagnostics_area();
   PX_PRINT_INFO("fall back to serial execution.");
 
+  mysql_mutex_lock(&LOCK_inc_px_stmt_fallback);
+  px_stmt_fallback++;
+  mysql_mutex_unlock(&LOCK_inc_px_stmt_fallback);
+
   /* PSI end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
   thd->m_statement_psi = nullptr;

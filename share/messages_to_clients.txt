@@ -9990,6 +9990,9 @@ reserved-error-section 5000 5999
 ER_PX_EXECUTE_ERROR
   eng "PX execute error of errno[%d]."
 
+ER_PX_OUT_OF_THREADS
+  eng "Could not allocate %d threads for parallel execution"
+
 ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT
   eng "CDB: thread(%lu) optimization context (%s) mismatch"
 

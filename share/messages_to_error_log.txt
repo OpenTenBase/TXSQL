@@ -12038,6 +12038,9 @@ ER_READ_TIME_AND_GTS_FROM_PREV
 ER_IB_ERR_PX_OOM
   eng "%s"
 
+ER_PX_THREAD_HANDLING_OOM
+  eng "Could not allocate memory for parallel thread handling"
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #

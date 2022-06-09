@@ -162,10 +162,11 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
   std::vector<Dfo*> ready_dfos;
   PX_exchange_context *context = m_thd->px_exchange_context;
   PX_exchange_info *exchange_info = nullptr;
+  Dfo *last = nullptr; // last parent of scheduling pair.
   int64_t total = 0;
-  size_t default_dop = m_thd->variables.px_parallel_degree;
-  // A dirty hack to avoid zero, will be fixed in #917.
-  if (default_dop == 0) default_dop = 4;
+  const size_t default_dop = m_thd->variables.px_parallel_degree;
+  // Zero dop by definition prevents parallel execution.
+  assert(default_dop > 0);
 
   while(true) {
     if (get_ready_dfos(ready_dfos)) {
@@ -186,6 +187,13 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
       if (!(exchange_info = context->get(child->dfo_id()))) {
         assert(0);
         return true;
+      }
+
+      if (DBUG_EVALUATE_IF("simulate_right_deep_plan", true, false) ||
+          (last && last != child && last != parent)) {
+        PX_PRINT_ERROR("detected right-deep tree");
+        m_thd->need_fallback = true;
+        return true; // Not consider right-deep situation.
       }
 
       if (!m_thd->m_is_worker) {
@@ -255,6 +263,7 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
 
       // Set dfo state, required by iteration.
       child->set_dfo_finished(true);
+      last = parent; // Child will be finished.
     }
   }
 
