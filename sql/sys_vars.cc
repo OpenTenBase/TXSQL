@@ -8847,7 +8847,7 @@ static Sys_var_bool Sys_px_fallback_in_execution(
     "px_fallback_in_execution",
     "Always fallback to sequential execution in execution phase. "
     "It is for testing purpose only.",
-    TENCENT_VAR GLOBAL_VAR(px_fallback_in_execution),
+    GLOBAL_VAR(px_fallback_in_execution),
     CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));

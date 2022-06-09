@@ -28,6 +28,28 @@ unsigned long px_max_parallel_threads;
 /// Force fallback in execution phase. It is for testing purpose.
 bool px_fallback_in_execution = false;
 
+static void px_init_psi_keys(void);
+
+/**
+  Initialize the parallel execution.
+
+  Called at server startup, say to initialize mutexes and condition variables.
+*/
+bool px_init(void) {
+#ifdef HAVE_PSI_INTERFACE
+  px_init_psi_keys();
+#endif
+  return false;
+}
+
+/**
+  Release resources of parallel execution.
+
+  Called at server shutdown. Destroys mutexes and condition variables.
+ */
+void px_destroy(void) {
+}
+
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_info all_px_mutexes[] = {
     {&key_px_thd_lock, "PX::LOCK_thd", 0, 0, PSI_DOCUMENT_ME},
@@ -47,7 +69,7 @@ static PSI_memory_info all_px_memory[] = {
     {&key_px_mq_memory, "PX::mq", 0, 0, PSI_DOCUMENT_ME},
 };
 
-void px_init_psi_keys(void) {
+static void px_init_psi_keys(void) {
   const char *category = "sql";
   int count;
 
@@ -67,7 +89,7 @@ void px_init_psi_keys(void) {
 }
 
 #else
-void px_init_psi_keys(void) {}
+static void px_init_psi_keys(void) {}
 #endif /* HAVE_PSI_INTERFACE */
 
 PX_proc::PX_proc(THD *thd) : m_thd(thd), m_notified() {
