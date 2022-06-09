@@ -11,7 +11,7 @@
 #include "sql/sql_optimizer.h"
 
 void SwitchSlice(JOIN *join, int slice_num) {
-  if (-1 != slice_num && !join->ref_items[slice_num].is_null()) {
+  if (slice_num >= 1 && !join->ref_items[slice_num].is_null()) {
     join->set_ref_item_slice(slice_num);
   }
 }
