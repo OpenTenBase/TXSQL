@@ -94,7 +94,7 @@ class Dfo {
 class Dfo_mgr {
  public:
   Dfo_mgr(THD *thd) : m_root_dfo(nullptr), m_thd(thd),
-    m_root_iterator(nullptr), m_dfo_id_counter(0), m_total_threads(0) {}
+    m_root_iterator(nullptr), m_dfo_id_counter(0) {}
 
   /**
     Split the iterator tree into DFOs' tree by exchange consumer pointer of the
@@ -112,8 +112,7 @@ class Dfo_mgr {
     Get the ready dfos array which has only two elements, a child and a parent.
 
     @param dfos out argument
-    @return true error
-    @return false success
+    @return true error, false success
   */
   bool get_ready_dfos(std::vector<Dfo*> &dfos) const;
 
@@ -121,13 +120,14 @@ class Dfo_mgr {
     Analyze the iterator tree and do a simple resource allocation, create
     every PX_exchange_info when meet with PX_receiver iterator.
     At last, we set the synchronization topology for the dfo tree.
+
+    @param cores out argument
+    @return true error, false success
   */
-  void analyze_resource_allocation();
+  bool analyze_resource_allocation(int64_t *cores = nullptr);
 
  public:
   Dfo *root_dfo() const { return m_root_dfo; }
-  void set_total_cores(int64_t cores) { m_total_threads = cores; }
-  int64_t cores() const { return m_total_threads; }
 
  public:
   Dfo* m_root_dfo; // Dfo tree which generate this SQL.
@@ -153,17 +153,12 @@ class Dfo_mgr {
    */
   bool create_exchange_info(int64_t dfo_id, RowIterator *iterator);
 
-  /**
-    Partition scan when dfo has scan iterator, we set need_fallback and
-    fallback to serial execution if the scan iterator can not be partitioned.
-  */
-  bool partition_scan(Dfo *dfo, size_t &dop);
-
  private:
   THD *m_thd; // THD handle.
   RowIterator *m_root_iterator;  // root iterator of the SQL.
   int64_t m_dfo_id_counter; // counter id for all dfo.
-  int64_t m_total_threads; // cores' number SQL will use.
 };
+
+TableRowIterator *analyze_parallel_table(Dfo *dfo);
 
 #endif  // PX_DFO_INCLUDED

@@ -74,7 +74,10 @@ class PX_exchange_info {
 
   PX_exchange_type type() { return m_type; }
   PX_exchange_format format() { return m_format; }
-  void set_dop(uint senders, uint receivers);
+  void set_num_senders(uint senders) { m_senders = senders; }
+  uint num_senders() const { return m_senders; }
+  void set_num_receivers(uint receivers) { m_receivers = receivers; }
+  uint num_receivers() const { return m_receivers; }
   void set_exchange_id(uint id) { m_exchange_id = id; }
   uint exchange_id() const { return m_exchange_id; }
   void set_top_exchange() { m_top_exchange = true; }
@@ -258,6 +261,15 @@ class PX_exchange_context {
     auto itr = m_exchange_info_map.find(id);
     if (itr == m_exchange_info_map.end()) return nullptr;
     return (itr->second);
+  }
+
+  bool init() {
+    for (auto &it : m_exchange_info_map) {
+      if (it.second->init()) {
+        return true;
+      }
+    }
+    return false;
   }
 
  private:

@@ -4,10 +4,26 @@
 #include "sql/parallel_execution/px_sender.h"  // PX_sender
 #include "sql/sql_lex.h"  // LEX
 #include "sql/sql_class.h"  // THD
-#include "sql/log.h"
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
+
+bool is_scan_iterator(RowIterator *iterator) {
+  return (iterator->type() == RowIterator::PHY_TABLE_SCAN ||
+       iterator->type() == RowIterator::PHY_CONST_TABLE ||
+       iterator->type() == RowIterator::PHY_INDEX_SCAN ||
+       iterator->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
+       iterator->type() == RowIterator::PHY_REF ||
+       iterator->type() == RowIterator::PHY_REF_OR_NULL ||
+       iterator->type() == RowIterator::PHY_EQ_REF);
+}
+
+bool is_partitionable_scan_iterator(RowIterator *iterator) {
+  return (iterator->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
+        iterator->type() == RowIterator::PHY_TABLE_SCAN ||
+        iterator->type() == RowIterator::PHY_INDEX_SCAN ||
+        iterator->type() == RowIterator::PHY_REF);
+}
 
 /**
   In this function, we split DFO and set property to it, for example, we set
@@ -41,13 +57,7 @@ bool Dfo_mgr::do_split(RowIterator *parent_iterator,
   } else { /* do nothing.*/ }
 
   Dfo *current_dfo = (nullptr == dfo) ? parent_dfo : dfo;
-  if (nullptr != current_dfo && (
-       iterator->type() == RowIterator::PHY_TABLE_SCAN ||
-       iterator->type() == RowIterator::PHY_CONST_TABLE ||
-       iterator->type() == RowIterator::PHY_INDEX_SCAN ||
-       iterator->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
-       iterator->type() == RowIterator::PHY_REF ||
-       iterator->type() == RowIterator::PHY_REF_OR_NULL) &&
+  if (nullptr != current_dfo && is_scan_iterator(iterator) &&
        !current_dfo->is_internal_dfo())
     current_dfo->set_dfo_type(LEAF_DFO);
 
@@ -72,8 +82,10 @@ bool Dfo_mgr::do_split(RowIterator *parent_iterator,
 /* create dfo for the subplan which contains iterator tree. */
 bool Dfo_mgr::create_dfo(RowIterator *iterator, Dfo *&dfo)
 {
-  if (!(dfo = new (m_thd->mem_root) Dfo()))
+  if (!(dfo = new (m_thd->mem_root) Dfo())) {
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
     return true;
+  }
   dfo->set_root_iterator(iterator);
   dfo->set_dfo_id(m_dfo_id_counter++);
   return false;
@@ -103,10 +115,10 @@ bool Dfo_mgr::create_exchange_info(int64_t dfo_id, RowIterator *iterator)
           PX_COMPACT_ROW, /*exchange_format=*/
           false, /*need_materialize=*/
           rehash_for_px); /*reshuffle_func_t=*/
-    if (nullptr == exchange_info) return true;
-    if (!m_thd->m_is_worker)
-      sql_print_information("Dfo_mgr::%s:%d %d-th exchange info created.",
-        __FUNCTION__, __LINE__, exchange_id);
+    if (!exchange_info) {
+      my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
+      return true;
+    }
     exchange_info->set_exchange_id(exchange_id);
     m_thd->px_exchange_context->insert(exchange_info);
     if (1 == dfo_id) exchange_info->set_top_exchange();
@@ -145,10 +157,16 @@ bool Dfo_mgr::get_ready_dfos(std::vector<Dfo*> &dfos) const
   1. A simple resource allocation strategy to set every stages' dop.
   2. Init the exchange info.
 */
-void Dfo_mgr::analyze_resource_allocation()
+bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
 {
   std::vector<Dfo*> ready_dfos;
   PX_exchange_context *context = m_thd->px_exchange_context;
+  PX_exchange_info *exchange_info = nullptr;
+  int64_t total = 0;
+  size_t default_dop = m_thd->variables.px_parallel_degree;
+  // A dirty hack to avoid zero, will be fixed in #917.
+  if (default_dop == 0) default_dop = 4;
+
   while(true) {
     if (get_ready_dfos(ready_dfos)) {
       break;
@@ -157,85 +175,131 @@ void Dfo_mgr::analyze_resource_allocation()
       break;
     } else if (ready_dfos.size() != 2) {
       assert(0);
-    } else { // TODO: more complex resource allocation.
-      size_t child_dop = 0;
+    } else { // TODO: more complex allocation, background.
       Dfo *child = ready_dfos[0];
       Dfo *parent = ready_dfos[1];
-      parent->set_dfo_dop(1); // Set parent dfo dop to 1 currently.
-      if (child->is_leaf_dfo()) { // Set child dfo dop to (max-1)
-        child_dop = m_thd->variables.px_parallel_degree - 1;
-        // Currently we choose the left most child leaf iterator.
-        if (partition_scan(child, child_dop)) return;
-      } else { // Set child dfo dop to 1 currently.
-        child->set_dfo_dop(1);
+
+      // FIXME set dop of inner nodes to reasonable
+      child->set_dfo_dop(1);
+      parent->set_dfo_dop(1);
+
+      if (!(exchange_info = context->get(child->dfo_id()))) {
+        assert(0);
+        return true;
       }
-      if (!m_thd->m_is_worker)
-        sql_print_information("Dfo_mgr::%s:%d Resource allocation child[%d] "
-          "parent[%d]", __FUNCTION__, __LINE__, child->dop(), parent->dop());
-      PX_exchange_info *exchange = context->get(child->dfo_id());
-      // Set dop of <child,parent> dfo pair and init exchange info.
-      exchange->set_dop(child->dop(), parent->dop());
-      if (!m_thd->m_is_worker && exchange->init()) return;
+
+      if (!m_thd->m_is_worker) {
+        exchange_info->set_num_receivers(parent->dop());
+
+        TableRowIterator *scan;
+        if (child->is_leaf_dfo() && (scan = analyze_parallel_table(child))) {
+          /*
+            Refine leaf dop to min(real_dop,default_dop).
+
+            Note that the dfo graph is private to each parallel thread, while
+            exchange is shared. Although dynamic partitioning provides real dop,
+            it is done only on the coordinator, the workers have to inherit real
+            dop through exchange.
+           */
+          uint partitions = 0;
+          PX_table_descriptor *desc  = scan->get_table_descriptor();
+          if (!desc) {
+            return true;
+          }
+
+          int err = px_partition(default_dop, child->m_px_scan_ctx, desc->table(),
+                                 desc->type(), desc->keyno(), desc->ref(), desc->reverse_scan(),
+                                 partitions);    
+          if (err) {
+            PX_PRINT_ERROR(
+                "partitioning table %s (%llu rows) with default dop %lu "
+                "got error %d",
+                desc->table()->alias, desc->table()->file->stats.records, default_dop, err);
+            return true;
+          }
+
+          assert(child->m_px_scan_ctx);
+          PX_PRINT_INFO(
+              "partitioning table %s (%llu rows) with default dop %lu "
+              "got %u partitions",
+              desc->table()->alias, desc->table()->file->stats.records, default_dop, partitions);
+          size_t dop = partitions;
+          /*
+            No dynamic partition suggests EOF for the iterator. There
+            still should be one thread to process the empty source.
+           */
+          dop = dop < 1 ? 1 : dop;
+          dop = dop > default_dop ? default_dop : dop;
+          child->set_dfo_dop(dop);
+          exchange_info->set_num_senders(dop);
+        } else {
+          exchange_info->set_num_senders(child->dop());
+        }
+      } else {
+        TableRowIterator *scan;
+        if (child->is_leaf_dfo() && (scan = analyze_parallel_table(child))) {
+          /*
+            Although parllel scan context will be passed over to workers
+            while a task is set up, the scan iterator itself still need to
+            switch to parallel scan.
+           */
+          scan->set_parallel_scan();
+        }
+        assert(exchange_info->num_senders() > 0);
+        child->set_dfo_dop(exchange_info->num_senders());
+      }
+
+      // Get the the maximum threads per each pair to reserve workers.
+      if (total < child->dop() + parent->dop())
+        total = child->dop() + parent->dop();
+
+      // Set dfo state, required by iteration.
       child->set_dfo_finished(true);
     }
   }
-  set_total_cores(m_thd->variables.px_parallel_degree); // TODO
-  // Reset finish flag for dfos in original normalized dfo tree.
+
+  // Reset dfo state.
   for (unsigned i = 0; i < m_normalized_dfo_tree.size(); ++i)
     m_normalized_dfo_tree.at(i)->set_dfo_finished(false);
+
+  assert(total > 0);
+  if (cores) *cores = total;
+
+  return false;
 }
 
 /**
+  Try to find parallel table in given DFO and prepare its dynamic partitions.
+
+  The DFO's dop is thus refined by the real number of partitions.
+
   Currently we just pick the leftmost table that can be scanned parallelly.
   More elegantly, we'll choose which table to read in parallel based on the
   code model.
 
-  @return true when error, false when success.
+  @return the parallel table iterator or nullptr
 */
-bool Dfo_mgr::partition_scan(Dfo *dfo, size_t &dop)
+TableRowIterator *analyze_parallel_table(Dfo *dfo)
 {
-  // Currently support several paralllel scan by PX_reader:
-  // 1. PHY_TABLE_SCAN;
-  // 2. PHY_INDEX_SCAN;
-  // 3. PHY_INDEX_RANGE_SCAN;
-  // 4. PHY_REF
-  // Currently, choose the left most child of the iterator tree.
-  RowIterator *iterator = dfo->root_iterator()->m_children[0];
-  assert(nullptr != iterator); // child iterator of PX_sender.
-  while(nullptr != iterator) {
-    if (iterator->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
-        iterator->type() == RowIterator::PHY_TABLE_SCAN ||
-        iterator->type() == RowIterator::PHY_INDEX_SCAN ||
-        iterator->type() == RowIterator::PHY_REF) {
-      uint partitions = 0;
-      TableRowIterator *scan = static_cast<TableRowIterator *>(iterator);
-      PX_table_descriptor *descriptor = scan->get_table_descriptor();
-      int err = px_partition(dop, dfo->m_px_scan_ctx, descriptor->table(),
-                             descriptor->type(), descriptor->keyno(),
-                             descriptor->ref(), descriptor->reverse_scan(), partitions);
-      destroy(descriptor);
-      if (!err) {
-        assert(dfo->m_px_scan_ctx);
-        scan->set_parallel_scan();
-        partitions = (partitions <= 0 ? 1 : partitions);
-        dfo->set_dfo_dop(dop < partitions ? dop : partitions);
-        break;
-      } else {
-        // assert(!dfo->m_px_scan_ctx);
-        if (m_thd->killed) return true;
-        sql_print_warning("Dfo_mgr::%s:%d px_partition error"
-          "to fallback to serial execution.", __FUNCTION__, __LINE__);
-        m_thd->need_fallback = true;
-        return true; 
-      }
+  // The root iterator may be PX_sender or the root of the entire tree.
+  RowIterator *root, *iterator;
+  root = iterator = dfo->root_iterator();
+  assert(iterator);
+
+  do {
+    if (is_partitionable_scan_iterator(iterator)) {
+      return down_cast<TableRowIterator *>(iterator);
     } else {
       if (0 == iterator->m_children.size())
         iterator = nullptr;
-      else if (iterator->type() == RowIterator::PHY_PX_SEND)
+      else if (iterator != root &&
+               (iterator->type() == RowIterator::PHY_PX_SEND ||
+                iterator->type() == RowIterator::PHY_PX_RECEIVE))
         iterator = nullptr;
       else
         iterator = iterator->m_children[0];
     }
-  }
-  return false;
+  } while (iterator);
+
+  return nullptr;
 }

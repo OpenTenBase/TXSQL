@@ -98,8 +98,7 @@ class Worker_exec_ctx {
 */
 class PX_executor {
  public:
-  PX_executor(Dfo_mgr *dfo_mgr, THD *thd)
-    : m_dfo_mgr(dfo_mgr), m_thd(thd), m_proc(thd) {}
+  PX_executor(THD *thd): m_dfo_mgr(thd), m_thd(thd), m_proc(thd) {}
   virtual ~PX_executor() {}
 
   PX_executor *coordinator() {
@@ -114,20 +113,20 @@ class PX_executor {
   }
   uint thread_id() const { return m_thd->thread_id(); }
   PX_proc *proc() { return &m_proc; }
+  Dfo_mgr *dfo_mgr() { return &m_dfo_mgr; }
 
   virtual bool prepare_task_for_dfo() { return false; }
   virtual void notify_all_workers(THD::killed_state state_to_set) {}
 
  protected:
   THD *thd() const { return m_thd; }
-  Dfo_mgr *dfo_mgr() const { return m_dfo_mgr; }
 
  public:
   // Task hash table in coordinator or worker.
   std::unordered_map<int64_t, PX_task*> m_tasks_hash;
 
  protected:
-  Dfo_mgr *m_dfo_mgr;
+  Dfo_mgr m_dfo_mgr;
   THD *m_thd;
   PX_proc m_proc;
 };
@@ -140,7 +139,7 @@ class PX_executor {
 */
 class PX_worker : public PX_executor {
  public:
-  PX_worker(Dfo_mgr *dfo_mgr, THD *thd) : PX_executor(dfo_mgr, thd) {}
+  PX_worker(THD *thd) : PX_executor(thd) {}
   ~PX_worker() {}
 
   /**
@@ -175,7 +174,7 @@ class PX_worker : public PX_executor {
 */
 class PX_coordinator : public PX_executor {
  public:
-  PX_coordinator(Dfo_mgr *dfo_mgr, THD *thd) :PX_executor(dfo_mgr, thd) {}
+  PX_coordinator(THD *thd) :PX_executor(thd) {}
   ~PX_coordinator() {}
 
   /**
@@ -243,8 +242,7 @@ class PX_coordinator : public PX_executor {
 */
 class PX_parallel_coordinator : public PX_coordinator {
  public:
-  PX_parallel_coordinator(Dfo_mgr *dfo_mgr, THD *thd)
-    : PX_coordinator(dfo_mgr, thd) {}
+  PX_parallel_coordinator(THD *thd): PX_coordinator(thd) {}
   ~PX_parallel_coordinator() {}
 
   /**

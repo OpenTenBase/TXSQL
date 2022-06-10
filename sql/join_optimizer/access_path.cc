@@ -718,9 +718,7 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
     default:
       break;
   }
-  if (!parallel_safe)
-    sql_print_information("WalkAccessPathsForCompat:%d NO Compat type[%d]",
-      __LINE__, path->type);
+  if (!parallel_safe) PX_PRINT_INFO("NO Compat type[%d]", path->type);
   return parallel_safe;
 }
 
