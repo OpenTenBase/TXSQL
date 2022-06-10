@@ -897,15 +897,29 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     return true;
   }
 
+  int64_t requested_cores = 0;
+  if (thd->use_px &&
+      px_optimize(thd, unit->root_iterator(), unit->root_access_path(),
+                  (unit->is_union() ? nullptr : unit->first_select()->join),
+                  requested_cores)) {
+    return true;
+  }
+
   if (lex->is_explain()) {
     if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
   } else if (thd->use_px) {
-    // Fallback to serial if turn px_fallback_in_execution on.
+    // Fallback to serial if px_fallback_in_execution is on.
     if (px_fallback_in_execution) {
       thd->need_fallback = true;
       return false;
     }
-    if (unit->execute_in_parallel(thd)) return true;
+    if (PX_ROLE_COORDINATOR(thd)) {
+      if (px_execute_in_coordinator(thd, unit->root_iterator(),
+                                    requested_cores))
+          return true;
+    } else {
+      if (px_execute_in_worker(thd, unit->root_iterator())) return true;
+    }
   } else {
     if (unit->execute(thd)) return true;
 

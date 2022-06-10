@@ -12,6 +12,8 @@
 #include "sql/iterators/basic_row_iterators.h"  // TableScanIterator
 #include "sql/parallel_execution/px.h"
 #include "px_optimizer_context.h" // post_init_worker_thd
+#include "sql/join_optimizer/access_path.h" // Access_path
+#include "sql/join_optimizer/explain_access_path.h" // CheckPlanEquivalence
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
@@ -85,7 +87,7 @@ static void *execute_task_in_worker(void *arg)
   // Get the PX_worker pointer from THD.
   THD *thd = worker_info->worker_thd;
   thd->px_scan_ctx = worker_info->scan_ctx;
-  PX_task *task = thd->px_executor->m_tasks_hash[worker_info->task_id];
+  PX_task *task = PX_EXECUTOR(thd)->m_tasks_hash[worker_info->task_id];
   PX_PRINT_INFO("worker %d run task %d", thd->worker_id, worker_info->task_id);
   // @TODO: need to process return value
   task->run(thd);
@@ -93,6 +95,237 @@ static void *execute_task_in_worker(void *arg)
   static_cast<PX_sender *>(task->root_iterator())->End();
   return nullptr;
 }
+
+static bool check_plan_equivalence(THD *thd, AccessPath *plan, JOIN *join);
+
+#ifndef DBUG_OFF
+static void debug_print_iterator(const char *prefix, RowIterator *iterator,
+                                 Dfo_mgr *dfo_mgr = nullptr, int indent = 0);
+static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent);
+#endif
+
+/**
+  Generate a parallel plan from the serial one and determine resources to use.
+ */
+bool px_optimize(THD *thd, RowIterator *root_iterator, AccessPath *root_path,
+                 JOIN *root_join, int64_t &requested_cores) {
+  Dfo_mgr *dfo_mgr = nullptr;
+  PX_executor *executor = nullptr;
+
+  assert(thd->use_px);
+
+  // Create the interface object to the parallel world.
+  if (PX_ROLE_COORDINATOR(thd)) {
+    executor = new (thd->mem_root) PX_parallel_coordinator(thd);
+  } else {
+    executor = new (thd->mem_root) PX_worker(thd);
+  }
+  if (!executor) goto oom;
+  PX_EXECUTOR(thd) = executor;
+
+  /*
+    Create the context for exchange instances which are shared among all
+    parallel threads.
+   */
+  if (PX_ROLE_COORDINATOR(thd)) {
+    thd->px_exchange_context = new (thd->mem_root) PX_exchange_context();
+    if (!thd->px_exchange_context) goto oom;
+  } else {
+    thd->px_exchange_context =
+        PX_EXECUTOR(thd)->coordinator()->thd()->px_exchange_context;
+    assert(thd->px_exchange_context);
+  }
+
+  /*
+    Verify for a worker that its plan is same to that of the coordinator,
+    which is assumed by all successive operations.
+   */
+  if (PX_ROLE_WORKER(thd)) {
+    PX_PRINT_INFO("worker %d start", thd->worker_id);
+    if (!check_plan_equivalence(thd, root_path, root_join)) {
+      PX_PRINT_ERROR("worker %d check plan found different plan",
+                     thd->worker_id);
+      my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
+          (thd)->thread_id(), "unequal plan");
+      goto err;
+    }
+    PX_PRINT_INFO("worker %d check plan OK", thd->worker_id);
+  }
+
+  /*
+    Determine plan fragments and their parallelism.
+
+    Note that the dfo tee is private to each thread, analyzing is done on the
+    coordinator and the result is inherited by all workers through the shared
+    exchange instances.
+   */
+#ifndef DBUG_OFF
+  if (PX_ROLE_COORDINATOR(thd)) {
+    debug_print_iterator("iterator(raw): ", root_iterator);
+  }
+#endif
+  dfo_mgr = executor->dfo_mgr();
+  if (dfo_mgr->do_split(nullptr, root_iterator, dfo_mgr->m_root_dfo) ||
+      dfo_mgr->analyze_resource_allocation(&requested_cores) ) {
+    goto err;
+  }
+#ifndef DBUG_OFF
+  if (PX_ROLE_COORDINATOR(thd)) {
+    debug_print_iterator("iterator(analyzed): ", root_iterator, dfo_mgr);
+  }
+#endif
+
+  return false;
+
+oom:
+  my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
+
+err:
+  return true;
+}
+
+bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
+                               int64_t requested_cores) {
+  bool res = false;
+  PX_coordinator *coordinator = down_cast<PX_coordinator *>(PX_EXECUTOR(thd));
+  Dfo_mgr *dfo_mgr = coordinator->dfo_mgr();
+  assert(PX_ROLE_COORDINATOR(thd) && coordinator && requested_cores > 0);
+  worker_pool_t *worker_pool = nullptr;
+
+  // Create exchange channels.
+  if (thd->px_exchange_context->init()) {
+    goto err_finish;
+  }
+
+  PX_PRINT_INFO("acquired %ld cores", requested_cores);
+
+  DEBUG_SYNC_C("execute_in_parallel_before");
+#ifndef DBUG_OFF
+  debug_print_dfo("dfo tree: ", dfo_mgr->root_dfo(), 0);
+#endif
+  if (thd->is_error()) goto err_finish;
+
+  worker_pool = create_worker_threads(requested_cores);
+  if (!worker_pool) {
+    PX_PRINT_ERROR("unable to create threads");
+    goto err_finish;
+  }
+  thd->worker_pool = worker_pool;
+
+  PX_PRINT_INFO("start scheduling");
+  if (coordinator->schedule(worker_pool)) goto err_finish;
+
+  goto finish;
+
+err_finish:
+  res = true;
+
+finish:
+  return res;
+}
+
+bool px_execute_in_worker(THD *thd, RowIterator *root_iterator) {
+  PX_worker *worker = down_cast<PX_worker *>(PX_EXECUTOR(thd));
+  assert(PX_ROLE_WORKER(thd) && worker);
+
+  /*
+    Set up so that the worker understands task commands from the coordinator.
+    Imagine the command arguements are correspondent on each parallel thread.
+   */
+  if (worker->prepare_task_for_dfo()) goto err;
+
+  // Wait other workers finish their parse and optimize work.
+  if (optimize_finsh_signal(thd->worker_arg)) goto err;
+
+  // Start the task command loop.
+  thd->px_worker_state = PX_WORKER_EXECUTE;
+  worker->loop();
+  PX_PRINT_INFO("worker %d leave task loop", thd->worker_id);
+
+  return thd->is_error();
+
+err:
+  return true;
+}
+
+/**
+  Check plan equivalence on worker. The result is saved in the shared space.
+
+  @param thd  worker thd
+  @param plan worker plan
+  @param join optimizer state for plan root
+
+  @return true if equal, false otherwise
+ */
+static bool check_plan_equivalence(THD *thd, AccessPath *plan, JOIN *join) {
+  int base_level = 0;
+  thd->m_equivalence_check_phase = true;
+  assert(PX_ROLE_WORKER(thd));
+
+  thd->worker_arg->is_equivalent_plan =
+      CheckPlanEquivalence(base_level,
+                           thd->worker_arg->coordinator_root_access_path,
+                           thd->worker_arg->coordinator_join,
+                           plan,
+                           join,
+                           /*is_root_of_join=*/!join);
+  thd->m_equivalence_check_phase = false;
+
+  return thd->worker_arg->is_equivalent_plan;
+}
+
+#ifndef DBUG_OFF
+static void debug_print_iterator(const char *prefix, RowIterator *iterator,
+                                 Dfo_mgr *dfo_mgr, int indent) {
+  String space;
+  for (int i = 0; i < indent; i++) {
+    space.append(' ');
+  }
+
+  Dfo *dfo = nullptr;
+  if (dfo_mgr) {
+    for (auto &it : dfo_mgr->m_normalized_dfo_tree) {
+      if (iterator == it->root_iterator()) {
+        dfo = it;
+        break;
+      }
+    }
+    if (iterator == dfo_mgr->root_dfo()->root_iterator()) {
+      dfo = dfo_mgr->root_dfo();
+    }
+  }
+  if (dfo) {
+    TableRowIterator *scan = analyze_parallel_table(dfo);
+    if (scan) {
+      PX_PRINT_INFO(
+          "%s%s%s (dfo %ld dop %ld pscan %s)", prefix, space.c_ptr_safe(),
+          iterator->str().c_str(), dfo->dfo_id(), dfo->dop(),
+          scan->get_qep_tab()->table()->alias);
+    } else {
+      PX_PRINT_INFO(
+          "%s%s%s (dfo %ld dop %ld)", prefix, space.c_ptr_safe(),
+          iterator->str().c_str(), dfo->dfo_id(), dfo->dop());
+    }
+  } else {
+    PX_PRINT_INFO("%s%s%s", prefix, space.c_ptr_safe(),
+        iterator->str().c_str());
+  }
+
+  for (unsigned i = 0; i < iterator->m_children.size(); ++i)
+    debug_print_iterator(prefix, iterator->m_children[i], dfo_mgr, indent + 2);
+}
+
+static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent) {
+  String space;
+  for (int i = 0; i < indent; i++) {
+    space.append(' ');
+  }
+  PX_PRINT_INFO("%s%s%s (dop %ld)", prefix, space.c_ptr_safe(),
+                dfo->root_iterator()->str().c_str(), dfo->dop());
+  for (unsigned i = 0; i < dfo->m_child_dfos.size(); ++i)
+    debug_print_dfo(prefix, dfo->m_child_dfos.at(i), indent + 2);
+}
+#endif
 
 /**
   When common task executing, read data from the child to the MQ,
