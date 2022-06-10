@@ -994,10 +994,6 @@ class Query_expression {
 
   bool ExecuteIteratorQuery(THD *thd);
   bool execute(THD *thd);
-  bool execute_in_parallel(THD *thd);
-  bool execute_in_coordinator(THD *thd);
-  bool execute_in_worker(THD *thd);
-  bool check_plan_equivalence(THD *thd);
   bool explain(THD *explain_thd, const THD *query_thd);
   void cleanup(THD *thd, bool full);
   /**

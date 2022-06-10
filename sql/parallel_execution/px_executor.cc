@@ -298,9 +298,8 @@ static void debug_print_iterator(const char *prefix, RowIterator *iterator,
     TableRowIterator *scan = analyze_parallel_table(dfo);
     if (scan) {
       PX_PRINT_INFO(
-          "%s%s%s (dfo %ld dop %ld pscan %s)", prefix, space.c_ptr_safe(),
-          iterator->str().c_str(), dfo->dfo_id(), dfo->dop(),
-          scan->get_qep_tab()->table()->alias);
+          "%s%s%s (dfo %ld dop %ld pscan)", prefix, space.c_ptr_safe(),
+          iterator->str().c_str(), dfo->dfo_id(), dfo->dop());
     } else {
       PX_PRINT_INFO(
           "%s%s%s (dfo %ld dop %ld)", prefix, space.c_ptr_safe(),
