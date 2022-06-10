@@ -190,6 +190,8 @@
 #include "sql/opt_outline_loader.h"
 #include "sql/opt_outline_builder.h"
 #include "sql/sql_seq.h"
+#include "sql/parallel_execution/px.h" // PX_PRINT_
+#include "sql/parallel_execution/px_executor.h" // PX_executor
 /**
   Changes from txsql end.
 */
@@ -1899,7 +1901,7 @@ static void copy_bind_parameter_values(THD *thd, PS_PARAM *parameters,
 static void fallback_to_serial_execution(THD *thd,
                                          Parser_state *parser_state) {
   // thd->get_stmt_da()->reset_diagnostics_area();
-  sql_print_information("Fall back to serial execution.");
+  PX_PRINT_INFO("fall back to serial execution.");
 
   /* PSI end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());

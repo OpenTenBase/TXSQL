@@ -166,7 +166,7 @@ bool optimize_finsh_signal(worker_thread_arg* arg)
                        std::memory_order_relaxed)+1;
   // All workers have done.
   if (num_workers_done == *arg->num_workers) {
-    sql_print_information("optimize_finsh_signal sem_workers_done open !!!!");
+    PX_PRINT_INFO("REPORT all workers are ready to run tasks");
     if (0 != pthread_semphore_post(arg->sem_workers_done))
       return true;
   }
@@ -198,7 +198,7 @@ bool allocate_threads(worker_pool_t *worker_pool, Worker_exec_ctx *ctx)
       worker_pool->bitmap_map |= ((uint64_t)1 << chosen);
       break;
     }
-  sql_print_information("set_threads_bitmap: group[%d]", chosen);
+  PX_PRINT_INFO("set_threads_bitmap: group[%d]", chosen);
   assert(-1 != chosen);
   // task execution group.
   ctx->set_group_id(chosen);
@@ -246,9 +246,8 @@ void task_finish_signal(worker_thread_arg *arg)
   MY_BITMAP *chosen_bitmap = (*arg->bitmap)[group_id];
   bitmap_clear_bit(chosen_bitmap, arg->worker_thd->worker_id);
   if (bitmap_is_clear_all(chosen_bitmap)) {
-    sql_print_information("task_finish_signal. group: %d", group_id);
     *(arg->bitmap_map) ^= group_id;
-    sql_print_information("task_finish_signal sem_workers_done open !!!!");
+    PX_PRINT_INFO("REPORT workers group %d finish task", group_id);
     pthread_semphore_post(arg->sem_workers_done);
   }
   mysql_mutex_unlock(arg->mutex_task);
@@ -320,6 +319,7 @@ static void* thread_func_in_worker(void *arg)
                          std::memory_order_relaxed)+1;
     if (num_workers_done == *thread_arg->num_workers) {
       // All workers have done.
+      // PX_PRINT_INFO("REPORT all workers are done");
       pthread_semphore_post(thread_arg->sem_workers_done);
     }
   }
@@ -329,6 +329,7 @@ static void* thread_func_in_worker(void *arg)
                        std::memory_order_relaxed)+1;
   if (num_workers_done == *thread_arg->num_workers) {
     // All workers have done.
+    // PX_PRINT_INFO("REPORT all workers are done");
     pthread_semphore_post(thread_arg->sem_workers_done);
   }
 

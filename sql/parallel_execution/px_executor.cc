@@ -50,11 +50,14 @@ static void *rebuild_query_execution(void *args)
   bool err = thd->get_stmt_da()->is_error();
 
   if (!err) err = parse_sql(thd, parser_state, nullptr);
-  sql_print_information("rebuild_query_execution:%d parse return[%d]", __LINE__, err);
+  if (err) {
+    PX_PRINT_ERROR(
+        "parse_sql() got error %d on worker %d", err, thd->worker_id);
+  }
 
   if (!err && !thd->is_error()) error = mysql_execute_command(thd, true);
-  sql_print_information("rebuild_query_execution:%d execute return[%d] state[%d]", 
-    __LINE__, error, thd->px_worker_state);
+  PX_PRINT_ERROR("mysql_execute_command() got error %d state %d",
+      error, thd->px_worker_state);
 
   if (error && thd->px_worker_state <= PX_WORKER_PARSE_OPTIMIZE)
     handle_optimize_finish_error(thd->worker_arg);
@@ -83,6 +86,7 @@ static void *execute_task_in_worker(void *arg)
   THD *thd = worker_info->worker_thd;
   thd->px_scan_ctx = worker_info->scan_ctx;
   PX_task *task = thd->px_executor->m_tasks_hash[worker_info->task_id];
+  PX_PRINT_INFO("worker %d run task %d", thd->worker_id, worker_info->task_id);
   // @TODO: need to process return value
   task->run(thd);
   /* Call End function for exchange operator. */
@@ -98,8 +102,6 @@ static void *execute_task_in_worker(void *arg)
 */
 bool PX_task::run(THD *thd)
 {
-  sql_print_information("PX_task::%s:%d task to run in THD[%d]",
-    __FUNCTION__, __LINE__, thd->worker_id);
   if (sub_iterator->Init()) return true;
 
   PFSBatchMode pfs_batch_mode(sub_iterator);
@@ -130,16 +132,14 @@ bool PX_task::run(THD *thd)
 */
 bool PX_task::run_root(THD *thd)
 {
-  sql_print_information("PX_task::%s:%d run root task.",
-    __FUNCTION__, __LINE__);
+  PX_PRINT_INFO("run root task");
 
   if (DBUG_EVALUATE_IF("test_error_before_sending_data_coor", true, false))
     my_error(ER_DA_OOM, MYF(0));
 
   // Check other workers' execution, need fallback if error ocurred.
   if (thd->check_px_error()) {
-    sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
-      __FUNCTION__, __LINE__, thd->px_errno);
+    PX_PRINT_ERROR("detected error %d", thd->px_errno);
     thd->need_fallback = true;
     return true;
   }
@@ -284,6 +284,7 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
   if (create_worker_context(worker_pool, th_arg_array))
     return true;
 
+  PX_PRINT_INFO("COMMAND run sql");
   thread_func = rebuild_query_execution;
   set_threads_args(worker_pool, thread_func, (void **)th_arg_array, num_workers);
   /**
@@ -303,8 +304,7 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
 
   // Back to serial execution if error occurred before sending data.
   if (thd()->check_px_error()) {
-    sql_print_warning("PX_sequential_coordinator::%s:%d error[%d] occurred",
-      __FUNCTION__, __LINE__, thd()->px_errno);
+    PX_PRINT_ERROR("detected error %d", thd()->px_errno);
     thd()->get_stmt_da()->reset_diagnostics_area();
     thd()->need_fallback = true;
     goto end_workers;
@@ -314,8 +314,7 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
   if (!check_equivalence(worker_pool))
     goto end_workers;
 
-  sql_print_information("PX_sequential_coordinator::%s:%d schedule DFO.",
-    __FUNCTION__, __LINE__);
+  PX_PRINT_INFO("prepare for run task command");
   /**
     Dispatch tasks to all workers, we dispatch all task pairs(tp) to
     all workers by using the tasks which convert from dfos. like
@@ -351,8 +350,7 @@ end_workers:
   if (query_execute_barrier(worker_pool)) goto clean_workers;
 
 clean_workers:
-  sql_print_information("PX_sequential_coordinator::%s:%d Cleanup worker pool.",
-    __FUNCTION__, __LINE__);
+  PX_PRINT_INFO("clean up worker pool");
   worker_pool_cleanup(worker_pool);
 
   Prealloced_array<THD *, 60>::iterator iter = thd_list.begin();
@@ -371,9 +369,8 @@ bool PX_coordinator::check_equivalence(worker_pool_t *worker_pool)
   for (int i = 1; i < worker_pool->num_workers; ++i) {
     if (!worker_pool->thread_args[i].is_equivalent_plan) {
       thd()->need_fallback = true;
-      // TODO delete in release version
-      sql_print_warning("%d-th/%d thread generated an unequal plan",
-                        i, worker_pool->num_workers);
+      PX_PRINT_ERROR("worker %d of %d got an unequal plan",
+                     i, worker_pool->num_workers);
       assert(false);
       return false;
     }
@@ -389,14 +386,13 @@ bool PX_coordinator::check_equivalence(worker_pool_t *worker_pool)
 */
 bool PX_worker::prepare_task_for_dfo()
 {
-  for (uint i = 0; i < m_dfo_mgr->m_normalized_dfo_tree.size(); ++i) {
-    Dfo *dfo = m_dfo_mgr->m_normalized_dfo_tree.at(i);
+  for (uint i = 0; i < m_dfo_mgr.m_normalized_dfo_tree.size(); ++i) {
+    Dfo *dfo = m_dfo_mgr.m_normalized_dfo_tree.at(i);
     PX_task *task = new (m_thd->mem_root) PX_task(dfo->root_iterator());
     if (nullptr == task) return true;
     m_tasks_hash.insert(std::pair<int64_t, PX_task*>(dfo->dfo_id(), task));
-    sql_print_information("PX_worker::%s:%d prepare task[%d] of iterator[%s] r[%d]"
-      "parent dfo [%d]", __FUNCTION__, __LINE__, dfo->dfo_id(),
-      dfo->root_iterator()->str().c_str(), dfo->is_root_dfo(),
+    PX_PRINT_INFO("set up task %ld as iterator %s parent %ld", dfo->dfo_id(),
+      dfo->root_iterator()->str().c_str(),
       dfo->is_root_dfo() ? -1 : dfo->parent_dfo()->dfo_id());
   }
   return false;
@@ -416,6 +412,7 @@ void PX_worker::loop()
   void *thread_func_arg = nullptr;
   worker_thread_arg *thread_arg = thd()->worker_arg;
 
+  PX_PRINT_INFO("worker %d enter task loop", thd()->worker_id);
   while (true) {
     sem_wait (&thread_arg->sem_inner);
     if (*thread_arg->finished)
@@ -506,9 +503,8 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
 
       if (thd()->killed) return true; // return if query be killed.
       if (thd()->need_fallback) return false; // Fallback to serial execution.
-      sql_print_information("PX_parallel_coordinator::%s:%d Child dfo[%d], "
-        "parent dfo[%d], is root[%d]", __FUNCTION__, __LINE__,
-        child->dfo_id(), parent->dfo_id(), parent->is_root_dfo());
+      PX_PRINT_INFO("COMMAND run task (%ld,%ld)", child->dfo_id(),
+          child->is_root_dfo() ? -1 : parent->dfo_id());
 
       // Attach exchange info for child, parent or last parent dfo.
       attach_exchange_info(num_workers, th_arg_array, &last_parent_desc,
@@ -544,9 +540,8 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         if (task_execute_start(worker_pool, &child_desc)) return true;
       }
 
-      sql_print_information("PX_parallel_coordinator::%s:%d Child map[%d], "
-        "Parent map[%d]", __FUNCTION__, __LINE__,
-        *child_desc.bitmap.bitmap, *parent_desc.bitmap.bitmap);
+      PX_PRINT_INFO("Child map[%d] Parent map[%d]",
+          *child_desc.bitmap.bitmap, *parent_desc.bitmap.bitmap);
 
       DEBUG_SYNC_C("execute_in_parallel_scheduling_before_root");
       if (parent->is_root_dfo()) run_root_dfo_task();

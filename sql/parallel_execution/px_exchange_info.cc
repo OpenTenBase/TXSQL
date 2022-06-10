@@ -33,11 +33,6 @@ PX_exchange_info::PX_exchange_info(THD *thd, PX_exchange_type exchange_type,
   assert(exchange_type == PX_GATHER_EXCHANGE);
 }
 
-void PX_exchange_info::set_dop(uint senders, uint receivers) {
-  m_senders = senders;
-  m_receivers = receivers;
-}
-
 /**
   Initialize registries.
 
