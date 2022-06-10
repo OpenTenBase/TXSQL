@@ -1,5 +1,6 @@
 #include "sql/parallel_execution/px_resource_mgr.h"
 #include "sql/parallel_execution/px_interface.h"
+#include "sql/parallel_execution/px.h"
 #include "mysql/psi/mysql_thread.h"  // mysql_mutex_init
 
 PX_resource_manager *PX_resource_manager::m_instance = nullptr;

@@ -6,6 +6,8 @@
 
 #include "px.h"
 
+#include <mysql/components/services/log_builtins.h>
+
 #include "my_psi_config.h"           // HAVE_PSI_INTERFACE
 #include "mysql/psi/mysql_cond.h"    // mysql_cond_register
 #include "mysql/psi/mysql_memory.h"  // mysql_memory_register
@@ -17,11 +19,34 @@
 
 #include "sql/sql_class.h"  // THD
 
+#include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
+
 PSI_mutex_key key_px_thd_lock;
 PSI_cond_key key_px_thd_cond;
 
 PSI_mutex_key key_px_mq_lock;
 PSI_memory_key key_px_mq_memory;
+
+static PSI_mutex_key key_LOCK_allocate_resource;
+static PSI_mutex_key key_LOCK_inc_px_stmt_executed;
+static PSI_mutex_key key_LOCK_inc_px_stmt_fallback;
+static PSI_mutex_key key_LOCK_inc_px_stmt_error;
+
+/**
+  The lock which used by parallel execution.
+*/
+mysql_mutex_t LOCK_allocate_resource;
+mysql_mutex_t LOCK_inc_px_stmt_executed;
+mysql_mutex_t LOCK_inc_px_stmt_fallback;
+mysql_mutex_t LOCK_inc_px_stmt_error;
+
+/**
+  Current statements of parallel execution.
+*/
+ulong px_used_threadpool_size = 0;
+ulong px_stmt_executed = 0;
+ulong px_stmt_fallback = 0;
+ulong px_stmt_error = 0;
 
 /// The maximum number of parallel workers to use for parallel execution.
 unsigned long px_max_parallel_threads;
@@ -39,6 +64,21 @@ bool px_init(void) {
 #ifdef HAVE_PSI_INTERFACE
   px_init_psi_keys();
 #endif
+
+  mysql_mutex_init(key_LOCK_allocate_resource, &LOCK_allocate_resource,
+                   MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_inc_px_stmt_executed, &LOCK_inc_px_stmt_executed,
+                   MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_inc_px_stmt_fallback, &LOCK_inc_px_stmt_fallback,
+                   MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_inc_px_stmt_error, &LOCK_inc_px_stmt_error,
+                   MY_MUTEX_INIT_FAST);
+
+  if (PX_resource_manager::init_instance()) {
+    LogErr(ERROR_LEVEL, ER_PX_THREAD_HANDLING_OOM);
+    return true;
+  }
+
   return false;
 }
 
@@ -48,12 +88,26 @@ bool px_init(void) {
   Called at server shutdown. Destroys mutexes and condition variables.
  */
 void px_destroy(void) {
+  PX_resource_manager::destroy_instance();
+
+  mysql_mutex_destroy(&LOCK_allocate_resource);
+  mysql_mutex_destroy(&LOCK_inc_px_stmt_executed);
+  mysql_mutex_destroy(&LOCK_inc_px_stmt_fallback);
+  mysql_mutex_destroy(&LOCK_inc_px_stmt_error);
 }
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_info all_px_mutexes[] = {
     {&key_px_thd_lock, "PX::LOCK_thd", 0, 0, PSI_DOCUMENT_ME},
     {&key_px_mq_lock, "PX::LOCK_mq", 0, 0, PSI_DOCUMENT_ME},
+    {&key_LOCK_allocate_resource, "LOCK_allocate_resource", PSI_FLAG_SINGLETON,
+     0, PSI_DOCUMENT_ME},
+    {&key_LOCK_inc_px_stmt_executed, "LOCK_inc_px_stmt_executed",
+     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&key_LOCK_inc_px_stmt_fallback, "LOCK_inc_px_stmt_fallback",
+     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&key_LOCK_inc_px_stmt_error, "LOCK_inc_px_stmt_error", PSI_FLAG_SINGLETON,
+     0, PSI_DOCUMENT_ME},
 };
 
 static PSI_cond_info all_px_conds[] = {
@@ -146,6 +200,34 @@ void PX_proc::wait(ulong timeout, const PSI_stage_info *stage,
 
 PX_handle_status PX_proc::check_status() {
   return is_killed() ? KILLED : STARTED;
+}
+
+int show_px_stmt_executed(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = (long)px_stmt_executed;
+  return 0;
+}
+
+int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = (long)px_stmt_fallback;
+  return 0;
+}
+
+int show_px_stmt_error(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = (long)px_stmt_error;
+  return 0;
+}
+
+int show_px_used_threadpool_size(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = (long)px_used_threadpool_size;
+  return 0;
 }
 
 bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,

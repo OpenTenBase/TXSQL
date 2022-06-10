@@ -969,7 +969,6 @@ MySQL clients support the protocol:
 #include "sql/dd/performance_schema/init.h"  // performance_schema::init
 #include "sql/dd/upgrade/server.h"      // dd::upgrade::upgrade_system_schemas
 #include "sql/dd/upgrade_57/upgrade.h"  // dd::upgrade_57::in_progress
-#include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
 #include "sql/server_component/component_sys_var_service_imp.h"
 #include "sql/server_component/log_builtins_filter_imp.h"
 #include "sql/server_component/log_builtins_imp.h"
@@ -1103,10 +1102,6 @@ static PSI_mutex_key key_LOCK_replica_list;
 static PSI_mutex_key key_LOCK_sql_replica_skip_counter;
 static PSI_mutex_key key_LOCK_replica_net_timeout;
 static PSI_mutex_key key_LOCK_replica_trans_dep_tracker;
-static PSI_mutex_key key_LOCK_allocate_resource;
-static PSI_mutex_key key_LOCK_inc_px_stmt_executed;
-static PSI_mutex_key key_LOCK_inc_px_stmt_fallback;
-static PSI_mutex_key key_LOCK_inc_px_stmt_error;
 static PSI_mutex_key key_LOCK_uuid_generator;
 static PSI_mutex_key key_LOCK_error_messages;
 static PSI_mutex_key key_LOCK_default_password_lifetime;
@@ -1444,14 +1439,6 @@ std::atomic<long long> optimizer_cost_reload_version{-1L};
 std::atomic<long long> rewriter_plugin_reload_version{0L};
 
 /**
-  Current statements of parallel execution.
-*/
-ulong px_used_threadpool_size = 0;
-ulong px_stmt_executed = 0;
-ulong px_stmt_fallback = 0;
-ulong px_stmt_error = 0;
-
-/**
   Current total number of prepared statements in the server. This number
   is exact, and therefore may not be equal to the difference between
   `com_stmt_prepare' and `com_stmt_close' (global status variables), as
@@ -1623,14 +1610,6 @@ thread_local MEM_ROOT **THR_MALLOC = nullptr;
 mysql_mutex_t LOCK_status, LOCK_uuid_generator, LOCK_crypt,
     LOCK_global_system_variables, LOCK_user_conn, LOCK_error_messages;
 mysql_mutex_t LOCK_sql_rand;
-
-/**
-  The lock which used by parallel execution.
-*/
-mysql_mutex_t LOCK_allocate_resource;
-mysql_mutex_t LOCK_inc_px_stmt_executed;
-mysql_mutex_t LOCK_inc_px_stmt_fallback;
-mysql_mutex_t LOCK_inc_px_stmt_error;
 
 /**
   The below lock protects access to two global server variables:
@@ -2838,7 +2817,6 @@ static void clean_up(bool print_message) {
 
   free_connection_acceptors();
   Connection_handler_manager::destroy_instance();
-  PX_resource_manager::destroy_instance();
 
   if (!is_help_or_validate_option() && !opt_initialize)
     resourcegroups::Resource_group_mgr::destroy_instance();
@@ -2920,10 +2898,6 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_sql_replica_skip_counter);
   mysql_mutex_destroy(&LOCK_replica_net_timeout);
   mysql_mutex_destroy(&LOCK_replica_trans_dep_tracker);
-  mysql_mutex_destroy(&LOCK_allocate_resource);
-  mysql_mutex_destroy(&LOCK_inc_px_stmt_executed);
-  mysql_mutex_destroy(&LOCK_inc_px_stmt_fallback);
-  mysql_mutex_destroy(&LOCK_inc_px_stmt_error);
   mysql_mutex_destroy(&LOCK_error_messages);
   mysql_mutex_destroy(&LOCK_default_password_lifetime);
   mysql_mutex_destroy(&LOCK_mandatory_roles);
@@ -5663,14 +5637,6 @@ static int init_thread_environment() {
                   &LOCK_mc_enabled, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_replica_list, &LOCK_replica_list,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_allocate_resource, &LOCK_allocate_resource,
-                   MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_inc_px_stmt_executed, &LOCK_inc_px_stmt_executed,
-                   MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_inc_px_stmt_fallback, &LOCK_inc_px_stmt_fallback,
-                   MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_inc_px_stmt_error, &LOCK_inc_px_stmt_error,
-                   MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_sql_replica_skip_counter,
                    &LOCK_sql_replica_skip_counter, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_replica_net_timeout, &LOCK_replica_net_timeout,
@@ -8097,11 +8063,6 @@ int mysqld_main(int argc, char **argv)
     return 1;
   }
 
-  if (PX_resource_manager::init_instance()) {
-    LogErr(ERROR_LEVEL, ER_PX_THREAD_HANDLING_OOM);
-    return 1;
-  }
-
   size_t guardize = 0;
 #ifndef _WIN32
   int retval = pthread_attr_getguardsize(&connection_attrib, &guardize);
@@ -9800,34 +9761,6 @@ static int show_queries(THD *thd, SHOW_VAR *var, char *) {
   return 0;
 }
 
-static int show_px_stmt_executed(THD *, SHOW_VAR *var, char *buff) {
-  var->type = SHOW_LONG;
-  var->value = buff;
-  *((long *)buff) = (long)px_stmt_executed;
-  return 0;
-}
-
-static int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff) {
-  var->type = SHOW_LONG;
-  var->value = buff;
-  *((long *)buff) = (long)px_stmt_fallback;
-  return 0;
-}
-
-static int show_px_stmt_error(THD *, SHOW_VAR *var, char *buff) {
-  var->type = SHOW_LONG;
-  var->value = buff;
-  *((long *)buff) = (long)px_stmt_error;
-  return 0;
-}
-
-static int show_px_used_threadpool_size(THD *, SHOW_VAR *var, char *buff) {
-  var->type = SHOW_LONG;
-  var->value = buff;
-  *((long *)buff) = (long)px_used_threadpool_size;
-  return 0;
-}
-
 static int show_net_compression(THD *thd, SHOW_VAR *var, char *buff) {
   var->type = SHOW_MY_BOOL;
   var->value = buff;
@@ -10711,10 +10644,6 @@ static int mysql_init_variables() {
   binlog_cache_use = binlog_cache_disk_use = 0;
   mysqld_user = mysqld_chroot = opt_init_file = opt_bin_logname = nullptr;
   prepared_stmt_count = 0;
-  px_used_threadpool_size = 0;
-  px_stmt_executed = 0;
-  px_stmt_fallback = 0;
-  px_stmt_error = 0;
   mysqld_unix_port = opt_mysql_tmpdir = my_bind_addr_str = NullS;
   new (&mysql_tmpdir_list) MY_TMPDIR;
   memset(&global_status_var, 0, sizeof(global_status_var));
@@ -12454,10 +12383,6 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_sql_replica_skip_counter, "LOCK_sql_replica_skip_counter", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replica_net_timeout, "LOCK_replica_net_timeout", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replica_trans_dep_tracker, "LOCK_replica_trans_dep_tracker", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_allocate_resource, "LOCK_allocate_resource", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_inc_px_stmt_executed, "LOCK_inc_px_stmt_executed", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_inc_px_stmt_fallback, "LOCK_inc_px_stmt_fallback", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_inc_px_stmt_error, "LOCK_inc_px_stmt_error", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_server_started, "LOCK_server_started", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #if !defined(_WIN32)
   { &key_LOCK_socket_listener_active, "LOCK_socket_listener_active", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

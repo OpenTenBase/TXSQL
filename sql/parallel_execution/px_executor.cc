@@ -858,3 +858,54 @@ void PX_parallel_coordinator::prepare_schedule_single_dfo(int num_workers,
     }
   }
 }
+
+/**
+  Fallback to serial execution if check need fallback and restart statement.
+  The reasons why query needs to fallback to serial execution has:
+  1. unequal query plan (whatever the cause);
+  2. error occured before sending data;
+
+  @param thd            the session
+  @param parser_state   the parser state
+*/
+void fallback_to_serial_execution(THD *thd, Parser_state *parser_state) {
+  // thd->get_stmt_da()->reset_diagnostics_area();
+  PX_PRINT_INFO("fall back to serial execution.");
+
+  mysql_mutex_lock(&LOCK_inc_px_stmt_fallback);
+  px_stmt_fallback++;
+  mysql_mutex_unlock(&LOCK_inc_px_stmt_fallback);
+
+  /* PSI end */
+  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->m_statement_psi = nullptr;
+  thd->m_digest = nullptr;
+
+  // /* SHOW PROFILE end */
+  // #if defined(ENABLED_PROFILING)
+  //         thd->profiling->finish_current_query();
+  // #endif
+
+  // /* SHOW PROFILE begin */
+  // #if defined(ENABLED_PROFILING)
+  //         thd->profiling->start_new_query("continuing");
+  //         thd->profiling->set_query_source(beginning_of_next_stmt, length);
+  // #endif
+
+  /* PSI begin */
+  thd->m_digest = &thd->m_digest_state;
+  thd->m_digest->reset(thd->m_token_array, max_digest_length);
+
+  thd->m_statement_psi = MYSQL_START_STATEMENT(&thd->m_statement_state,
+      com_statement_info[thd->get_command()].m_key,
+      thd->db().str, thd->db().length, thd->charset(), nullptr);
+  THD_STAGE_INFO(thd, stage_starting);
+
+  thd->m_digest = &thd->m_digest_state;
+  thd->m_digest->reset(thd->m_token_array, max_digest_length);
+
+  if (parser_state->init(thd, thd->query().str, thd->query().length))
+    return;
+
+  dispatch_sql_command(thd, parser_state);
+}

@@ -14,9 +14,13 @@
 bool px_init(void);
 void px_destroy(void);
 
-
 extern unsigned long px_max_parallel_threads;
 extern bool px_fallback_in_execution;
+
+int show_px_stmt_executed(THD *, SHOW_VAR *var, char *buff);
+int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff);
+int show_px_stmt_error(THD *, SHOW_VAR *var, char *buff);
+int show_px_used_threadpool_size(THD *, SHOW_VAR *var, char *buff);
 
 class THD;
 class RowIterator;
@@ -36,5 +40,7 @@ bool px_optimize(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
                  JOIN *root_join, int64_t &dop);
 bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator, int64_t dop);
 bool px_execute_in_worker(THD *thd, RowIterator *root_iterator);
+
+void fallback_to_serial_execution(THD *thd, Parser_state *parser_state);
 
 #endif
