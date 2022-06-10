@@ -96,9 +96,8 @@
 #include "template_utils.h"
 #include "sql/table.h"
 #include "sql/parallel_execution/px_interface.h" // PX_ENABLED
-#include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
-#include "sql/parallel_execution/px_executor.h"  // PX_coordinator
-#include "sql/parallel_execution/px_workerpool.h"  // worker_pool
+#include "sql/parallel_execution/px_receiver.h" // PX_receiver
+#include "sql/parallel_execution/px_sender.h" // PX_sender
 #include "sql/log.h"
 
 using std::move;
@@ -109,58 +108,6 @@ class Item_rollup_sum_switcher;
 class Opt_trace_context;
 class ORDER_with_src;
 struct ORDER;
-
-#ifndef DBUG_OFF
-static void debug_print_iterator(const char *prefix, RowIterator *iterator,
-                                 Dfo_mgr *dfo_mgr = nullptr, int indent = 0) {
-  String space;
-  for (int i = 0; i < indent; i++) {
-    space.append(' ');
-  }
-
-  Dfo *dfo = nullptr;
-  if (dfo_mgr) {
-    for (auto &it : dfo_mgr->m_normalized_dfo_tree) {
-      if (iterator == it->root_iterator()) {
-        dfo = it;
-        break;
-      }
-    }
-    if (iterator == dfo_mgr->root_dfo()->root_iterator()) {
-      dfo = dfo_mgr->root_dfo();
-    }
-  }
-  if (dfo) {
-    TableRowIterator *scan = analyze_parallel_table(dfo);
-    if (scan) {
-      PX_PRINT_INFO(
-          "%s%s%s (dfo %ld dop %ld pscan)", prefix, space.c_ptr_safe(),
-          iterator->str().c_str(), dfo->dfo_id(), dfo->dop());
-    } else {
-      PX_PRINT_INFO(
-          "%s%s%s (dfo %ld dop %ld)", prefix, space.c_ptr_safe(),
-          iterator->str().c_str(), dfo->dfo_id(), dfo->dop());
-    }
-  } else {
-    PX_PRINT_INFO("%s%s%s", prefix, space.c_ptr_safe(),
-        iterator->str().c_str());
-  }
-
-  for (unsigned i = 0; i < iterator->m_children.size(); ++i)
-    debug_print_iterator(prefix, iterator->m_children[i], dfo_mgr, indent + 2);
-}
-
-static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent) {
-  String space;
-  for (int i = 0; i < indent; i++) {
-    space.append(' ');
-  }
-  PX_PRINT_INFO("%s%s%s (dop %ld)", prefix, space.c_ptr_safe(),
-                dfo->root_iterator()->str().c_str(), dfo->dop());
-  for (unsigned i = 0; i < dfo->m_child_dfos.size(); ++i)
-    debug_print_dfo(prefix, dfo->m_child_dfos.at(i), indent + 2);
-}
-#endif
 
 bool Query_result_union::prepare(THD *, const mem_root_deque<Item *> &,
                                  Query_expression *u) {
@@ -1546,147 +1493,6 @@ bool Query_expression::execute(THD *thd) {
   Change_current_query_block save_query_block(thd);
 
   return ExecuteIteratorQuery(thd);
-}
-
-bool Query_expression::check_plan_equivalence(THD *thd) {
-  int base_level = 0;
-  JOIN *join = first_query_block()->join;
-  thd->m_equivalence_check_phase = true;
-
-  thd->worker_arg->is_equivalent_plan =
-      CheckPlanEquivalence(base_level,
-                           thd->worker_arg->coordinator_root_access_path,
-                           thd->worker_arg->coordinator_join,
-                           root_access_path(),
-                           is_union() ? nullptr : join,
-                           /*is_root_of_join=*/!is_union());
-  thd->m_equivalence_check_phase = false;
-
-  return thd->worker_arg->is_equivalent_plan;
-}
-
-/**
-  Execute a query expression that may be a UNION and/or have an ordered result
-  in parallel execution mode, here coordinator and worker behave differently.
-
-  @param thd          thread handle
-
-  @returns false if success, true if error
-*/
-bool Query_expression::execute_in_parallel(THD *thd) {
-  return (thd->m_is_worker) ? execute_in_worker(thd) // execute as worker.
-            : execute_in_coordinator(thd); // execute as the coordinator
-}
-
-bool Query_expression::execute_in_coordinator(THD *thd) {
-  bool res = false;
-  int64_t requested_cores = 0;
-  Dfo_mgr *dfo_mgr = nullptr;
-  PX_coordinator *coordinator = nullptr;
-  worker_pool_t *worker_pool = nullptr;
-
-  coordinator = new (thd->mem_root) PX_parallel_coordinator(thd);
-  if (!coordinator) goto oom;
-  thd->px_executor = coordinator;
-
-  thd->px_exchange_context = new (thd->mem_root) PX_exchange_context();
-  if (!thd->px_exchange_context) goto oom;
-
-#ifndef DBUG_OFF
-  debug_print_iterator("iterator(raw): ", root_iterator());
-#endif
-  dfo_mgr = coordinator->dfo_mgr();
-  if (dfo_mgr->do_split(nullptr, root_iterator(), dfo_mgr->m_root_dfo) ||
-      dfo_mgr->analyze_resource_allocation(&requested_cores) ||
-      thd->px_exchange_context->init()) {
-    thd->need_fallback = true;
-    goto err;
-  }
-#ifndef DBUG_OFF
-  debug_print_iterator("iterator(analyzed): ", root_iterator(), dfo_mgr);
-#endif
-
-  PX_PRINT_INFO("acquired %ld cores", requested_cores);
-
-  DEBUG_SYNC_C("execute_in_parallel_before");
-#ifndef DBUG_OFF
-  debug_print_dfo("dfo tree: ", dfo_mgr->root_dfo(), 0);
-#endif
-  if (thd->is_error()) goto err_finish;
-
-  worker_pool = create_worker_threads(requested_cores);
-  if (!worker_pool) {
-    PX_PRINT_ERROR("unable to create threads");
-    goto err_finish;
-  }
-  thd->worker_pool = worker_pool;
-
-  PX_PRINT_INFO("start scheduling");
-  if (coordinator->schedule(worker_pool)) goto err_finish;
-
-  goto finish;
-
-oom:
-  my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
-  return true;
-
-err:
-  res = true;
-  return true;
-
- err_finish:
-  res = true;
-
- finish:
-  return res;
-}
-
-bool Query_expression::execute_in_worker(THD *thd) {
-  bool res = false;
-
-  PX_worker *worker = nullptr;
-  Dfo_mgr *dfo_mgr = nullptr;
-
-  worker = new (thd->mem_root) PX_worker(thd);
-  if (!worker) goto oom;
-  thd->px_executor = worker;
-
-  PX_PRINT_INFO("worker %d start", thd->worker_id);
-  if (!check_plan_equivalence(thd)) {
-    PX_PRINT_ERROR("worker %d check plan found different plan", thd->worker_id);
-    my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
-            (thd)->thread_id(), "unequal plan");
-    goto err;
-  }
-  PX_PRINT_INFO("worker %d check plan OK", thd->worker_id);
-
-  dfo_mgr = thd->px_executor->dfo_mgr();
-  if (dfo_mgr->do_split(nullptr, root_iterator(), dfo_mgr->m_root_dfo) ||
-      dfo_mgr->analyze_resource_allocation()) {
-    goto err;
-  }
-
-  if (worker->prepare_task_for_dfo()) goto err;
-  // Wait other workers finish their parse and optimize work.
-  if (optimize_finsh_signal(thd->worker_arg)) goto err;
-  // Set worker execution state to PX_WORKER_EXECUTE.
-  thd->px_worker_state = PX_WORKER_EXECUTE;
-  worker->loop();
-  PX_PRINT_INFO("worker %d leave task loop", thd->worker_id);
-
-  res = thd->is_error();
-
-  goto finish;
-
- oom:
-  my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
-  return true;
-
- err:
-  res = true;
-
- finish:
-  return res;
 }
 
 /**
