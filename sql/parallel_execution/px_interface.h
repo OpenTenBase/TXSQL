@@ -36,8 +36,8 @@ class PX_executor;
 #define PX_ROLE_WORKER(thd) (thd)->m_is_worker
 #define PX_EXECUTOR(thd) (thd)->px_executor
 
-bool px_optimize(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
-                 JOIN *root_join, int64_t &dop);
+bool px_execute_init(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
+                     JOIN *root_join, int64_t &dop);
 bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator, int64_t dop);
 bool px_execute_in_worker(THD *thd, RowIterator *root_iterator);
 

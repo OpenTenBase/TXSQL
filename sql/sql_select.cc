@@ -899,9 +899,9 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 
   int64_t requested_cores = 0;
   if (thd->use_px &&
-      px_optimize(thd, unit->root_iterator(), unit->root_access_path(),
-                  (unit->is_union() ? nullptr : unit->first_query_block()->join),
-                  requested_cores)) {
+      px_execute_init(thd, unit->root_iterator(), unit->root_access_path(),
+                      (unit->is_union() ? nullptr : unit->first_query_block()->join),
+                      requested_cores)) {
     return true;
   }
 
