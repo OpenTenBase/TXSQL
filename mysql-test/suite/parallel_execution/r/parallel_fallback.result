@@ -1,11 +1,5 @@
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 Variable_name	Value
-innodb_px_partitions_per_worker	13
-px_exchange_buffer_size	1048576
-px_max_parallel_threads	8
-px_parallel_cost_threshold	0.000000
-px_parallel_degree	4
-px_parallel_table_record_threshold	0
 DROP TABLE IF EXISTS t1;
 Warnings:
 Note	1051	Unknown table 'test.t1'
@@ -18,35 +12,23 @@ KEY idx_col2(col2)
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 Variable_name	Value
-innodb_px_partitions_per_worker	13
-px_exchange_buffer_size	1048576
 px_fallback_in_execution	OFF
-px_max_parallel_threads	8
-px_parallel_cost_threshold	0.000000
-px_parallel_degree	4
-px_parallel_table_record_threshold	0
 # --include save_and_set_px.inc
 SET @saved_px_fallback_in_execution =@@px_fallback_in_execution;
 set global px_fallback_in_execution = 0;
 ###
 ### Execute statement in parallel mode.
 ###
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 Variable_name	Value
-innodb_px_partitions_per_worker	13
-px_exchange_buffer_size	1048576
 px_fallback_in_execution	OFF
-px_max_parallel_threads	8
-px_parallel_cost_threshold	0.000000
-px_parallel_degree	4
-px_parallel_table_record_threshold	0
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Table scan on t1  (cost=1.25 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 SELECT * FROM t1;
 id	col1	col2
@@ -64,20 +46,14 @@ set global px_fallback_in_execution = 1;
 ###
 ### Disable Execute statement in parallel mode but the parallel explain mode
 ###
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 Variable_name	Value
-innodb_px_partitions_per_worker	13
-px_exchange_buffer_size	1048576
 px_fallback_in_execution	ON
-px_max_parallel_threads	8
-px_parallel_cost_threshold	0.000000
-px_parallel_degree	4
-px_parallel_table_record_threshold	0
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Table scan on t1  (cost=1.25 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 SELECT * FROM t1;
 id	col1	col2

@@ -723,6 +723,157 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check) {
   return parallel_safe;
 }
 
+/**
+  Traversing the access path tree in pre-order.
+  If find a DFO-pair(child dfo and parent dfo), find the
+  PX_exchange_info from exchange_context and set to Exchange
+  AccessPath.
+
+  @param path current access path
+  @param exchange_context PX_exchange_info context
+
+  @return false success, true otherwise.
+*/
+void WalkAccessPathsForExplain(AccessPath *path, PX_exchange_context *exchange_context, uint &exchange_count) {
+  assert(path && exchange_context);
+
+  switch (path->type) {
+    case AccessPath::PX_RECEIVE: {
+      assert(path->px_receiver().child->type == AccessPath::PX_SEND);
+      PX_exchange_info *exchange_info = exchange_context->get(++exchange_count);
+      assert(exchange_info);
+      path->px_receiver().exchange_info = exchange_info;
+      path->px_receiver().child->px_send().exchange_info = exchange_info;
+      WalkAccessPathsForExplain(path->px_receiver().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::PX_RECEIVER_MERGE: {
+      assert(path->px_receiver_merge().child->type == AccessPath::PX_SEND);
+      PX_exchange_info *exchange_info = exchange_context->get(++exchange_count);
+      assert(exchange_info);
+      path->px_receiver_merge().exchange_info = exchange_info;
+      path->px_receiver_merge().child->px_send().exchange_info = exchange_info;
+      WalkAccessPathsForExplain(path->px_receiver_merge().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::PX_SEND: {
+      assert(path->px_send().exchange_info);
+      WalkAccessPathsForExplain(path->px_send().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::TABLE_SCAN:
+    case AccessPath::INDEX_SCAN:
+    case AccessPath::REF:
+    case AccessPath::REF_OR_NULL:
+    case AccessPath::EQ_REF:
+    case AccessPath::PUSHED_JOIN_REF:
+    case AccessPath::FULL_TEXT_SEARCH:
+    case AccessPath::CONST_TABLE:
+    case AccessPath::MRR:
+    case AccessPath::FOLLOW_TAIL:
+    case AccessPath::INDEX_RANGE_SCAN:
+    case AccessPath::INDEX_MERGE:
+    case AccessPath::INDEX_SKIP_SCAN:
+    case AccessPath::ROWID_INTERSECTION:
+    case AccessPath::ROWID_UNION:
+    case AccessPath::GROUP_INDEX_SKIP_SCAN:
+    case AccessPath::REMOVE_DUPLICATES_ON_INDEX:
+    case AccessPath::DELETE_ROWS:
+    case AccessPath::UPDATE_ROWS:
+    case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
+    case AccessPath::MATERIALIZED_TABLE_FUNCTION:
+    case AccessPath::UNQUALIFIED_COUNT:
+    case AccessPath::TABLE_VALUE_CONSTRUCTOR:
+    case AccessPath::FAKE_SINGLE_ROW:
+    case AccessPath::ZERO_ROWS:
+    case AccessPath::ZERO_ROWS_AGGREGATED: {
+      // no children.
+      break;
+    }
+    case AccessPath::NESTED_LOOP_JOIN: {
+      WalkAccessPathsForExplain(path->nested_loop_join().outer, exchange_context, exchange_count);
+      WalkAccessPathsForExplain(path->nested_loop_join().inner, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::HASH_JOIN: {
+      // keep the same order with adjust_children.
+      WalkAccessPathsForExplain(path->hash_join().inner, exchange_context, exchange_count);
+      WalkAccessPathsForExplain(path->hash_join().outer, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::BKA_JOIN:
+    case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
+      /*
+        the subtree is parallel unsafe now!
+        So there will not have exchange operator in subtree.
+      */
+      break;
+    }
+    case AccessPath::FILTER: {
+      WalkAccessPathsForExplain(path->filter().child, exchange_context, exchange_count);
+      // subquery is not supported now!
+      break;
+    }
+    case AccessPath::SORT: {
+      WalkAccessPathsForExplain(path->sort().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::AGGREGATE: {
+      WalkAccessPathsForExplain(path->aggregate().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::TEMPTABLE_AGGREGATE: {
+      WalkAccessPathsForExplain(path->temptable_aggregate().subquery_path, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::LIMIT_OFFSET: {
+      WalkAccessPathsForExplain(path->limit_offset().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::STREAM: {
+      WalkAccessPathsForExplain(path->stream().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::MATERIALIZE: {
+      MaterializePathParameters *param = path->materialize().param;
+      for (auto qb : param->query_blocks) {
+        WalkAccessPathsForExplain(qb.subquery_path, exchange_context, exchange_count);
+      }
+      break;
+    }
+    case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE: {
+      // the subtree is parallel unsafe now!
+      break;
+    }
+    case AccessPath::APPEND: {
+      const auto &param = path->append();
+      for (AppendPathParameters child : *param.children) {
+        WalkAccessPathsForExplain(child.path, exchange_context, exchange_count);
+      }
+      break;
+    }
+    case AccessPath::WINDOW: {
+      WalkAccessPathsForExplain(path->window().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::WEEDOUT: {
+      WalkAccessPathsForExplain(path->weedout().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::REMOVE_DUPLICATES: {
+      WalkAccessPathsForExplain(path->remove_duplicates().child, exchange_context, exchange_count);
+      break;
+    }
+    case AccessPath::ALTERNATIVE:
+    case AccessPath::CACHE_INVALIDATOR: {
+      // the subtree is parallel unsafe now!
+      break;
+    }
+  }
+
+  return;
+}
+
 static AccessPath *FindSingleAccessPathOfType(AccessPath *path,
                                               AccessPath::Type type) {
   AccessPath *found_path = nullptr;

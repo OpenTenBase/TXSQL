@@ -104,21 +104,21 @@ EXPLAIN
 union check
 explain format=tree (select sum(b) from t1) union all (select sum(b) from t2);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
                 -> Aggregate: sum(t1.b)
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 2; workers: 1)
                             -> Aggregate: sum(t1.b)
-                                -> Table scan on t1  (cost=0.75 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
             -> Stream results
                 -> Aggregate: sum(t2.b)
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 3; workers: 1)
                             -> Aggregate: sum(t2.b)
-                                -> Table scan on t2  (cost=0.75 rows=5)
+                                -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 (select sum(b) from t1) union all (select sum(b) from t2);
 sum(b)
@@ -180,8 +180,10 @@ rollup check
 EXPLAIN format=tree SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
 EXPLAIN
 -> Group aggregate with rollup: sum(t1.b)
-    -> Sort: t1.a  (cost=0.75 rows=5)
-        -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Sort: t1.a  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
 SUM(b)
@@ -203,7 +205,9 @@ explain format=tree select distinct a from t1;
 EXPLAIN
 -> Table scan on <temporary>
     -> Temporary table with deduplication  (cost=0.75 rows=5)
-        -> Table scan on t1  (cost=0.75 rows=5)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select distinct a from t1;
 a
@@ -248,29 +252,35 @@ test.testText	analyze	status	OK
 blob field in select lists
 EXPLAIN format=tree SELECT * FROM testText;
 EXPLAIN
--> Table scan on testText  (cost=0.80 rows=3)
+-> Parallel table scan on testText  (cost=0.80 rows=3)
 
 blob field in aggregation function
 EXPLAIN format=tree SELECT SUM(data) FROM testText;
 EXPLAIN
 -> Aggregate: sum(testText.`data`)
-    -> Table scan on testText  (cost=0.80 rows=3)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Aggregate: sum(testText.`data`)
+                -> Parallel table scan on testText  (cost=0.80 rows=3)
 
 blob field in where condtion
 EXPLAIN format=tree SELECT count(id) FROM testText WHERE length(data) > 100;
 EXPLAIN
 -> Aggregate: count(testText.id)
-    -> Filter: (length(testText.`data`) > 100)  (cost=0.80 rows=3)
-        -> Table scan on testText  (cost=0.80 rows=3)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Aggregate: count(testText.id)
+                -> Filter: (length(testText.`data`) > 100)  (cost=0.80 rows=3)
+                    -> Parallel table scan on testText  (cost=0.80 rows=3)
 
 table with blob field but blob field not in read_set
 EXPLAIN format=tree SELECT SUM(id) FROM testText;
 EXPLAIN
 -> Aggregate: sum(testText.id)
-    -> Exchange Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(testText.id)
-                -> Index scan on testText using PRIMARY  (cost=0.80 rows=3)
+                -> Parallel index scan on testText using PRIMARY  (cost=0.80 rows=3)
 
 SELECT SUM(id) FROM testText;
 SUM(id)
@@ -298,22 +308,25 @@ test.test_json	analyze	status	OK
 json field in select lists
 EXPLAIN format=tree SELECT * FROM test_json;
 EXPLAIN
--> Table scan on test_json  (cost=0.55 rows=3)
+-> Parallel table scan on test_json  (cost=0.55 rows=3)
 
 blob field in aggregation function
 EXPLAIN format=tree SELECT SUM(obj_json) FROM test_json;
 EXPLAIN
 -> Aggregate: sum(test_json.obj_json)
-    -> Table scan on test_json  (cost=0.55 rows=3)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Aggregate: sum(test_json.obj_json)
+                -> Parallel table scan on test_json  (cost=0.55 rows=3)
 
 table with blob field but blob field not in read_set
 EXPLAIN format=tree SELECT SUM(id) FROM test_json;
 EXPLAIN
 -> Aggregate: sum(test_json.id)
-    -> Exchange Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(test_json.id)
-                -> Index scan on test_json using PRIMARY  (cost=0.55 rows=3)
+                -> Parallel index scan on test_json using PRIMARY  (cost=0.55 rows=3)
 
 SELECT SUM(id) FROM test_json;
 SUM(id)
@@ -329,10 +342,10 @@ EXPLAIN
 
 EXPLAIN FORMAT=TREE SELECT * FROM (select * from t1 where a=1) as tt;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t1.a = 1)  (cost=0.75 rows=1)
-            -> Table scan on t1  (cost=0.75 rows=5)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 parallel table with full text search
 CREATE TABLE ft_test (a VARCHAR(200), b TEXT, FULLTEXT (a,b)) charset utf8mb4;
@@ -376,10 +389,10 @@ DROP TABLE t4;
 explain format=tree select count(a) from t1;
 EXPLAIN
 -> Aggregate: count(t1.a)
-    -> Exchange Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: count(t1.a)
-                -> Table scan on t1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select count(a) from t1;
 count(a)
@@ -387,7 +400,9 @@ count(a)
 explain format=tree select count(distinct a) from t1;
 EXPLAIN
 -> Aggregate: count(distinct t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select count(distinct a) from t1;
 count(distinct a)
@@ -395,10 +410,10 @@ count(distinct a)
 explain format=tree select sum(a) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.a)
-    -> Exchange Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.a)
-                -> Table scan on t1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a) from t1;
 sum(a)
@@ -406,7 +421,9 @@ sum(a)
 explain format=tree select sum(distinct a) from t1;
 EXPLAIN
 -> Aggregate: sum(distinct t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(distinct a) from t1;
 sum(distinct a)
@@ -414,10 +431,10 @@ sum(distinct a)
 explain format=tree select avg(a) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.a), count(t1.a)
-    -> Exchange Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.a), count(t1.a)
-                -> Table scan on t1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select avg(a) from t1;
 avg(a)
@@ -425,7 +442,9 @@ avg(a)
 explain format=tree select avg(distinct a) from t1;
 EXPLAIN
 -> Aggregate: avg(distinct t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select avg(distinct a) from t1;
 avg(distinct a)
@@ -433,7 +452,9 @@ avg(distinct a)
 explain format=tree select VARIANCE(a) from t1;
 EXPLAIN
 -> Aggregate: variance(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select VARIANCE(a) from t1;
 VARIANCE(a)
@@ -441,7 +462,9 @@ VARIANCE(a)
 explain format=tree select VAR_POP(a) from t1;
 EXPLAIN
 -> Aggregate: variance(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select VAR_POP(a) from t1;
 VAR_POP(a)
@@ -449,7 +472,9 @@ VAR_POP(a)
 explain format=tree select VAR_SAMP(a) from t1;
 EXPLAIN
 -> Aggregate: var_samp(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select VAR_SAMP(a) from t1;
 VAR_SAMP(a)
@@ -457,7 +482,9 @@ VAR_SAMP(a)
 explain format=tree select STD(a) from t1;
 EXPLAIN
 -> Aggregate: std(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select STD(a) from t1;
 STD(a)
@@ -465,7 +492,9 @@ STD(a)
 explain format=tree select STDDEV(a) from t1;
 EXPLAIN
 -> Aggregate: std(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select STDDEV(a) from t1;
 STDDEV(a)
@@ -473,7 +502,9 @@ STDDEV(a)
 explain format=tree select STDDEV_POP(a) from t1;
 EXPLAIN
 -> Aggregate: std(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select STDDEV_POP(a) from t1;
 STDDEV_POP(a)
@@ -486,7 +517,9 @@ INSERT INTO json_test(`key`, `grp`, `val`) VALUES
 explain format=tree SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
 EXPLAIN
 -> Aggregate: json_arrayagg(json_test.`key`)
-    -> Table scan on json_test  (cost=0.55 rows=3)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on json_test  (cost=0.55 rows=3)
 
 SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
 keys
@@ -494,7 +527,9 @@ keys
 explain format=tree SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
 EXPLAIN
 -> Aggregate: json_objectagg(json_test.`key`,json_test.val)
-    -> Table scan on json_test  (cost=0.55 rows=3)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on json_test  (cost=0.55 rows=3)
 
 SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
 key_val
@@ -506,7 +541,9 @@ DROP TABLE json_test;
 unsafe json function check
 explain format=tree select CAST('[1,2,3]' as JSON) from t1;
 EXPLAIN
--> Table scan on t1  (cost=0.75 rows=5)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 CREATE TABLE t11 (pk INT AUTO_INCREMENT KEY, id INT DEFAULT 0,
 data JSON NOT NULL,
@@ -515,7 +552,7 @@ INSERT INTO t11(data) VALUES ('[0,1,2]'), ('[10,11,12]');
 EXPLAIN format=tree SELECT pk, id FROM t11 WHERE JSON_CONTAINS(CAST(data AS JSON),'1');
 EXPLAIN
 -> Filter: json_contains(cast(cast(`data` as json) as unsigned array),json'[1]')  (cost=0.45 rows=2)
-    -> Table scan on t11  (cost=0.45 rows=2)
+    -> Parallel table scan on t11  (cost=0.45 rows=2)
 
 DROP TABLE t11;
 unsafe XML function check
@@ -524,12 +561,16 @@ INSERT INTO t12 VALUES (0), (0);
 explain format=tree SELECT 1 FROM t12 ORDER BY(UPDATEXML(a, '1', '1'));
 EXPLAIN
 -> Sort: updatexml(t12.a,'1','1')  (cost=0.45 rows=2)
-    -> Table scan on t12  (cost=0.45 rows=2)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t12  (cost=0.45 rows=2)
 
 explain format=tree SELECT 1 FROM t12 where UPDATEXML(a, '1', '1');
 EXPLAIN
 -> Filter: (0 <> updatexml(t12.a,'1','1'))  (cost=0.45 rows=2)
-    -> Table scan on t12  (cost=0.45 rows=2)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t12  (cost=0.45 rows=2)
 
 DROP TABLE t12;
 unsafe sp function check
@@ -544,7 +585,9 @@ EXPLAIN
 drop function t1_sum;
 explain format=tree select rand() from t1;
 EXPLAIN
--> Table scan on t1  (cost=0.75 rows=5)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 unsafe multi statement check
 select * from t1;select * from t2||||

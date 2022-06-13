@@ -27,9 +27,9 @@ test.t1	analyze	status	OK
 query without limit
 explain format=tree select 1 from t1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Index scan on t1 using idx_col2  (cost=1.25 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index scan on t1 using idx_col2  (cost=1.25 rows=10)
 
 select 1 from t1;
 1
@@ -47,7 +47,7 @@ limit after table scan
 explain format=tree select * from t1 limit 10;
 EXPLAIN
 -> Limit: 10 row(s)  (cost=1.25 rows=10)
-    -> Table scan on t1  (cost=1.25 rows=10)
+    -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select * from t1 limit 10;
 id	col1	col2	col3
@@ -65,7 +65,7 @@ limit after index scan
 explain format=tree select col2 from t1 order by col2 limit 5;
 EXPLAIN
 -> Limit: 5 row(s)  (cost=0.38 rows=5)
-    -> Index scan on t1 using idx_col2  (cost=0.38 rows=5)
+    -> Parallel index scan on t1 using idx_col2  (cost=0.38 rows=5)
 
 select * from t1 order by col2 limit 5;
 id	col1	col2	col3
@@ -77,7 +77,7 @@ id	col1	col2	col3
 explain format=tree select col2 from t1 order by col2 desc limit 5;
 EXPLAIN
 -> Limit: 5 row(s)  (cost=0.38 rows=5)
-    -> Index scan on t1 using idx_col2 (reverse)  (cost=0.38 rows=5)
+    -> Parallel index scan on t1 using idx_col2 (reverse)  (cost=0.38 rows=5)
 
 select * from t1 order by col2 desc limit 5;
 id	col1	col2	col3
@@ -92,12 +92,12 @@ EXPLAIN
 -> Limit: 5 row(s)
     -> Sort: t1.col3, limit input to 5 row(s) per chunk
         -> Table scan on <temp>
-            -> Aggregate using temporary table
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Final Aggregate using temporary table
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 1)
                         -> Table scan on <temporary>
                             -> Aggregate using temporary table
-                                -> Table scan on t1  (cost=1.25 rows=10)
+                                -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select sum(id) from t1 group by col3 order by col3 limit 5;
 sum(id)

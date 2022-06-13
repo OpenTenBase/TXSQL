@@ -180,6 +180,13 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   }
 #endif
 
+  // Traversal accesspath-tree to set exchange info to Exchange AccessPath
+  if (thd->lex->is_explain() && thd->lex->explain_format->is_tree() && PX_ROLE_COORDINATOR(thd)) {
+    uint exchange_count = 0;
+    WalkAccessPathsForExplain(root_path, thd->px_exchange_context, exchange_count);
+    assert(exchange_count == dfo_mgr->m_normalized_dfo_tree.size());
+  }
+
   return false;
 
 oom:

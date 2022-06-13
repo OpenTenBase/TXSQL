@@ -3537,7 +3537,6 @@ bool JOIN::choose_parallel_table(QEP_TAB *parallel_tab) {
     return false;
   }
 
-  parallel_tab->m_parallel_scan = true;
   return true;
 }
 

@@ -48,13 +48,15 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
 explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 EXPLAIN
--> Nested loop inner join
-    -> Table scan on t1  (cost=0.65 rows=4)
-    -> Index lookup on tt using <auto_key0> (a=t1.a)
-        -> Materialize
-            -> Table scan on <temporary>
-                -> Aggregate using temporary table
-                    -> Table scan on t2  (cost=0.65 rows=4)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop inner join
+            -> Parallel table scan on t1  (cost=0.65 rows=4)
+            -> Index lookup on tt using <auto_key0> (a=t1.a)
+                -> Materialize
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Table scan on t2  (cost=0.65 rows=4)
 
 select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 a	b	a	count(t2.b)
@@ -72,7 +74,9 @@ EXPLAIN
     -> Materialize
         -> Table scan on <temporary>
             -> Aggregate using temporary table
-                -> Table scan on t2  (cost=0.65 rows=4)
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.65 rows=4)
 
 select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 a	count(t2.b)
@@ -91,7 +95,9 @@ Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`t
 explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 EXPLAIN
 -> Nested loop inner join
-    -> Table scan on t1  (cost=0.65 rows=4)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.65 rows=4)
     -> Index lookup on tt using <auto_key0> (a=t1.a)
         -> Materialize
             -> Table scan on <temporary>

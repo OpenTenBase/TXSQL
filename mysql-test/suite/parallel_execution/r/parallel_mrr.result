@@ -26,9 +26,9 @@ test.t1	analyze	status	OK
 set optimizer_switch='mrr=on,mrr_cost_based=off';
 explain format=tree select * from t1 force index(idx_col2) where col2 > 4;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Index range scan on t1 using idx_col2, with index condition: (t1.col2 > 4)  (cost=2.35 rows=6)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index range scan on t1 using idx_col2, with index condition: (t1.col2 > 4)  (cost=2.35 rows=6)
 
 select * from t1 force index(idx_col2) where col2 > 4;
 id	col1	col2

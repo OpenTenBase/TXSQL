@@ -24,10 +24,10 @@ test.t1	analyze	status	OK
 # --include save_and_set_px.inc
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8 order by col2 DESC;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Filter: ((t1.col2 >= 5) and (t1.col2 < 8))  (cost=0.86 rows=3)
-            -> Index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+-> Filter: ((t1.col2 >= 5) and (t1.col2 < 8))  (cost=0.86 rows=3)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8 order by col2 DESC;
 id	col2
