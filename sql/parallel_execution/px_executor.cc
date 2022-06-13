@@ -106,10 +106,14 @@ static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent);
 #endif
 
 /**
-  Generate a parallel plan from the serial one and determine resources to use.
+  Init execution environment.
+
+  Note that exchange info and resources are supposed to be determined in previous
+  cost-based parallel optimization phase. Cost-based optimization is future work,
+  so they are part of this function for now.
  */
-bool px_optimize(THD *thd, RowIterator *root_iterator, AccessPath *root_path,
-                 JOIN *root_join, int64_t &requested_cores) {
+bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path,
+                     JOIN *root_join, int64_t &requested_cores) {
   Dfo_mgr *dfo_mgr = nullptr;
   PX_executor *executor = nullptr;
 
