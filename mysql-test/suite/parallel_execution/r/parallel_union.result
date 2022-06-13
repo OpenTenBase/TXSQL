@@ -53,16 +53,16 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 union select * from t2;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t2  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 union all select * from t2;
 a	b	c	d
@@ -80,17 +80,17 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 union all select * from t2;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t2  (cost=0.75 rows=5)
+            -> Stream results  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 union select * from t2 where a > 1;
 a	b	c	d
@@ -106,17 +106,17 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 union select * from t2 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 union all select * from t2 where a > 1;
 a	b	c	d
@@ -133,18 +133,18 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 union all select * from t2 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 where a > 1 union select * from t2 where a > 1;
 a	b	c	d
@@ -158,18 +158,18 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union select * from t2 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 where a > 1 union all select * from t2 where a > 1;
 a	b	c	d
@@ -184,19 +184,19 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union all select * from t2 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
 a	b	c	d
@@ -215,18 +215,18 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
-                            -> Index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+                            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
 a	b	c	d
@@ -246,19 +246,19 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=2.06 rows=9)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
-                            -> Index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+                            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 select * from t1 where a >=1 union select * from t1 where b > 1;
 a	b	c	d
@@ -271,18 +271,18 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a >=1 union select * from t1 where b > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a >= 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 select * from t1 where a >=1 union all select * from t1 where b > 1;
 a	b	c	d
@@ -301,19 +301,19 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a >=1 union all select * from t1 where b > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a >= 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
 a	b	c	d
@@ -333,21 +333,21 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.a = 1)  (cost=0.75 rows=1)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t3  (cost=1.25 rows=10)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
+                        -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
 a	b	c	d
@@ -369,23 +369,23 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.a = 1)  (cost=0.75 rows=1)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t3  (cost=1.25 rows=10)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+            -> Stream results  (cost=1.25 rows=10)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
+                        -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
 a	b	c	d
@@ -398,22 +398,22 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.c > 3)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
 a	b	c	d
@@ -431,24 +431,24 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.c > 3)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
 a	b	c	d
@@ -463,25 +463,25 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.c > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 5; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
 
 select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
 a	b	c	d
@@ -502,28 +502,28 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: (t2.c > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.35 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 5; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
 
 select * from t1 where a > 1 union select * from t4 union select * from t1 where b > 1 union select * from t4;
 a	b	c	d
@@ -536,24 +536,24 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union select * from t4 union select * from t1 where b > 1 union select * from t4;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 5; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
 
 select * from t1 where a > 1 union all select * from t4 union all select * from t1 where b > 1 union all select * from t4;
 a	b	c	d
@@ -572,27 +572,27 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 where a > 1 union all select * from t4 union all select * from t1 where b > 1 union all select * from t4;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.35 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.35 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 5; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
 
 select * from t1 where a > 1 union select * from t4 union select * from t1 union select * from t2 where a > 1 union select * from t3 union select * from t3 where a > 1;
 a	b	c	d
@@ -614,31 +614,31 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union select * from t4 union select * from t1 union select * from t2 where a > 1 union select * from t3 union select * from t3 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 5; workers: 1)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t3  (cost=1.25 rows=10)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 6; workers: 1)
+                        -> Parallel table scan on t3  (cost=1.25 rows=10)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 7; workers: 1)
                         -> Filter: (t3.a > 1)  (cost=2.06 rows=9)
-                            -> Index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+                            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 select * from t1 where a > 1 union all select * from t4 union all select * from t1 union all select * from t2 where a > 1 union all select * from t3 union all select * from t3 where a > 1;
 a	b	c	d
@@ -680,36 +680,36 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union all select * from t4 union all select * from t1 union all select * from t2 where a > 1 union all select * from t3 union all select * from t3 where a > 1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=0.95 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                            -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t4  (cost=0.35 rows=1)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.35 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t4  (cost=0.35 rows=1)
+            -> Stream results  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 4; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=2)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 5; workers: 1)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
-                            -> Table scan on t2  (cost=0.75 rows=5)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t3  (cost=1.25 rows=10)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+            -> Stream results  (cost=1.25 rows=10)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 6; workers: 1)
+                        -> Parallel table scan on t3  (cost=1.25 rows=10)
+            -> Stream results  (cost=2.06 rows=9)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 7; workers: 1)
                         -> Filter: (t3.a > 1)  (cost=2.06 rows=9)
-                            -> Index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+                            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 (select * from t1 order by b) union (select * from t2 order by c);
 a	b	c	d
@@ -725,16 +725,16 @@ a	b	c	d
 5	6	7	8
 explain format=tree (select * from t1 order by b) union (select * from t2 order by c);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t2  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 (select * from t1 order by b) union all (select * from t2 order by c);
 a	b	c	d
@@ -752,17 +752,17 @@ a	b	c	d
 5	6	7	8
 explain format=tree (select * from t1 order by b) union all (select * from t2 order by c);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t1  (cost=0.95 rows=7)
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
-                        -> Table scan on t2  (cost=0.75 rows=5)
+            -> Stream results  (cost=0.95 rows=7)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
+                        -> Parallel table scan on t1  (cost=0.95 rows=7)
+            -> Stream results  (cost=0.75 rows=5)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b;
 a	sum(b)
@@ -778,24 +778,20 @@ a	sum(b)
 5	6
 explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Table scan on <temp>
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 1)
+                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Table scan on t2  (cost=0.75 rows=5)
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
+                                -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b;
 a	sum(b)
@@ -811,221 +807,201 @@ a	sum(b)
 5	6
 explain format=tree select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
                 -> Table scan on <temp>
-                    -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 1)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
-                                        -> Table scan on t1  (cost=0.95 rows=7)
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results
                 -> Table scan on <temp>
-                    -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
-                                        -> Table scan on t2  (cost=0.75 rows=5)
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b union select b,sum(d) from t3 group by b;
 a	sum(b)
 1	1
 1	3
 10	10
-10	9
-2	1
 2	2
 2	5
-3	2
 3	3
 3	4
-4	3
 4	4
 4	5
-5	4
 5	5
 5	6
-6	5
-7	6
-8	7
-9	8
+6	6
+7	7
+8	8
+9	9
 explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b union select b,sum(d) from t3 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Table scan on <temp>
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 1)
+                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Table scan on t2  (cost=0.75 rows=5)
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
+                                -> Parallel table scan on t2  (cost=0.75 rows=5)
                 -> Group aggregate: sum(t3.d)
-                    -> Exchange Merge Receive dop )
-                        -> Exchange Send dop )
-                            -> Group aggregate: sum(t3.d)
-                                -> Index scan on t3 using idx  (cost=1.25 rows=10)
+                    -> PX Receiver (merge sort; slice: 1; workers: 1)
+                        -> PX Sender (slice: 4; workers: 1)
+                            -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
 select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b union all select b,sum(d) from t3 group by b;
 a	sum(b)
 1	1
+1	1
 1	3
 10	10
-10	9
-2	1
+2	2
 2	2
 2	5
-3	2
+3	3
 3	3
 3	4
-4	3
+4	4
 4	4
 4	5
-5	4
+5	5
 5	5
 5	6
-6	5
-7	6
-8	7
-9	8
+6	6
+7	7
+8	8
+9	9
 explain format=tree select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b union all select b,sum(d) from t3 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
                 -> Table scan on <temp>
-                    -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 1)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
-                                        -> Table scan on t1  (cost=0.95 rows=7)
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results
                 -> Table scan on <temp>
-                    -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
-                                        -> Table scan on t2  (cost=0.75 rows=5)
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results
                 -> Group aggregate: sum(t3.d)
-                    -> Exchange Merge Receive dop )
-                        -> Exchange Send dop )
+                    -> PX Receiver (merge sort; slice: 1; workers: 1)
+                        -> PX Sender (slice: 4; workers: 1)
                             -> Group aggregate: sum(t3.d)
-                                -> Index scan on t3 using idx  (cost=1.25 rows=10)
+                                -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
 select a,sum(b),sum(d) from t1 group by a union select b,sum(b),avg(d) from t2 group by b union select b,sum(d),avg(c) from t3 group by b;
 a	sum(b)	sum(d)
 1	1	1.0000
 1	3	5.0000
 10	10	10.0000
-10	9	9.0000
-2	1	1.0000
 2	2	2.0000
 2	5	7.0000
-3	2	2.0000
 3	3	3.0000
 3	4	6.0000
-4	3	3.0000
 4	4	4.0000
 4	5	7.0000
-5	4	4.0000
 5	5	5.0000
 5	6	8.0000
-6	5	5.0000
-7	6	6.0000
-8	7	7.0000
-9	8	8.0000
+6	6	6.0000
+7	7	7.0000
+8	8	8.0000
+9	9	9.0000
 explain format=tree select a,sum(b),sum(d) from t1 group by a union select b,sum(b),avg(d) from t2 group by b union select b,sum(d),avg(c) from t3 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Table scan on t1  (cost=0.95 rows=7)
-                -> Table scan on <temp>
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 1)
+                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
-                                -> Table scan on 
-                                    -> Aggregate using temporary table
-                                        -> Table scan on t2  (cost=0.75 rows=5)
-                -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                    -> Exchange Merge Receive dop )
-                        -> Exchange Send dop )
-                            -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                                -> Index scan on t3 using idx  (cost=1.25 rows=10)
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
+                                -> Parallel table scan on t2  (cost=0.75 rows=5)
+                -> Group aggregate: sum(t3.d), avg(t3.c)
+                    -> PX Receiver (merge sort; slice: 1; workers: 1)
+                        -> PX Sender (slice: 4; workers: 1)
+                            -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
 select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
 a	sum(b)	sum(d)
 1	1	1.0000
+1	1	1.0000
 1	3	5.0000
 10	10	10.0000
-10	9	9.0000
-2	1	1.0000
+2	2	2.0000
 2	2	2.0000
 2	5	7.0000
-3	2	2.0000
+3	3	3.0000
 3	3	3.0000
 3	4	6.0000
-4	3	3.0000
+4	4	4.0000
 4	4	4.0000
 4	5	7.0000
-5	4	4.0000
+5	5	5.0000
 5	5	5.0000
 5	6	8.0000
-6	5	5.0000
-7	6	6.0000
-8	7	7.0000
-9	8	8.0000
+6	6	6.0000
+7	7	7.0000
+8	8	8.0000
+9	9	9.0000
 explain format=tree select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
                 -> Table scan on <temp>
-                    -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 1)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
-                                        -> Table scan on t1  (cost=0.95 rows=7)
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results
                 -> Table scan on <temp>
-                    -> Aggregate using temporary table
-                        -> Exchange Receive dop )
-                            -> Exchange Send dop )
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
                                 -> Table scan on 
                                     -> Aggregate using temporary table
-                                        -> Table scan on t2  (cost=0.75 rows=5)
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                    -> Exchange Merge Receive dop )
-                        -> Exchange Send dop )
+                    -> PX Receiver (merge sort; slice: 1; workers: 1)
+                        -> PX Sender (slice: 4; workers: 1)
                             -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
-                                -> Index scan on t3 using idx  (cost=1.25 rows=10)
+                                -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
 (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select * from t3 where c > 1 and d > 2 order by b,c desc);
 a	b	c	d
@@ -1040,20 +1016,20 @@ a	b	c	d
 9	9	9	9
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select * from t3 where c > 1 and d > 2 order by b,c desc);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Nested loop inner join  (cost=2.50 rows=5)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
-                                -> Table scan on t2  (cost=0.75 rows=5)
+                                -> Parallel table scan on t2  (cost=0.75 rows=5)
                             -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 1)
                         -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=1)
-                            -> Table scan on t3  (cost=1.25 rows=10)
+                            -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 (select * from t3 where c > 1 and d > 3 order by a,b) union all (select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a);
 a	b	c	d
@@ -1073,21 +1049,23 @@ a	b	c	d
 9	9	9	9
 explain format=tree (select * from t3 where c > 1 and d > 3 order by a,b) union all (select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+            -> Stream results  (cost=1.25 rows=1)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Filter: ((t3.c > 1) and (t3.d > 3))  (cost=1.25 rows=1)
-                            -> Table scan on t3  (cost=1.25 rows=10)
+                            -> Parallel table scan on t3  (cost=1.25 rows=10)
             -> Stream results  (cost=5.25 rows=5)
                 -> Nested loop inner join  (cost=5.25 rows=5)
                     -> Inner hash join (t1.a = t2.a)  (cost=4.50 rows=5)
                         -> Table scan on t1  (cost=0.07 rows=7)
                         -> Hash
-                            -> Filter: (t2.a is not null)  (cost=0.75 rows=5)
-                                -> Table scan on t2  (cost=0.75 rows=5)
+                            -> PX Receiver (slice: 1; workers: 1)
+                                -> PX Sender (slice: 3; workers: 1)
+                                    -> Filter: (t2.a is not null)  (cost=0.75 rows=5)
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
                     -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.07 rows=1)
 
 (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
@@ -1098,21 +1076,23 @@ a	b	c	d
 5	5	5	5
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
-                -> Exchange Receive dop )
-                    -> Exchange Send dop )
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 1)
                         -> Nested loop inner join  (cost=2.50 rows=5)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
-                                -> Table scan on t2  (cost=0.75 rows=5)
+                                -> Parallel table scan on t2  (cost=0.75 rows=5)
                             -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
                 -> Left hash join (t2.a = t1.a)  (cost=1.74 rows=12)
                     -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                         -> Table scan on t1  (cost=0.95 rows=7)
                     -> Hash
-                        -> Table scan on t2  (cost=0.32 rows=5)
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 1)
+                                -> Parallel table scan on t2  (cost=0.32 rows=5)
 
 select * from t1 union select * from t2 order by a;
 a	b	c	d
@@ -1128,17 +1108,17 @@ a	b	c	d
 5	6	7	8
 explain format=tree select * from t1 union select * from t2 order by a;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: a
             -> Table scan on <union temporary>  (cost=2.50 rows=0)
                 -> Union materialize with deduplication
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
-                            -> Table scan on t1  (cost=0.95 rows=7)
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
-                            -> Table scan on t2  (cost=0.75 rows=5)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 2; workers: 1)
+                            -> Parallel table scan on t1  (cost=0.95 rows=7)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 3; workers: 1)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
 a	b	c	d
@@ -1164,21 +1144,21 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: a, b
             -> Table scan on <union temporary>  (cost=2.50 rows=0)
                 -> Union materialize
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 2; workers: 1)
                             -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
-                                -> Table scan on t1  (cost=0.95 rows=7)
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
-                            -> Table scan on t2  (cost=0.75 rows=5)
-                    -> Exchange Receive dop )
-                        -> Exchange Send dop )
-                            -> Table scan on t3  (cost=1.25 rows=10)
+                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 3; workers: 1)
+                            -> Parallel table scan on t2  (cost=0.75 rows=5)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 4; workers: 1)
+                            -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
 c1	c2	c3	c4
@@ -1193,15 +1173,21 @@ c1	c2	c3	c4
 9	9	9	9
 explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
 EXPLAIN
--> Filter: (v.c1 > 1)
-    -> Table scan on v  (cost=3.29 rows=7)
-        -> Union materialize with deduplication
-            -> Nested loop inner join  (cost=2.50 rows=5)
-                -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
-                    -> Table scan on t2  (cost=0.75 rows=5)
-                -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
-            -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=1)
-                -> Table scan on t3  (cost=1.25 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Filter: (v.c1 > 1)
+            -> Table scan on v  (cost=3.29 rows=7)
+                -> Union materialize with deduplication
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 2; workers: 1)
+                            -> Nested loop inner join  (cost=2.50 rows=5)
+                                -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
+                                    -> Parallel table scan on t2  (cost=0.75 rows=5)
+                                -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 3; workers: 1)
+                            -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=1)
+                                -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 # --include set_px_to_saved.inc
 drop table t1;

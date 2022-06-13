@@ -36,6 +36,13 @@ enum PX_exchange_format {
   PX_CSI_CHUNK
 };
 
+enum PX_exchange_operator {
+  PX_INVALID_OPERATOR = 0,
+  PX_SENDER,
+  PX_RECEIVER,
+  PX_RECEIVER_MERGE
+};
+
 typedef uint (*reshuffle_func_t)(mem_root_deque<Item *> *);
 
 using PX_exchange_handles =
@@ -80,6 +87,10 @@ class PX_exchange_info {
   uint num_receivers() const { return m_receivers; }
   void set_exchange_id(uint id) { m_exchange_id = id; }
   uint exchange_id() const { return m_exchange_id; }
+  void set_producer_dfo_id(uint id) { m_producer_dfo_id = id; }
+  uint get_producer_dfo_id() { return m_producer_dfo_id; }
+  void set_consumer_dfo_id(uint id) { m_consumer_dfo_id = id; }
+  uint get_consumer_dfo_id() { return m_consumer_dfo_id; }
   void set_top_exchange() { m_top_exchange = true; }
   bool is_top_exchange() const { return m_top_exchange; }
 
@@ -90,6 +101,8 @@ class PX_exchange_info {
   bool deregister_proc(bool as_sender, uint id);
   bool attach(PX_proc *me, bool as_sender, uint id,
               PX_exchange_handles &handles);
+
+  std::string explain_info(PX_exchange_operator operator_type);
 
  private:
   friend class PX_worker_handle_impl;
@@ -165,6 +178,8 @@ class PX_exchange_info {
  private:
   /// Identifier of the exchange instance
   uint m_exchange_id{0};
+  uint m_consumer_dfo_id{0};
+  uint m_producer_dfo_id{0};
   bool m_top_exchange{false};
   /// The query coordinator
   THD *m_coordinator_thd;

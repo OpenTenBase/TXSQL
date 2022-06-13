@@ -1,6 +1,6 @@
 --disable_ps_protocol
 
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -21,7 +21,7 @@ ANALYZE TABLE t1;
 
 connect(conn1,localhost,tencentroot,,);
 connection conn1;
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 --source suite/parallel_execution/inc/save_and_set_px.inc
 SET @saved_px_fallback_in_execution =@@px_fallback_in_execution;
 set global px_fallback_in_execution = 0;
@@ -31,7 +31,7 @@ connection conn2;
 --echo ###
 --echo ### Execute statement in parallel mode.
 --echo ###
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 SELECT * FROM t1;
 
@@ -42,7 +42,7 @@ set global px_fallback_in_execution = 1;
 --echo ###
 connect(conn3,localhost,tencentroot,,);
 connection conn3;
-SHOW VARIABLES LIKE "%px%";
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 SELECT * FROM t1;
 

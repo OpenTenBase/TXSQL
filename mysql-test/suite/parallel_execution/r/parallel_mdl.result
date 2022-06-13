@@ -26,9 +26,9 @@ INSERT INTO t1 VALUES (2);
 INSERT INTO t1 VALUES (2);
 explain format=tree SELECT f1 FROM t1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Table scan on t1  (cost=1.15 rows=9)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=1.15 rows=9)
 
 SELECT f1 FROM t1;
 f1

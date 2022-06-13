@@ -24,9 +24,9 @@ test.t1	analyze	status	OK
 # --include save_and_set_px.inc
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Table scan on t1  (cost=1.25 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 SELECT * FROM t1;
 id	col1	col2
@@ -42,9 +42,9 @@ id	col1	col2
 10	testtesttesttest	1
 EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Index scan on t1 using idx_col2  (cost=3.75 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index scan on t1 using idx_col2  (cost=3.75 rows=10)
 
 SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 id	col2
@@ -60,9 +60,9 @@ id	col2
 1	10
 EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Index scan on t1 using idx_col2 (reverse)  (cost=3.75 rows=10)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index scan on t1 using idx_col2 (reverse)  (cost=3.75 rows=10)
 
 SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 id	col2
@@ -79,10 +79,10 @@ id	col2
 ###test range = (-inf, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-            -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 id	col2
@@ -91,10 +91,10 @@ id	col2
 ###test range = (-inf, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t1.col2 <= 3)  (cost=0.86 rows=3)
-            -> Index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 id	col2
@@ -104,10 +104,10 @@ id	col2
 ###test range = (start, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t1.col2 > 7)  (cost=0.86 rows=3)
-            -> Index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 id	col2
@@ -117,10 +117,10 @@ id	col2
 ###test range = [start, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t1.col2 >= 7)  (cost=1.06 rows=4)
-            -> Index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 id	col2
@@ -131,10 +131,10 @@ id	col2
 ###test range = (start, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: ((t1.col2 > 5) and (t1.col2 < 8))  (cost=0.66 rows=2)
-            -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 id	col2
@@ -143,10 +143,10 @@ id	col2
 ###test range = [start, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: ((t1.col2 >= 5) and (t1.col2 < 8))  (cost=0.86 rows=3)
-            -> Index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 id	col2
@@ -156,10 +156,10 @@ id	col2
 ###test range = (start, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: ((t1.col2 > 5) and (t1.col2 <= 8))  (cost=0.86 rows=3)
-            -> Index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 id	col2
@@ -169,10 +169,10 @@ id	col2
 ###test range = [start, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: ((t1.col2 >= 5) and (t1.col2 <= 8))  (cost=1.06 rows=4)
-            -> Index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 id	col2
@@ -183,10 +183,10 @@ id	col2
 ###test range = (-inf, end1] || [start2, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
         -> Filter: ((t1.col2 <= 2) or (t1.col2 >= 9))  (cost=1.06 rows=4)
-            -> Index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
 id	col2
@@ -197,10 +197,10 @@ id	col2
 ###test range = (start1, end1] || [start2, end2)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
         -> Filter: (((t1.col2 > 1) and (t1.col2 <= 3)) or ((t1.col2 >= 8) and (t1.col2 < 10)))  (cost=1.06 rows=4)
-            -> Index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
 id	col2
@@ -210,10 +210,10 @@ id	col2
 9	2
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-            -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+-> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 id	col2
@@ -238,9 +238,9 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y')
 EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y';
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Index lookup on t1 using c1_idx (c1_idx='y'), with index condition: (t1.c1_idx = 'y')  (cost=0.90 rows=4)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index lookup on t1 using c1_idx (c1_idx='y'), with index condition: (t1.c1_idx = 'y')  (cost=0.90 rows=4)
 
 SELECT * FROM t1 WHERE c1_idx = 'y';
 pk	c1_idx	c2
@@ -250,10 +250,10 @@ pk	c1_idx	c2
 4	y	NULL
 EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Filter: (t1.c1_idx = 'y')  (cost=0.90 rows=4)
-            -> Index lookup on t1 using c1_idx (c1_idx='y'; iterate backwards)  (cost=0.90 rows=4)
+-> Filter: (t1.c1_idx = 'y')  (cost=0.90 rows=4)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel index lookup on t1 using c1_idx (c1_idx='y'; iterate backwards)  (cost=0.90 rows=4)
 
 SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
 pk	c1_idx	c2

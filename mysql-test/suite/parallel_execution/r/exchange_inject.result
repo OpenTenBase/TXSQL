@@ -402,11 +402,11 @@ a	b	a	b
 explain format=tree select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
 EXPLAIN
 -> Nested loop inner join  (cost=4.75 rows=10)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Sort: t1.a  (cost=1.25 rows=10)
                 -> Filter: ((t1.a > 1) and (t1.a is not null))  (cost=1.25 rows=10)
-                    -> Table scan on t1  (cost=1.25 rows=10)
+                    -> Parallel table scan on t1  (cost=1.25 rows=10)
     -> Single-row index lookup on t2 using PRIMARY (a=t1.a)  (cost=0.26 rows=1)
 
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
@@ -426,11 +426,11 @@ a	b	a	b
 explain format=tree select sql_big_result a, sum(b) from t1 group by a order by a;
 EXPLAIN
 -> Group aggregate: sum(t1.b)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Group aggregate: sum(t1.b)
                 -> Sort: t1.a  (cost=1.25 rows=10)
-                    -> Table scan on t1  (cost=1.25 rows=10)
+                    -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select sql_big_result a, sum(b) from t1 group by a order by a;
 a	sum(b)
@@ -447,11 +447,11 @@ a	sum(b)
 explain format=tree select sql_big_result a, sum(b) from t1 group by a order by NULL;
 EXPLAIN
 -> Group aggregate: sum(t1.b)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Group aggregate: sum(t1.b)
                 -> Sort: t1.a  (cost=1.25 rows=10)
-                    -> Table scan on t1  (cost=1.25 rows=10)
+                    -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select sql_big_result a, sum(b) from t1 group by a order by NULL;
 a	sum(b)
@@ -469,13 +469,13 @@ a	sum(b)
 explain format=tree select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 EXPLAIN
 -> Group aggregate: sum(t1.b)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Group aggregate: sum(t1.b)
                 -> Nested loop inner join  (cost=4.75 rows=10)
                     -> Sort: t1.a  (cost=1.25 rows=10)
                         -> Filter: ((t1.a > 1) and (t1.a is not null))  (cost=1.25 rows=10)
-                            -> Table scan on t1  (cost=1.25 rows=10)
+                            -> Parallel table scan on t1  (cost=1.25 rows=10)
                     -> Single-row index lookup on t2 using PRIMARY (a=t1.a)  (cost=0.26 rows=1)
 
 select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
@@ -497,11 +497,11 @@ EXPLAIN
 -> Sort: `sum(b)`
     -> Stream results
         -> Group aggregate: sum(t1.b)
-            -> Exchange Merge Receive dop )
-                -> Exchange Send dop )
+            -> PX Receiver (merge sort; slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Group aggregate: sum(t1.b)
                         -> Sort: t1.a  (cost=1.25 rows=10)
-                            -> Table scan on t1  (cost=1.25 rows=10)
+                            -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select sql_big_result a, sum(b) from t1 group by a order by sum(b);
 a	sum(b)
@@ -526,10 +526,10 @@ INSERT INTO t1 (st, u) VALUES ('a',1),('A',1),('aa',1),('AA',1),('aaa',0),('BBB'
 # Exchange use table of sort instead of creating new tmp table
 explain format=tree select if(u=1,binary st,st) s from t1 order by s;
 EXPLAIN
--> Exchange Merge Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: if((t1.u = 1),cast(t1.st as char charset binary),t1.st)  (cost=0.85 rows=6)
-            -> Table scan on t1  (cost=0.85 rows=6)
+            -> Parallel table scan on t1  (cost=0.85 rows=6)
 
 select if(u=1,binary st,st) s from t1 order by s;
 s
@@ -566,10 +566,10 @@ test.t1	analyze	status	OK
 explain format=tree select a, sum(b) from t1 group by a;
 EXPLAIN
 -> Group aggregate: sum(t1.b)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
             -> Group aggregate: sum(t1.b)
-                -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+                -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a, sum(b) from t1 group by a;
 a	sum(b)
@@ -581,10 +581,10 @@ a	sum(b)
 explain format=tree select a, b, sum(c) from t1 group by a, b;
 EXPLAIN
 -> Group aggregate: sum(t1.c)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
             -> Group aggregate: sum(t1.c)
-                -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+                -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a, b, sum(c) from t1 group by a, b;
 a	b	sum(c)
@@ -597,10 +597,10 @@ a	b	sum(c)
 explain format=tree select a, b, sum(c) from t1 group by a, b order by a, b;
 EXPLAIN
 -> Group aggregate: sum(t1.c)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
             -> Group aggregate: sum(t1.c)
-                -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+                -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a, b, sum(c) from t1 group by a, b order by a, b;
 a	b	sum(c)
@@ -613,11 +613,11 @@ a	b	sum(c)
 explain format=tree select distinct a from t1 where b>2;
 EXPLAIN
 -> Group (no aggregates)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
             -> Group (no aggregates)
                 -> Filter: (t1.b > 2)  (cost=141.05 rows=466)
-                    -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+                    -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select distinct a from t1 where b>2;
 a
@@ -627,11 +627,11 @@ a
 explain format=tree select distinct a, b from t1 where c>2;
 EXPLAIN
 -> Group (no aggregates)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
             -> Group (no aggregates)
                 -> Filter: (t1.c > 2)  (cost=141.05 rows=466)
-                    -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+                    -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select distinct a, b from t1 where c>2;
 a	b
@@ -642,9 +642,9 @@ a	b
 # order by key
 explain format=tree select a from t1 order by a;
 EXPLAIN
--> Exchange Merge Receive dop )
-    -> Exchange Send dop )
-        -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
+        -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a from t1 order by a;
 a
@@ -2049,9 +2049,9 @@ a
 explain format=tree select a from t1 where a<4 order by a;
 EXPLAIN
 -> Filter: (t1.a < 4)  (cost=188.17 rows=932)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
-            -> Index range scan on t1 using idx  (cost=188.17 rows=932)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
+            -> Parallel index range scan on t1 using idx  (cost=188.17 rows=932)
 
 select a from t1 where a<4 order by a;
 a
@@ -2990,9 +2990,9 @@ a
 explain format=tree select a from t1 where a<4 order by a desc;
 EXPLAIN
 -> Filter: (t1.a < 4)  (cost=188.17 rows=932)
-    -> Exchange Merge Receive dop )
-        -> Exchange Send dop )
-            -> Index range scan on t1 using idx  (cost=188.17 rows=932)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
+            -> Parallel index range scan on t1 using idx  (cost=188.17 rows=932)
 
 select a from t1 where a<4 order by a desc;
 a
@@ -3939,9 +3939,9 @@ EXPLAIN
 explain format=tree select count(distinct b) from t1;
 EXPLAIN
 -> Aggregate: count(distinct t1.b)
-    -> Exchange Receive dop )
-        -> Exchange Send dop )
-            -> Index scan on t1 using idx  (cost=141.05 rows=1398)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
+            -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 drop table t1;
 #
@@ -4006,13 +4006,13 @@ test.t3	analyze	status	OK
 explain format=tree
 select fld3,period,price,price2 from t2,t3 where t2.fld1=t3.t2nr and period >= 1001 and period <= 1002 and t2.companynr = 37 order by fld3,period, price;
 EXPLAIN
--> Exchange Merge Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Sort: t2.fld3, t3.period, t3.price
             -> Stream results  (cost=255.79 rows=24)
                 -> Nested loop inner join  (cost=255.79 rows=24)
                     -> Filter: (t2.companynr = 37)  (cost=123.90 rows=120)
-                        -> Table scan on t2  (cost=123.90 rows=1199)
+                        -> Parallel table scan on t2  (cost=123.90 rows=1199)
                     -> Filter: ((t2.fld1 = t3.t2nr) and (t3.period >= 1001) and (t3.period <= 1002))  (cost=1.00 rows=0)
                         -> Single-row index lookup on t3 using PRIMARY (t2nr=t2.fld1)  (cost=1.00 rows=1)
 

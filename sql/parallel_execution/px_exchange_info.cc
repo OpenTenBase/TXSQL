@@ -235,3 +235,40 @@ bool PX_exchange_info::attach(PX_proc *me, bool as_sender, uint id,
 
   return false;
 }
+
+/**
+  Generate the explain description info for explain format=tree.
+
+  @param operator_type the exchange operator type
+  @return the description info. 
+*/
+std::string PX_exchange_info::explain_info(PX_exchange_operator operator_type) {
+  assert(type() == PX_GATHER_EXCHANGE && exchange_id() >= 1);
+  std::string ret;
+  switch (operator_type) {
+    case PX_SENDER: {
+      std::string slice_info = std::string("slice: ") + std::to_string(get_producer_dfo_id());
+      std::string dop_info = std::string("workers: ") + std::to_string(num_senders());
+      ret = std::string("PX Sender ") + "(" + slice_info + "; " + dop_info + ")";
+      break;
+    }
+    case PX_RECEIVER: {
+      std::string slice_info = std::string("slice: ") + std::to_string(get_consumer_dfo_id());
+      std::string dop_info = std::string("workers: ") + std::to_string(num_receivers());
+      ret = std::string("PX Receiver ") + "(" + slice_info + "; " + dop_info + ")";
+      break;
+    }
+    case PX_RECEIVER_MERGE: {
+      std::string merge_sort_info = "merge sort";
+      std::string slice_info = std::string("slice: ") + std::to_string(get_consumer_dfo_id());
+      std::string dop_info = std::string("workers: ") + std::to_string(num_receivers());
+      ret = std::string("PX Receiver ") + "(" + merge_sort_info + "; " + slice_info + "; " + dop_info + ")";
+      break;
+    }
+    default:
+      assert(0);
+      break;
+  }
+
+  return ret;
+}

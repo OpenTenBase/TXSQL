@@ -151,7 +151,8 @@ class Dfo_mgr {
     @param iterator PX receiver iterator.
     @return true error, false success
    */
-  bool create_exchange_info(int64_t dfo_id, RowIterator *iterator);
+  bool create_exchange_info(int64_t dfo_id, RowIterator *iterator,
+      int64_t producer_dfo_id, int64_t consumer_dfo_id);
 
  private:
   THD *m_thd; // THD handle.

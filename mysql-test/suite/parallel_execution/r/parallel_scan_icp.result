@@ -31,9 +31,9 @@ test.t2	analyze	status	OK
 # Try a basic case:
 EXPLAIN FORMAT=TREE SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
-        -> Index range scan on t2 using kp1, with index condition: ((t2.kp1 between 1 and 10) and ((t2.kp2 % 2) = 0))  (cost=4.76 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index range scan on t2 using kp1, with index condition: ((t2.kp1 between 1 and 10) and ((t2.kp2 % 2) = 0))  (cost=4.76 rows=10)
 
 SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
 pk	kp1	kp2	col1

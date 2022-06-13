@@ -1345,6 +1345,7 @@ struct AccessPath {
       std::vector<TABLE *> *tables;
       int ref_slice;
       bool use_temp_table;
+      PX_exchange_info *exchange_info;
     } px_receiver;
     struct {
       AccessPath *child;
@@ -1354,6 +1355,7 @@ struct AccessPath {
       bool use_temp_table;
       bool use_item;
       AccessPath *table_path;
+      PX_exchange_info *exchange_info;
     } px_send;
     struct {
       AccessPath *child;
@@ -1362,6 +1364,7 @@ struct AccessPath {
       std::vector<TABLE *> *tables;
       int ref_slice;
       bool use_temp_table;
+      PX_exchange_info *exchange_info;
     } px_receiver_merge;
   } u;
 };
@@ -2063,5 +2066,6 @@ AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
                                               TABLE *table, bool is_append = false);
 
 void GetExchangeTables(px_access_path::Split_Position *split_pos);
+void WalkAccessPathsForExplain(AccessPath *path, PX_exchange_context *exchange_context, uint &exchange_count);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H

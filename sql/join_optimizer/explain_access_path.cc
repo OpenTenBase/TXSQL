@@ -524,12 +524,25 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
   vector<string> description;
   vector<ExplainData::Child> children;
   switch (path->type) {
-    case AccessPath::TABLE_SCAN:
+    case AccessPath::TABLE_SCAN: {
       description.push_back(string("Table scan on ") +
                             path->table_scan().table->alias +
                             path->table_scan().table->file->explain_extra());
+      /*
+      QEP_TAB *tab = path->table_scan().qep_tab;
+      if (tab && tab->get_parallel_scan()) {
+        description.push_back(string("Parallel table scan on ") +
+                            path->table_scan().table->alias +
+                            path->table_scan().table->file->explain_extra());
+      } else {
+        description.push_back(string("Table scan on ") +
+                            path->table_scan().table->alias +
+                            path->table_scan().table->file->explain_extra());
+      }
+      */
       AddChildrenFromPushedCondition(path->table_scan().table, &children);
       break;
+    }
     case AccessPath::INDEX_SCAN: {
       TABLE *table = path->index_scan().table;
       assert(table->file->pushed_idx_cond == nullptr);
@@ -538,6 +551,11 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       string str = string(table->key_read ? "Covering index scan on "
                                           : "Index scan on ") +
                    table->alias + " using " + key->name;
+      /*
+        QEP_TAB *tab = path->index_scan().qep_tab;
+        string str = ((tab && tab->get_parallel_scan()) ? string("Parallel index scan on ") :
+                      string("Index scan on ")) + table->alias + " using " + key->name;
+      */
       if (path->index_scan().reverse) {
         str += " (reverse)";
       }
@@ -554,6 +572,12 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
                                           : "Index lookup on ") +
                    table->alias + " using " + key->name + " (" +
                    RefToString(*path->ref().ref, key, /*include_nulls=*/false);
+      
+      //QEP_TAB *tab = path->ref().qep_tab;
+      //string str = ((tab && tab->get_parallel_scan()) ? string("Parallel index lookup on ") :
+      //              string("Index lookup on ")) + table->alias + " using " + key->name + " (" +
+      //              RefToString(*path->ref().ref, key, /*include_nulls=*/false);
+      //
       if (path->ref().reverse) {
         str += "; iterate backwards";
       }
@@ -675,6 +699,18 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       if (path->index_range_scan().reverse) {
         ret += " (reverse)";
       }
+      /*
+      TABLE *table = path->index_range_scan().table;
+      // TODO(sgunders): Convert QUICK_SELECT_I to RowIterator so that we can
+      // get better outputs here (similar to dbug_dump()).
+      QEP_TAB *tab = path->index_range_scan().qep_tab;
+      String str;
+      path->index_range_scan().quick->add_info_string(&str);
+      string ret = ((tab && tab->get_parallel_scan()) ?
+                    string("Parallel index range scan on ") :
+                    string("Index range scan on ")) +
+                    table->alias + " using " + to_string(str);
+      */
       if (table->file->pushed_idx_cond != nullptr) {
         ret += ", with index condition: " +
                ItemToString(table->file->pushed_idx_cond);
@@ -918,6 +954,8 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
     }
     case AccessPath::AGGREGATE: {
       string ret;
+      if (path->aggregate().px_agg_type == AggType::PX_FINAL_AGG) ret += "Final ";
+
       if (join->grouped || join->group_optimized_away) {
         if (*join->sum_funcs == nullptr) {
           ret = "Group (no aggregates)";
@@ -954,7 +992,9 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       ExplainData table_explain = ExplainAccessPath(
           path->temptable_aggregate().table_path, join, include_costs);
       description = move(table_explain.description);
-      description.emplace_back("Aggregate using temporary table");
+      path->temptable_aggregate().px_agg_type == AggType::PX_FINAL_AGG ?
+        description.emplace_back("Final Aggregate using temporary table") :
+        description.emplace_back("Aggregate using temporary table");
       children.push_back({path->temptable_aggregate().subquery_path});
       break;
     }
@@ -1155,21 +1195,30 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       children.push_back({path->update_rows().child});
       break;
     }
-    case AccessPath::PX_RECEIVE:
-      description.push_back(
-          string("Exchange Receive dop ") + ")"); //TODO: add dop.
+    case AccessPath::PX_RECEIVE: {
+      PX_exchange_info *exchange_info = path->px_receiver().exchange_info;
+      assert(exchange_info);
+      std::string receiver_info = exchange_info->explain_info(PX_RECEIVER);
+      description.push_back(receiver_info);
       children.push_back({path->px_receiver().child});
       break;
-    case AccessPath::PX_SEND:
-      description.push_back(
-          string("Exchange Send dop ") + ")"); //TODO: add dop.
+    }
+    case AccessPath::PX_SEND: {
+      PX_exchange_info *exchange_info = path->px_send().exchange_info;
+      assert(exchange_info);
+      std::string sender_info = exchange_info->explain_info(PX_SENDER);
+      description.push_back(sender_info);
       children.push_back({path->px_send().child});
       break;
-    case AccessPath::PX_RECEIVER_MERGE:
-      description.push_back(
-          string("Exchange Merge Receive dop ") + ")");
+    }
+    case AccessPath::PX_RECEIVER_MERGE: {
+      PX_exchange_info *exchange_info = path->px_receiver_merge().exchange_info;
+      assert(exchange_info);
+      std::string receiver_info = exchange_info->explain_info(PX_RECEIVER_MERGE);
+      description.push_back(receiver_info);
       children.push_back({path->px_receiver_merge().child});
       break;
+    }
   }
   if (path->type == AccessPath::PX_RECEIVE ||
       path->type == AccessPath::PX_SEND ||

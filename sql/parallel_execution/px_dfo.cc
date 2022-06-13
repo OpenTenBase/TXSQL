@@ -46,8 +46,6 @@ bool Dfo_mgr::do_split(RowIterator *parent_iterator,
   } else if (iterator->type() == RowIterator::PHY_PX_SEND) {
     if (create_dfo(iterator, dfo))
       return true;
-    if (create_exchange_info(dfo->dfo_id(), parent_iterator))
-      return true;
     m_dfos_hash.insert(std::pair<int64_t, Dfo*>(dfo->dfo_id(), dfo));
     dfo->set_parent_dfo(parent_dfo);
     if (nullptr != parent_dfo) {
@@ -56,6 +54,8 @@ bool Dfo_mgr::do_split(RowIterator *parent_iterator,
       // set the left most child of parent.
       if (1 == parent_dfo->m_child_dfos.size()) dfo->set_left_most();
     }
+    if (create_exchange_info(dfo->dfo_id(), parent_iterator, dfo->dfo_id(), parent_dfo->dfo_id()))
+      return true;
   } else { /* do nothing.*/ }
 
   Dfo *current_dfo = (nullptr == dfo) ? parent_dfo : dfo;
@@ -94,8 +94,9 @@ bool Dfo_mgr::create_dfo(RowIterator *iterator, Dfo *&dfo)
 }
 
 /* create exchange info for the dfo pair. */
-bool Dfo_mgr::create_exchange_info(int64_t dfo_id, RowIterator *iterator)
-{
+bool Dfo_mgr::create_exchange_info(int64_t dfo_id, RowIterator *iterator,
+    int64_t producer_dfo_id, int64_t consumer_dfo_id) {
+  assert(producer_dfo_id == dfo_id && consumer_dfo_id >= 0);
   PX_exchange_info *exchange_info = nullptr;
   int64_t exchange_id = dfo_id; // Exchange id is same as dfo id.
   // We set the exchange info between PX_receiver and PX_sender.
@@ -122,6 +123,8 @@ bool Dfo_mgr::create_exchange_info(int64_t dfo_id, RowIterator *iterator)
       return true;
     }
     exchange_info->set_exchange_id(exchange_id);
+    exchange_info->set_producer_dfo_id(producer_dfo_id);
+    exchange_info->set_consumer_dfo_id(consumer_dfo_id);
     m_thd->px_exchange_context->insert(exchange_info);
     if (1 == dfo_id) exchange_info->set_top_exchange();
   }

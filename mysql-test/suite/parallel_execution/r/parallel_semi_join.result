@@ -53,13 +53,15 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`<subquery2>`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
--> Nested loop inner join  (cost=*** rows=***)
-    -> Filter: (t2.a is not null)  (cost=*** rows=***)
-        -> Index scan on t2 using a  (cost=*** rows=***)
-    -> Single-row index lookup on <subquery2> using <auto_distinct_key> (a=t2.a)
-        -> Materialize with deduplication  (cost=*** rows=***)
-            -> Filter: (t1.a is not null)  (cost=*** rows=***)
-                -> Index scan on t1 using a  (cost=*** rows=***)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop inner join  (cost=*** rows=***)
+            -> Filter: (t2.a is not null)  (cost=*** rows=***)
+                -> Parallel index scan on t2 using a  (cost=*** rows=***)
+            -> Single-row index lookup on <subquery2> using <auto_distinct_key> (a=t2.a)
+                -> Materialize with deduplication  (cost=*** rows=***)
+                    -> Filter: (t1.a is not null)  (cost=*** rows=***)
+                        -> Index scan on t1 using a  (cost=*** rows=***)
 
 firstmatch stategy check
 set optimizer_switch='semijoin=on,materialization=off';
@@ -72,11 +74,11 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`test`.`t1`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
--> Exchange Receive dop )
-    -> Exchange Send dop )
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Nested loop semijoin  (cost=*** rows=***)
             -> Filter: (t2.a is not null)  (cost=*** rows=***)
-                -> Index scan on t2 using a  (cost=*** rows=***)
+                -> Parallel index scan on t2 using a  (cost=*** rows=***)
             -> Index lookup on t1 using a (a=t2.a)  (cost=*** rows=***)
 
 duplicateweedout stategy check
@@ -90,11 +92,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`test`.`t1`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
--> Nested loop inner join  (cost=*** rows=***)
-    -> Filter: (t2.a is not null)  (cost=*** rows=***)
-        -> Index scan on t2 using a  (cost=*** rows=***)
-    -> Limit: 1 row(s)  (cost=*** rows=***)
-        -> Index lookup on t1 using a (a=t2.a)  (cost=*** rows=***)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop inner join  (cost=*** rows=***)
+            -> Filter: (t2.a is not null)  (cost=*** rows=***)
+                -> Parallel index scan on t2 using a  (cost=*** rows=***)
+            -> Limit: 1 row(s)  (cost=*** rows=***)
+                -> Index lookup on t1 using a (a=t2.a)  (cost=*** rows=***)
 
 set optimizer_switch=default;
 # --include set_px_to_saved.inc

@@ -377,8 +377,11 @@ class QEP_TAB : public QEP_shared_owner {
 
   bool pfs_batch_update(const JOIN *join) const;
 
+  void set_parallel_scan(bool parallel_scan) const { m_parallel_scan = parallel_scan; }
+  bool get_parallel_scan() const  { return m_parallel_scan; }
+
  public:
-  bool m_parallel_scan{false};
+  mutable bool m_parallel_scan{false};
 
   /// Pointer to table reference
   TABLE_LIST *table_ref;
