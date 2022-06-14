@@ -345,6 +345,7 @@ SET(SQL_GIS_SOURCES
 
 SET(SQL_PX_SOURCES
   parallel_execution/px.cc
+  parallel_execution/px_access_path.cc
   parallel_execution/px_mq.cc
   parallel_execution/px_exchange_info.cc
   parallel_execution/px_receiver.cc
@@ -356,6 +357,7 @@ SET(SQL_PX_SOURCES
   parallel_execution/px_executor.cc
   parallel_execution/px_workerpool.cc
   parallel_execution/my_thread_barrier.cc
+  parallel_execution/px_optimizer.cc
   parallel_execution/px_optimizer_context.cc
   parallel_execution/px_codec.cc
   parallel_execution/px_resource_mgr.cc

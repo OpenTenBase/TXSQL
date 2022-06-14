@@ -4191,9 +4191,7 @@ struct LEX : public Query_tables_list {
   /// Mark a LEX can not be executed parallel if
   ///  1. the LEX is not SELECT command, or
   ///  2. it's not a dynamic SQL, it's in PS/SP, or
-  ///  3. it has subquery.
-  ///  4. currently handle only exchange number equals 1.
-  ///  5. query which has at least one table.
+  ///  3. query which has at least one table.
   bool check_px_execution() const;
 
  public:

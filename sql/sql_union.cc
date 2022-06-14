@@ -98,6 +98,7 @@
 #include "sql/parallel_execution/px_interface.h" // PX_ENABLED
 #include "sql/parallel_execution/px_receiver.h" // PX_receiver
 #include "sql/parallel_execution/px_sender.h" // PX_sender
+#include "sql/parallel_execution/px_optimizer.h"  // px_optimize
 #include "sql/log.h"
 
 using std::move;
@@ -846,6 +847,16 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
   }
 
   set_optimized();  // All query blocks optimized, update the state
+
+#if 0
+  if (thd->lex->unit == this) {
+    JOIN *join = unit->fake_select_lex ? unit->fake_select_lex->join
+                                    : unit->first_select()->join;
+    if (px_optimize(thd, join, root_access_path())) {
+      return true;
+    }
+  }
+#endif
 
   // Confirm whether this unit pass compatibility check, according to
   // pass_px_execution of all query blocks.

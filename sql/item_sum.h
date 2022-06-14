@@ -1942,6 +1942,8 @@ class Item_sum_bit : public Item_sum {
   /// @returns true iff this is BIT_AND.
   inline bool is_and() const { return reset_bits != 0; }
 
+  virtual bool parallel_safe() override { return false; }
+
  private:
   /**
     Accumulate the value of 's1' (if in string mode) or of 'b1' (if in integer
