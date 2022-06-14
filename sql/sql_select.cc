@@ -4477,9 +4477,18 @@ bool JOIN::make_tmp_tables_info() {
   uint curr_tmp_table = const_tables;
   TABLE *exec_tmp_table = nullptr;
   
-  // save group list for parallel aggregation split.
-  if (!group_list.empty()) {
-    saved_group_list = new (thd->mem_root) ORDER_with_src(group_list);
+  // Save group list and order for parallel split.
+  if (thd->lex->pass_px_check) {
+    if (!group_list.empty()) {
+      saved_group_list =
+          new (thd->mem_root) ORDER_with_src(group_list.order, group_list.src);
+      if (!saved_group_list) return true;
+    }
+    if (!order.empty()) {
+      saved_order =
+          new (thd->mem_root) ORDER_with_src(order.order, order.src);
+      if (!saved_order) return true;
+    }
   }
 
   auto cleanup_tmp_tables_on_error =

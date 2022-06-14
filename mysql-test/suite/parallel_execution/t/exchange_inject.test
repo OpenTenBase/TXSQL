@@ -325,6 +325,13 @@ explain format=tree select distinct a from t1 where b>2;
 select distinct a from t1 where b>2;
 explain format=tree select distinct a, b from t1 where c>2;
 select distinct a, b from t1 where c>2;
+--echo # order by key
+explain format=tree select a from t1 order by a;
+select a from t1 order by a;
+explain format=tree select a from t1 where a<4 order by a;
+select a from t1 where a<4 order by a;
+explain format=tree select a from t1 where a<4 order by a desc;
+select a from t1 where a<4 order by a desc;
 --echo # Deduplication has been optimized away.
 explain format=tree select distinct a from t1 where a=2;
 --echo # Not supported

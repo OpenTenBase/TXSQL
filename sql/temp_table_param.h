@@ -61,6 +61,8 @@ class Func_ptr {
   }
 
   void set_override_result_field(Field *f) { m_result_field = f; }
+
+  Field *override_result_field() { return m_result_field; }
  private:
   Item *m_func;
   Field *m_result_field;

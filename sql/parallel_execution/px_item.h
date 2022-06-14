@@ -38,27 +38,24 @@ static const Item_sum::Sumfunctype PQ_SUPPORT_AGGR_FUNC[] = {
   Item_sum::MAX_FUNC
 };
 
-/**
-  Check aggregation functype are in PQ_SUPPORT_AGGR_FUNC
-  or not.
-
-  @param type
-
-  @return false if it's in PQ_SUPPORT_AGGR_FUNC.
-*/
-bool pq_support_aggr_functype(Item_sum::Sumfunctype type);
-
-/**
-  Check whether there is not supportted aggregation function
-  or not.
-
-  @param thd
-  @param join
-
-  @return false if all functions in sum_funcs are supportted.
-*/
-bool check_sum_func_support(THD *thd, JOIN *join);
-
 extern bool check_px_unsafe_item(Item *item);
+
+bool check_xchg_unsafe_field(const Field *field);
+
+bool check_px_unsafe_sum_funcs(JOIN *join);
+
+bool check_xchg_unsafe_sum_funcs(JOIN *join);
+
+bool check_px_unsafe_projector(JOIN *join);
+
+bool check_px_unsafe_group(List<Cached_item> &group_field);
+
+bool check_px_unsafe_order(JOIN *join, ORDER *order, uint ref_slice);
+
+bool check_px_unsafe_cond(JOIN *join, Item *cond, uint ref_slice);
+
+bool check_px_unsafe_temp_param(const Temp_table_param *param);
+
+bool check_xchg_unsafe_temp_param(const Temp_table_param *param);
 
 #endif /* PX_ITEM_INCLUDED */

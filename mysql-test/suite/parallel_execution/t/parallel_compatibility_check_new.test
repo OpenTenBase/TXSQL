@@ -1,0 +1,208 @@
+#####################################################################
+#                                                                   #
+# Test for new parallel compatibility check.                        #
+#                                                                   #
+#####################################################################
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+--echo #
+--echo # Create TABLE with fields of compatible types.
+--echo #
+create table t1(id int, col1 int, col2 int, primary key(id), key idx(col2));
+insert into t1 values(1,1,1);
+insert into t1 values(2,2,2);
+insert into t1 values(3,3,3);
+insert into t1 values(4,4,4);
+insert into t1 values(5,5,5);
+insert into t1 values(6,6,6);
+insert into t1 values(7,7,7);
+insert into t1 values(8,8,8);
+insert into t1 values(9,9,9);
+insert into t1 values(10,10,10);
+create table t2(id int, col1 int, col2 int, primary key(id), key idx(col2));
+insert into t2 values(1,1,1);
+insert into t2 values(2,2,2);
+insert into t2 values(3,3,3);
+insert into t2 values(4,4,4);
+insert into t2 values(5,5,5);
+insert into t2 values(6,6,6);
+insert into t2 values(7,7,7);
+insert into t2 values(8,8,8);
+insert into t2 values(9,9,9);
+insert into t2 values(10,10,10);
+analyze table t1,t2;
+
+--echo #
+--echo # Single Query block
+--echo #
+
+--echo # Single table
+explain format=tree select col1+RAND(1) from t1;
+select col1+RAND(1) from t1;
+
+explain format=tree select * from t1 order by RAND(1);
+select * from t1 order by RAND(1);
+
+explain format=tree select sum(col1+RAND(1)) from t1;
+select sum(col1+RAND(1)) from t1;
+
+explain format=tree select sum(col1)+RAND(1) from t1;
+select sum(col1)+RAND(1) from t1;
+
+explain format=tree select * from t1 where RAND(1)>1;
+select * from t1 where RAND(1)>1;
+
+explain format=tree select sum(col1) + RAND(1) from t1 group by col2 order by col2;
+select sum(col1) + RAND(1) from t1 group by col2 order by col2;
+
+explain format=tree select sum(col1) + RAND(1) from t1 group by col2 order by sum(col1);
+select sum(col1) + RAND(1) from t1 group by col2 order by sum(col1);
+
+explain format=tree select sum(col1) from t1 group by col2 having RAND(1) > 1 order by sum(col1);
+select sum(col1) from t1 group by col2 having RAND(1) > 1 order by sum(col1);
+
+--echo # Multiple tables
+explain format=tree select t1.col1, RAND(1) from t1 join t2 on t1.col2=t2.col2 order by t1.col1;
+select t1.col1, RAND(1) from t1 join t2 on t1.col2=t2.col2 order by t1.col1;
+
+explain format=tree select t1.col1, RAND(1) from t1 join t2 on t1.id=t2.id order by t1.col1;
+select t1.col1, RAND(1) from t1 join t2 on t1.id=t2.id order by t1.col1;
+
+--echo # Hash Join
+explain format=tree select * from t1 join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
+select * from t1 join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
+
+explain format=tree select * from t1 straight_join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
+select * from t1 straight_join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
+
+--echo # LIMIT
+explain format=tree select * from t1 limit 1;
+select * from t1 limit 1;
+
+explain format=tree select * from t1 order by col1 limit 1;
+select * from t1 order by col1 limit 1;
+
+explain format=tree select col2 from t1 order by col2 limit 1;
+select col2 from t1 order by col2 limit 1;
+
+explain format=tree select distinct col1 from t1 limit 1;
+select distinct col1 from t1 limit 1;
+
+--echo #
+--echo # Union
+--echo #
+explain format=tree select * from t1 union select * from t2;
+select * from t1 union select * from t2;
+
+explain format=tree select * from t1 union all select * from t2;
+select * from t1 union all select * from t2;
+
+explain format=tree select * from t1 union (select * from t2 where id > RAND(1));
+select * from t1 union all (select * from t2 where id > RAND(1));
+
+explain format=tree (select * from t1 where id > RAND(1)) union (select * from t2 where id > RAND(1));
+(select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
+
+explain format=tree select * from t1 union all (select * from t2 where id > RAND(1));
+select * from t1 union all (select * from t2 where id > RAND(1));
+
+explain format=tree (select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
+(select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
+
+explain format=tree (SELECT 1 as a) UNION (SELECT 1) ORDER BY (SELECT a+0);
+(SELECT 1 as a) UNION (SELECT 1) ORDER BY (SELECT a+0);
+
+--echo # UNION and UNION ALL in one statement
+explain format=tree select * from t1 union select * from t2 union all select * from t1;
+select * from t1 union select * from t2 union all select * from t1;
+
+--echo # LIMIT
+explain format=tree select * from t1 union select * from t2 limit 2;
+select * from t1 union select * from t2 limit 2;
+
+explain format=tree select * from t1 union all select * from t2 limit 2;
+select * from t1 union all select * from t2 limit 2;
+
+--echo #
+--echo # Subselect
+--echo #
+set @old_optimizer_switch = @@optimizer_switch;
+set optimizer_switch='semijoin=on,materialization=on,loosescan=off,firstmatch=off,duplicateweedout=off,index_condition_pushdown=off,mrr=off';
+explain format=tree select * from t1 where id in (select col1 from t2);
+select * from t1 where id in (select col1 from t2);
+
+explain format=tree select * from t1 where id in (select col1 from t2 where col1 > RAND(1));
+select * from t1 where id in (select col1 from t2 where col1 > RAND(1));
+
+explain format=tree select * from t1 where col1 in (select col1 from t2 where col1 > RAND(1));
+select * from t1 where col1 in (select col1 from t2 where col1 > RAND(1));
+
+set optimizer_switch = @old_optimizer_switch;
+
+explain format=tree select * from t1 order by (select col1 from t2 limit 1);
+select * from t1 order by (select col1 from t2 limit 1);
+
+explain format=tree select * from t1 order by (select col1 from t2 where col1 = t1.col1);
+select * from t1 order by (select col1 from t2 where col1 = t1.col1);
+--echo #
+--echo # Derived table
+--echo #
+explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2;
+select * from (select distinct col1 from t1) as t where t.col1>2;
+
+explain format=tree select * from (select sum(col2) as a from t1 group by col1) as t where t.a>2;
+select * from (select sum(col2) as a from t1 group by col1) as t where t.a>2;
+
+explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+
+explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+
+--echo # Aggregate(stream or temptable) below Materialize can NOT be split now.
+explain format=tree select * from (select sum(col2) as a from t1 group by col1) as t;
+select * from (select sum(col2) as a from t1 group by col1) as t;
+
+--echo # LIMIT
+explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2 limit 1;
+select * from (select distinct col1 from t1) as t where t.col1>2 limit 1;
+
+explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+
+explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+
+drop table t1,t2;
+
+--echo #
+--echo # Create TABLE with fields of incompatible types.
+--echo #
+create table t1 (a mediumtext, b int);
+create table t2 (a varchar(10), b int);
+insert into t1 values ('a', 1),('b', 2);
+insert into t2 values ('a', 1),('b', 2);
+analyze table t1,t2;
+
+explain format=tree select * from t1;
+select * from t1;
+
+explain format=tree select b from t1;
+select b from t1;
+
+explain format=tree select a from t2 where length(hex(a)) >1;
+select a from t2 where length(hex(a)) >1;
+
+explain format=tree select sum(length(a)) from t1;
+select sum(length(a)) from t1;
+
+explain format=tree select * from t1 join t2 on t1.b=t2.b;
+select * from t1 join t2 on t1.b=t2.b;
+
+explain format=tree select * from t1 union all select * from t2;
+select * from t1 union all select * from t2;
+
+drop table t1,t2;
+
+--source suite/parallel_execution/inc/set_px_to_saved.inc

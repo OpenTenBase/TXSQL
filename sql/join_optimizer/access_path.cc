@@ -2120,7 +2120,7 @@ AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
       }
 
       // check all sum_funcs are support
-      if (check_sum_func_support(thd, join)) {
+      if (check_px_unsafe_sum_funcs(join)) {
         do_inject = false;
         break;
       }
@@ -2143,7 +2143,7 @@ AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
       uint curr_slice = path->temptable_aggregate().ref_slice;
 
       // check all sum_funcs are support
-      if (check_sum_func_support(thd, join)) {
+      if (check_px_unsafe_sum_funcs(join)) {
         do_inject = false;
         break;
       }
@@ -3073,7 +3073,7 @@ bool FindExchangeInjectPosition(THD *thd, JOIN *join, AccessPath *const path,
         return false;
       case AccessPath::AGGREGATE:
       case AccessPath::TEMPTABLE_AGGREGATE:
-        if (check_sum_func_support(thd, join)) {
+        if (check_px_unsafe_sum_funcs(join)) {
           target_path = nullptr;
         } else {
           target_path = subpath;
@@ -3364,9 +3364,21 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::STREAM: {
+
       child = path->stream().child;
       child_slice = REF_SLICE_SAVED_BASE;
 
+      break;
+    }
+    case AccessPath::MATERIALIZE: {
+      const auto &param = path->materialize();
+      if (param.param->query_blocks.size() != 1 ||
+          param.param->query_blocks[0].join != join) {
+        return nullptr;
+      }
+
+      //assert(param.param->query_blocks[0].copy_fields_and_items);
+      child = param.param->query_blocks[0].subquery_path;
       break;
     }
 
@@ -3717,10 +3729,19 @@ static AccessPath *CreateExchangeAccessPathUseTables(THD *thd, JOIN *join,
     } else {
       // When using the AGGREGATE operator for grouping, merge sort must be used
       // to ensure that the input of the final agg is in order.
-      assert(!join->group_list.empty());
-      final_file_sort = new (thd->mem_root)
-          Filesort(thd, {table}, false, join->group_list.order, HA_POS_ERROR,
-                    false, false, false);
+      assert(
+          (join->saved_group_list && !join->saved_group_list->empty()) ||
+          (join->saved_order && !join->saved_order->empty()));
+      // If there is no filesort here, index is used. Index ordering is used
+      // only if the index supports ordering of all group or order columns.
+      // GROUP BY is executed before ORDER BY. See JOIN::test_skip_sort() and
+      // test_if_skip_sort_order().
+      ORDER *order =
+          (join->saved_group_list && !join->saved_group_list->empty())
+              ? join->saved_group_list->order
+              : join->saved_order->order;
+      final_file_sort = new (thd->mem_root) Filesort(
+          thd, {table}, false, order, HA_POS_ERROR, false, false, false);
       if (!final_file_sort) return nullptr;
     }
     assert(final_file_sort);
@@ -3835,6 +3856,7 @@ static void FixAccessPathForExchange(AccessPath *const path,
       break;
     }
     case AccessPath::HASH_JOIN: {
+      assert(false);
       break;
     }
     case AccessPath::FILTER: {
@@ -4038,6 +4060,10 @@ static void FixAccessPathForExchange(AccessPath *const path,
 
       break;
     }
+    case AccessPath::MATERIALIZE: {
+      assert(false);
+      break;
+    }
     default:
       assert(false);
   }
@@ -4071,6 +4097,10 @@ static void ConnectAccessPathWithChildExchange(AccessPath *const path,
     case AccessPath::STREAM:
       path->stream().child = receiver;
       break;
+    case AccessPath::MATERIALIZE: {
+      path->materialize().param->query_blocks[0].subquery_path = receiver;
+      break;
+    }
     default:
       assert(false);
   }

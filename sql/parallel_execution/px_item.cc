@@ -29,6 +29,9 @@
 
 #include "sql/parallel_execution/px_item.h"
 
+#include "sql/parallel_execution/px_access_path.h"
+
+#include "sql/filesort.h"
 #include "sql/item.h"
 #include "sql/item_sum.h"
 #include "sql/sql_optimizer.h"
@@ -42,43 +45,6 @@ static const char *px_unsafe_func_name[] {
   "is_used_lock",  "release_lock",       "sleep",
   "xml_str",       "json_func",          "release_all_locks"
 };
-
-/**
-  Check aggregation functype are in PQ_SUPPORT_AGGR_FUNC
-  or not.
-
-  @param type
-
-  @return false if it's in PQ_SUPPORT_AGGR_FUNC.
-*/
-bool pq_support_aggr_functype(Item_sum::Sumfunctype type) {
-  for (auto sum_type : PQ_SUPPORT_AGGR_FUNC) {
-    if (sum_type == type) return false;
-  }
-  return true;
-}
-
-/**
-  Check whether there is not supportted aggregation function
-  or not.
-
-  @param thd
-  @param join
-
-  @return false if all functions in sum_funcs are supportted.
-*/
-bool check_sum_func_support(THD *thd, JOIN *join) {
-  // refuse rollup
-  if (join->rollup_state != JOIN::RollupState::NONE) {
-    return true;
-  }
-  // refuse none-support sum_funcs
-  for (Item_sum **sum_item = join->sum_funcs; *sum_item != nullptr; ++sum_item) {
-    const Item_sum::Sumfunctype sum_type = (*sum_item)->sum_func();
-    if (pq_support_aggr_functype(sum_type)) return true;
-  }
-  return false;
-}
 
 bool Item::pq_copy_item(THD *thd, Query_block *select, Item *item) {
   cmp_context = item->cmp_context;
@@ -298,40 +264,65 @@ void Temp_table_param::pq_copy_from(Temp_table_param *orig_param) {
 }
 
 /**
-  Check the data type of the item is parallel unsafe. 
+  Check if the field type is supported for cross-thread exchange(xchg).
 
-  @return false parallel safe true unsafe
+  @see PX_compact_codec::make_compact_field() and
+  PX_compact_codec::decompact_field(), the compatibility check of these three
+  functions for the types of field should be consistent.
+
+  @return false if supported, true otherwise
 */
-static bool check_px_unsafe_datatype(Item *item) {
-  assert(item);
+static bool check_xchg_safe_field_type(enum_field_types type) {
+  if (type == MYSQL_TYPE_BLOB ||
+      type == MYSQL_TYPE_BIT ||  // TODO: test if support MYSQL_TYPE_BIT
+      type == MYSQL_TYPE_JSON ||
+      type == MYSQL_TYPE_TINY_BLOB ||
+      type == MYSQL_TYPE_MEDIUM_BLOB ||
+      type == MYSQL_TYPE_LONG_BLOB ||
+      type == MYSQL_TYPE_GEOMETRY) {
+    return true;
+  }
+  return false;
+}
 
-  if (item->data_type() == MYSQL_TYPE_BLOB ||
-      item->data_type() == MYSQL_TYPE_BIT ||
-      item->data_type() == MYSQL_TYPE_JSON ||
-      item->data_type() == MYSQL_TYPE_TINY_BLOB ||
-      item->data_type() == MYSQL_TYPE_MEDIUM_BLOB ||
-      item->data_type() == MYSQL_TYPE_LONG_BLOB ||
-      item->data_type() == MYSQL_TYPE_GEOMETRY) {
+/**
+  Check if field is supported for cross-thread exchange(xchg).
+  @return false if supported, true otherwise
+*/
+bool check_xchg_unsafe_field(const Field *field) {
+  assert(field);
+
+  if (field->is_gcol()) {
     return true;
   }
 
-  if (item->type() == Item::FIELD_ITEM) {
-    Field *field = static_cast<Item_field *>(item)->field;
-    assert(field);
+  if (check_xchg_safe_field_type(field->type())) {
+    return true;
+  }
 
-    if (field && field->is_gcol()) {
-      return true;
-    }
+  return false;
+}
 
-    if (field->type() == MYSQL_TYPE_BLOB ||
-        field->type() == MYSQL_TYPE_BIT ||
-        field->type() == MYSQL_TYPE_JSON ||
-        field->type() == MYSQL_TYPE_TINY_BLOB ||
-        field->type() == MYSQL_TYPE_MEDIUM_BLOB ||
-        field->type() == MYSQL_TYPE_LONG_BLOB ||
-        field->type() == MYSQL_TYPE_GEOMETRY) {
-      return true;
-    }
+/**
+  Check the data type of the item is supported for cross-thread exchange.(xchg)
+  @return false if compatible, true otherwise
+*/
+static bool check_xchg_unsafe_datatype(Item *item) {
+  assert(item);
+
+  if (check_xchg_safe_field_type(item->data_type())) {
+    return true;
+  }
+
+  // The data_type of item_field is the same as the type of field. see
+  // Item_field::set_field()
+  assert(item->type() != Item::FIELD_ITEM ||
+              item->data_type() ==
+                  static_cast<Item_field *>(item)->field->type());
+
+  Field *tmp_field = nullptr;
+  if ((tmp_field = item->get_tmp_table_field())) {
+    if (check_xchg_unsafe_field(tmp_field)) return true;
   }
 
   return false;
@@ -469,7 +460,7 @@ static bool check_px_unsafe_cache(Item *item) {
     Item *example = cache->get_example();
     assert(example);
     if (!example || check_px_unsafe_item(example)) {
-      return false;
+      return true;
     }
   }
 
@@ -479,20 +470,53 @@ static bool check_px_unsafe_cache(Item *item) {
 static bool check_px_unsafe_subselect(Item *item) {
   assert(item);
 
-  // @TODO: do more check
   if (item->type() == Item::SUBSELECT_ITEM) {
     return true;
+
+    Item_subselect *subselect = down_cast<Item_subselect *>(item);
+    Query_expression *unit = subselect->unit;
+    // Subselect may not have been optimized here, see Item_subselect::exec().
+    if (!unit->is_optimized() || !unit->root_access_path()) {
+      return true;
+    }
+    JOIN *join = unit->fake_query_block ? unit->fake_query_block->join
+                                       : unit->first_query_block()->join;
+    AccessPath *max_subtree = nullptr;
+    bool exchange_safe = false;
+    bool is_stream = false;
+    uint ref_slice = REF_SLICE_SAVED_BASE;
+    return px_access_path::WalkAccessPathsForCompat(
+        current_thd, unit->root_access_path(), nullptr, join,
+        /*parallel_scan=*/false, /*root=*/true, /*root_all=*/false, ref_slice,
+        max_subtree, is_stream, nullptr, nullptr, exchange_safe);
   }
 
   return false;
 }
 
 /**
-  Check the compatibility of JOIN::fields, which may be
-  exchanged by exchange channel.
+  Check the data type of the func_ptr is supported for cross-thread
+  exchange(xchg).
+  @return false if compatible, true otherwise
+*/
+static bool check_xchg_unsafe_func_ptr(Func_ptr *func) {
+  Field *result_field = func->override_result_field()
+                            ? func->override_result_field()
+                            : func->func()->get_result_field();
+
+  if (check_xchg_unsafe_field(result_field) ||
+      check_xchg_unsafe_datatype(func->func())) {
+    return true;
+  }
+  return false;
+}
+
+/**
+  Check the compatibility of items, which may be exchanged by exchange channel.
+  @return false if parallel safe, true otherwise.
 */
 bool check_px_unsafe_item(Item *item) {
-  if (check_px_unsafe_datatype(item) ||
+  if (check_xchg_unsafe_datatype(item) ||  // TODO: This line should be removed for new compat check.
       check_px_unsafe_aggr_func(item) ||
       check_px_unsafe_func(item) ||
       check_px_unsafe_cond(item) ||
@@ -503,6 +527,125 @@ bool check_px_unsafe_item(Item *item) {
     return true;
   }
 
+  return false;
+}
+
+/**
+  Check whether there is not supported aggregation function or not.
+  @return false if all functions in sum_funcs are supportted.
+*/
+bool check_px_unsafe_sum_funcs(JOIN *join) {
+  assert(join);
+  Item_sum **sum_funcs = join->sum_funcs, *sum_item;
+  while ((sum_item = *(sum_funcs++))) {
+    if (check_px_unsafe_item(sum_item)) return true;  // TODO: Change to check_px_unsafe_aggr_func for new compat check.
+  }
+  return false;
+}
+
+/**
+  Check the data type of the sum_func is supported for cross-thread
+  exchange(xchg).
+  @return false if compatible, true otherwise
+*/
+bool check_xchg_unsafe_sum_funcs(JOIN *join) {
+  assert(join);
+  Item_sum **sum_funcs = join->sum_funcs, *sum_item;
+  while ((sum_item = *(sum_funcs++))) {
+    if (check_xchg_unsafe_datatype(sum_item)) return true;
+  }
+  return false;
+}
+
+/**
+ * @return false if parallel safe, true otherwise.
+ */
+bool check_px_unsafe_projector(JOIN *join) {
+  assert(join);
+  for (Item *item : *join->fields) {
+    if (check_px_unsafe_item(item)) return true;
+  }
+  return false;
+}
+
+/**
+ * @return false if parallel safe, true otherwise.
+ */
+bool check_px_unsafe_group(List<Cached_item> &group_field) {
+  List_iterator<Cached_item> li(group_field);
+  Cached_item *buff;
+
+  while ((buff = li++)) {
+    if (check_px_unsafe_item(buff->get_item())) return true;
+  }
+  return false;
+}
+
+/**
+ * @return false if parallel safe, true otherwise.
+ */
+bool check_px_unsafe_order(JOIN *join, ORDER *order, uint ref_slice) {
+  // In case of Item_ref
+  if (join && ref_slice) Switch_ref_item_slice ref_item_slice(join, ref_slice);
+  for (; order; order = order->next) {
+    if (check_px_unsafe_item(*order->item)) return true;
+  }
+  return false;
+}
+
+/**
+ * @return false if parallel safe, true otherwise.
+ */
+bool check_px_unsafe_cond(JOIN *join, Item *cond, uint ref_slice) {
+  // In case of Item_ref
+  if (join && ref_slice) Switch_ref_item_slice ref_item_slice(join, ref_slice);
+  return check_px_unsafe_item(cond);
+}
+
+/**
+ * @return false if parallel safe, true otherwise.
+ */
+bool check_px_unsafe_temp_param(const Temp_table_param *param) {
+  if (!param) return false;
+
+  if (!param->items_to_copy || !param->items_to_copy->size()) {
+    return false;
+  }
+
+  Func_ptr_array *func_ptr = param->items_to_copy;
+  uint end = func_ptr->size();
+  for (uint i = 0; i < end; i++) {
+    Func_ptr *func = &func_ptr->at(i);
+    if (check_px_unsafe_func(func->func())) return true;
+  }
+  return false;
+}
+
+/**
+  Check the data type of the items is supported for cross-thread exchange(xchg).
+  @return false if compatible, true otherwise
+*/
+bool check_xchg_unsafe_temp_param(const Temp_table_param *param) {
+  if (!param) return false;
+  /*
+  for (Item_copy *item_copy : param->grouped_expressions) {
+    if (check_xchg_unsafe_datatype(item_copy->get_item())) return true;
+  }
+  */
+  for (Copy_field copy_field : param->copy_fields) {
+    if (check_xchg_unsafe_field(copy_field.from_field())) return true;
+  }
+
+  if (!param->items_to_copy || !param->items_to_copy->size()) {
+    return false;
+  }
+
+  Func_ptr_array *func_ptr = param->items_to_copy;
+  uint end = func_ptr->size();
+  for (uint i = 0; i < end; i++) {
+    Func_ptr *func = &func_ptr->at(i);
+    if (check_xchg_unsafe_func_ptr(func)) return true;
+  }
   return false;
 }
 

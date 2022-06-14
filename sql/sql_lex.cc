@@ -53,6 +53,7 @@
 #include "sql/parse_tree_nodes.h"  // PT_with_clause
 #include "sql/protocol.h"
 #include "sql/select_lex_visitor.h"
+#include "sql/sp.h"  // Sroutine_hash_entry
 #include "sql/sp_head.h"  // sp_head
 #include "sql/sql_admin.h"
 #include "sql/sql_base.h"
@@ -870,6 +871,15 @@ bool LEX::check_px_execution() const {
       is_from_ps ||
       is_from_sp) {
     return false;
+  }
+
+  Sroutine_hash_entry *const *sroutine_to_open = &sroutines_list.first;
+  for (Sroutine_hash_entry *rt = *sroutine_to_open; rt; rt = rt->next) {
+    auto rt_type = rt->type();
+    if (rt_type == Sroutine_hash_entry::FUNCTION ||
+        rt_type == Sroutine_hash_entry::PROCEDURE) {
+      return false;
+    }
   }
 
   return true;

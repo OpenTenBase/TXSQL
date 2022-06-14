@@ -480,7 +480,8 @@ class JOIN {
     ORDER BY and GROUP BY lists, to transform with prepare,optimize and exec
   */
   ORDER_with_src order, group_list;
-  ORDER_with_src *saved_group_list = nullptr;
+  ORDER_with_src *saved_group_list = nullptr,
+                 *saved_order = nullptr;  // Reserved for px.
 
   // Used so that AggregateIterator knows which items to signal when the rollup
   // level changes. Obviously only used in the presence of rollup.
