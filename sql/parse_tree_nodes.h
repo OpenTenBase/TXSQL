@@ -2051,6 +2051,11 @@ class PT_union : public PT_query_expression_body {
   bool is_union() const override { return true; }
 
   bool has_into_clause() const override {
+    THD *thd = current_thd;
+    if (thd != NULL) {
+      uchar dummy;
+      if (check_stack_overrun(thd, STACK_MIN_SIZE, &dummy)) return true; 
+    }
     return m_lhs->has_into_clause() || m_rhs->has_into_clause();
   }
 
