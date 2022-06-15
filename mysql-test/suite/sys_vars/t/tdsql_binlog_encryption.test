@@ -14,7 +14,7 @@
 # Reference: WL#10957
 ###############################################################################
 
---source include/have_tencent_root.inc
+--source include/have_tdsql_root.inc
 # Save initial value
 --let $saved_binlog_encryption= `SELECT @@global.binlog_encryption`
 
@@ -113,8 +113,10 @@ SET GLOBAL binlog_encryption=ON;
 ALTER INSTANCE ROTATE BINLOG MASTER KEY;
 
 --connection default
-GRANT BINLOG_ENCRYPTION_ADMIN ON *.* TO user1@'%';
---connection conn_user1
+#GRANT BINLOG_ENCRYPTION_ADMIN ON *.* TO user1@'%';
+GRANT ALL ON *.* TO user1@'%' with grant option;
+--connect(conn_user2,localhost,user1,,)
+--connection conn_user2
 SET GLOBAL binlog_encryption=ON;
 ALTER INSTANCE ROTATE BINLOG MASTER KEY;
 
