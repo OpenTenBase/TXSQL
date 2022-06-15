@@ -224,6 +224,9 @@ our $opt_summary_report;
 our $opt_vardir;
 our $opt_xml_report;
 our $ports_per_thread   = 30;
+our $opt_pq_protocol;
+our $opt_sort_all_select;
+our $opt_sort_select_no_orderby;
 
 #
 # Suites run by default (i.e. when invoking ./mtr without parameters)
@@ -1614,8 +1617,11 @@ sub command_line_setup {
     'json-explain-protocol' => \$opt_json_explain_protocol,
     'opt-trace-protocol'    => \$opt_trace_protocol,
     'ps-protocol'           => \$opt_ps_protocol,
+    'pq-protocol'           => \$opt_pq_protocol,
     'sp-protocol'           => \$opt_sp_protocol,
     'view-protocol'         => \$opt_view_protocol,
+    'sort-all-select'       => \$opt_sort_all_select,
+    'sort-select-no-orderby' => \$opt_sort_select_no_orderby,
     'vs-config=s'           => \$opt_vs_config,
 
     # Max number of parallel threads to use
@@ -1893,6 +1899,24 @@ sub command_line_setup {
     } else {
       push(@opt_cases, $arg);
     }
+  }
+
+  if ($opt_sort_all_select and $opt_sort_select_no_orderby) {
+    mtr_error("Both sort all select and not sort all options are given. Only one is supported.");
+  }
+
+  if ($opt_sort_all_select) {
+    push(@opt_extra_mysqltest_opt, '--sort-result');
+  } elsif ($opt_sort_select_no_orderby) {
+    push(@opt_extra_mysqltest_opt, '--sort-no-orderby');
+  }
+
+  # Push Parallel Query (PQ) related options for testing
+  if ($opt_pq_protocol) {
+    mtr_print("Using pqprotocol, turn on parallel query.");
+    push(@opt_extra_mysqld_opt, '--px_max_parallel_threads=8');
+    push(@opt_extra_mysqld_opt, '--px_parallel_cost_threshold=0');
+    push(@opt_extra_mysqld_opt, '--px_parallel_table_record_threshold=0');
   }
 
   # Find out type of logging that are being used
@@ -7176,8 +7200,17 @@ sub start_mysqltest ($) {
   # Number of lines of resut to include in failure report
   mtr_add_arg($args, "--tail-lines=20");
 
+  my $resfile_basename = mtr_match_extension( $tinfo->{'result_file'}, "result");
+  # This file suffix is dedicated to '--pq-protocol'
+  my $resfile_suffix = "pq";
+
   if (defined $tinfo->{'result_file'}) {
-    mtr_add_arg($args, "--result-file=%s", $tinfo->{'result_file'});
+    if ($opt_pq_protocol) {
+      mtr_add_arg($args, "--result-file=%s.%s", $resfile_basename, $resfile_suffix);
+    }
+    else {
+      mtr_add_arg($args, "--result-file=%s", $tinfo->{'result_file'});
+    }
   }
 
   client_debug_arg($args, "mysqltest");
