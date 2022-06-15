@@ -227,6 +227,10 @@ bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
   PX_PRINT_INFO("start scheduling");
   if (coordinator->schedule(worker_pool)) goto err_finish;
 
+  mysql_mutex_lock(&LOCK_inc_px_stmt_executed);
+  px_stmt_executed++;
+  mysql_mutex_unlock(&LOCK_inc_px_stmt_executed);
+
   goto finish;
 
 err:
