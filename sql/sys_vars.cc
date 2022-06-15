@@ -7384,14 +7384,22 @@ static Sys_var_enum Sys_group_replication_consistency(
 
 static bool check_binlog_encryption_admin(sys_var *, THD *thd, set_var *) {
   DBUG_TRACE;
+
+#ifndef HAVE_TDSQL
   if (!thd->security_context()->check_access(SUPER_ACL) &&
       !(thd->security_context()
             ->has_global_grant(STRING_WITH_LEN("BINLOG_ENCRYPTION_ADMIN"))
             .first)) {
     my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
              "SUPER or BINLOG_ENCRYPTION_ADMIN");
+  }
+#else
+  if (!thd->security_context()->check_access(SUPER_ACL)) {
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
     return true;
   }
+#endif
+
   return false;
 }
 
@@ -8752,5 +8760,5 @@ static Sys_var_ulong Sys_pseudo_server_id(
 static Sys_var_bool Sys_partition_table_skip_limit(
     "partition_table_skip_limit",
     "The partion key doesn't need to be part of all unique index if setting to true",
-    GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
+    TDSQL_VAR GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 /* Changes from txsql end. */
