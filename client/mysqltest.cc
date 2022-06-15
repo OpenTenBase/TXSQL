@@ -177,6 +177,8 @@ enum {
 #ifdef _WIN32
   OPT_SAFEPROCESS_PID,
 #endif
+  OPT_SORT_RESULT,
+  OPT_SORT_NO_ORDERBY,
   OPT_SP_PROTOCOL,
   OPT_TAIL_LINES,
   OPT_TRACE_EXEC,
@@ -217,6 +219,8 @@ static bool testcase_disabled = false;
 static bool display_result_vertically = false, display_result_lower = false,
             display_metadata = false, display_result_sorted = false,
             display_session_track_info = false;
+static bool opt_sort_result = false;
+static bool opt_sort_no_orderby = false;
 static bool skip_if_hypergraph = false;
 static int start_sort_column = 0;
 static bool disable_query_log = false, disable_result_log = false;
@@ -7780,6 +7784,13 @@ static struct my_option my_long_options[] = {
      &opt_safe_process_pid, &opt_safe_process_pid, 0, GET_INT, REQUIRED_ARG, 0,
      0, 0, 0, 0, 0},
 #endif
+    {"sort-result", OPT_SORT_RESULT, "Sort all select results in display.",
+     &opt_sort_result, &opt_sort_result, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr,
+     0, nullptr},
+    {"sort-no-orderby", OPT_SORT_NO_ORDERBY,
+      "Sort all select without order by results in display.",
+     &opt_sort_no_orderby, &opt_sort_no_orderby, 0, GET_BOOL, NO_ARG, 0, 0, 0,
+     nullptr, 0, nullptr},
     {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
      "Base name of shared memory.", &shared_memory_base_name,
      &shared_memory_base_name, nullptr, GET_STR, REQUIRED_ARG, 0, 0, 0, nullptr,
@@ -8927,6 +8938,26 @@ static void run_query(struct st_connection *cn, struct st_command *command,
     query = command->query;
     query_len = std::strlen(query);
   }
+
+  /*
+    Sort a query result's displayed order based on its type.
+  */
+  std::string my_query_str(query);
+  std::string select_prefix("select");
+  std::transform(my_query_str.begin(), my_query_str.end(),
+                  my_query_str.begin(), ::tolower);
+
+  if (my_query_str.compare(0, select_prefix.size(), select_prefix) == 0) {
+    if (opt_sort_result) {
+      display_result_sorted = true;
+    } else if (opt_sort_no_orderby) {
+      std::string::size_type n = my_query_str.find("order by");
+      if (n == std::string::npos) display_result_sorted = true;
+    }
+  }
+
+  my_query_str.clear();
+  select_prefix.clear();
 
   /*
     Create a temporary dynamic string to contain the
