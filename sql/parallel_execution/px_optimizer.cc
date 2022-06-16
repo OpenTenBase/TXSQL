@@ -35,6 +35,9 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
     return false;
   }
 
+  // Initialize for PX_PRINT_ macros.
+  PX_EXECUTOR(thd) = nullptr;
+
   // Check compatibility and get exchange points.
   std::vector<px_access_path::Split_Position> split_positions_all;
   std::vector<AccessPath *> mat_access_path;  // vector for MATERIALIZE and APPEND
