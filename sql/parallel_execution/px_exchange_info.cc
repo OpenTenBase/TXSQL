@@ -242,7 +242,7 @@ bool PX_exchange_info::attach(PX_proc *me, bool as_sender, uint id,
   @param operator_type the exchange operator type
   @return the description info. 
 */
-std::string PX_exchange_info::explain_info(PX_exchange_operator operator_type) {
+std::string PX_exchange_info::explain_info(PX_exchange_operator_type operator_type) {
   assert(type() == PX_GATHER_EXCHANGE && exchange_id() >= 1);
   std::string ret;
   switch (operator_type) {
@@ -263,6 +263,28 @@ std::string PX_exchange_info::explain_info(PX_exchange_operator operator_type) {
       std::string slice_info = std::string("slice: ") + std::to_string(get_consumer_dfo_id());
       std::string dop_info = std::string("workers: ") + std::to_string(num_receivers());
       ret = std::string("PX Receiver ") + "(" + merge_sort_info + "; " + slice_info + "; " + dop_info + ")";
+      break;
+    }
+    default:
+      assert(0);
+      break;
+  }
+
+  return ret;
+}
+
+std::string PX_exchange_info::exchange_table_name(PX_exchange_operator_type operator_type) {
+  assert(type() == PX_GATHER_EXCHANGE && exchange_id() >= 1);
+  std::string ret;
+
+  switch (operator_type) {
+    case PX_SENDER: {
+      ret = std::string("<sender") + std::to_string(exchange_id()) + ">";
+      break;
+    }
+    case PX_RECEIVER:
+    case PX_RECEIVER_MERGE: {
+      ret = std::string("<receiver") + std::to_string(exchange_id()) + ">";
       break;
     }
     default:

@@ -28,6 +28,13 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 1)
         -> Parallel table scan on t1  (cost=1.25 rows=10)
 
+EXPLAIN SELECT * FROM t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (1 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col1` AS `col1`,`test`.`t1`.`col2` AS `col2` from `test`.`t1`
 SELECT * FROM t1;
 id	col1	col2
 1	testtesttesttest	10
@@ -46,6 +53,13 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 1)
         -> Parallel index scan on t1 using idx_col2  (cost=3.75 rows=10)
 
+EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	idx_col2	5	NULL	10	100.00	Parallel scan (1 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`)
 SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 id	col2
 10	1
@@ -64,6 +78,13 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 1)
         -> Parallel index scan on t1 using idx_col2 (reverse)  (cost=3.75 rows=10)
 
+EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	idx_col2	5	NULL	10	100.00	Parallel scan (1 workers); Backward index scan; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) order by `test`.`t1`.`col2` desc
 SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 id	col2
 1	10
@@ -84,6 +105,13 @@ EXPLAIN
         -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	2	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` < 3)
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 id	col2
 10	1
@@ -96,6 +124,13 @@ EXPLAIN
         -> Filter: (t1.col2 <= 3)  (cost=0.86 rows=3)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` <= 3)
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 id	col2
 10	1
@@ -109,6 +144,13 @@ EXPLAIN
         -> Filter: (t1.col2 > 7)  (cost=0.86 rows=3)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` > 7)
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 id	col2
 3	8
@@ -122,6 +164,13 @@ EXPLAIN
         -> Filter: (t1.col2 >= 7)  (cost=1.06 rows=4)
             -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` >= 7)
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 id	col2
 4	7
@@ -136,6 +185,13 @@ EXPLAIN
         -> Filter: ((t1.col2 > 5) and (t1.col2 < 8))  (cost=0.66 rows=2)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	2	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` > 5) and (`test`.`t1`.`col2` < 8))
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 id	col2
 5	6
@@ -148,6 +204,13 @@ EXPLAIN
         -> Filter: ((t1.col2 >= 5) and (t1.col2 < 8))  (cost=0.86 rows=3)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` >= 5) and (`test`.`t1`.`col2` < 8))
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 id	col2
 6	5
@@ -161,6 +224,13 @@ EXPLAIN
         -> Filter: ((t1.col2 > 5) and (t1.col2 <= 8))  (cost=0.86 rows=3)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	3	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` > 5) and (`test`.`t1`.`col2` <= 8))
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 id	col2
 5	6
@@ -174,6 +244,13 @@ EXPLAIN
         -> Filter: ((t1.col2 >= 5) and (t1.col2 <= 8))  (cost=1.06 rows=4)
             -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` >= 5) and (`test`.`t1`.`col2` <= 8))
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 id	col2
 6	5
@@ -188,6 +265,13 @@ EXPLAIN
         -> Filter: ((t1.col2 <= 2) or (t1.col2 >= 9))  (cost=1.06 rows=4)
             -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where ((`test`.`t1`.`col2` <= 2) or (`test`.`t1`.`col2` >= 9))
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
 id	col2
 1	10
@@ -202,6 +286,13 @@ EXPLAIN
         -> Filter: (((t1.col2 > 1) and (t1.col2 <= 3)) or ((t1.col2 >= 8) and (t1.col2 < 10)))  (cost=1.06 rows=4)
             -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	4	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (((`test`.`t1`.`col2` > 1) and (`test`.`t1`.`col2` <= 3)) or ((`test`.`t1`.`col2` >= 8) and (`test`.`t1`.`col2` < 10)))
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
 id	col2
 2	9
@@ -215,6 +306,13 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 1)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_col2	idx_col2	5	NULL	2	100.00	Parallel scan (1 workers); Using where; Backward index scan; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`col2` AS `col2` from `test`.`t1` FORCE INDEX (`idx_col2`) where (`test`.`t1`.`col2` < 3) order by `test`.`t1`.`col2` desc
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 id	col2
 9	2
@@ -233,7 +331,9 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	c1_idx	c1_idx	5	const	4	100.00	Using index condition
+1	SIMPLE	t1	NULL	ref	c1_idx	c1_idx	5	const	4	100.00	Parallel scan (1 workers); Using index condition
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y')
 EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y';
@@ -255,6 +355,13 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 1)
             -> Parallel index lookup on t1 using c1_idx (c1_idx='y'; iterate backwards)  (cost=0.90 rows=4)
 
+EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	c1_idx	c1_idx	5	const	4	100.00	Parallel scan (1 workers); Using where; Backward index scan
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y') order by `test`.`t1`.`pk` desc
 SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
 pk	c1_idx	c2
 4	y	NULL

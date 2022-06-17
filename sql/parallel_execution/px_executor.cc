@@ -16,6 +16,7 @@
 #include "sql/join_optimizer/access_path.h" // Access_path
 #include "sql/join_optimizer/explain_access_path.h" // CheckPlanEquivalence
 #include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
+#include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
@@ -177,11 +178,27 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   }
 #endif
 
-  // Traversal accesspath-tree to set exchange info to Exchange AccessPath
-  if (thd->lex->is_explain() && thd->lex->explain_format->is_tree() && PX_ROLE_COORDINATOR(thd)) {
+  // Traverse accesspath-tree to set exchange info to Exchange AccessPath
+  // TODO move to px_optimizer() and make DFO by slice.
+  if (thd->lex->is_explain() && PX_ROLE_COORDINATOR(thd)) {
     uint exchange_count = 0;
-    WalkAccessPathsForExplain(root_path, thd->px_exchange_context, exchange_count);
+    PX_plan_slice *slice = nullptr;
+    if (!thd->lex->explain_format->is_tree()) {
+      slice = new (thd->mem_root) PX_plan_slice();
+      if (!slice) goto oom;
+    }
+    if (WalkAccessPathsForExplain(thd, root_path, thd->px_exchange_context,
+        exchange_count, root_join, slice)) goto err;
     assert(exchange_count == dfo_mgr->m_normalized_dfo_tree.size());
+    if (slice && slice->tables() && root_join) {
+      root_join->px_plan_slices.emplace_back(slice);
+    } else {
+      /*
+        append is not responding to any qeury block and it won't be
+        explained in traditional format.
+      */
+      if (slice) destroy(slice);
+    }
   }
 
   return false;

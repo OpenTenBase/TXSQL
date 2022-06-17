@@ -1,0 +1,116 @@
+--source include/have_debug.inc
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+# Build the test case schema.
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(1,1,1,1);
+insert into t1 values(2,3,4,5);
+insert into t1 values(2,2,2,2);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
+
+create table t2(a int, b int, c int, d int);
+insert into t2 values(1,1,1,1);
+insert into t2 values(2,2,2,2);
+insert into t2 values(3,3,3,3);
+insert into t2 values(4,4,4,4);
+
+create table t3(a int, b int, c int, d int, primary key(a), key idx(b));
+insert into t3 values(1,1,1,1);
+insert into t3 values(2,2,2,2);
+insert into t3 values(3,3,3,3);
+insert into t3 values(4,4,4,4);
+insert into t3 values(5,5,5,5);
+insert into t3 values(6,6,6,6);
+insert into t3 values(7,7,7,7);
+insert into t3 values(8,8,8,8);
+insert into t3 values(9,9,9,9);
+insert into t3 values(10,10,10,10);
+
+create table t4(a int, b int, c int, d int);
+insert into t4 values(100,100,100,100);
+ANALYZE TABLE t1,t2,t3,t4;
+
+
+connection conn1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+set px_parallel_table_record_threshold = 2;
+connect(conn2,localhost,user1,,);
+
+###
+### Table scan
+###
+EXPLAIN FORMAT=tree SELECT * FROM t1;
+EXPLAIN SELECT * FROM t1;
+EXPLAIN FORMAT=JSON SELECT * FROM t1;
+
+###
+### Table scan and streaming aggr
+###
+EXPLAIN FORMAT=tree SELECT sum(a) FROM t1;
+EXPLAIN SELECT sum(a) FROM t1;
+EXPLAIN FORMAT=json SELECT sum(a) FROM t1;
+
+###
+### Table scan and hash aggr
+###
+EXPLAIN FORMAT=tree SELECT count(a) FROM t1 group by b;
+EXPLAIN SELECT count(a) FROM t1 group by b;
+EXPLAIN FORMAT=json SELECT count(a) FROM t1 group by b;
+
+###
+### order by index
+###
+EXPLAIN FORMAT=tree SELECT * FROM t3 order by a;
+EXPLAIN SELECT * FROM t3 order by a;
+EXPLAIN FORMAT=json SELECT * FROM t3 order by a;
+
+###
+### union test
+###
+explain format=tree select * from t1 union select * from t2;
+explain select * from t1 union select * from t2;
+explain format=json select * from t1 union select * from t2;
+
+explain format=tree select * from t1 union all select * from t2;
+explain select * from t1 union all select * from t2;
+explain format=json select * from t1 union all select * from t2;
+
+###
+### mutli table join
+###
+explain format=tree select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1;
+explain select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1;
+explain format=json select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1;
+
+explain format=tree select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
+explain select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
+explain format=json select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
+
+###
+### only part branch can use px in union
+###
+set @@px_parallel_table_record_threshold=5;
+explain format=tree select sum(a) from t1 group by b union select variance(a) from t2 group by b;
+explain select sum(a) from t1 group by b union select variance(a) from t2 group by b;
+explain format=json select sum(a) from t1 group by b union select variance(a) from t2 group by b;
+set @@px_parallel_table_record_threshold=0;
+
+connection conn1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop database test1;
+drop user user1;

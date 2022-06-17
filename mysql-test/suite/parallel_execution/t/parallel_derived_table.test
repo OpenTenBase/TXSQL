@@ -16,7 +16,19 @@ ANALYZE TABLE t1,t2;
 
 explain select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=json select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+
+explain select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+explain format=tree select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+explain format=json select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+
+--echo dervied table with unsupported function
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=json select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 
 connection conn1;
 --source suite/parallel_execution/inc/save_and_set_px.inc
@@ -24,15 +36,19 @@ connect(conn2,localhost,user1,,);
 
 explain select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=json select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 
 explain select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 explain format=tree select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+explain format=json select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 
 --echo dervied table with unsupported function
 explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+explain format=json select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc

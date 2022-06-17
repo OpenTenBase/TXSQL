@@ -30,17 +30,17 @@ enum PX_exchange_type {
   PX_BOARDCAST_EXCHANGE
 };
 
-enum PX_exchange_format {
-  PX_COMPACT_ROW = 0,
-  PX_MYSQL_RECORD,
-  PX_CSI_CHUNK
-};
-
-enum PX_exchange_operator {
+enum PX_exchange_operator_type {
   PX_INVALID_OPERATOR = 0,
   PX_SENDER,
   PX_RECEIVER,
   PX_RECEIVER_MERGE
+};
+
+enum PX_exchange_format {
+  PX_COMPACT_ROW = 0,
+  PX_MYSQL_RECORD,
+  PX_CSI_CHUNK
 };
 
 typedef uint (*reshuffle_func_t)(mem_root_deque<Item *> *);
@@ -102,7 +102,8 @@ class PX_exchange_info {
   bool attach(PX_proc *me, bool as_sender, uint id,
               PX_exchange_handles &handles);
 
-  std::string explain_info(PX_exchange_operator operator_type);
+  std::string explain_info(PX_exchange_operator_type operator_type);
+  std::string exchange_table_name(PX_exchange_operator_type operator_type);
 
  private:
   friend class PX_worker_handle_impl;

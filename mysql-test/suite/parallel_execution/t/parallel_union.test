@@ -67,48 +67,63 @@ connect(conn2,localhost,user1,,);
 --sorted_result
 select * from t1 union select * from t2;
 explain format=tree select * from t1 union select * from t2;
+explain select * from t1 union select * from t2;
 --sorted_result
 select * from t1 union all select * from t2;
 explain format=tree select * from t1 union all select * from t2;
+explain select * from t1 union all select * from t2;
 --sorted_result
 select * from t1 union select * from t2 where a > 1;
 explain format=tree select * from t1 union select * from t2 where a > 1;
+explain select * from t1 union select * from t2 where a > 1;
 --sorted_result
 select * from t1 union all select * from t2 where a > 1;
 explain format=tree select * from t1 union all select * from t2 where a > 1;
+explain select * from t1 union all select * from t2 where a > 1;
 --sorted_result
 select * from t1 where a > 1 union select * from t2 where a > 1;
 explain format=tree select * from t1 where a > 1 union select * from t2 where a > 1;
+explain select * from t1 where a > 1 union select * from t2 where a > 1;
 --sorted_result
 select * from t1 where a > 1 union all select * from t2 where a > 1;
 explain format=tree select * from t1 where a > 1 union all select * from t2 where a > 1;
+explain select * from t1 where a > 1 union all select * from t2 where a > 1;
 --sorted_result
 select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
 explain format=tree select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
+explain select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
 --sorted_result
 select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
 explain format=tree select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
+explain select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
 --sorted_result
 select * from t1 where a >=1 union select * from t1 where b > 1;
 explain format=tree select * from t1 where a >=1 union select * from t1 where b > 1;
+explain select * from t1 where a >=1 union select * from t1 where b > 1;
 --sorted_result
 select * from t1 where a >=1 union all select * from t1 where b > 1;
 explain format=tree select * from t1 where a >=1 union all select * from t1 where b > 1;
+explain select * from t1 where a >=1 union all select * from t1 where b > 1;
 --sorted_result
 select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
 explain format=tree select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
+explain select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
 --sorted_result
 select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
 explain format=tree select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
+explain select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
 --sorted_result
 select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
 explain format=tree select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
+explain select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
 --sorted_result
 select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
 explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
+explain select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
 --sorted_result
 select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
 explain format=tree select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
+explain select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
 --sorted_result
 select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
 explain format=tree select * from t1 where a > 1 union all select * from t2 where c > 1 union all select * from t1 where a > 1 union all select * from t4;
@@ -163,6 +178,7 @@ explain format=tree (select * from t3 where c > 1 and d > 3 order by a,b) union 
 --sorted_result
 (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
+explain (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
 #--sorted_result # right not index ex
 #(select t2.* from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a) union all (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc); # right not index ex
 
@@ -172,15 +188,17 @@ explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 o
 --sorted_result
 select * from t1 union select * from t2 order by a;
 explain format=tree select * from t1 union select * from t2 order by a;
+explain select * from t1 union select * from t2 order by a;
 --sorted_result
 select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
 explain format=tree select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
+explain select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
 #--sorted_result
 #select * from t1 union select * from t2 limit 2; 
 --sorted_result
 select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
 explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
-
+explain select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d as c4 from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t3.a as c1,t3.b as c2,t3.c as c3,t3.d as c4 from t3 where c > 1 and d > 2 order by b,c desc)) as v where v.c1 > 1;
 #=========================================================================
 
 connection conn1;

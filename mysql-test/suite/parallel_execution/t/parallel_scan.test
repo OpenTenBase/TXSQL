@@ -33,60 +33,74 @@ connect(conn2,localhost,user1,,);
 #####Parallel scan test########
 ###Case 01: TABLE SCAN###
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
+EXPLAIN SELECT * FROM t1;
 SELECT * FROM t1;
 
 ###Case 02: INDEX SCAN###
 EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 
 EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
+EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 
 
 ###Case 03: RANGE SCAN###
 --echo ###test range = (-inf, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 --echo ###test range = (-inf, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 
 --echo ###test range = (start, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 
 --echo ###test range = [start, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 
 --echo ###test range = (start, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 
 --echo ###test range = [start, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 
 --echo ###test range = (start, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 
 --echo ###test range = [start, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 
 --echo ###test range = (-inf, end1] || [start2, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
 --sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
 
 --echo ###test range = (start1, end1] || [start2, end2)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
 --sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
 
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
+EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 
 ###Case 04: REF SCAN###
@@ -108,6 +122,7 @@ EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y';
 SELECT * FROM t1 WHERE c1_idx = 'y';
 
 EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
+EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
 SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;
 
 connection conn1;

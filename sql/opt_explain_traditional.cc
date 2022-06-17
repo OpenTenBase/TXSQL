@@ -79,7 +79,11 @@ static const char *traditional_extra_tags[ET_total] = {
     "Table function:",                  // ET_TABLE_FUNCTION
     "Index dive skipped due to FORCE",  // ET_SKIP_RECORDS_IN_RANGE
     "Using secondary engine",           // ET_USING_SECONDARY_ENGINE
-    "Rematerialize"                     // ET_REMATERIALIZE
+    "Rematerialize",                    // ET_REMATERIALIZE
+    "Parallel scan",                    // ET_PARALLEL_SCAN
+    "Receive from",                     // ET_PARALLEL_RECEIVER
+    "Send to",                          // ET_PARALLEL_SENDER
+    "Using merge sort"                  // ET_PARALLEL_MERGE
 };
 
 static const char *mod_type_name[] = {"NONE", "INSERT", "UPDATE", "DELETE",
@@ -251,6 +255,10 @@ bool Explain_format_traditional::flush_entry() {
           case ET_USING_JOIN_BUFFER:
           case ET_FIRST_MATCH:
           case ET_REMATERIALIZE:
+          case ET_PARALLEL_SCAN:
+          case ET_PARALLEL_RECEIVER:
+          case ET_PARALLEL_SENDER:
+          case ET_PARALLEL_MERGE:
             brackets = true;  // for backward compatibility
             break;
           default:

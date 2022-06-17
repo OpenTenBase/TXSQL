@@ -130,11 +130,13 @@
 #include "sql/parallel_execution/px_executor.h"  // PX_coordinator
 #include "sql/parallel_execution/px_workerpool.h"  // worker_pool
 #include "sql/parallel_execution/px_optimizer_context.h"  // begin_optimization_context end_optimization_context
+#include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/log.h"
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_lock.h"
+#include "my_alloc.h" // destory
 
 using std::max;
 using std::min;
@@ -2031,6 +2033,11 @@ void JOIN::destroy() {
   if (final_aggr_tmp_table_param) {
     final_aggr_tmp_table_param->cleanup();
   }
+
+  if (!px_plan_slices.empty()) {
+    for (auto slice : px_plan_slices) ::destroy(slice);
+  }
+  px_plan_slices.clear();
 }
 
 void JOIN::cleanup_item_list(const mem_root_deque<Item *> &items) const {

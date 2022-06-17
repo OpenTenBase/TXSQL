@@ -91,6 +91,10 @@ enum Extra_tag {
   ET_SKIP_RECORDS_IN_RANGE,
   ET_USING_SECONDARY_ENGINE,
   ET_REMATERIALIZE,
+  ET_PARALLEL_SCAN,
+  ET_PARALLEL_RECEIVER,
+  ET_PARALLEL_SENDER,
+  ET_PARALLEL_MERGE,
   //------------------------------------
   ET_total
 };

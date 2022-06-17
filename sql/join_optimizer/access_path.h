@@ -44,6 +44,7 @@
 #include "sql/sql_lex.h"
 #include "sql/parallel_execution/px.h"
 
+class PX_plan_slice;
 enum class AggType;
 namespace px_access_path {
 struct Split_Position;
@@ -2066,6 +2067,8 @@ AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
                                               TABLE *table, bool is_append = false);
 
 void GetExchangeTables(px_access_path::Split_Position *split_pos);
-void WalkAccessPathsForExplain(AccessPath *path, PX_exchange_context *exchange_context, uint &exchange_count);
+
+bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *exchange_context,
+                               uint &exchange_count, JOIN *join, PX_plan_slice *plan_slice);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H
