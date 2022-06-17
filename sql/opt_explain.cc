@@ -85,6 +85,7 @@
 #include "sql/range_optimizer/range_optimizer.h"
 #include "sql/range_optimizer/rowid_ordered_retrieval.h"
 #include "sql/range_optimizer/rowid_ordered_retrieval_plan.h"
+#include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/sql_bitmap.h"
 #include "sql/sql_class.h"
 #include "sql/sql_cmd.h"
@@ -103,6 +104,7 @@
 #include "sql/temp_table_param.h"  // Func_ptr
 #include "sql_string.h"
 #include "template_utils.h"
+#include "scope_guard.h" // create_scope_guard
 
 class Opt_trace_context;
 
@@ -464,7 +466,8 @@ class Explain_join : public Explain_table_base {
                                  enum_parsing_context ctx);
   bool end_simple_sort_context(Explain_sort_clause clause,
                                enum_parsing_context ctx);
-  bool explain_qep_tab(size_t tab_num);
+  bool explain_qep_tab(size_t tab_num, PX_plan_slice *slice = nullptr);
+  bool explain_plan_slice(PX_plan_slice *slice);
 
  protected:
   bool shallow_explain() override;
@@ -796,7 +799,6 @@ bool Explain_no_table::explain_modify_flags() {
 
 /* Explain_union_result class functions
  * ****************************************/
-
 bool Explain_union_result::explain_id() { return false; }
 
 bool Explain_union_result::explain_table_name() {
@@ -1287,12 +1289,23 @@ bool Explain_join::shallow_explain() {
   if (begin_sort_context(ESC_BUFFER_RESULT, CTX_BUFFER_RESULT))
     return true; /* purecov: inspected */
 
+  /*
+    If the query block is divided into plan slices for
+    the format=traditional/json, explain each plan slice.
+  */
+  if (query_thd && query_thd->use_px && !join->px_plan_slices.empty()) {
+    for (auto plan_slice : join->px_plan_slices)
+      if (explain_plan_slice(plan_slice)) return true; /* purecov: inspected */
+    goto end_context;
+  }
+
   for (size_t t = 0, cnt = fmt->is_hierarchical() ? join->primary_tables
                                                   : join->tables;
        t < cnt; t++) {
     if (explain_qep_tab(t)) return true;
   }
 
+end_context:
   if (end_sort_context(ESC_BUFFER_RESULT, CTX_BUFFER_RESULT)) return true;
   if (end_sort_context(ESC_GROUP_BY, CTX_GROUP_BY)) return true;
   if (join->m_windowing_steps) {
@@ -1305,15 +1318,19 @@ bool Explain_join::shallow_explain() {
   return false;
 }
 
-bool Explain_join::explain_qep_tab(size_t tabnum) {
-  tab = join->qep_tab + tabnum;
-  type = tab->type();
-  range_scan_path = tab->range_scan();
-  condition = tab->condition_optim();
-  dynamic_range = tab->dynamic_range();
-  skip_records_in_range = tab->skip_records_in_range();
-  reversed_access = tab->reversed_access();
-  table_ref = tab->table_ref;
+bool Explain_join::explain_plan_slice(PX_plan_slice *slice) {
+  need_tmp_table = slice->get_explain_flags()->any(ESP_USING_TMPTABLE);
+  need_order = slice->get_explain_flags()->any(ESP_USING_FILESORT);
+
+  for (size_t t = 0, cnt = slice->tables(); t < cnt; t++) {
+    if (explain_qep_tab(t, slice)) return true;
+  }
+
+  return false;
+}
+
+bool Explain_join::explain_qep_tab(size_t tabnum, PX_plan_slice *slice) {
+  tab = slice ? slice->get_tab(tabnum) : join->qep_tab + tabnum;
   if (!tab->position()) return false;
   table = tab->table();
   usable_keys = tab->keys();
@@ -1339,7 +1356,8 @@ bool Explain_join::explain_qep_tab(size_t tabnum) {
   }
 
   Semijoin_mat_exec *const sjm = tab->sj_mat_exec();
-  const enum_parsing_context c = sjm ? CTX_MATERIALIZATION : CTX_QEP_TAB;
+  const enum_parsing_context c = sjm ? CTX_MATERIALIZATION :
+      tab->fake_qep_tab() ? CTX_FAKE_QEP_TAB : CTX_QEP_TAB;
 
   if (fmt->begin_context(c) || prepare_columns()) return true;
 
@@ -1503,6 +1521,27 @@ bool Explain_join::explain_rows_and_filtered() {
 
 bool Explain_join::explain_extra() {
   if (!tab) return false;
+  if (tab->get_parallel_scan()) {
+    StringBuffer<64> buff(cs);
+    buff.append_ulonglong(tab->get_parallel_workers());
+    buff.append(" workers");
+    if (push_extra(ET_PARALLEL_SCAN, buff))
+      return true;
+  }
+
+  if (tab->fake_qep_tab()) {
+    StringBuffer<64> buff(cs);
+    std::string info = tab->exchange_info();
+    buff.append(info.c_str());
+    auto tag = (tab->exchange_type == QEP_TAB::Exchange_sender) ?
+        ET_PARALLEL_SENDER : ET_PARALLEL_RECEIVER;
+    if (push_extra(tag, buff))
+      return true;
+    if (tab->exchange_type == QEP_TAB::Exchange_receiver_merge) {
+      if (push_extra(ET_PARALLEL_MERGE)) return true;
+    }
+  }
+
   if (tab->type() == JT_SYSTEM && tab->position()->rows_fetched == 0.0) {
     if (push_extra(ET_CONST_ROW_NOT_FOUND))
       return true; /* purecov: inspected */
@@ -1520,7 +1559,9 @@ bool Explain_join::explain_extra() {
     else if (tab->type() == JT_RANGE || tab->type() == JT_INDEX_MERGE)
       keyno = used_index(range_scan_path);
 
-    if (explain_extra_common(range_scan_type, keyno)) return true;
+    if (!tab->fake_qep_tab() && explain_extra_common(range_scan_type, keyno)) {
+      return true;
+    }
 
     if (((tab->type() == JT_INDEX_SCAN || tab->type() == JT_CONST) &&
          table->covering_keys.is_set(tab->index())) ||
@@ -1611,7 +1652,7 @@ bool Explain_join::explain_extra() {
       if (push_extra(ET_USING_JOIN_BUFFER, buff)) return true;
     }
   }
-  if (fmt->is_hierarchical() && (!bitmap_is_clear_all(table->read_set) ||
+  if (!tab->fake_qep_tab() && fmt->is_hierarchical() && (!bitmap_is_clear_all(table->read_set) ||
                                  !bitmap_is_clear_all(table->write_set))) {
     Field **fld;
     for (fld = table->field; *fld; fld++) {
@@ -1950,6 +1991,14 @@ bool explain_query_specification(THD *explain_thd, const THD *query_thd,
   Opt_trace_array trace_steps(trace, "steps");
   JOIN *join = query_block->join;
   const bool other = (query_thd != explain_thd);
+
+  // cleanup plan slice after explain.
+  auto slice_cleanup = create_scope_guard([join] {
+    if (join && !join->px_plan_slices.empty()) {
+      for (auto slice : join->px_plan_slices) destroy(slice);
+      join->px_plan_slices.clear();
+    }
+  });
 
   if (!join || join->get_plan_state() == JOIN::NO_PLAN)
     return explain_no_table(explain_thd, query_thd, query_block,

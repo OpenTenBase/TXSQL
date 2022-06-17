@@ -94,7 +94,11 @@ static const char *json_extra_tags[ET_total] = {
     "table_function",                      // ET_TABLE_FUNCTION
     "skip_records_in_range_due_to_force",  // ET_SKIP_RECORDS_IN_RANGE
     "using_secondary_engine",              // ET_USING_SECONDARY_ENGINE
-    "rematerialize"                        // ET_REMATERIALIZE
+    "rematerialize",                       // ET_REMATERIALIZE
+    "parallel_scan",                       // ET_PARALLEL_SCAN
+    "receive_from",                        // ET_PARALLEL_RECEIVER
+    "send_to",                             // ET_PARALLEL_SENDER
+    "using_merge_sort",                    // ET_PARALLEL_MERGE
 };
 
 // JSON key names
@@ -159,6 +163,9 @@ static const char K_QUERY_COST[] = "query_cost";
 static const char K_DATA_SIZE_QUERY[] = "data_read_per_join";
 static const char K_USED_COLUMNS[] = "used_columns";
 static const char K_SQ_RETURNING_CLAUSE[] = "returning_list_subqueries";
+
+static const char K_EXCHANGE[] = "parallel_information";
+static const char K_EXCHANGE_TABLE[] = "exchange_table";
 
 static const char *mod_type_name[] = {"", "insert", "update", "delete",
                                       "replace"};
@@ -865,10 +872,10 @@ class join_tab_ctx : public joinable_ctx, public table_with_where_and_derived {
   List<Query_expression> where_subquery_units;
 
  public:
-  join_tab_ctx(enum_parsing_context type_arg, context *parent_arg)
-      : context(type_arg, K_TABLE, parent_arg),
-        joinable_ctx(type_arg, K_TABLE, parent_arg),
-        table_with_where_and_derived(type_arg, K_TABLE, parent_arg) {}
+  join_tab_ctx(enum_parsing_context type_arg, context *parent_arg, bool is_fake_tab = false)
+      : context(type_arg, is_fake_tab ? K_EXCHANGE_TABLE : K_TABLE, parent_arg),
+        joinable_ctx(type_arg, is_fake_tab ? K_EXCHANGE_TABLE : K_TABLE, parent_arg),
+        table_with_where_and_derived(type_arg, is_fake_tab ? K_EXCHANGE_TABLE : K_TABLE, parent_arg) {}
 
   // Remove warnings: 'inherits ... from ... via dominance'
   bool format_body(Opt_trace_context *json, Opt_trace_object *obj) override {
@@ -1331,6 +1338,12 @@ bool join_ctx::format_body_inner(Opt_trace_context *json,
 bool join_ctx::format_nested_loop(Opt_trace_context *json) {
   List_iterator<joinable_ctx> it(join_tabs);
   uint join_tab_num = join_tabs.elements;
+  // traverse join_tabs to count fake tabs.
+  List_iterator<joinable_ctx> tab_it(join_tabs);
+  joinable_ctx *tab_ctx;
+  while ((tab_ctx = tab_it++)) {
+    if (tab_ctx->type == CTX_FAKE_QEP_TAB) join_tab_num--;
+  }
   assert(join_tabs.elements > 0);
 
   if (join_tabs.head()->get_mod_type() == MT_INSERT ||
@@ -1341,8 +1354,23 @@ bool join_ctx::format_nested_loop(Opt_trace_context *json) {
   /*
     For single table skip "nested_loop" object creation and
     format its contents only (the 1st join_tab).
+    For parallel query, format the 1st join_tab and the fake
+    join_tab which indicates the exchange operator.
   */
-  if (join_tab_num == 1) return (it++)->format(json);
+  if (join_tab_num == 1) {
+    if ((it++)->format(json)) return true;
+
+    if (join_tabs.elements > join_tab_num) {
+      Opt_trace_array loops(json, K_EXCHANGE);
+      joinable_ctx *tab;
+      while ((tab = it++)) {
+        Opt_trace_object anonymous_wrapper(json);
+        if (tab->format(json)) return true;
+      }
+
+      return false;
+    }
+  }
 
   Opt_trace_array loops(json, K_NESTED_LOOP);
 
@@ -1719,20 +1747,21 @@ bool Explain_format_JSON::begin_context(enum_parsing_context ctx_arg,
       current_context = ctx;
       break;
     }
-    case CTX_QEP_TAB: {
+    case CTX_QEP_TAB:
+    case CTX_FAKE_QEP_TAB: {
       assert(current_context->type == CTX_JOIN ||
-             current_context->type == CTX_MATERIALIZATION ||
-             current_context->type == CTX_DUPLICATES_WEEDOUT ||
-             current_context->type == CTX_GROUP_BY ||
-             current_context->type == CTX_ORDER_BY ||
-             current_context->type == CTX_DISTINCT ||
-             current_context->type == CTX_WINDOW ||
-             current_context->type == CTX_BUFFER_RESULT ||
-             current_context->type == CTX_SIMPLE_GROUP_BY ||
-             current_context->type == CTX_SIMPLE_ORDER_BY ||
-             current_context->type == CTX_SIMPLE_DISTINCT);
+                  current_context->type == CTX_MATERIALIZATION ||
+                  current_context->type == CTX_DUPLICATES_WEEDOUT ||
+                  current_context->type == CTX_GROUP_BY ||
+                  current_context->type == CTX_ORDER_BY ||
+                  current_context->type == CTX_DISTINCT ||
+                  current_context->type == CTX_WINDOW ||
+                  current_context->type == CTX_BUFFER_RESULT ||
+                  current_context->type == CTX_SIMPLE_GROUP_BY ||
+                  current_context->type == CTX_SIMPLE_ORDER_BY ||
+                  current_context->type == CTX_SIMPLE_DISTINCT);
       join_tab_ctx *ctx =
-          new (*THR_MALLOC) join_tab_ctx(CTX_QEP_TAB, current_context);
+          new (*THR_MALLOC) join_tab_ctx(ctx_arg, current_context, ctx_arg == CTX_FAKE_QEP_TAB);
       if (ctx == nullptr || current_context->add_join_tab(ctx)) return true;
       current_context = ctx;
       break;

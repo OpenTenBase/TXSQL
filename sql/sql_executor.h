@@ -379,9 +379,43 @@ class QEP_TAB : public QEP_shared_owner {
 
   void set_parallel_scan(bool parallel_scan) const { m_parallel_scan = parallel_scan; }
   bool get_parallel_scan() const  { return m_parallel_scan; }
+  void set_parallel_workers(uint workers) const { m_parallel_workers = workers; }
+  uint get_parallel_workers() const { return m_parallel_workers; }
+  bool fake_qep_tab() { return exchange_type != Exchange_none; }
 
  public:
+  enum Exchange_type {
+    Exchange_none = 0,
+    Exchange_sender,
+    Exchange_receiver,
+    Exchange_receiver_merge
+  };
+
+  std::string exchange_info() {
+    assert(px_exchange_id != UINT_MAX);
+    std::string ret;
+    switch (exchange_type) {
+      case Exchange_sender:
+        ret = std::string("<receiver") + std::to_string(px_exchange_id) + ">";
+        break;
+      case Exchange_receiver:
+      case Exchange_receiver_merge:
+        ret = std::string("<sender") + std::to_string(px_exchange_id) + ">";
+        break;
+      default:
+        assert(0);
+        break;
+    }
+
+    return ret;
+  }
+
+ public:
+  Exchange_type exchange_type{Exchange_none};
+  uint px_exchange_id{UINT_MAX};
   mutable bool m_parallel_scan{false};
+  /// parallel workers launched to scan the table.
+  mutable uint m_parallel_workers{0};
 
   /// Pointer to table reference
   TABLE_LIST *table_ref;

@@ -34,30 +34,103 @@ EXPLAIN
                 -> Aggregate using temporary table
                     -> Table scan on t2  (cost=0.65 rows=4)
 
-select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
-a	b	a	count(t2.b)
-3	c	3	1
-3	c	3	1
-# --include save_and_set_px.inc
-explain select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
-1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.a	2	100.00	NULL
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+explain format=json select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "3.45"
+    },
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 4,
+          "rows_produced_per_join": 4,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "0.25",
+            "eval_cost": "0.40",
+            "prefix_cost": "0.65",
+            "data_read_per_join": "192"
+          },
+          "used_columns": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      {
+        "table": {
+          "table_name": "tt",
+          "access_type": "ref",
+          "possible_keys": [
+            "<auto_key0>"
+          ],
+          "key": "<auto_key0>",
+          "used_key_parts": [
+            "a"
+          ],
+          "key_length": "4",
+          "ref": [
+            "test.t1.a"
+          ],
+          "rows_examined_per_scan": 2,
+          "rows_produced_per_join": 8,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "2.00",
+            "eval_cost": "0.80",
+            "prefix_cost": "3.45",
+            "data_read_per_join": "192"
+          },
+          "used_columns": [
+            "a",
+            "count(t2.b)"
+          ],
+          "materialized_from_subquery": {
+            "using_temporary_table": true,
+            "dependent": false,
+            "cacheable": true,
+            "query_block": {
+              "select_id": 2,
+              "cost_info": {
+                "query_cost": "0.65"
+              },
+              "grouping_operation": {
+                "using_temporary_table": true,
+                "using_filesort": false,
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "rows_examined_per_scan": 4,
+                  "rows_produced_per_join": 4,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "0.25",
+                    "eval_cost": "0.40",
+                    "prefix_cost": "0.65",
+                    "data_read_per_join": "192"
+                  },
+                  "used_columns": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "nested_loop": [
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
-explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
-EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
-        -> Nested loop inner join
-            -> Parallel table scan on t1  (cost=0.65 rows=4)
-            -> Index lookup on tt using <auto_key0> (a=t1.a)
-                -> Materialize
-                    -> Table scan on <temporary>
-                        -> Aggregate using temporary table
-                            -> Table scan on t2  (cost=0.65 rows=4)
-
 select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 a	b	a	count(t2.b)
 3	c	3	1
@@ -74,10 +147,73 @@ EXPLAIN
     -> Materialize
         -> Table scan on <temporary>
             -> Aggregate using temporary table
-                -> PX Receiver (slice: 0; workers: 1)
-                    -> PX Sender (slice: 1; workers: 1)
-                        -> Parallel table scan on t2  (cost=0.65 rows=4)
+                -> Table scan on t2  (cost=0.65 rows=4)
 
+explain format=json select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "2.95"
+    },
+    "table": {
+      "table_name": "tt",
+      "access_type": "ALL",
+      "rows_examined_per_scan": 4,
+      "rows_produced_per_join": 4,
+      "filtered": "100.00",
+      "cost_info": {
+        "read_cost": "2.55",
+        "eval_cost": "0.40",
+        "prefix_cost": "2.95",
+        "data_read_per_join": "96"
+      },
+      "used_columns": [
+        "a",
+        "count(t2.b)"
+      ],
+      "materialized_from_subquery": {
+        "using_temporary_table": true,
+        "dependent": false,
+        "cacheable": true,
+        "query_block": {
+          "select_id": 2,
+          "cost_info": {
+            "query_cost": "0.65"
+          },
+          "grouping_operation": {
+            "using_temporary_table": true,
+            "using_filesort": false,
+            "table": {
+              "table_name": "t2",
+              "access_type": "ALL",
+              "rows_examined_per_scan": 4,
+              "rows_produced_per_join": 4,
+              "filtered": "100.00",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.40",
+                "prefix_cost": "0.65",
+                "data_read_per_join": "192"
+              },
+              "used_columns": [
+                "a",
+                "b"
+              ]
+            },
+            "nested_loop": [
+            ]
+          }
+        }
+      }
+    },
+    "nested_loop": [
+    ]
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt`
 select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 a	count(t2.b)
 3	1
@@ -95,6 +231,409 @@ Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`t
 explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 EXPLAIN
 -> Nested loop inner join
+    -> Table scan on t1  (cost=0.65 rows=4)
+    -> Index lookup on tt using <auto_key0> (a=t1.a)
+        -> Materialize
+            -> Table scan on <temporary>
+                -> Aggregate using temporary table
+                    -> Table scan on t2  (cost=0.65 rows=4)
+
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.a	2	100.00	NULL
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
+explain format=json select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "3.45"
+    },
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 4,
+          "rows_produced_per_join": 4,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "0.25",
+            "eval_cost": "0.40",
+            "prefix_cost": "0.65",
+            "data_read_per_join": "192"
+          },
+          "used_columns": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      {
+        "table": {
+          "table_name": "tt",
+          "access_type": "ref",
+          "possible_keys": [
+            "<auto_key0>"
+          ],
+          "key": "<auto_key0>",
+          "used_key_parts": [
+            "a"
+          ],
+          "key_length": "4",
+          "ref": [
+            "test.t1.a"
+          ],
+          "rows_examined_per_scan": 2,
+          "rows_produced_per_join": 8,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "2.00",
+            "eval_cost": "0.80",
+            "prefix_cost": "3.45",
+            "data_read_per_join": "256"
+          },
+          "used_columns": [
+            "rand()",
+            "a",
+            "count(t2.b)"
+          ],
+          "materialized_from_subquery": {
+            "using_temporary_table": true,
+            "dependent": false,
+            "cacheable": true,
+            "query_block": {
+              "select_id": 2,
+              "cost_info": {
+                "query_cost": "0.65"
+              },
+              "grouping_operation": {
+                "using_temporary_table": true,
+                "using_filesort": false,
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "rows_examined_per_scan": 4,
+                  "rows_produced_per_join": 4,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "0.25",
+                    "eval_cost": "0.40",
+                    "prefix_cost": "0.65",
+                    "data_read_per_join": "192"
+                  },
+                  "used_columns": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "nested_loop": [
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
+# --include save_and_set_px.inc
+explain select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (1 workers)
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.a	2	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
+explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop inner join
+            -> Parallel table scan on t1  (cost=0.65 rows=4)
+            -> Index lookup on tt using <auto_key0> (a=t1.a)
+                -> Materialize
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Table scan on t2  (cost=0.65 rows=4)
+
+explain format=json select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "3.45"
+    },
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 4,
+          "rows_produced_per_join": 4,
+          "filtered": "100.00",
+          "parallel_scan": "1 workers",
+          "cost_info": {
+            "read_cost": "0.25",
+            "eval_cost": "0.40",
+            "prefix_cost": "0.65",
+            "data_read_per_join": "192"
+          },
+          "used_columns": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      {
+        "table": {
+          "table_name": "tt",
+          "access_type": "ref",
+          "possible_keys": [
+            "<auto_key0>"
+          ],
+          "key": "<auto_key0>",
+          "used_key_parts": [
+            "a"
+          ],
+          "key_length": "4",
+          "ref": [
+            "test.t1.a"
+          ],
+          "rows_examined_per_scan": 2,
+          "rows_produced_per_join": 8,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "2.00",
+            "eval_cost": "0.80",
+            "prefix_cost": "3.45",
+            "data_read_per_join": "192"
+          },
+          "used_columns": [
+            "a",
+            "count(t2.b)"
+          ],
+          "materialized_from_subquery": {
+            "using_temporary_table": true,
+            "dependent": false,
+            "cacheable": true,
+            "query_block": {
+              "select_id": 2,
+              "cost_info": {
+                "query_cost": "0.65"
+              },
+              "grouping_operation": {
+                "using_temporary_table": true,
+                "using_filesort": false,
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "rows_examined_per_scan": 4,
+                  "rows_produced_per_join": 4,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "0.25",
+                    "eval_cost": "0.40",
+                    "prefix_cost": "0.65",
+                    "data_read_per_join": "192"
+                  },
+                  "used_columns": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "nested_loop": [
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 0,
+          "rows_produced_per_join": 0,
+          "filtered": "0.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 0,
+          "rows_produced_per_join": 0,
+          "filtered": "0.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      }
+    ]
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
+select * from t1,(select t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+a	b	a	count(t2.b)
+3	c	3	1
+3	c	3	1
+explain select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (1 workers)
+2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt`
+explain format=tree select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+EXPLAIN
+-> Table scan on tt  (cost=2.95 rows=4)
+    -> Materialize
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.65 rows=4)
+
+explain format=json select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "2.95"
+    },
+    "table": {
+      "table_name": "tt",
+      "access_type": "ALL",
+      "rows_examined_per_scan": 4,
+      "rows_produced_per_join": 4,
+      "filtered": "100.00",
+      "cost_info": {
+        "read_cost": "2.55",
+        "eval_cost": "0.40",
+        "prefix_cost": "2.95",
+        "data_read_per_join": "96"
+      },
+      "used_columns": [
+        "a",
+        "count(t2.b)"
+      ],
+      "materialized_from_subquery": {
+        "using_temporary_table": true,
+        "dependent": false,
+        "cacheable": true,
+        "query_block": {
+          "select_id": 2,
+          "cost_info": {
+            "query_cost": "0.65"
+          },
+          "grouping_operation": {
+            "using_temporary_table": true,
+            "using_filesort": false,
+            "table": {
+              "table_name": "t2",
+              "access_type": "ALL",
+              "rows_examined_per_scan": 4,
+              "rows_produced_per_join": 4,
+              "filtered": "100.00",
+              "parallel_scan": "1 workers",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.40",
+                "prefix_cost": "0.65",
+                "data_read_per_join": "192"
+              },
+              "used_columns": [
+                "a",
+                "b"
+              ]
+            },
+            "parallel_information": [
+              {
+                "exchange_table": {
+                  "table_name": "<sender1>",
+                  "access_type": "ALL",
+                  "rows_examined_per_scan": 4,
+                  "rows_produced_per_join": 0,
+                  "filtered": "100.00",
+                  "send_to": "<receiver1>",
+                  "cost_info": {
+                    "read_cost": "0.00",
+                    "eval_cost": "0.00",
+                    "prefix_cost": "0.00",
+                    "data_read_per_join": "0"
+                  }
+                }
+              },
+              {
+                "exchange_table": {
+                  "table_name": "<receiver1>",
+                  "access_type": "ALL",
+                  "rows_examined_per_scan": 4,
+                  "rows_produced_per_join": 0,
+                  "filtered": "100.00",
+                  "receive_from": "<sender1>",
+                  "cost_info": {
+                    "read_cost": "0.00",
+                    "eval_cost": "0.00",
+                    "prefix_cost": "0.00",
+                    "data_read_per_join": "0"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "nested_loop": [
+    ]
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt`
+select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
+a	count(t2.b)
+3	1
+4	1
+5	1
+6	1
+dervied table with unsupported function
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (1 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.a	2	100.00	NULL
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
+explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+EXPLAIN
+-> Nested loop inner join
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 1)
             -> Parallel table scan on t1  (cost=0.65 rows=4)
@@ -104,6 +643,146 @@ EXPLAIN
                 -> Aggregate using temporary table
                     -> Table scan on t2  (cost=0.65 rows=4)
 
+explain select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (1 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.a	2	100.00	NULL
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
+explain format=json select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "3.45"
+    },
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 4,
+          "rows_produced_per_join": 4,
+          "filtered": "100.00",
+          "parallel_scan": "1 workers",
+          "cost_info": {
+            "read_cost": "0.25",
+            "eval_cost": "0.40",
+            "prefix_cost": "0.65",
+            "data_read_per_join": "192"
+          },
+          "used_columns": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 4,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 4,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "table": {
+          "table_name": "tt",
+          "access_type": "ref",
+          "possible_keys": [
+            "<auto_key0>"
+          ],
+          "key": "<auto_key0>",
+          "used_key_parts": [
+            "a"
+          ],
+          "key_length": "4",
+          "ref": [
+            "test.t1.a"
+          ],
+          "rows_examined_per_scan": 2,
+          "rows_produced_per_join": 8,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "2.00",
+            "eval_cost": "0.80",
+            "prefix_cost": "3.45",
+            "data_read_per_join": "256"
+          },
+          "used_columns": [
+            "rand()",
+            "a",
+            "count(t2.b)"
+          ],
+          "materialized_from_subquery": {
+            "using_temporary_table": true,
+            "dependent": false,
+            "cacheable": true,
+            "query_block": {
+              "select_id": 2,
+              "cost_info": {
+                "query_cost": "0.65"
+              },
+              "grouping_operation": {
+                "using_temporary_table": true,
+                "using_filesort": false,
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "rows_examined_per_scan": 4,
+                  "rows_produced_per_join": 4,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "0.25",
+                    "eval_cost": "0.40",
+                    "prefix_cost": "0.65",
+                    "data_read_per_join": "192"
+                  },
+                  "used_columns": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "nested_loop": [
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
 # --include set_px_to_saved.inc
 drop table t1,t2;
 drop database test1;

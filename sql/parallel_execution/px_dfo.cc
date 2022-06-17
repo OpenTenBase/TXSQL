@@ -247,11 +247,12 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
           /*
             No dynamic partition suggests EOF for the iterator. There
             still should be one thread to process the empty source.
-           */
+          */
           real_dop = real_dop < 1 ? 1 : real_dop;
           real_dop = real_dop > given_dop ? given_dop : real_dop;
           child->set_dfo_dop(real_dop);
           exchange_info->set_num_senders(real_dop);
+          //qep_tab->set_parallel_workers(real_dop);
         } else {
           exchange_info->set_num_senders(child->dop());
         }

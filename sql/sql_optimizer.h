@@ -63,6 +63,7 @@ class Item_sum;
 class Opt_trace_context;
 class THD;
 class Window;
+class PX_plan_slice;
 struct AccessPath;
 struct Exchange_Info;
 struct MYSQL_LOCK;
@@ -176,6 +177,17 @@ class JOIN {
   /// Array of QEP_TABs
   QEP_TAB *qep_tab{nullptr};
 
+  /**
+    Array of plan slices.
+    Plan slice represents an execution plan fragment of an execution plan tree,
+    which can also be called a DFO (data flow operators). The root accesspath
+    of a plan slice must be PX_send. The execution plan of a query block may
+    be divided into multiple plan slices, so a plan slice contains the QEP_TAB
+    sequence and needs to recalculate Explain_format_flags。
+  */
+  std::vector<PX_plan_slice*> px_plan_slices;
+  /// Whether the query block has encounter a exchange operator.
+  bool px_encounter_exchange{false};
   /**
     Array of plan operators representing the current (partial) best
     plan. The array is allocated in JOIN::make_join_plan() and is valid only
@@ -661,7 +673,12 @@ class JOIN {
   bool optimize(bool finalize_access_paths);
 
   bool px_generate_plan(px_access_path::Split_Position *split_position);
-
+  QEP_TAB *get_matched_tab(TABLE *table) {
+    for (uint i = 0; i < tables; ++i) {
+      if (qep_tab[i].table() == table) return &qep_tab[i];
+    }
+    return nullptr;
+  }
   void reset();
   bool prepare_result();
   void destroy();
