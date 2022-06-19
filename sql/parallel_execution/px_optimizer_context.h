@@ -58,14 +58,6 @@ struct MEM_ROOT;
 #define OPT_STATS_CHECK(err, type, thd) \
   do { if (!err) (thd)->type##_id++; } while (0)
 
-#define OPT_STATS_ERR(type, thd) \
-  {                                                                       \
-    sql_print_warning("optimization context: Thread(%d) optimization"     \
-                      "context mismatch (%s)", (thd)->thread_id(), type); \
-    my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),            \
-              (thd)->thread_id(), type);                                  \
-  }
-
 /**
   The key standing for arguments of records_in_range(). Used to look up
   the index dive cache (index_dive_map).

@@ -6,6 +6,24 @@
 #include "record_buffer.h"
 #include <time.h>  // for performance
 
+#include <sql_class.h> // THD
+#include <current_thd.h> // current_thd
+#include "my_dbug.h" // DBUG_PRINT
+
+/*
+  To avoid reverse dependency on server code (px.h), PX_PRINT_INFO_INNOBASE and
+  PX_PRINT_DEBUG_INNOBASE are simulated. A separate header for storage engine
+  might be introduced in the future.
+ */
+#define PX_PRINT_INFO_INNOBASE(fmt, ...) \
+    DBUG_PRINT("pinfo", \
+               ("px:%ld:%u:%u: " fmt, 0L, 0U, current_thd->thread_id(), \
+                ##__VA_ARGS__))
+#define PX_PRINT_DEBUG_INNOBASE(fmt, ...) \
+    DBUG_PRINT("pdebug", \
+               ("px:%ld:%u:%u: " fmt, 0L, 0U, current_thd->thread_id(), \
+                ##__VA_ARGS__))
+
 extern ICP_RESULT row_search_idx_cond_check(byte *mysql_rec,
                                             row_prebuilt_t *prebuilt,
                                             const rec_t *rec,
@@ -80,9 +98,9 @@ dberr_t PX_reader::add_scan(trx_t *trx, const PX_Config &config) {
 size_t PX_reader::calulate_split_point() {
   size_t split_point{};
   auto depth = m_scan_ctxs.front()->m_depth;
-  sql_print_information("B+Tree depth is: %d", depth);
-  sql_print_information("ctx size is: %d", m_ctxs.size());
-  sql_print_information("DOP is: %d", max_threads());
+  PX_PRINT_INFO_INNOBASE("B+Tree depth is: %lu", depth);
+  PX_PRINT_INFO_INNOBASE("ctx size is: %lu", m_ctxs.size());
+  PX_PRINT_INFO_INNOBASE("DOP is: %lu", max_threads());
 
   if (m_ctxs.size() > max_threads()) {
     split_point = (m_ctxs.size() / max_threads()) * max_threads();
@@ -115,8 +133,8 @@ dberr_t PX_reader::split(ulong avg_partitions) {
   }
 
   size_t split_point = calulate_split_point();
-  sql_print_information("split_point is: %d", split_point);
-  sql_print_information("current split level is: %d", current_split_level);
+  PX_PRINT_INFO_INNOBASE("split_point is: %lu", split_point);
+  PX_PRINT_INFO_INNOBASE("current split level is: %lu", current_split_level);
 
   clock_t start,end;
   start = clock();
@@ -135,9 +153,9 @@ dberr_t PX_reader::split(ulong avg_partitions) {
   }
 
   end = clock();
-  sql_print_information("split time is: %d", double(end-start)/CLOCKS_PER_SEC);
+  PX_PRINT_INFO_INNOBASE("split time is: %g", double(end-start)/CLOCKS_PER_SEC);
   size_t m_n_tasks = m_ctxs.size();
-  sql_print_information("total tasks is: %d", m_n_tasks);
+  PX_PRINT_INFO_INNOBASE("total tasks is: %lu", m_n_tasks);
 
   
   if ((m_ctxs.size() < (max_threads() * avg_partitions))) {
@@ -180,7 +198,7 @@ std::shared_ptr<PX_Ctx> PX_reader::dequeue() {
 */
 dberr_t PX_reader::task_dispatch(std::shared_ptr<PX_Ctx> &task) {
   dberr_t err{DB_SUCCESS};
-  sql_print_information("==========>>>> THREAD[%u] LEFT [%d] task.",
+  PX_PRINT_DEBUG_INNOBASE("==========>>>> THREAD[%lu] LEFT [%lu] task.",
    my_thread_self(), m_ctxs.size());
 
   /*
