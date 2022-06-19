@@ -13,9 +13,17 @@
 #include "sql/opt_trace_context.h"
 #include "sql/sql_class.h"        // THD
 #include "sql/sql_plugin.h"       // intern_plugin_lock
-#include "sql/log.h"              // sql_print_warning()
 #include "thr_lock.h"
 #include "thr_mutex.h"
+
+/*
+  Note that optimizer context kicks in before parallel optimizer, so PX_PRINT_
+  macros might not work. Here's a simulation of PX_PRINT_WARN.
+ */
+#define OPT_STATS_WARN(fmt, ...) \
+    DBUG_PRINT("pwarn", \
+               ("px:%ld:%u:%u: " fmt, 0L, 0U, current_thd->thread_id(), \
+                ##__VA_ARGS__))
 
 #define my_intern_plugin_lock(A, B) intern_plugin_lock(A, B)
 #define my_intern_plugin_lock_ci(A, B) intern_plugin_lock(A, B)
@@ -37,7 +45,7 @@ bool index_dive_args::init(MEM_ROOT *mem_root,
         memcpy(tmp_end_key, min_endp->key, min_endp->length);
         min_end_key = tmp_end_key;
       } else {
-        sql_print_warning("optimization context: cannot create end_key");
+        OPT_STATS_WARN("optimization context: cannot create end_key");
         return true;
       }
     }
@@ -55,7 +63,7 @@ bool index_dive_args::init(MEM_ROOT *mem_root,
         memcpy(tmp_end_key, max_endp->key, max_endp->length);
         max_end_key = tmp_end_key;
       } else {
-        sql_print_warning("optimization context: cannot create end_key");
+        OPT_STATS_WARN("optimization context: cannot create end_key");
         return true;
       }
     }
@@ -144,10 +152,10 @@ void Stats_cache::print_index_dive_map(int error, const TABLE *table,
     range_max.append(_dig_vec_lower[*(dive_args.max_end_key + i) >> 4]);
     range_max.append(_dig_vec_lower[*(dive_args.max_end_key + i) & 0x0F]);
   }
-  sql_print_warning("optimization context debug: %s find %lu:%s(%lu)-%s(%lu)",
-                    error ? "cannot" : "", keyno,
-                    range_min.c_ptr(), dive_args.min_key_length,
-                    range_max.c_ptr(), dive_args.max_key_length);
+  OPT_STATS_WARN("optimization context debug: %s find %u:%s(%u)-%s(%u)",
+                 error ? "cannot" : "", keyno,
+                 range_min.c_ptr(), dive_args.min_key_length,
+                 range_max.c_ptr(), dive_args.max_key_length);
 
   for (const auto &member : index_dive_map) {
     const index_dive_args *args = &(member.first);
@@ -173,9 +181,9 @@ void Stats_cache::print_index_dive_map(int error, const TABLE *table,
       max_str.append(_dig_vec_lower[*(args->max_end_key + i) >> 4]);
       max_str.append(_dig_vec_lower[*(args->max_end_key + i) & 0x0F]);
     }
-    sql_print_warning("optimization context debug: %lu:%s(%lu)-%s(%lu)",
-                      args->keyno, min_str.c_ptr(), args->min_key_length,
-                      max_str.c_ptr(), args->max_key_length);
+    OPT_STATS_WARN("optimization context debug: %u:%s(%u)-%s(%u)",
+                   args->keyno, min_str.c_ptr(), args->min_key_length,
+                   max_str.c_ptr(), args->max_key_length);
   }
 }
 #endif
@@ -195,7 +203,7 @@ bool Stats_cache::get_ha_stats(const TABLE *table,
 bool Stats_cache::set_ha_stats(const TABLE *table) {
   ha_statistics *stats = new (m_mem_root) ha_statistics;
   if (!stats) {
-    sql_print_warning("optimization context: cannot create ha_statistics");
+    OPT_STATS_WARN("optimization context: cannot create ha_statistics");
     return true;
   }
   stats->copy_from(&table->file->stats);
@@ -268,7 +276,7 @@ bool Stats_cache::set_ha_info(const TABLE *table) {
     rec_per_key_t *tmp_rec_per_keys_float =
         new (m_mem_root) rec_per_key_t[key->actual_key_parts];
     if (!tmp_rec_per_keys_float) {
-      sql_print_warning("optimization context: cannot create ha_info cache");
+      OPT_STATS_WARN("optimization context: cannot create ha_info cache");
       return true;
     }
     for (ulong j = 0; j < key->actual_key_parts; j++) {
@@ -494,7 +502,7 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
 
 void begin_optimization_context(THD *thd) {
   // copy the optimizer related version before optimization in coordinator
-  if (!OPT_STATS_RUNNING(thd) && !thd->m_is_worker) {
+  if (!OPT_STATS_RUNNING(thd) && PX_ROLE_COORDINATOR(thd)) {
     /*
       TODO deep copy outline / optimizer cost / rewriter
       At present, since they will not be modified frequently, we only
@@ -518,32 +526,35 @@ bool end_optimization_context(THD *thd) {
     }
   }
 
-  if (OPT_STATS_RUNNING(thd) && thd->m_is_worker && !thd->in_sub_stmt) {
+  if (OPT_STATS_RUNNING(thd) && PX_ROLE_WORKER(thd) && !thd->in_sub_stmt) {
     assert(thd->px_coordinator);
     assert(thd->px_coordinator->saved_outline_reload_version != -1L);
     assert(thd->px_coordinator->saved_optimizer_cost_reload_version != -1L);
     assert(thd->px_coordinator->saved_rewriter_plugin_reload_version != -1L);
 
+    const char *error_type = nullptr;
     if (thd->ha_stats_id != thd->px_coordinator->ha_stats_id) {
-      OPT_STATS_ERR("ha_stats_id", thd);
-      return true;
+      error_type = "ha_stats_id";
     } else if (thd->index_dive_id != thd->px_coordinator->index_dive_id) {
-      OPT_STATS_ERR("index_dive_id", thd);
-      return true;
+      error_type = "index_dive_id";
     } else if (thd->px_coordinator->saved_outline_reload_version !=
         outline_reload_version) {
-      OPT_STATS_ERR("outline version", thd);
-      return true;
+      error_type = "outline version";
     } else if (thd->px_coordinator->saved_optimizer_cost_reload_version !=
         optimizer_cost_reload_version) {
-      OPT_STATS_ERR("optimizer_cost version", thd);
+      error_type = "optimizer_cost version";
       return true;
     } else if (thd->px_coordinator->saved_rewriter_plugin_reload_version !=
         rewriter_plugin_reload_version) {
-      OPT_STATS_ERR("rewriter version", thd);
-      return true;
+      error_type = "rewriter version";
     } else if (!thd->use_px) {
-      OPT_STATS_ERR("execution mode", thd);
+      error_type = "execution mode";
+    }
+    if (error_type) {
+      OPT_STATS_WARN("optimization context: Thread(%u) optimization "
+                     "context mismatch (%s)", thd->thread_id(), error_type);
+      my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
+              thd->thread_id(), error_type);
       return true;
     }
   }
