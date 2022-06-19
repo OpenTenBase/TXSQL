@@ -1909,6 +1909,7 @@ void THD::cleanup_after_query() {
     stats_cache_alloc.Clear();
     opt_stats = new (&stats_cache_alloc) Stats_cache(&stats_cache_alloc);
   }
+  use_px = false;
 }
 
 /*
