@@ -483,7 +483,7 @@ static bool check_px_unsafe_subselect(Item *item) {
     bool exchange_safe = false;
     bool is_stream = false;
     uint ref_slice = REF_SLICE_SAVED_BASE;
-    return px_access_path::WalkAccessPathsForCompat(
+    return !px_access_path::WalkAccessPathsForCompat(
         current_thd, unit->root_access_path(), nullptr, join,
         /*parallel_scan=*/false, /*root=*/true, /*root_all=*/false, ref_slice,
         max_subtree, is_stream, nullptr, nullptr, exchange_safe);

@@ -138,6 +138,12 @@ select * from t1 where id in (select col1 from t2 where col1 > RAND(1));
 explain format=tree select * from t1 where col1 in (select col1 from t2 where col1 > RAND(1));
 select * from t1 where col1 in (select col1 from t2 where col1 > RAND(1));
 
+explain format=tree SELECT SUM(EXISTS(SELECT RAND() FROM t1)) FROM t1;
+SELECT SUM(EXISTS(SELECT RAND() FROM t1)) FROM t1;
+
+explain format=tree SELECT SUM(EXISTS(SELECT 1 FROM t1)) FROM t1;
+SELECT SUM(EXISTS(SELECT 1 FROM t1)) FROM t1;
+
 set optimizer_switch = @old_optimizer_switch;
 
 explain format=tree select * from t1 order by (select col1 from t2 limit 1);
