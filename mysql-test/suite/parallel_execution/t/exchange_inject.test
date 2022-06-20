@@ -1610,4 +1610,18 @@ select fld3,period,price,price2 from t2,t3 where t2.fld1=t3.t2nr and period >= 1
 
 drop table t2,t3;
 
+--echo #
+--echo # found_rows()
+--echo #
+create table t1 (id int);
+insert into t1 values (1),(2),(3),(4);
+analyze table t1;
+select * from t1;
+select found_rows();
+select * from t1 order by id limit 1;
+select found_rows();
+select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
+select found_rows();
+drop table t1;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc

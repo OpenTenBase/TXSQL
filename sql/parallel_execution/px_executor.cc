@@ -404,6 +404,17 @@ bool PX_task::run_root(THD *thd)
   }
 
   Query_expression *unit = thd->lex->unit;
+  // see send_records_ptr in SELECT_LEX_UNIT::ExecuteIteratorQuery()
+  ha_rows *send_records_ptr;
+  if (unit->fake_query_block != nullptr) {
+    send_records_ptr = &unit->fake_query_block->join->send_records;
+  } else if (unit->is_simple()) {
+    send_records_ptr = &unit->first_query_block()->join->send_records;
+  } else {
+    send_records_ptr = &unit->send_records;
+  }
+  *send_records_ptr = 0;
+
   mem_root_deque<Item *> *fields = unit->get_field_list();
   Query_result *query_result = unit->query_result();
 
@@ -439,9 +450,13 @@ bool PX_task::run_root(THD *thd)
       return true;
     }
 
+    ++*send_records_ptr;
+
     if (query_result->send_data(thd, *fields))
       return true;
   }
+
+  thd->current_found_rows = *send_records_ptr;
 
   return query_result->send_eof(thd);
 }
