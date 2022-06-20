@@ -4078,4 +4078,42 @@ wallet	1001	5987435	234724
 Weissmuller	1002	28357832	8723648
 Wotan	1002	28357832	8723648
 drop table t2,t3;
+#
+# found_rows()
+#
+create table t1 (id int);
+insert into t1 values (1),(2),(3),(4);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+select * from t1;
+id
+1
+2
+3
+4
+select found_rows();
+found_rows()
+4
+Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+select * from t1 order by id limit 1;
+id
+1
+select found_rows();
+found_rows()
+1
+Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
+id
+1
+Warnings:
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+select found_rows();
+found_rows()
+4
+Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+drop table t1;
 # --include set_px_to_saved.inc
