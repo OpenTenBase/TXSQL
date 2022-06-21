@@ -542,8 +542,7 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     // copy variables of coordinator THD for worker
     post_init_worker_thd(thd(), worker_new_thd);
 
-    mysql_change_db(worker_new_thd, thd()->db(), false);
-
+    worker_new_thd->set_db(thd()->db());
     // Set the thread_id of the THD by Global_THD_Manager, in temp table
     // creatation, thread_id is needed to name a temp file in disk.
     worker_new_thd->set_new_thread_id();
