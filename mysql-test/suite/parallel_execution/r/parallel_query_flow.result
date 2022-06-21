@@ -44,19 +44,19 @@ a	b	c	d
 5	5	5	5
 explain format=tree select * from t2;
 EXPLAIN
--> Gather Receiver (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
-        -> Parallel table scan on t2, with parallel partitions: 1  (cost=0.75 rows=5)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t2 where a = 3;
 a	b	c	d
 3	3	3	3
 explain format=tree select * from t2 where a = 3;
 EXPLAIN
--> Gather Receiver (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t2.a = 3)  (cost=0.75 rows=1)
-            -> Parallel table scan on t2, with parallel partitions: 1  (cost=0.75 rows=5)
+            -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select * from t3;
 a	b	c	d
@@ -72,9 +72,9 @@ a	b	c	d
 10	10	10	10
 explain format=tree select * from t3;
 EXPLAIN
--> Gather Receiver (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
-        -> Parallel table scan on t3, with parallel partitions: 1  (cost=1.25 rows=10)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t3 where a between 1 and 9;
 a	b	c	d
@@ -89,10 +89,10 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t3 where a between 1 and 9;
 EXPLAIN
--> Gather Receiver (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
-            -> Parallel index range scan on t3 using PRIMARY, with parallel partitions: 1  (cost=2.06 rows=9)
+            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 select * from t3 where b > 2 and b < 10;
 a	b	c	d
@@ -105,9 +105,9 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t3 where b > 2 and b < 10;
 EXPLAIN
--> Gather Receiver (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
-        -> Parallel index range scan on t3 using idx, with index condition: ((t3.b > 2) and (t3.b < 10)), with parallel partitions: 1  (cost=3.41 rows=7)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index range scan on t3 using idx, with index condition: ((t3.b > 2) and (t3.b < 10))  (cost=3.41 rows=7)
 
 select * from t3 where a < 10 and b > 2;
 a	b	c	d
@@ -120,10 +120,10 @@ a	b	c	d
 9	9	9	9
 explain format=tree select * from t3 where a < 10 and b > 2;
 EXPLAIN
--> Gather Receiver (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Filter: ((t3.a < 10) and (t3.b > 2))  (cost=2.06 rows=7)
-            -> Parallel index range scan on t3 using PRIMARY, with parallel partitions: 1  (cost=2.06 rows=9)
+            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 select * from t3 order by b,c;
 a	b	c	d
@@ -139,10 +139,10 @@ a	b	c	d
 10	10	10	10
 explain format=tree select * from t3 order by b,c;
 EXPLAIN
--> Gather Receiver with merge (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: t3.b, t3.c  (cost=1.25 rows=10)
-            -> Parallel table scan on t3, with parallel partitions: 1  (cost=1.25 rows=10)
+            -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t3 order by b,c desc;
 a	b	c	d
@@ -158,10 +158,10 @@ a	b	c	d
 10	10	10	10
 explain format=tree select * from t3 order by b,c desc;
 EXPLAIN
--> Gather Receiver with merge (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: t3.b, t3.c DESC  (cost=1.25 rows=10)
-            -> Parallel table scan on t3, with parallel partitions: 1  (cost=1.25 rows=10)
+            -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t3 where c > 1 order by d;
 a	b	c	d
@@ -176,11 +176,11 @@ a	b	c	d
 10	10	10	10
 explain format=tree select * from t3 where c > 1 order by d;
 EXPLAIN
--> Gather Receiver with merge (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: t3.d  (cost=1.25 rows=10)
             -> Filter: (t3.c > 1)  (cost=1.25 rows=10)
-                -> Parallel table scan on t3, with parallel partitions: 1  (cost=1.25 rows=10)
+                -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t3 where c > 1 and d > 3 order by a,b;
 a	b	c	d
@@ -193,11 +193,11 @@ a	b	c	d
 10	10	10	10
 explain format=tree select * from t3 where c > 1 and d > 3 order by a,b;
 EXPLAIN
--> Gather Receiver with merge (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: t3.a, t3.b  (cost=1.25 rows=10)
             -> Filter: ((t3.c > 1) and (t3.d > 3))  (cost=1.25 rows=10)
-                -> Parallel table scan on t3, with parallel partitions: 1  (cost=1.25 rows=10)
+                -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t3 where c > 1 and d > 2 order by b,c desc;
 a	b	c	d
@@ -211,11 +211,11 @@ a	b	c	d
 10	10	10	10
 explain format=tree select * from t3 where c > 1 and d > 2 order by b,c desc;
 EXPLAIN
--> Gather Receiver with merge (slice: 0; workers: 1)
-    -> Gather Sender (slice: 1; workers: 1)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
         -> Sort: t3.b, t3.c DESC  (cost=1.25 rows=10)
             -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=10)
-                -> Parallel table scan on t3, with parallel partitions: 1  (cost=1.25 rows=10)
+                -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
 a	b	c	d	a	b	c	d
@@ -226,11 +226,11 @@ a	b	c	d	a	b	c	d
 explain format=tree select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
 EXPLAIN
 -> Nested loop inner join  (cost=2.50 rows=5)
-    -> Gather Receiver with merge (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Sort: t2.a  (cost=0.75 rows=5)
                 -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
-                    -> Parallel table scan on t2, with parallel partitions: 1  (cost=0.75 rows=5)
+                    -> Parallel table scan on t2  (cost=0.75 rows=5)
     -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
 
 select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a;
@@ -248,8 +248,10 @@ EXPLAIN
             -> Inner hash join (t2.a = t1.a)  (cost=3.50 rows=5)
                 -> Table scan on t2  (cost=0.07 rows=5)
                 -> Hash
-                    -> Filter: (t1.a is not null)  (cost=0.75 rows=5)
-                        -> Table scan on t1  (cost=0.75 rows=5)
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 1)
+                            -> Filter: (t1.a is not null)  (cost=0.75 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
             -> Single-row index lookup on t3 using PRIMARY (a=t1.a)  (cost=0.07 rows=1)
 
 select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc;
@@ -266,7 +268,9 @@ EXPLAIN
             -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
                 -> Table scan on t1  (cost=0.75 rows=5)
             -> Hash
-                -> Table scan on t2  (cost=0.45 rows=5)
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 1)
+                        -> Parallel table scan on t2  (cost=0.45 rows=5)
 
 select sum(b) from t1;
 sum(b)
@@ -274,10 +278,10 @@ sum(b)
 explain format=tree select sum(b) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.b)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.b)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select max(b) from t1;
 max(b)
@@ -285,10 +289,10 @@ max(b)
 explain format=tree select max(b) from t1;
 EXPLAIN
 -> Aggregate: max(t1.b)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: max(t1.b)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select min(c) from t1;
 min(c)
@@ -296,10 +300,10 @@ min(c)
 explain format=tree select min(c) from t1;
 EXPLAIN
 -> Aggregate: min(t1.c)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: min(t1.c)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select count(b) from t1;
 count(b)
@@ -307,10 +311,10 @@ count(b)
 explain format=tree select count(b) from t1;
 EXPLAIN
 -> Aggregate: count(t1.b)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: count(t1.b)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), sum(c), sum(d) from t1;
 sum(a)	sum(b)	sum(c)	sum(d)
@@ -318,10 +322,10 @@ sum(a)	sum(b)	sum(c)	sum(d)
 explain format=tree select sum(a), sum(b), sum(c), sum(d) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), count(c), count(d) from t1;
 sum(a)	sum(b)	count(c)	count(d)
@@ -329,10 +333,10 @@ sum(a)	sum(b)	count(c)	count(d)
 explain format=tree select sum(a), sum(b), count(c), count(d) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), avg(c), avg(d) from t1;
 sum(a)	sum(b)	avg(c)	avg(d)
@@ -340,10 +344,10 @@ sum(a)	sum(b)	avg(c)	avg(d)
 explain format=tree select sum(a), sum(b), avg(c), avg(d) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
 sum(a+1)	count(b)	avg(c+10)	avg(d+100)
@@ -351,10 +355,10 @@ sum(a+1)	count(b)	avg(c+10)	avg(d+100)
 explain format=tree select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
 EXPLAIN
 -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), 1+sum(c) from t1;
 sum(a)	sum(b)	1+sum(c)
@@ -362,10 +366,10 @@ sum(a)	sum(b)	1+sum(c)
 explain format=tree select sum(a), sum(b), 1+sum(c) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
-    -> Gather Receiver (slice: 0; workers: 1)
-        -> Gather Sender (slice: 1; workers: 1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
-                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select variance(a) from t1;
 variance(a)
@@ -373,7 +377,9 @@ variance(a)
 explain format=tree select variance(a) from t1;
 EXPLAIN
 -> Aggregate: variance(t1.a)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), variance(b), avg(c) from t1;
 sum(a)	variance(b)	avg(c)
@@ -381,7 +387,9 @@ sum(a)	variance(b)	avg(c)
 explain format=tree select sum(a), variance(b), avg(c) from t1;
 EXPLAIN
 -> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
-    -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
 sum(a)	variance(b)	avg(c)
@@ -389,8 +397,10 @@ sum(a)	variance(b)	avg(c)
 explain format=tree select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
 EXPLAIN
 -> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
-    -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
-        -> Table scan on t1  (cost=0.75 rows=5)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
 a	sum(b)	variance(b)
@@ -402,8 +412,10 @@ explain format=tree select a, sum(b), variance(b) from t1 where t1.a > 1 group b
 EXPLAIN
 -> Table scan on <temporary>
     -> Aggregate using temporary table
-        -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
-            -> Table scan on t1  (cost=0.75 rows=5)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
+                -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+                    -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a;
 a	sum(b)
@@ -416,11 +428,11 @@ explain format=tree select a,sum(b) from t1 group by a;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,max(b) from t1 group by a;
 a	max(b)
@@ -433,11 +445,11 @@ explain format=tree select a,max(b) from t1 group by a;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,sum(c) from t1 group by a,b;
 a	b	sum(c)
@@ -450,11 +462,11 @@ explain format=tree select a,b,sum(c) from t1 group by a,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,sum(c),avg(d) from t1 group by a,b;
 a	b	sum(c)	avg(d)
@@ -467,11 +479,11 @@ explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on 
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,avg(c),avg(d) from t1 group by a,b;
 a	b	avg(c)	avg(d)
@@ -484,11 +496,11 @@ explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on 
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
 a+1	b	avg(c)	avg(d)
@@ -501,11 +513,11 @@ explain format=tree select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on 
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
 a	b	sum(c+1)	sum(d+10)
@@ -518,11 +530,11 @@ explain format=tree select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,sum(c+1),avg(d+100) from t1 group by a,b;
 a	b	sum(c+1)	avg(d+100)
@@ -535,11 +547,11 @@ explain format=tree select a,b,sum(c+1),avg(d+100) from t1 group by a,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on 
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,1+sum(c),avg(d) from t1 group by a,b;
 a	b	1+sum(c)	avg(d)
@@ -552,11 +564,11 @@ explain format=tree select a,b,1+sum(c),avg(d) from t1 group by a,b;
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on 
                     -> Aggregate using temporary table
-                        -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a order by a;
 a	sum(b)
@@ -570,11 +582,11 @@ EXPLAIN
 -> Sort: t1.a
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on <temporary>
                         -> Aggregate using temporary table
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,max(b) from t1 group by a order by a;
 a	max(b)
@@ -588,11 +600,11 @@ EXPLAIN
 -> Sort: t1.a
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on <temporary>
                         -> Aggregate using temporary table
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,sum(c) from t1 group by a,b order by a,b;
 a	b	sum(c)
@@ -606,11 +618,11 @@ EXPLAIN
 -> Sort: t1.a, t1.b
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on <temporary>
                         -> Aggregate using temporary table
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
 a	b	sum(c)	avg(d)
@@ -624,11 +636,11 @@ EXPLAIN
 -> Sort: t1.a, t1.b
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on 
                         -> Aggregate using temporary table
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
 a	b	avg(c)	avg(d)
@@ -642,11 +654,11 @@ EXPLAIN
 -> Sort: t1.a, t1.b
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on 
                         -> Aggregate using temporary table
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
 a+1	b	avg(c)
@@ -660,11 +672,11 @@ EXPLAIN
 -> Sort: `a+1`, t1.b
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on 
                         -> Aggregate using temporary table
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
 a	max(t1.b)
@@ -677,12 +689,12 @@ explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 wher
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
                         -> Nested loop inner join  (cost=4.50 rows=5)
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
                             -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
                                 -> Table scan on t2  (cost=0.27 rows=5)
 
@@ -697,12 +709,12 @@ explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 jo
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on 
                     -> Aggregate using temporary table
                         -> Nested loop inner join  (cost=4.50 rows=5)
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
                             -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
                                 -> Table scan on t2  (cost=0.27 rows=5)
 
@@ -718,12 +730,12 @@ EXPLAIN
 -> Sort: t2.a
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on 
                         -> Aggregate using temporary table
                             -> Nested loop inner join  (cost=4.50 rows=5)
-                                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
                                 -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
                                     -> Table scan on t2  (cost=0.27 rows=5)
 
@@ -738,12 +750,12 @@ explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 wh
 EXPLAIN
 -> Table scan on <temp>
     -> Final Aggregate using temporary table
-        -> Gather Receiver (slice: 0; workers: 1)
-            -> Gather Sender (slice: 1; workers: 1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
                         -> Nested loop inner join  (cost=4.50 rows=5)
-                            -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
                             -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
                                 -> Table scan on t2  (cost=0.27 rows=5)
 
@@ -759,83 +771,81 @@ EXPLAIN
 -> Sort: `t1.a+1`
     -> Table scan on <temp>
         -> Final Aggregate using temporary table
-            -> Gather Receiver (slice: 0; workers: 1)
-                -> Gather Sender (slice: 1; workers: 1)
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
                     -> Table scan on <temporary>
                         -> Aggregate using temporary table
                             -> Nested loop inner join  (cost=4.50 rows=5)
-                                -> Parallel table scan on t1, with parallel partitions: 1  (cost=0.75 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
                                 -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
                                     -> Table scan on t2  (cost=0.27 rows=5)
 
-set debug_sync='execute_in_parallel_before SIGNAL waiting wait_for killed';
-select a,sum(b) from t1 group by a order by a;;
-SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
-SET DEBUG_SYNC = 'RESET';
-set debug_sync='execute_in_parallel_before SIGNAL waiting wait_for killed';
-select a,sum(b) from t4 group by a union select a,b from t2 order by a;;
-SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
-SET DEBUG_SYNC = 'RESET';
-set debug_sync='execute_in_parallel_before_scheduling SIGNAL waiting wait_for killed';
-select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;;
-SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
-SET DEBUG_SYNC = 'RESET';
-set debug_sync='execute_in_parallel_before_scheduling SIGNAL waiting wait_for killed';
-select a,sum(b) from t1 group by a union select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;;
-SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
-SET DEBUG_SYNC = 'RESET';
-set debug_sync='execute_in_parallel_scheduling SIGNAL waiting wait_for killed';
-select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;;
-SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
-SET DEBUG_SYNC = 'RESET';
-set debug_sync='execute_in_parallel_scheduling_end SIGNAL waiting wait_for killed';
-select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;;
-SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
-a	sum(t1.b)	avg(t1.c)
-1	2	3.0000
-2	3	4.0000
-3	4	5.0000
-4	5	6.0000
-5	6	7.0000
-SET DEBUG_SYNC = 'RESET';
-set global debug="+d, test_error_before_sending_data";
-select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
-t1.a+1	max(t1.b)
-2	2
-3	3
-4	4
-5	5
-6	6
-set global debug="-d, test_error_before_sending_data";
-set global debug="+d, test_error_in_sending_data";
-select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
-ERROR HY000: PX execute error of errno[3950].
-set global debug="-d, test_error_in_sending_data";
-set global debug="+d, test_error_before_sending_data_worker";
-select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
-a	sum(b)	variance(b)
-2	3	0
-3	4	0
-4	5	0
-5	6	0
-set global debug="-d, test_error_before_sending_data_worker";
+set debug="+d,execute_in_parallel_before_fallback";
+set profiling = 1;
+Warnings:
+Warning	1287	'@@profiling' is deprecated and will be removed in a future release.
+select a, sum(b) from t1 group by a;
+a	sum(b)
+1	2
+2	3
+3	4
+4	5
+5	6
+show profiles;
+Query_ID	Duration	Query
+1	#	SHOW WARNINGS
+2	#	select a, sum(b) from t1 group by a
+Warnings:
+Warning	#	'SHOW PROFILES' is deprecated and will be removed in a future release. Please use Performance Schema instead
+show profile for query 2;
+Status	Duration
+starting	#
+Executing hook on transaction 	#
+starting	#
+checking permissions	#
+Opening tables	#
+init	#
+System lock	#
+optimizing	#
+statistics	#
+preparing	#
+Creating tmp table	#
+end	#
+query end	#
+removing tmp table	#
+query end	#
+removing tmp table	#
+query end	#
+closing tables	#
+freeing items	#
+starting fallback execution	#
+Executing hook on transaction 	#
+starting fallback execution	#
+checking permissions	#
+Opening tables	#
+init	#
+System lock	#
+optimizing	#
+statistics	#
+preparing	#
+Creating tmp table	#
+executing	#
+end	#
+query end	#
+waiting for handler commit	#
+removing tmp table	#
+waiting for handler commit	#
+closing tables	#
+freeing items	#
+cleaning up	#
+Warnings:
+Warning	#	'SHOW PROFILE' is deprecated and will be removed in a future release. Please use Performance Schema instead
+show status like '%px%';
+Variable_name	Value
+PX_stmt_error	0
+PX_stmt_executed	47
+PX_stmt_fallback	1
+PX_thread_current	0
 # --include set_px_to_saved.inc
 drop table t1;
 drop table t2;

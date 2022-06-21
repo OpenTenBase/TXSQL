@@ -6,6 +6,7 @@
 #include "sql/sql_parse.h"  // mysql_reset_thd_for_next_command
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/iterators/row_iterator.h"  // RowIterator
+#include "sql/sql_profile.h" // PROFILING
 #include "sql/protocol.h" // Protocol
 #include "sql/pfs_batch_mode.h"  // PFSBatchMode
 #include "sql/log.h" // For debug to be deleted.
@@ -44,10 +45,7 @@ static void *rebuild_query_execution(void *args)
   if (parser_state->init(thd, thd->query().str, thd->query().length))
     return nullptr;
 
-  // Reset THD for next command.
-  mysql_reset_thd_for_next_command(thd);
   lex_start(thd);
-
   thd->m_parser_state = nullptr;
   // handle found_semicolon situation forbidden.
   bool err = thd->get_stmt_da()->is_error();
@@ -218,6 +216,10 @@ bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
   PX_PRINT_INFO("acquired %ld cores", requested_cores);
 
   DEBUG_SYNC_C("execute_in_parallel_before");
+  if (DBUG_EVALUATE_IF("execute_in_parallel_before_fallback", true, false)) {
+    my_error(ER_PX_OUT_OF_THREADS, MYF(0), (int)requested_cores);
+    thd->need_fallback = true;
+  }
 #ifndef DBUG_OFF
   debug_print_dfo("dfo tree: ", dfo_mgr->root_dfo(), 0);
 #endif
@@ -865,11 +867,10 @@ void PX_parallel_coordinator::prepare_schedule_single_dfo(int num_workers,
 {
   Dfo *dfo = exec_ctx->dfo();
   // Set the arguments of tasks for the threads in exec_ctx.
-  for (int i = 0, task_executor_id = 0; i < num_workers; ++i) {
+  for (int i = 0; i < num_workers; ++i) {
     if (bitmap_is_set(&exec_ctx->bitmap, i)) {
       args[i]->task_id = dfo->dfo_id();
       args[i]->exchange_info = exchange_info;
-      args[i]->worker_thd->task_executor_id = task_executor_id++;
       args[i]->worker_thd->thread_group_id = exec_ctx->group_id();
       if (dfo->is_leaf_dfo()) // set px scan ctx for leaf dfo.
         args[i]->scan_ctx = static_cast<PX_reader*>(dfo->m_px_scan_ctx);
@@ -887,7 +888,6 @@ void PX_parallel_coordinator::prepare_schedule_single_dfo(int num_workers,
   @param parser_state   the parser state
 */
 void fallback_to_serial_execution(THD *thd, Parser_state *parser_state) {
-  // thd->get_stmt_da()->reset_diagnostics_area();
   PX_PRINT_INFO("fall back to serial execution.");
 
   mysql_mutex_lock(&LOCK_inc_px_stmt_fallback);
@@ -899,17 +899,6 @@ void fallback_to_serial_execution(THD *thd, Parser_state *parser_state) {
   thd->m_statement_psi = nullptr;
   thd->m_digest = nullptr;
 
-  // /* SHOW PROFILE end */
-  // #if defined(ENABLED_PROFILING)
-  //         thd->profiling->finish_current_query();
-  // #endif
-
-  // /* SHOW PROFILE begin */
-  // #if defined(ENABLED_PROFILING)
-  //         thd->profiling->start_new_query("continuing");
-  //         thd->profiling->set_query_source(beginning_of_next_stmt, length);
-  // #endif
-
   /* PSI begin */
   thd->m_digest = &thd->m_digest_state;
   thd->m_digest->reset(thd->m_token_array, max_digest_length);
@@ -917,7 +906,7 @@ void fallback_to_serial_execution(THD *thd, Parser_state *parser_state) {
   thd->m_statement_psi = MYSQL_START_STATEMENT(&thd->m_statement_state,
       com_statement_info[thd->get_command()].m_key,
       thd->db().str, thd->db().length, thd->charset(), nullptr);
-  THD_STAGE_INFO(thd, stage_starting);
+  THD_STAGE_INFO(thd, stage_starting_fallback);
 
   thd->m_digest = &thd->m_digest_state;
   thd->m_digest->reset(thd->m_token_array, max_digest_length);

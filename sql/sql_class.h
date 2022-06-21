@@ -1107,8 +1107,6 @@ class THD : public MDL_context_owner,
   bool need_fallback{false};
   /* Worker id of PX worker. */
   int worker_id{0};
-  /* Task id of Sender or Receiver. */
-  int task_executor_id{0};
   /* Thread group id of task. */
   int thread_group_id{-1};
   /* Whether SQL use px execution. */
