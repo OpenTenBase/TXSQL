@@ -357,10 +357,15 @@ static bool check_px_unsafe_func(Item *item) {
     Item_func *func = static_cast<Item_func *>(item);
 
     // Check parallel unsafe by func type
+    if (func->functype() == Item_func::UDF_FUNC ||
+        func->functype() == Item_func::FUNC_SP) {
+      // Querys that contain these type of function should be intercepted by
+      // LEX::check_px_execution()
+      assert(0);
+      return true;
+    }
     if (func->functype() == Item_func::JSON_FUNC ||
         func->functype() == Item_func::XML_FUNC ||
-        func->functype() == Item_func::UDF_FUNC ||
-        func->functype() == Item_func::FUNC_SP ||
         func->functype() == Item_func::SUSERVAR_FUNC ||
         func->functype() == Item_func::SUSERVAR_FUNC ||
         func->functype() == Item_func::MATCH_FUNC) {
@@ -393,10 +398,15 @@ static bool check_px_unsafe_cond(Item *item) {
     Item_cond *condition = static_cast<Item_cond *>(item);
 
     // Check parallel unsafe by func type
+    if (condition->functype() == Item_func::UDF_FUNC ||
+        condition->functype() == Item_func::FUNC_SP) {
+      // Querys that contain these type of function should be intercepted by
+      // LEX::check_px_execution()
+      assert(0);
+      return true;
+    }
     if (condition->functype() == Item_func::JSON_FUNC ||
         condition->functype() == Item_func::XML_FUNC ||
-        condition->functype() == Item_func::UDF_FUNC ||
-        condition->functype() == Item_func::FUNC_SP ||
         condition->functype() == Item_func::SUSERVAR_FUNC ||
         condition->functype() == Item_func::SUSERVAR_FUNC ||
         condition->functype() == Item_func::MATCH_FUNC) {
