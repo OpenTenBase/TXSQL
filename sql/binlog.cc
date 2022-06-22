@@ -9022,6 +9022,11 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
   */
 
   if (has_commit_order_manager(thd)) {
+    DBUG_EXECUTE_IF(("rpl_before_commit_order_manager_wait_"
+          + std::to_string(current_thd->start_time.tv_sec)).c_str(), {
+        const char act[] = "now signal worker_commit wait_for reported_deadlock";
+        assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    });                                                                        
     Slave_worker *worker = dynamic_cast<Slave_worker *>(thd->rli_slave);
     Commit_order_manager *mngr = worker->get_commit_order_manager();
 

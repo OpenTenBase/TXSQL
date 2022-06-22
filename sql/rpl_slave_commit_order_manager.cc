@@ -98,6 +98,7 @@ bool Commit_order_manager::wait_for_its_turn(Slave_worker *worker, bool all) {
       if (unlikely(worker->found_order_commit_deadlock())) {
         mysql_mutex_unlock(&m_mutex);
         thd->EXIT_COND(&old_stage);
+        my_error(ER_LOCK_DEADLOCK, MYF(0));
         return true;
       }
       mysql_cond_wait(cond, &m_mutex);
@@ -153,6 +154,10 @@ void Commit_order_manager::report_rollback(Slave_worker *worker) {
 void Commit_order_manager::report_deadlock(Slave_worker *worker) {
   DBUG_TRACE;
   mysql_mutex_lock(&m_mutex);
+  DBUG_EXECUTE_IF("rpl_before_report_commit_order_deadlock", {
+    const char act[] = "now signal reach_report_deadlock wait_for worker_commit";
+    assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+  });
   worker->report_order_commit_deadlock();
   DBUG_EXECUTE_IF("rpl_fake_cod_deadlock", {
     const char act[] = "now signal reported_deadlock";
