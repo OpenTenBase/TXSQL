@@ -3,14 +3,15 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <list>
 #include <vector>
-
 
 class Filesort;
 class JOIN;
 class THD;
 struct AccessPath;
 struct TABLE;
+class QEP_TAB;
 
 namespace px_access_path {
 struct Split_Position {
@@ -23,6 +24,9 @@ struct Split_Position {
   bool m_split_union;
   Filesort *m_filesort;
   std::vector<TABLE *> *m_tables;
+  QEP_TAB *m_parallel_tab;  // Tab to be parallel scanned, held by a special
+                            // node in the array for Split_Position. This node
+                            // would only contain the m_parallel_tab.
   Split_Position()
       : m_join(nullptr),
         m_target(nullptr),
@@ -32,7 +36,8 @@ struct Split_Position {
         m_split_sort(false),
         m_split_union(false),
         m_filesort(nullptr),
-        m_tables(nullptr) {}
+        m_tables(nullptr),
+        m_parallel_tab(nullptr) {}
 
   Split_Position(JOIN *join, AccessPath *target, AccessPath *parent,
                  uint ref_slice, bool split_agg, bool split_sort,
@@ -46,7 +51,20 @@ struct Split_Position {
         m_split_sort(split_sort),
         m_split_union(split_union),
         m_filesort(filesort),
-        m_tables(tables) {}
+        m_tables(tables),
+        m_parallel_tab(nullptr) {}
+
+  Split_Position(JOIN *join, QEP_TAB *parallel_tab)
+      : m_join(join),
+        m_target(nullptr),
+        m_parent(nullptr),
+        m_ref_slice(0),
+        m_split_agg(false),
+        m_split_sort(false),
+        m_split_union(false),
+        m_filesort(nullptr),
+        m_tables(nullptr),
+        m_parallel_tab(parallel_tab) {}
 };
 
 bool WalkAccessPathsForCompat(
@@ -58,7 +76,8 @@ bool WalkAccessPathsForCompat(
 
 bool FindExchangeInjectPosition(THD *thd,
     std::vector<Split_Position> *const split_positions_in,
-    std::vector<Split_Position> *const split_positions);
+    std::vector<Split_Position> *const split_positions,
+    std::list<QEP_TAB *> *const parallel_tab);
 
 #ifndef DBUG_OFF
 void PrintSplitPostion(const char *str,

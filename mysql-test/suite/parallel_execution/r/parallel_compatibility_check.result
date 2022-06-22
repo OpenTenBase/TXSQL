@@ -252,7 +252,7 @@ test.testText	analyze	status	OK
 blob field in select lists
 EXPLAIN format=tree SELECT * FROM testText;
 EXPLAIN
--> Parallel table scan on testText  (cost=0.80 rows=3)
+-> Table scan on testText  (cost=0.80 rows=3)
 
 blob field in aggregation function
 EXPLAIN format=tree SELECT SUM(data) FROM testText;
@@ -308,7 +308,7 @@ test.test_json	analyze	status	OK
 json field in select lists
 EXPLAIN format=tree SELECT * FROM test_json;
 EXPLAIN
--> Parallel table scan on test_json  (cost=0.55 rows=3)
+-> Table scan on test_json  (cost=0.55 rows=3)
 
 blob field in aggregation function
 EXPLAIN format=tree SELECT SUM(obj_json) FROM test_json;
@@ -552,7 +552,7 @@ INSERT INTO t11(data) VALUES ('[0,1,2]'), ('[10,11,12]');
 EXPLAIN format=tree SELECT pk, id FROM t11 WHERE JSON_CONTAINS(CAST(data AS JSON),'1');
 EXPLAIN
 -> Filter: json_contains(cast(cast(`data` as json) as unsigned array),json'[1]')  (cost=0.45 rows=2)
-    -> Parallel table scan on t11  (cost=0.45 rows=2)
+    -> Table scan on t11  (cost=0.45 rows=2)
 
 DROP TABLE t11;
 unsafe XML function check
