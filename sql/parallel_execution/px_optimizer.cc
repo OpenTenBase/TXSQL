@@ -118,9 +118,11 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
 
   // Optimize
   std::vector<px_access_path::Split_Position> split_positions;
+  std::list<QEP_TAB *> parallel_tab;  // Save all tabs to be parallel scanned.
   try {
     if (px_access_path::FindExchangeInjectPosition(thd, &split_positions_all,
-                                                   &split_positions)) {
+                                                   &split_positions,
+                                                   &parallel_tab)) {
       assert(0);
       thd->lex->pass_px_check = false;
       return true;
@@ -143,6 +145,10 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
 
   // Generate parallalized plan.
   if (px_generate_plan(thd, &split_positions, &mat_access_path)) return true;
+
+  for (const QEP_TAB *tab : parallel_tab) {
+    tab->set_parallel_scan(true);
+  }
   return false;
 }
 

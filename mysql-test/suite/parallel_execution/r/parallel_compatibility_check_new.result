@@ -249,7 +249,7 @@ id	col1	col2	id	col1	col2	id	col1	col2
 explain format=tree select * from t1 limit 1;
 EXPLAIN
 -> Limit: 1 row(s)  (cost=1.25 rows=1)
-    -> Parallel table scan on t1  (cost=1.25 rows=10)
+    -> Table scan on t1  (cost=1.25 rows=10)
 
 select * from t1 limit 1;
 id	col1	col2
@@ -268,7 +268,7 @@ id	col1	col2
 explain format=tree select col2 from t1 order by col2 limit 1;
 EXPLAIN
 -> Limit: 1 row(s)  (cost=0.03 rows=1)
-    -> Parallel index scan on t1 using idx  (cost=0.03 rows=1)
+    -> Index scan on t1 using idx  (cost=0.03 rows=1)
 
 select col2 from t1 order by col2 limit 1;
 col2
@@ -279,7 +279,7 @@ EXPLAIN
     -> Table scan on <temporary>
         -> Temporary table with deduplication  (cost=1.25 rows=10)
             -> Limit table size: 1 unique row(s)
-                -> Parallel table scan on t1  (cost=1.25 rows=10)
+                -> Table scan on t1  (cost=1.25 rows=10)
 
 select distinct col1 from t1 limit 1;
 col1
@@ -550,9 +550,9 @@ EXPLAIN
     -> Table scan on <union temporary>  (cost=2.50 rows=0)
         -> Union materialize with deduplication
             -> Limit table size: 2 unique row(s)
-                -> Parallel table scan on t1  (cost=1.25 rows=10)
+                -> Table scan on t1  (cost=1.25 rows=10)
             -> Limit table size: 2 unique row(s)
-                -> Parallel table scan on t2  (cost=1.25 rows=10)
+                -> Table scan on t2  (cost=1.25 rows=10)
 
 select * from t1 union select * from t2 limit 2;
 id	col1	col2
@@ -563,9 +563,9 @@ EXPLAIN
 -> Limit: 2 row(s)
     -> Append
         -> Stream results  (cost=1.25 rows=10)
-            -> Parallel table scan on t1  (cost=1.25 rows=10)
+            -> Table scan on t1  (cost=1.25 rows=10)
         -> Stream results  (cost=1.25 rows=10)
-            -> Parallel table scan on t2  (cost=1.25 rows=10)
+            -> Table scan on t2  (cost=1.25 rows=10)
 
 select * from t1 union all select * from t2 limit 2;
 id	col1	col2
@@ -904,7 +904,7 @@ test.t1	analyze	status	OK
 test.t2	analyze	status	OK
 explain format=tree select * from t1;
 EXPLAIN
--> Parallel table scan on t1  (cost=0.45 rows=2)
+-> Table scan on t1  (cost=0.45 rows=2)
 
 select * from t1;
 a	b
@@ -947,7 +947,7 @@ EXPLAIN
 -> Inner hash join (t2.b = t1.b)  (cost=1.12 rows=2)
     -> Table scan on t2  (cost=0.18 rows=2)
     -> Hash
-        -> Parallel table scan on t1  (cost=0.45 rows=2)
+        -> Table scan on t1  (cost=0.45 rows=2)
 
 select * from t1 join t2 on t1.b=t2.b;
 a	b	a	b
@@ -957,7 +957,7 @@ explain format=tree select * from t1 union all select * from t2;
 EXPLAIN
 -> Append
     -> Stream results  (cost=0.45 rows=2)
-        -> Parallel table scan on t1  (cost=0.45 rows=2)
+        -> Table scan on t1  (cost=0.45 rows=2)
     -> Stream results  (cost=0.45 rows=2)
         -> Table scan on t2  (cost=0.45 rows=2)
 

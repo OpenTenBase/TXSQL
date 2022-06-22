@@ -179,6 +179,7 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
       } else if (compat_for_parallel_table(thd, param.table)) {
         parallel_safe = true;
+        //split_positions->emplace_back(cur_join, param.qep_tab);
         if (exchange_safe) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
@@ -198,6 +199,7 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
       } else if (compat_for_parallel_table(thd, param.table)) {
         parallel_safe = true;
+        //split_positions->emplace_back(cur_join, param.qep_tab);
         if (exchange_safe) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
@@ -218,6 +220,7 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
       } else if (compat_for_parallel_table(thd, param.table)) {
         parallel_safe = true;
+        //split_positions->emplace_back(cur_join, param.qep_tab);
         if (exchange_safe) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
@@ -239,6 +242,7 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
       } else if (compat_for_parallel_table(thd, table)) {
         parallel_safe = true;
+        //split_positions->emplace_back(cur_join, param.qep_tab);
         if (exchange_safe) {
           max_px_subpath = path;
           // @TODO
@@ -729,23 +733,41 @@ bool px_access_path::WalkAccessPathsForCompat(
  */
 bool px_access_path::FindExchangeInjectPosition(
     THD *thd, std::vector<Split_Position> *const split_positions_in,
-    std::vector<Split_Position> *const split_positions) {
+    std::vector<Split_Position> *const split_positions,
+    std::list<QEP_TAB *> *const parallel_tab) {
   JOIN *cur_join = nullptr;
   bool cur_join_end = false;
+  QEP_TAB *cur_parallel_tab = nullptr;
   Split_Position *cur_split_pos = nullptr;
 
   for (Split_Position &split_pos : *split_positions_in) {
-    if (!cur_split_pos) {
-      cur_split_pos = &split_pos;
+    // New query block or union
+    if (!cur_join || cur_join != split_pos.m_join || split_pos.m_split_union) {
+      cur_join_end = false;
+      if (cur_split_pos) {
+        split_positions->push_back(*cur_split_pos);
+        if (cur_parallel_tab) {
+          parallel_tab->push_back(cur_parallel_tab);
+        }
+      }
+      if (split_pos.m_parallel_tab) {
+        // Special node only contains parallel_tab.
+        cur_parallel_tab = split_pos.m_parallel_tab;
+        cur_split_pos = nullptr;
+      } else {
+        cur_parallel_tab = nullptr;
+        cur_split_pos = &split_pos;
+      }
       cur_join = split_pos.m_join;
       continue;
     }
 
-    // New query block or union
-    if ((cur_join && cur_join != split_pos.m_join) || split_pos.m_split_union) {
-      split_positions->push_back(*cur_split_pos);
+    // There is at most one parallel tab in a query block.
+    assert(!split_pos.m_parallel_tab);
+
+    if (!cur_split_pos) {
+      assert(cur_join == split_pos.m_join);
       cur_split_pos = &split_pos;
-      cur_join = split_pos.m_join;
       continue;
     }
 
@@ -786,6 +808,9 @@ bool px_access_path::FindExchangeInjectPosition(
   }
   if (cur_split_pos) {
     split_positions->push_back(*cur_split_pos);
+    if (cur_parallel_tab) {
+      parallel_tab->push_back(cur_parallel_tab);
+    }
   }
 
   return false;

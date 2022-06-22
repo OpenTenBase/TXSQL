@@ -25,7 +25,7 @@ test.testText	analyze	status	OK
 # --include save_and_set_px.inc
 EXPLAIN FORMAT=TREE SELECT * FROM testText;
 EXPLAIN
--> Parallel table scan on testText  (cost=0.70 rows=2)
+-> Table scan on testText  (cost=0.70 rows=2)
 
 SELECT * FROM testText;
 id	before	data	after
