@@ -873,6 +873,7 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
+  // Store procedure
   Sroutine_hash_entry *const *sroutine_to_open = &sroutines_list.first;
   for (Sroutine_hash_entry *rt = *sroutine_to_open; rt; rt = rt->next) {
     auto rt_type = rt->type();
@@ -880,6 +881,11 @@ bool LEX::check_px_execution() const {
         rt_type == Sroutine_hash_entry::PROCEDURE) {
       return false;
     }
+  }
+
+  // UDF
+  if (has_udf()) {
+    return false;
   }
 
   return true;
