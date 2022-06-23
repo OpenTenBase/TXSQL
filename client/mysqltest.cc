@@ -47,6 +47,8 @@
 #include <thread>  // std::thread
 #endif
 
+#include <regex> // std::regex
+
 #include <assert.h>
 #if defined MY_MSCRT_DEBUG || defined _WIN32
 #include <crtdbg.h>
@@ -8952,7 +8954,10 @@ static void run_query(struct st_connection *cn, struct st_command *command,
       display_result_sorted = true;
     } else if (opt_sort_no_orderby) {
       std::string::size_type n = my_query_str.find("order by");
-      if (n == std::string::npos) display_result_sorted = true;
+      // Sorted trace is not readable at all.
+      std::regex trace_regex("optimizer_trace", std::regex_constants::icase);
+      bool is_trace = std::regex_search(my_query_str, trace_regex);
+      if (n == std::string::npos && !is_trace) display_result_sorted = true;
     }
   }
 

@@ -7,6 +7,7 @@
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/iterators/row_iterator.h"  // RowIterator
 #include "sql/sql_profile.h" // PROFILING
+#include "sql/opt_trace.h" // Opt_trace_
 #include "sql/protocol.h" // Protocol
 #include "sql/pfs_batch_mode.h"  // PFSBatchMode
 #include "sql/log.h" // For debug to be deleted.
@@ -195,6 +196,23 @@ err:
 
 bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator,
                                int64_t requested_cores) {
+  /*
+    Add join_execution step to the trace. (#974)
+
+    Note that it is a step in the execution phase, which means certain contents,
+    e.g. filesort information, might be missing from the final trace result
+    because they are on workers.
+
+    The select number is ommited purposely, because it does not deserve changing
+    the interface function to pass it as an argument.
+
+    Tracing workers is to be supported in the future.
+   */
+  Opt_trace_context *const trace = &thd->opt_trace;
+  Opt_trace_object trace_wrapper(trace);
+  Opt_trace_object trace_exec(trace, "join_execution");
+  Opt_trace_array trace_steps(trace, "steps");
+
   bool res = false;
   PX_coordinator *coordinator = down_cast<PX_coordinator *>(PX_EXECUTOR(thd));
   Dfo_mgr *dfo_mgr = coordinator->dfo_mgr();
