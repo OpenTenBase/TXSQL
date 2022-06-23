@@ -10005,6 +10005,12 @@ ER_WARN_UNSUPPORTED_PARALLEL
 ER_PX_CREATE_THREAD_ERROR
   eng "Create worker threads for parallel execution error"
 
+# This error is not supposed to be reported to the users. It is only
+# meant for internal use to signal that a statement should be executed
+# in serial mode. The error should be caught and handled by the server.
+ER_PX_FALLBACK_SERIAL_EXECUTION
+  eng "Fallback to serial execution."
+
 #
 # End of MyRocks specific client messages
 #

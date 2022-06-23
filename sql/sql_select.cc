@@ -927,7 +927,8 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     // Fallback to serial if px_fallback_in_execution is on.
     if (px_fallback_in_execution) {
       thd->need_fallback = true;
-      return false;
+      my_error(ER_PX_FALLBACK_SERIAL_EXECUTION, MYF(0));
+      return true;
     }
     if (PX_ROLE_COORDINATOR(thd)) {
       if (px_execute_in_coordinator(thd, requested_cores))

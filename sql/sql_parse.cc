@@ -1811,6 +1811,9 @@ static void check_secondary_engine_statement(THD *thd,
   // Restart the statement.
   dispatch_sql_command(thd, parser_state);
 
+  // If PX execution fails to execute properly, fallback to serial.
+  if (thd->need_fallback) fallback_to_serial_execution(thd, parser_state);
+
   // Restore the original option bits.
   thd->variables.option_bits = saved_option_bits;
 
