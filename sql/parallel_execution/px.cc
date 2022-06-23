@@ -55,12 +55,17 @@ bool px_fallback_in_execution = false;
 
 static void px_init_psi_keys(void);
 
+static bool px_initialized = false;
+
 /**
   Initialize the parallel execution.
 
   Called at server startup, say to initialize mutexes and condition variables.
 */
 bool px_init(void) {
+  assert(!px_initialized);
+  px_initialized = true;
+
 #ifdef HAVE_PSI_INTERFACE
   px_init_psi_keys();
 #endif
@@ -88,6 +93,9 @@ bool px_init(void) {
   Called at server shutdown. Destroys mutexes and condition variables.
  */
 void px_destroy(void) {
+  // Avoid uninitialized state on error shutdown
+  if (!px_initialized) return;
+
   PX_resource_manager::destroy_instance();
 
   mysql_mutex_destroy(&LOCK_allocate_resource);
