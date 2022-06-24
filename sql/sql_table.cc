@@ -11176,11 +11176,19 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
             must force the ENGINE to be present into CREATE TABLE.
           */
           create_info->used_fields |= HA_CREATE_USED_ENGINE;
+          /*
+            Create table like <temporary table> need to write charset info into
+            binlog. Here, use HA_CREATE_USED_DEFAULT_CHARSET flag to indicate
+            the store_create_info write charset info.
+          */
+          uint64_t tmp_used_fields = create_info->used_fields;
+          create_info->used_fields |= HA_CREATE_USED_DEFAULT_CHARSET;
 
           bool result [[maybe_unused]] = store_create_info(
               thd, table, &query, create_info, true /* show_database */,
               false /* SHOW CREATE TABLE */);
 
+          create_info->used_fields = tmp_used_fields;
           assert(result == 0);  // store_create_info() always return 0
 
           if (new_table) {
