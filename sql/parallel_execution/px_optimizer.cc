@@ -111,10 +111,15 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
       /*root_all=*/true, ref_slice, max_px_subpath, is_stream, &mat_access_path,
       &split_positions_all, exchange_safe);
 
-  if (!split_positions_all.size()) {
+  size_t exchange_count =
+      px_access_path::count_exchange_in_split_pos(&split_positions_all);
+  if (split_positions_all.empty() || !exchange_count) {
     thd->lex->pass_px_check = false;
     return false;
   }
+
+  // There must be parallel table node in split_positions_all.
+  assert(exchange_count < split_positions_all.size());
 
   // Optimize
   std::vector<px_access_path::Split_Position> split_positions;

@@ -209,6 +209,18 @@ select * from t1 join t2 on t1.b=t2.b;
 explain format=tree select * from t1 union all select * from t2;
 select * from t1 union all select * from t2;
 
+explain format=tree select 1 union all select 2;
+select 1 union all select 2;
+
+explain format=tree select 1 union select 2;
+select 1 union select 2;
+
+explain format=tree select * from t1 union all select * from t1;
+select * from t1 union all select * from t1;
+
+explain format=tree select * from t1 union select * from t1;
+select * from t1 union select * from t1;
+
 drop table t1,t2;
 
 --source suite/parallel_execution/inc/set_px_to_saved.inc

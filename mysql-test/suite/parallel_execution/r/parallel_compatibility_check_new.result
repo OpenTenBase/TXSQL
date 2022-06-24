@@ -967,5 +967,53 @@ a	1
 b	2
 a	1
 b	2
+explain format=tree select 1 union all select 2;
+EXPLAIN
+-> Append
+    -> Stream results  (cost=0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Stream results  (cost=0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00 rows=1)
+
+select 1 union all select 2;
+1
+1
+2
+explain format=tree select 1 union select 2;
+EXPLAIN
+-> Table scan on <union temporary>  (cost=2.50 rows=0)
+    -> Union materialize with deduplication
+        -> Rows fetched before execution  (cost=0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00 rows=1)
+
+select 1 union select 2;
+1
+1
+2
+explain format=tree select * from t1 union all select * from t1;
+EXPLAIN
+-> Append
+    -> Stream results  (cost=0.45 rows=2)
+        -> Table scan on t1  (cost=0.45 rows=2)
+    -> Stream results  (cost=0.45 rows=2)
+        -> Table scan on t1  (cost=0.45 rows=2)
+
+select * from t1 union all select * from t1;
+a	b
+a	1
+b	2
+a	1
+b	2
+explain format=tree select * from t1 union select * from t1;
+EXPLAIN
+-> Table scan on <union temporary>  (cost=2.50 rows=0)
+    -> Union materialize with deduplication
+        -> Table scan on t1  (cost=0.45 rows=2)
+        -> Table scan on t1  (cost=0.45 rows=2)
+
+select * from t1 union select * from t1;
+a	b
+a	1
+b	2
 drop table t1,t2;
 # --include set_px_to_saved.inc
