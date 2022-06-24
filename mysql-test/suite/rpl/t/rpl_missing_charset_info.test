@@ -1,0 +1,40 @@
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+
+--echo #
+--echo # Prepare
+--echo #
+
+--echo [on master]
+--connection master
+
+create database test1 charset utf8mb4;
+use test1;
+show create database test1;
+create temporary table t1 (a varchar(256)) charset utf8mb3;
+
+
+--echo #
+--echo # Run 
+--echo #
+
+--echo [on master]
+--connection master
+create table t2 like t1;
+show create table t2;
+insert into t2 values("aaa");
+
+--echo [on slave]
+--source include/sync_slave_sql_with_master.inc
+use test1;
+show create table t2;
+
+--echo #
+--echo # Cleanup 
+--echo #
+
+--echo [on master]
+--connection master
+drop database test1;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
