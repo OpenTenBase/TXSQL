@@ -79,6 +79,10 @@ bool FindExchangeInjectPosition(THD *thd,
     std::vector<Split_Position> *const split_positions,
     std::list<QEP_TAB *> *const parallel_tab);
 
+// return the number of exchange points in all split positions
+size_t count_exchange_in_split_pos(
+    std::vector<Split_Position> *const split_positions);
+
 #ifndef DBUG_OFF
 void PrintSplitPostion(const char *str,
                        std::vector<Split_Position> *const split_positions);

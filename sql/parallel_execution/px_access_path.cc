@@ -530,7 +530,7 @@ bool px_access_path::WalkAccessPathsForCompat(
         }
 
         if (parallel_scan && parallel_safe && exchange_safe &&
-            split_positions->size()) {
+            count_exchange_in_split_pos(split_positions)) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
                                         false, false, true, nullptr, nullptr);
@@ -646,7 +646,7 @@ bool px_access_path::WalkAccessPathsForCompat(
       // Note: APPEND operator for union is executed serially by one worker
       // thread, so it is always parallel_safe.
       if (parallel_scan && root_all && parallel_safe && exchange_safe &&
-          split_positions->size()) {
+          count_exchange_in_split_pos(split_positions)) {
         max_px_subpath = path;
         split_positions->emplace_back(cur_join, path, parent, ref_slice, false,
                                       false, true, nullptr, nullptr);
@@ -816,11 +816,22 @@ bool px_access_path::FindExchangeInjectPosition(
   return false;
 }
 
+size_t px_access_path::count_exchange_in_split_pos(
+    std::vector<Split_Position> *const split_positions) {
+  size_t count = 0;
+  for (const Split_Position &split_pos : *split_positions) {
+    if (!split_pos.m_parallel_tab) { ++count; }
+  }
+  return count;
+}
+
 #ifndef DBUG_OFF
 void px_access_path::PrintSplitPostion(
     const char *str, std::vector<Split_Position> *const split_positions) {
   for (Split_Position &split_pos : *split_positions) {
-    PX_PRINT_INFO("%s SPLIT POSITION: [%d]", str, split_pos.m_target->type);
+    if (!split_pos.m_parallel_tab) {
+      PX_PRINT_INFO("%s SPLIT POSITION: [%d]", str, split_pos.m_target->type);
+    }
   }
 }
 #endif
