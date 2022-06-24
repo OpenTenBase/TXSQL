@@ -270,10 +270,10 @@ parallel_hint:
                 YYABORT; // OOM
             }
           }
-        | PARALLEL_HINT '(' hint_param_table_ext ',' HINT_ARG_NUMBER ')'
+        | PARALLEL_HINT '(' hint_param_table_ext HINT_ARG_NUMBER ')'
           {
             longlong n;
-            if (parse_int(&n, $5.str, $5.length) || n > UINT_MAX32)
+            if (parse_int(&n, $4.str, $4.length) || n > UINT_MAX32)
             {
               scanner->syntax_warning(ER_THD(thd,
                                              ER_WARN_BAD_PARALLEL_DEGREE));
