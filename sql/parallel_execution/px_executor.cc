@@ -477,6 +477,8 @@ bool PX_task::run_root(THD *thd)
 
   thd->current_found_rows = *send_records_ptr;
 
+  thd->collect_px_stmt_da_for_warnings();
+
   return query_result->send_eof(thd);
 }
 

@@ -2609,6 +2609,15 @@ bool THD::check_px_error()
   return ret;
 }
 
+void THD::collect_px_stmt_da_for_warnings()
+{
+  for (int i = 0; i < worker_pool->num_workers; ++i) {
+    THD *worker_thd = worker_pool->thread_args[i].worker_thd;
+    get_stmt_da()->copy_non_errors_from_da(this,
+                     worker_thd->get_stmt_da());
+  }
+}
+
 /**
   Leave explicit LOCK TABLES or prelocked mode and restore value of
   transaction sentinel in MDL subsystem.

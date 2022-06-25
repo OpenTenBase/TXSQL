@@ -728,6 +728,8 @@ g1	dt
 7	2005-04-04 01:21:01
 7	2005-04-04 01:21:01
 Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
+Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
+Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
 Warnings:
 SET SESSION internal_tmp_mem_storage_engine = default;
 USE test;
@@ -1282,6 +1284,8 @@ a
 2
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 DROP TABLE t1, t2, t3;
 CREATE PROCEDURE p1() BEGIN IF whatever THEN SELECT 1; END IF; END|
 CALL p1();
@@ -1660,14 +1664,22 @@ ERROR HY000: PX execute error of errno[1172].
 SELECT 1 UNION SELECT 1 INTO @v FROM t1;
 Warnings:
 Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
 (SELECT 1) UNION SELECT 1 INTO @v FROM t1;
 Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
 Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
 (SELECT 1) UNION (SELECT 1 INTO @v FROM t1);
 Warnings:
 Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
 ((SELECT 1) UNION (SELECT 1 INTO @v FROM t1));
 Warnings:
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
+Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
 Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
 SELECT * FROM (SELECT a INTO @v FROM t1) t1a;
 ERROR HY000: Misplaced INTO clause, INTO is not allowed inside subqueries, and must be placed at end of UNION clauses.
