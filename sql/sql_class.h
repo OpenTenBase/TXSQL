@@ -1476,6 +1476,13 @@ class THD : public MDL_context_owner,
   */
   bool check_px_error();
 
+  /**
+    In Parallel eXecution, before sending eof status to client, we
+    should collect warning informations of all threads which contains
+    coordinator and workers.
+  */
+  void collect_px_stmt_da_for_warnings();
+
  private:
   Protocol *m_protocol;  // Current protocol
   /**

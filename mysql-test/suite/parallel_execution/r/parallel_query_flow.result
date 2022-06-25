@@ -846,6 +846,129 @@ PX_stmt_error	0
 PX_stmt_executed	47
 PX_stmt_fallback	1
 PX_thread_current	0
+drop table t1;
+create table t1(f1 date, f2 time, f3 datetime);
+insert into t1 values ("2006-01-01", "12:01:01", "2006-01-01 12:01:01");
+insert into t1 values ("2006-01-02", "12:01:02", "2006-01-02 12:01:02");
+select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
+f1
+Warnings:
+Warning	1292	Incorrect datetime value: 'zzz'
+explain format=tree select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Filter: (<cache>(cast('2006-1-1' as date)) between t1.f1 and <cache>(cast('zzz' as date)))  (cost=0.45 rows=1)
+            -> Parallel table scan on t1  (cost=0.45 rows=2)
+
+DROP TABLE t1;
+CREATE TABLE t1(a CHAR(10) NOT NULL);
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
+COUNT(*)
+18
+Warnings:
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+EXPLAIN FORMAT=TREE SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
+EXPLAIN
+-> Table scan on <temp>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=2.05 rows=18)
+
+DROP TABLE t1;
+CREATE TABLE t1 ( f1 INTEGER );
+INSERT INTO t1 VALUES (0), (1), (101);
+SELECT * FROM t1 ORDER BY UNIX_TIMESTAMP(f1);
+f1
+0
+1
+101
+Warnings:
+Warning	1292	Incorrect datetime value: '1'
+EXPLAIN FORMAT=TREE SELECT * FROM t1 ORDER BY UNIX_TIMESTAMP(f1);
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Sort: unix_timestamp(t1.f1)  (cost=0.55 rows=3)
+            -> Parallel table scan on t1  (cost=0.55 rows=3)
+
+drop table t1;
+create table t1 (a int not null);
+insert into t1 values (-1), (-2);
+select min(a) from t1 group by inet_ntoa(a);
+min(a)
+-2
+Warnings:
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+explain format=tree select min(a) from t1 group by inet_ntoa(a);
+EXPLAIN
+-> Table scan on <temp>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.45 rows=2)
+
+drop table t1;
+create table t1 (a tinyint(1),b binary(1));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into t1 values (0x01,0x01);
+select * from t1 where a=b;
+a	b
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: '\x01'
+explain format=tree select * from t1 where a=b;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Filter: (cast(t1.a as double) = cast(t1.b as double))  (cost=0.35 rows=1)
+            -> Parallel table scan on t1  (cost=0.35 rows=1)
+
+select * from t1 where a=b and b=0x01;
+a	b
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: '\x01'
+explain format=tree select * from t1 where a=b and b=0x01;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Filter: ((t1.b = 0x01) and (cast(t1.a as double) = cast(t1.b as double)))  (cost=0.35 rows=1)
+            -> Parallel table scan on t1  (cost=0.35 rows=1)
+
 # --include set_px_to_saved.inc
 drop table t1;
 drop table t2;

@@ -191,6 +191,51 @@ show profiles;
 show profile for query 2;
 show status like '%px%';
 
+#bugfix2: warning informations missing
+connection conn1;
+drop table t1;
+create table t1(f1 date, f2 time, f3 datetime);
+insert into t1 values ("2006-01-01", "12:01:01", "2006-01-01 12:01:01");
+insert into t1 values ("2006-01-02", "12:01:02", "2006-01-02 12:01:02");
+--skip_if_hypergraph  # Warnings depend on query plan.
+select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
+explain format=tree select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
+
+DROP TABLE t1;
+CREATE TABLE t1(a CHAR(10) NOT NULL);
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+--skip_if_hypergraph  # Warnings depend on query plan.
+SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
+EXPLAIN FORMAT=TREE SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
+
+DROP TABLE t1;
+CREATE TABLE t1 ( f1 INTEGER );
+INSERT INTO t1 VALUES (0), (1), (101);
+SELECT * FROM t1 ORDER BY UNIX_TIMESTAMP(f1);
+EXPLAIN FORMAT=TREE SELECT * FROM t1 ORDER BY UNIX_TIMESTAMP(f1);
+
+drop table t1;
+create table t1 (a int not null);
+insert into t1 values (-1), (-2);
+select min(a) from t1 group by inet_ntoa(a);
+explain format=tree select min(a) from t1 group by inet_ntoa(a);
+
+drop table t1;
+create table t1 (a tinyint(1),b binary(1));
+insert into t1 values (0x01,0x01);
+select * from t1 where a=b;
+explain format=tree select * from t1 where a=b;
+select * from t1 where a=b and b=0x01;
+explain format=tree select * from t1 where a=b and b=0x01;
+
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc
 
