@@ -11,6 +11,7 @@
 # The ps_trace_statement_digest does not work with prepared statements
 # So disable this test with --ps-protocol
 -- source include/no_protocol.inc
+-- source include/no_parallel_execution.inc
 
 use test;
 

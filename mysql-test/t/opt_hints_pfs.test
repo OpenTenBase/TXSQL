@@ -1,5 +1,6 @@
 # Test requires: sp-protocol/ps-protocol/view-protocol/cursor-protocol disabled
 --source include/no_protocol.inc
+--source include/no_parallel_execution.inc
 
 --echo #
 --echo # Bug #21286261: QUERY DIGEST DOES NOT REFLECT NEW OPTIMIZER HINTS
