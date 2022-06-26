@@ -57,7 +57,7 @@ PX_stmt_error	0
 PX_stmt_executed	0
 PX_stmt_fallback	0
 PX_thread_current	0
-set debug_sync="execute_in_parallel_before SIGNAL waiting wait_for flushed";
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
 select a,sum(b) from t1 group by a;;
 select a,avg(b) from t1 group by a union select a,b from t2;
 a	avg(b)
@@ -82,7 +82,7 @@ PX_stmt_error	0
 PX_stmt_executed	0
 PX_stmt_fallback	1
 PX_thread_current	0
-set debug_sync="execute_in_parallel_before SIGNAL waiting wait_for flushed";
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
 select a,sum(b) from t1 group by a union select a,b from t2;;
 select a,avg(b) from t1 group by a union select a,sum(c) from t2 group by a;
 a	avg(b)
@@ -126,7 +126,7 @@ PX_stmt_executed	1
 PX_stmt_fallback	2
 PX_thread_current	0
 set global px_max_parallel_threads = 16;
-set debug_sync="execute_in_parallel_before SIGNAL waiting wait_for flushed";
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
 select a,sum(b) from t1 group by a union select a,b from t2 union select a,sum(b) from t3 group by a;;
 select a,avg(b),sum(c) from t1 group by a;
 a	avg(b)	sum(c)

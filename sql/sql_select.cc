@@ -194,12 +194,14 @@ static inline bool is_timer_applicable_to_statement(THD *thd) {
       - timer is not set for statement
       - timer out value of is set
       - SELECT statement is not from any stored programs.
+      - not worker when PX.
   */
   return (thd->lex->sql_command == SQLCOM_SELECT &&
           (have_statement_timeout == SHOW_OPTION_YES) && !thd->slave_thread &&
           !thd->timer &&
           (thd->lex->max_execution_time || thd->variables.max_execution_time) &&
-          !thd->sp_runtime_ctx);
+          !thd->sp_runtime_ctx &&
+          !thd->m_is_worker);
 }
 
 /**
@@ -881,7 +883,6 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 #if 0
   if (thd->use_px &&
       thd->m_current_query_cost < thd->variables.px_parallel_cost_threshold) {
-    thd->use_px = false;
     thd->need_fallback = true; // fall back to serial execution.
     return false;
   }
@@ -914,11 +915,10 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
       return false;
     }
     if (PX_ROLE_COORDINATOR(thd)) {
-      if (px_execute_in_coordinator(thd, unit->root_iterator(),
-                                    requested_cores))
+      if (px_execute_in_coordinator(thd, requested_cores))
           return true;
     } else {
-      if (px_execute_in_worker(thd, unit->root_iterator())) return true;
+      if (px_execute_in_worker(thd)) return true;
     }
   } else {
     if (unit->execute(thd)) return true;

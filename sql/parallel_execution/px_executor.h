@@ -49,7 +49,7 @@ class PX_task {
  public:
   PX_task(RowIterator *itr): sub_iterator(itr) {}
 
-  bool run(THD *thd);
+  void run(THD *thd);
   bool run_root(THD *thd);
 
   RowIterator *root_iterator() const { return sub_iterator; }
@@ -227,10 +227,11 @@ class PX_coordinator : public PX_executor {
   */
   bool check_equivalence(worker_pool_t *worker_pool);
 
+ public:
+  THD_array thd_list{4}; // THD array for all workers.
+
  protected:
   PX_exchange_info *exchange_info{nullptr}; // current exchange info.
-  typedef Prealloced_array<THD *, 60> THD_array;
-  THD_array thd_list{4}; // THD array for all workers.
 };
 
 /**

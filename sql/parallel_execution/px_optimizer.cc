@@ -3,6 +3,9 @@
 #include "sql/join_optimizer/access_path.h"
 #include "sql/join_optimizer/walk_access_paths.h" // WalkAccessPathPolicy
 #include "sql/parallel_execution/px_access_path.h"
+#include "sql/parallel_execution/px_executor.h"  // PX_executor
+#include "sql/parallel_execution/px_interface.h" // PX_ROLE_COORDINATOR
+#include "sql/parallel_execution/px.h"           // PX_PRINT_INFO
 #include "sql/sql_class.h"
 #include "sql/sql_union.h"
 #include "sql/sql_optimizer.h"
@@ -154,6 +157,15 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   for (const QEP_TAB *tab : parallel_tab) {
     tab->set_parallel_scan(true);
   }
+
+  // Got a parallel plan. Tell the parallel executor to take over execution.
+#ifndef DBUG_OFF
+  if (PX_ROLE_COORDINATOR(thd)) {
+    PX_PRINT_INFO("USE PX: %s", thd->query().str);
+  }
+#endif
+  thd->use_px = true;
+
   return false;
 }
 

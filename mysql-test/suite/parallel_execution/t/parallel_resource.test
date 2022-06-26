@@ -71,7 +71,7 @@ show status like '%px%';
 # one hang before execute, and add other one query, all not px.
 connect(conn3,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
-set debug_sync="execute_in_parallel_before SIGNAL waiting wait_for flushed";
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
 --send select a,sum(b) from t1 group by a;
 
 connect(conn4,localhost,root,,);
@@ -92,7 +92,7 @@ show status like '%px%';
 #two hang before execute, and add other one query, all not px, at last execute one.
 connect(conn5,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
-set debug_sync="execute_in_parallel_before SIGNAL waiting wait_for flushed";
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
 --send select a,sum(b) from t1 group by a union select a,b from t2;
 
 connect(conn6,localhost,root,,);
@@ -118,7 +118,7 @@ show status like '%px%';
 set global px_max_parallel_threads = 16;
 connect(conn7,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
-set debug_sync="execute_in_parallel_before SIGNAL waiting wait_for flushed";
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
 --send select a,sum(b) from t1 group by a union select a,b from t2 union select a,sum(b) from t3 group by a;
 
 connect(conn8,localhost,root,,);

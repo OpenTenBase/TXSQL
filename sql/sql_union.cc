@@ -849,11 +849,6 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
       join = nullptr;
     }
 
-    /// Access path has already been generated, traverse the all access path tree
-    /// and generate the parallel execution plan before code generation.
-    if (thd->lex->pass_px_check && (thd->lex->m_exchange_number>=1))
-      thd->use_px = true;
-
     m_root_iterator = CreateIteratorFromAccessPath(
         thd, m_root_access_path, join, /*eligible_for_batch_mode=*/true);
     if (m_root_iterator == nullptr) {

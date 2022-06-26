@@ -10,14 +10,17 @@ static const int right_deep_tree_limit = 64;
 static void* thread_func_in_worker(void *);
 
 // TODO: more mysql_create_thread PSI interface.
-PSI_stage_info stage_waiting_worker_begin =
-               {0, "Waiting on worker begin", 0, PSI_DOCUMENT_ME};
-PSI_stage_info stage_waiting_worker_finish =
-               {0, "Waiting on worker finish", 0, PSI_DOCUMENT_ME};
-PSI_stage_info stage_waiting_task_begin =
-               {0, "Waiting on task begin", 0, PSI_DOCUMENT_ME};
-PSI_stage_info stage_waiting_task_finish =
-               {0, "Waiting on task finish", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_waiting_workers_generate_plan =
+  {0, "Waiting workers generate physical plan", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_waiting_finish_query_finally =
+  {0, "Waiting query finish finally", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_waiting_workers_finish_task =
+  {0, "Waiting workers finish task", 0, PSI_DOCUMENT_ME};
+// Currently we could not see the state in worker thread.
+PSI_stage_info stage_waiting_signal_to_begin_query =
+  {0, "Waiting coordinator signal to begin query", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_waiting_signal_to_begin_task =
+  {0, "Waiting coordinator signal to begin task", 0, PSI_DOCUMENT_ME};
 
 void px_send_command(cond_with_lock_t *px_cond)
 {
@@ -79,7 +82,7 @@ void px_send_report(cond_with_lock_t *px_cond, std::atomic<int> *done,
   and set up synchronization mechanism. Currently we create these threads in
   each time, A threadpool may be added to handle concurrent queries.
 */
-worker_pool_t* create_worker_threads(int num_threads)
+worker_pool_t* create_worker_threads(int num_threads, const THD_array &list)
 {
   int i, j, ret = 0;
   worker_pool_t *worker_pool;
@@ -112,6 +115,16 @@ worker_pool_t* create_worker_threads(int num_threads)
   if (worker_pool->thread_args == nullptr) 
     goto fail_of_thread_args;
 
+  // Set the bitmap of the concurrent dfo execution.
+  for (j = 0; j < right_deep_tree_limit; ++j) {
+    worker_pool->bitmap[j] = (MY_BITMAP *)malloc (sizeof (MY_BITMAP));
+    if (worker_pool->bitmap[j] == nullptr)
+      goto fail_of_malloc;
+  }
+
+  bitmap_init(worker_pool->bitmap_map, nullptr, num_threads);
+  bitmap_init(&worker_pool->threads_bitmap, nullptr, num_threads);
+
   mysql_mutex_init(key_LOCK_Running_Task_Barrier,
     &worker_pool->mutex_task, MY_MUTEX_INIT_FAST);
 
@@ -126,8 +139,7 @@ worker_pool_t* create_worker_threads(int num_threads)
   worker_pool->finished = 0;
   worker_pool->num_query_done = 0;
   worker_pool->num_workers_done = 0;
-  for (i = 0; i < num_threads; ++i) {
-    // Init the arguments of all workers.
+  for (i = 0; i < num_threads; ++i) {// Init the arguments of all workers.
     px_condition_init(&worker_pool->thread_args[i].sem_worker_signal);
     px_condition_init(&worker_pool->thread_args[i].sem_task_signal);
 
@@ -143,27 +155,37 @@ worker_pool_t* create_worker_threads(int num_threads)
     worker_pool->thread_args[i].thread_func = &worker_pool->thread_func;
     worker_pool->thread_args[i].thread_func_arg = &worker_pool->args[i];
     worker_pool->thread_args[i].num_workers = &worker_pool->num_workers;
-    // The default value is set to unequal, which needs to be checked by each worker
     worker_pool->thread_args[i].is_equivalent_plan = false;
-    worker_pool->thread_args[i].worker_thd = new THD();
     worker_pool->thread_args[i].px_exchange_context = &worker_pool->px_exchange_context;
+    worker_pool->thread_args[i].worker_thd = list[i];
     ret = pthread_create (&worker_pool->threads[i], &attr, thread_func_in_worker,
                           &worker_pool->thread_args[i]);
+    /**
+      Currently, once a worker thread is successfully created, it immediately
+      go to `rebuild_query_execution()`, `pthread_create` may return error,
+      resulting in workers incompletely created. So created threads should be
+      forbidden to parse, optimize or execute.
+    */
+    if (i == 1 && !ret) {
+      DBUG_EXECUTE_IF("create_partial_threads_error", {i++; ret=true;});
+    }
+
     if (ret) 
       goto fail_of_create;
   }
 
-  // Set the bitmap of the concurrent dfo execution.
-  for (j = 0; j < right_deep_tree_limit; ++j) {
-    worker_pool->bitmap[j] = (MY_BITMAP *)malloc (sizeof (MY_BITMAP));
-    if (worker_pool->bitmap[j] == nullptr)
-      goto fail_of_malloc;
-  }
-
-  bitmap_init(worker_pool->bitmap_map, nullptr, num_threads);
-  bitmap_init(&worker_pool->threads_bitmap, nullptr, num_threads);
-
   return worker_pool;
+
+fail_of_create:
+  worker_pool->num_workers = i--;
+  while (i >= 0) {
+    worker_pool->thread_args[i].worker_thd->px_create_failed = true;
+    px_send_command(&worker_pool->thread_args[i].sem_worker_signal);
+    --i;
+  }
+  px_wait_finally(current_thd, &worker_pool->sem_query_done,
+                  &stage_waiting_finish_query_finally,
+                  __FUNCTION__, __FILE__, __LINE__);
 
 fail_of_malloc:
   --j;
@@ -171,13 +193,7 @@ fail_of_malloc:
     free(worker_pool->bitmap[j]);
     --j;
   }
-
-fail_of_create:
-  --i;
-  while (i >= 0) {
-    pthread_cancel(worker_pool->threads[i]);
-    --i;
-  }
+  free (worker_pool->thread_args);
 
 fail_of_thread_args:
   free (worker_pool->threads);
@@ -208,10 +224,10 @@ void px_condition_init(cond_with_lock_t *condition_with_lock)
     2. execute_task_in_worker inside;
 */
 void set_threads_args(worker_pool_t *worker_pool, worker_func thread_func,
-                      void **args, int num_workers)
+                      void **args)
 {
   worker_pool->thread_func = thread_func;
-  for (int i = 0; i < num_workers; ++i)
+  for (int i = 0; i < worker_pool->num_workers; ++i)
     worker_pool->args[i] = args[i];
 }
 
@@ -234,7 +250,7 @@ bool begin_query(worker_pool_t *worker_pool)
 bool wait_workers_generate_plan(worker_pool_t *worker_pool, THD *thd)
 {
   px_wait_for_signal(thd, &worker_pool->sem_workers_done,
-                     &stage_waiting_worker_begin,
+                     &stage_waiting_workers_generate_plan,
                      __FUNCTION__, __FILE__, __LINE__);
   return false;
 }
@@ -242,7 +258,7 @@ bool wait_workers_generate_plan(worker_pool_t *worker_pool, THD *thd)
 void wait_for_begin_query(worker_thread_arg *arg)
 {
   px_wait_for_signal(arg->worker_thd, &arg->sem_worker_signal,
-                     &stage_waiting_worker_begin,
+                     &stage_waiting_signal_to_begin_query,
                      __FUNCTION__, __FILE__, __LINE__);
 }
 
@@ -250,10 +266,15 @@ void wait_for_begin_query(worker_thread_arg *arg)
   Outside synchronization control for whole query, ready to post.
   This mainly worked for parse, optimize and cleanup.
 */
-bool optimize_finsh_signal(worker_thread_arg* arg)
+bool optimize_finsh_signal(worker_thread_arg* arg, bool error)
 {
   px_send_report(arg->sem_workers_done, arg->num_workers_done,
                  *arg->num_workers);
+  if (error) {
+    px_wait_for_signal(arg->worker_thd, &arg->sem_task_signal,
+                       &stage_waiting_workers_finish_task,
+                       __FUNCTION__, __FILE__, __LINE__);
+  }
   return false;
 }
 
@@ -319,7 +340,7 @@ bool wait_workers_finish_task(worker_pool_t *worker_pool, Worker_exec_ctx *ctx)
     if (bitmap_is_set(&ctx->bitmap, i))
       bitmap_clear_bit(&worker_pool->threads_bitmap, i);
   px_wait_for_signal(current_thd, &worker_pool->sem_tasks_done,
-                     &stage_waiting_task_finish,
+                     &stage_waiting_workers_finish_task,
                      __FUNCTION__, __FILE__, __LINE__);
   return false;
 }
@@ -327,7 +348,7 @@ bool wait_workers_finish_task(worker_pool_t *worker_pool, Worker_exec_ctx *ctx)
 void wait_for_begin_task(worker_thread_arg *arg)
 {
   px_wait_for_signal(arg->worker_thd, &arg->sem_task_signal,
-                     &stage_waiting_task_begin,
+                     &stage_waiting_signal_to_begin_task,
                      __FUNCTION__, __FILE__, __LINE__);
 }
 
@@ -368,7 +389,7 @@ void schedule_over(worker_pool_t *worker_pool, THD *thd)
 void worker_pool_cleanup(worker_pool_t *worker_pool)
 {
   px_wait_finally(current_thd, &worker_pool->sem_query_done,
-                  &stage_waiting_worker_finish,
+                  &stage_waiting_finish_query_finally,
                   __FUNCTION__, __FILE__, __LINE__);
   destroy_cond_for_worker(&worker_pool->sem_tasks_done);
   destroy_cond_for_worker(&worker_pool->sem_workers_done);
@@ -380,18 +401,11 @@ void worker_pool_cleanup(worker_pool_t *worker_pool)
   for (int i = 0; i < right_deep_tree_limit; ++i)
     free(worker_pool->bitmap[i]);
   free (worker_pool->bitmap);
+  free (worker_pool->bitmap_map);
   free (worker_pool->args);
   free (worker_pool->threads);
   free (worker_pool->thread_args);
   free (worker_pool);
-}
-
-void handle_optimize_finish_error(worker_thread_arg* arg)
-{
-  optimize_finsh_signal(arg);
-  px_wait_for_signal(arg->worker_thd, &arg->sem_task_signal,
-                     &stage_waiting_task_finish,
-                     __FUNCTION__, __FILE__, __LINE__);
 }
 
 void destroy_cond_for_worker(cond_with_lock_t *cond)
@@ -411,6 +425,9 @@ static void* thread_func_in_worker(void *arg)
   worker_thread_arg *thread_arg = (worker_thread_arg *) arg;
   my_thread_init();
   wait_for_begin_query (thread_arg);
+
+  if (thread_arg->worker_thd->px_create_failed)
+    goto finish;
 
   if (thread_arg->worker_thd->killed)
     goto finish;

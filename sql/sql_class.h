@@ -1097,23 +1097,21 @@ class THD : public MDL_context_owner,
   bool is_legal_column_encrypt_read;
 
  public:
-  /* Worker execute state type. */
+  /* Worker execute state type, only used in workers.*/
   enum_px_worker_state_type px_worker_state{PX_WORKER_NONE};
   /* Worker arguments to be assigned tasks. */
   worker_thread_arg *worker_arg{nullptr};
-  /* Variables for parallel query. */
-  RowIterator *px_iterator{NULL};
-  /* Need to fallback to normal execution. */
+  /* Need to fallback to normal execution.*/
   bool need_fallback{false};
-  /* Worker id of PX worker. */
+  /* Worker id of PX worker, only used in workers. */
   int worker_id{0};
-  /* Thread group id of task. */
+  /* Thread group id of task, only used in workers. */
   int thread_group_id{-1};
   /* Whether SQL use px execution. */
   bool use_px{false};
   /* Coordinator executor. */
   PX_executor *px_executor{nullptr};
-  /* Main THD.(? why here.) */
+  /* Main THD.(? why here.), only used in workers. */
   THD *px_coordinator{nullptr};
   /* Worker pool of SQL PX execution. */
   worker_pool_t *worker_pool{nullptr};
@@ -1121,6 +1119,8 @@ class THD : public MDL_context_owner,
   uint px_errno{0};
   /* PX exchange ctx. */
   PX_exchange_context *px_exchange_context{nullptr};
+  /* If threads creation failed, set true, only used in workers. */
+  bool px_create_failed{false};
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
@@ -3110,7 +3110,6 @@ private:
 
   void shutdown_active_vio();
   void awake(THD::killed_state state_to_set);
-  void awake_all_workers(THD::killed_state state_to_set);
 
   /** Disconnect the associated communication endpoint. */
   void disconnect(bool server_shutdown = false);

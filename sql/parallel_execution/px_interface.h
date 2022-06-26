@@ -38,8 +38,8 @@ class PX_executor;
 
 bool px_execute_init(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
                      JOIN *root_join, int64_t &dop);
-bool px_execute_in_coordinator(THD *thd, RowIterator *root_iterator, int64_t dop);
-bool px_execute_in_worker(THD *thd, RowIterator *root_iterator);
+bool px_execute_in_coordinator(THD *thd, int64_t dop);
+bool px_execute_in_worker(THD *thd);
 
 void fallback_to_serial_execution(THD *thd, Parser_state *parser_state);
 

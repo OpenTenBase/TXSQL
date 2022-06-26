@@ -7217,8 +7217,6 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
           error = ER_KILL_DENIED_ERROR;
         } else {
           tmp->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
-          if (!tmp->m_is_worker && tmp->use_px) tmp->awake_all_workers(
-            only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
           error = 0;
         }
       } else
