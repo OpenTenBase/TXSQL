@@ -899,10 +899,23 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   }
 
   int64_t requested_cores = 0;
+  /*
+    The root join may be null for some scenarios for SELECT_LEX_UNIT contains
+    mutli query block. There are two cases：
+    1）SELECT_LEX_UNIT contains union result query block
+              union result query block（SELECT_LEX_UNIT::fake_select_lex）
+      primary query block（SELECT_LEX_UNIT::first_select()）---> union query block
+    the root join can be obtained from SELECT_LEX_UNIT::fake_select_lex
+
+    2）SELECT_LEX_UNIT doesn't have union result query block
+      primary query block（SELECT_LEX_UNIT::first_select()）---> union query block
+    In this scenario, Append accesspath will be created but responded to non query
+    block and SELECT_LEX_UNIT::fake_select_lex is nullptr, the root join is null too.
+  */
   if (thd->use_px &&
       px_execute_init(thd, unit->root_iterator(), unit->root_access_path(),
-                      (unit->is_union() ? nullptr : unit->first_query_block()->join),
-                      requested_cores)) {
+          (unit->is_union() ? (unit->fake_query_block ? unit->fake_query_block->join : nullptr) :
+              unit->first_query_block()->join), requested_cores)) {
     return true;
   }
 
