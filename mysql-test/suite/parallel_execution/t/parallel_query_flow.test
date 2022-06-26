@@ -2,8 +2,6 @@
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
 
---disable_ps_protocol
-
 --disable_query_log
 call mtr.add_suppression("THD::check_error_before_sending_data");
 --enable_query_log

@@ -1558,7 +1558,6 @@ THD::~THD() {
 
   @note Do always call this while holding LOCK_thd_data.
 */
-
 void THD::awake(THD::killed_state state_to_set) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("this: %p current_thd: %p", this, current_thd));
@@ -1678,10 +1677,14 @@ void THD::awake(THD::killed_state state_to_set) {
     }
     mysql_mutex_unlock(&LOCK_current_cond);
   }
-}
 
-void THD::awake_all_workers(THD::killed_state state_to_set) {
-  if (!m_is_worker && px_executor)
+  /*
+    Kill worker threads.
+
+    Note that parallel executors might be not created yet when the plan is
+    marked (use_px) for parallel execution.
+   */
+  if (!m_is_worker && use_px && px_executor)
     px_executor->notify_all_workers(state_to_set);
 }
 

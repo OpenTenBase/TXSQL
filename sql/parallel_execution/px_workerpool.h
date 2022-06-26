@@ -73,7 +73,6 @@ typedef struct worker_thread_arg {
   int                   task_id; // task id of executor.
   PX_exchange_info      *exchange_info; // exchange ctx.
   PX_reader             *scan_ctx; // scan_ctx.
-  std::string           query_string; // query string of coordinator.
 
   /* Sychronzation arguments between coordinator and workers. */
   int                   *num_workers; // tasks cnt.
@@ -121,12 +120,12 @@ typedef struct worker_pool_t {
 // of synchronization. The outside is query barrier, which exists in the
 // pointer between optimization and execution, inside is task barrier,
 // which barrie at every workers' task finish.
-worker_pool_t* create_worker_threads(int num_threads);
+worker_pool_t* create_worker_threads(int num_threads, const THD_array &list);
 // Init the px condition with lock.
 void px_condition_init(cond_with_lock_t *condition_with_lock);
 // Set the threads arguments when start every worker group.
 void set_threads_args(worker_pool_t *worker_pool, worker_func thread_func,
-                      void **args, int num_workers);
+                      void **args);
 // allocate threads for group id, set bitmap of workers.
 bool allocate_threads(worker_pool_t *worker_pool, Worker_exec_ctx *ctx);
 
@@ -138,9 +137,7 @@ bool wait_workers_generate_plan(worker_pool_t *worker_pool, THD *thd);
 // wait for signal for begin query.
 void wait_for_begin_query(worker_thread_arg *arg);
 // Signal for opening barrier after worker finish parse and optimize.
-bool optimize_finsh_signal(worker_thread_arg* arg);
-// Handle with error before optimize for workers.
-void handle_optimize_finish_error(worker_thread_arg* arg);
+bool optimize_finsh_signal(worker_thread_arg* arg, bool error = false);
 // Signal for finish the query, set the query finish flag.
 void finish_query(worker_thread_arg* arg);
 

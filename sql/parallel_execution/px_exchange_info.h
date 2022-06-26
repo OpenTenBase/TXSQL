@@ -287,6 +287,11 @@ class PX_exchange_context {
     return false;
   }
 
+  void clean() {
+    for (auto &itr : m_exchange_info_map)
+      (itr.second)->clean();
+  }
+
  private:
   std::unordered_map<int64_t, PX_exchange_info*> m_exchange_info_map;
 };

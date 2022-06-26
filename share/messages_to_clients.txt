@@ -10002,6 +10002,9 @@ ER_WARN_BAD_PARALLEL_DEGREE
 ER_WARN_UNSUPPORTED_PARALLEL
   eng "PARALLEL hint is supported by top-level standalone SELECT statements only"
 
+ER_PX_CREATE_THREAD_ERROR
+  eng "Create worker threads for parallel execution error"
+
 #
 # End of MyRocks specific client messages
 #
