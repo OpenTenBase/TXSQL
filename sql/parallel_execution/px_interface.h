@@ -22,6 +22,10 @@ int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff);
 int show_px_stmt_error(THD *, SHOW_VAR *var, char *buff);
 int show_px_used_threadpool_size(THD *, SHOW_VAR *var, char *buff);
 
+void reset_px_stmt_executed();
+void reset_px_stmt_fallback();
+void reset_px_stmt_error();
+
 class THD;
 class RowIterator;
 struct AccessPath;

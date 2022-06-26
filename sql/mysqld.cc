@@ -12267,6 +12267,11 @@ void refresh_status() {
     Status reset becomes not atomic, but status data is not exact anyway.
   */
   Connection_handler_manager::reset_max_used_connections();
+
+  /* Reset the Parallel eXecution statistical data when `flush status`. */
+  reset_px_stmt_executed();
+  reset_px_stmt_fallback();
+  reset_px_stmt_error();
 }
 
 class Do_THD_reset_status : public Do_THD_Impl {

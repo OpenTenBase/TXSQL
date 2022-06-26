@@ -258,3 +258,24 @@ bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
 
   return error;
 }
+
+void reset_px_stmt_executed()
+{
+  mysql_mutex_lock(&LOCK_inc_px_stmt_executed);
+  px_stmt_executed = 0;
+  mysql_mutex_unlock(&LOCK_inc_px_stmt_executed);
+}
+
+void reset_px_stmt_fallback()
+{
+  mysql_mutex_lock(&LOCK_inc_px_stmt_fallback);
+  px_stmt_fallback = 0;
+  mysql_mutex_unlock(&LOCK_inc_px_stmt_fallback);
+}
+
+void reset_px_stmt_error()
+{
+  mysql_mutex_lock(&LOCK_inc_px_stmt_error);
+  px_stmt_error = 0;
+  mysql_mutex_unlock(&LOCK_inc_px_stmt_error);
+}

@@ -60,6 +60,8 @@ connection conn1;
 set px_parallel_table_record_threshold = 2;
 set global debug = '+d, disable_debug_sync_check';
 
+flush status;
+
 # test overview(killing/error/fallback/sleep):
 # 1. before execute in parallel.
 # 2. before query.
@@ -569,6 +571,8 @@ show status like '%px%';
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc
+flush status;
+show status like '%px%';
 
 drop table t1;
 drop table t2;

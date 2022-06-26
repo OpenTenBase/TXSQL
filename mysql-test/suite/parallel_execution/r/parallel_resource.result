@@ -50,6 +50,7 @@ insert into t6 values(4,4,4,4);
 # --include save_and_set_px.inc
 set global debug='+d,disable_debug_sync_check';
 set global px_parallel_table_record_threshold = 2;
+flush status;
 set global px_max_parallel_threads = 3;
 show status like '%px%';
 Variable_name	Value
@@ -147,6 +148,13 @@ PX_stmt_executed	2
 PX_stmt_fallback	2
 PX_thread_current	0
 # --include set_px_to_saved.inc
+flush status;
+show status like '%px%';
+Variable_name	Value
+PX_stmt_error	0
+PX_stmt_executed	0
+PX_stmt_fallback	0
+PX_thread_current	0
 drop table t1;
 drop table t2;
 drop table t6;

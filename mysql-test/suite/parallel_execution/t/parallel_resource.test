@@ -64,6 +64,8 @@ connection conn1;
 set global debug='+d,disable_debug_sync_check';
 set global px_parallel_table_record_threshold = 2;
 
+flush status;
+
 # test multiple query execute concurrently. both not
 set global px_max_parallel_threads = 3;
 show status like '%px%';
@@ -138,6 +140,9 @@ show status like '%px%';
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc
+
+flush status;
+show status like '%px%';
 
 drop table t1;
 drop table t2;
