@@ -706,6 +706,11 @@ added column.
     const dict_index_t *index); /*!< in: an internal representation
                                of index (in the dictionary cache) */
 
+/** @return if we can cache the offset of index */
+[[nodiscard]] static inline bool dict_index_offs_cacheable(
+    const dict_index_t *index);/*!< in: an internal representation
+                               of index (in the dictionary cache) */
+
 /** The number of fields in the nonleaf page of spatial index, except
 the page no field. */
 constexpr uint32_t DICT_INDEX_SPATIAL_NODEPTR_SIZE = 1;

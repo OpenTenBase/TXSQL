@@ -1001,8 +1001,7 @@ struct rec_cache_t {
   size_t nullable_cols{0};
 };
 
-struct cached_offsets_t
-{
+struct cached_offsets_t {
 	cached_offsets_t() {}
 
 	void init() {
@@ -1010,9 +1009,10 @@ struct cached_offsets_t
 	}
 
 	void set_offsets(ulint *m_offsets, ulint offsets_i) {
+    // set_offsets may be invoked by concurrent threads, needs to be protected.
 		cache_offset_mutex.lock();
 		if (!is_cached.load()) {
-			offsets = static_cast<ulint *>(ut_malloc(offsets_i * sizeof(*offsets), mem_key_row_merge_sort));
+			offsets = static_cast<ulint *>(ut::malloc(offsets_i * sizeof(*offsets)));
 			for (ulint i = 0; i < offsets_i; i++) {
 				offsets[i] = m_offsets[i];
 			}
@@ -1026,10 +1026,10 @@ struct cached_offsets_t
 			m_offsets[i] = offsets[i];
 		}
 	}
-
+  // reset will only be revoked by one thread.
 	void reset() {
 		if (offsets) {
-			ut_free(offsets);
+			ut::free(offsets);
 			offsets = nullptr;
 		}
 		is_init.store(false);

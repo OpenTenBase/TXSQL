@@ -3715,7 +3715,7 @@ static void btr_print_recursive(
       node_ptr = page_cur_get_rec(&cursor);
 
       *offsets =
-          rec_get_offsets(node_ptr, index, *offsets, ULINT_UNDEFINED, heap);
+          rec_get_offsets(node_ptr, index, *offsets, ULINT_UNDEFINED, UT_LOCATION_HERE, heap);
       btr_print_recursive(
           index, btr_node_ptr_get_child(node_ptr, index, *offsets, &mtr2),
           width, heap, offsets, &mtr2);
