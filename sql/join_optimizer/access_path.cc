@@ -2874,8 +2874,6 @@ bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
   
   if (*avg_count) RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/false);
 
-  join->make_sum_func_const_list(*curr_fields);
-
   // reset aggregate accesspath param
   //path->aggregate().temp_table_param = join->aggr_tmp_table_param;
   path->aggregate().px_agg_type = AggType::PX_LOCAL_AGG;
@@ -3217,6 +3215,8 @@ build_err:
   return nullptr;
 }
 
+static void FixForConstSumfuncs(JOIN *join, uint avg_count, uint curr_slice);
+
 /**
   Build Aggregate.
   [1] create tmp_table_param for final Aggregate, and copy properties
@@ -3330,15 +3330,7 @@ AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *cons
                       join->ref_items[REF_SLICE_FINAL_AGGREGATE],
                       &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
     */
-    if (join->sum_funcs_const) {
-      for (size_t idx = 0; idx < join->sum_funcs_const->size(); ++idx) {
-        Item *item;
-        size_t field_idx, ref_idx;
-        std::tie(item, field_idx, ref_idx) = join->sum_funcs_const->at(idx);
-        join->tmp_fields[REF_SLICE_FINAL_AGGREGATE][field_idx + (item->hidden ? 0 : avg_count * 2)] = item;
-        join->ref_items[REF_SLICE_FINAL_AGGREGATE][ref_idx + (item->hidden ? avg_count * 2 : 0)] = item;
-      }
-    }
+    FixForConstSumfuncs(join, avg_count, REF_SLICE_FINAL_AGGREGATE);
   }
   
   join->fields = &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE];
@@ -3365,6 +3357,32 @@ build_err:
     free_tmp_table(tmp_table);
   }
   return nullptr;
+}
+
+/**
+  Const sumfuncs item should not be calculated in parallel operations.
+  The values of these kind items could be obtained prior to the stage
+  of execution.
+
+  @param join 
+  @param avg_count 
+  @param curr_slice 
+*/
+static void FixForConstSumfuncs(JOIN *join, uint avg_count, uint curr_slice) {
+  uint saved_base_size = join->saved_base_fields->size();
+  uint befor_avg_count = 0;
+  for (uint i = 0; i < saved_base_size; ++i) {
+    Item *saved_item = (*join->saved_base_fields)[i];
+    if (saved_item->type() == Item::SUM_FUNC_ITEM) {
+      Item_sum *item_sum = down_cast<Item_sum *>(saved_item);
+      if (item_sum->sum_func() == Item_sum::AVG_FUNC) {
+        befor_avg_count += 1;
+      } else if (saved_item->const_item()) {
+        join->tmp_fields[curr_slice][saved_item->hidden ? (befor_avg_count * 2 + i)
+                                                        : (avg_count * 2 + i)] = saved_item;
+      }
+    }
+  }
 }
 
 void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice) {
