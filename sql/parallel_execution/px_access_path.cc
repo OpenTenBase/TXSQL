@@ -26,10 +26,35 @@ static bool compat_for_table_fields(TABLE *table) {
 }
 
 /**
+  Check the fields of parallel table is unsafe or not.
+  @return true if paralel scan safe, false otherwise.
+*/
+static bool compat_for_parallel_table_fields(TABLE *table) {
+  assert(table);
+  for (Field **pfield = table->field; *pfield != nullptr; ++pfield) {
+    Field *field = *pfield;
+    if (bitmap_is_set(table->read_set, field->field_index()) &&
+        check_parallel_scan_unsafe_field(field)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * @return true if the table can be chosen as the parallelized table, false
  * otherwise.
  */
 static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
+  TABLE_LIST *tbl = tb->pos_in_table_list;
+  assert(tb && tbl);
+
+  // Parallel hint.
+  if (tbl->opt_hints_table &&
+      tbl->opt_hints_table->not_do_parallel_scan()) {
+    return false;
+  }
+
   /*
     Check the table type. These tables can't be chosen as
     the parallelized table:
@@ -40,14 +65,6 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
     5) fulltext match search
     6) view or derived table
   */
-  TABLE_LIST *tbl = tb->pos_in_table_list;
-  assert(tb && tbl);
-
-  // Parallel hint.
-  if (tbl->opt_hints_table &&
-      tbl->opt_hints_table->not_do_parallel_scan()) {
-    return false;
-  }
 
   if (tb->s->tmp_table != NO_TMP_TABLE ||
       tb->file->ht->db_type != DB_TYPE_INNODB || tb->part_info ||
@@ -63,6 +80,10 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
   */
   if (tb->file->stats.records <
       thd->variables.px_parallel_table_record_threshold) {
+    return false;
+  }
+
+  if (!compat_for_parallel_table_fields(tb)) {
     return false;
   }
 

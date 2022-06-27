@@ -42,6 +42,8 @@ extern bool check_px_unsafe_item(Item *item);
 
 bool check_xchg_unsafe_field(const Field *field);
 
+bool check_parallel_scan_unsafe_field(const Field *field);
+
 bool check_px_unsafe_sum_funcs(JOIN *join);
 
 bool check_xchg_unsafe_sum_funcs(JOIN *join);
