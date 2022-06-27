@@ -21,6 +21,23 @@ KEY idx_col2(col2)
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
+CREATE TABLE t2 (
+col_varchar_255_latin1_key varchar(255) DEFAULT NULL,
+pk int(11) NOT NULL AUTO_INCREMENT,
+KEY (pk DESC),
+KEY k3 (col_varchar_255_latin1_key DESC)
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t2(col_varchar_255_latin1_key, pk) VALUES
+('l',4), ('something',3), ('ycyoybhug',2), ('l',5), ('my',1),
+('l',4),('l',4),('l',4),('l',4),('l',4),('l',4),
+('l',4),('l',4),('l',4),('l',4),('l',4),('l',4),
+('l',4),('l',4),('l',4),('l',4),('l',4),('l',4),
+('l',4),('l',4),('l',4),('l',4),('l',4),('l',4);
+ANALYZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
 # --include save_and_set_px.inc
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8 order by col2 DESC;
 EXPLAIN
@@ -34,7 +51,21 @@ id	col2
 4	7
 5	6
 6	5
+explain FORMAT=tree select pk from t2 where pk <> 4 order by pk;
+EXPLAIN
+-> Filter: (t2.pk <> 4)  (cost=1.06 rows=4)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
+            -> Parallel index range scan on t2 using pk  (cost=1.06 rows=4)
+
+select pk from t2 where pk <> 4 order by pk;
+pk
+1
+2
+3
+5
 # --include set_px_to_saved.inc
 drop table t1;
+drop table t2;
 drop database test1;
 drop user user1;

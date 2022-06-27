@@ -471,7 +471,7 @@ dberr_t PX_Scan_ctx::create_ranges(const PX_Scan_range &scan_range,
     offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);
     const auto end = scan_range.m_end;
 
-    if (end != nullptr && end->compare(rec, index, offsets) <= 0) {
+    if (end != nullptr && end->compare(rec, index, offsets) < 0) {
       break;
     }
 
