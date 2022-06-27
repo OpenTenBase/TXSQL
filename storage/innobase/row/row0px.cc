@@ -686,7 +686,7 @@ dberr_t PX_Scan_ctx::find_visible_record(byte *buf, const rec_t *&rec,
     if (!lock_clust_rec_cons_read_sees(rec, m_config.m_index, offsets, view)) {
       rec_t *old_vers = nullptr;
       err = row_vers_build_for_consistent_read(rec, mtr, m_config.m_index, &offsets,
-                                               trx->read_view, &heap, heap, &old_vers,
+                                               view, &heap, heap, &old_vers,
                                                nullptr, nullptr);
       if (err != DB_SUCCESS) {
         return err;
