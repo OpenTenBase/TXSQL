@@ -1,0 +1,50 @@
+#####################################################################
+#                                                                   #
+# Test for backquery in parallel.                                   #
+#                                                                   #
+#####################################################################
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+create table t1(id int,c1 int);
+insert into t1 values(1,1),(2,2),(3,3),(4,4),(5,5);
+analyze table t1;
+
+connection conn1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable=ON;
+
+connect(conn2,localhost,user1,,);
+
+sleep 2;
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 1;
+delete from t1 where id=5;
+sleep 3;
+explain format=tree select * from t1;
+select * from t1;
+
+disable_query_log;
+echo ## select * from t1 as of timestamp 'time1';
+eval explain format=tree select * from t1 as of timestamp '$time1';
+eval select * from t1 as of timestamp '$time1';
+echo ## date_sub;
+
+explain format=tree select * from t1 as of timestamp date_sub(now(), interval 1 second);
+select * from t1 as of timestamp date_sub(now(), interval 1 second);
+enable_query_log;
+
+connection conn1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+#cleanup
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table if exists t1;
+drop database test1;
+drop user user1;
