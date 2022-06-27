@@ -46,6 +46,32 @@ static const char *px_unsafe_func_name[] {
   "xml_str",       "json_func",          "release_all_locks"
 };
 
+/**
+  The compatibility of parallel query compatibility detection for Field is
+  divided into two categories:
+  1) Parallel scan compatible: fields allowed in the parallel table
+  2) Compatible data exchange: the fields allowed by the Exchange operator
+     in the data exchange between threads
+  Some fields, such as generated columns, are not compatible with parallel scans.
+  There are also some fields that are neither compatible with parallel scanning
+  nor compatible with data exchange. The current parallel query compatibility
+  only considers data exchange compatible checks, ignoring parallel scan compatible checks.
+
+  TODO: the list of px_scan_unsafe_field_type is the same as
+  the list of px_xchg_unsafe_field_type at the beginning.
+*/
+static const enum_field_types px_scan_unsafe_field_type[] = {
+  MYSQL_TYPE_BLOB, MYSQL_TYPE_TINY_BLOB, MYSQL_TYPE_MEDIUM_BLOB,
+  MYSQL_TYPE_LONG_BLOB, MYSQL_TYPE_JSON, MYSQL_TYPE_GEOMETRY,
+  MYSQL_TYPE_BIT
+};
+
+static const enum_field_types px_xchg_unsafe_field_type[] {
+  MYSQL_TYPE_BLOB, MYSQL_TYPE_TINY_BLOB, MYSQL_TYPE_MEDIUM_BLOB,
+  MYSQL_TYPE_LONG_BLOB, MYSQL_TYPE_JSON, MYSQL_TYPE_GEOMETRY,
+  MYSQL_TYPE_BIT
+};
+
 bool Item::pq_copy_item(THD *thd, Query_block *select, Item *item) {
   cmp_context = item->cmp_context;
   marker = item->marker;
@@ -273,14 +299,15 @@ void Temp_table_param::pq_copy_from(Temp_table_param *orig_param) {
   @return false if supported, true otherwise
 */
 static bool check_xchg_safe_field_type(enum_field_types type) {
-  if (type == MYSQL_TYPE_BLOB ||
-      type == MYSQL_TYPE_BIT ||  // TODO: test if support MYSQL_TYPE_BIT
-      type == MYSQL_TYPE_JSON ||
-      type == MYSQL_TYPE_TINY_BLOB ||
-      type == MYSQL_TYPE_MEDIUM_BLOB ||
-      type == MYSQL_TYPE_LONG_BLOB ||
-      type == MYSQL_TYPE_GEOMETRY) {
-    return true;
+  for (auto field_type : px_xchg_unsafe_field_type) {
+    if (field_type == type) return true;
+  }
+  return false;
+}
+
+static bool check_parallel_scan_safe_field_type(enum_field_types type) {
+  for (auto field_type : px_scan_unsafe_field_type) {
+    if (field_type == type) return true;
   }
   return false;
 }
@@ -292,11 +319,25 @@ static bool check_xchg_safe_field_type(enum_field_types type) {
 bool check_xchg_unsafe_field(const Field *field) {
   assert(field);
 
+  if (check_xchg_safe_field_type(field->type())) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+  Check whether the field is supported in parallel scan.
+  @return false if supported, true otherwise
+*/
+bool check_parallel_scan_unsafe_field(const Field *field) {
+  assert(field);
+
   if (field->is_gcol()) {
     return true;
   }
 
-  if (check_xchg_safe_field_type(field->type())) {
+  if (check_parallel_scan_safe_field_type(field->type())) {
     return true;
   }
 

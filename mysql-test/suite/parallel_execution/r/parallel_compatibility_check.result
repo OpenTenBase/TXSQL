@@ -258,20 +258,14 @@ blob field in aggregation function
 EXPLAIN format=tree SELECT SUM(data) FROM testText;
 EXPLAIN
 -> Aggregate: sum(testText.`data`)
-    -> PX Receiver (slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
-            -> Aggregate: sum(testText.`data`)
-                -> Parallel table scan on testText  (cost=0.80 rows=3)
+    -> Table scan on testText  (cost=0.80 rows=3)
 
 blob field in where condtion
 EXPLAIN format=tree SELECT count(id) FROM testText WHERE length(data) > 100;
 EXPLAIN
 -> Aggregate: count(testText.id)
-    -> PX Receiver (slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
-            -> Aggregate: count(testText.id)
-                -> Filter: (length(testText.`data`) > 100)  (cost=0.80 rows=3)
-                    -> Parallel table scan on testText  (cost=0.80 rows=3)
+    -> Filter: (length(testText.`data`) > 100)  (cost=0.80 rows=3)
+        -> Table scan on testText  (cost=0.80 rows=3)
 
 table with blob field but blob field not in read_set
 EXPLAIN format=tree SELECT SUM(id) FROM testText;
@@ -314,10 +308,7 @@ blob field in aggregation function
 EXPLAIN format=tree SELECT SUM(obj_json) FROM test_json;
 EXPLAIN
 -> Aggregate: sum(test_json.obj_json)
-    -> PX Receiver (slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
-            -> Aggregate: sum(test_json.obj_json)
-                -> Parallel table scan on test_json  (cost=0.55 rows=3)
+    -> Table scan on test_json  (cost=0.55 rows=3)
 
 table with blob field but blob field not in read_set
 EXPLAIN format=tree SELECT SUM(id) FROM test_json;
