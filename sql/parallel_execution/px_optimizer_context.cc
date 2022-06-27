@@ -473,6 +473,13 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
   worker_thd->time_zone_used = coordinator_thd->time_zone_used;
   worker_thd->rand_used = coordinator_thd->rand_used;
 
+  // for trx
+  worker_thd->tx_isolation = coordinator_thd->tx_isolation;
+  worker_thd->tx_read_only = coordinator_thd->tx_read_only;
+  DBUG_EXECUTE_IF("px_force_isolation", {
+    worker_thd->tx_isolation = ISO_REPEATABLE_READ;
+  });
+
   // is null
   worker_thd->arg_of_last_insert_id_function =
       coordinator_thd->arg_of_last_insert_id_function;

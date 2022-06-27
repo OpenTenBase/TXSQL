@@ -1,0 +1,37 @@
+--source include/have_debug.inc
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+CREATE TABLE t(a INT PRIMARY KEY, b INT)ENGINE=InnoDB;
+INSERT INTO t VALUES(2,2),(4,4),(8,8),(16,16),(32,32);
+ANALYZE TABLE t;
+
+connection conn1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+begin;
+INSERT INTO t VALUES(1,1);
+INSERT INTO t VALUES(64,64);
+
+connect(conn2,localhost,user1,,);
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+set session debug="+d,px_force_isolation";
+EXPLAIN FORMAT=TREE SELECT * FROM t order by a;
+SELECT * FROM t order by a;
+set session debug="-d,px_force_isolation";
+EXPLAIN FORMAT=TREE SELECT * FROM t order by a;
+SELECT * FROM t order by a;
+
+connection conn1;
+commit;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+
+drop table t;
+drop database test1;
+drop user user1;
