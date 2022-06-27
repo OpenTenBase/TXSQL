@@ -799,7 +799,7 @@ static mem_heap_t *row_merge_heap_create_with_k(
 {
   ulint i = 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index);
   mem_heap_t *heap =
-      mem_heap_create(K * i * sizeof(ulint *) + (K + 1) * sizeof **buf);
+      mem_heap_create(K * i * sizeof(ulint *) + (K + 1) * sizeof **buf, UT_LOCATION_HERE);
 
   *buf = static_cast<mrec_buf_t *>(mem_heap_alloc(heap, (K + 1) * sizeof **buf));
 
@@ -896,8 +896,6 @@ const byte *row_merge_read_rec(
   ulint data_size;
   ulint avail_size;
 
-  bool is_variable = false;
-
   ut_ad(block);
   ut_ad(buf);
   ut_ad(b >= &block[0]);
@@ -972,9 +970,10 @@ const byte *row_merge_read_rec(
 			const_cast<dict_index_t *> (index)->cached_offs_pddl.get_cached_offsets(
 				offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
 		} else {
-			is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
+			rec_deserialize_init_offsets(*mrec, index, offsets);
 
-			if (!is_variable && index->cached_offs_pddl.is_init.load()) {
+			if (dict_index_offs_cacheable(index) &&
+          index->cached_offs_pddl.is_init.load()) {
 				const_cast<dict_index_t *> (index)->cached_offs_pddl.set_offsets(
 					offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
 			}
@@ -1001,10 +1000,10 @@ const byte *row_merge_read_rec(
 		const_cast<dict_index_t *> (index)->cached_offs_pddl.get_cached_offsets(
 			offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
 	} else {
-		is_variable = rec_deserialize_init_offsets(*mrec, index, offsets);
+		rec_deserialize_init_offsets(*mrec, index, offsets);
 		// if we don't initilize index->cached_offs_pddl, do not
 		// cache offsets.
-		if (!is_variable && index->cached_offs_pddl.is_init.load()) {
+		if (dict_index_offs_cacheable(index) && index->cached_offs_pddl.is_init.load()) {
 			const_cast<dict_index_t *> (index)->cached_offs_pddl.set_offsets(
 				offsets, 1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index));
 		}
@@ -2861,14 +2860,32 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
     } \
   } while (0)
 
+static const ulint INC_PROGRESS_STEP = 100;
+
 #ifdef HAVE_PSI_STAGE_INTERFACE
 #define ROW_MERGE_WRITE_GET_NEXT(N, INDEX, AT_END)  \
   do {                                              \
+    if (stage && (++cur_tuple_processed >= INC_PROGRESS_STEP)) { \
+      stage->inc(cur_tuple_processed);  \
+      cur_tuple_processed = 0; \
+    } \
     ROW_MERGE_WRITE_GET_NEXT_LOW(N, INDEX, AT_END); \
   } while (0)
+
+#define STAGE_END() \
+  do { \
+    if (stage) { \
+      stage->inc(cur_tuple_processed); \
+      cur_tuple_processed = 0; \
+    } \
+  } while (0)
+
 #else /* HAVE_PSI_STAGE_INTERFACE */
 #define ROW_MERGE_WRITE_GET_NEXT(N, INDEX, AT_END) \
   ROW_MERGE_WRITE_GET_NEXT_LOW(N, INDEX, AT_END)
+
+#define STAGE_END() ((void)0)
+
 #endif /* HAVE_PSI_STAGE_INTERFACE */
 #define ROW_MERGE_WRITE_GET_NEXT_WITH_K(N, INDEX) \
   ROW_MERGE_WRITE_GET_NEXT_WITH_K_LOW(N, INDEX)
@@ -2942,10 +2959,6 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
       mem_heap_free(heap);
       return DB_DUPLICATE_KEY;
     }
-    if (++cur_tuple_processed >= INC_PROGRESS_STEP) {
-      stage->inc(cur_tuple_processed);
-      cur_tuple_processed = 0;
-    }
   }
 
 merged:
@@ -2963,6 +2976,8 @@ done0:
     }
   }
 done1:
+
+  STAGE_END();
 
   mem_heap_free(heap);
   b2 = row_merge_write_eof(&block[2 * srv_sort_buf_size], b2, of->fd,
@@ -3019,7 +3034,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
   SortRecordComparator sr_comparator;
   sr_comparator.init(dup->index, dup->table);
   /** Priority queue for ordering the rows. */
-  std::priority_queue<SortRecord, std::vector<SortRecord, ut_allocator<SortRecord>>,
+  std::priority_queue<SortRecord, std::vector<SortRecord, ut::allocator<SortRecord>>,
                       SortRecordComparator> m_pq(sr_comparator);
 
   SortRecord sr, srn;
@@ -3131,6 +3146,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool
     goto corrupt;
   }
 
+  ulint cur_tuple_processed = 0;
   if (mrec0) {
     /* append all mrec0 to output */
     for (;;) {
@@ -3138,6 +3154,8 @@ static MY_ATTRIBUTE((warn_unused_result)) bool
     }
   }
 done0:
+
+  STAGE_END();
 
   /* The file offset points to the beginning of the last page
   that has been read.  Update it to point to the next block. */
@@ -3296,7 +3314,7 @@ processed.
 static dberr_t row_merge_with_k(trx_t *trx, const row_merge_dup_t *dup,
                          merge_file_t *file, row_merge_block_t *block,
                          int *tmpfd, ulint *num_run, ulint *run_offset,
-                         ut_stage_alter_t *stage, const ulint K) {
+                         Alter_stage *stage, const ulint K) {
   ulint foffs[128];
 
   dberr_t error;   /*!< error code */
@@ -3425,8 +3443,8 @@ dberr_t row_merge_sort_with_k(trx_t *trx, const row_merge_dup_t *dup,
                        merge_file_t *file, row_merge_block_t *block, int *tmpfd,
                        Alter_stage *stage /* = NULL */) {
   ulint K = file->offset;
-  if (file->offset > (ulint)cdb_parallel_ddl_merge_sort_k_value) {
-    K = (ulint)cdb_parallel_ddl_merge_sort_k_value;
+  if (file->offset > (ulint) txsql_parallel_ddl_merge_sort_k_value) {
+    K = (ulint) txsql_parallel_ddl_merge_sort_k_value;
   }
   ulint half[128];
   for (ulint i = 1; i < K; i++) {
@@ -3477,7 +3495,7 @@ dberr_t row_merge_sort_with_k(trx_t *trx, const row_merge_dup_t *dup,
 
   } while (num_runs > 1);
 
-  ut_free(run_offset);
+  ut::free(run_offset);
 
   return error;
 }
@@ -4858,6 +4876,7 @@ void merge_tree_clear_min_rec_flag(buf_block_t *block, bool comp) {
 dberr_t merge_to_index_root(dict_index_t *index, trx_t *trx, TreeEdgePath *tree_edge_paths,
                             int parallel, ulint max_level, ulint leftmost_level, mtr_t *mtr) {
   dberr_t err = DB_SUCCESS;
+  // mtr_x_lock(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
   /* get index root page */
   const page_size_t page_size(dict_table_page_size(index->table));
   page_id_t index_root_page_id{index->space, index->page};
@@ -4930,6 +4949,10 @@ dberr_t merge_to_index_root(dict_index_t *index, trx_t *trx, TreeEdgePath *tree_
 
     cur_rec = page_cur_insert_rec_low(cur_rec, index, rec, offsets, mtr);
 
+    // btr_print_index(index, 10);
+    // ib::info() << "check node ptr for subtree[" << t << "] page_no[" << subtree_root_page_id.page_no() << "] ["
+    //            << btr_check_node_ptr(index, subtree_root_block, mtr) << "].";
+
     DBUG_EXECUTE_IF(
             "merge_to_index_root_no_enough_space",
 		                DBUG_SET("-d,merge_to_index_root_no_enough_space");
@@ -4950,8 +4973,8 @@ func_exit:
   return err;
 }
 
-dberr_t compress_tree(dict_index_t *index, trx_t *trx, int parallel, ulint initial_root_level,
-                      mtr_t *mtr) {
+dberr_t compress_tree(dict_index_t *index, trx_t *trx, int parallel,
+                      ulint initial_root_level, mtr_t *mtr) {
   dberr_t err = DB_SUCCESS;
   mtr_x_lock(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
   bool compress_succ = false;

@@ -1154,7 +1154,12 @@ dberr_t BtrBulk::finish(dberr_t err) {
   ut_ad(!sync_check_iterate(check));
 #endif /* UNIV_DEBUG */
 
-  ut_ad(err != DB_SUCCESS || btr_validate_index(m_index, nullptr, false));
+  /*
+  [TXSQL Parallel DDL] We should make sure that btr_validate_index is not performed
+  concurrently by other operations. Thus it will be invoked by a single thread after
+  index is built.
+  */
+  // ut_ad(err != DB_SUCCESS || btr_validate_index(m_index, nullptr, false));
   return (err);
 }
 

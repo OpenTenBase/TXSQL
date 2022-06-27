@@ -715,6 +715,21 @@ static inline ulint dict_index_get_n_unique_in_tree(
   return (static_cast<uint16_t>(dict_index_get_n_fields(index)));
 }
 
+/** @return if we can cache the offset of index */
+static inline bool dict_index_offs_cacheable(const dict_index_t *index) {
+  if (dict_table_is_comp(index->table) && !dict_index_has_virtual(index) &&
+    (!index->table->has_instant_cols() && !index->table->has_row_versions())) {
+    for (size_t i = 0; i < dict_index_get_n_unique_in_tree(index); i++) {
+      if (!index->get_field(i)->fixed_len) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
 /**
 Gets the number of fields on nonleaf page level in the internal representation
 of an index which uniquely determine the position of an index entry in the

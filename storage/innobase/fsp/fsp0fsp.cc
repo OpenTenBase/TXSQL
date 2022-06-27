@@ -3826,7 +3826,7 @@ void fseg_print(fseg_header_t *header, /*!< in: segment header */
 
   space_id = page_get_space_id(page_align(header));
 
-  fil_space_t *space = fil_space_get();
+  fil_space_t *space = fil_space_get(space_id);
 
   mtr_x_lock_space(space, mtr);
 

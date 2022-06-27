@@ -1584,7 +1584,7 @@ void page_print_list(
 
   ut_a(page_is_comp(page) == dict_table_is_comp(index->table));
 
-  fprint(stderr,
+  fprintf(stderr,
          "--------------------------------\n"
          "PAGE RECORD LIST\n"
          "Page address %p\n",
@@ -1595,7 +1595,7 @@ void page_print_list(
   page_cur_set_before_first(block, &cur);
   count = 0;
   for (;;) {
-    offsets = rec_get_offsets(cur.rec, index, offsets, ULINT_UNDEFINED, &heap);
+    offsets = rec_get_offsets(cur.rec, index, offsets, ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);
     page_rec_print(cur.rec, offsets);
 
     if (count == pr_n) {
@@ -1617,7 +1617,7 @@ void page_print_list(
 
     if (count + pr_n >= n_recs) {
       offsets =
-          rec_get_offsets(cur.rec, index, offsets, ULINT_UNDEFINED, &heap);
+          rec_get_offsets(cur.rec, index, offsets, ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);
       page_rec_print(cur.rec, offsets);
     }
     count++;
