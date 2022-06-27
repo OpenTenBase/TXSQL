@@ -2013,9 +2013,6 @@ void JOIN::destroy() {
     }
     exchange_temp_table_param->clear();
   }
-  if (sum_funcs_const) {
-    sum_funcs_const->clear();
-  }
   // Free memory for finalAggr inject
   if (aggr_tmp_table) {
     close_tmp_table(aggr_tmp_table);
@@ -4253,28 +4250,6 @@ bool JOIN::make_sum_func_list(const mem_root_deque<Item *> &fields,
   } else if (rollup_state == RollupState::READY)
     return false;   // Don't put end marker
   *func = nullptr;  // End marker
-  return false;
-}
-
-bool JOIN::make_sum_func_const_list(const mem_root_deque<Item *> &fields) {
-  if (!sum_funcs_const)
-    sum_funcs_const =
-        new (thd->mem_root) std::vector<std::tuple<Item *, size_t, size_t>>();
-
-  size_t num_hidden_fields = CountHiddenFields(fields);
-  size_t idx = 0;
-
-  for (Item *item : fields) {
-    if (item->type() == Item::SUM_FUNC_ITEM && item->const_item() &&
-        down_cast<Item_sum *>(item)->aggr_query_block == query_block) {
-      assert(!item->m_is_window_function);
-      size_t ref_item_idx = item->hidden ? fields.size() - idx - 1
-                              : idx - num_hidden_fields;
-      sum_funcs_const->emplace_back(item, idx, ref_item_idx);
-    }
-    ++idx;
-  }
-
   return false;
 }
 

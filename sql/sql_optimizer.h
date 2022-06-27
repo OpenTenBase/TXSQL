@@ -658,9 +658,6 @@ class JOIN {
   mem_root_deque<Temp_table_param *> *exchange_temp_table_param = nullptr;
   List_item  *exchange_tmp_fields = nullptr;
 
-  // Save const sum funcs for final aggregate
-  std::vector<std::tuple<Item *, size_t, size_t>> *sum_funcs_const = nullptr;
-
   /// True if plan is const, ie it will return zero or one rows.
   bool plan_is_const() const { return const_tables == primary_tables; }
 
@@ -685,7 +682,6 @@ class JOIN {
   bool alloc_func_list();
   bool make_sum_func_list(const mem_root_deque<Item *> &fields,
                           bool before_group_by, bool recompute = false);
-  bool make_sum_func_const_list(const mem_root_deque<Item *> &fields);
   bool alloc_func_list_with_param(Temp_table_param *param, Item_sum ***new_sum_funcs);
 
   /**

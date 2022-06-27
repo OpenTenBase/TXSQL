@@ -216,4 +216,31 @@ select count(a) as b from t where a=0 having b >=0;
 b
 0
 DROP TABLE t;
+#
+# sum_funcs with const_item
+#
+CREATE TABLE t1 (
+c1 INT AUTO_INCREMENT PRIMARY KEY,
+c2 INT,
+c3 INT,
+c4 INT,
+INDEX k2(c2)
+) Engine=InnoDB;
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+SELECT AVG(c1), MAX(c1), MIN(c2), AVG(c3), SUM(c4) FROM t1;
+AVG(c1)	MAX(c1)	MIN(c2)	AVG(c3)	SUM(c4)
+5.5000	10	1	1.0000	10
+SELECT AVG(c1), MAX(c1)/2, MIN(c2), AVG(c3)/max(c1), SUM(c4) FROM t1;
+AVG(c1)	MAX(c1)/2	MIN(c2)	AVG(c3)/max(c1)	SUM(c4)
+5.5000	5.0000	1	0.10000000	10
+DROP TABLE t1;
 # --include set_px_to_saved.inc
