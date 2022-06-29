@@ -267,6 +267,12 @@ class PX_worker_handle_impl : public PX_worker_handle {
 */
 class PX_exchange_context {
  public:
+  ~PX_exchange_context() {
+    for (auto &itr : m_exchange_info_map)
+      destroy(itr.second);
+    m_exchange_info_map.clear();
+  }
+
   /// Add an exchange.
   void insert(PX_exchange_info *exchange_info) {
     m_exchange_info_map.emplace(exchange_info->exchange_id(), exchange_info);

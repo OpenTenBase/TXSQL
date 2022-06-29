@@ -96,6 +96,13 @@ class Dfo_mgr {
   Dfo_mgr(THD *thd) : m_root_dfo(nullptr), m_thd(thd),
     m_root_iterator(nullptr), m_dfo_id_counter(0) {}
 
+  ~Dfo_mgr() {
+    for (auto &itr : m_normalized_dfo_tree)
+      destroy(itr);
+    m_normalized_dfo_tree.clear();
+    m_dfos_hash.clear();
+  }
+
   /**
     Split the iterator tree into DFOs' tree by exchange consumer pointer of the
     iterator tree. The DFO tree is original which need to normalize and reorder

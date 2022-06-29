@@ -121,6 +121,8 @@ typedef struct worker_pool_t {
 // pointer between optimization and execution, inside is task barrier,
 // which barrie at every workers' task finish.
 worker_pool_t* create_worker_threads(int num_threads, const THD_array &list);
+// Release the worker threads created.
+void release_worker_threads(worker_pool_t *worker_pool);
 // Init the px condition with lock.
 void px_condition_init(cond_with_lock_t *condition_with_lock);
 // Set the threads arguments when start every worker group.
@@ -153,7 +155,7 @@ void finish_task(worker_thread_arg *arg);
 
 
 void schedule_over(worker_pool_t *worker_pool, THD *thd);
-void worker_pool_cleanup(worker_pool_t *worker_pool);
+void schedule_end(worker_pool_t *worker_pool);
 void destroy_cond_for_worker(cond_with_lock_t *cond);
 
 #endif // PX_WORKERPOOL_INCLUDED

@@ -99,7 +99,11 @@ class Worker_exec_ctx {
 class PX_executor {
  public:
   PX_executor(THD *thd): m_dfo_mgr(thd), m_thd(thd), m_proc(thd) {}
-  virtual ~PX_executor() {}
+  virtual ~PX_executor() {
+    for (auto &itr : m_tasks_hash)
+      destroy(itr.second);
+    m_tasks_hash.clear();
+  }
 
   PX_executor *coordinator() {
     if (m_thd->m_is_worker) {

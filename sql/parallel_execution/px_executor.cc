@@ -35,7 +35,6 @@ static void *rebuild_query_execution(void *args)
   int error = 1;
   worker_thread_arg *worker_info = (worker_thread_arg *)args;
   THD *thd = worker_info->worker_thd;
-  thd->mem_root = new MEM_ROOT();
 
   Parser_state *parser_state = new (thd->mem_root) Parser_state();
   if (nullptr == parser_state) return nullptr;
@@ -110,6 +109,8 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
                      JOIN *root_join, int64_t &requested_cores) {
   Dfo_mgr *dfo_mgr = nullptr;
   PX_executor *executor = nullptr;
+  PX_plan_slice *slice = nullptr;
+  uint exchange_count = 0;
 
   assert(thd->use_px);
 
@@ -119,7 +120,7 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   } else {
     executor = new (thd->mem_root) PX_worker(thd);
   }
-  if (!executor) goto oom;
+  if (!executor) goto create_executor_failed;
   PX_EXECUTOR(thd) = executor;
 
   /*
@@ -128,7 +129,7 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
    */
   if (PX_ROLE_COORDINATOR(thd)) {
     thd->px_exchange_context = new (thd->mem_root) PX_exchange_context();
-    if (!thd->px_exchange_context) goto oom;
+    if (!thd->px_exchange_context) goto create_exchange_context_failed;
   } else {
     thd->px_exchange_context =
         PX_EXECUTOR(thd)->coordinator()->thd()->px_exchange_context;
@@ -146,7 +147,7 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
                      thd->worker_id);
       my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
           (thd)->thread_id(), "unequal plan");
-      goto err;
+      goto check_eq_failed;
     }
     PX_PRINT_INFO("worker %d check plan OK", thd->worker_id);
   }
@@ -166,7 +167,7 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   dfo_mgr = executor->dfo_mgr();
   if (dfo_mgr->do_split(nullptr, root_iterator, dfo_mgr->m_root_dfo) ||
       dfo_mgr->analyze_resource_allocation(&requested_cores) ) {
-    goto err;
+    goto dfo_prepared_failed;
   }
 #ifndef DBUG_OFF
   if (PX_ROLE_COORDINATOR(thd)) {
@@ -177,14 +178,12 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   // Traverse accesspath-tree to set exchange info to Exchange AccessPath
   // TODO move to px_optimizer() and make DFO by slice.
   if (thd->lex->is_explain() && PX_ROLE_COORDINATOR(thd)) {
-    uint exchange_count = 0;
-    PX_plan_slice *slice = nullptr;
     if (!thd->lex->explain_format->is_tree()) {
       slice = new (thd->mem_root) PX_plan_slice();
-      if (!slice) goto oom;
+      if (!slice) goto create_plan_slice_failed;
     }
     if (WalkAccessPathsForExplain(thd, root_path, thd->px_exchange_context,
-        exchange_count, root_join, slice)) goto err;
+        exchange_count, root_join, slice)) goto walk_path_failed;
     assert(exchange_count == dfo_mgr->m_normalized_dfo_tree.size());
     if (slice && slice->tables() && root_join) {
       root_join->px_plan_slices.emplace_back(slice);
@@ -199,10 +198,25 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
 
   return false;
 
-oom:
+ walk_path_failed:
+  destroy(slice);
+
+ dfo_prepared_failed:
+  destroy(thd->px_exchange_context);
+
+ check_eq_failed: // only in workers.
+  destroy(executor);
+  return true;
+
+ create_plan_slice_failed:
+  destroy(thd->px_exchange_context);
+
+ create_exchange_context_failed:
+  destroy(executor);
+
+ create_executor_failed:
   my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
 
-err:
   return true;
 }
 
@@ -278,18 +292,24 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
   thd->worker_pool = worker_pool;
 
   PX_PRINT_INFO("start scheduling");
-  if (coordinator->schedule(worker_pool)) goto err_finish;
+  if (coordinator->schedule(worker_pool)) res = true;
 
-  mysql_mutex_lock(&LOCK_inc_px_stmt_executed);
-  px_stmt_executed++;
-  mysql_mutex_unlock(&LOCK_inc_px_stmt_executed);
+  release_worker_threads(worker_pool);
+
+  if (!res) {
+    mysql_mutex_lock(&LOCK_inc_px_stmt_executed);
+    px_stmt_executed++;
+    mysql_mutex_unlock(&LOCK_inc_px_stmt_executed);
+  }
 
   goto finish;
 
 lack:
   thd->px_exchange_context->clean();
+  destroy(thd->px_exchange_context);
 
 err:
+  destroy(thd->px_executor);
   return true;
 
 err_finish:
@@ -298,6 +318,7 @@ err_finish:
 finish:
   PX_resource_manager::get_instance()->release(requested_cores);
   thd->px_exchange_context->clean();
+  destroy(thd->px_exchange_context);
   PX_PRINT_INFO("release %ld cores", requested_cores);
 
   DBUG_EXECUTE_IF("px_simulate_worker_timeout_kill", {
@@ -313,12 +334,12 @@ finish:
   });
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
-  thd->px_executor = nullptr;
   for (auto &itr : coordinator->thd_list)
     delete (itr);
   coordinator->thd_list.clear();
   mysql_mutex_unlock(&thd->LOCK_thd_data);
 
+  destroy(thd->px_executor);
   return res;
 }
 
@@ -341,14 +362,16 @@ bool px_execute_in_worker(THD *thd) {
   if (DBUG_EVALUATE_IF("schedule_before_schedule_error", true, false))
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
 
-  if (thd->killed || thd->is_error()) return true;
+  if (thd->killed || thd->is_error()) goto err;
 
   worker->loop();
   PX_PRINT_INFO("worker %d leave task loop", thd->worker_id);
 
+  destroy(worker);
   return thd->is_error();
 
 err:
+  destroy(worker);
   return true;
 }
 
@@ -699,9 +722,7 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
   DEBUG_SYNC_C("schedule_after_schedule_kill");
   DBUG_EXECUTE_IF("schedule_after_schedule_sleep", sleep(2););
 
-  schedule_over(worker_pool, thd()); // Every worker jump out of loop()
-
-  goto clean_workers;
+  goto unlock_clean_workers;
 
  fallback_unlock_clean_workers:
   thd()->need_fallback = true;
@@ -712,7 +733,7 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
  clean_workers:
   PX_PRINT_INFO("clean up worker pool");
 
-  worker_pool_cleanup(worker_pool);
+  schedule_end(worker_pool);
 
   if (thd()->need_fallback) ret = true;
 
