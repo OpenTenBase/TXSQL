@@ -1633,7 +1633,8 @@ void THD::awake(THD::killed_state state_to_set) {
   /* Interrupt target waiting inside a storage engine. */
   if (state_to_set != THD::NOT_KILLED) ha_kill_connection(this);
 
-  if (state_to_set == THD::KILL_TIMEOUT) {
+  /* Only the coordinator or non-px thread acts on behalf of the query. */
+  if (!m_is_worker && state_to_set == THD::KILL_TIMEOUT) {
     assert(!status_var_aggregated);
     status_var.max_execution_time_exceeded++;
   }
@@ -1679,7 +1680,7 @@ void THD::awake(THD::killed_state state_to_set) {
   }
 
   /*
-    Kill worker threads.
+    Propagate KILL to workers if the coordinator is killed.
 
     Note that parallel executors might be not created yet when the plan is
     marked (use_px) for parallel execution.
