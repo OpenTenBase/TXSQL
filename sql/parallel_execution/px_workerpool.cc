@@ -122,7 +122,7 @@ worker_pool_t* create_worker_threads(int num_threads, const THD_array &list)
       goto fail_of_malloc;
   }
 
-  bitmap_init(worker_pool->bitmap_map, nullptr, num_threads);
+  bitmap_init(worker_pool->bitmap_map, nullptr, right_deep_tree_limit);
   bitmap_init(&worker_pool->threads_bitmap, nullptr, num_threads);
 
   mysql_mutex_init(key_LOCK_Running_Task_Barrier,
@@ -187,6 +187,19 @@ fail_of_create:
                   &stage_waiting_finish_query_finally,
                   __FUNCTION__, __FILE__, __LINE__);
 
+  for (i = 0; i < worker_pool->num_workers; ++i)
+    destroy_cond_for_worker(&worker_pool->thread_args[i].sem_task_signal);
+  for (i = 0; i < worker_pool->num_workers; ++i)
+    destroy_cond_for_worker(&worker_pool->thread_args[i].sem_worker_signal);
+  destroy_cond_for_worker(&worker_pool->sem_query_done);
+  destroy_cond_for_worker(&worker_pool->sem_tasks_done);
+  destroy_cond_for_worker(&worker_pool->sem_workers_done);
+
+  mysql_mutex_destroy(&worker_pool->mutex_task);
+
+  bitmap_free(worker_pool->bitmap_map);
+  bitmap_free(&worker_pool->threads_bitmap);
+
 fail_of_malloc:
   --j;
   while (j >= 0) {
@@ -206,6 +219,28 @@ fail_of_bitmap:
 fail_of_bitmap_map:
 
   return nullptr;
+}
+
+void release_worker_threads(worker_pool_t *worker_pool)
+{
+  for (int i = 0; i < worker_pool->num_workers; ++i)
+    destroy_cond_for_worker(&worker_pool->thread_args[i].sem_task_signal);
+  for (int i = 0; i < worker_pool->num_workers; ++i)
+    destroy_cond_for_worker(&worker_pool->thread_args[i].sem_worker_signal);
+  destroy_cond_for_worker(&worker_pool->sem_query_done);
+  destroy_cond_for_worker(&worker_pool->sem_tasks_done);
+  destroy_cond_for_worker(&worker_pool->sem_workers_done);
+  mysql_mutex_destroy(&worker_pool->mutex_task);
+  for (int i = 0; i < right_deep_tree_limit; ++i)
+    free(worker_pool->bitmap[i]);
+  free (worker_pool->bitmap);
+  bitmap_free(worker_pool->bitmap_map);
+  free (worker_pool->bitmap_map);
+  bitmap_free(&worker_pool->threads_bitmap);
+  free (worker_pool->args);
+  free (worker_pool->threads);
+  free (worker_pool->thread_args);
+  free (worker_pool);
 }
 
 /* Init the px condition with lock. */
@@ -365,6 +400,7 @@ void finish_task(worker_thread_arg *arg)
   bitmap_clear_bit(chosen_bitmap, arg->worker_thd->worker_id);
   if (bitmap_is_clear_all(chosen_bitmap)) {
     bitmap_clear_bit(*arg->bitmap_map, group_id);
+    bitmap_free((*arg->bitmap)[group_id]);
     px_send_command(arg->sem_tasks_done);
   }
   mysql_mutex_unlock(arg->mutex_task);
@@ -386,26 +422,11 @@ void schedule_over(worker_pool_t *worker_pool, THD *thd)
 }
 
 /* Cleanup worker pool for the SQL PX execution. */
-void worker_pool_cleanup(worker_pool_t *worker_pool)
+void schedule_end(worker_pool_t *worker_pool)
 {
   px_wait_finally(current_thd, &worker_pool->sem_query_done,
                   &stage_waiting_finish_query_finally,
                   __FUNCTION__, __FILE__, __LINE__);
-  destroy_cond_for_worker(&worker_pool->sem_tasks_done);
-  destroy_cond_for_worker(&worker_pool->sem_workers_done);
-  destroy_cond_for_worker(&worker_pool->sem_query_done);
-  for (int i = 0; i < worker_pool->num_workers; ++i)
-    destroy_cond_for_worker(&worker_pool->thread_args[i].sem_task_signal);
-  for (int i = 0; i < worker_pool->num_workers; ++i)
-    destroy_cond_for_worker(&worker_pool->thread_args[i].sem_worker_signal);
-  for (int i = 0; i < right_deep_tree_limit; ++i)
-    free(worker_pool->bitmap[i]);
-  free (worker_pool->bitmap);
-  free (worker_pool->bitmap_map);
-  free (worker_pool->args);
-  free (worker_pool->threads);
-  free (worker_pool->thread_args);
-  free (worker_pool);
 }
 
 void destroy_cond_for_worker(cond_with_lock_t *cond)

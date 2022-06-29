@@ -875,6 +875,13 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   // Calculate the current statement cost.
   accumulate_statement_cost(lex);
 
+  // Fallback to serial if px_fallback_in_execution is on.
+  if (!lex->is_explain() && thd->use_px && px_fallback_in_execution) {
+    thd->need_fallback = true;
+    my_error(ER_PX_FALLBACK_SERIAL_EXECUTION, MYF(0));
+    return true;
+  }
+
   /*
     FIXME: use cost threshold as a prerequiste rather than a postfix to avoid
     fallback overhead for small statements. However, it requires that parallel
@@ -922,14 +929,14 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   }
 
   if (lex->is_explain()) {
-    if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
-  } else if (thd->use_px) {
-    // Fallback to serial if px_fallback_in_execution is on.
-    if (px_fallback_in_execution) {
-      thd->need_fallback = true;
-      my_error(ER_PX_FALLBACK_SERIAL_EXECUTION, MYF(0));
-      return true;
+    bool res = explain_query(thd, thd, unit);
+    if (thd->use_px) {
+      thd->px_exchange_context->clean();
+      destroy(thd->px_exchange_context);
+      destroy(thd->px_executor);
     }
+    return res; /* purecov: inspected */
+  } else if (thd->use_px) {
     if (PX_ROLE_COORDINATOR(thd)) {
       if (px_execute_in_coordinator(thd, requested_cores))
           return true;
