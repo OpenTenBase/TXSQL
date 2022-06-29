@@ -2652,6 +2652,11 @@ static TABLE *CreateTmpTableForAgg(THD *thd, JOIN *join, Temp_table_param *param
 static bool AllocSumFuncList(THD *thd, JOIN *join, Temp_table_param *param,
                              ORDER_with_src *order, bool is_final);
 
+static bool FixMaterializeAccessPath(THD *thd, JOIN *join, AccessPath *const path,
+                                     uint curr_slice);
+
+static void SetAggregationForFunc(THD *thd, JOIN *join);
+
 /**
   Walk through accespath to do split aggregate accesspath.
   This recursive will be stopped when we find Aggregate or there
@@ -2715,6 +2720,45 @@ AccessPath *WalkAccessPathsForAggregationSplit(THD *thd, JOIN *join,
       // reset final_tmpaggr_tmp_table to nullptr, or it will be clear
       // twice in JOIN::destroy.
       join->final_tmpaggr_tmp_table = nullptr;
+      break;
+    }
+    case AccessPath::MATERIALIZE : {
+      MaterializePathParameters *param = path->materialize().param;
+      /*
+        In this case, materialize accesspath is created in query block
+        to store temporary results for sorting or other operations, so
+        it only has one query_block. In addition to that child accesspath
+        of this materialize must be Aggregate/TemptableAggregate. Fallback
+        to serial execution for cases that do not meet the conditions.
+      */
+      if (param->query_blocks.size() != 1 ||
+          param->query_blocks[0].join != join) {
+        goto err;
+      }
+      child = param->query_blocks[0].subquery_path;
+      if (child->type != AccessPath::AGGREGATE &&
+          child->type != AccessPath::TEMPTABLE_AGGREGATE) {
+        goto err;
+      }
+      if (param->ref_slice == REF_SLICE_TMP1) {
+        Temp_table_param *table_param = param->query_blocks[0].temp_table_param;
+        join->final_tmp_table_param = new (thd->mem_root) Temp_table_param();
+        if (join->final_tmp_table_param == nullptr) goto err;
+        join->final_tmp_table_param->pq_copy_from(table_param);
+
+        new_child = WalkAccessPathsForAggregationSplit(thd, join, child, true);
+        if (!new_child) goto err;
+        param->ref_slice = REF_SLICE_FINAL_AGGREGATE;
+        param->table = join->final_tmpaggr_tmp_table;
+        join->final_tmpaggr_tmp_table = nullptr;
+      } else if (param->ref_slice == REF_SLICE_TMP2) {
+        new_child = WalkAccessPathsForAggregationSplit(thd, join, child, stream_agg);
+        if (!new_child) goto err;
+        if (FixMaterializeAccessPath(thd, join, path, REF_SLICE_FINAL_AGGREGATE)) {
+          goto err;
+        }
+      }
+      param->query_blocks[0].subquery_path = new_child;
       break;
     }
     default:
@@ -2814,6 +2858,8 @@ static AccessPath *SplitAggAccessPath(THD *thd, JOIN *join, AccessPath *target_p
     assert(target_path->type == AccessPath::TEMPTABLE_AGGREGATE);
     curr_slice = target_path->temptable_aggregate().ref_slice;
 
+    SetAggregationForFunc(thd, join);
+
     // [1] rebuild temptableAggregate
     if (RebuildLocalTempAggregateAccessPath(thd, join, target_path, curr_slice, avg_count)) {
       goto err;
@@ -2835,6 +2881,109 @@ static AccessPath *SplitAggAccessPath(THD *thd, JOIN *join, AccessPath *target_p
 err:
   assert(false);
   return nullptr;
+}
+
+/**
+  Reset the PROP_AGGREGATION For Func object.
+  PROP_AGGREGATION affects func to store the result in Item_field,
+  but this property maybe reset in function count_field_types. It's
+  neccessary to reset it by PROP_SAVED_AGGREGATION.
+
+  @param thd 
+  @param join 
+*/
+static void SetAggregationForFunc(THD *thd, JOIN *join) {
+  uint item_count = join->fields->size();
+  for (uint i = 0; i < item_count; ++i) {
+    Item *item = join->ref_items[REF_SLICE_SAVED_BASE][i];
+    if (item->has_saved_aggregation()) {
+      item->reset_saved_aggregation();
+      item->set_aggregation();
+    }
+  }
+}
+
+/**
+  Fix connection bettween materialize and aggregate.
+
+  @param thd 
+  @param join 
+  @param path 
+  @param curr_slice 
+  @return true for error, false for success.
+ */
+static bool FixMaterializeAccessPath(THD *thd, JOIN *join,
+                                     AccessPath *const path,
+                                     uint curr_slice) {
+  uint curr_tmp_table = join->primary_tables + 1;
+  List_item *curr_fields = &join->tmp_fields[curr_slice];
+  mem_root_deque<Item *> tmp_field(thd->mem_root);
+  QEP_TAB *tab = &join->qep_tab[curr_tmp_table];
+  TABLE *tmp_table = nullptr;
+  AccessPath *table_path = nullptr;
+  bool distinct_arg = false;
+  uint avg_count = 0;
+
+  //tab->tmp_table_param->grouped_expressions.clear();
+  tab->tmp_table_param->copy_fields.clear();
+  tab->tmp_table_param->items_to_copy = nullptr;
+  tab->tmp_table_param->skip_create_table = true;
+  count_field_types(join->query_block, tab->tmp_table_param, *curr_fields,
+                    /*reset_with_sum_func=*/true, /*save_sum_fields=*/false);
+  tab->tmp_table_param->hidden_field_count = CountHiddenFields(*curr_fields);
+
+  if (tab->table()) {
+    distinct_arg = tab->table()->s->is_distinct;
+    close_tmp_table(tab->table());
+    free_tmp_table(tab->table());
+    tab->set_table(nullptr);
+  }
+  
+  join->set_ref_item_slice(curr_slice);
+  tmp_table = create_tmp_table(thd, tab->tmp_table_param, *curr_fields,
+                               nullptr, distinct_arg, true,
+                               join->query_block->active_options(), HA_POS_ERROR, "");
+  if (!tmp_table) return true;
+  tab->set_table(tmp_table);
+  //tab->set_temporary_table_deduplicates(distinct_arg);
+
+  if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[REF_SLICE_TMP2],
+                               &tmp_field, join->query_block->m_added_non_hidden_fields)) {
+    goto err;
+  }
+
+  join->tmp_fields[REF_SLICE_TMP2] = tmp_field;
+  join->fields = &join->tmp_fields[REF_SLICE_TMP2];
+
+  // Fix func_div for avg
+  for (Item *item : *join->saved_base_fields) {
+    if (item->type() == Item::SUM_FUNC_ITEM && !item->const_item()) {
+      Item_sum *sum_item = down_cast<Item_sum*>(item);
+      if (sum_item->sum_func() == Item_sum::AVG_FUNC) {
+        avg_count++;
+      }
+    }
+  }
+  if (avg_count) {
+    RebuildCurrentRefItems(thd, join, REF_SLICE_TMP2, true);
+  }
+
+  join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+
+  table_path = path->materialize().table_path;
+  table_path->table_scan().table = tmp_table;
+  path->materialize().param->table = tmp_table;
+
+  return false;
+
+err:
+  if (tmp_table) {
+    close_tmp_table(tmp_table);
+    free_tmp_table(tmp_table);
+    tab->set_table(nullptr);
+    tmp_table = nullptr;
+  }
+  return true;
 }
 
 /**
@@ -3616,7 +3765,7 @@ bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
   auto &new_filesort = path->sort().filesort;
   TABLE *table_for_sort = nullptr;
 
-  const auto scan_functor = [&table_for_sort, &do_fixsort](AccessPath *sub_path, const JOIN *) {
+  const auto scan_functor = [&table_for_sort, &do_fixsort, &ref_slice](AccessPath *sub_path, const JOIN *) {
     switch(sub_path->type) {
       case AccessPath::STREAM: {
         table_for_sort = sub_path->stream().table;
@@ -3625,6 +3774,16 @@ bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
       }
       case AccessPath::TEMPTABLE_AGGREGATE: {
         table_for_sort = sub_path->temptable_aggregate().table;
+        do_fixsort = true;
+        return true;
+      }
+      case AccessPath::MATERIALIZE: {
+        MaterializePathParameters *param = sub_path->materialize().param;
+        AccessPath *mat_child = param->query_blocks[0].subquery_path;
+        table_for_sort = param->table;
+        if (mat_child->type == AccessPath::TEMPTABLE_AGGREGATE) {
+          ref_slice = REF_SLICE_TMP2;
+        }
         do_fixsort = true;
         return true;
       }

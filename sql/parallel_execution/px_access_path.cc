@@ -808,14 +808,12 @@ bool px_access_path::FindExchangeInjectPosition(
     std::vector<Split_Position> *const split_positions,
     std::list<QEP_TAB *> *const parallel_tab) {
   JOIN *cur_join = nullptr;
-  bool cur_join_end = false;
   QEP_TAB *cur_parallel_tab = nullptr;
   Split_Position *cur_split_pos = nullptr;
 
   for (Split_Position &split_pos : *split_positions_in) {
     // New query block or union
     if (!cur_join || cur_join != split_pos.m_join || split_pos.m_split_union) {
-      cur_join_end = false;
       if (cur_split_pos) {
         split_positions->push_back(*cur_split_pos);
         if (cur_parallel_tab) {
@@ -840,17 +838,6 @@ bool px_access_path::FindExchangeInjectPosition(
     if (!cur_split_pos) {
       assert(cur_join == split_pos.m_join);
       cur_split_pos = &split_pos;
-      continue;
-    }
-
-    if (cur_join_end) continue;
-
-    // TODO: aggregate(stream or temptable) below Materialize can NOT be split
-    // now.
-    if (split_pos.m_split_agg &&
-        (split_pos.m_parent &&
-         split_pos.m_parent->type == AccessPath::MATERIALIZE)) {
-      cur_join_end = true;
       continue;
     }
 
