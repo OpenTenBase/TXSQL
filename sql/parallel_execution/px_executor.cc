@@ -302,12 +302,26 @@ finish:
   PX_resource_manager::get_instance()->release(requested_cores);
   thd->px_exchange_context->clean();
   PX_PRINT_INFO("release %ld cores", requested_cores);
-  thd->px_executor = nullptr;
+
+  DBUG_EXECUTE_IF("px_simulate_worker_timeout_kill", {
+    // Pause the coordinator long enough to get timeout KILL.
+    WaitLatch(PX_EXECUTOR(thd)->proc(), 5/*sec*/);
+    if (thd->killed) {
+      thd->send_kill_message();
+      res = true;
+    } else {
+      // Take over query_result->send_eof(thd)
+      ::my_eof(thd);
+    }
+  });
+
   mysql_mutex_lock(&thd->LOCK_thd_data);
+  thd->px_executor = nullptr;
   for (auto &itr : coordinator->thd_list)
     delete (itr);
   coordinator->thd_list.clear();
   mysql_mutex_unlock(&thd->LOCK_thd_data);
+
   return res;
 }
 
@@ -524,6 +538,11 @@ bool PX_task::run_root(THD *thd)
   thd->current_found_rows = *send_records_ptr;
 
   thd->collect_px_stmt_da_for_warnings();
+
+  DBUG_EXECUTE_IF("px_simulate_worker_timeout_kill", {
+    // Pass over to the other px_simulate_worker_timeout_kill.
+    return false;
+  });
 
   return query_result->send_eof(thd);
 }

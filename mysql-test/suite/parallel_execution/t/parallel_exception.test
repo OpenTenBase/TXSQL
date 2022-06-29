@@ -555,6 +555,12 @@ connection conn703;
 --error ER_QUERY_TIMEOUT
 select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
 show status like '%px%';
+# The worker thread may have already exited before be killed
+SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
+--error ER_QUERY_TIMEOUT
+select /*+max_execution_time(1000)*/ * FROM t1;
+SET GLOBAL debug = '-d,px_simulate_worker_timeout_kill';
+show status like '%px%';
 
 # enhanced testing as following:
 #--let $num=10000
