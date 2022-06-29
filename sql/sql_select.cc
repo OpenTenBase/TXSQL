@@ -4059,7 +4059,11 @@ void count_field_types(const Query_block *query_block, Temp_table_param *param,
       Item_sum *window_item = down_cast<Item_sum *>(real);
       param->func_count += window_item->argument_count();
     } else {
-      if (reset_with_sum_func) field->reset_aggregation();
+      param->func_count++;
+      if (reset_with_sum_func) {
+        field->reset_aggregation();
+        field->set_saved_aggregation();
+      }
       if (field->has_aggregation()) param->outer_sum_func_count++;
     }
   }

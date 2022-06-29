@@ -3180,6 +3180,15 @@ class Item : public Parse_tree_node {
   /// Set the property: this item is a call to GROUPING
   void set_grouping_func() { m_accum_properties |= PROP_GROUPING_FUNC; }
 
+  /// @return true if this item or any of its decendents was an aggregated func.
+  bool has_saved_aggregation() const { return m_accum_properties & PROP_SAVED_AGGREGATION; }
+
+  /// Set the "has saved aggregation" property
+  void set_saved_aggregation() { m_accum_properties |= PROP_SAVED_AGGREGATION; }
+
+  /// Reset the "has saved aggregation" property
+  void reset_saved_aggregation() { m_accum_properties &= ~PROP_SAVED_AGGREGATION; }
+
   /// Whether this Item was created by the IN->EXISTS subquery transformation
   virtual bool created_by_in2exists() const { return false; }
 
@@ -3412,6 +3421,11 @@ class Item : public Parse_tree_node {
     function.
   */
   static constexpr uint8 PROP_GROUPING_FUNC = 0x20;
+  /**
+    Set if this item or any of its decendents was an aggregated func.
+    PROP_AGGREGATION maybe reset in function count_field_types.
+   */
+  static constexpr uint8 PROP_SAVED_AGGREGATION = 0x40;
   uint8 m_accum_properties;
 
  public:

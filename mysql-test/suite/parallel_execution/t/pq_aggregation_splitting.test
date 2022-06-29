@@ -150,8 +150,62 @@ DROP TABLE t2;
 --echo #
 select sum(col1) s from t1 group by t1col2 order by s;
 
+--echo #
+--echo # support aggregate split under materialize
+--echo #
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from (select sum(col1) as a from t1 group by t1col2) as t;
+select * from (select sum(col1) as a from t1 group by t1col2) as t;
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree select * from (select sum(t1col2) as a from t1 group by col1) as t;
+select * from (select sum(t1col2) as a from t1 group by col1) as t;
+
 DROP TABLE t;
 DROP TABLE t1;
+
+# case from main.having
+CREATE TABLE t1 (
+    f1 int(10) unsigned NOT NULL auto_increment primary key,
+    f2 varchar(100) NOT NULL default ''
+);
+CREATE TABLE t2 (
+    f1 varchar(10) NOT NULL default '',
+    f2 char(3) NOT NULL default '',
+    PRIMARY KEY  (`f1`),
+    KEY `k1` (`f2`,`f1`)
+);
+INSERT INTO t1 values(NULL, '');
+INSERT INTO `t2` VALUES ('486878','WDT'),('486910','WDT');
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'WDT' GROUP BY t1.f1;
+SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'SIR' GROUP BY t1.f1;
+
+DROP TABLE t1;
+DROP TABLE t2;
+
+# case from main.distinct_innodb
+create table t3(a int, b int, c int) engine=InnoDB;
+
+insert into t3 values(200,1,1),(100,1,2),(400,2,2),(300,2,1);
+analyze table t3;
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
+SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(b);
+SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(b);
+
+--replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
+explain format=tree SELECT distinct 1, (avg(b)-count(b)) FROM t3 group by a order by avg(b)-count(b);
+SELECT distinct 1, (avg(b)-count(b)) FROM t3 group by a order by avg(b)-count(b);
+
+SELECT distinct 1, (avg(b)-count(b)) agg FROM t3 group by a having agg>0 order by agg;
+
+drop table t3;
 
 --echo #
 --echo # sum_funcs with no rows in table
