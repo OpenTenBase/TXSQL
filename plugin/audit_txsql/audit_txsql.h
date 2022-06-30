@@ -5,7 +5,7 @@
 #define FLUSH_SEND_BUFFER       2097152     /* 2*1024*1024, 2MB */
 #define FLUSH_PER_SEC           1
 #define POS_FILE                "pos_file"
-#define POS_FILE_LEN            8
+#define POS_FILE_LEN            16
 
 #define FORMAT_STRING_JSON(format_str,format_len,src_str,src_strlen)\
 do {\
@@ -61,10 +61,12 @@ total_len += cur_len;\
   Information about current file position.
   count:the log file name,is a number,
   pos: have written the file location.
+  date: 00:00:00 of the day when creating a new log.
 */
 typedef struct file_pos {
   int count;
   int pos;
+  time_t date_start_time;
 } file_pos;
 
 static int  longlong_len(ulonglong *num);
@@ -111,7 +113,7 @@ class audit_handler
     volatile char is_running;
 
     audit_handler() : share_mem(nullptr),
-                      fps({0,0}),
+                      fps({0,0,0}),
                       log_file_fp(nullptr),
                       file_pos_fp(nullptr),
                       last_flush(0),

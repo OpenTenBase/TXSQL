@@ -5,12 +5,15 @@
 #include <typelib.h>
 #include "audit_txsql.h"
 #include "sql/mysqld.h"
+#include "mysql/psi/mysql_mutex.h"
 
 #define OS_FILE_MAX_PATH  4000
 #define DELIMITER         '#'
 #define ERR_LEN           1024
+#define SECONDS_OF_A_DAY  (24*60*60)
 #define AUDIT_ALL         0
 #define AUDIT_FILTER      1
+#define AUDIT_OFF         2
 
 static char *filter_ip = NULL;
 static char *filter_user = NULL;
@@ -20,6 +23,7 @@ static ulong audit_mode = 0;
 static uint  trunc_len = 0;
 static long  file_max_size = 0;
 static int   rotate_count = 0;
+static bool  rotate_write = false;
 
 static audit_handler normal_user;
 
@@ -32,6 +36,28 @@ static char str100[] = "0001020304050607080910111213141516171819202122232425"
 static const char *audit_filename_group[10] = {
   "audit_log1", "audit_log2", "audit_log3", "audit_log4", "audit_log5",
   "audit_log6", "audit_log7", "audit_log8", "audit_log9", "audit_log10"};
+
+/**
+  get_log_file_name_in_append
+  get audit log file name in append mode
+  @param[in,out] log_name log file name
+  @param[in] log_dir log file dir
+  @param[in] fps file position.
+*/
+void get_log_file_name_in_append(char *log_name, const char *log_dir, file_pos *fps) {
+  time_t tmp_time;
+  struct tm tmp_tm;
+  time(&tmp_time);
+  localtime_r(&tmp_time, &tmp_tm);
+
+  if (labs(tmp_time - fps->date_start_time) > SECONDS_OF_A_DAY) {
+    fps->date_start_time = tmp_time - (tmp_time + tmp_tm.tm_gmtoff) % SECONDS_OF_A_DAY;
+    fps->count = 0;
+    fps->pos = 0;
+  }
+  sprintf(log_name, "%saudit_log.%04d-%02d-%02d.%d", log_dir, tmp_tm.tm_year + 1900,
+          tmp_tm.tm_mon + 1, tmp_tm.tm_mday, fps->count);
+}
 
 /**
   check_save_file_thread
@@ -54,7 +80,40 @@ void *check_save_file_thread(void *ptr) {
     cur_end = ((share_mem_head *)mem)->end_pos;
 
     usleep(500);
+    if (audit_mode != AUDIT_ALL && audit_mode != AUDIT_FILTER) {
+      continue;
+    }
     time(&cur_time);
+
+    if (!rotate_write && labs(cur_time - handler->fps.date_start_time) > SECONDS_OF_A_DAY) {
+      char log_name[512] = {0};
+      mysql_mutex_lock(&(handler->file_lock));
+      if (NULL == handler->log_file_fp || NULL == handler->file_pos_fp ) {
+        audit_err_log("Failed to create audit log file or position file, "
+                      "check the Create File Permissions and Disk Space.");
+        mysql_mutex_unlock(&(handler->file_lock));
+        usleep(1000000);
+        continue;
+      }
+      fclose(handler->log_file_fp);
+      handler->fps.count = 0;
+      handler->fps.pos = 0;
+      get_log_file_name_in_append(log_name, audit_dir, &(handler->fps));
+
+      handler->log_file_fp = fopen(log_name, "wb+");
+      if (NULL == handler->log_file_fp) {
+        audit_err_log(log_name);
+        audit_err_log("Failed to create audit log file, check the "
+                      "Create File Permissions and Disk Space.");
+        mysql_mutex_unlock(&(handler->file_lock));
+        usleep(1000000);
+        continue;
+      }
+      fseek(handler->file_pos_fp, 0L, SEEK_SET);
+      fwrite(&(handler->fps), sizeof(file_pos), 1, handler->file_pos_fp);
+      fflush(handler->file_pos_fp);
+      mysql_mutex_unlock(&(handler->file_lock));
+    }
 
     /* When flush_pos < write_pos, The data to be saved is from the
        flush_pos to write_pos. */
@@ -284,13 +343,23 @@ bool audit_handler::save_to_file(char *mem, int len) {
   if (fps.pos + len > file_max_size) {
     fclose(log_file_fp);
 
-    fps.count++;
-    if (fps.count >= rotate_count) {
-      fps.count = 0;
+    if (rotate_write) {
+      fps.count++;
+      if (fps.count >= rotate_count) {
+        fps.count = 0;
+      }
+      fps.pos = 0;
+      fps.date_start_time = 0;
+      sprintf(log_name, "%s%s", audit_dir, audit_filename_group[fps.count]);
+      if (access(log_name,F_OK) == 0) {
+        remove(log_name);
+      }
+    } else {
+      fps.count++;
+      fps.pos = 0;
+      get_log_file_name_in_append(log_name, audit_dir, &fps);
     }
-    fps.pos = 0;
 
-    sprintf(log_name, "%s%s", audit_dir, audit_filename_group[fps.count]);
     log_file_fp = fopen(log_name, "wb+");
     if (NULL == log_file_fp) {
       audit_err_log(log_name);
@@ -340,15 +409,27 @@ bool audit_handler::seek_file_pos(char *log_name, file_pos *fps) {
     fclose(log_file_fp);
 
     /* We have already reached the end of the file, open a new log file. */
-    fps->pos = 0;
-    fps->count++;
-    if (fps->count >= rotate_count) {
-      fps->count = 0;
+    if (rotate_write) {
+      fps->count++;
+      if (fps->count >= rotate_count) {
+        fps->count = 0;
+      }
+      fps->pos = 0;
+      fps->date_start_time = 0;
+      sprintf(log_name, "%s%s", audit_dir, audit_filename_group[fps->count]);
+      if (access(log_name,F_OK) == 0) {
+        remove(log_name);
+      }
+    } else {
+      fps->count++;
+      fps->pos = 0;
+      get_log_file_name_in_append(log_name, audit_dir, fps);
     }
+
+    fseek(file_pos_fp, 0L, SEEK_SET);
     fwrite(fps, sizeof(file_pos), 1, file_pos_fp);
     fflush(file_pos_fp);
 
-    sprintf(log_name, "%s%s", audit_dir, audit_filename_group[fps->count]);
     log_file_fp = fopen(log_name, "wb+");
     CHECK_FILE_PTR(log_file_fp, log_name);
 
@@ -376,24 +457,36 @@ void audit_handler::audit_log_file_init(const char *new_dir) {
     fclose(log_file_fp);
   }
 
-  sprintf(file_name, "%s%s", new_dir, POS_FILE);
+  if (rotate_write) {
+    sprintf(file_name, "%s%s%s", new_dir, "rotate_", POS_FILE);
+  } else {
+    sprintf(file_name, "%s%s%s", new_dir, "append_", POS_FILE);
+  }
+
   if ((access(file_name, F_OK)) == 0 &&
       (file_pos_fp = fopen(file_name, "rb+"))) {
     /* Get audit log file name and write pos. */
     fread(&fps, sizeof(file_pos), 1, file_pos_fp);
 
     /* Get audit log name, the audit log file to write. */
-    sprintf(log_name, "%s%s", new_dir, audit_filename_group[fps.count]);
 
+    if (rotate_write) {
+      sprintf(log_name, "%s%s", new_dir, audit_filename_group[fps.count]);
+    } else {
+      get_log_file_name_in_append(log_name, new_dir, &fps);
+    }
     /* Try to open log file according to fps. */
     if (access(log_name, F_OK) != 0 ||
         (log_file_fp = fopen(log_name, "rb+")) == nullptr ||
         seek_file_pos(log_name, &fps) == true) {
       /* Failed to seek log file pos, create a new one. */
+      if (access(log_name,F_OK) == 0) {
+        remove(log_name);
+      }
       log_file_fp = fopen(log_name, "wb+");
       CHECK_FILE_PTR(log_file_fp, log_name);
       fps.pos = 0;
-      fseek(file_pos_fp, fps.pos, SEEK_SET);
+      fseek(file_pos_fp, 0L, SEEK_SET);
       fwrite(&fps, sizeof(file_pos), 1, file_pos_fp);
       fflush(file_pos_fp);
     }
@@ -403,10 +496,19 @@ void audit_handler::audit_log_file_init(const char *new_dir) {
     CHECK_FILE_PTR(file_pos_fp, file_name);
     fps.count = 0;
     fps.pos = 0;
+    if (rotate_write) {
+      fps.date_start_time = 0;
+      sprintf(log_name, "%s%s", new_dir, audit_filename_group[fps.count]);
+      if (access(log_name,F_OK) == 0) {
+        remove(log_name);
+      }
+    } else {
+      fps.date_start_time = 0;
+      get_log_file_name_in_append(log_name, new_dir, &fps);
+    }
     fwrite(&fps, sizeof(file_pos), 1, file_pos_fp);
     fflush(file_pos_fp);
 
-    sprintf(log_name, "%s%s", new_dir, audit_filename_group[fps.count]);
     log_file_fp = fopen(log_name, "wb+");
     CHECK_FILE_PTR(log_file_fp, log_name);
   }
@@ -421,7 +523,9 @@ void audit_handler::init() {
   mysql_mutex_init(0, &file_lock, MY_MUTEX_INIT_FAST);
 
   mem_and_thread_init();
-  audit_log_file_init(audit_dir);
+  if (audit_mode == AUDIT_ALL || audit_mode == AUDIT_FILTER) {
+    audit_log_file_init(audit_dir);
+  }
 }
 
 
@@ -605,7 +709,7 @@ static struct st_mysql_audit audit_txsql_descriptor= {
 /*
   Plugin system variables.
 */
-static const char* audit_mode_names[4] = {"all", "filter", "off",
+static const char* audit_mode_names[4] = {"ALL", "FILTER", "OFF",
                                           (const char *) 0};
 static TYPELIB audit_mode_names_typelib = {
   array_elements(audit_mode_names)-1, "", audit_mode_names, NULL};
@@ -670,9 +774,35 @@ static int audit_directory_validate(THD *thd,
 
   *static_cast<const char **>(save) =
     static_cast<char *>thd_memdup(thd, audit_abs_path, tmp_abs_len + 1);
-  normal_user.audit_log_file_init(*static_cast<const char **>(save));
+  if (audit_mode == AUDIT_ALL || audit_mode == AUDIT_FILTER) {
+    normal_user.audit_log_file_init(*static_cast<const char **>(save));
+  }
 
   return (0);
+}
+
+
+
+static void update_rotate_write_log(MYSQL_THD thd MY_ATTRIBUTE((unused)),
+                                    SYS_VAR *var MY_ATTRIBUTE((unused)),
+                                    void *ptr,
+                                    const void *val) {
+  *static_cast<char *>(ptr) = *static_cast<const char *>(val);
+
+  if (audit_mode == AUDIT_FILTER || audit_mode == AUDIT_ALL) {
+    normal_user.audit_log_file_init(audit_dir);
+  }
+}
+
+static void update_audit_mode(MYSQL_THD thd MY_ATTRIBUTE((unused)),
+                              SYS_VAR *var MY_ATTRIBUTE((unused)),
+                              void *ptr,
+                              const void *val) {
+  *static_cast<unsigned long*>(ptr) = *static_cast<const unsigned long*>(val);
+
+  if (audit_mode == AUDIT_ALL || audit_mode == AUDIT_FILTER) {
+    normal_user.audit_log_file_init(audit_dir);
+  }
 }
 
 void audit_handler::deinit(void) {
@@ -690,10 +820,17 @@ void audit_handler::deinit(void) {
   }
   mysql_mutex_unlock(&mem_lock);
 
+  mysql_mutex_lock(&file_lock);
   if (log_file_fp != NULL) {
     fclose(log_file_fp);
     log_file_fp = NULL;
   }
+
+  if (file_pos_fp != NULL) {
+    fclose(file_pos_fp);
+    file_pos_fp = NULL;
+  }
+  mysql_mutex_unlock(&file_lock);
 
   if (thread_file != NULL) {
     free(thread_file);
@@ -710,12 +847,12 @@ void audit_handler::deinit(void) {
 static MYSQL_SYSVAR_ENUM(
   audit_mode,
   audit_mode,
-  PLUGIN_VAR_NOCMDARG,
+  PLUGIN_VAR_RQCMDARG,
   "Audit mode. 'fliter' means audit related logs according to filtering rules. "
   "'all' means audit all logs",
   NULL,
-  0,
-  0,
+  update_audit_mode,
+  AUDIT_OFF,
   &audit_mode_names_typelib);
 
 static MYSQL_SYSVAR_STR(
@@ -754,9 +891,19 @@ static MYSQL_SYSVAR_STR(
   NULL,
   mysql_real_data_home_ptr);
 
+static MYSQL_SYSVAR_BOOL(
+  rotate_write_log,
+  rotate_write,
+  PLUGIN_VAR_OPCMDARG,
+  "Whether write the log rotately",
+  nullptr,
+  &update_rotate_write_log,
+  0
+);
+
 static MYSQL_SYSVAR_UINT(truncate_length, trunc_len, PLUGIN_VAR_RQCMDARG,
                          "Trucate length for query", NULL, NULL,
-                         1024,                        /* Default */
+                         2048,                        /* Default */
                          1024,                        /* Minimum */
                          1048576,                     /* Maximum */
                          1);                          /* Step    */
@@ -764,13 +911,13 @@ static MYSQL_SYSVAR_UINT(truncate_length, trunc_len, PLUGIN_VAR_RQCMDARG,
 static MYSQL_SYSVAR_LONG(log_file_max_size, file_max_size, PLUGIN_VAR_RQCMDARG,
                          "Max file size for single audit log file", NULL, NULL,
                          512*1024*1024,               /* 512M Default */
-                         8*1024,                      /* 8M   Minimum */
+                         8*1024*1024,                 /* 8M   Minimum */
                          10*1024*1024*1024LL,         /* 10G  Maximum */
                          1);                          /* Step    */
 
 static MYSQL_SYSVAR_INT(rotate_file_count, rotate_count, PLUGIN_VAR_RQCMDARG,
                         "Rotate audit log file count", NULL, NULL,
-                        2,                            /* Default */
+                        5,                            /* Default */
                         1,                            /* Minimum */
                         10,                           /* Maximum */
                         1);                           /* Step    */
@@ -784,6 +931,7 @@ static SYS_VAR* audit_system_variables[] = {
   MYSQL_SYSVAR(audit_dir),
   MYSQL_SYSVAR(log_file_max_size),
   MYSQL_SYSVAR(rotate_file_count),
+  MYSQL_SYSVAR(rotate_write_log),
   NULL
 };
 
@@ -817,6 +965,6 @@ mysql_declare_plugin(audit_txsql) {
   audit_system_status,         /* status variables                */
   audit_system_variables,      /* system variables                */
   NULL,
-  0,
+  PLUGIN_OPT_ALLOW_EARLY,
 }
 mysql_declare_plugin_end;
