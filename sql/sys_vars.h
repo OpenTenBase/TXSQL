@@ -1267,12 +1267,21 @@ class Sys_var_dbug : public sys_var {
           thd->strmake(res->ptr(), res->length());
     return false;
   }
-  bool session_update(THD *, set_var *var) override {
+  bool session_update(THD *thd, set_var *var) override {
     const char *val = var->save_result.string_value.str;
-    if (!var->value)
+    if (!var->value) {
       DBUG_POP();
-    else
+      for (auto &v : thd->dbug_vals) {
+        my_free(const_cast<char *>(v));
+      }
+      thd->dbug_vals.clear();
+    }
+    else {
       DBUG_SET(val);
+      const char *v = my_strdup(key_memory_Sys_var_charptr_value,
+                                val, MYF(MY_WME));
+      thd->dbug_vals.push_back(v);
+    }
     return false;
   }
   bool global_update(THD *, set_var *var) override {

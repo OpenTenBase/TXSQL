@@ -35,12 +35,8 @@ static void *rebuild_query_execution(void *args)
   int error = 1;
   worker_thread_arg *worker_info = (worker_thread_arg *)args;
   THD *thd = worker_info->worker_thd;
-  thd->thread_stack = (char *)&thd;
   thd->mem_root = new MEM_ROOT();
 
-  // Restore the THD evironment for current_thd.
-  current_thd = thd;
-  THR_MALLOC = &(thd->mem_root);
   Parser_state *parser_state = new (thd->mem_root) Parser_state();
   if (nullptr == parser_state) return nullptr;
   if (parser_state->init(thd, thd->query().str, thd->query().length))
@@ -264,6 +260,7 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
   mysql_mutex_lock(&thd->LOCK_thd_data);
   for (int i = 0; i < requested_cores; ++i) {
     THD* worker_thd = new THD();
+    worker_thd->px_coordinator = thd;
     worker_thd->set_is_killable(true);
     coordinator->thd_list.push_back(worker_thd);
   }
@@ -566,7 +563,6 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     // creatation, thread_id is needed to name a temp file in disk.
     worker_new_thd->set_new_thread_id();
     worker_new_thd->worker_id = i;
-    worker_new_thd->px_coordinator = thd();
     worker_new_thd->px_exchange_context = worker_pool->px_exchange_context;
     // Set the query to worker THD.
     worker_new_thd->set_query(thd()->query().str, thd()->query().length);
