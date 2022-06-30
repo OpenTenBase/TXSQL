@@ -13,6 +13,9 @@ struct AccessPath;
 struct TABLE;
 class QEP_TAB;
 
+template <class T>
+class mem_root_deque;
+
 namespace px_access_path {
 struct Split_Position {
   JOIN *m_join;
@@ -23,7 +26,7 @@ struct Split_Position {
   bool m_split_sort;
   bool m_split_union;
   Filesort *m_filesort;
-  std::vector<TABLE *> *m_tables;
+  mem_root_deque<TABLE *> *m_tables;
   QEP_TAB *m_parallel_tab;  // Tab to be parallel scanned, held by a special
                             // node in the array for Split_Position. This node
                             // would only contain the m_parallel_tab.
@@ -42,7 +45,7 @@ struct Split_Position {
   Split_Position(JOIN *join, AccessPath *target, AccessPath *parent,
                  uint ref_slice, bool split_agg, bool split_sort,
                  bool split_union, Filesort *filesort,
-                 std::vector<TABLE *> *tables)
+                 mem_root_deque<TABLE *> *tables)
       : m_join(join),
         m_target(target),
         m_parent(parent),

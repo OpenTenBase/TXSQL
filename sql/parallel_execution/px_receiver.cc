@@ -19,7 +19,7 @@ void SwitchSlice(JOIN *join, int slice_num) {
 PX_receiver::PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei,
                          JOIN *join,
                          unique_ptr_destroy_only<RowIterator> source,
-                         std::vector<TABLE *> *tables, int ref_slice)
+                         mem_root_deque<TABLE *> *tables, int ref_slice)
     : RowIterator(thd),
       m_handles(Malloc_allocator<PSI_memory_key>(PSI_INSTRUMENT_ME)),
       m_join(join),

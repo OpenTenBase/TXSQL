@@ -13,7 +13,7 @@
 
 PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
                      unique_ptr_destroy_only<RowIterator> source,
-                     std::vector<TABLE *> *tables,
+                     mem_root_deque<TABLE *> *tables,
                      mem_root_deque<Item *> *send_fields,
                      mem_root_deque<Item *> *shuffle_key,
                      Temp_table_param *temp_table_param, bool use_item,
@@ -69,7 +69,7 @@ bool PX_sender::Init() {
 
   if (m_materialize) {
     assert(m_tables->size() == 1);
-    TABLE *tmp_table = m_tables->at(0);
+    TABLE *tmp_table = m_tables->front();
     if (!tmp_table->is_created()) {
       if (instantiate_tmp_table(thd(), tmp_table)) {
         goto err;

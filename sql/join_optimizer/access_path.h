@@ -1343,14 +1343,14 @@ struct AccessPath {
     struct {
       AccessPath *child;
       JOIN *join;
-      std::vector<TABLE *> *tables;
+      mem_root_deque<TABLE *> *tables;
       int ref_slice;
       bool use_temp_table;
       PX_exchange_info *exchange_info;
     } px_receiver;
     struct {
       AccessPath *child;
-      std::vector<TABLE *> *tables;
+      mem_root_deque<TABLE *> *tables;
       mem_root_deque<Item *> *send_fields;
       Temp_table_param *temp_table_param;
       bool use_temp_table;
@@ -1362,7 +1362,7 @@ struct AccessPath {
       AccessPath *child;
       Filesort *filesort;
       JOIN *join;
-      std::vector<TABLE *> *tables;
+      mem_root_deque<TABLE *> *tables;
       int ref_slice;
       bool use_temp_table;
       PX_exchange_info *exchange_info;
@@ -1884,7 +1884,7 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
                                     table_map immediate_tables);
 
 inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
-                                          std::vector<TABLE *> *tables,
+                                          mem_root_deque<TABLE *> *tables,
                                           int ref_slice, bool use_temp_table) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::PX_RECEIVE;
@@ -1897,7 +1897,7 @@ inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
 
 inline AccessPath *NewPXReceiverMergeAccessPath(THD *thd, AccessPath *child,
                                                 Filesort *filesort,
-                                                std::vector<TABLE *> *tables,
+                                                mem_root_deque<TABLE *> *tables,
                                                 int ref_slice,
                                                 bool use_temp_table) {
   AccessPath *path = new (thd->mem_root) AccessPath;
@@ -1911,7 +1911,7 @@ inline AccessPath *NewPXReceiverMergeAccessPath(THD *thd, AccessPath *child,
 }
 
 inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
-                                       std::vector<TABLE *> *tables,
+                                       mem_root_deque<TABLE *> *tables,
                                        List_item *send_fields,
                                        Temp_table_param *temp_table_param,
                                        bool use_temp_table, bool use_item,
