@@ -424,6 +424,19 @@ static void* thread_func_in_worker(void *arg)
   void *thread_func_arg = nullptr;
   worker_thread_arg *thread_arg = (worker_thread_arg *) arg;
   my_thread_init();
+
+  // thread_arg->worker_thd->set_new_thread_id();
+  thread_arg->worker_thd->thread_stack = (char *)&arg;
+  thread_arg->worker_thd->store_globals();
+
+#ifndef DBUG_OFF
+  THD *coordinator_thd = thread_arg->worker_thd->px_coordinator;
+  for (auto &val : coordinator_thd->dbug_vals) {
+    DBUG_SET(val);
+    PX_PRINT_INFO("DBUG_SET %s", val);
+  }
+#endif
+
   wait_for_begin_query (thread_arg);
 
   if (thread_arg->worker_thd->px_create_failed)

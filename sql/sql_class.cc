@@ -1485,6 +1485,12 @@ THD::~THD() {
   if (!release_resources_done()) release_resources();
 
   opt_stats->clear();
+#ifndef DBUG_OFF
+  for (auto &val : dbug_vals) {
+    my_free(const_cast<char *>(val));
+  }
+  dbug_vals.clear();
+#endif
 
   clear_next_event_pos();
 
