@@ -44,7 +44,7 @@ class PX_receiver_merge : public PX_receiver {
  public:
   // PX_receiver_merge();
   PX_receiver_merge(THD *thd, uint receiver_no, PX_exchange_info *pei,
-                    std::vector<TABLE *> *tables, Filesort *sort,
+                    mem_root_deque<TABLE *> *tables, Filesort *sort,
                     unique_ptr_destroy_only<RowIterator> source, JOIN *join,
                     int ref_slice);
   virtual ~PX_receiver_merge() {}

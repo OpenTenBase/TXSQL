@@ -1,5 +1,6 @@
 #include "sql/parallel_execution/px_optimizer.h"
 
+#include "mem_root_deque.h"
 #include "sql/join_optimizer/access_path.h"
 #include "sql/join_optimizer/walk_access_paths.h" // WalkAccessPathPolicy
 #include "sql/parallel_execution/px_access_path.h"
@@ -320,7 +321,8 @@ bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
   bool new_child = false;
   bool split_sort = split_position->m_split_sort;
   assert(!split_position->m_tables);
-  split_position->m_tables = new (thd->mem_root) std::vector<TABLE *>();
+  split_position->m_tables =
+      new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
   if (!split_position->m_tables) return true;
   GetExchangeTables(split_position);
   assert(split_position->m_tables->size());

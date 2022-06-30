@@ -3547,8 +3547,9 @@ static AccessPath *CreateExchangeAccessPath(
     uint curr_exchange, bool alloc_group_field);
 
 static AccessPath *CreateExchangeAccessPathUseTables(
-    THD *thd, JOIN *join, AccessPath *const path, vector<TABLE *> *tables,
-    int ref_slice, px_access_path::Split_Position *split_pos);
+    THD *thd, JOIN *join, AccessPath *const path,
+    mem_root_deque<TABLE *> *tables, int ref_slice,
+    px_access_path::Split_Position *split_pos);
 
 static void FixAccessPathForExchange(AccessPath *const path,
                                      AccessPath *receiver, JOIN *join,
@@ -3828,7 +3829,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       (inject_here || !child);  // We only need to inject one exchange.
 
   if (inject_here) {
-      vector<TABLE *> *&tables = split_pos->m_tables;
+      mem_root_deque<TABLE *> *&tables = split_pos->m_tables;
 
     if (use_tmp_table) {
       if (in_join) return nullptr;
@@ -3849,7 +3850,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
     if (!use_tmp_table) {
       if (!tables) {
         assert(table);
-        tables = new (thd->mem_root) vector<TABLE *>();
+        tables = new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
         if (!tables) return nullptr;
         tables->push_back(table);
       }
@@ -3918,7 +3919,7 @@ static AccessPath *CreateExchangeAccessPath(
   }
   AccessPath *sender = nullptr, *receiver = nullptr;
   TABLE *table = nullptr, *table2 = nullptr;
-  vector<TABLE *> *tables_s = nullptr, *tables_r = nullptr;
+  mem_root_deque<TABLE *> *tables_s = nullptr, *tables_r = nullptr;
 
 
   /*
@@ -3968,7 +3969,7 @@ static AccessPath *CreateExchangeAccessPath(
   // The new field may not be compatible with message queues
   if (!table || !compat_for_table(table)) goto inject_err;
 
-  tables_s = new (thd->mem_root) vector<TABLE *>();
+  tables_s = new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
   if (!tables_s) goto inject_err;
   tables_s->push_back(table);
 
@@ -4050,7 +4051,7 @@ static AccessPath *CreateExchangeAccessPath(
   join->exchange_temp_table->push_back(table2);
   join->exchange_temp_table_param->push_back(temp_table_param2);
 
-  tables_r = new (thd->mem_root) vector<TABLE *>();
+  tables_r = new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
   if (!tables_r) goto inject_err;
   tables_r->push_back(table2);
 
@@ -4134,10 +4135,10 @@ inject_err:
   return nullptr;
 }
 
-
 static AccessPath *CreateExchangeAccessPathUseTables(
-    THD *thd, JOIN *join, AccessPath *const path, std::vector<TABLE *> *tables,
-    int ref_slice, px_access_path::Split_Position *split_pos) {
+    THD *thd, JOIN *join, AccessPath *const path,
+    mem_root_deque<TABLE *> *tables, int ref_slice,
+    px_access_path::Split_Position *split_pos) {
   assert(tables && tables->size());
   AccessPath *sender = NewPXSendAccessPath(thd, path, tables, nullptr,
                                            nullptr, false, false);
@@ -4146,7 +4147,7 @@ static AccessPath *CreateExchangeAccessPathUseTables(
 
   if (split_pos->m_split_sort) {
     assert(tables->size() == 1);
-    TABLE *table = tables->at(0);
+    TABLE *table = tables->front();
 
     Filesort *final_file_sort = nullptr;
     if (split_pos->m_filesort) {
@@ -4191,7 +4192,8 @@ AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
                                               TABLE *table, bool is_append) {
   assert(table);
 
-  vector<TABLE *> *tables = new (thd->mem_root) vector<TABLE *>();
+  mem_root_deque<TABLE *> *tables =
+      new (thd->mem_root) mem_root_deque<TABLE *>(thd->mem_root);
   if (!tables) return nullptr;
   tables->push_back(table);
 
@@ -4261,13 +4263,13 @@ static void GetExchangeParam(ReceiverParam *receiver_param, AccessPath *receiver
   if (do_merge_sort) {
     const auto &px_merge_receive = receiver->px_receiver_merge();
     receiver_param->ref_slice = px_merge_receive.ref_slice;
-    receiver_param->table = px_merge_receive.tables->at(0);
+    receiver_param->table = px_merge_receive.tables->front();
     receiver_param->child = px_merge_receive.child;
     receiver_param->use_temp_table = px_merge_receive.use_temp_table;
   } else {
     const auto &px_receive = receiver->px_receiver();
     receiver_param->ref_slice = px_receive.ref_slice;
-    receiver_param->table = px_receive.tables->at(0);
+    receiver_param->table = px_receive.tables->front();
     receiver_param->child = px_receive.child;
     receiver_param->use_temp_table = px_receive.use_temp_table;
   }

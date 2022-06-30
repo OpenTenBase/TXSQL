@@ -1,14 +1,11 @@
 #ifndef PX_EXCHANGE_RECEIVER_INCLUDED
 #define PX_EXCHANGE_RECEIVER_INCLUDED
 
-#include <vector>
-
 #include "my_base.h"
 #include "mem_root_deque.h"
 #include "px.h"
 #include "sql/table.h"
 #include "sql/iterators/row_iterator.h"
-#include <vector>
 
 #include "px_exchange_info.h" // PX_exchange_handles
 
@@ -34,7 +31,7 @@ class PX_receiver : public RowIterator {
  public:
   PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei, JOIN *join,
               unique_ptr_destroy_only<RowIterator> source,
-              std::vector<TABLE *> *tables, int ref_slice);
+              mem_root_deque<TABLE *> *tables, int ref_slice);
   ~PX_receiver() {}
 
   bool Init() override;
@@ -66,7 +63,7 @@ class PX_receiver : public RowIterator {
   PX_exchange_info *get_pei() const { return m_pei; }
   uint get_receiver_id() { return m_receiver_id; }
   PX_exchange_info *get_pei() { return m_pei; }
-  TABLE *get_table() { return m_tables->at(0); }
+  TABLE *get_table() { return m_tables->front(); }
   PX_codec *get_codec() { return m_codec; }
 
   virtual std::string str() override { return "PX_RECEIVE"; }
@@ -92,7 +89,7 @@ class PX_receiver : public RowIterator {
   uint m_receiver_id{INT_MAX};
 
   /// The table providing record buffer, record[0].
-  const std::vector<TABLE *> *m_tables{nullptr};
+  const mem_root_deque<TABLE *> *m_tables{nullptr};
   /// Decoder output fields
   std::vector<Field *> m_fields;
   /// The decoder
