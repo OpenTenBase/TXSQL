@@ -2024,6 +2024,7 @@ void JOIN::destroy() {
   // Free memory for finalAggr inject
   if (aggr_tmp_table) {
     close_tmp_table(aggr_tmp_table);
+    free_tmp_table(aggr_tmp_table);
   }
   if (aggr_tmp_table_param) {
     aggr_tmp_table_param->cleanup();
@@ -2033,7 +2034,7 @@ void JOIN::destroy() {
       final_tmpaggr_tmp_table->file->ha_index_or_rnd_end();
     }
     close_tmp_table(final_tmpaggr_tmp_table);
-    // free_tmp_table(final_tmp_table);
+    free_tmp_table(final_tmpaggr_tmp_table);
   }
   if (final_aggr_tmp_table_param) {
     final_aggr_tmp_table_param->cleanup();
