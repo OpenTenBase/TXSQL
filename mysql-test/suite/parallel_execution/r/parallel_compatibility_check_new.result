@@ -934,10 +934,7 @@ b
 explain format=tree select sum(length(a)) from t1;
 EXPLAIN
 -> Aggregate: sum(length(t1.a))
-    -> PX Receiver (slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
-            -> Aggregate: sum(length(t1.a))
-                -> Parallel table scan on t1  (cost=0.45 rows=2)
+    -> Table scan on t1  (cost=0.45 rows=2)
 
 select sum(length(a)) from t1;
 sum(length(a))
@@ -1016,4 +1013,81 @@ a	b
 a	1
 b	2
 drop table t1,t2;
+#
+# Choose first non-const table
+#
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT);
+CREATE TABLE t2 (a INT, b INT, KEY a_idx(a));
+CREATE TABLE t3 (a INT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES (1, 1);
+INSERT INTO t1 VALUES (2, 2);
+INSERT INTO t1 VALUES (3, 3);
+INSERT INTO t2 VALUES (1, 1);
+INSERT INTO t2 VALUES (1, 2);
+INSERT INTO t2 VALUES (1, 3);
+INSERT INTO t3 VALUES (1, 1);
+INSERT INTO t3 VALUES (2, 2);
+INSERT INTO t3 VALUES (3, 3);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t2 USING(a) WHERE a=1;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop left join  (cost=0.80 rows=3)
+            -> Rows fetched before execution  (cost=0.00 rows=1)
+            -> Parallel index lookup on t2 using a_idx (a=1)  (cost=0.80 rows=3)
+
+SELECT * FROM t1 LEFT JOIN t2 USING(a) WHERE a=1;
+a	b	b
+1	1	1
+1	1	2
+1	1	3
+EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t3 USING(a) LEFT JOIN t2 USING(a) WHERE a=1;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop left join  (cost=0.80 rows=3)
+            -> Rows fetched before execution  (cost=0.00 rows=1)
+            -> Parallel index lookup on t2 using a_idx (a=1)  (cost=0.80 rows=3)
+
+SELECT * FROM t1 LEFT JOIN t3 USING(a) LEFT JOIN t2 USING(a) WHERE a=1;
+a	b	b	b
+1	1	1	1
+1	1	1	2
+1	1	1	3
+EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t2 USING(a) LEFT JOIN t3 USING(a) WHERE a=1;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Nested loop left join  (cost=1.35 rows=3)
+            -> Nested loop left join  (cost=0.80 rows=3)
+                -> Rows fetched before execution  (cost=0.00 rows=1)
+                -> Parallel index lookup on t2 using a_idx (a=1)  (cost=0.80 rows=3)
+            -> Constant row from t3  (cost=0.12 rows=1)
+
+SELECT * FROM t1 LEFT JOIN t2 USING(a) LEFT JOIN t3 USING(a) WHERE a=1;
+a	b	b	b
+1	1	1	1
+1	1	2	1
+1	1	3	1
+EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=1;
+EXPLAIN
+-> Nested loop left join  (cost=0.55 rows=3)
+    -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Index lookup on t using <auto_key0> (b='1')
+        -> Materialize  (cost=0.55 rows=3)
+            -> Table scan on <temporary>
+                -> Temporary table with deduplication  (cost=0.55 rows=3)
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 1)
+                            -> Parallel table scan on t2  (cost=0.55 rows=3)
+
+SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=1;
+b	a
+1	1
+DROP TABLE t1, t2, t3;
 # --include set_px_to_saved.inc

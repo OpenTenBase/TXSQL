@@ -307,6 +307,8 @@ class FakeSingleRowIterator final : public RowIterator {
 
   void UnlockRow() override {}
 
+  PhysicalRowIteratorType type() override { return PHY_FAKE_SINGLE_ROW; }
+
  private:
   bool m_has_row;
   ha_rows *const m_examined_rows;
