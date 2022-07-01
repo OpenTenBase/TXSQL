@@ -384,7 +384,13 @@ class NestedLoopIterator final : public RowIterator {
   virtual std::string str() override { return "NestedLoop"; }
   virtual PhysicalRowIteratorType type() override { return PHY_NESTED_LOOP_JOIN; }
   virtual void adjust_children() override {
-    add_child(m_source_outer.get());
+    if (m_source_outer->type() != PHY_FAKE_SINGLE_ROW) {
+      // It is a hack to choose the inner table as the parallelize table in
+      // analyze_parallel_table() if the outer table is a const table.
+      // TODO: choose the parallel table according to informations from
+      //       px_optimizer rather than analyze_parallel_table()
+      add_child(m_source_outer.get());
+    }
     add_child(m_source_inner.get());
   }
 

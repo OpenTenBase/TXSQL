@@ -3506,6 +3506,7 @@ void GetExchangeTables(px_access_path::Split_Position *split_pos) {
       case AccessPath::PUSHED_JOIN_REF:
         return false;
       case AccessPath::CONST_TABLE:
+        split_pos->m_tables->push_back(subpath->const_table().table);
         return false;
       case AccessPath::STREAM:
         split_pos->m_tables->push_back(subpath->stream().table);
@@ -3679,8 +3680,16 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
                     : &join->tmp_fields[REF_SLICE_SAVED_BASE];
       }
 
-      // Only the first table can be parallelized now
-      child = path->nested_loop_join().outer;
+      // Only the first non-const table in join can be parallelize table now, if
+      // the outer table is const table, the inner table can be parallelize
+      // table as its join condition is const.
+      bool left_const =
+          (path->nested_loop_join().outer->type == AccessPath::FAKE_SINGLE_ROW);
+      if (!left_const) {
+        child = path->nested_loop_join().outer;
+      } else {
+        child = path->nested_loop_join().inner;
+      }
       child_slice = REF_SLICE_SAVED_BASE;
       child_in_join = true;
       break;

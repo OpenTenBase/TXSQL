@@ -291,9 +291,15 @@ bool px_access_path::WalkAccessPathsForCompat(
       parallel_safe = !parallel_scan;
       break;
     }
+    case AccessPath::CONST_TABLE: {
+      is_stream = true;
+      exchange_safe = compat_for_table_fields(path->const_table().table);
+      ref_slice = REF_SLICE_SAVED_BASE;
+      parallel_safe = !parallel_scan;
+      break;
+    }
     case AccessPath::PUSHED_JOIN_REF:
     case AccessPath::FULL_TEXT_SEARCH:
-    case AccessPath::CONST_TABLE:
     case AccessPath::MRR:
     case AccessPath::FOLLOW_TAIL:
     case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
@@ -312,15 +318,36 @@ bool px_access_path::WalkAccessPathsForCompat(
       bool is_stream_l = false, is_stream_r = false;
       uint child_ref_slice_l = REF_SLICE_SAVED_BASE,
            child_ref_slice_r = REF_SLICE_SAVED_BASE;
-      if (WalkAccessPathsForCompat(
-              thd, path->nested_loop_join().outer, path, cur_join,
-              parallel_scan, false, false, child_ref_slice_r, max_px_subpath,
-              is_stream_r, mat_access_path, split_positions, exchange_safe_r) &&
-          WalkAccessPathsForCompat(
-              thd, path->nested_loop_join().inner, path, cur_join,
-              /*parallel_scan=*/false, /*root=*/false, /*root_all=*/false,
-              child_ref_slice_l, max_px_subpath, is_stream_l, mat_access_path,
-              split_positions, exchange_safe_l)) {
+      // Only the first non-const table in join can be parallelize table now, if
+      // the outer table is const table, the inner table can be parallelize
+      // table as its join condition is const.
+      bool left_const =
+          (path->nested_loop_join().outer->type == AccessPath::FAKE_SINGLE_ROW);
+      bool child_parallel_safe = false;
+      if (!left_const) {
+        child_parallel_safe =
+            (WalkAccessPathsForCompat(thd, path->nested_loop_join().outer, path,
+                                      cur_join, parallel_scan, false, false,
+                                      child_ref_slice_r, max_px_subpath,
+                                      is_stream_r, mat_access_path,
+                                      split_positions, exchange_safe_r) &&
+             WalkAccessPathsForCompat(
+                 thd, path->nested_loop_join().inner, path, cur_join,
+                 /*parallel_scan=*/false, /*root=*/false, /*root_all=*/false,
+                 child_ref_slice_l, max_px_subpath, is_stream_l,
+                 mat_access_path, split_positions, exchange_safe_l));
+        is_stream = is_stream_r;  // Only concern the branch to parallelize scan
+      } else {
+        exchange_safe_r = true;
+        is_stream_r = true;
+        child_parallel_safe = WalkAccessPathsForCompat(
+            thd, path->nested_loop_join().inner, path, cur_join, parallel_scan,
+            /*root=*/false, /*root_all=*/false, child_ref_slice_l,
+            max_px_subpath, is_stream_l, mat_access_path, split_positions,
+            exchange_safe_l);
+        is_stream = is_stream_l;  // Only concern the branch to parallelize scan
+      }
+      if (child_parallel_safe) {
         parallel_safe = true;
         ref_slice = REF_SLICE_SAVED_BASE;
         if (parallel_scan) {
@@ -335,7 +362,6 @@ bool px_access_path::WalkAccessPathsForCompat(
       } else {
         parallel_safe = false;
       }
-      is_stream = is_stream_r;  // Only concern the branch to parallelize scan
       break;
     }
     case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {

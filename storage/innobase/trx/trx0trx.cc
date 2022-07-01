@@ -2277,11 +2277,11 @@ ReadView *px_clone_read_view(trx_t *trx, trx_t *orig_trx)
 
   ReadView *orig_view = orig_trx->read_view;
   ut_ad(trx->read_view && orig_view);
-  mutex_enter(&orig_trx->view_mutex);
-  mutex_enter(&trx->view_mutex);
+  //mutex_enter(&orig_trx->view_mutex);
+  //mutex_enter(&trx->view_mutex);
   trx->read_view->px_clone_from(orig_view);
-  mutex_exit(&trx->view_mutex);
-  mutex_exit(&orig_trx->view_mutex);
+  //mutex_exit(&trx->view_mutex);
+  //mutex_exit(&orig_trx->view_mutex);
 
   return (trx->read_view);
 }
