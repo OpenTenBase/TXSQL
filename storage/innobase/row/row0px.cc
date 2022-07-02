@@ -651,7 +651,8 @@ dberr_t PX_Scan_ctx::create_contexts(const Ranges &ranges) {
 dberr_t PX_Scan_ctx::find_visible_record(byte *buf, const rec_t *&rec,
                                          const rec_t *&clust_rec, ulint *&offsets,
                                          ulint *&clust_offsets, mem_heap_t *&heap,
-                                         mtr_t *mtr, row_prebuilt_t *prebuilt) {
+                                         mtr_t *mtr, row_prebuilt_t *prebuilt,
+                                         bool &mtr_has_extra_clust_latch) {
   dberr_t err = DB_SUCCESS;
   que_thr_t *thr = nullptr;
   trx_t *trx = prebuilt->trx;
@@ -753,6 +754,9 @@ dberr_t PX_Scan_ctx::find_visible_record(byte *buf, const rec_t *&rec,
   require_clust:
     ut_ad(!m_config.m_index->is_clustered());
     ut_ad(rec_offs_validate(rec, m_config.m_index, offsets));
+    /* It was a non-clustered index and we must fetch also the
+    clustered index record */
+    mtr_has_extra_clust_latch = true;
     prebuilt->px_requires_clust_rec = true;
 
     thr = que_fork_get_first_thr(prebuilt->sel_graph);
@@ -1029,8 +1033,7 @@ rec_loop:
     a previous version of the record
   */
   err1 = m_scan_ctx->find_visible_record(buf, rec, clust_rec, offsets,
-                                         offsets, m_heap, &mtr, prebuilt);
-
+                                         offsets, m_heap, &mtr, prebuilt, mtr_has_extra_clust_latch);
   /*
     When err1 == DB_SUCCESS, indicates we have get the visible record.
     when err1 == DB_NOT_FOUND, indicates we need skip the record.
@@ -1045,11 +1048,6 @@ rec_loop:
 
   /* Convert record to mysql format. */
   if (prebuilt->px_requires_clust_rec) {
-    /*
-      It was a non-clustered index and we have
-      fetched the clustered index record.
-    */
-    mtr_has_extra_clust_latch = true;
     result_rec = clust_rec;
 
     if (prebuilt->idx_cond) {

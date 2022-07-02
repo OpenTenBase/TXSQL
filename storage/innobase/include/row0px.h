@@ -363,7 +363,8 @@ class PX_Scan_ctx {
   dberr_t find_visible_record(byte *buf, const rec_t *&rec,
                               const rec_t *&clust_rec, ulint *&offsets,
                               ulint *&clust_offsets, mem_heap_t *&heap,
-                              mtr_t *mtr, row_prebuilt_t *prebuilt = nullptr)
+                              mtr_t *mtr, row_prebuilt_t *prebuilt,
+                              bool &mtr_has_extra_clust_latch)
       MY_ATTRIBUTE((warn_unused_result));
 
   /** Create an execution context for a range and add it to
