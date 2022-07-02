@@ -2266,17 +2266,22 @@ void trx_assign_read_view(trx_t *trx, /*!< in/out: active transaction */
 }
 
 /** Do deep copy of snapshot to trx->read_view.
-@param[in]	trx worker's transaction
-@param[in]	snapshot	coordinator's snapshot
+@param[in]	trx destination transaction
+@param[in]	orig_trx	the source transaction
 @return read view cloned */
-ReadView *trx_clone_read_view(trx_t *trx, ReadView *snapshot)
+ReadView *px_clone_read_view(trx_t *trx, trx_t *orig_trx)
 {
   if (srv_read_only_mode) {
     return nullptr;
   }
 
-  ut_ad(trx->read_view);
-  trx->read_view->px_clone_from(snapshot);
+  ReadView *orig_view = orig_trx->read_view;
+  ut_ad(trx->read_view && orig_view);
+  mutex_enter(&orig_trx->view_mutex);
+  mutex_enter(&trx->view_mutex);
+  trx->read_view->px_clone_from(orig_view);
+  mutex_exit(&trx->view_mutex);
+  mutex_exit(&orig_trx->view_mutex);
 
   return (trx->read_view);
 }

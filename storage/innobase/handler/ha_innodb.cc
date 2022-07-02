@@ -11135,7 +11135,7 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
   }
 
   reader->key = active_index;
-  reader->snapshot = trx->read_view;
+  reader->coordiantor_trx = trx;
   reader->m_reverse_scan = reverse_scan;
 
   switch (px_scan_type) {
@@ -11145,7 +11145,7 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
     case PX_REF_SCAN:
       result = px_ref_scan_init(reader, reverse_scan);
       break;
-    default :
+    default:
       result = px_full_scan_init(reader, reverse_scan);
       break;
   }
@@ -11197,9 +11197,9 @@ int ha_innobase::px_worker_init(void *&scan_ctx) {
     the readview of parallel execution coordinator. 
   */
   if (!srv_read_only_mode) {
-    ut_ad(reader->snapshot);
+    ut_ad(reader->coordiantor_trx && reader->coordiantor_trx->read_view);
     trx_assign_read_view(trx);
-    trx_clone_read_view(trx, reader->snapshot);
+    px_clone_read_view(trx, reader->coordiantor_trx);
     if (trx->read_view == nullptr) {
       return HA_ERR_OUT_OF_MEM;
     }
