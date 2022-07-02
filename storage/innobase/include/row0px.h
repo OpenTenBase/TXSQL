@@ -95,7 +95,7 @@ class PX_reader {
 
  public:
   uint key{0};
-  ReadView *snapshot{};
+  trx_t *coordiantor_trx{};
   bool m_reverse_scan{false};
 
  private:

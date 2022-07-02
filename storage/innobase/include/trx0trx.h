@@ -211,7 +211,7 @@ void trx_assign_read_view(trx_t *trx, /*!< in: active transaction */
                           uint64_t gts = 0); /*!< in: GTS mode readview enable or not */
 
 /** Clone a readview to a trx. */
-ReadView *trx_clone_read_view(trx_t *trx, ReadView *readview);
+ReadView *px_clone_read_view(trx_t *trx, trx_t *orig_trx);
 
 /** @return the transaction's read view or NULL if one not assigned. */
 static inline ReadView *trx_get_read_view(trx_t *trx, dict_index_t *index);
