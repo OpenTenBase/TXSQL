@@ -452,6 +452,7 @@ dberr_t PX_Scan_ctx::create_ranges(const PX_Scan_range &scan_range,
     page_cur_move_to_next(&page_cursor);
   }
 
+  page_cur_t start_page_cursor = page_cursor;
   mem_heap_t *heap{};
   const auto at_leaf = page_is_leaf(buf_block_get_frame(block));
   const auto at_level = btr_page_get_level(buf_block_get_frame(block));
@@ -533,6 +534,22 @@ dberr_t PX_Scan_ctx::create_ranges(const PX_Scan_range &scan_range,
     page_cur_move_to_next(&page_cursor);
   }
 
+  /* Support split_by_row for test. */
+#ifndef DBUG_OFF
+  if (m_reader->m_row_split && ranges.size() == 1 && depth == split_level && at_leaf) {
+    ranges.clear();
+    while (!page_cur_is_after_last(&start_page_cursor)) {
+      auto rec = page_cur_get_rec(&start_page_cursor);
+      offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);
+      if (scan_range.m_end != nullptr && scan_range.m_end->compare(rec, index, offsets) < 0) {
+        break;
+      }
+
+      create_range(ranges, start_page_cursor, mtr);
+      page_cur_move_to_next(&start_page_cursor);
+    }
+  }
+#endif
   savepoints.push_back(savepoint);
 
   for (auto &savepoint : savepoints) {

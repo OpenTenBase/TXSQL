@@ -97,6 +97,9 @@ class PX_reader {
   uint key{0};
   trx_t *coordiantor_trx{};
   bool m_reverse_scan{false};
+#ifndef DBUG_OFF
+  bool m_row_split{false};
+#endif
 
  private:
   /** Reset error state. */
