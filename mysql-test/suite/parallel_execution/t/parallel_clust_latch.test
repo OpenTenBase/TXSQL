@@ -1,0 +1,23 @@
+--disable_ps_protocol
+
+create table t2 (a int unique);
+insert into t2 (a) values (1);
+insert into t2 (a) values (2000);
+
+begin;
+insert into t2 (a) values (1024);
+insert into t2 (a) values (24);
+
+connect(conn1,localhost,root,,);
+connection conn1;
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+EXPLAIN select * from t2 force index(a);
+select * from t2 force index(a);
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+
+disconnect conn1;
+
+connection default;
+rollback;
+drop table t2;
