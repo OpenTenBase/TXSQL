@@ -11115,6 +11115,7 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
 
   update_thd();
   auto trx = m_prebuilt->trx;
+  ut_a(trx);
   innobase_register_trx(ht, ha_thd(), trx);
   trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
   trx_assign_read_view(trx);
@@ -11137,6 +11138,10 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
   reader->key = active_index;
   reader->coordiantor_trx = trx;
   reader->m_reverse_scan = reverse_scan;
+#ifndef DBUG_OFF
+  reader->m_row_split = true;
+  DBUG_EXECUTE_IF("px_no_row_split", reader->m_row_split = false;);
+#endif
 
   switch (px_scan_type) {
     case PX_RANGE_SCAN:
