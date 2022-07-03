@@ -1812,7 +1812,9 @@ static void check_secondary_engine_statement(THD *thd,
   dispatch_sql_command(thd, parser_state);
 
   // If PX execution fails to execute properly, fallback to serial.
-  if (thd->need_fallback) fallback_to_serial_execution(thd, parser_state);
+  if (thd->need_fallback)
+    fallback_to_serial_execution(thd, parser_state, query_string,
+                                 query_length);
 
   // Restore the original option bits.
   thd->variables.option_bits = saved_option_bits;
@@ -2275,7 +2277,9 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       dispatch_sql_command(thd, &parser_state);
 
       // If PX execution fails to execute properly, fallback to serial.
-      if (thd->need_fallback) fallback_to_serial_execution(thd, &parser_state);
+      if (thd->need_fallback)
+        fallback_to_serial_execution(thd, &parser_state, orig_query.str,
+                                     orig_query.length);
 
       // Check if the statement failed and needs to be restarted in
       // another storage engine.

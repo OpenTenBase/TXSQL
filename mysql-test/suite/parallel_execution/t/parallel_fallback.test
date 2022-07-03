@@ -1,3 +1,5 @@
+--source suite/query_rewrite_plugins/include/have_plugin_rewriter.inc
+
 --disable_ps_protocol
 
 SHOW VARIABLES LIKE "%px_fallback_in_execution%";
@@ -33,6 +35,7 @@ connection conn2;
 --echo ###
 SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t1;
 
 connection conn1;
@@ -44,10 +47,54 @@ connect(conn3,localhost,tencentroot,,);
 connection conn3;
 SHOW VARIABLES LIKE "%px_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t1;
 
-connection conn1;
---source suite/parallel_execution/inc/set_px_to_saved.inc
-set global px_fallback_in_execution = @saved_px_fallback_in_execution;
-
 drop table t1;
+
+--echo #
+--echo # [bugfix]#1023 Rewriter rule mismatch in fallback execution
+--echo #
+connection conn1;
+set global px_fallback_in_execution = 1;
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+
+CREATE TABLE t1 ( c1 INTEGER, c2 INTEGER );
+CREATE TABLE t2 ( c1 INTEGER, c2 INTEGER );
+INSERT INTO t1 VALUES (1, 2), (2, 0), (3, 1), (4, 3), (5, 4), (6, 1), (7, 2);
+INSERT INTO t2 VALUES (1, 1), (3, 3), (4, 0), (6, 3), (9, 1), (8, 10);
+
+--source suite/query_rewrite_plugins/include/install_rewriter.inc
+
+SET sql_mode = 'PIPES_AS_CONCAT';
+
+INSERT INTO query_rewrite.rewrite_rules( pattern, replacement  )
+VALUES ( 'SELECT * FROM ( SELECT * FROM test.t2 WHERE c1=? ) b',
+         'SELECT * FROM test.t1 WHERE c1=?' );
+
+CALL query_rewrite.flush_rewrite_rules();
+
+--replace_column 1 #
+SELECT * FROM query_rewrite.rewrite_rules;
+
+FLUSH STATUS;
+SHOW STATUS LIKE 'PX_stmt_fallback';
+SHOW STATUS LIKE 'Rewriter%';
+
+explain SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
+--sorted_result
+SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
+
+SHOW STATUS LIKE 'Rewriter%';
+SHOW STATUS LIKE 'PX_stmt_fallback';
+
+SET sql_mode = DEFAULT;
+
+--source suite/query_rewrite_plugins/include/uninstall_rewriter.inc
+
+DROP TABLE t1;
+DROP TABLE t2;
+
+connection conn1;
+set global px_fallback_in_execution = @saved_px_fallback_in_execution;
+--source suite/parallel_execution/inc/set_px_to_saved.inc

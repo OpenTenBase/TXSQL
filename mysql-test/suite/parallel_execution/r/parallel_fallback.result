@@ -27,12 +27,13 @@ px_fallback_in_execution	OFF
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 SELECT * FROM t1;
 id	col1	col2
 1	testtesttesttest	10
+10	testtesttesttest	1
 2	testtesttesttest	9
 3	testtesttesttest	8
 4	testtesttesttest	7
@@ -41,7 +42,6 @@ id	col1	col2
 7	testtesttesttest	4
 8	testtesttesttest	3
 9	testtesttesttest	2
-10	testtesttesttest	1
 set global px_fallback_in_execution = 1;
 ###
 ### Disable Execute statement in parallel mode but the parallel explain mode
@@ -52,12 +52,13 @@ px_fallback_in_execution	ON
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 SELECT * FROM t1;
 id	col1	col2
 1	testtesttesttest	10
+10	testtesttesttest	1
 2	testtesttesttest	9
 3	testtesttesttest	8
 4	testtesttesttest	7
@@ -66,7 +67,63 @@ id	col1	col2
 7	testtesttesttest	4
 8	testtesttesttest	3
 9	testtesttesttest	2
-10	testtesttesttest	1
-# --include set_px_to_saved.inc
-set global px_fallback_in_execution = @saved_px_fallback_in_execution;
 drop table t1;
+#
+# [bugfix]#1023 Rewriter rule mismatch in fallback execution
+#
+set global px_fallback_in_execution = 1;
+SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+Variable_name	Value
+px_fallback_in_execution	ON
+CREATE TABLE t1 ( c1 INTEGER, c2 INTEGER );
+CREATE TABLE t2 ( c1 INTEGER, c2 INTEGER );
+INSERT INTO t1 VALUES (1, 2), (2, 0), (3, 1), (4, 3), (5, 4), (6, 1), (7, 2);
+INSERT INTO t2 VALUES (1, 1), (3, 3), (4, 0), (6, 3), (9, 1), (8, 10);
+# Query rewrite plugin was installed.
+SET sql_mode = 'PIPES_AS_CONCAT';
+INSERT INTO query_rewrite.rewrite_rules( pattern, replacement  )
+VALUES ( 'SELECT * FROM ( SELECT * FROM test.t2 WHERE c1=? ) b',
+'SELECT * FROM test.t1 WHERE c1=?' );
+CALL query_rewrite.flush_rewrite_rules();
+SELECT * FROM query_rewrite.rewrite_rules;
+id	pattern	pattern_database	replacement	enabled	message
+#	SELECT * FROM ( SELECT * FROM test.t2 WHERE c1=? ) b	NULL	SELECT * FROM test.t1 WHERE c1=?	YES	NULL
+FLUSH STATUS;
+SHOW STATUS LIKE 'PX_stmt_fallback';
+Variable_name	Value
+PX_stmt_fallback	0
+SHOW STATUS LIKE 'Rewriter%';
+Variable_name	Value
+Rewriter_number_loaded_rules	1
+Rewriter_number_reloads	2
+Rewriter_number_rewritten_queries	0
+Rewriter_reload_error	OFF
+explain SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`c1` AS `c1`,`test`.`t2`.`c2` AS `c2` from `test`.`t2` where (`test`.`t2`.`c1` = 3)
+SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
+c1	c2
+3	1
+Note	1105	Query 'SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b' rewritten to 'SELECT * FROM test.t1 WHERE c1=3' by a query rewrite plugin
+Warnings:
+SHOW STATUS LIKE 'Rewriter%';
+Variable_name	Value
+Rewriter_number_loaded_rules	1
+Rewriter_number_reloads	2
+Rewriter_number_rewritten_queries	2
+Rewriter_reload_error	OFF
+SHOW STATUS LIKE 'PX_stmt_fallback';
+Variable_name	Value
+PX_stmt_fallback	1
+SET sql_mode = DEFAULT;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
+# Query rewrite plugin was queued for uninstalling.
+DROP TABLE t1;
+DROP TABLE t2;
+set global px_fallback_in_execution = @saved_px_fallback_in_execution;
+# --include set_px_to_saved.inc

@@ -45,6 +45,8 @@ bool px_execute_init(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
 bool px_execute_in_coordinator(THD *thd, int64_t dop);
 bool px_execute_in_worker(THD *thd);
 
-void fallback_to_serial_execution(THD *thd, Parser_state *parser_state);
+void fallback_to_serial_execution(THD *thd, Parser_state *parser_state,
+                                  const char *query_string,
+                                  size_t query_length);
 
 #endif
