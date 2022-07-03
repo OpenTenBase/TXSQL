@@ -1009,32 +1009,37 @@ void PX_parallel_coordinator::prepare_schedule_single_dfo(int num_workers,
   @param thd            the session
   @param parser_state   the parser state
 */
-void fallback_to_serial_execution(THD *thd, Parser_state *parser_state) {
+void fallback_to_serial_execution(THD *thd, Parser_state *parser_state, 
+                                  const char *query_string,
+                                  size_t query_length) {
   PX_PRINT_INFO("fall back to serial execution.");
 
   mysql_mutex_lock(&LOCK_inc_px_stmt_fallback);
   px_stmt_fallback++;
   mysql_mutex_unlock(&LOCK_inc_px_stmt_fallback);
 
-  /* PSI end */
+  // Tell performance schema that the statement is restarted.
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
-  thd->m_statement_psi = nullptr;
-  thd->m_digest = nullptr;
-
-  /* PSI begin */
-  thd->m_digest = &thd->m_digest_state;
-  thd->m_digest->reset(thd->m_token_array, max_digest_length);
-
   thd->m_statement_psi = MYSQL_START_STATEMENT(&thd->m_statement_state,
       com_statement_info[thd->get_command()].m_key,
       thd->db().str, thd->db().length, thd->charset(), nullptr);
   THD_STAGE_INFO(thd, stage_starting_fallback);
 
+  // Reset the statement digest state.
   thd->m_digest = &thd->m_digest_state;
   thd->m_digest->reset(thd->m_token_array, max_digest_length);
 
-  if (parser_state->init(thd, thd->query().str, thd->query().length))
-    return;
+  // Reset the parser state.
+  thd->set_query(query_string, query_length);
+  parser_state->reset(thd->query().str, thd->query().length);
+
+  // Disable the general log. The query was written to the general log in the
+  // first attempt to execute it. No need to write it twice.
+  const uint64_t saved_option_bits = thd->variables.option_bits;
+  thd->variables.option_bits |= OPTION_LOG_OFF;
 
   dispatch_sql_command(thd, parser_state);
+
+  // Restore the original option bits.
+  thd->variables.option_bits = saved_option_bits;
 }
