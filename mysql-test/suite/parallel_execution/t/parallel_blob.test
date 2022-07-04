@@ -17,14 +17,24 @@ CREATE TABLE `testText` (
 
 INSERT INTO testText (id,data) VALUES (0,repeat('0123456789abcdef',1));
 INSERT INTO testText (id,data) VALUES (1,repeat('0123456789abcdef',510));
+INSERT INTO testText (id,data) VALUES (2,repeat('0123456789abcdef',510));
+INSERT INTO testText (id,data) VALUES (3,repeat('0123456789abcdef',510));
 ANALYZE TABLE testText;
+
+SET global debug = "+d,px_no_row_split";
 
 connection conn1;
 --source suite/parallel_execution/inc/save_and_set_px.inc
 connect(conn2,localhost,user1,,);
 
-EXPLAIN FORMAT=TREE SELECT * FROM testText;
-SELECT * FROM testText;
+explain format=tree select sum(id) from testText where id <= 2;
+select sum(id) from testText where id <= 2;
+
+explain format=tree select * from testText;
+# No need to verify because it is serial execution so far.
+# select * from testText;
+
+SET global debug = "-d,px_no_row_split";
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc
