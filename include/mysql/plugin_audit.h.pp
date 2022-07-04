@@ -131,6 +131,8 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
 void set_semisync_ack_error(void *thd);
+bool thd_is_parallel_worker(void * thd);
+void *thd_get_coordinator_trx(void * thd);
 #include <mysql/components/services/bits/plugin_audit_connection_types.h>
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,

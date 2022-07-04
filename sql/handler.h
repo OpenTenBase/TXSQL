@@ -4757,11 +4757,31 @@ class handler {
         inited == PQ ? ha_px_end() : 0;
   }
 
+  /*
+    Handler interface methods for parallel execution.
+
+    For the coordinator,
+     - ha_px_trx_init() to provide the source read view
+     - ha_px_do_partition() to do dynamic partitioning
+
+    For any worker,
+     - ha_px_scan_init() to get ready for accessing data
+     - ha_px_scan_next() to get one data row
+
+    For both,
+     - ha_px_end() to do clean up
+   */
+
+  int ha_px_trx_init(void *&coordinator_trx);
+
+  int ha_px_do_partition(uint dop, uint keyno, void *&scan_ctx,
+                         uint &partitions, bool reverse_scan = false);
+
+  int ha_px_scan_init();
+
+  int ha_px_scan_next(uchar *buf, void *scan_ctx);
+
   int ha_px_end();
-
-  int ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, uint &partitions, bool reverse_scan = false);
-
-  int ha_px_worker_next(uchar *buf, void *scan_ctx);
 
   /**
     The cached_table_flags is set at ha_open and ha_external_lock
@@ -4906,28 +4926,28 @@ class handler {
   */
   virtual void parallel_scan_end(void *scan_ctx [[maybe_unused]]) { return; }
 
-  virtual int px_coordinator_init(uint dop MY_ATTRIBUTE((unused)),
-                                  uint key MY_ATTRIBUTE((unused)),
-                                  void *&scan_ctx MY_ATTRIBUTE((unused)),
-                                  uint &partitions MY_ATTRIBUTE((unused)),
-                                  bool reverse_scan MY_ATTRIBUTE((unused)) = false) {
+  virtual int px_trx_init(void *&coordinator_trx MY_ATTRIBUTE((unused))) {
     return 0;
   }
 
-  virtual int px_worker_init(void *&scan_ctx MY_ATTRIBUTE((unused))) {
+  virtual int px_do_partition(uint dop MY_ATTRIBUTE((unused)),
+                              uint key MY_ATTRIBUTE((unused)),
+                              void *&scan_ctx MY_ATTRIBUTE((unused)),
+                              uint &partitions MY_ATTRIBUTE((unused)),
+                              bool reverse_scan MY_ATTRIBUTE((unused)) = false) {
     return 0;
   }
 
-  virtual int px_worker_next(uchar *buf MY_ATTRIBUTE((unused)),
+  virtual int px_scan_init() {
+    return 0;
+  }
+
+  virtual int px_scan_next(uchar *buf MY_ATTRIBUTE((unused)),
                  void *scan_ctx MY_ATTRIBUTE((unused))) {
     return 0;
   }
 
-  virtual int px_coordinator_end(void *scan_ctx MY_ATTRIBUTE((unused))) {
-    return 0;
-  }
-
-  virtual int px_worker_end(void *scan_ctx MY_ATTRIBUTE((unused))) {
+  virtual int px_scan_end(void *scan_ctx MY_ATTRIBUTE((unused))) {
     return 0;
   }
 

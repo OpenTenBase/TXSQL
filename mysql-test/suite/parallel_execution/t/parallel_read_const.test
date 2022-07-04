@@ -1,0 +1,44 @@
+--source include/have_debug.inc
+--disable_ps_protocol
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+CREATE TABLE t1 (
+  f1 varchar(16) collate latin1_swedish_ci PRIMARY KEY,
+  f2 varchar(16) collate latin1_swedish_ci
+);
+
+CREATE TABLE t2 (
+	f1 varchar(16) collate latin1_swedish_ci,
+	f3 varchar(16) collate latin1_swedish_ci, key(f1));
+	
+INSERT INTO t1 VALUES ('bla','blah');
+INSERT INTO t1 VALUES ('blc','blad');
+INSERT INTO t1 VALUES ('bld','blad');
+INSERT INTO t2 VALUES ('bla','sheep');
+INSERT INTO t2 VALUES ('blc','sheep');
+INSERT INTO t2 VALUES ('bld','sheep');
+INSERT INTO t2 VALUES ('bla','sheep2');
+INSERT INTO t2 VALUES ('bla','sheep3');
+ANALYZE TABLE t1,t2;
+
+connection conn1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+connect(conn2,localhost,user1,,);
+
+explain format=tree SELECT * FROM t1 JOIN t2 USING(f1) WHERE f1='bla';
+explain SELECT * FROM t1 JOIN t2 USING(f1) WHERE f1='bla';
+--sorted_result
+SELECT * FROM t1 JOIN t2 USING(f1) WHERE f1='bla';
+
+connection conn1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+
+drop table t1,t2;
+drop database test1;
+drop user user1;

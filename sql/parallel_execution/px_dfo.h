@@ -165,6 +165,7 @@ class Dfo_mgr {
   THD *m_thd; // THD handle.
   RowIterator *m_root_iterator;  // root iterator of the SQL.
   int64_t m_dfo_id_counter; // counter id for all dfo.
+  bool m_trx_inited{false};
 };
 
 TableRowIterator *analyze_parallel_table(Dfo *dfo);

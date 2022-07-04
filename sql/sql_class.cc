@@ -1920,6 +1920,7 @@ void THD::cleanup_after_query() {
     opt_stats = new (&stats_cache_alloc) Stats_cache(&stats_cache_alloc);
   }
   use_px = false;
+  px_coordinator_trx = nullptr;
 }
 
 /*

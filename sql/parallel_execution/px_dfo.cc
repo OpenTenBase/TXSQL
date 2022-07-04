@@ -227,9 +227,33 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
             given_dop = default_dop;
           }
 
+          /*
+            Parallel threads of a single statement should use the same
+            ReadView to access data. This is achived by obtaining the first
+            ReadView and reusing it in all threads. Specifically, the ReadView
+            is obtained in the coordinator thread which receives the user
+            request, then reused in all background worker threads.
+
+            By saving the source transaction in THD::px_coordinator_trx in
+            coordinator, a worker is able to get a ReadView copy through its
+            reference to the coordinator. The worker then implicitly replaces
+            its default ReadView with the one from the coordinator before any
+            data access. See trx_assign_read_view().
+          */
+          if (!m_trx_inited) {
+            m_trx_inited = true;
+            int err = desc->table()->file->ha_px_trx_init(m_thd->px_coordinator_trx);
+            if (err) {
+              desc->table()->file->print_error(err, MYF(0));
+              PX_PRINT_ERROR("assign global readview error");
+              return true;
+            }
+          }
+
+          // Dynamic partition
           int err = px_partition(given_dop, child->m_px_scan_ctx, desc->table(),
                                  desc->type(), desc->keyno(), desc->ref(), desc->reverse_scan(),
-                                 partitions);    
+                                 partitions); 
           if (err) {
             PX_PRINT_ERROR(
                 "partitioning table %s (%llu rows) with default dop %lu "
@@ -265,6 +289,11 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
             switch to parallel scan.
            */
           scan->set_parallel_scan();
+          int err = scan->px_scan_init();
+          if (err) {
+            PX_PRINT_ERROR("px_scan_init error for parallel table");
+            return true;
+          }
         }
         assert(exchange_info->num_senders() > 0);
         child->set_dfo_dop(exchange_info->num_senders());

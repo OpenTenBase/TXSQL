@@ -3038,29 +3038,34 @@ FT_INFO *handler::ft_init_ext(uint flags [[maybe_unused]],
   return nullptr;
 }
 
-/**
-  Initialize PX_reader for parallel scan. Partition the table into
-  slices and manage them in a global queue.
+int handler::ha_px_trx_init(void *&coordinator_trx) {
+  int result;
+  DBUG_TRACE;
+  assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
+  inited =
+      (result = px_trx_init(coordinator_trx)) ? NONE : PQ;
+  end_range = NULL;
+  return result;
+}
 
-  @param scan_ctx  The partitioned table scan context.
-
-  @return Operation status
-    @retval 0     Success
-    @retval != 0  Error (error code returned)
-*/
-
-int handler::ha_px_coordinator_init(uint dop, uint keyno, void *&scan_ctx, uint &partitions, bool reverse_scan) {
+int handler::ha_px_do_partition(uint dop, uint keyno, void *&scan_ctx,
+                                uint &partitions, bool reverse_scan) {
   int result;
   DBUG_TRACE;
   assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   assert(inited == NONE || inited == INDEX || (inited == PQ));
   inited =
-      (result = px_coordinator_init(dop, keyno, scan_ctx, partitions, reverse_scan)) ? NONE : PQ;
+      (result = px_do_partition(dop, keyno, scan_ctx, partitions, reverse_scan)) ? NONE : PQ;
   end_range = NULL;
   return result;
 }
 
-int handler::ha_px_worker_next(uchar *buf, void *scan_ctx) {
+int handler::ha_px_scan_init() {
+  DBUG_TRACE;
+  return px_scan_init();
+}
+
+int handler::ha_px_scan_next(uchar *buf, void *scan_ctx) {
   int result;
   DBUG_TRACE;
   assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
@@ -3070,7 +3075,7 @@ int handler::ha_px_worker_next(uchar *buf, void *scan_ctx) {
 
   MYSQL_TABLE_IO_WAIT(PSI_TABLE_FETCH_ROW,
                       active_index, result,
-                      { result = px_worker_next(buf, scan_ctx); })
+                      { result = px_scan_next(buf, scan_ctx); })
   if (!result && m_update_generated_read_fields) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
@@ -3083,8 +3088,8 @@ int handler::ha_px_end() {
   int result;
   DBUG_TRACE;
 
-  /* For the parallel query test, just call px_coordinator_end here. */
-  if ((result = px_coordinator_end(table->file->px_scan_ctx)) != 0) {
+  /* For the parallel query test, just call px_scan_end here. */
+  if ((result = px_scan_end(table->file->px_scan_ctx)) != 0) {
     return result;
   }
 

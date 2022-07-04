@@ -313,6 +313,7 @@ class TableRowIterator : public RowIterator {
 
   virtual void set_parallel_scan() { m_parallel_scan = true; }
   virtual PX_table_descriptor *get_table_descriptor() { return nullptr; }
+  virtual int px_scan_init();
 
  protected:
   int HandleError(int error);

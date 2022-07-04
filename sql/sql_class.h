@@ -1078,6 +1078,11 @@ class THD : public MDL_context_owner,
   ulong want_privilege;
 
   void *px_scan_ctx{nullptr};
+  /**
+    Used by trx_assign_read_view() to make all threads in parallel query
+    have the same readview.
+  */
+  void *px_coordinator_trx{nullptr};
  private:
   /**
     The lex to hold the parsed tree of conventional (non-prepared) queries.

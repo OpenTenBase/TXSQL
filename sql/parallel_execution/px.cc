@@ -251,7 +251,7 @@ bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
     table->file->px_ref_key.flag = HA_READ_KEY_OR_NEXT;
   }
 
-  error = table->file->ha_px_coordinator_init(dop, keyno, scan_ctx, partitions, reverse_scan);
+  error = table->file->ha_px_do_partition(dop, keyno, scan_ctx, partitions, reverse_scan);
   if (error) {
     table->file->print_error(error, MYF(0));
   }

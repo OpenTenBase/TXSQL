@@ -531,8 +531,10 @@ class ha_innobase : public handler {
   @param[in]      scan_ctx      A scan context created by parallel_scan_init. */
   void parallel_scan_end(void *scan_ctx) override;
 
-  int px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &partitions,
-                          bool reverse_scan = false) override;
+  int px_do_partition(uint dop, uint key, void *&scan_ctx, uint &partitions,
+                      bool reverse_scan = false) override;
+
+  int px_trx_init(void *&coordinator_trx) override;
 
   int px_full_scan_init(PX_reader *reader, bool reverse_scan = false);
 
@@ -545,13 +547,11 @@ class ha_innobase : public handler {
   int px_make_range_tuple(key_range *range_key, dtuple_t *&range_tuple,
                           bool reverse_scan, mem_heap_t *heap, bool is_start_key);
 
-  int px_worker_init(void *&scan_ctx) override;
+  int px_scan_init() override;
 
-  int px_worker_next(uchar *buf, void *scan_ctx) override;
+  int px_scan_next(uchar *buf, void *scan_ctx) override;
 
-  int px_coordinator_end(void *scan_ctx) override;
-
-  int px_worker_end(void *scan_ctx) override;
+  int px_scan_end(void *scan_ctx) override;
 
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
                                   uint table_changes) override;

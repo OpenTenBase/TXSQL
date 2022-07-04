@@ -231,11 +231,6 @@ bool IndexRangeScanIterator::Init() {
     return true;
   }
 
-  if (m_parallel_scan) {
-    table()->file->px_worker_init(thd()->px_scan_ctx);
-    return false;
-  }
-
   // Set up a record buffer. Note that we don't use
   // table->m_record_buffer, since if we are part of a ROR scan, all range
   // selects in the scan share the same TABLE object (but not the same
@@ -369,7 +364,7 @@ int IndexRangeScanIterator::Read() {
   DBUG_TRACE;
 
   if (m_parallel_scan) {
-    int result = file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx);
+    int result = file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx);
     if (result == 0) {
       if (m_examined_rows != nullptr) {
         ++*m_examined_rows;
