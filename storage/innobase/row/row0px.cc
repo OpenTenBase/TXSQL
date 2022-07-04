@@ -593,7 +593,10 @@ dberr_t PX_Scan_ctx::partition(const PX_Scan_range &scan_range,
     ut_a(iter->m_heap == nullptr);
 
     iter->m_heap = mem_heap_create(sizeof(btr_pcur_t) + (srv_page_size / 16), UT_LOCATION_HERE);
-    iter->m_tuple = dtuple_copy(scan_range.m_end, iter->m_heap);
+
+    auto tuple = dtuple_copy(scan_range.m_end, iter->m_heap);
+    dtuple_set_n_fields_cmp(tuple, dtuple_get_n_fields_cmp(scan_range.m_end));
+    iter->m_tuple = tuple;
 
     /* Do a deep copy. */
     for (size_t i = 0; i < dtuple_get_n_fields(iter->m_tuple); ++i) {
