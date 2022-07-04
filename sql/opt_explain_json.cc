@@ -1367,9 +1367,9 @@ bool join_ctx::format_nested_loop(Opt_trace_context *json) {
         Opt_trace_object anonymous_wrapper(json);
         if (tab->format(json)) return true;
       }
-
-      return false;
     }
+
+    return false;
   }
 
   Opt_trace_array loops(json, K_NESTED_LOOP);
