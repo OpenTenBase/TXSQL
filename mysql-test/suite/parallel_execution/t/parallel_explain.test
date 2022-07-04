@@ -47,6 +47,13 @@ set px_parallel_table_record_threshold = 2;
 connect(conn2,localhost,user1,,);
 
 ###
+### bugfix#1043 Empty nested_loop object in EXPLAIN json format
+###
+EXPLAIN FORMAT=tree SELECT /*+NO_PARALLEL(t1)*/ * FROM t1;
+EXPLAIN SELECT /*+NO_PARALLEL(t1)*/ * FROM t1;
+EXPLAIN FORMAT=JSON SELECT /*+NO_PARALLEL(t1)*/ * FROM t1;
+
+###
 ### Table scan
 ###
 EXPLAIN FORMAT=tree SELECT * FROM t1;
