@@ -116,11 +116,6 @@ bool ReverseIndexRangeScanIterator::Init() {
     return true;
   }
 
-  if (m_parallel_scan) {
-    table()->file->px_worker_init(thd()->px_scan_ctx);
-    return false;
-  }
-
   return false;
 }
 
@@ -128,7 +123,7 @@ int ReverseIndexRangeScanIterator::Read() {
   DBUG_TRACE;
 
   if (m_parallel_scan) {
-    int result = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx);
+    int result = table()->file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx);
     if (result == 0) {
       if (m_examined_rows != nullptr) {
         ++*m_examined_rows;

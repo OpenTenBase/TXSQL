@@ -339,11 +339,6 @@ static bool init_index(TABLE *table, handler *file, uint idx, bool sorted) {
 
 template <bool Reverse>
 bool RefIterator<Reverse>::Init() {
-  if (m_parallel_scan) {
-    table()->file->px_worker_init(thd()->px_scan_ctx);
-    return false;
-  }
-
   m_first_record_since_init = true;
   m_is_mvi_unique_filter_enabled = false;
   if (table()->file->inited) return false;
@@ -366,7 +361,7 @@ template <>
 int RefIterator<false>::Read() {  // Forward read.
   if (m_parallel_scan) {
     int tmp;
-    while ((tmp = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx))) {
+    while ((tmp = table()->file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx))) {
       if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
       return HandleError(tmp);
     }
@@ -431,7 +426,7 @@ int RefIterator<true>::Read() {  // Reverse read.
 
   if (m_parallel_scan) {
     int tmp;
-    while ((tmp = table()->file->ha_px_worker_next(table()->record[0], thd()->px_scan_ctx))) {
+    while ((tmp = table()->file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx))) {
       if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
       return HandleError(tmp);
     }

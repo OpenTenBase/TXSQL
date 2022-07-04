@@ -731,6 +731,21 @@ bool thd_has_backquery(MYSQL_THD thd) {
   }
   return false;
 }
+
+bool thd_is_parallel_worker(MYSQL_THD thd) {
+  if (thd && thd->m_is_worker) {
+    return true;
+  }
+  return false;
+}
+
+void *thd_get_coordinator_trx(MYSQL_THD thd) {
+  if (thd && thd->m_is_worker && thd->px_coordinator) {
+    return thd->px_coordinator->px_coordinator_trx;
+  }
+  return nullptr;
+}
+
 /**
   Changes from txsql end.
 */

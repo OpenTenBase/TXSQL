@@ -122,6 +122,8 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
 void set_semisync_ack_error(void *thd);
+bool thd_is_parallel_worker(void * thd);
+void *thd_get_coordinator_trx(void * thd);
 enum enum_ftparser_mode {
   MYSQL_FTPARSER_SIMPLE_MODE = 0,
   MYSQL_FTPARSER_WITH_STOPWORDS = 1,

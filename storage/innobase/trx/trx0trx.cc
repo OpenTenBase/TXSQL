@@ -2260,20 +2260,27 @@ void trx_assign_read_view(trx_t *trx, /*!< in/out: active transaction */
   } else if (!trx->view_assigned) {
     trx_sys->mvcc->view_open(trx->read_view, trx, gts);
     trx->view_assigned = true;
+    // copy readview of coordinator to worker in parallel query.
+    if (thd_is_parallel_worker(trx->mysql_thd)) {
+      trx_t *coordinator_trx = static_cast<trx_t *>(thd_get_coordinator_trx(trx->mysql_thd));
+      ut_a(coordinator_trx);
+      if (coordinator_trx && coordinator_trx->read_view) {
+        px_clone_read_view(trx, coordinator_trx);
+        ut_a(trx->read_view);
+      }
+    }
   } else {
     trx_sys->mvcc->set_view_gts(trx->read_view, gts);
   }
 }
 
-/** Do deep copy of snapshot to trx->read_view.
+/** Do deep copy of orig_trx->read_view to trx->read_view.
 @param[in]	trx destination transaction
 @param[in]	orig_trx	the source transaction
 @return read view cloned */
 ReadView *px_clone_read_view(trx_t *trx, trx_t *orig_trx)
 {
-  if (srv_read_only_mode) {
-    return nullptr;
-  }
+  ut_a(!srv_read_only_mode);
 
   ReadView *orig_view = orig_trx->read_view;
   ut_ad(trx->read_view && orig_view);

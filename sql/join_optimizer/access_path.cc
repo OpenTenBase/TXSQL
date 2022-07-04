@@ -992,6 +992,15 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
       }
       break;
     }
+    case AccessPath::TABLE_SAMPLE: {
+      if (!thd->lex->explain_format->is_tree()) {
+        if (join && join->px_encounter_exchange) {
+          // QEP_TAB *tab = get_matched_tab(join, path->table_sample().table);
+          // if (tab) plan_slice->add_tab(tab);
+        }
+      }
+      break;
+    }
     case AccessPath::EQ_REF: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
@@ -1035,6 +1044,15 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
       if (WalkAccessPathsForExplain(thd, path->hash_join().inner,
                                     exchange_context, exchange_count, join, plan_slice) ||
           WalkAccessPathsForExplain(thd, path->hash_join().outer,
+                                    exchange_context, exchange_count, join, plan_slice)) {
+        return true;
+      }
+      break;
+    }
+    case AccessPath::SORT_MERGE_JOIN: {
+      if (WalkAccessPathsForExplain(thd, path->sort_merge_join().inner,
+                                    exchange_context, exchange_count, join, plan_slice) ||
+          WalkAccessPathsForExplain(thd, path->sort_merge_join().outer,
                                     exchange_context, exchange_count, join, plan_slice)) {
         return true;
       }

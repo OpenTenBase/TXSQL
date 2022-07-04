@@ -11086,31 +11086,21 @@ int ha_innobase::px_ref_scan_init(PX_reader *reader, bool reverse_scan) {
 }
 
 /**
-  Create the PX_reader and do the partition.
+  Initialize transaction, if necessary, on the coordinator.
 
-  @param[in]	dop	The dop of parallelism.
-  @param[in]	key	The index keyno used in partition.
-  @param[in]	dop		The degree of parallelism.
-  @param[in,out]	scan_ctx	The pointer of PX_reader object.
-  @param[in]  reverse_scan Forward scan or reverse scan.
+  It is to be invoked by the coordinator thread.
 
+  @param[in,out] coordinator_trx	The pointer to transaction object.
   @retval	errno Failure
-  @retval	0 Success 
+  @retval	0 Success
 */
-int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &partitions, bool reverse_scan) {
+int ha_innobase::px_trx_init(void *&coordinator_trx) {
+  ut_a(!thd_is_parallel_worker(ha_thd()));
+
   if (dict_table_is_discarded(m_prebuilt->table)) {
     ib_senderrf(ha_thd(), IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
                 m_prebuilt->table->name.m_name);
-
     return (HA_ERR_NO_SUCH_TABLE);
-  }
-
-  int result = 0;
-  active_index = key;
-  result = change_active_index(active_index);
-
-  if (result) {
-    return result;
   }
 
   update_thd();
@@ -11127,10 +11117,45 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
     reopen it. See details in index_read.
   */
   m_prebuilt->sql_stat_start = false;
+  coordinator_trx = trx;
 
-  auto reader = ut::new_withkey<PX_reader>(
-      UT_NEW_THIS_FILE_PSI_KEY, dop);
+  return (0);
+}
 
+/**
+  Perform dynamic partitioning on the table.
+
+  It is to be invoked by the coordinator thread after having saved its
+  transaction state.
+
+  @param[in]	dop	The degree of parallelism
+  @param[in]	key	The keyno of the index to be partitioned
+  @param[in,out]	scan_ctx	The pointer to parallel scan context
+  @param[in]  reverse_scan Forward scan or backward scan
+
+  @retval	errno Failure
+  @retval	0 Success 
+*/
+int ha_innobase::px_do_partition(
+    uint dop, uint key, void *&scan_ctx, uint &partitions, bool reverse_scan) {
+  ut_a(!thd_is_parallel_worker(ha_thd()));
+
+  if (dict_table_is_discarded(m_prebuilt->table)) {
+    ib_senderrf(ha_thd(), IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
+                m_prebuilt->table->name.m_name);
+    return (HA_ERR_NO_SUCH_TABLE);
+  }
+
+  auto trx = m_prebuilt->trx;
+
+  int result = 0;
+  active_index = key;
+  result = change_active_index(active_index);
+  if (result) {
+    return result;
+  }
+  
+  auto reader = ut::new_withkey<PX_reader>(UT_NEW_THIS_FILE_PSI_KEY, dop);
   if (reader == nullptr) {
     return (HA_ERR_OUT_OF_MEM);
   }
@@ -11164,8 +11189,7 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
     return result;
   }
 
-  ulong avg_partitions =
-      thd_px_partitions_per_worker(m_prebuilt->trx->mysql_thd);
+  ulong avg_partitions = thd_px_partitions_per_worker(m_prebuilt->trx->mysql_thd);
   reader->split(avg_partitions);
   partitions = reader->get_total_ctxs();
   scan_ctx = reader;
@@ -11173,22 +11197,19 @@ int ha_innobase::px_coordinator_init(uint dop, uint key, void *&scan_ctx, uint &
   return (0);
 }
 
-int ha_innobase::px_worker_init(void *&scan_ctx) {
-  ut_ad(scan_ctx);
-  ut_ad(m_prebuilt->select_lock_type == LOCK_NONE);
+/**
+  Initialize transaction, if necessary, on a worker.
+*/
+int ha_innobase::px_scan_init() {
+  ut_a(thd_is_parallel_worker(ha_thd()));
 
-  int result = 0;
-  /* Set some variables in row_prebuilt_t before parallel scan. */
-  m_prebuilt->px_ctx = nullptr;
-  m_prebuilt->px_first_read = true;
+  if (dict_table_is_discarded(m_prebuilt->table)) {
+    ib_senderrf(ha_thd(), IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
+                m_prebuilt->table->name.m_name);
 
-  PX_reader *reader = static_cast<PX_reader *>(scan_ctx);
-  active_index = reader->key;
-  result = change_active_index(active_index);
-
-  if (result) {
-    return result;
+    return (HA_ERR_NO_SUCH_TABLE);
   }
+  ut_ad(m_prebuilt->select_lock_type == LOCK_NONE);
 
   update_thd();
   auto trx = m_prebuilt->trx;
@@ -11196,22 +11217,16 @@ int ha_innobase::px_worker_init(void *&scan_ctx) {
   trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
 
   /*
-    This is a consistent read, we must keep the readview the same
-    for all threads in a parallele execution.
-    Assign a read view for parallel execution worker, and then copy
-    the readview of parallel execution coordinator. 
+    Assign read view, if necessary. Note that trx_assign_read_view() on a
+    worker thread would also replace the default read view by the one from
+    the coordinator, so that all parallel threads read the same version of
+    data.
   */
-  if (!srv_read_only_mode) {
-    ut_ad(reader->coordiantor_trx && reader->coordiantor_trx->read_view);
-    trx_assign_read_view(trx);
-    px_clone_read_view(trx, reader->coordiantor_trx);
-    if (trx->read_view == nullptr) {
-      return HA_ERR_OUT_OF_MEM;
-    }
-  }
-
+  trx_assign_read_view(trx);
+  /* Set some variables in row_prebuilt_t before parallel scan. */
+  m_prebuilt->px_ctx = nullptr;
+  m_prebuilt->px_first_read = true;
   m_prebuilt->sql_stat_start = false;
-
   /*
     Close end range check for parallel scan.
     We have do the partition by the range start key and
@@ -11226,10 +11241,10 @@ int ha_innobase::px_worker_init(void *&scan_ctx) {
 }
 
 /**
-  Parallel scan in iterator mode. If the worker thd has attach
-  a PX_Ctx, call PX_Ctx::row_search_px to scan the record whthin
-  the boundary of PX_Ctx. If not, call PX_reader::task_dispatch
-  to get a PX_Ctx from the global task queue.
+  Get a data row on a worker.
+
+  The worker gets a partition from the parallel scan context, and caches it
+  until all data row from the partition are read.
 
   @param[in,out]  buf the buffer to store the record
   @param[in]  scan_ctx the innodb scan ctx
@@ -11237,10 +11252,13 @@ int ha_innobase::px_worker_init(void *&scan_ctx) {
   @retval	errno Failure
   @retval	0 Success 
 */
-int ha_innobase::px_worker_next(uchar *buf, void *scan_ctx) {
+int ha_innobase::px_scan_next(uchar *buf, void *scan_ctx) {
   dberr_t err{DB_SUCCESS};
   ut_a(scan_ctx != nullptr);
+  ut_a(thd_is_parallel_worker(ha_thd()));
   auto reader = static_cast<PX_reader *>(scan_ctx);
+  /* A worker must use the same index as determined by the coordinator. */
+  ut_a(reader->key == active_index);
   /* Already has error occurs. */
   if (reader->is_error_set()) {
     return err;
@@ -11248,7 +11266,7 @@ int ha_innobase::px_worker_next(uchar *buf, void *scan_ctx) {
 
   while(true) {
     if (!m_prebuilt->has_attach_ctx()) {
-      /* Attach one task (ctx) if not yet. */
+      /* Attach one partition (ctx) if not yet. */
       err = reader->task_dispatch(m_prebuilt->px_ctx);
 
       if (err != DB_SUCCESS) {
@@ -11260,7 +11278,7 @@ int ha_innobase::px_worker_next(uchar *buf, void *scan_ctx) {
     err = m_prebuilt->px_ctx->row_search_px(buf, m_prebuilt);
     /*
       There are two scenario when no valid record.
-      1) the index or the PX_Ctx end, retry dispatch task.
+      1) the index or the PX_Ctx end, retry dispatching partition.
       2) set err when other error occurs.
     */
     if (err != DB_SUCCESS) {
@@ -11278,24 +11296,21 @@ int ha_innobase::px_worker_next(uchar *buf, void *scan_ctx) {
   return (convert_error_code(err, 0, current_thd, m_prebuilt, table));
 }
 
-int ha_innobase::px_coordinator_end(void *scan_ctx) {
+/**
+  Destroy the parallel scan context.
+
+  It is to be invoked by the coordinator thread.
+
+  @return 0 or error code
+*/
+int ha_innobase::px_scan_end(void *scan_ctx) {
   ut_a(scan_ctx);
+  ut_a(!thd_is_parallel_worker(ha_thd()));
 
   active_index = MAX_KEY;
   PX_reader *reader = static_cast<PX_reader *>(scan_ctx);
 
-  /* Wake up workers thread. */
-  reader->wakeup_workers();
-
   ut::delete_(reader);
-  return 0;
-}
-
-int ha_innobase::px_worker_end(void *scan_ctx) {
-  ut_a(scan_ctx && m_prebuilt->trx && m_prebuilt->trx->read_view);
-
-  ut::delete_(m_prebuilt->trx->read_view);
-  m_prebuilt->trx->read_view = nullptr;
   return 0;
 }
 

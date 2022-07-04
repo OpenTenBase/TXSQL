@@ -92,11 +92,6 @@ bool IndexScanIterator<Reverse>::Init() {
       table()->set_keyread(true);
     }
 
-    if (m_parallel_scan) {
-      table()->file->px_worker_init(thd()->px_scan_ctx);
-      return false;
-    }
-
     int error = table()->file->ha_index_init(m_idx, m_use_order);
     if (error) {
       PrintError(error);
@@ -118,7 +113,7 @@ template <>
 int IndexScanIterator<false>::Read() {  // Forward read.
   int error;
   if (m_parallel_scan) {
-    error = table()->file->ha_px_worker_next(m_record, thd()->px_scan_ctx);
+    error = table()->file->ha_px_scan_next(m_record, thd()->px_scan_ctx);
     if (error) return HandleError(error);
     if (m_examined_rows != nullptr) {
       ++*m_examined_rows;
@@ -143,7 +138,7 @@ template <>
 int IndexScanIterator<true>::Read() {  // Backward read.
   int error;
   if (m_parallel_scan) {
-    error = table()->file->ha_px_worker_next(m_record, thd()->px_scan_ctx);
+    error = table()->file->ha_px_scan_next(m_record, thd()->px_scan_ctx);
     if (error) return HandleError(error);
     if (m_examined_rows != nullptr) {
       ++*m_examined_rows;
@@ -209,6 +204,12 @@ void TableRowIterator::EndPSIBatchModeIfStarted() {
   m_table->file->end_psi_batch_mode_if_started();
 }
 
+int TableRowIterator::px_scan_init() {
+  int err = m_table->file->ha_px_scan_init();
+  if (err) return HandleError(err);
+  return 0;
+}
+
 TableScanIterator::TableScanIterator(THD *thd, TABLE *table,
                                      double expected_rows,
                                      ha_rows *examined_rows)
@@ -242,20 +243,6 @@ bool TableScanIterator::Init() {
   */
   const bool first_init = !table()->file->inited;
 
-  if (m_parallel_scan) {
-    int error = table()->file->px_worker_init(thd()->px_scan_ctx);
-    if (error) {
-      PrintError(error);
-      return true;
-    }
-
-    if (first_init && set_record_buffer(table(), m_expected_rows)) {
-      return true; /* purecov: inspected */
-    }
-
-    return false;
-  }
-
   int error = table()->file->ha_rnd_init(true);
   if (error) {
     PrintError(error);
@@ -272,7 +259,7 @@ bool TableScanIterator::Init() {
 int TableScanIterator::Read() {
   int tmp;
   if (m_parallel_scan) {
-    while ((tmp = table()->file->ha_px_worker_next(m_record, thd()->px_scan_ctx))) {
+    while ((tmp = table()->file->ha_px_scan_next(m_record, thd()->px_scan_ctx))) {
       if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
       return HandleError(tmp);
     }

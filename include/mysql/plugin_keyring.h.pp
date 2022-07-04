@@ -122,6 +122,8 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
 void set_semisync_ack_error(void *thd);
+bool thd_is_parallel_worker(void * thd);
+void *thd_get_coordinator_trx(void * thd);
 struct st_mysql_keyring {
   int interface_version;
   bool (*mysql_key_store)(const char *key_id, const char *key_type,

@@ -73,11 +73,6 @@ class PX_reader {
     m_task_finished.store(true, std::memory_order_relaxed);
   }
 
-  /** Notify all worker threads. */
-  void wakeup_workers() {
-    os_event_set(m_event);
-  }
-
   /** Dispatch ctx to worker thread.
   @param[in,out]  task dispatched to worker.
   @return error. */

@@ -204,7 +204,7 @@ dberr_t PX_reader::task_dispatch(std::shared_ptr<PX_Ctx> &task) {
   /*
     With the contract that all tasks are prepared before any worker starting
     to consume, getting no more task indicates a worker has done. There is
-    no need to wait for more. See also ha_innobase::px_coordinator_init().
+    no need to wait for more. See also ha_innobase::px_do_partition().
 
     Note that the contract is completely different from that in Parallel_reader
     which allows odd tasks to be divided and refilled to the queue after some
