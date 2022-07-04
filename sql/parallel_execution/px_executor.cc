@@ -1,4 +1,6 @@
 #include "px_executor.h"
+
+#include "scope_guard.h"
 #include "sql/sql_lex.h"  // LEX
 #include "sql/sql_optimizer.h"  // JOIN
 #include "sql/sql_tmp_table.h"  // create_tmp_table
@@ -462,6 +464,22 @@ static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent) {
 void PX_task::run(THD *thd)
 {
   if (sub_iterator->Init()) return;
+
+  Query_expression *unit = thd->lex->unit;
+  auto join_cleanup = create_scope_guard([this, thd, unit] {
+    for (Query_block *sl = unit->first_query_block(); sl; sl = sl->next_query_block()) {
+      JOIN *join = sl->join;
+      thd->inc_examined_row_count(join->examined_rows);
+      // THD may be reused, clear examined_rows in case of double counting.
+      join->examined_rows = 0;
+    }
+    if (unit->fake_query_block != nullptr) {
+      thd->inc_examined_row_count(unit->fake_query_block->join->examined_rows);
+      // THD may be reused, clear examined_rows in case of double counting.
+      unit->fake_query_block->join->examined_rows = 0;
+    }
+  });
+
   PFSBatchMode pfs_batch_mode(sub_iterator);
 
   for (;;) {
@@ -529,30 +547,52 @@ bool PX_task::run_root(THD *thd)
   // Before this point, we can fallback before something goes wrong.
   if (sub_iterator->Init()) return true;
 
-  PFSBatchMode pfs_batch_mode(sub_iterator);
+  {
+    auto join_cleanup = create_scope_guard([this, thd, unit] {
+      for (Query_block *sl =unit->first_query_block(); sl; sl = sl->next_query_block()) {
+        JOIN *join = sl->join;
+        thd->inc_examined_row_count(join->examined_rows);
+      }
+      if (unit->fake_query_block != nullptr) {
+        thd->inc_examined_row_count(unit->fake_query_block->join->examined_rows);
+      }
+      if (PX_ROLE_COORDINATOR(thd)) {
+        assert(thd->worker_pool);
+        for (int i = 0; i < thd->worker_pool->num_workers; ++i) {
+          THD *worker_thd = thd->worker_pool->thread_args[i].worker_thd;
+          thd->inc_examined_row_count(worker_thd->get_examined_row_count());
+        }
+      }
+    });
 
-  for (;;) {
-    int error = sub_iterator->Read();
+    PFSBatchMode pfs_batch_mode(sub_iterator);
 
-    DEBUG_SYNC_C("run_root_sending_data_kill");
-    if (DBUG_EVALUATE_IF("run_root_in_sending_data_error", true, false))
-      my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
-    DBUG_EXECUTE_IF("run_root_in_sending_data_sleep", sleep(2););
+    for (;;) {
+      int error = sub_iterator->Read();
 
-    if (error > 0 || thd->is_error())
-      return true;
-    else if (error < 0)
-      break;
-    else if (thd->killed)
-    {
-      thd->send_kill_message();
-      return true;
+      DEBUG_SYNC_C("run_root_sending_data_kill");
+      if (DBUG_EVALUATE_IF("run_root_in_sending_data_error", true, false))
+        my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
+      DBUG_EXECUTE_IF("run_root_in_sending_data_sleep", sleep(2););
+
+      if (error > 0 || thd->is_error())
+        return true;
+      else if (error < 0)
+        break;
+      else if (thd->killed)
+      {
+        thd->send_kill_message();
+        return true;
+      }
+
+      ++*send_records_ptr;
+
+      if (query_result->send_data(thd, *fields))
+        return true;
     }
 
-    ++*send_records_ptr;
-
-    if (query_result->send_data(thd, *fields))
-      return true;
+    // NOTE: join_cleanup must be done before we send EOF, so that we get the
+    // row counts right.
   }
 
   thd->current_found_rows = *send_records_ptr;
