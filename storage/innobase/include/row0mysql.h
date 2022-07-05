@@ -978,6 +978,9 @@ struct row_prebuilt_t {
   /** The tuple constructed in row_search_mvcc to make the range tuple. */
   dtuple_t *px_range_tuple{};
 
+  /** Used to build the source tuple of a partition boundary. Should be freed
+  when a deep copy is made from the source tuple. See row_search_mvcc() and
+  ha_innobase::px_make_range_tuple(). */
   mem_heap_t *px_range_heap{nullptr};
 
   bool px_first_read{true};

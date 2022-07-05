@@ -826,7 +826,9 @@ PX_Scan_ctx::Iter::~Iter() {
   m_heap = nullptr;
 }
 
-PX_Ctx::~PX_Ctx() {}
+PX_Ctx::~PX_Ctx() {
+  if (m_heap) mem_heap_free(m_heap);
+}
 
 dberr_t PX_Ctx::split(size_t split_level) {
   ut_ad(m_range.first->m_tuple == nullptr ||
