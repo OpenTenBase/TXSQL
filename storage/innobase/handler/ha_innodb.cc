@@ -10940,6 +10940,11 @@ int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tupl
     }
   }
 
+  if (m_prebuilt->px_range_heap) {
+    mem_heap_free(m_prebuilt->px_range_heap);
+    m_prebuilt->px_range_heap = nullptr;
+  }
+
   return result;
 }
 
