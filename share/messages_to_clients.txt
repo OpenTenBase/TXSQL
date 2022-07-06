@@ -10017,6 +10017,12 @@ ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
 ER_WARN_FORBID_KILL_WORKER
   eng "Killing worker is not allowed, please kill query/connection %d"
 
+ER_PX_OUT_OF_LOB
+  eng "The size of lob field exceeds the limit."
+
+ER_PX_OUT_OF_SORT_LOB
+  eng "The sort buffer size exceeds the limit."ß
+
 #
 # End of MyRocks specific client messages
 #

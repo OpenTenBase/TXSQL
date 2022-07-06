@@ -3,6 +3,7 @@
 
 #define MAX_RECORD_STORE 10
 #define RECORD_BUFFER_SIZE 128
+#define MAX_SORT_LENGTH 65536
 
 /** Compare two nodes in heap. */
 extern bool heap_compare_records(uint a, uint b, void *arg);

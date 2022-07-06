@@ -1,0 +1,21 @@
+--source include/have_debug.inc
+
+CREATE TABLE t(i INT, j1 JSON, j2 JSON NOT NULL) CHARSET utf8mb4;
+SHOW CREATE TABLE t;
+INSERT INTO t VALUES
+(0, NULL, 'null'),
+(1, '1', '1'),
+(2, '[1,2,3]', '[4,5,6]'),
+(3, '{"abc":"def"}', '{"a":"b","c":"d"}');
+
+set session txsql_parallel_lob_enabled=1;
+show variables like '%txsql_parallel_lob_enabled%';
+SET global debug = "+d,px_no_row_split";
+
+EXPLAIN FORMAT=TREE SELECT * FROM t;
+SELECT * FROM t;
+SET global debug = "-d,px_no_row_split";
+set session txsql_parallel_lob_enabled=0;
+show variables like '%txsql_parallel_lob_enabled%';
+
+drop table t;

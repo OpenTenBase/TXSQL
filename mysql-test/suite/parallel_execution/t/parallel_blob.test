@@ -11,7 +11,7 @@ grant all on *.* to 'user1'@'%';
 CREATE TABLE `testText` (
   `id` int(11) unsigned NOT NULL,
   `before` char(6) NOT NULL DEFAULT 'before',
-  `data` text NOT NULL,
+  `data` LONGTEXT NOT NULL,
   `after` char(5) NOT NULL DEFAULT 'after',
   PRIMARY KEY (`id`) ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -26,15 +26,35 @@ SET global debug = "+d,px_no_row_split";
 connection conn1;
 --source suite/parallel_execution/inc/save_and_set_px.inc
 connect(conn2,localhost,user1,,);
+set session txsql_parallel_lob_enabled=1;
+show variables like '%txsql_parallel_lob_enabled%';
 
 explain format=tree select sum(id) from testText where id <= 2;
 select sum(id) from testText where id <= 2;
 
-explain format=tree select * from testText;
-# No need to verify because it is serial execution so far.
-# select * from testText;
-
 SET global debug = "-d,px_no_row_split";
+
+EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(0)*/ * FROM testText;
+SELECT /*+PARALLEL(0)*/ * FROM testText;
+
+EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText;
+SELECT /*+PARALLEL(1)*/ * FROM testText;
+
+EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
+SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
+
+INSERT INTO testText (id,data) VALUES (4,repeat('0123456789abcdef',10000));
+ANALYZE TABLE testText;
+EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText;
+--error ER_PX_EXECUTE_ERROR
+SELECT /*+PARALLEL(1)*/ * FROM testText;
+
+EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
+--error ER_PX_EXECUTE_ERROR
+SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
+
+set session txsql_parallel_lob_enabled=0;
+show variables like '%txsql_parallel_lob_enabled%';
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc

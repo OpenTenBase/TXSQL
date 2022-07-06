@@ -8890,3 +8890,19 @@ static Sys_var_bool Sys_txsql_pread_count_enabled(
     HINT_UPDATEABLE SESSION_VAR(txsql_pread_count_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_ulonglong Sys_txsql_parallel_execution_max_lob_size(
+    "txsql_parallel_execution_max_lob_size",
+    "Specify the max lob object size.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_parallel_execution_max_lob_size),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(128, ULONG_MAX), DEFAULT(65536), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_txsql_parallel_lob_enabled(
+    "txsql_parallel_lob_enabled",
+    "Allow parallel scan and exchange for lob type "
+    "It is for blob/text/json now.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_parallel_lob_enabled),
+    CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));

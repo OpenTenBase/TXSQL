@@ -65,12 +65,17 @@ class PX_codec {
 
   | length | data |
    (1 or 2)
+
+  A lob field:
+  | actual data length | blob_pointer |
+   (1 - 4)
 */
 class PX_compact_codec : public PX_codec {
  public:
   struct PX_field_data {
     uchar *m_ptr{nullptr};
     uint32 m_len{0};
+    uint m_packlength{0};
     /*
       Set to false to ignore the field from compact row.
       It is an optimization of message size for null

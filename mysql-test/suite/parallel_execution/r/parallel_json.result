@@ -1,0 +1,34 @@
+CREATE TABLE t(i INT, j1 JSON, j2 JSON NOT NULL) CHARSET utf8mb4;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `i` int DEFAULT NULL,
+  `j1` json DEFAULT NULL,
+  `j2` json NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t VALUES
+(0, NULL, 'null'),
+(1, '1', '1'),
+(2, '[1,2,3]', '[4,5,6]'),
+(3, '{"abc":"def"}', '{"a":"b","c":"d"}');
+set session txsql_parallel_lob_enabled=1;
+show variables like '%txsql_parallel_lob_enabled%';
+Variable_name	Value
+txsql_parallel_lob_enabled	ON
+SET global debug = "+d,px_no_row_split";
+EXPLAIN FORMAT=TREE SELECT * FROM t;
+EXPLAIN
+-> Table scan on t  (cost=0.65 rows=4)
+
+SELECT * FROM t;
+i	j1	j2
+0	NULL	null
+1	1	1
+2	[1, 2, 3]	[4, 5, 6]
+3	{"abc": "def"}	{"a": "b", "c": "d"}
+SET global debug = "-d,px_no_row_split";
+set session txsql_parallel_lob_enabled=0;
+show variables like '%txsql_parallel_lob_enabled%';
+Variable_name	Value
+txsql_parallel_lob_enabled	OFF
+drop table t;
