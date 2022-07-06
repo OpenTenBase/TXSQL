@@ -315,6 +315,11 @@ err:
   return true;
 
 err_finish:
+  if (thd->killed) {
+    mysql_mutex_lock(&LOCK_inc_px_stmt_error);
+    px_stmt_error++;
+    mysql_mutex_unlock(&LOCK_inc_px_stmt_error);
+  }
   res = true;
 
 finish:

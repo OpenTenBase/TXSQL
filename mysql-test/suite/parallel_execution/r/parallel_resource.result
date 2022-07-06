@@ -1,15 +1,4 @@
 # Infrastructure for test resource allocation of parallel execution
-show grants;
-Grants for root@localhost
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
-select user();
-user()
-root@localhost
-create database test1;
-create user 'user1'@'%';
-grant all on test1.* to 'user1'@'%';
 create table t1(a int, b int, c int, d int);
 insert into t1 values(1,2,3,4);
 insert into t1 values(1,1,1,1);
@@ -35,22 +24,18 @@ insert into t3 values(7,7,7,7);
 insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
-create table t4(a int, b int, c int, d int);
-insert into t4 values(100,100,100,100);
-create table t5(a int, b int, c int, d int, primary key(a));
-insert into t5 values(1,1,1,1);
-insert into t5 values(2,2,2,2);
-insert into t5 values(3,3,3,3);
-insert into t5 values(4,4,4,4);
-create table t6(a int, b int, c int, d int, primary key(a), foreign key (d) references t3(a));
-insert into t6 values(1,1,1,1);
-insert into t6 values(2,2,2,2);
-insert into t6 values(3,3,3,3);
-insert into t6 values(4,4,4,4);
+SET @saved_px_fallback_in_execution =@@px_fallback_in_execution;
+set global px_fallback_in_execution = 0;
 # --include save_and_set_px.inc
 set global debug='+d,disable_debug_sync_check';
 set global px_parallel_table_record_threshold = 2;
+SET @saved_px_parallel_degree = @@px_parallel_degree;
+set global px_parallel_degree = 1;
 flush status;
+#
+# Case 1:
+#   Query A uses up threads, preventing query B from executing in parallel.
+#
 set global px_max_parallel_threads = 3;
 show status like '%px%';
 Variable_name	Value
@@ -58,8 +43,10 @@ PX_stmt_error	0
 PX_stmt_executed	0
 PX_stmt_fallback	0
 PX_thread_current	0
-set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
+# Query A
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for killed";
 select a,sum(b) from t1 group by a;;
+# Query B
 select a,avg(b) from t1 group by a union select a,b from t2;
 a	avg(b)
 1	1.5000
@@ -73,18 +60,30 @@ a	avg(b)
 4	4.0000
 5	5.0000
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
+a	sum(b)
+1	3
+2	5
+3	4
+4	5
+5	6
 SET DEBUG_SYNC = 'RESET';
+# Expect error 0 executed 1 fallback 1
 show status like '%px%';
 Variable_name	Value
 PX_stmt_error	0
-PX_stmt_executed	0
+PX_stmt_executed	1
 PX_stmt_fallback	1
 PX_thread_current	0
-set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
+#
+# Case 2:
+#   Query A uses up threads, preventing query B from executing in parallel.
+#   However, A is killed later.
+#
+# Query A
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for timeout";
 select a,sum(b) from t1 group by a union select a,b from t2;;
+# Query B
 select a,avg(b) from t1 group by a union select a,sum(c) from t2 group by a;
 a	avg(b)
 1	1.5000
@@ -99,36 +98,24 @@ a	avg(b)
 5	5.0000
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
-SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
+# Expect error 1 executed 1 fallback 2
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	0
-PX_stmt_fallback	2
-PX_thread_current	0
-select a,avg(b) from t1 group by a union select a,sum(c) from t2 group by a;
-a	avg(b)
-1	1.5000
-2	2.5000
-3	4.0000
-4	5.0000
-5	6.0000
-1	1.0000
-2	2.0000
-3	3.0000
-4	4.0000
-5	5.0000
-show status like '%px%';
-Variable_name	Value
-PX_stmt_error	0
+PX_stmt_error	1
 PX_stmt_executed	1
 PX_stmt_fallback	2
 PX_thread_current	0
+#
+# Case 3:
+#   When thread limit is big enough, both query A and query B execute in parallel.
+#
 set global px_max_parallel_threads = 16;
-set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for flushed";
+# Query A
+set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for killed";
 select a,sum(b) from t1 group by a union select a,b from t2 union select a,sum(b) from t3 group by a;;
+# Query B
 select a,avg(b),sum(c) from t1 group by a;
 a	avg(b)	sum(c)
 1	1.5000	4
@@ -137,18 +124,36 @@ a	avg(b)	sum(c)
 4	5.0000	6
 5	6.0000	7
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
-KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
-ERROR 70100: Query execution was interrupted
+a	sum(b)
+1	3
+2	5
+3	4
+4	5
+5	6
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
 SET DEBUG_SYNC = 'RESET';
+# Expect error 1 executed 3 fallback 2
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	2
+PX_stmt_error	1
+PX_stmt_executed	3
 PX_stmt_fallback	2
 PX_thread_current	0
+set global px_parallel_degree = @saved_px_parallel_degree;
 # --include set_px_to_saved.inc
+set global px_fallback_in_execution = @saved_px_fallback_in_execution;
 flush status;
+# Expect error 0 executed 0 fallback 0
 show status like '%px%';
 Variable_name	Value
 PX_stmt_error	0
@@ -157,9 +162,4 @@ PX_stmt_fallback	0
 PX_thread_current	0
 drop table t1;
 drop table t2;
-drop table t6;
 drop table t3;
-drop table t4;
-drop table t5;
-drop database test1;
-drop user user1;
