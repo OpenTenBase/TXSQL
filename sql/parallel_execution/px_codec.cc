@@ -139,11 +139,22 @@ int PX_compact_codec::encode(std::vector<PX_iovec> &memory_trunks) {
     for (uint idx = 0; idx < compact_fields_size; ++idx) {
       if (!m_compact_row[idx].m_need_send) {
       continue;
-      } else {
+      } else if (!m_compact_row[idx].m_packlength) {
         PX_iovec fld;
         fld.data = (const char*)m_compact_row[idx].m_ptr;
         fld.len = m_compact_row[idx].m_len;
         memory_trunks.push_back(fld);
+      } else {
+        PX_iovec fld_length, fld_data;
+        fld_length.data = (const char*)m_compact_row[idx].m_ptr;
+        fld_length.len = m_compact_row[idx].m_packlength;
+
+        void **blob_pointer = (void **)(m_compact_row[idx].m_ptr + m_compact_row[idx].m_packlength);
+        fld_data.data = (const char*)(*blob_pointer);
+        fld_data.len = m_compact_row[idx].m_len;
+
+        memory_trunks.push_back(fld_length);
+        memory_trunks.push_back(fld_data);
       }
     }
   } catch (std::exception &e) {
@@ -207,8 +218,11 @@ bool PX_compact_codec::compact_items() {
       continue;
     }
 
-    total_copy_bytes +=
-        make_compact_field(result_field, &m_compact_row[fields_idx]);
+    uint32 field_length = make_compact_field(result_field, &m_compact_row[fields_idx]);
+    if (field_length == UINT32_MAX) {
+      return true;
+    }
+    total_copy_bytes += field_length;
     fields_idx++;
   }
 
@@ -243,7 +257,11 @@ bool PX_compact_codec::compact_fields() {
       continue;
     }
 
-    total_copy_bytes += make_compact_field(field, &m_compact_row[fields_idx]);
+    uint32 field_length = make_compact_field(field, &m_compact_row[fields_idx]);
+    if (field_length == UINT32_MAX) {
+      return true;
+    }
+    total_copy_bytes += field_length;
     fields_idx++;
   }
   return false;
@@ -300,7 +318,28 @@ uint32 PX_compact_codec::make_compact_field(Field *field, PX_field_data *px_fiel
    case MYSQL_TYPE_TINY_BLOB:
    case MYSQL_TYPE_MEDIUM_BLOB:
    case MYSQL_TYPE_LONG_BLOB:
-   case MYSQL_TYPE_BLOB:
+   case MYSQL_TYPE_BLOB: {
+     /*
+      The lob field whose actual data length is less than
+      txsql_parallel_execution_max_lob_size supports data exchange between parallel
+      query exchange operators. If a lob field whose actual data length is greater
+      than txsql_parallel_execution_max_lob_size is found during the exchange
+      process, the execution of the parallel query will be terminated.
+     */
+      THD *thd = get_thd();
+      assert(thd);
+      Field_blob *from = static_cast<Field_blob *>(field);
+      uint32 data_length = from->get_length();
+      if (data_length > thd->variables.txsql_parallel_execution_max_lob_size) {
+        PX_PRINT_ERROR("Found lob field whose data size [%d] exceeds the limit.", data_length);
+        my_error(ER_PX_OUT_OF_LOB, MYF(0), data_length);
+        return UINT32_MAX;
+      }
+      px_field->m_ptr = from->field_ptr();
+      px_field->m_len = from->data_length();
+      px_field->m_packlength = from->row_pack_length();
+      break;
+   }
    case MYSQL_TYPE_GEOMETRY: {
      assert(0);
      break;
@@ -313,7 +352,7 @@ uint32 PX_compact_codec::make_compact_field(Field *field, PX_field_data *px_fiel
   }
 
   px_field->m_need_send = true;
-  return px_field->m_len;
+  return px_field->m_len + px_field->m_packlength;
 }
 
 /**
@@ -466,7 +505,22 @@ int PX_compact_codec::decompact_field(
    case MYSQL_TYPE_TINY_BLOB:
    case MYSQL_TYPE_MEDIUM_BLOB:
    case MYSQL_TYPE_LONG_BLOB:
-   case MYSQL_TYPE_BLOB:
+   case MYSQL_TYPE_BLOB: {
+     Field_blob *field_blob = static_cast<Field_blob *>(field);
+     uint pack_length = field_blob->row_pack_length();
+     memcpy(field_blob->field_ptr(), &data[ptr_offset], pack_length);
+     ptr_offset += pack_length;
+
+     // set the pointer of blob data
+     uchar *blob = (uchar *)field_blob->field_ptr() + pack_length;
+     void *blob_data = &data[ptr_offset];
+     memcpy(blob, &blob_data, sizeof(blob_data));
+
+     assert(get_thd() && field_blob->data_length() <=
+            get_thd()->variables.txsql_parallel_execution_max_lob_size);
+     ptr_offset += field_blob->data_length();
+     break;
+   }
    case MYSQL_TYPE_GEOMETRY: {
      result = 1;
      // Not supported yet.

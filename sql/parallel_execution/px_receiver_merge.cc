@@ -65,6 +65,12 @@ bool PX_receiver_merge::Init() {
 
     m_sort_param->local_sortorder =
         Bounds_checked_array<st_sort_field>(m_sort->sortorder, s_length);
+  
+    /*
+      When sorting using priority queue, we cannot use packed addons.
+      Without PQ, we can try.
+    */
+    m_sort_param->try_to_pack_addons();
   }
 
   SwitchSlice(m_join, curr_slice);
@@ -76,7 +82,9 @@ bool PX_receiver_merge::Init() {
       For sorting fields of json type, Sort_param::m_fixed_rec_length will be set to 4G,
       so the maximum sort key length of json type will be explicitly limited.
     */
-    uint key_len = m_sort_param->max_record_length() + 1;
+    uint key_len = m_sort_param->max_record_length() == UINT_MAX ?
+        MAX_SORT_LENGTH : m_sort_param->max_record_length() + 1;
+
     keys[0] = new (thd()->mem_root) uchar[key_len];
     if (keys[0] == nullptr) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_receiver_merge::Init()");

@@ -1,0 +1,20 @@
+create table pt2(j json);
+prepare ps2 from 'insert into pt2 values (?)';
+
+set @b='123';
+set @e='"123"';
+set @g=null;
+
+execute ps2 using @b;
+execute ps2 using @e;
+execute ps2 using @g;
+
+set session txsql_parallel_lob_enabled=1;
+show variables like '%txsql_parallel_lob_enabled%';
+
+explain format=tree select * from pt2 order by j;
+select * from pt2 order by j;
+
+set session txsql_parallel_lob_enabled=0;
+show variables like '%txsql_parallel_lob_enabled%';
+drop table pt2;

@@ -522,6 +522,10 @@ struct System_variables {
   ulong txsql_optimizer_context_max_mem_size;
   /// @sa Sys_txsql_pread_count_enabled
   bool txsql_pread_count_enabled;
+  /// @sa Sys_txsql_parallel_execution_max_lob_size
+  ulong txsql_parallel_execution_max_lob_size;
+  /// @sa Sys_txsql_parallel_lob_enabled
+  bool txsql_parallel_lob_enabled;
 };
 
 /**

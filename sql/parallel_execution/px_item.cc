@@ -61,15 +61,19 @@ static const char *px_unsafe_func_name[] {
   the list of px_xchg_unsafe_field_type at the beginning.
 */
 static const enum_field_types px_scan_unsafe_field_type[] = {
-  MYSQL_TYPE_BLOB, MYSQL_TYPE_TINY_BLOB, MYSQL_TYPE_MEDIUM_BLOB,
-  MYSQL_TYPE_LONG_BLOB, MYSQL_TYPE_JSON, MYSQL_TYPE_GEOMETRY,
+  MYSQL_TYPE_GEOMETRY,
   MYSQL_TYPE_BIT
 };
 
 static const enum_field_types px_xchg_unsafe_field_type[] {
-  MYSQL_TYPE_BLOB, MYSQL_TYPE_TINY_BLOB, MYSQL_TYPE_MEDIUM_BLOB,
-  MYSQL_TYPE_LONG_BLOB, MYSQL_TYPE_JSON, MYSQL_TYPE_GEOMETRY,
+  MYSQL_TYPE_GEOMETRY,
   MYSQL_TYPE_BIT
+};
+
+static const enum_field_types px_lob_field_type[] = {
+  MYSQL_TYPE_BLOB, MYSQL_TYPE_TINY_BLOB,
+  MYSQL_TYPE_MEDIUM_BLOB, MYSQL_TYPE_LONG_BLOB,
+  MYSQL_TYPE_JSON
 };
 
 bool Item::pq_copy_item(THD *thd, Query_block *select, Item *item) {
@@ -299,16 +303,44 @@ void Temp_table_param::pq_copy_from(Temp_table_param *orig_param) {
   @return false if supported, true otherwise
 */
 static bool check_xchg_safe_field_type(enum_field_types type) {
+  THD *cur_thd = current_thd;
+  assert(cur_thd);
+
   for (auto field_type : px_xchg_unsafe_field_type) {
     if (field_type == type) return true;
   }
+
+  /*
+    If set txsql_parallel_lob_enabled to true, allow the lob
+    field list to pass the parallel compatibility check.
+  */
+  if (!cur_thd->variables.txsql_parallel_lob_enabled) {
+    for (auto field_type : px_lob_field_type) {
+      if (field_type == type) return true;
+    }
+  }
+
   return false;
 }
 
 static bool check_parallel_scan_safe_field_type(enum_field_types type) {
+  THD *cur_thd = current_thd;
+  assert(cur_thd);
+
   for (auto field_type : px_scan_unsafe_field_type) {
     if (field_type == type) return true;
   }
+
+  /*
+    If set txsql_parallel_lob_enabled to true, allow the lob
+    field list to pass the parallel compatibility check.
+  */
+  if (!cur_thd->variables.txsql_parallel_lob_enabled) {
+    for (auto field_type : px_lob_field_type) {
+      if (field_type == type) return true;
+    }
+  }
+
   return false;
 }
 

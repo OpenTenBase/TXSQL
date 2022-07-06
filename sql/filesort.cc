@@ -2436,11 +2436,13 @@ bool heap_compare_records(uint a, uint b, void *arg) {
   uchar *key_1 = merge_sort->get_key(1);
 
   Sort_param *sort_param = merge_sort->get_sort_param();
-  int key_len = 0, compare_len = 0;
+  uint key_len = 0, compare_len = 0;
 
   if (sort_param) {
-    key_len = sort_param->max_record_length() + 1;
-    compare_len = sort_param->max_compare_length();
+    key_len = sort_param->max_record_length() == UINT_MAX ?
+        MAX_SORT_LENGTH : sort_param->max_record_length() + 1;
+    compare_len = sort_param->max_compare_length() == UINT_MAX ?
+        MAX_SORT_LENGTH : sort_param->max_compare_length();
   }
 
   /*
@@ -2455,7 +2457,10 @@ bool heap_compare_records(uint a, uint b, void *arg) {
   if (convert_res) return true;
 
   if (sort_param) {
-    sort_param->make_sortkey(key_0, key_len, filesort->tables);
+    if ((sort_param->make_sortkey(key_0, key_len, filesort->tables)) == UINT_MAX) {
+      my_error(ER_PX_OUT_OF_SORT_LOB, MYF(0));
+      return true;
+    }
   }
 
   mq_record_st *compare_b = merge_sort->get_record(b);
@@ -2464,7 +2469,10 @@ bool heap_compare_records(uint a, uint b, void *arg) {
   if (convert_res) return true;
 
   if (sort_param) {
-    sort_param->make_sortkey(key_1, key_len, filesort->tables);
+    if ((sort_param->make_sortkey(key_1, key_len, filesort->tables)) == UINT_MAX) {
+      my_error(ER_PX_OUT_OF_SORT_LOB, MYF(0));
+      return true;
+    }
   }
 
   if (sort_param != nullptr && sort_param->using_varlen_keys()) {
