@@ -5941,7 +5941,7 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_stateme
     thd->m_statement_psi = MYSQL_REFINE_STATEMENT(
         thd->m_statement_psi, sql_statement_info[thd->lex->sql_command].m_key);
 
-    if (mqh_used && thd->get_user_connect() &&
+    if (mqh_used && thd->get_user_connect() && !thd->need_fallback &&
         check_mqh(thd, lex->sql_command)) {
       if (thd->is_classic_protocol())
         thd->get_protocol_classic()->get_net()->error = NET_ERROR_UNSET;
