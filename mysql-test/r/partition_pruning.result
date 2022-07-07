@@ -5014,3 +5014,13 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4` from `test`.`t1` where ((`test`.`t1`.`c2` > 4) and multiple equal(2, `test`.`t1`.`c1`))
 DROP TABLE t1;
+#
+#  Bug #551 Wrong results Left join with derived partitioned table
+#
+CREATE TABLE t1(a INT);
+CREATE TABLE t2(a INT PRIMARY KEY) PARTITION BY LIST(a) (PARTITION p1 VALUES IN(1));
+INSERT INTO t1 VALUES(1);
+INSERT INTO t2 VALUES(1);
+SELECT * FROM t1 x LEFT JOIN (SELECT a FROM t2) y ON (x.a = y.a) WHERE y.a IS NULL;
+a	a
+DROP TABLE t1, t2;

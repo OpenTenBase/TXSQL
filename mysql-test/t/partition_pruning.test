@@ -2319,3 +2319,13 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = 2 AND c2 >= 4;
 --replace_column 10 #
 EXPLAIN SELECT * FROM t1 WHERE c1 = 2 AND c2 > 4;
 DROP TABLE t1;
+
+--echo #
+--echo #  Bug #551 Wrong results Left join with derived partitioned table
+--echo #
+CREATE TABLE t1(a INT);
+CREATE TABLE t2(a INT PRIMARY KEY) PARTITION BY LIST(a) (PARTITION p1 VALUES IN(1));
+INSERT INTO t1 VALUES(1);
+INSERT INTO t2 VALUES(1);
+SELECT * FROM t1 x LEFT JOIN (SELECT a FROM t2) y ON (x.a = y.a) WHERE y.a IS NULL;
+DROP TABLE t1, t2;
