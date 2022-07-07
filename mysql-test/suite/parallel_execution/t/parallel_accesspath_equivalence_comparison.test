@@ -7,10 +7,8 @@
 --echo #  1) optimizer_switch changes
 --echo #  2) user vars changes
 --echo #  3) charset changes
---echo #  3) thd.variables
---echo #  4) TODO: statistics info
---echo #  5) TODO: const table ref
---echo #  6) additional tests that may cause exceptions
+--echo #  4) thd.variables
+--echo #  5) additional tests that may cause exceptions
 --echo ###############################################
 
 --source suite/parallel_execution/inc/save_and_set_px.inc
@@ -1465,5 +1463,123 @@ SELECT 1 UNION SELECT 1 INTO @var FOR UPDATE;
 
 --error ER_PARSE_ERROR
 SELECT 1 UNION (SELECT 1 FROM DUAL INTO @var);
+
+--echo #
+--echo # test accesspath::ALTERNATIVE
+--echo #
+
+set optimizer_switch='materialization=off';
+CREATE TABLE t1 (
+  a1 char(8) DEFAULT NULL,
+  a2 char(8) DEFAULT NULL,
+  KEY a1 (a1(2))
+) charset latin1;
+CREATE TABLE t2 (
+  b1 char(8) DEFAULT NULL,
+  b2 char(8) DEFAULT NULL
+) charset latin1;
+INSERT INTO t1 VALUES
+ ('1 - 00', '2 - 00'),('1 - 01', '2 - 01'),('1 - 02', '2 - 02');
+INSERT INTO t2 VALUES
+ ('1 - 01', '2 - 01'),('1 - 01', '2 - 01'),
+ ('1 - 02', '2 - 02'),('1 - 02', '2 - 02'),('1 - 03', '2 - 03');
+ANALYZE TABLE t1,t2;
+
+
+SELECT * FROM t2 WHERE b1 NOT IN
+(SELECT a1 FROM t1 FORCE INDEX(a1) WHERE a1 > '1');
+drop table t1,t2;
+
+set optimizer_switch=default;
+
+
+CREATE TABLE t1 (  
+  pk INTEGER NOT NULL,
+  i1 INTEGER,
+  PRIMARY KEY (pk),
+  KEY col_int_key (i1)
+);
+
+INSERT INTO t1 VALUES (14,NULL), (18,133);
+
+CREATE TABLE t2 (  
+   pk INTEGER NOT NULL,
+   i1 INTEGER,
+   c1 VARCHAR(1),
+   PRIMARY KEY (pk),
+   KEY col_int_key (i1)
+);
+
+INSERT INTO t2 VALUES (1,7,'f');
+
+SELECT t1.i1
+FROM t1
+WHERE t1.i1 NOT IN
+( SELECT STRAIGHT_JOIN subquery_t1.pk
+  FROM t1 AS subquery_t1
+    JOIN t2 AS subquery_t2
+    ON subquery_t2.i1 = subquery_t1.pk
+  WHERE subquery_t1.i1 > 0
+    OR subquery_t2.c1 = 'a'
+);
+
+drop table t1,t2;
+
+--echo #
+--echo # test accesspath::hash_join
+--echo #
+
+TRUNCATE TABLE performance_schema.memory_summary_global_by_event_name;
+
+CREATE TABLE baseline AS
+  SELECT * FROM performance_schema.memory_summary_global_by_event_name
+    WHERE EVENT_NAME = 'memory/sql/dd::String_type';
+
+CREATE TABLE after_create AS
+  SELECT * FROM performance_schema.memory_summary_global_by_event_name
+    WHERE EVENT_NAME = 'memory/sql/dd::String_type';
+
+CREATE TABLE diffs (EVENT_NAME VARCHAR(512), COUNT_ALLOC_DIFF BIGINT,
+                    COUNT_FREE_DIFF BIGINT,
+                    SUM_NUMBER_OF_BYTES_ALLOC_DIFF BIGINT,
+                    SUM_NUMBER_OF_BYTES_FREE_DIFF BIGINT) AS
+  SELECT baseline.EVENT_NAME,
+    after_create.COUNT_ALLOC - baseline.COUNT_ALLOC AS COUNT_ALLOC_DIFF,
+    after_create.COUNT_FREE - baseline.COUNT_FREE AS COUNT_FREE_DIFF,
+    after_create.SUM_NUMBER_OF_BYTES_ALLOC -
+      baseline.SUM_NUMBER_OF_BYTES_ALLOC AS SUM_NUMBER_OF_BYTES_ALLOC_DIFF,
+    after_create.SUM_NUMBER_OF_BYTES_FREE -
+      baseline.SUM_NUMBER_OF_BYTES_FREE AS SUM_NUMBER_OF_BYTES_FREE_DIFF
+   FROM after_create, baseline
+   WHERE after_create.EVENT_NAME = baseline.EVENT_NAME;
+
+CREATE TABLE percents (EVENT_NAME VARCHAR(512), ALLOC_PCT DECIMAL(10,3),
+                       FREE_PCT DECIMAL(10,3), BYTES_ALLOC_PCT DECIMAL(10,3),
+                       BYTES_FREE_PCT DECIMAL(10,3));
+
+INSERT INTO percents
+  SELECT
+    baseline.EVENT_NAME,
+    100 * ROUND(diffs.COUNT_ALLOC_DIFF / baseline.COUNT_ALLOC, 5),
+    100 * ROUND(diffs.COUNT_FREE_DIFF / baseline.COUNT_FREE, 5),
+    100 * ROUND(diffs.SUM_NUMBER_OF_BYTES_ALLOC_DIFF / baseline.SUM_NUMBER_OF_BYTES_ALLOC, 5),
+    100 * ROUND(diffs.SUM_NUMBER_OF_BYTES_FREE_DIFF / baseline.SUM_NUMBER_OF_BYTES_FREE, 5)
+  FROM diffs, baseline
+  WHERE diffs.EVENT_NAME = baseline.EVENT_NAME;
+
+SELECT
+  baseline.EVENT_NAME AS 'PSI MEMORY EVENT NAME',
+  baseline.COUNT_ALLOC AS 'BASE ALLOC',
+  after_create.COUNT_ALLOC AS 'POST ALLOC',
+  diffs.COUNT_ALLOC_DIFF AS DELTA,
+  percents.ALLOC_PCT AS PCT_CHANGE,
+  'Exceeds threshold of +19%' AS REASON
+FROM baseline JOIN (after_create, diffs, percents) ON
+  (baseline.EVENT_NAME = after_create.EVENT_NAME AND
+   baseline.EVENT_NAME = diffs.EVENT_NAME AND
+   baseline.EVENT_NAME = percents.EVENT_NAME)
+WHERE percents.ALLOC_PCT > 19;
+
+drop table baseline, after_create, diffs, percents;
 
 --source suite/parallel_execution/inc/set_px_to_saved.inc

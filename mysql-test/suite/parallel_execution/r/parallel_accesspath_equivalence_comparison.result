@@ -6,10 +6,8 @@
 #  1) optimizer_switch changes
 #  2) user vars changes
 #  3) charset changes
-#  3) thd.variables
-#  4) TODO: statistics info
-#  5) TODO: const table ref
-#  6) additional tests that may cause exceptions
+#  4) thd.variables
+#  5) additional tests that may cause exceptions
 ###############################################
 # --include save_and_set_px.inc
 # 1) test plan changed by optimizer_switch
@@ -224,7 +222,9 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
 WHERE tb.d >= SOME(SELECT e FROM t3 as tc
 WHERE ta.b=tc.e));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
@@ -268,7 +268,9 @@ WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
 GROUP BY f
 HAVING ta.a=tc.f));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using temporary
 Warnings:
@@ -280,10 +282,10 @@ WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
 GROUP BY f
 HAVING ta.a=tc.f));
 a	b
-2	10
 2	20
 3	20
 2	30
+2	10
 set @@optimizer_switch='materialization=off,semijoin=on';
 EXPLAIN SELECT * FROM t1 AS ta
 WHERE ta.a IN (SELECT c FROM t2 AS tb
@@ -316,7 +318,9 @@ WHERE tb.d IN (SELECT g FROM t4 as tc
 WHERE ta.a=tc.f
 ORDER BY tc.f));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
@@ -362,7 +366,9 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
 WHERE tb.d >= SOME(SELECT e FROM t3 as tc
 WHERE tb.d=tc.e));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
@@ -408,7 +414,9 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
 WHERE tb.d >= SOME(SELECT e FROM t3 as tc
 WHERE t.b=tc.e)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where
 3	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
@@ -431,9 +439,11 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
 WHERE tb.d >= SOME(SELECT e FROM t3 as tc
 WHERE t.b=tc.e)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	NULL
-1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using where; Not exists; Using join buffer (hash join)
+1	PRIMARY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers); Using where; Not exists; Using join buffer (hash join)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where; Using join buffer (hash join)
+1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	NULL
 4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t.b' of SELECT #4 was resolved in SELECT #1
@@ -454,7 +464,9 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
 WHERE EXISTS (SELECT * FROM t3 as tc
 WHERE ta.b=tc.e));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
@@ -467,8 +479,8 @@ WHERE ta.b=tc.e));
 a	b
 2	10
 2	20
-3	20
 2	30
+3	20
 set @@optimizer_switch='materialization=off,semijoin=on';
 EXPLAIN SELECT * FROM t1 AS ta
 WHERE ta.a IN (SELECT c FROM t2 AS tb
@@ -497,7 +509,9 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
 WHERE tb.d = (SELECT MIN(e) FROM t3 as tc
 WHERE ta.b=tc.e));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
@@ -539,7 +553,9 @@ WHERE (SELECT MIN(e) FROM t3 as tc
 WHERE tb.d=tc.e) < SOME(SELECT e FROM t3 as tc
 WHERE ta.b=tc.e));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using where
+1	PRIMARY	ta	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	tb	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 4	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 3	DEPENDENT SUBQUERY	tc	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
@@ -727,6 +743,9 @@ g1	dt
 7	2005-04-04 01:21:01
 7	2005-04-04 01:21:01
 7	2005-04-04 01:21:01
+Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
+Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
+Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
 Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
 Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
 Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
@@ -1114,7 +1133,9 @@ FROM t1
 )
 FROM t2 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using temporary
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1276	Field or reference 'test.t2.c' of SELECT #2 was resolved in SELECT #1
@@ -1283,6 +1304,7 @@ a
 1
 2
 Warnings:
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -1569,7 +1591,9 @@ DROP TABLE t1, t2, t3, t4;
 CREATE TABLE t1 (a INT);
 EXPLAIN SELECT 1 FROM (SELECT 1 FROM t1) t;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select 1 AS `1` from `test`.`t1`
 DROP TABLE t1;
@@ -1764,141 +1788,174 @@ b	a
 # Right-deep join nesting.
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c ON t1.a = t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`b` = `test`.`t1`.`a`) and (`test`.`t3`.`c` = `test`.`t1`.`a`))
 # Right-deep join nesting from t2 and on.
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d ON t2.b = t3.c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t3`.`c` = `test`.`t2`.`b`) and (`test`.`t4`.`d` = `test`.`t2`.`b`))
 # Right-deep join nesting from t2 and on.
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d ON t1.a = t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t4`.`d` = `test`.`t3`.`c`) and (`test`.`t2`.`b` = `test`.`t1`.`a`))
 # Left-deep join nesting.
 EXPLAIN SELECT * FROM t1 JOIN t2 ON t1.a = t2.b JOIN t3 ON t2.b = t3.c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`b` = `test`.`t1`.`a`) and (`test`.`t3`.`c` = `test`.`t1`.`a`))
 # A cross join joined with an inner join (i.e. with a join condition).
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t1.a = t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3` where (`test`.`t2`.`b` = `test`.`t1`.`a`)
 EXPLAIN SELECT * FROM t1 t11 JOIN t2 JOIN t1 t12 USING ( a );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t12	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t11`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t1` `t11` join `test`.`t2` join `test`.`t1` `t12` where (`test`.`t12`.`a` = `test`.`t11`.`a`)
 # A left-deep cross join tree joined with an inner join.
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t1.a = t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where (`test`.`t2`.`b` = `test`.`t1`.`a`)
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 JOIN t5 ON t1.a = t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d`,`test`.`t5`.`e` AS `e` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` join `test`.`t5` where (`test`.`t2`.`b` = `test`.`t1`.`a`)
 # The different kinds of <table_ref> when used with context-dependent
 # join. Tests the top-down build of the parse tree.
 EXPLAIN SELECT * FROM t1 JOIN (t2) JOIN t3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t2` join `test`.`t3`
 EXPLAIN SELECT * FROM t1 JOIN (SELECT 1 AS b) a JOIN t3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	<derived2>	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,'1' AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` join `test`.`t3`
 EXPLAIN SELECT * FROM t1 JOIN (t2 JOIN t3) JOIN t4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4`
 EXPLAIN SELECT * FROM t1 JOIN (t2, t3) JOIN t4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4`
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c JOIN t4 ON t1.a = t4.d;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t3`.`c` = `test`.`t2`.`b`) and (`test`.`t4`.`d` = `test`.`t1`.`a`))
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 ON t2.b = t3.c JOIN t4 ON t1.a = t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t2`.`b` = `test`.`t1`.`a`) and (`test`.`t3`.`c` = `test`.`t1`.`a`))
 EXPLAIN SELECT * FROM t1 t11 JOIN t2 JOIN t1 t12 USING(a) JOIN t1 t13 USING(a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t12	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t13	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t11`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t1` `t11` join `test`.`t2` join `test`.`t1` `t12` join `test`.`t1` `t13` where ((`test`.`t12`.`a` = `test`.`t11`.`a`) and (`test`.`t13`.`a` = `test`.`t11`.`a`))
 EXPLAIN SELECT * FROM t2 JOIN t1 t11 JOIN t1 t12 USING(a) JOIN t1 t13 USING(a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t12	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	SIMPLE	t13	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t11`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` join `test`.`t1` `t11` join `test`.`t1` `t12` join `test`.`t1` `t13` where ((`test`.`t12`.`a` = `test`.`t11`.`a`) and (`test`.`t13`.`a` = `test`.`t11`.`a`))
 EXPLAIN SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON t3.c = t4.d;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c`,`test`.`t4`.`d` AS `d` from `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where (`test`.`t4`.`d` = `test`.`t3`.`c`)
 SET optimizer_switch = DEFAULT;
@@ -2031,4 +2088,110 @@ Warning	3962	The INTO clause is deprecated inside query blocks of query expressi
 #
 SELECT 1 UNION (SELECT 1 FROM DUAL INTO @var);
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INTO @var)' at line 1
+#
+# test accesspath::ALTERNATIVE
+#
+set optimizer_switch='materialization=off';
+CREATE TABLE t1 (
+a1 char(8) DEFAULT NULL,
+a2 char(8) DEFAULT NULL,
+KEY a1 (a1(2))
+) charset latin1;
+CREATE TABLE t2 (
+b1 char(8) DEFAULT NULL,
+b2 char(8) DEFAULT NULL
+) charset latin1;
+INSERT INTO t1 VALUES
+('1 - 00', '2 - 00'),('1 - 01', '2 - 01'),('1 - 02', '2 - 02');
+INSERT INTO t2 VALUES
+('1 - 01', '2 - 01'),('1 - 01', '2 - 01'),
+('1 - 02', '2 - 02'),('1 - 02', '2 - 02'),('1 - 03', '2 - 03');
+ANALYZE TABLE t1,t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+SELECT * FROM t2 WHERE b1 NOT IN
+(SELECT a1 FROM t1 FORCE INDEX(a1) WHERE a1 > '1');
+b1	b2
+1 - 03	2 - 03
+drop table t1,t2;
+set optimizer_switch=default;
+CREATE TABLE t1 (  
+pk INTEGER NOT NULL,
+i1 INTEGER,
+PRIMARY KEY (pk),
+KEY col_int_key (i1)
+);
+INSERT INTO t1 VALUES (14,NULL), (18,133);
+CREATE TABLE t2 (  
+pk INTEGER NOT NULL,
+i1 INTEGER,
+c1 VARCHAR(1),
+PRIMARY KEY (pk),
+KEY col_int_key (i1)
+);
+INSERT INTO t2 VALUES (1,7,'f');
+SELECT t1.i1
+FROM t1
+WHERE t1.i1 NOT IN
+( SELECT STRAIGHT_JOIN subquery_t1.pk
+FROM t1 AS subquery_t1
+JOIN t2 AS subquery_t2
+ON subquery_t2.i1 = subquery_t1.pk
+WHERE subquery_t1.i1 > 0
+OR subquery_t2.c1 = 'a'
+);
+i1
+133
+NULL
+drop table t1,t2;
+#
+# test accesspath::hash_join
+#
+TRUNCATE TABLE performance_schema.memory_summary_global_by_event_name;
+CREATE TABLE baseline AS
+SELECT * FROM performance_schema.memory_summary_global_by_event_name
+WHERE EVENT_NAME = 'memory/sql/dd::String_type';
+CREATE TABLE after_create AS
+SELECT * FROM performance_schema.memory_summary_global_by_event_name
+WHERE EVENT_NAME = 'memory/sql/dd::String_type';
+CREATE TABLE diffs (EVENT_NAME VARCHAR(512), COUNT_ALLOC_DIFF BIGINT,
+COUNT_FREE_DIFF BIGINT,
+SUM_NUMBER_OF_BYTES_ALLOC_DIFF BIGINT,
+SUM_NUMBER_OF_BYTES_FREE_DIFF BIGINT) AS
+SELECT baseline.EVENT_NAME,
+after_create.COUNT_ALLOC - baseline.COUNT_ALLOC AS COUNT_ALLOC_DIFF,
+after_create.COUNT_FREE - baseline.COUNT_FREE AS COUNT_FREE_DIFF,
+after_create.SUM_NUMBER_OF_BYTES_ALLOC -
+baseline.SUM_NUMBER_OF_BYTES_ALLOC AS SUM_NUMBER_OF_BYTES_ALLOC_DIFF,
+after_create.SUM_NUMBER_OF_BYTES_FREE -
+baseline.SUM_NUMBER_OF_BYTES_FREE AS SUM_NUMBER_OF_BYTES_FREE_DIFF
+FROM after_create, baseline
+WHERE after_create.EVENT_NAME = baseline.EVENT_NAME;
+CREATE TABLE percents (EVENT_NAME VARCHAR(512), ALLOC_PCT DECIMAL(10,3),
+FREE_PCT DECIMAL(10,3), BYTES_ALLOC_PCT DECIMAL(10,3),
+BYTES_FREE_PCT DECIMAL(10,3));
+INSERT INTO percents
+SELECT
+baseline.EVENT_NAME,
+100 * ROUND(diffs.COUNT_ALLOC_DIFF / baseline.COUNT_ALLOC, 5),
+100 * ROUND(diffs.COUNT_FREE_DIFF / baseline.COUNT_FREE, 5),
+100 * ROUND(diffs.SUM_NUMBER_OF_BYTES_ALLOC_DIFF / baseline.SUM_NUMBER_OF_BYTES_ALLOC, 5),
+100 * ROUND(diffs.SUM_NUMBER_OF_BYTES_FREE_DIFF / baseline.SUM_NUMBER_OF_BYTES_FREE, 5)
+FROM diffs, baseline
+WHERE diffs.EVENT_NAME = baseline.EVENT_NAME;
+SELECT
+baseline.EVENT_NAME AS 'PSI MEMORY EVENT NAME',
+baseline.COUNT_ALLOC AS 'BASE ALLOC',
+after_create.COUNT_ALLOC AS 'POST ALLOC',
+diffs.COUNT_ALLOC_DIFF AS DELTA,
+percents.ALLOC_PCT AS PCT_CHANGE,
+'Exceeds threshold of +19%' AS REASON
+FROM baseline JOIN (after_create, diffs, percents) ON
+(baseline.EVENT_NAME = after_create.EVENT_NAME AND
+baseline.EVENT_NAME = diffs.EVENT_NAME AND
+baseline.EVENT_NAME = percents.EVENT_NAME)
+WHERE percents.ALLOC_PCT > 19;
+PSI MEMORY EVENT NAME	BASE ALLOC	POST ALLOC	DELTA	PCT_CHANGE	REASON
+drop table baseline, after_create, diffs, percents;
 # --include set_px_to_saved.inc

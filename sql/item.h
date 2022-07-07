@@ -5639,10 +5639,7 @@ class Item_ref : public Item_ident {
         result_field(item->result_field),
         ref(item->ref) {}
   enum Type type() const override { return REF_ITEM; }
-  bool eq(const Item *item, bool binary_cmp) const override {
-    const Item *it = item->real_item();
-    return ref && (*ref)->eq(it, binary_cmp);
-  }
+  bool eq(const Item *item, bool binary_cmp) const override;
   double val_real() override;
   longlong val_int() override;
   longlong val_time_temporal() override;

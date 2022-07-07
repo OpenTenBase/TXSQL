@@ -123,7 +123,9 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 explain select case a when 1 then 2 when 2 then 3 else 0 end as fcase, count(*) from t1 group by fcase;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using temporary
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary
 Warnings:
 Note	1003	/* select#1 */ select (case `test`.`t1`.`a` when 1 then 2 when 2 then 3 else 0 end) AS `fcase`,count(0) AS `count(*)` from `test`.`t1` group by `fcase`
 select case a when 1 then "one" when 2 then "two" else "nothing" end as fcase, count(*) from t1 group by fcase;
@@ -200,7 +202,7 @@ testcase copy from main.window_functions
 CREATE TABLE t1(a INT);
 INSERT INTO t1 VALUES(1),(1),(2),(2);
 SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
-ERROR 21000: Subquery returns more than 1 row
+ERROR HY000: PX execute error of errno[1242].
 DROP TABLE t1;
 create table tt1(a int, b int);
 insert into tt1 (a) values(1),(2);
@@ -214,7 +216,9 @@ select dt1.a from dt dt1 where dt1.a=tt1.a
 ) as subq
 from tt1;
 EXPLAIN
--> Table scan on tt1  (cost=*** rows=***)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
+        -> Parallel table scan on tt1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Single-row index lookup on dt1 using <auto_distinct_key> (a=tt1.a)
         -> Materialize recursive CTE dt with deduplication
@@ -255,7 +259,10 @@ Warning	1364	Field 'c' doesn't have a default value
 explain format=tree select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
 EXPLAIN
 -> Aggregate: sum(t1.b)
-    -> Table scan on t1  (cost=*** rows=***)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum(t1.b)
+                -> Parallel table scan on t1  (cost=*** rows=***)
 
 select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
 any_value(a)	sum(b)
@@ -269,7 +276,9 @@ INSERT INTO t0 VALUES(1, 10), (2, 20);
 explain format=tree SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
 EXPLAIN
 -> Filter: <in_optimizer>((t0.a,t0.b),<exists>(select #2))  (cost=*** rows=***)
-    -> Table scan on t0  (cost=*** rows=***)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
+            -> Parallel table scan on t0  (cost=*** rows=***)
     -> Select #2 (subquery in condition; dependent)
         -> Filter: ((<cache>(t0.a) = column_0) and (<cache>(t0.b) = column_1) and <is_not_null_test>(column_0) and <is_not_null_test>(column_1))
             -> Rows fetched before execution  (cost=*** rows=***)
@@ -279,3 +288,69 @@ a	b
 1	10
 2	20
 drop table t0;
+#######################################
+# 7) test Item_ref::eq
+#######################################
+SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
+CREATE TABLE t1(
+c1 DATE NOT NULL, 
+c2 DATE NULL, 
+c3 DATETIME, 
+c4 TIMESTAMP, 
+PRIMARY KEY(c1), 
+UNIQUE(c2)
+);
+INSERT INTO t1 VALUES('0000-00-00', '0000-00-00', '2008-01-04', '2008-01-05');
+INSERT INTO t1 VALUES('2007-05-25', '2007-05-25', '2007-05-26', '2007-05-26');
+INSERT INTO t1 VALUES('2008-01-01', NULL        , '2008-01-02', '2008-01-03');
+INSERT INTO t1 VALUES('2008-01-17', NULL        , NULL        , '2009-01-29');
+INSERT INTO t1 VALUES('2009-01-29', '2009-01-29', '2009-01-29', '2009-01-29');
+SELECT * FROM t1 WHERE c2 <=> NULL ORDER BY c1,c2;
+c1	c2	c3	c4
+2008-01-01	NULL	2008-01-02 00:00:00	2008-01-03 00:00:00
+2008-01-17	NULL	NULL	2009-01-29 00:00:00
+SELECT * FROM t1 WHERE c2 <=> NULL ORDER BY c1,c2 LIMIT 2;
+c1	c2	c3	c4
+2008-01-01	NULL	2008-01-02 00:00:00	2008-01-03 00:00:00
+2008-01-17	NULL	NULL	2009-01-29 00:00:00
+drop table t1;
+SET sql_mode = default;
+CREATE TABLE t0 (i0 INTEGER);
+INSERT INTO t0 VALUES (1), (2), (3), (4), (5);
+CREATE TABLE t1 (
+a INTEGER,
+b INTEGER,
+c INTEGER,
+INDEX k1 (a),
+INDEX k2 (a,b)
+);
+INSERT INTO t1
+SELECT i0 + (10 * i0) + (100 * i0),
+(i0 + (10 * i0) + (100 * i0)) % 100,
+(i0 + (10 * i0) + (100 * i0)) % 100
+FROM t0;
+INSERT INTO t1
+SELECT i0 + (10 * i0) + (100 * i0),
+(i0 + (10 * i0) + (100 * i0) + 1) % 100,
+(i0 + (10 * i0) + (100 * i0) + 1) % 100
+FROM t0;
+INSERT INTO t1
+SELECT i0 + (10 * i0) + (100 * i0),
+(i0 + (10 * i0) + (100 * i0) + 1) % 100,
+(i0 + (10 * i0) + (100 * i0) + 2) % 100
+FROM t0;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SELECT  MAX(a) FROM t1 WHERE (b) IN (SELECT MIN(t2.b)
+FROM (SELECT b from t1) AS t2 GROUP BY t2.b WITH
+ROLLUP HAVING GROUPING (t2.b)=0);
+MAX(a)
+555
+drop table t0,t1;
+create table t3 (s1 int, s2 char);
+create view v1 as select s1, s2 from t3;
+select s2 from v1 vq1 where 2 = (select count(*) aa from v1 vq2 having vq1.s2 = aa);
+s2
+drop view v1;
+drop table t3;
