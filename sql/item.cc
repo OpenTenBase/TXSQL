@@ -8268,6 +8268,18 @@ void Item_ref::cleanup() {
   result_field = nullptr;
 }
 
+bool Item_ref::eq(const Item *item, bool binary_cmp) const {
+  if (current_thd && current_thd->m_equivalence_check_phase) {
+    if (item->type() == REF_ITEM) {
+      const Item_ref *item_ref = down_cast<const Item_ref *>(item);
+      return ref && (*ref)->eq(*item_ref->ref, binary_cmp);
+    }
+    return false;
+  }
+  const Item *it = const_cast<Item *>(item)->real_item();
+  return ref && (*ref)->eq(it, binary_cmp);
+}
+
 /**
   Transform an Item_ref object with a transformer callback function.
 

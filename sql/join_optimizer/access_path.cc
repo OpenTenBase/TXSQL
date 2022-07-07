@@ -391,9 +391,22 @@ bool AccessPath::operator==(const AccessPath &other) const {
       // equivalence check: same TABLE_SHARE, ref, and cond_guards(field)
       if (!EquivalenceCheckHelper::eq_table_share(
               u.alternative.table_scan_path->table_scan().table,
-              other.alternative().table_scan_path->table_scan().table) ||
-          !EquivalenceCheckHelper::eq_table_ref(u.alternative.used_ref,
-              other.alternative().used_ref)) {
+              other.alternative().table_scan_path->table_scan().table)) {
+        if (!u.alternative.table_scan_path->table_scan().table->s ||
+            !other.alternative().table_scan_path->table_scan().table->s) {
+          return false;
+        }
+        if (!EquivalenceCheckHelper::eq_lex_string(
+              &(u.alternative.table_scan_path->table_scan().table->s->db),
+              &(other.alternative().table_scan_path->table_scan().table->s->db)) ||
+            !EquivalenceCheckHelper::eq_lex_string(
+              &(u.alternative.table_scan_path->table_scan().table->s->table_name),
+              &(other.alternative().table_scan_path->table_scan().table->s->table_name))) {
+          return false;
+        }
+      }
+      if (!EquivalenceCheckHelper::eq_table_ref(u.alternative.used_ref,
+            other.alternative().used_ref)) {
         return false;
       }
       break;

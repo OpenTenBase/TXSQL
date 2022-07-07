@@ -153,3 +153,83 @@ explain format=tree SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 
 SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
 
 drop table t0;
+
+--echo #######################################
+--echo # 7) test Item_ref::eq
+--echo #######################################
+
+SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
+
+CREATE TABLE t1(
+  c1 DATE NOT NULL, 
+  c2 DATE NULL, 
+  c3 DATETIME, 
+  c4 TIMESTAMP, 
+  PRIMARY KEY(c1), 
+  UNIQUE(c2)
+);
+
+INSERT INTO t1 VALUES('0000-00-00', '0000-00-00', '2008-01-04', '2008-01-05');
+INSERT INTO t1 VALUES('2007-05-25', '2007-05-25', '2007-05-26', '2007-05-26');
+INSERT INTO t1 VALUES('2008-01-01', NULL        , '2008-01-02', '2008-01-03');
+INSERT INTO t1 VALUES('2008-01-17', NULL        , NULL        , '2009-01-29');
+INSERT INTO t1 VALUES('2009-01-29', '2009-01-29', '2009-01-29', '2009-01-29');
+
+SELECT * FROM t1 WHERE c2 <=> NULL ORDER BY c1,c2;
+
+SELECT * FROM t1 WHERE c2 <=> NULL ORDER BY c1,c2 LIMIT 2;
+
+drop table t1;
+
+SET sql_mode = default;
+
+CREATE TABLE t0 (i0 INTEGER);
+
+INSERT INTO t0 VALUES (1), (2), (3), (4), (5);
+
+CREATE TABLE t1 (
+  a INTEGER,
+  b INTEGER,
+  c INTEGER,
+  INDEX k1 (a),
+  INDEX k2 (a,b)
+);
+
+INSERT INTO t1
+  SELECT i0 + (10 * i0) + (100 * i0),
+    (i0 + (10 * i0) + (100 * i0)) % 100,
+    (i0 + (10 * i0) + (100 * i0)) % 100
+  FROM t0;
+
+INSERT INTO t1
+  SELECT i0 + (10 * i0) + (100 * i0),
+    (i0 + (10 * i0) + (100 * i0) + 1) % 100,
+    (i0 + (10 * i0) + (100 * i0) + 1) % 100
+  FROM t0;
+
+INSERT INTO t1
+  SELECT i0 + (10 * i0) + (100 * i0),
+    (i0 + (10 * i0) + (100 * i0) + 1) % 100,
+    (i0 + (10 * i0) + (100 * i0) + 2) % 100
+  FROM t0;
+
+ANALYZE TABLE t1;
+
+
+SELECT  MAX(a) FROM t1 WHERE (b) IN (SELECT MIN(t2.b)
+FROM (SELECT b from t1) AS t2 GROUP BY t2.b WITH
+ROLLUP HAVING GROUPING (t2.b)=0);
+
+drop table t0,t1;
+
+
+create table t3 (s1 int, s2 char);
+
+create view v1 as select s1, s2 from t3;
+
+select s2 from v1 vq1 where 2 = (select count(*) aa from v1 vq2 having vq1.s2 = aa);
+
+drop view v1;
+
+drop table t3;
+
