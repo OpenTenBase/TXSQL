@@ -2745,7 +2745,7 @@ static bool tdc_wait_for_old_version(THD *thd, const char *db,
   bool res = false;
 
   mysql_mutex_lock(&LOCK_open);
-  if ((share = get_cached_table_share(db, table_name)) &&
+  if (!thd->m_is_worker && (share = get_cached_table_share(db, table_name)) &&
       share->has_old_version()) {
     struct timespec abstime;
     set_timespec(&abstime, wait_timeout);
@@ -3303,7 +3303,7 @@ retry_share : {
 
 share_found:
   if (!(flags & MYSQL_OPEN_IGNORE_FLUSH)) {
-    if (share->has_old_version()) {
+    if (!thd->m_is_worker && share->has_old_version()) {
       /*
         We already have an MDL lock. But we have encountered an old
         version of table in the table definition cache which is possible
