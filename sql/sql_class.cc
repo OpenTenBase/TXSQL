@@ -114,7 +114,11 @@
 #include "template_utils.h"
 #include "thr_mutex.h"
 #include "parallel_execution/px_executor.h"  //PX_executor
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 #include "sql/parallel_execution/px_optimizer_context.h" // Stats_cache
+#endif
+#include "sql/parallel_execution/px_interface.h" // PX_ENABLED
 
 /* Changes from TXSQL start. */
 #include "rpl_handler.h"
@@ -678,7 +682,9 @@ THD::THD(bool enable_plugins)
       m_trans_fixed_log_file(nullptr),
       m_trans_end_pos(0),
       m_transaction(new Transaction_ctx()),
+#if defined(HAVE_OPT_CTX)
       stats_cache_alloc(key_memory_optimizer_context, 16384 /* 16 kB */),
+#endif
       m_attachable_trx(nullptr),
       table_map_for_update(0),
       m_examined_row_count(0),
@@ -792,7 +798,11 @@ THD::THD(bool enable_plugins)
   m_resource_group_ctx.m_switch_resource_group_str[0] = '\0';
   m_resource_group_ctx.m_warn = 0;
   m_safe_to_display.store(false);
+#if defined(HAVE_OPT_CTX)
+  opt_ctx_client.reset(new (std::nothrow)
+      Opt_ctx_client(key_memory_optimizer_context, this));
   opt_stats = new (&stats_cache_alloc) Stats_cache(&stats_cache_alloc);
+#endif
 
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_query, &LOCK_thd_query, MY_MUTEX_INIT_FAST);
@@ -1190,11 +1200,13 @@ void THD::init(void) {
   */
   m_disable_password_validation = false;
 
+#if defined(HAVE_OPT_CTX)
   ha_stats_id = 0;
   index_dive_id = 0;
   saved_outline_reload_version = -1L;
   saved_optimizer_cost_reload_version = -1L;
   saved_rewriter_plugin_reload_version = -1L;
+#endif
 }
 
 void THD::init_query_mem_roots() {
@@ -1484,7 +1496,10 @@ THD::~THD() {
 
   if (!release_resources_done()) release_resources();
 
+#if defined(HAVE_OPT_CTX)
+#else
   opt_stats->clear();
+#endif
 #ifndef DBUG_OFF
   for (auto &val : dbug_vals) {
     my_free(const_cast<char *>(val));
@@ -1905,6 +1920,8 @@ void THD::cleanup_after_query() {
   // Set the default "cute" mode for the execution environment:
   check_for_truncated_fields = CHECK_FIELD_IGNORE;
 
+#if defined(HAVE_OPT_CTX)
+  OPT_CTX(this).cleanup_after_query();
   // Reuse in the lifecycle of the top statement.
   if (!in_sub_stmt) {
     // may return before end_optimization_context(), reset it
@@ -1919,6 +1936,7 @@ void THD::cleanup_after_query() {
     stats_cache_alloc.Clear();
     opt_stats = new (&stats_cache_alloc) Stats_cache(&stats_cache_alloc);
   }
+#endif
   use_px = false;
   px_coordinator_trx = nullptr;
 }
@@ -2384,10 +2402,15 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
   if (is_current_stmt_binlog_row_enabled_with_write_set_extraction()) {
     get_transaction()->get_transaction_write_set_ctx()->reset_savepoint_list();
   }
+
+  OPT_CTX(this).begin_sub_statement();
 }
 
 void THD::restore_sub_statement_state(Sub_statement_state *backup) {
   DBUG_TRACE;
+
+  OPT_CTX(this).end_sub_statement();
+
   /* BUG#33029, if we are replicating from a buggy master, restore
      auto_inc_intervals_forced so that the top statement can use the
      INSERT_ID value set before this statement.

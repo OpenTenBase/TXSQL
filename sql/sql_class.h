@@ -149,6 +149,7 @@ struct worker_pool_t;
 class PX_exchange_info;
 class PX_exchange_context;
 class Stats_cache;
+class Opt_ctx_client;
 
 namespace dd {
 namespace cache {
@@ -2125,9 +2126,11 @@ private:
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
   bool m_is_worker{false};
+  bool m_equivalence_check_phase{false};
+
+#if defined(HAVE_OPT_CTX)
   /// An explicit mark for optimization phase.
   bool m_is_optimizing{false};
-  bool m_equivalence_check_phase{false};
   /// Interface object to the statistics module
   Stats_cache *opt_stats;
   /**
@@ -2144,6 +2147,7 @@ private:
   long long saved_outline_reload_version;
   long long saved_optimizer_cost_reload_version;
   long long saved_rewriter_plugin_reload_version;
+#endif
 
  private:
   /**
@@ -4878,6 +4882,12 @@ private:
   /* Changes from txsql start. */
  private:
   bool m_is_local_or_admin_conn;
+
+ public:
+#if defined(HAVE_OPT_CTX)
+  /// Optimization context interceptor.
+  std::unique_ptr<Opt_ctx_client> opt_ctx_client;
+#endif
 
  public:
   /** Thread scheduler callbacks for this connection per-thread and

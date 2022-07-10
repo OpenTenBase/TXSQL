@@ -1,21 +1,28 @@
 #ifndef PX_INTERFACE_INCLUDED
 #define PX_INTERFACE_INCLUDED
 
-#include "sql/sql_class.h"  // THD
-
 /**
   @file sql/parallel_execution/px_interface.h
 
   PX public interface.
  */
 
-#define PX_ENABLED(thd) (px_max_parallel_threads > 0)
+#include "my_config.h"
+
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"
+#endif
+
+#include "sql/sql_class.h"  // THD, because it is used by PX_ macros.
 
 bool px_init(void);
 void px_destroy(void);
 
 extern unsigned long px_max_parallel_threads;
 extern bool px_fallback_in_execution;
+
+class THD;
+struct SHOW_VAR;
 
 int show_px_stmt_executed(THD *, SHOW_VAR *var, char *buff);
 int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff);
@@ -32,6 +39,7 @@ struct AccessPath;
 class JOIN;
 class PX_executor;
 
+#define PX_ENABLED(thd) (px_max_parallel_threads > 0)
 /*
   Assume thd->use_px, otherwise the coordinator is indistinguishable from
   serial executor.
@@ -39,6 +47,8 @@ class PX_executor;
 #define PX_ROLE_COORDINATOR(thd) !(thd)->m_is_worker
 #define PX_ROLE_WORKER(thd) (thd)->m_is_worker
 #define PX_EXECUTOR(thd) (thd)->px_executor
+
+bool px_validate(THD *thd);
 
 bool px_execute_init(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
                      JOIN *root_join, int64_t &dop);

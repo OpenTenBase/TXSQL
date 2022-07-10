@@ -91,6 +91,10 @@ ulong get_parallel_degree_hint(const THD *thd) {
  * @return true for error.
  */
 bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX(thd).mode() == OPT_CTX_NATIVE) return false;
+#endif
+
   // Check compatibility for parallel
   if (thd->need_fallback ||
       !thd->lex->pass_px_check ||
@@ -166,6 +170,19 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   }
 #endif
   thd->use_px = true;
+
+  return false;
+}
+
+bool px_validate(THD *thd) {
+  if (!thd->use_px && OPT_CTX(thd).level() == 0) {
+    const char *error_type = "execution mode";
+    PX_PRINT_WARN("optimization context: Thread(%u) optimization "
+                  "context mismatch (%s)", thd->thread_id(), error_type);
+    my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
+            thd->thread_id(), error_type);
+    return true;
+  }
 
   return false;
 }

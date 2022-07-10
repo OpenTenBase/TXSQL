@@ -342,6 +342,9 @@
 #define HAVE_SYS_TYPES_H 1
 #define SIZEOF_CHAR 1
 
+#define HAVE_OPT_CTX 1
+#define HAVE_OPT_STATS 1
+
 /* For --secure-file-priv */
 #cmakedefine DEFAULT_SECURE_FILE_PRIV_DIR @DEFAULT_SECURE_FILE_PRIV_DIR@
 #cmakedefine HAVE_LIBNUMA 1
