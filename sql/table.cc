@@ -116,7 +116,10 @@
 #include "sql/system_variables.h"
 #include "sql/table_cache.h"               // table_cache_manager
 #include "sql/table_trigger_dispatcher.h"  // Table_trigger_dispatcher
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 #include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
+#endif
 #include "sql/thd_raii.h"
 #include "sql/thr_malloc.h"
 #include "sql/trigger_def.h"
@@ -2786,6 +2789,10 @@ bool create_key_part_field_with_prefix_length(TABLE *table, MEM_ROOT *root) {
 
   // Copy over the key_info from share to table.
   memcpy(key_info, share->key_info, sizeof(*key_info) * share->keys);
+#if defined(HAVE_OPT_CTX)
+  // Make it explicit to share rec_per_key arrays
+  key_info->set_rec_per_key_array_share(share->key_info);
+#endif
   memcpy(key_part, share->key_info[0].key_part,
          (sizeof(*key_part) * share->key_parts));
 

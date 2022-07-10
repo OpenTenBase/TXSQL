@@ -132,7 +132,10 @@
 #include "uniques.h"  // Unique_on_insert
 #include "varlen_sort.h"
 #include "sql/histograms/histogram.h"  // Histogram
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 #include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
+#endif
 
 /**
   @def MYSQL_TABLE_IO_WAIT

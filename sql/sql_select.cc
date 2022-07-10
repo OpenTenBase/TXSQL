@@ -129,7 +129,11 @@
 #include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
 #include "sql/parallel_execution/px_executor.h"  // PX_coordinator
 #include "sql/parallel_execution/px_workerpool.h"  // worker_pool
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX Auto_optimization_scope
 #include "sql/parallel_execution/px_optimizer_context.h"  // begin_optimization_context end_optimization_context
+#endif
+#include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/log.h"
@@ -866,7 +870,14 @@ bool optimize_secondary_engine(THD *thd) {
 bool Sql_cmd_dml::execute_inner(THD *thd) {
   Query_expression *unit = lex->unit;
 
+#if defined(HAVE_OPT_CTX)
+  Auto_optimization_scope opt_ctx_scope(thd);
+
+  if (OPT_CTX_ENABLED(thd)) {
+    opt_ctx_scope.begin();
+  }
   begin_optimization_context(thd);
+#endif
 
   if (unit->optimize(thd, /*materialize_destination=*/nullptr,
                      /*create_iterators=*/true, /*finalize_access_paths=*/true))
@@ -903,9 +914,20 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   // We know by now that execution will complete (successful or with error)
   lex->set_exec_completed();
 
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(thd)) {
+    opt_ctx_scope.end();
+    if (OPT_CTX(thd).validate()) return true;
+    if (PX_ROLE_WORKER(thd) && px_validate(thd)) return true;
+
+    if (unlikely(thd->opt_trace.is_started()) && !PX_ROLE_WORKER(thd)) {
+      OPT_CTX(thd).trace_stats();
+    }
+  }
   if (end_optimization_context(thd)) {
     return true;
   }
+#endif
 
   int64_t requested_cores = 0;
   /*

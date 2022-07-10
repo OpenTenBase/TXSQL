@@ -5,6 +5,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "px_executor.h"
 #include "sql/log.h"
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 
 static const int right_deep_tree_limit = 64;
 static void* thread_func_in_worker(void *);
@@ -450,12 +451,17 @@ static void* thread_func_in_worker(void *arg)
   thread_arg->worker_thd->thread_stack = (char *)&arg;
   thread_arg->worker_thd->store_globals();
 
+#if defined(HAVE_OPT_CTX)
+  assert(OPT_CTX_ENABLED(thread_arg->worker_thd));
+  OPT_CTX(thread_arg->worker_thd).post_init_thd();
+#else
 #ifndef DBUG_OFF
   THD *coordinator_thd = thread_arg->worker_thd->px_coordinator;
   for (auto &val : coordinator_thd->dbug_vals) {
     DBUG_SET(val);
     PX_PRINT_INFO("DBUG_SET %s", val);
   }
+#endif
 #endif
 
   wait_for_begin_query (thread_arg);

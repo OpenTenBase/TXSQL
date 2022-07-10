@@ -1,5 +1,8 @@
 #include "px_optimizer_context.h"
 
+#include "sql/parallel_execution/opt_interface.h"  // Opt_ctx_client
+#include "sql/parallel_execution/px_interface.h"   // PX_ROLE_COORDINATOR
+
 #include "m_ctype.h"
 #include "m_string.h"
 #include "map_helpers.h"
@@ -12,6 +15,7 @@
 #include "sql/opt_trace.h"        // Opt_trace_object
 #include "sql/opt_trace_context.h"
 #include "sql/sql_class.h"        // THD
+#include "sql/sql_lex.h"          // LEX
 #include "sql/sql_plugin.h"       // intern_plugin_lock
 #include "thr_lock.h"
 #include "thr_mutex.h"
@@ -27,6 +31,610 @@
 
 #define my_intern_plugin_lock(A, B) intern_plugin_lock(A, B)
 #define my_intern_plugin_lock_ci(A, B) intern_plugin_lock(A, B)
+
+#define OPT_CTX_TEXT(fmt, ...) \
+    ("px:%ld:%u:%u " fmt, 0L, 0, (current_thd)->thread_id(), \
+     ##__VA_ARGS__)
+#define OPT_CTX_TRACE(fmt, ...) \
+    DBUG_PRINT("ptrace", OPT_CTX_TEXT(fmt, ##__VA_ARGS__))
+#define OPT_CTX_TRACE_CLIENT(fmt, ...) \
+    DBUG_PRINT("ptrace", \
+            OPT_CTX_TEXT("opt:%d " fmt, m_nested_level, ##__VA_ARGS__))
+#define OPT_CTX_TRACE_TABLE(op, table, fmt, ...) \
+    DBUG_PRINT("ptrace", \
+        OPT_CTX_TEXT("opt:%d %s %s.%s (%s) " fmt, m_nested_level, (op), \
+            (table)->s->db.str, (table)->s->table_name.str, (table)->alias, \
+            ##__VA_ARGS__))
+#define OPT_CTX_TRACE_KEY(op, key, fmt, ...) \
+    DBUG_PRINT("ptrace", \
+        OPT_CTX_TEXT("opt:%d %s %s.%s (%s) %s %p " fmt, m_nested_level, (op), \
+            (key)->table ? (key)->table->s->db.str : "?", \
+            (key)->table ? (key)->table->s->table_name.str : "?", \
+            (key)->table ? (key)->table->alias : "?", \
+            (key)->name, key, ##__VA_ARGS__))
+
+inline const char *to_str(enum enum_opt_call_type type) {
+  switch (type) {
+    case OPT_CALL_HA_STAT:
+      return "ha_stats_id";
+    case OPT_CALL_INDEX_DIVE:
+      return "index_dive_id";
+    default:
+      return "?";
+  }
+};
+
+inline const char *to_str(enum enum_opt_repo_type type) {
+  switch (type) {
+    case OPT_REPO_OUTLINE:
+      return "outline version";
+    case OPT_REPO_COST:
+      return "optimizer_cost version";
+    case OPT_REPO_REWRITER:
+      return "rewriter version";
+    default:
+      return "?";
+  }
+}
+
+/**
+  Optimization context.
+
+  An optimization context represents all that are needed for an optimization
+  process, including optimizer settings, rules and statistics.
+
+  It is expected that a context object could be built in one optimization
+  process, and reused in another one to generate the same execution plan.
+
+  Because MySQL allows execution during optimization. It is effectively an
+  execution context.
+ */
+class Opt_ctx {
+ public:
+   Opt_ctx(PSI_memory_key psi_memory_key);
+   ~Opt_ctx();
+
+  void reset();
+  void cleanup();
+
+  /// Statistics cache.
+  Stats_cache *stats_cache() { return &m_opt_stats; }
+
+  /// Set the query in optimization.
+  void set_query(const char *query_string, size_t query_length);
+  /// Set optimizer rule repo version.
+  void set_rule_version(enum enum_opt_repo_type type, long long version);
+  void set_calls(enum enum_opt_call_type type, int calls);
+  /// Set given THD as a source of optimization context.
+  void set_env(THD *thd);
+
+  /// Apply the optimization context to given THD. Was post_init_worker_thd().
+  bool init_thd(THD *thd);
+  /// Init in the running thread. Was DBUG_SET().
+  bool post_init_thd(THD *thd);
+
+#ifndef DBUG_OFF
+  // To intercept Sys_var_dbug::session_update().
+  void dbug_set(const char *val);
+  void dbug_pop();
+#endif
+
+ private:
+  // Provide an execution environment, although far from clear now.
+  THD *m_thd;
+
+  // Original query text. May be different from THD::m_query_string due to
+  // Rewriter plugin.
+  const char *m_query_string;
+  size_t m_query_length;
+
+#ifndef DBUG_OFF
+  /**
+    Interactive history of "SET session debug = val". Recorded by the
+    coordinator, and replayed on each worker so that each has the same
+    effective DBUG setting stack. See Sys_var_dbug.
+   */
+  std::vector<const char*> m_dbug_vals;
+#endif
+
+  MEM_ROOT m_stats_cache_alloc;
+  /// The statistics cache.
+  Stats_cache m_opt_stats;
+
+ public:
+  /// Counters for statistic calls. Used as a loose validation.
+  int m_calls[OPT_CALL_TYPE_LEN];
+  /**
+    Versions for optimizer rule repositories.
+
+    Used to implement optimistic locking mechanism. They are saved by the
+    coordinator at the beginning of optimization, and verified by each worker
+    at the end of optimization. Any version change is likely to get a different
+    SQL execution plan for the parallel thread, thus failing parallel execution.
+    However, it is expected that such changes are very rare, so it is fairly OK
+    to be optimistic. Plan change is also doubly checked by comparing physical
+    plan structures.
+   */
+  long long m_versions[OPT_REPO_TYPE_LEN];
+};
+
+Opt_ctx::Opt_ctx(PSI_memory_key psi_memory_key)
+    : m_stats_cache_alloc(psi_memory_key, 16384 /* 16 kB */),
+      m_opt_stats(&m_stats_cache_alloc) {
+  for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
+  for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
+}
+
+Opt_ctx::~Opt_ctx() {
+  // Note that m_dbug_vals are session state thus not cleaned per statement.
+#ifndef DBUG_OFF
+  for (auto &val : m_dbug_vals) {
+    my_free(const_cast<char *>(val));
+  }
+  m_dbug_vals.clear();
+#endif
+}
+
+void Opt_ctx::reset() {
+  cleanup();
+  m_thd = nullptr;
+  m_query_string = nullptr;
+  m_query_length = 0;
+  for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
+  for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
+}
+
+void Opt_ctx::cleanup() {
+  m_opt_stats.clear();
+  m_stats_cache_alloc.Clear();
+}
+
+void Opt_ctx::set_query(const char *query_string, size_t query_length) {
+  m_query_string = query_string;
+  m_query_length = query_length;
+}
+
+void Opt_ctx::set_calls(enum enum_opt_call_type type, int calls) {
+  m_calls[type] = calls;
+}
+
+void Opt_ctx::set_rule_version(enum enum_opt_repo_type type,
+                              long long version) {
+  m_versions[type] = version;
+}
+
+void Opt_ctx::set_env(THD *thd) {
+  m_thd = thd;
+}
+
+bool Opt_ctx::init_thd(THD *thd) {
+  return post_init_worker_thd(m_thd, thd);
+}
+
+bool Opt_ctx::post_init_thd(THD *thd) {
+#ifndef DBUG_OFF
+  for (auto &val : m_dbug_vals) {
+    DBUG_SET(val);
+    OPT_CTX_TRACE("DBUG_SET %s", val);
+  }
+#endif
+  return false;
+}
+
+#ifndef DBUG_OFF
+void Opt_ctx::dbug_set(const char *val) {
+  const char *v = my_strdup(key_memory_Sys_var_charptr_value, val,
+                            MYF(MY_WME));
+  m_dbug_vals.push_back(v);
+}
+
+void Opt_ctx::dbug_pop() {
+  for (auto &v : m_dbug_vals) {
+    my_free(const_cast<char *>(v));
+  }
+  m_dbug_vals.clear();
+}
+#endif
+
+// Intercepting client.
+
+inline bool ignore_table(TABLE *table) {
+  // Intercepted call may be on TABLE_SHARE, when there is no table.
+  // Statistic calls for system tables are usually irrelative to current
+  // optimization. Ignore them even for an involved system table, because
+  // it is not regular user query.
+  return !table || table->s->table_category != TABLE_CATEGORY_USER;
+}
+
+Opt_ctx_client::Opt_ctx_client(PSI_memory_key psi_memory_key, THD *thd)
+    : m_thd(thd), m_nested_level(0), m_opt_ctx(), m_mode(OPT_CTX_NATIVE) {
+  for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
+  for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
+}
+
+Opt_ctx_client::~Opt_ctx_client() {}
+
+void Opt_ctx_client::reset_for_next_command() {
+  OPT_CTX_TRACE_CLIENT("reset");
+  assert(m_nested_level == 0);
+
+  m_nested_level = 0;
+  for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
+  for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
+}
+
+void Opt_ctx_client::cleanup_after_query() {
+  OPT_CTX_TRACE_CLIENT("cleanup");
+  if (m_nested_level > 0) return;
+
+  // Release the context and, if necessary, destroy it.
+  m_opt_ctx.reset();
+  m_mode = OPT_CTX_NATIVE;
+}
+
+void Opt_ctx_client::begin_sub_statement() {
+  OPT_CTX_TRACE_CLIENT("begin_sub_statement");
+  assert(m_nested_level >= 0);
+  m_nested_level++;
+}
+
+void Opt_ctx_client::end_sub_statement() {
+  OPT_CTX_TRACE_CLIENT("end_sub_statement");
+  m_nested_level--;
+  assert(m_nested_level >= 0);
+}
+
+void Opt_ctx_client::begin_optimization() {
+  OPT_CTX_TRACE_CLIENT("begin_optimization");
+  if (m_nested_level > 0) return;
+
+  m_optimizing = true;
+
+  assert(m_nested_level == 0);
+  if (m_mode != OPT_CTX_NATIVE) {
+    assert(outline_reload_version != -1);
+    assert(optimizer_cost_reload_version != -1);
+    assert(rewriter_plugin_reload_version != -1);
+    m_versions[OPT_REPO_OUTLINE] = outline_reload_version;
+    m_versions[OPT_REPO_COST] = optimizer_cost_reload_version;
+    m_versions[OPT_REPO_REWRITER] = rewriter_plugin_reload_version;
+  }
+}
+
+void Opt_ctx_client::end_optimization() {
+  OPT_CTX_TRACE_CLIENT("end_optimization");
+  if (m_nested_level > 0) return;
+
+  m_optimizing = false;
+
+  assert(m_nested_level == 0);
+  if (m_mode == OPT_CTX_RECORD) {
+    // Save the source context.
+    m_opt_ctx->set_env(m_thd);
+    for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) {
+      m_opt_ctx->set_calls((enum enum_opt_call_type)i, m_calls[i]);
+    }
+    for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) {
+      m_opt_ctx->set_rule_version((enum enum_opt_repo_type)i, m_versions[i]);
+    }
+  }
+}
+
+bool Opt_ctx_client::validate() {
+  OPT_CTX_TRACE_CLIENT("validate");
+  if (m_nested_level > 0 || m_mode  == OPT_CTX_NATIVE) return false;
+
+  const char *error_type = nullptr;
+
+  long long versions[OPT_REPO_TYPE_LEN];
+  versions[OPT_REPO_OUTLINE] = outline_reload_version;
+  versions[OPT_REPO_COST] = optimizer_cost_reload_version;
+  versions[OPT_REPO_REWRITER] = rewriter_plugin_reload_version;
+  for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) {
+    if (versions[i] != m_versions[i]) {
+      error_type = to_str((enum enum_opt_repo_type)i);
+      goto err;
+    }
+  }
+
+  if (m_mode == OPT_CTX_REPLAY) {
+    for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) {
+      if (versions[i] != m_opt_ctx->m_versions[i]) {
+        error_type = to_str((enum enum_opt_repo_type)i);
+        goto err;
+      }
+    }
+    for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) {
+      if (m_calls[i] != m_opt_ctx->m_calls[i]) {
+        error_type = to_str((enum enum_opt_call_type)i);
+        goto err;
+      }
+    }
+  }
+
+  return false;
+
+err:
+
+  OPT_STATS_WARN("optimization context: Thread(%u) optimization "
+                 "context mismatch (%s)", m_thd->thread_id(), error_type);
+  my_error(ER_CDB_OPTIMIZATION_CONTEXT_INCONSISTENT, MYF(0),
+           m_thd->thread_id(), error_type);
+
+  return true;
+}
+
+void Opt_ctx_client::trace_stats() {
+  if (m_mode != OPT_CTX_NATIVE) {
+    m_opt_ctx->stats_cache()->trace_stats(m_thd);
+  }
+}
+
+inline const char *to_str(enum enum_opt_ctx_mode mode) {
+  switch (mode) {
+    case OPT_CTX_NATIVE:
+      return "native";
+    case OPT_CTX_RECORD:
+      return "record";
+    case OPT_CTX_REPLAY:
+      return "replay";
+    default:
+      return "?";
+  }
+}
+
+void Opt_ctx_client::set_ctx(enum enum_opt_ctx_mode mode,
+                             std::shared_ptr<Opt_ctx> ctx) {
+  assert(mode != OPT_CTX_REPLAY || ctx);
+  OPT_CTX_TRACE_CLIENT("set_ctx %p %s", ctx.get(), to_str(mode));
+
+  if (m_nested_level > 0) return;
+
+  if (!ctx) {
+    ctx.reset(new (std::nothrow) Opt_ctx(key_memory_optimizer_context));
+  }
+  // Switch to non-native mode only if having connected to an optimization
+  // context.
+  if (ctx) {
+    m_opt_ctx = ctx;
+    m_mode = mode;
+  }
+}
+
+bool Opt_ctx_client::init_thd() {
+  bool ret = false;
+  if (m_mode == OPT_CTX_REPLAY) {
+    OPT_CTX_TRACE_CLIENT("init_thd");
+    ret = m_opt_ctx->init_thd(m_thd);
+  } else {
+    assert(0);
+  }
+  return ret;
+}
+
+bool Opt_ctx_client::post_init_thd() {
+  bool ret = false;
+  if (m_mode == OPT_CTX_REPLAY) {
+    OPT_CTX_TRACE_CLIENT("post_init_thd");
+    ret = m_opt_ctx->post_init_thd(m_thd);
+  } else {
+    assert(0);
+  }
+  return ret;
+}
+
+#ifndef DBUG_OFF
+void Opt_ctx_client::dbug_set(const char *val) {
+  OPT_CTX_TRACE_CLIENT("dbug_set %s", val);
+  if (m_mode == OPT_CTX_RECORD) m_opt_ctx->dbug_set(val);
+}
+
+void Opt_ctx_client::dbug_pop() {
+  OPT_CTX_TRACE_CLIENT("dbug_pop");
+  if (m_mode == OPT_CTX_RECORD) m_opt_ctx->dbug_pop();
+}
+#endif
+
+void Opt_ctx_client::set_query(const char *query_string, size_t query_length) {
+  OPT_CTX_TRACE_CLIENT("set_query %s", query_string);
+  if (m_nested_level == 0 && m_mode == OPT_CTX_RECORD) {
+    m_opt_ctx->set_query(query_string, query_length);
+  }
+}
+
+int Opt_ctx_client::info(TABLE *table, uint flag) {
+  OPT_CTX_TRACE_CLIENT(
+      "info %s.%s (%s) %x", table->s->db.str, table->s->table_name.str,
+      table->alias, flag);
+
+  // See the comment of m_optimizing.
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(table))
+    return 0;
+
+  assert(m_mode != OPT_CTX_NATIVE);
+  ha_statistics *stats = nullptr;
+  int err = m_opt_ctx->stats_cache()->get_ha_stats(table, stats);
+  if (err) {
+    if (m_mode == OPT_CTX_REPLAY) {
+      assert(0);
+      // Translate cache miss (true) to proper error code.
+      err = HA_ERR_INTERNAL_ERROR;
+      goto end;
+    }
+
+    if (m_mode == OPT_CTX_RECORD) {
+      m_calls[OPT_CALL_HA_STAT]++;
+      err = m_opt_ctx->stats_cache()->set_ha_info(table);
+    }
+  } else {
+    // Overwrite stats because it has no accessor function, while interactions
+    // with the others are intercepted in their callback functions.
+    table->file->stats.copy_from(stats);
+    m_calls[OPT_CALL_HA_STAT]++;
+  }
+
+end:
+  return err;
+}
+
+#ifndef DBUG_OFF
+static void print_memory(const void *ptr, size_t length, String &out) {
+  for (uint i = 0; i < length; i++) {
+    out.append(_dig_vec_lower[*((const char*)ptr + i) >> 4]);
+    out.append(_dig_vec_lower[*((const char*)ptr + i) & 0x0F]);
+  }
+}
+
+static void print_endp(key_range *endp, String &out) {
+  if (!endp) return;
+  char buf[sizeof(longlong)*2+1];
+  if (endp->key) print_memory(endp->key, 1, out);
+  else out.append("?");
+  out.append(STRING_WITH_LEN("-"));
+  if (endp->key) print_memory(endp->key + 1, endp->length - 1, out);
+  else out.append("?");
+  out.append(STRING_WITH_LEN("-"));
+  sprintf(buf, "%lx", endp->keypart_map);
+  out.append(buf);
+  out.append(STRING_WITH_LEN("-"));
+  sprintf(buf, "%x", endp->flag);
+  out.append(buf);
+}
+#endif
+
+ha_rows Opt_ctx_client::records_in_range(TABLE *table, uint keyno,
+                                  key_range *min_endp,
+                                  key_range *max_endp) {
+  ha_rows rows;
+
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(table))
+    rows = table->file->records_in_range(keyno, min_endp, max_endp);
+  else {
+    int err = true;
+    Stats_cache *cache = m_opt_ctx->stats_cache();
+    err = cache->get_index_dive(table, keyno, min_endp, max_endp, rows);
+    if (err) {
+      if (m_mode == OPT_CTX_REPLAY) {
+#ifndef DBUG_OFF
+        cache->print_index_dive_map(err, table, keyno, min_endp, max_endp);
+#endif
+        assert(0);
+        rows = HA_POS_ERROR;
+        goto end;
+      }
+      rows = table->file->records_in_range(keyno, min_endp, max_endp);
+      if (rows != HA_POS_ERROR) {
+        cache->set_index_dive(table, keyno, min_endp, max_endp, rows);
+        m_calls[OPT_CALL_INDEX_DIVE]++;
+      }
+    } else {
+      m_calls[OPT_CALL_INDEX_DIVE]++;
+    }
+  }
+
+end:
+#ifndef DBUG_OFF
+  String out;
+  print_endp(min_endp, out);
+  out.append("..");
+  print_endp(max_endp, out);
+  out.append('\0');
+  OPT_CTX_TRACE_TABLE(
+      "records_in_range", table, "%u %s %llu", keyno, out.ptr(), rows);
+#endif
+  return rows;
+}
+
+bool Opt_ctx_client::has_records_per_key(const KEY *key, uint key_part_no) {
+  bool has;
+
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(key->table))
+    has = key->has_records_per_key_low(key_part_no);
+  else {
+    assert(key_part_no < key->actual_key_parts);
+    bool err = m_opt_ctx->stats_cache()->
+        get_has_records_per_key(key, key_part_no, has);
+    if (err) {
+      // Never miss because info() result is cached.
+      assert(0);
+      has = false;
+      goto end;
+    }
+  }
+
+end:
+  OPT_CTX_TRACE_KEY("has_records_per_key", key, "%u %d",  key_part_no, has);
+  return has;
+}
+
+rec_per_key_t Opt_ctx_client::records_per_key(const KEY *key,
+                                              uint key_part_no) {
+  rec_per_key_t tmp_rec_per_key;
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(key->table))
+    tmp_rec_per_key = key->records_per_key_low(key_part_no);
+  else {
+    assert(key_part_no < key->actual_key_parts);
+    if (m_opt_ctx->stats_cache()->get_records_per_key(
+            key, key_part_no, tmp_rec_per_key)) {
+      // Never miss because info() result is cached.
+      assert(0);
+      tmp_rec_per_key = REC_PER_KEY_UNKNOWN;
+    }
+  }
+  OPT_CTX_TRACE_KEY(
+      "records_per_key", key, "%u %g", key_part_no, tmp_rec_per_key);
+  return tmp_rec_per_key;
+}
+
+void Opt_ctx_client::set_records_per_key(KEY *key, uint key_part_no,
+                                  rec_per_key_t rec_per_key_est) {
+  OPT_CTX_TRACE_CLIENT(
+      "set_records_per_key %p %u %g", key, key_part_no, rec_per_key_est);
+  // Complete the callback path of handler::info().
+  key->set_records_per_key_low(key_part_no, rec_per_key_est);
+}
+
+bool Opt_ctx_client::supports_records_per_key(const KEY *key) {
+  // Test any array set by set_rec_per_key_array().
+  bool ret = key->supports_records_per_key_low();
+  OPT_CTX_TRACE_KEY("supports_records_per_key", key, "%d", ret);
+  return ret;
+}
+
+void Opt_ctx_client::set_rec_per_key_array(KEY *key, ulong *rec_per_key_arg,
+                                    rec_per_key_t *rec_per_key_float_arg) {
+  OPT_CTX_TRACE_CLIENT("set_rec_per_key_array %p %p %p", key, rec_per_key_arg,
+                       rec_per_key_float_arg);
+  // When a table is opened by open_table_from_share(), the arrays are
+  // implicitly set to the shared instances in TABLE_SHARE. Whether or not
+  // the arrays are set, is related to properties of the table rather than
+  // operation mode or thread role.
+  key->set_rec_per_key_array_low(rec_per_key_arg, rec_per_key_float_arg);
+}
+
+double Opt_ctx_client::in_memory_estimate(const KEY *key) {
+  double tmp_estimate;
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(key->table))
+    tmp_estimate = key->in_memory_estimate_low();
+  else {
+    if (m_opt_ctx->stats_cache()->get_in_memory_estimate(key, tmp_estimate)) {
+      // Never miss because info() result is cached.
+      assert(0);
+      tmp_estimate = IN_MEMORY_ESTIMATE_UNKNOWN;
+    }
+  }
+  assert(tmp_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
+              (tmp_estimate >= 0.0 && tmp_estimate <= 1.0));
+  OPT_CTX_TRACE_KEY("in_memory_estimate", key, "%g", tmp_estimate);
+  return tmp_estimate;
+}
+
+void Opt_ctx_client::set_in_memory_estimate(KEY *key,
+                                            double in_memory_estimate) {
+  OPT_CTX_TRACE_CLIENT("set_in_memory_estimate %p %g", key, in_memory_estimate);
+  // Complete the callback path of handler::info().
+  key->set_in_memory_estimate_low(in_memory_estimate);
+}
 
 bool index_dive_args::init(MEM_ROOT *mem_root,
                            const TABLE_SHARE *table_share,
@@ -263,6 +871,7 @@ bool Stats_cache::set_ha_info(const TABLE *table) {
 
   for (uint i = 0; i < table->s->keys; i++) {
     KEY *key = &table->key_info[i];
+    if (!key->supports_records_per_key()) continue;
 
     records_per_key_args key_args;
     key_args.key = key;
@@ -507,6 +1116,7 @@ bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
   return false;
 }
 
+#if defined(HAVE_OPT_CTX)
 void begin_optimization_context(THD *thd) {
   // copy the optimizer related version before optimization in coordinator
   if (!OPT_STATS_RUNNING(thd) && PX_ROLE_COORDINATOR(thd)) {
@@ -566,8 +1176,10 @@ bool end_optimization_context(THD *thd) {
     }
   }
 
-  if (!thd->in_sub_stmt)
+  if (!thd->in_sub_stmt) {
     thd->m_is_optimizing = false;
+  }
 
   return false;
 }
+#endif /* defined(HAVE_OPT_CTX) */

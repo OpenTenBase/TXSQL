@@ -212,6 +212,13 @@ class KEY {
   */
 
   bool has_records_per_key(uint key_part_no) const;
+  bool has_records_per_key_low(uint key_part_no) const {
+    assert(key_part_no < actual_key_parts);
+
+    return ((rec_per_key_float &&
+             rec_per_key_float[key_part_no] != REC_PER_KEY_UNKNOWN) ||
+            (rec_per_key && rec_per_key[key_part_no] != 0));
+  }
 
   /**
     Retrieve an estimate for the average number of records per distinct value,
@@ -229,6 +236,21 @@ class KEY {
 
   rec_per_key_t records_per_key(uint key_part_no) const;
 
+  rec_per_key_t records_per_key_low(uint key_part_no) const {
+    assert(key_part_no < actual_key_parts);
+
+    /*
+      If the storage engine has provided rec per key estimates as float
+      then use this. If not, use the integer version.
+    */
+    if (rec_per_key_float[key_part_no] != REC_PER_KEY_UNKNOWN)
+      return rec_per_key_float[key_part_no];
+
+    return (rec_per_key[key_part_no] != 0)
+               ? static_cast<rec_per_key_t>(rec_per_key[key_part_no])
+               : REC_PER_KEY_UNKNOWN;
+  }
+
   /**
     Set the records per key estimate for a key part.
 
@@ -240,9 +262,13 @@ class KEY {
     @param rec_per_key_est new records per key estimate
   */
 
-  void set_records_per_key(uint key_part_no, rec_per_key_t rec_per_key_est) {
+  void set_records_per_key(uint key_part_no, rec_per_key_t rec_per_key_est);
+
+  void set_records_per_key_low(uint key_part_no,
+                               rec_per_key_t rec_per_key_est) {
     assert(key_part_no < actual_key_parts);
-    assert(rec_per_key_est == REC_PER_KEY_UNKNOWN || rec_per_key_est >= 1.0);
+    assert(rec_per_key_est == REC_PER_KEY_UNKNOWN ||
+                rec_per_key_est >= 1.0);
     assert(rec_per_key_float != nullptr);
 
     rec_per_key_float[key_part_no] = rec_per_key_est;
@@ -255,7 +281,9 @@ class KEY {
             false otherwise.
   */
 
-  bool supports_records_per_key() const {
+  bool supports_records_per_key() const;
+
+  bool supports_records_per_key_low() const {
     if (rec_per_key_float != nullptr && rec_per_key != nullptr) return true;
 
     return false;
@@ -276,7 +304,14 @@ class KEY {
   */
 
   void set_rec_per_key_array(ulong *rec_per_key_arg,
-                             rec_per_key_t *rec_per_key_float_arg) {
+                             rec_per_key_t *rec_per_key_float_arg);
+
+  void set_rec_per_key_array_share(KEY *shared) {
+    set_rec_per_key_array(shared->rec_per_key, shared->rec_per_key_float);
+  }
+
+  void set_rec_per_key_array_low(ulong *rec_per_key_arg,
+                                 rec_per_key_t *rec_per_key_float_arg) {
     rec_per_key = rec_per_key_arg;
     rec_per_key_float = rec_per_key_float_arg;
   }
@@ -316,6 +351,13 @@ class KEY {
 
   double in_memory_estimate() const;
 
+  double in_memory_estimate_low() const {
+    assert(m_in_memory_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
+                (m_in_memory_estimate >= 0.0 && m_in_memory_estimate <= 1.0));
+
+    return m_in_memory_estimate;
+  }
+
   /**
     Set the estimate for how much of this index that is currently in a
     memory buffer.
@@ -324,9 +366,11 @@ class KEY {
     IN_MEMORY_ESTIMATE_UNKNOWN.
   */
 
-  void set_in_memory_estimate(double in_memory_estimate) {
+  void set_in_memory_estimate(double in_memory_estimate);
+
+  void set_in_memory_estimate_low(double in_memory_estimate) {
     assert(in_memory_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
-           (in_memory_estimate >= 0.0 && in_memory_estimate <= 1.0));
+                (in_memory_estimate >= 0.0 && in_memory_estimate <= 1.0));
 
     m_in_memory_estimate = in_memory_estimate;
   }

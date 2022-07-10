@@ -14,7 +14,11 @@
 #include "sql/log.h" // For debug to be deleted.
 #include "sql/iterators/basic_row_iterators.h"  // TableScanIterator
 #include "sql/parallel_execution/px.h"
-#include "px_optimizer_context.h" // post_init_worker_thd
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
+#include "sql/parallel_execution/px_optimizer_context.h"  // post_init_worker_thd
+#endif
+#include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/join_optimizer/access_path.h" // Access_path
 #include "sql/join_optimizer/explain_access_path.h" // CheckPlanEquivalence
 #include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
@@ -276,6 +280,13 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
   mysql_mutex_lock(&thd->LOCK_thd_data);
   for (int i = 0; i < requested_cores; ++i) {
     THD* worker_thd = new THD();
+
+#if defined(HAVE_OPT_CTX)
+    assert(OPT_CTX_ENABLED(thd));
+    OPT_CTX(worker_thd).set_ctx(OPT_CTX_REPLAY, OPT_CTX(thd).opt_ctx());
+    OPT_CTX(worker_thd).init_thd();
+#endif
+
     worker_thd->px_coordinator = thd;
     worker_thd->set_is_killable(true);
     coordinator->thd_list.push_back(worker_thd);
@@ -623,8 +634,11 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     assert(worker_new_thd);
 
     worker_new_thd->m_is_worker = true;
+#if defined(HAVE_OPT_CTX)
+#else
     // copy variables of coordinator THD for worker
     post_init_worker_thd(thd(), worker_new_thd);
+#endif
 
     worker_new_thd->set_db(thd()->db());
     // Set the thread_id of the THD by Global_THD_Manager, in temp table

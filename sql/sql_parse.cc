@@ -2273,8 +2273,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       copy_bind_parameter_values(thd, com_data->com_query.parameters,
                                  com_data->com_query.parameter_count);
-
+#if defined(HAVE_OPT_CTX)
+     if (OPT_CTX_ENABLED(thd) && !thd->in_sub_stmt)
+        OPT_CTX(thd).set_query(orig_query.str, orig_query.length);
+#endif
       dispatch_sql_command(thd, &parser_state);
+
 
       // If PX execution fails to execute properly, fallback to serial.
       if (thd->need_fallback)
@@ -2364,6 +2368,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         parser_state.reset(beginning_of_next_stmt, length);
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
+#if defined(HAVE_OPT_CTX)
+        if (OPT_CTX_ENABLED(thd) && !thd->in_sub_stmt)
+          OPT_CTX(thd).set_query(beginning_of_next_stmt, length);
+#endif
         /* TODO: set thd->lex->sql_command to SQLCOM_END here */
         dispatch_sql_command(thd, &parser_state);
 
@@ -5803,6 +5811,24 @@ void THD::reset_for_next_command() {
 #ifndef NDEBUG
   thd->set_tmp_table_seq_id(1);
 #endif
+
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(thd)) {
+    // Switch mode by session variable (thd->variables.opt_ctx_mode). For now
+    // it is implied by parallel execution.
+    if (!PX_ROLE_WORKER(thd)) {
+      // Usually there is no nested reset_for_next_command(). However, the
+      // exception is that BINLOG command, mysql_client_binlog_statement(),
+      // adds for any row event a nested level of reset_for_next_command() in
+      // Rows_log_event::do_apply_event().
+      assert(thd->lex->sql_command == SQLCOM_END ||
+             OPT_CTX(thd).mode() == OPT_CTX_NATIVE);
+      OPT_CTX(thd).set_ctx(OPT_CTX_RECORD);
+    }
+    OPT_CTX(thd).reset_for_next_command();
+  }
+#endif
+
   assert(m_backquery_info.empty()); 
   /*
     When error occured in parse stage, ha_end_backquery

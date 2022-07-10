@@ -44,7 +44,10 @@
 #include "sql_string.h"
 #include "sql/current_thd.h"    // current_thd
 #include "sql/sql_class.h"      // THD
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 #include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
+#endif
 
 using std::max;
 using std::min;
@@ -58,7 +61,83 @@ bool KEY::is_functional_index() const {
   return false;
 }
 
+bool KEY::has_records_per_key(uint key_part_no) const {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    return OPT_CTX(current_thd).has_records_per_key(this, key_part_no);
+  }
+  if (OPT_STATS_ENABLED(current_thd, table)) {
+    assert(key_part_no < actual_key_parts);
+    bool has_rec_per_key;
+    if(!OPT_STATS_GET(has_records_per_key, current_thd,
+                      this, key_part_no, has_rec_per_key)) {
+      return has_rec_per_key;
+    }
+    // Never miss because info() result is cached.
+    assert(0);
+    return false;
+  }
+#endif
+  return has_records_per_key_low(key_part_no);
+}
+
+rec_per_key_t KEY::records_per_key(uint key_part_no) const {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    return OPT_CTX(current_thd).records_per_key(this, key_part_no);
+  }
+  if (OPT_STATS_ENABLED(current_thd, table)) {
+    assert(key_part_no < actual_key_parts);
+    rec_per_key_t tmp_rec_per_key;
+    if(!OPT_STATS_GET(records_per_key, current_thd,
+                      this, key_part_no, tmp_rec_per_key)) {
+      return tmp_rec_per_key;
+    }
+    // Never miss because info() result is cached.
+    assert(0);
+    return REC_PER_KEY_UNKNOWN;
+  }
+#endif
+  return records_per_key_low(key_part_no);
+}
+
+void KEY::set_records_per_key(uint key_part_no, rec_per_key_t rec_per_key_est) {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    OPT_CTX(current_thd).set_records_per_key(this, key_part_no,
+                                             rec_per_key_est);
+    return;
+  }
+#endif
+  set_records_per_key_low(key_part_no, rec_per_key_est);
+}
+
+bool KEY::supports_records_per_key() const {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    return OPT_CTX(current_thd).supports_records_per_key(this);
+  }
+#endif
+  return supports_records_per_key_low();
+}
+
+void KEY::set_rec_per_key_array(ulong *rec_per_key_arg,
+                           rec_per_key_t *rec_per_key_float_arg) {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    OPT_CTX(current_thd).set_rec_per_key_array(
+        this, rec_per_key_arg, rec_per_key_float_arg);
+    return;
+  }
+#endif
+  set_rec_per_key_array_low(rec_per_key_arg, rec_per_key_float_arg);
+}
+
 double KEY::in_memory_estimate() const {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    return OPT_CTX(current_thd).in_memory_estimate(this);
+  }
   if (OPT_STATS_ENABLED(current_thd, table)) {
     double tmp_estimate;
     if(!OPT_STATS_GET(in_memory_estimate, current_thd,
@@ -67,55 +146,20 @@ double KEY::in_memory_estimate() const {
     }
     // Never miss because info() result is cached.
     assert(0);
+    return IN_MEMORY_ESTIMATE_UNKNOWN;
   }
-
-  assert(m_in_memory_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
-              (m_in_memory_estimate >= 0.0 && m_in_memory_estimate <= 1.0));
-
-  return m_in_memory_estimate;
+#endif
+  return in_memory_estimate_low();
 }
 
-bool KEY::has_records_per_key(uint key_part_no) const {
-  assert(key_part_no < actual_key_parts);
-
-  if (OPT_STATS_ENABLED(current_thd, table)) {
-    bool has_rec_per_key;
-    if(!OPT_STATS_GET(has_records_per_key, current_thd,
-                      this, key_part_no, has_rec_per_key)) {
-      return has_rec_per_key;
-    }
-    // Never miss because info() result is cached.
-    assert(0);
+void KEY::set_in_memory_estimate(double in_memory_estimate) {
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX_ENABLED(current_thd)) {
+    OPT_CTX(current_thd).set_in_memory_estimate(this, in_memory_estimate);
+    return;
   }
-
-  return ((rec_per_key_float &&
-              rec_per_key_float[key_part_no] != REC_PER_KEY_UNKNOWN) ||
-          (rec_per_key && rec_per_key[key_part_no] != 0));
-}
-
-rec_per_key_t KEY::records_per_key(uint key_part_no) const {
-  assert(key_part_no < actual_key_parts);
-
-  if (OPT_STATS_ENABLED(current_thd, table)) {
-    rec_per_key_t tmp_rec_per_key;
-    if(!OPT_STATS_GET(records_per_key, current_thd,
-                      this, key_part_no, tmp_rec_per_key)) {
-      return tmp_rec_per_key;
-    }
-    // Never miss because info() result is cached.
-    assert(0);
-  }
-
-  /*
-    If the storage engine has provided rec per key estimates as float
-    then use this. If not, use the integer version.
-  */
-  if (rec_per_key_float[key_part_no] != REC_PER_KEY_UNKNOWN)
-    return rec_per_key_float[key_part_no];
-
-  return (rec_per_key[key_part_no] != 0)
-              ? static_cast<rec_per_key_t>(rec_per_key[key_part_no])
-              : REC_PER_KEY_UNKNOWN;
+#endif
+  set_in_memory_estimate_low(in_memory_estimate);
 }
 
 /*

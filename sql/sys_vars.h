@@ -76,6 +76,7 @@
 #include "sql/tztime.h"           // Time_zone
 #include "sql_string.h"
 #include "typelib.h"
+#include "sql/parallel_execution/px_interface.h" // OPT_CTX
 
 class Sys_var_bit;
 class Sys_var_bool;
@@ -1271,16 +1272,24 @@ class Sys_var_dbug : public sys_var {
     const char *val = var->save_result.string_value.str;
     if (!var->value) {
       DBUG_POP();
+#if defined(HAVE_OPT_CTX)
+      OPT_CTX(thd).dbug_pop();
+#else
       for (auto &v : thd->dbug_vals) {
         my_free(const_cast<char *>(v));
       }
       thd->dbug_vals.clear();
+#endif
     }
     else {
       DBUG_SET(val);
+#if defined(HAVE_OPT_CTX)
+      OPT_CTX(thd).dbug_set(val);
+#else
       const char *v = my_strdup(key_memory_Sys_var_charptr_value,
                                 val, MYF(MY_WME));
       thd->dbug_vals.push_back(v);
+#endif
     }
     return false;
   }
