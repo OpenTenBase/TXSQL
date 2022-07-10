@@ -1838,6 +1838,8 @@ bool check_readonly(THD *thd, bool err_if_readonly) {
   /* read_only=OFF, do not prohibit operation: */
   if (!opt_readonly) return false;
 
+  /* Thread is parallel worker thd, do not prohibit operation. */
+  if (thd && thd->m_is_worker) return false;
   /*
     Thread is replication slave or skip_read_only check is enabled for the
     command, do not prohibit operation.
