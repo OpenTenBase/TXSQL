@@ -259,4 +259,19 @@ SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=
 
 DROP TABLE t1, t2, t3;
 
+--echo #
+--echo # Window functions
+--echo #
+CREATE TABLE t1 (a INT, b INT, c INT, KEY b_idx(b));
+INSERT INTO t1 VALUES (1,1,1),(2,1,1),(3,1,1),(4,2,2),(5,2,2),(6,2,2);
+ANALYZE TABLE t1;
+EXPLAIN FORMAT=TREE SELECT SUM(AVG(a)) OVER () FROM t1;
+SELECT SUM(AVG(a)) OVER () FROM t1;
+EXPLAIN FORMAT=TREE SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY b;
+SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY b;
+EXPLAIN FORMAT=TREE SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY c;
+SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY c;
+
+DROP TABLE t1;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc

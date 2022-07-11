@@ -424,6 +424,13 @@ bool px_access_path::WalkAccessPathsForCompat(
       break;
     }
     case AccessPath::AGGREGATE: {
+      // If there is an aggregate function but no GROUP BY, the WINDOWING access
+      // path will not be used and the window function will be calculated in the
+      // projector. Rebuild AGGREGATE does not support this case.
+      if (parallel_scan && !cur_join->m_windows.is_empty()) {
+        parallel_safe = false;
+        break;
+      }
       const auto &param = path->aggregate();
       if (WalkAccessPathsForCompat(thd, param.child, path, cur_join,
                                    parallel_scan, false, false, ref_slice,
