@@ -883,8 +883,12 @@ bool LEX::check_px_execution() const {
     }
   }
 
-  // UDF
-  if (has_udf()) {
+  /*
+    Unsupported user functions:
+    1) user define function (#967)
+    2) user level lock (#1084)
+  */
+  if (has_udf() || !thd->ull_hash.empty()) {
     return false;
   }
 

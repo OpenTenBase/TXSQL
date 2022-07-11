@@ -1172,5 +1172,25 @@ static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
   if (coordinator_thd->is_cmd_skip_readonly())
     worker_thd->set_skip_readonly_check();
 
+  /*
+    Ticket store (MDL_context::m_ticket_store) is not thread-safe by design,
+    although it still allows concurrent reads.
+
+    Using the coordinator as a MDL caching proxy for all workers (#449) is
+    based on the assumption that the ticket store is read only with respect to
+    concurrent access. Such an assumption does not stand because certain tickets
+    are short-lived thus not in the ticket store, and any parallel thread might
+    issue new MDL requests when evaluating certain SQL functions.
+
+    Here each worker makes a copy of the ticket store of the coordinator, thus
+    becomes standalone with respect to MDL. The only exception is that
+    MDL_EXPLICIT should be released explicity, and is prevented by
+    LEX::check_px_execution().
+   */
+  for (int i = 0; i < MDL_DURATION_END; i++) {
+    worker_thd->mdl_context.clone_tickets(&coordinator_thd->mdl_context,
+                                          (enum_mdl_duration)i);
+  }
+
   return false;
 }

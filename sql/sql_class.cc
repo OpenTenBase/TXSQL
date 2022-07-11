@@ -1315,8 +1315,18 @@ void THD::cleanup(void) {
     back a few lines above) or under LOCK TABLES (unlocked the tables
     and left the mode a few lines above), there will be outstanding
     metadata locks. Release them.
+    Besides acquiring tickets as standalone threads, parallel workers
+    additionally copy tickets from the coordinator when they are created.
+    So they must release all metadata locks.
   */
-  mdl_context.release_transactional_locks();
+  if (!m_is_worker) {
+    mdl_context.release_transactional_locks();
+  } else {
+    mdl_context.release_locks_for_parallel_worker();
+    // Should have been prevented by LEX::check_px_execution().
+    assert(ull_hash.empty());
+    ull_hash.clear();
+  }
 
   /* Release the global read lock, if acquired. */
   if (global_read_lock.is_acquired())
