@@ -24,6 +24,6 @@
 
 const char *CompileTime () {
     static char tmpbuf[1024] = { 0 };
-    snprintf (tmpbuf , sizeof(tmpbuf) , "-v18-txsql-2.0.1-V2.0R730D001-%04d%02d%02d-%02d%02d" , CUR_YEAR , CUR_MONTH , CUR_DAY , CUR_HOUR , CUR_MIN);
+    snprintf (tmpbuf , sizeof(tmpbuf) , "-v18-txsql-2.0.1-V2.0R740D001-%04d%02d%02d-%02d%02d" , CUR_YEAR , CUR_MONTH , CUR_DAY , CUR_HOUR , CUR_MIN);
     return tmpbuf;
 }
