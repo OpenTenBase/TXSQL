@@ -1969,32 +1969,13 @@ void FindTablesToGetRowidFor(AccessPath *path);
  */
 bool FinalizeMaterializedSubqueries(THD *thd, JOIN *join, AccessPath *path);
 
-AccessPath *WalkAccessPathsForAggregationRebuild(THD *thd, JOIN *join,
-                                                 AccessPath *const path,
-                                                 bool stream_agg);
-
-bool RebuildAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
-                                uint curr_slice, uint *avg_count);
-
-bool RebuildTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath *const path,
-                                    uint curr_slice, uint *avg_count);
-
-AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join,
-                                          AccessPath *const path,
-                                          uint curr_slice, uint avg_count,
-                                          bool stream_agg);
-
-AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join,
-                                              AccessPath *const path,
-                                              uint curr_slice, uint avg_count);
+AccessPath *WalkAccessPathsForAggregationSplit(THD *thd, JOIN *join,
+                                               AccessPath *const path,
+                                               bool stream_agg);
 
 void RebuildCurrentRefItems(THD *thd, JOIN *join, uint curr_slice, bool is_final_aggr);
 
-ORDER *CreateOrderForGroupList(THD *thd, ORDER *order);
-
-bool FixFuncDivForAvg(THD *thd, JOIN *join, uint avg_count);
-
-void FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice);
+bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice);
 
 unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
     THD *thd, MEM_ROOT *mem_root, AccessPath *path, JOIN *join,

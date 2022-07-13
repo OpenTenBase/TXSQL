@@ -5284,52 +5284,11 @@ bool JOIN::transform_ref_items_to_fields(mem_root_deque<Item *> *saved_fields,
   for (uint i=0; i<fields_count; i++) {
     bool is_hidden = (*fields)[i]->hidden;
     saved_fields->push_back((*base_ref_item)[is_hidden ? fields_count - i -1
-                                                            : i - num_hidden_fields]);
+                                                       : i - num_hidden_fields]);
   }
   if (saved_fields == nullptr || saved_fields->size() != fields_count) {
     return true;
   }
-  return false;
-}
-
-/**
-  Check whether rebuild sum funcs for aggregate(first aggregate,
-  not final aggregate) or not.
-  Now, we only consider to support sum, max/min, count, avg. In
-  first aggregate, we only should rebuild avg.
-
-  @param thd
-  @param curr_slice this is slice in ref_items.
-  @param avg_count count of Item_sum_avg.
-
-  @return true if fail, false if successful.
-*/
-bool JOIN::check_and_rebuild_sum_funcs(THD *thd, uint curr_slice, uint *avg_count) {
-    // check whether there are avg funcs.
-    bool do_rebuild = false;
-    uint avg_num = 0;
-    for (Item_sum **sum_item = sum_funcs; *sum_item != nullptr; ++sum_item) {
-      const Item_sum::Sumfunctype sum_type = (*sum_item)->sum_func();
-      if (sum_type == Item_sum::AVG_FUNC) {
-        do_rebuild = true;
-        avg_num++;
-      }
-    }
-
-    // transform ref_items[REF_SLICE_SAVED_BASE] to fields format and save it.
-    saved_base_fields = new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
-    if (transform_ref_items_to_fields(saved_base_fields, REF_SLICE_SAVED_BASE)) {
-      return true;
-    }
-    tmp_fields[REF_SLICE_SAVED_BASE] = *saved_base_fields;
-
-    // rebuild sum_funcs
-    if (do_rebuild && rebuild_sum_funcs(thd, curr_slice)) {
-      return true;
-    }
-
-    *avg_count = avg_num;
-
   return false;
 }
 
@@ -5346,13 +5305,14 @@ bool JOIN::rebuild_sum_funcs(THD *thd, uint curr_slice) {
   uint saved_allow_sum_funcs = thd->lex->allow_sum_func;
   nesting_map select_nest_level = (nesting_map)1 << (unsigned int)query_block->nest_level;
   thd->lex->allow_sum_func |= select_nest_level;
+  size_t i = 0;
 
   // create new item array for fields
   mem_root_deque<Item *> *new_join_fields =
       new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  if (new_join_fields == nullptr) goto err;
   new_join_fields->clear();
   // Traverse JOIN::fields to rebuild sum_funcs like Item_sum_avg.
-  size_t i = 0;
   for (Item *item : *curr_fields) {
     if (item->type() == Item::SUM_FUNC_ITEM) {
       Item_sum *item_sum = dynamic_cast<Item_sum *>(item);
@@ -5411,6 +5371,7 @@ bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
   Item_sum **new_item_list{nullptr};
   mem_root_deque<Item *> *new_final_fields =
       new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  if (!new_final_fields) return true;
   new_final_fields->clear();
 
   uint saved_allow_sum_funcs = thd->lex->allow_sum_func;
@@ -5474,6 +5435,7 @@ bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
       new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
   mem_root_deque<Item *> *visible_fields =
       new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
+  if (!hidden_fields || !visible_fields) return true;
   for (Item *item : temp_fields) {
     Item_func_div *item_div = nullptr;
     if (item->type() == Item::SUM_FUNC_ITEM && !item->const_item() &&
@@ -5495,6 +5457,7 @@ bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
         // create item_func_div
         item_div = new (thd->mem_root) Item_func_div(POS(),
             (temp_fields)[i-1], (temp_fields)[i]);
+        if (!item_div) return true;
         if (item_div->resolve_type(thd)) {
           return true;
         }
