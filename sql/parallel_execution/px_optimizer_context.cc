@@ -77,6 +77,55 @@ inline const char *to_str(enum enum_opt_repo_type type) {
 
 static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd);
 
+#ifndef DBUG_OFF
+/**
+  Interactive history of "SET session debug = val". Recorded to be replayed
+  on any target thread so that it has the same effective DBUG setting stack.
+  See Sys_var_dbug.
+
+  The dbug session is designed to be owned by the recorder and referenced by
+  all replayers. The recorder should never update the dbug session when it is
+  referenced any replayer.
+ */
+class Opt_dbug_session {
+ public:
+  Opt_dbug_session(PSI_memory_key psi_memory_key)
+      : m_psi_memory_key(psi_memory_key) {}
+
+  ~Opt_dbug_session() {
+    for (auto &val : m_dbug_vals) {
+      my_free(const_cast<char *>(val));
+    }
+    m_dbug_vals.clear();
+  }
+
+  void dbug_set(const char *val) {
+    const char *v = my_strdup(m_psi_memory_key, val,
+                              MYF(MY_WME));
+    m_dbug_vals.push_back(v);
+  }
+
+  void dbug_pop() {
+    for (auto &v : m_dbug_vals) {
+      my_free(const_cast<char *>(v));
+    }
+    m_dbug_vals.clear();
+  }
+
+  bool post_init_thd(THD *thd) {
+    for (auto &val : m_dbug_vals) {
+      DBUG_SET(val);
+      OPT_CTX_TRACE("DBUG_SET %s", val);
+    }
+    return false;
+  }
+
+ private:
+  std::vector<const char*> m_dbug_vals;
+  PSI_memory_key m_psi_memory_key;
+#endif
+};
+
 /**
   Optimization context.
 
@@ -107,17 +156,13 @@ class Opt_ctx {
   void set_calls(enum enum_opt_call_type type, int calls);
   /// Set given THD as a source of optimization context.
   void set_env(THD *thd);
+  void set_source_session(std::shared_ptr<Opt_dbug_session> session);
+  std::shared_ptr<Opt_dbug_session> source_session();
 
   /// Apply the optimization context to given THD. Was post_init_worker_thd().
   bool init_thd(THD *thd);
   /// Init in the running thread. Was DBUG_SET().
   bool post_init_thd(THD *thd);
-
-#ifndef DBUG_OFF
-  // To intercept Sys_var_dbug::session_update().
-  void dbug_set(const char *val);
-  void dbug_pop();
-#endif
 
  private:
   // Provide an execution environment, although far from clear now.
@@ -129,12 +174,8 @@ class Opt_ctx {
   size_t m_query_length;
 
 #ifndef DBUG_OFF
-  /**
-    Interactive history of "SET session debug = val". Recorded by the
-    coordinator, and replayed on each worker so that each has the same
-    effective DBUG setting stack. See Sys_var_dbug.
-   */
-  std::vector<const char*> m_dbug_vals;
+  // Session state, shared with the source thread.
+  std::shared_ptr<Opt_dbug_session> m_source_session;
 #endif
 
   MEM_ROOT m_stats_cache_alloc;
@@ -165,15 +206,7 @@ Opt_ctx::Opt_ctx(PSI_memory_key psi_memory_key)
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
 }
 
-Opt_ctx::~Opt_ctx() {
-  // Note that m_dbug_vals are session state thus not cleaned per statement.
-#ifndef DBUG_OFF
-  for (auto &val : m_dbug_vals) {
-    my_free(const_cast<char *>(val));
-  }
-  m_dbug_vals.clear();
-#endif
-}
+Opt_ctx::~Opt_ctx() {}
 
 void Opt_ctx::reset() {
   cleanup();
@@ -207,34 +240,27 @@ void Opt_ctx::set_env(THD *thd) {
   m_thd = thd;
 }
 
+void Opt_ctx::set_source_session(std::shared_ptr<Opt_dbug_session> session) {
+  m_source_session = session;
+}
+
+std::shared_ptr<Opt_dbug_session> Opt_ctx::source_session() {
+  return m_source_session;
+}
+
 bool Opt_ctx::init_thd(THD *thd) {
   return post_init_worker_thd(m_thd, thd);
 }
 
 bool Opt_ctx::post_init_thd(THD *thd) {
+  bool ret = false;
 #ifndef DBUG_OFF
-  for (auto &val : m_dbug_vals) {
-    DBUG_SET(val);
-    OPT_CTX_TRACE("DBUG_SET %s", val);
+  if (m_source_session) {
+    ret = m_source_session->post_init_thd(thd);
   }
 #endif
-  return false;
+  return ret;
 }
-
-#ifndef DBUG_OFF
-void Opt_ctx::dbug_set(const char *val) {
-  const char *v = my_strdup(key_memory_Sys_var_charptr_value, val,
-                            MYF(MY_WME));
-  m_dbug_vals.push_back(v);
-}
-
-void Opt_ctx::dbug_pop() {
-  for (auto &v : m_dbug_vals) {
-    my_free(const_cast<char *>(v));
-  }
-  m_dbug_vals.clear();
-}
-#endif
 
 // Intercepting client.
 
@@ -250,6 +276,7 @@ Opt_ctx_client::Opt_ctx_client(PSI_memory_key psi_memory_key, THD *thd)
     : m_thd(thd), m_nested_level(0), m_opt_ctx(), m_mode(OPT_CTX_NATIVE) {
   for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
+  m_dbug_session.reset(new (std::nothrow) Opt_dbug_session(psi_memory_key));
 }
 
 Opt_ctx_client::~Opt_ctx_client() {}
@@ -398,6 +425,14 @@ void Opt_ctx_client::set_ctx(enum enum_opt_ctx_mode mode,
   if (ctx) {
     m_opt_ctx = ctx;
     m_mode = mode;
+#ifndef DBUG_OFF
+    // The recorder owns the session state.
+    if (m_mode == OPT_CTX_RECORD) {
+      m_opt_ctx->set_source_session(m_dbug_session);
+    } else if (m_mode == OPT_CTX_REPLAY) {
+      m_dbug_session = m_opt_ctx->source_session();
+    }
+#endif
   }
 }
 
@@ -426,12 +461,19 @@ bool Opt_ctx_client::post_init_thd() {
 #ifndef DBUG_OFF
 void Opt_ctx_client::dbug_set(const char *val) {
   OPT_CTX_TRACE_CLIENT("dbug_set %s", val);
-  if (m_mode == OPT_CTX_RECORD) m_opt_ctx->dbug_set(val);
+  if (m_mode == OPT_CTX_RECORD && m_dbug_session) {
+    // One by the client, the other by opt ctx.
+    assert(m_dbug_session.use_count() == 2);
+    m_dbug_session->dbug_set(val);
+  }
 }
 
 void Opt_ctx_client::dbug_pop() {
   OPT_CTX_TRACE_CLIENT("dbug_pop");
-  if (m_mode == OPT_CTX_RECORD) m_opt_ctx->dbug_pop();
+  if (m_mode == OPT_CTX_RECORD && m_dbug_session) {
+    assert(m_dbug_session.use_count() == 2);
+    m_dbug_session->dbug_pop();
+  }
 }
 #endif
 
