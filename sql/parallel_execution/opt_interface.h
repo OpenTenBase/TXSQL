@@ -22,6 +22,7 @@ class TABLE;
 class KEY;
 class key_range;
 class Opt_ctx;
+class Opt_dbug_session;
 
 /// Opt_ctx_client operation mode.
 enum enum_opt_ctx_mode {
@@ -185,6 +186,10 @@ class Opt_ctx_client {
 
   /// The optimization context that the client is currently connected to.
   std::shared_ptr<Opt_ctx> m_opt_ctx;
+#ifndef DBUG_OFF
+  /// DBUG interactive session history. It is not cleaned per statement.
+  std::shared_ptr<Opt_dbug_session> m_dbug_session;
+#endif
   /// Instruct the client to act as native behavior, to build
   /// a consistent context or to replay with a complete context.
   enum enum_opt_ctx_mode m_mode;
