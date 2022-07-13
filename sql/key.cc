@@ -46,7 +46,6 @@
 #include "sql/sql_class.h"      // THD
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
-#include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
 #endif
 
 using std::max;
@@ -66,17 +65,6 @@ bool KEY::has_records_per_key(uint key_part_no) const {
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).has_records_per_key(this, key_part_no);
   }
-  if (OPT_STATS_ENABLED(current_thd, table)) {
-    assert(key_part_no < actual_key_parts);
-    bool has_rec_per_key;
-    if(!OPT_STATS_GET(has_records_per_key, current_thd,
-                      this, key_part_no, has_rec_per_key)) {
-      return has_rec_per_key;
-    }
-    // Never miss because info() result is cached.
-    assert(0);
-    return false;
-  }
 #endif
   return has_records_per_key_low(key_part_no);
 }
@@ -85,17 +73,6 @@ rec_per_key_t KEY::records_per_key(uint key_part_no) const {
 #if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).records_per_key(this, key_part_no);
-  }
-  if (OPT_STATS_ENABLED(current_thd, table)) {
-    assert(key_part_no < actual_key_parts);
-    rec_per_key_t tmp_rec_per_key;
-    if(!OPT_STATS_GET(records_per_key, current_thd,
-                      this, key_part_no, tmp_rec_per_key)) {
-      return tmp_rec_per_key;
-    }
-    // Never miss because info() result is cached.
-    assert(0);
-    return REC_PER_KEY_UNKNOWN;
   }
 #endif
   return records_per_key_low(key_part_no);
@@ -137,16 +114,6 @@ double KEY::in_memory_estimate() const {
 #if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).in_memory_estimate(this);
-  }
-  if (OPT_STATS_ENABLED(current_thd, table)) {
-    double tmp_estimate;
-    if(!OPT_STATS_GET(in_memory_estimate, current_thd,
-                      this, tmp_estimate)) {
-      return tmp_estimate;
-    }
-    // Never miss because info() result is cached.
-    assert(0);
-    return IN_MEMORY_ESTIMATE_UNKNOWN;
   }
 #endif
   return in_memory_estimate_low();

@@ -134,7 +134,6 @@
 #include "sql/histograms/histogram.h"  // Histogram
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
-#include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
 #endif
 
 /**

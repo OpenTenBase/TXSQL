@@ -148,7 +148,6 @@ class RowIterator;
 struct worker_pool_t;
 class PX_exchange_info;
 class PX_exchange_context;
-class Stats_cache;
 class Opt_ctx_client;
 
 namespace dd {
@@ -1127,9 +1126,6 @@ class THD : public MDL_context_owner,
   PX_exchange_context *px_exchange_context{nullptr};
   /* If threads creation failed, set true, only used in workers. */
   bool px_create_failed{false};
-#ifndef DBUG_OFF
-  std::vector<const char*> dbug_vals;
-#endif
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
@@ -2120,34 +2116,10 @@ private:
     bool m_transaction_rollback_request;
   };
 
-  /* Allocate Stats_cache */
-  MEM_ROOT stats_cache_alloc;
-
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
   bool m_is_worker{false};
   bool m_equivalence_check_phase{false};
-
-#if defined(HAVE_OPT_CTX)
-  /// An explicit mark for optimization phase.
-  bool m_is_optimizing{false};
-  /// Interface object to the statistics module
-  Stats_cache *opt_stats;
-  /**
-    The number of calls of each interface in Stats_cache is used to
-    verify the consistency of optimization between worker threads and
-    the coordinator thread.
-  */
-  int ha_stats_id;
-  int index_dive_id;
-  /**
-    Marking the optimizer related version before optimization in coordinator
-    to verify that versions after optimization in workers.
-  */
-  long long saved_outline_reload_version;
-  long long saved_optimizer_cost_reload_version;
-  long long saved_rewriter_plugin_reload_version;
-#endif
 
  private:
   /**
