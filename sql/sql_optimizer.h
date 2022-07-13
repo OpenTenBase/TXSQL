@@ -149,9 +149,9 @@ class ORDER_with_src {
 };
 
 class JOIN {
-  friend bool RebuildTempAggregateAccessPath(
-      THD *thd, JOIN *join, AccessPath *const path,
-      uint curr_slice, uint *avg_count);
+  // friend bool RebuildTempAggregateAccessPath(
+  //     THD *thd, JOIN *join, AccessPath *const path,
+  //     uint curr_slice, uint *avg_count);
 
  public:
   JOIN(THD *thd_arg, Query_block *select);
@@ -899,20 +899,6 @@ class JOIN {
   */
   bool transform_ref_items_to_fields(mem_root_deque<Item *> *saved_fields,
                                      uint curr_slice);
-
-  /**
-    Check whether rebuild sum funcs for aggregate(first aggregate,
-    not final aggregate) or not.
-    Now, we only consider to support sum, max/min, count, avg. In
-    first aggregate, we only should rebuild avg.
-
-    @param thd
-    @param curr_slice current slice in ref_items.
-    @param avg_count count of Item_sum_avg.
-
-    @return false if successful, true if fail.
-  */
-  bool check_and_rebuild_sum_funcs(THD *thd, uint curr_slice, uint *avg_count);
 
   /**
     Replace sum func with another sum func.

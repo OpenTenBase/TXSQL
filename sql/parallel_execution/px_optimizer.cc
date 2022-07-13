@@ -324,7 +324,7 @@ bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
 
   // PHASE-1: Rebuild the aggr operator if necessary.
   if (split_position->m_split_agg) {
-    root_path = WalkAccessPathsForAggregationRebuild(thd, this, root_path, false);
+    root_path = WalkAccessPathsForAggregationSplit(thd, this, root_path, false);
 
     // Whether the AGG is successfully Rebuilt.
     if (!root_path || ref_items[REF_SLICE_FINAL_AGGREGATE].is_null()) {

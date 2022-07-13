@@ -51,7 +51,7 @@ enum class Addon_fields_status;
   Sorting related info.
 */
 class Filesort {
-  friend void FixSortAccessPathForAggrInject(THD *thd, JOIN *join,
+  friend bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join,
     AccessPath *path, int ref_slice);
  
   friend void FixSortAccessPath(JOIN *join, AccessPath *path,
