@@ -16,7 +16,6 @@
 #include "sql/parallel_execution/px.h"
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
-#include "sql/parallel_execution/px_optimizer_context.h"  // post_init_worker_thd
 #endif
 #include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/join_optimizer/access_path.h" // Access_path
@@ -634,11 +633,6 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     assert(worker_new_thd);
 
     worker_new_thd->m_is_worker = true;
-#if defined(HAVE_OPT_CTX)
-#else
-    // copy variables of coordinator THD for worker
-    post_init_worker_thd(thd(), worker_new_thd);
-#endif
 
     worker_new_thd->set_db(thd()->db());
     // Set the thread_id of the THD by Global_THD_Manager, in temp table

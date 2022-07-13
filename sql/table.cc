@@ -118,7 +118,6 @@
 #include "sql/table_trigger_dispatcher.h"  // Table_trigger_dispatcher
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
-#include "sql/parallel_execution/px_optimizer_context.h"  // Stats_cache
 #endif
 #include "sql/thd_raii.h"
 #include "sql/thr_malloc.h"
@@ -6590,21 +6589,17 @@ int TABLE_LIST::fetch_number_of_rows() {
                  (ha_rows)PLACEHOLDER_TABLE_ROW_ESTIMATE);
   } else {
     //error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
-    ha_statistics *stats = nullptr;
-    if (OPT_STATS_ENABLED(current_thd, table)) {
-      error = OPT_STATS_GET(ha_stats, current_thd, table, stats);
-      OPT_STATS_CHECK(error, ha_stats, current_thd);
-      assert(stats || !current_thd->m_is_worker);
-    }
-    if(!stats) {
-      error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
-      if (!error && OPT_STATS_ENABLED(current_thd, table)) {
-        error = OPT_STATS_SET(ha_info, current_thd, table);
-        OPT_STATS_CHECK(error, ha_stats, current_thd);
+#if defined(HAVE_OPT_CTX)
+    error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+    if (OPT_CTX_ENABLED(table->in_use)) {
+      int res = OPT_CTX(table->in_use).info(table, HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+      if (res && !error) {
+        error = res;
       }
-    } else {
-      table->file->stats.copy_from(stats);
     }
+#else
+    error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+#endif
   }
   return error;
 }

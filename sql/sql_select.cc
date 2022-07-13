@@ -131,7 +131,6 @@
 #include "sql/parallel_execution/px_workerpool.h"  // worker_pool
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX Auto_optimization_scope
-#include "sql/parallel_execution/px_optimizer_context.h"  // begin_optimization_context end_optimization_context
 #endif
 #include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
@@ -876,7 +875,6 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   if (OPT_CTX_ENABLED(thd)) {
     opt_ctx_scope.begin();
   }
-  begin_optimization_context(thd);
 #endif
 
   if (unit->optimize(thd, /*materialize_destination=*/nullptr,
@@ -923,9 +921,6 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     if (unlikely(thd->opt_trace.is_started()) && !PX_ROLE_WORKER(thd)) {
       OPT_CTX(thd).trace_stats();
     }
-  }
-  if (end_optimization_context(thd)) {
-    return true;
   }
 #endif
 
