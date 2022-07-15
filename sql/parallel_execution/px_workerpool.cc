@@ -57,9 +57,12 @@ void px_wait_for_signal(THD *thd, cond_with_lock_t *px_cond,
   thd->enter_cond(&px_cond->COND_worker_signal,
                   &px_cond->LOCK_worker_signal,
                   stage, nullptr, src_function, src_file, src_line);
-  while (!px_cond->flag_COND_signal && !thd->killed)
+  while (!px_cond->flag_COND_signal) {
+    // For parallel worker thread, need to wait for coordinator thread.
+    if (!thd->m_is_worker && thd->killed) break;
     mysql_cond_wait(&px_cond->COND_worker_signal,
                     &px_cond->LOCK_worker_signal);
+  }
   px_cond->flag_COND_signal--;
   mysql_mutex_unlock(&px_cond->LOCK_worker_signal);
   thd->exit_cond(nullptr, src_function, src_file, src_line);

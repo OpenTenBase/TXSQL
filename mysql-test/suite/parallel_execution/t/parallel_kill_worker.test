@@ -1,0 +1,52 @@
+--source include/have_debug.inc
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT,
+        KEY idx_col2(col2)
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+--enable_query_log
+ANALYZE TABLE t1;
+
+connection conn1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+set global debug="+d,px_kill_worker_after_send";
+
+connect(conn2,localhost,user1,,);
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1;
+
+connection conn1;
+set global debug="-d,px_kill_worker_after_send";
+set global debug="+d,px_kill_worker_before_send";
+
+connect(conn3,localhost,user1,,);
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1;
+
+connection conn1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+set global debug="-d,px_kill_worker_before_send";
+
+drop table t1;
+drop database test1;
+drop user user1;

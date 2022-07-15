@@ -90,8 +90,6 @@ static void *execute_task_in_worker(void *arg)
   PX_task *task = PX_EXECUTOR(thd)->m_tasks_hash[worker_info->task_id];
   PX_PRINT_INFO("worker %d run task %d", thd->worker_id, worker_info->task_id);
   task->run(thd);
-  /* Call End function for exchange operator. */
-  static_cast<PX_sender *>(task->root_iterator())->End();
   return nullptr;
 }
 
@@ -481,7 +479,7 @@ void PX_task::run(THD *thd)
   if (sub_iterator->Init()) return;
 
   Query_expression *unit = thd->lex->unit;
-  auto join_cleanup = create_scope_guard([this, thd, unit] {
+  auto reset_join_counter = create_scope_guard([this, thd, unit] {
     for (Query_block *sl = unit->first_query_block(); sl; sl = sl->next_query_block()) {
       JOIN *join = sl->join;
       thd->inc_examined_row_count(join->examined_rows);
@@ -507,8 +505,9 @@ void PX_task::run(THD *thd)
       return;
     else if (error < 0)
       break;
-    else if (thd->killed)
+    else if (thd->killed) {
       return;
+    }
   }
 }
 
