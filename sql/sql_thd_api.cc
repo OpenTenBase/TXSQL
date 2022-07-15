@@ -733,15 +733,16 @@ bool thd_has_backquery(MYSQL_THD thd) {
 }
 
 bool thd_is_parallel_worker(MYSQL_THD thd) {
-  if (thd && thd->m_is_worker) {
+  if (thd && PX_ROLE_WORKER(thd)) {
     return true;
   }
   return false;
 }
 
 void *thd_get_coordinator_trx(MYSQL_THD thd) {
-  if (thd && thd->m_is_worker && thd->px_coordinator) {
-    return thd->px_coordinator->px_coordinator_trx;
+  if (thd && PX_ROLE_WORKER(thd)) {
+    assert(thd->px_trx);
+    return thd->px_trx;
   }
   return nullptr;
 }

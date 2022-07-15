@@ -104,11 +104,12 @@ bool Dfo_mgr::create_exchange_info(int64_t dfo_id, RowIterator *iterator,
   assert(receiver->m_children.size() == 1);
   PX_sender *sender = static_cast<PX_sender *>(receiver->m_children.at(0));
   // Create exchange info if coordinator get exchange info if worker.
-  if (m_thd->m_is_worker) {
+  if (PX_ROLE_WORKER(m_thd)) {
     // we set it here and return true when not found.
     exchange_info = m_thd->px_exchange_context->get(exchange_id);
     if (nullptr == exchange_info) return true;
   } else {
+    assert(PX_ROLE_COORDINATOR(m_thd));
     exchange_info = new (m_thd->mem_root) PX_exchange_info(
           m_thd, /*THD=*/
           PX_GATHER_EXCHANGE, /*exchange_type=*/
@@ -198,88 +199,27 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
         return true; // Not consider right-deep situation.
       }
 
-      if (!m_thd->m_is_worker) {
+      if (PX_ROLE_COORDINATOR(m_thd)) {
         exchange_info->set_num_receivers(parent->dop());
 
         TableRowIterator *scan;
         if (child->is_leaf_dfo() && (scan = analyze_parallel_table(child))) {
+          size_t dop = 1;
           /*
-            Refine leaf dop to min(real_dop,default_dop).
-
-            Note that the dfo graph is private to each parallel thread, while
-            exchange is shared. Although dynamic partitioning provides real dop,
-            it is done only on the coordinator, the workers have to inherit real
-            dop through exchange.
-           */
-          uint partitions = 0;
-          PX_table_descriptor *desc  = scan->get_table_descriptor();
-          if (!desc) {
+          if (px_partition(m_thd, scan, dop, child->m_px_scan_ctx,
+                           m_thd->px_trx)) {
             return true;
           }
-
-          size_t given_dop =
-              get_parallel_degree_hint(m_thd, /*should_effect=*/true);
-          // If given_dop was 0, this place could not be entered.
-          assert(given_dop > 0);
-          if (given_dop == UINT_MAX32) {
-            given_dop =  m_thd->variables.px_parallel_degree;;
-          }
-          assert(given_dop > 0);
-
-          /*
-            Parallel threads of a single statement should use the same
-            ReadView to access data. This is achived by obtaining the first
-            ReadView and reusing it in all threads. Specifically, the ReadView
-            is obtained in the coordinator thread which receives the user
-            request, then reused in all background worker threads.
-
-            By saving the source transaction in THD::px_coordinator_trx in
-            coordinator, a worker is able to get a ReadView copy through its
-            reference to the coordinator. The worker then implicitly replaces
-            its default ReadView with the one from the coordinator before any
-            data access. See trx_assign_read_view().
+          scan->get_qep_tab()->set_parallel_workers(dop);
           */
-          if (!m_trx_inited) {
-            m_trx_inited = true;
-            int err = desc->table()->file->ha_px_trx_init(m_thd->px_coordinator_trx);
-            if (err) {
-              desc->table()->file->print_error(err, MYF(0));
-              PX_PRINT_ERROR("assign global readview error");
-              return true;
-            }
-          }
-
-          // Dynamic partition
-          int err = px_partition(given_dop, child->m_px_scan_ctx, desc->table(),
-                                 desc->type(), desc->keyno(), desc->ref(), desc->reverse_scan(),
-                                 partitions); 
-          if (err) {
-            PX_PRINT_ERROR(
-                "partitioning table %s (%llu rows) with default dop %lu "
-                "got error %d",
-                desc->table()->alias, desc->table()->file->stats.records, given_dop, err);
-            return true;
-          }
-
-          assert(child->m_px_scan_ctx);
-          PX_PRINT_INFO(
-              "partitioning table %s (%llu rows) with dop %lu "
-              "got %u partitions",
-              desc->table()->alias, desc->table()->file->stats.records, given_dop, partitions);
-          size_t real_dop = partitions;
-          /*
-            No dynamic partition suggests EOF for the iterator. There
-            still should be one thread to process the empty source.
-          */
-          real_dop = real_dop < 1 ? 1 : real_dop;
-          real_dop = real_dop > given_dop ? given_dop : real_dop;
-          child->set_dfo_dop(real_dop);
-          exchange_info->set_num_senders(real_dop);
-          //qep_tab->set_parallel_workers(real_dop);
+          child->set_dfo_dop(dop);
+          exchange_info->set_num_senders(dop);
+          exchange_info->set_scan_context(child->m_px_scan_ctx);
         } else {
           exchange_info->set_num_senders(child->dop());
         }
       } else {
+        assert(PX_ROLE_WORKER(m_thd));
         TableRowIterator *scan;
         if (child->is_leaf_dfo() && (scan = analyze_parallel_table(child))) {
           /*
@@ -296,6 +236,7 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
         }
         assert(exchange_info->num_senders() > 0);
         child->set_dfo_dop(exchange_info->num_senders());
+        child->m_px_scan_ctx = exchange_info->scan_context();
       }
 
       // Get the the maximum threads per each pair to reserve workers.

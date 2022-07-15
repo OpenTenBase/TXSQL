@@ -81,6 +81,8 @@ class PX_exchange_info {
 
   PX_exchange_type type() { return m_type; }
   PX_exchange_format format() { return m_format; }
+  void set_scan_context(void *scan_ctx) { m_scan_ctx = scan_ctx; }
+  void *scan_context() const { return m_scan_ctx; }
   void set_num_senders(uint senders) { m_senders = senders; }
   uint num_senders() const { return m_senders; }
   void set_num_receivers(uint receivers) { m_receivers = receivers; }
@@ -203,6 +205,9 @@ class PX_exchange_info {
     TODO: apply the function to select channel handles among connected.
    */
   reshuffle_func_t reshuffle_func;
+
+  /// The parallal scan context for all senders.
+  void *m_scan_ctx{nullptr};
 
   /// The number of sender processors
   uint m_senders{0};

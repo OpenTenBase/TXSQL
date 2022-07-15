@@ -47,18 +47,20 @@ class JOIN;
 class PX_executor;
 
 #define PX_ENABLED(thd) (px_max_parallel_threads > 0 && txsql_parallel_execution_enabled)
-/*
-  Assume thd->use_px, otherwise the coordinator is indistinguishable from
-  serial executor.
- */
-#define PX_ROLE_COORDINATOR(thd) !(thd)->m_is_worker
-#define PX_ROLE_WORKER(thd) (thd)->m_is_worker
 #define PX_EXECUTOR(thd) (thd)->px_executor
+
+#define PX_ROOT_ITERATOR(unit) (unit)->root_iterator()
+#define PX_ROOT_ACCESS_PATH(unit) (unit)->root_access_path()
+#define PX_ROOT_JOIN(unit) \
+    ((unit)->is_union() ? \
+     ((unit)->fake_query_block ? (unit)->fake_query_block->join : nullptr) : \
+     (unit)->first_query_block()->join)
 
 bool px_validate(THD *thd);
 
 bool px_execute_init(THD *thd, RowIterator *root_itrator, AccessPath *root_path,
                      JOIN *root_join, int64_t &dop);
+bool px_explain_init(THD *thd, AccessPath *root_path, JOIN *root_join);
 bool px_execute_in_coordinator(THD *thd, int64_t dop);
 bool px_execute_in_worker(THD *thd);
 
