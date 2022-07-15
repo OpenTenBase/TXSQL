@@ -3308,7 +3308,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
   /* cdb_sql_filter: store matched rules */
   std::vector<cdb_sql_filter::Rule*> matched_rules;
   /* Set worker execution state to PX_WORKER_PARSE_OPTIMIZE */
-  if (thd->m_is_worker) thd->px_worker_state = PX_WORKER_PARSE_OPTIMIZE;
+  if (PX_ROLE_WORKER(thd)) thd->px_worker_state = PX_WORKER_PARSE_OPTIMIZE;
 
   /*
     If there is a CREATE TABLE...START TRANSACTION command which
@@ -5758,8 +5758,7 @@ void THD::reset_for_next_command() {
     thd->get_transaction()->reset_unsafe_rollback_flags(
         Transaction_ctx::SESSION);
   }
-
-  if (!thd->m_is_worker)
+  if (PX_ROLE_USER(thd))
     assert(thd->security_context() == &thd->m_main_security_ctx);
   thd->thread_specific_used = false;
 
@@ -5808,7 +5807,7 @@ void THD::reset_for_next_command() {
   if (OPT_CTX_ENABLED(thd)) {
     // Switch mode by session variable (thd->variables.opt_ctx_mode). For now
     // it is implied by parallel execution.
-    if (!PX_ROLE_WORKER(thd)) {
+    if (PX_ROLE_USER(thd)) {
       // Usually there is no nested reset_for_next_command(). However, the
       // exception is that BINLOG command, mysql_client_binlog_statement(),
       // adds for any row event a nested level of reset_for_next_command() in

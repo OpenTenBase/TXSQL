@@ -112,8 +112,6 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
                      JOIN *root_join, int64_t &requested_cores) {
   Dfo_mgr *dfo_mgr = nullptr;
   PX_executor *executor = nullptr;
-  PX_plan_slice *slice = nullptr;
-  uint exchange_count = 0;
 
   assert(thd->use_px);
 
@@ -178,31 +176,7 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   }
 #endif
 
-  // Traverse accesspath-tree to set exchange info to Exchange AccessPath
-  // TODO move to px_optimizer() and make DFO by slice.
-  if (thd->lex->is_explain() && PX_ROLE_COORDINATOR(thd)) {
-    if (!thd->lex->explain_format->is_tree()) {
-      slice = new (thd->mem_root) PX_plan_slice();
-      if (!slice) goto create_plan_slice_failed;
-    }
-    if (WalkAccessPathsForExplain(thd, root_path, thd->px_exchange_context,
-        exchange_count, root_join, slice)) goto walk_path_failed;
-    assert(exchange_count == dfo_mgr->m_normalized_dfo_tree.size());
-    if (slice && slice->tables() && root_join) {
-      root_join->px_plan_slices.emplace_back(slice);
-    } else {
-      /*
-        append is not responding to any qeury block and it won't be
-        explained in traditional format.
-      */
-      if (slice) destroy(slice);
-    }
-  }
-
   return false;
-
- walk_path_failed:
-  destroy(slice);
 
  dfo_prepared_failed:
   destroy(thd->px_exchange_context);
@@ -211,15 +185,47 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   destroy(executor);
   return true;
 
- create_plan_slice_failed:
-  destroy(thd->px_exchange_context);
-
  create_exchange_context_failed:
   destroy(executor);
 
  create_executor_failed:
   my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
 
+  return true;
+}
+
+bool px_explain_init(THD *thd, AccessPath *root_path, JOIN *root_join) {
+  PX_plan_slice *slice = nullptr;
+  uint exchange_count = 0;
+
+  assert(thd->use_px);
+
+  // Traverse accesspath-tree to set exchange info to Exchange AccessPath
+  // TODO move to px_optimizer() and make DFO by slice.
+  if (!thd->lex->explain_format->is_tree()) {
+    slice = new (thd->mem_root) PX_plan_slice();
+    if (!slice) goto create_plan_slice_failed;
+  }
+  if (WalkAccessPathsForExplain(thd, root_path, thd->px_exchange_context,
+      exchange_count, root_join, slice)) goto walk_path_failed;
+  assert(exchange_count ==
+         PX_EXECUTOR(thd)->dfo_mgr()->m_normalized_dfo_tree.size());
+  if (slice && slice->tables() && root_join) {
+    root_join->px_plan_slices.emplace_back(slice);
+  } else {
+    /*
+      append is not responding to any qeury block and it won't be
+      explained in traditional format.
+    */
+    if (slice) destroy(slice);
+  }
+
+  return false;
+
+walk_path_failed:
+  destroy(slice);
+
+create_plan_slice_failed:
   return true;
 }
 
@@ -475,12 +481,11 @@ static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent) {
   Differ from root task running, no need to send result to client,
   either send result set metadata.
 */
-void PX_task::run(THD *thd)
-{
-  if (sub_iterator->Init()) return;
+bool px_run_task(THD *thd, RowIterator *sub_iterator) {
+  if (sub_iterator->Init()) return true;
 
   Query_expression *unit = thd->lex->unit;
-  auto reset_join_counter = create_scope_guard([this, thd, unit] {
+  auto reset_join_counter = create_scope_guard([thd, unit] {
     for (Query_block *sl = unit->first_query_block(); sl; sl = sl->next_query_block()) {
       JOIN *join = sl->join;
       thd->inc_examined_row_count(join->examined_rows);
@@ -503,13 +508,18 @@ void PX_task::run(THD *thd)
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
 
     if (error > 0 || thd->is_error())
-      return;
+      return true;
     else if (error < 0)
       break;
     else if (thd->killed) {
-      return;
+      return true;
     }
   }
+
+  return false;
+}
+void PX_task::run(THD *thd) {
+  px_run_task(thd, sub_iterator);
 }
 
 /**
@@ -519,8 +529,7 @@ void PX_task::run(THD *thd)
   This task is executed in coordinator thread, the original thread which
   receive the original query and start execution.
 */
-bool PX_task::run_root(THD *thd)
-{
+bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   PX_PRINT_INFO("run root task");
 
   if (DBUG_EVALUATE_IF("run_root_before_sending_data_error", true, false))
@@ -563,7 +572,7 @@ bool PX_task::run_root(THD *thd)
   if (sub_iterator->Init()) return true;
 
   {
-    auto join_cleanup = create_scope_guard([this, thd, unit] {
+    auto join_cleanup = create_scope_guard([thd, unit] {
       for (Query_block *sl =unit->first_query_block(); sl; sl = sl->next_query_block()) {
         JOIN *join = sl->join;
         thd->inc_examined_row_count(join->examined_rows);
@@ -620,6 +629,9 @@ bool PX_task::run_root(THD *thd)
   });
 
   return query_result->send_eof(thd);
+}
+bool PX_task::run_root(THD *thd) {
+  return px_run_root(thd, sub_iterator);
 }
 
 bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,

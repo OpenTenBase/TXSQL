@@ -1910,7 +1910,7 @@ void THD::cleanup_after_query() {
   OPT_CTX(this).cleanup_after_query();
 #endif
   use_px = false;
-  px_coordinator_trx = nullptr;
+  px_trx = nullptr;
 }
 
 /*

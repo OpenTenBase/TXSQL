@@ -106,14 +106,14 @@ class PX_executor {
   }
 
   PX_executor *coordinator() {
-    if (m_thd->m_is_worker) {
-      assert(!m_thd->px_coordinator->m_is_worker);
+    if (PX_ROLE_WORKER(m_thd)) {
+      assert(PX_ROLE_COORDINATOR(m_thd->px_coordinator));
       return m_thd->px_coordinator->px_executor;
     }
     return this;
   }
   query_id_t query_id() const {
-    return (m_thd->m_is_worker ? m_thd->px_coordinator : m_thd)->query_id;
+    return (PX_ROLE_WORKER(m_thd) ? m_thd->px_coordinator : m_thd)->query_id;
   }
   uint thread_id() const { return m_thd->thread_id(); }
   PX_proc *proc() { return &m_proc; }

@@ -169,7 +169,7 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   // Generate parallalized plan.
   if (px_generate_plan(thd, &split_positions, &mat_access_path)) return true;
 
-  for (const QEP_TAB *tab : parallel_tab) {
+  for (QEP_TAB *tab : parallel_tab) {
     tab->set_parallel_scan(true);
   }
 

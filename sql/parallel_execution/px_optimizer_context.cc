@@ -1240,6 +1240,7 @@ static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
   worker_thd->rand_used = coordinator_thd->rand_used;
 
   // for trx
+  worker_thd->px_trx = coordinator_thd->px_trx;
   worker_thd->tx_isolation = coordinator_thd->tx_isolation;
   worker_thd->tx_read_only = coordinator_thd->tx_read_only;
   DBUG_EXECUTE_IF("px_force_isolation", {

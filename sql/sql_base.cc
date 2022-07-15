@@ -2745,7 +2745,7 @@ static bool tdc_wait_for_old_version(THD *thd, const char *db,
   bool res = false;
 
   mysql_mutex_lock(&LOCK_open);
-  if (!thd->m_is_worker && (share = get_cached_table_share(db, table_name)) &&
+  if (PX_ROLE_USER(thd) && (share = get_cached_table_share(db, table_name)) &&
       share->has_old_version()) {
     struct timespec abstime;
     set_timespec(&abstime, wait_timeout);
@@ -3303,7 +3303,7 @@ retry_share : {
 
 share_found:
   if (!(flags & MYSQL_OPEN_IGNORE_FLUSH)) {
-    if (!thd->m_is_worker && share->has_old_version()) {
+    if (PX_ROLE_USER(thd) && share->has_old_version()) {
       /*
         We already have an MDL lock. But we have encountered an old
         version of table in the table definition cache which is possible
@@ -7834,7 +7834,7 @@ Field *find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
 
   if (fld) {
     // Check if there are sufficient privileges to the found field.
-    if (want_privilege && !thd->m_is_worker) {
+    if (want_privilege && PX_ROLE_USER(thd)) {
       // TODO: not check privilege for parallel worker.
       if (fld != view_ref_found) {
         if (check_column_grant_in_table_ref(thd, *actual_table, name, length,
@@ -9062,14 +9062,14 @@ bool setup_fields(THD *thd, ulong want_privilege, bool allow_sum_func,
     assert(!item->hidden);
     Item **item_pos = &*it;
     if ((!item->fixed && item->fix_fields(thd, item_pos)) ||
-        (!thd->m_is_worker && (item = *item_pos)->check_cols(1))) {
+        (PX_ROLE_USER(thd) && (item = *item_pos)->check_cols(1))) {
       // TODO: not check priviledge for parallel worker.
       DBUG_PRINT("info",
                  ("thd->mark_used_columns: %d", thd->mark_used_columns));
       return true; /* purecov: inspected */
     }
 
-    if (thd->m_is_worker) item = *item_pos;
+    if (PX_ROLE_WORKER(thd)) item = *item_pos;
 
     // Check that we don't have a field that is hidden from users. This should
     // be caught in Item_field::fix_fields.
@@ -9380,7 +9380,7 @@ bool insert_fields(THD *thd, Query_block *query_block, const char *db_name,
     */
     if (!any_privileges && !(tables->grant.privilege & SELECT_ACL)) {
       field_iterator.set(tables);
-      if (!thd->m_is_worker && check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
+      if (PX_ROLE_USER(thd) && check_grant_all_columns(thd, SELECT_ACL, &field_iterator))
         return true;
     }
 

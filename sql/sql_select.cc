@@ -206,7 +206,7 @@ static inline bool is_timer_applicable_to_statement(THD *thd) {
           !thd->timer &&
           (thd->lex->max_execution_time || thd->variables.max_execution_time) &&
           !thd->sp_runtime_ctx &&
-          !thd->m_is_worker);
+          PX_ROLE_USER(thd));
 }
 
 /**
@@ -450,7 +450,7 @@ bool Sql_cmd_dml::prepare(THD *thd) {
   }
 
   // Perform a coarse statement-specific privilege check.
-  if (!thd->m_is_worker && precheck(thd)) goto err;
+  if (PX_ROLE_USER(thd) && precheck(thd)) goto err;
 
   // Trigger out_of_memory condition inside open_tables_for_query()
   DBUG_EXECUTE_IF("sql_cmd_dml_prepare__out_of_memory",
@@ -918,7 +918,7 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     if (OPT_CTX(thd).validate()) return true;
     if (PX_ROLE_WORKER(thd) && px_validate(thd)) return true;
 
-    if (unlikely(thd->opt_trace.is_started()) && !PX_ROLE_WORKER(thd)) {
+    if (unlikely(thd->opt_trace.is_started()) && PX_ROLE_USER(thd)) {
       OPT_CTX(thd).trace_stats();
     }
   }
@@ -939,14 +939,18 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     block and SELECT_LEX_UNIT::fake_select_lex is nullptr, the root join is null too.
   */
   if (thd->use_px &&
-      px_execute_init(thd, unit->root_iterator(), unit->root_access_path(),
-          (unit->is_union() ? (unit->fake_query_block ? unit->fake_query_block->join : nullptr) :
-              unit->first_query_block()->join), requested_cores)) {
+      px_execute_init(thd, PX_ROOT_ITERATOR(unit), PX_ROOT_ACCESS_PATH(unit),
+                      PX_ROOT_JOIN(unit), requested_cores)) {
     return true;
   }
 
   if (lex->is_explain()) {
-    bool res = explain_query(thd, thd, unit);
+    bool res = false;
+    if (thd->use_px) {
+      res = px_explain_init(thd, PX_ROOT_ACCESS_PATH(unit),
+                            PX_ROOT_JOIN(unit));
+    }
+    res = res || explain_query(thd, thd, unit);
     if (thd->use_px) {
       thd->px_exchange_context->clean();
       destroy(thd->px_exchange_context);

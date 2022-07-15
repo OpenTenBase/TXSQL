@@ -358,6 +358,15 @@ typedef struct rpl_event_coordinates {
 
 #define THD_CHECK_SENTRY(thd) assert(thd->dbug_sentry == THD_SENTRY_MAGIC)
 
+/*
+  Assume thd->use_px, otherwise the coordinator is indistinguishable from
+  serial executor.
+ */
+#define PX_ROLE_NONE(thd) !(thd)->m_is_worker
+#define PX_ROLE_COORDINATOR(thd) !(thd)->m_is_worker
+#define PX_ROLE_WORKER(thd) (thd)->m_is_worker
+#define PX_ROLE_USER(thd) (PX_ROLE_NONE(thd) || PX_ROLE_COORDINATOR(thd))
+
 class Query_arena {
  private:
   /*
@@ -1081,12 +1090,20 @@ class THD : public MDL_context_owner,
   */
   ulong want_privilege;
 
+  /**
+    Reference to the parallel scan context for the currently running DFO which
+    has a parallel table. Supposed to be set and then reset by the DFO as it is
+    run. By definition, there will be at most one such context per DFO.
+   */
   void *px_scan_ctx{nullptr};
   /**
-    Used by trx_assign_read_view() to make all threads in parallel query
-    have the same readview.
-  */
-  void *px_coordinator_trx{nullptr};
+    Reference to the canonical transaction state. Obtained in the coordinator,
+    by handler::ha_px_trx_init() during dynamic partitioning, made available to
+    each worker by Opt_ctx::init_thd(), and applied by trx_assign_read_view(),
+    so that all parallel threads read the same version of data.
+    Was THD::px_coordinator_trx.
+   */
+  void *px_trx{nullptr};
  private:
   /**
     The lex to hold the parsed tree of conventional (non-prepared) queries.
@@ -2122,6 +2139,7 @@ private:
 
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
+  // See also PX_ROLE_ macros.
   bool m_is_worker{false};
   bool m_equivalence_check_phase{false};
 

@@ -3080,7 +3080,7 @@ void cleanup_variables(THD *thd, struct System_variables *vars) {
     may not be initialized (omitted alloc_and_copy_thd_dynamic_variables).
     The deinit of dynamic_variables_ptr will be done by the coordinator.
   */
-  if (!thd || !thd->m_is_worker) {
+  if (!thd || PX_ROLE_USER(thd)) {
     my_free(vars->dynamic_variables_ptr);
     vars->dynamic_variables_ptr = nullptr;
   }

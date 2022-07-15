@@ -377,9 +377,9 @@ class QEP_TAB : public QEP_shared_owner {
 
   bool pfs_batch_update(const JOIN *join) const;
 
-  void set_parallel_scan(bool parallel_scan) const { m_parallel_scan = parallel_scan; }
+  void set_parallel_scan(bool parallel_scan) { m_parallel_scan = parallel_scan; }
   bool get_parallel_scan() const  { return m_parallel_scan; }
-  void set_parallel_workers(uint workers) const { m_parallel_workers = workers; }
+  void set_parallel_workers(uint workers) { m_parallel_workers = workers; }
   uint get_parallel_workers() const { return m_parallel_workers; }
   bool fake_qep_tab() { return exchange_type != Exchange_none; }
 

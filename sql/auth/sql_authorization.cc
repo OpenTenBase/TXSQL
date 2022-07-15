@@ -1839,7 +1839,7 @@ bool check_readonly(THD *thd, bool err_if_readonly) {
   if (!opt_readonly) return false;
 
   /* Thread is parallel worker thd, do not prohibit operation. */
-  if (thd && thd->m_is_worker) return false;
+  if (thd && PX_ROLE_WORKER(thd)) return false;
   /*
     Thread is replication slave or skip_read_only check is enabled for the
     command, do not prohibit operation.
@@ -4119,7 +4119,7 @@ bool check_column_grant_in_table_ref(THD *thd, TABLE_LIST *table_ref,
   GRANT_INFO *grant;
   const char *db_name;
   const char *table_name;
-  if (thd->m_is_worker) return false;
+  if (PX_ROLE_WORKER(thd)) return false;
   Security_context *sctx = (table_ref->security_ctx != nullptr)
                                ? table_ref->security_ctx
                                : thd->security_context();
