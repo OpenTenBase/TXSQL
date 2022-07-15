@@ -77,7 +77,12 @@ bool PX_receiver::Init() {
   return false;
 
 err:
-  detach();
+  /*
+   Before PX_receiver exits, make sure to call the End function
+   to clean up resources and detach from the exchange channel.
+   Note: The End function can only be called once.
+  */
+  End();
   return true;
 }
 
@@ -133,7 +138,8 @@ int PX_receiver::Read() {
 #endif
   if (m_codec->decode(data, len)) {
     assert(0);
-    return 1;
+    result = 1;
+    goto err;
   }
 
   if (m_join) SwitchSlice(m_join, m_ref_slice);
@@ -143,13 +149,11 @@ int PX_receiver::Read() {
 
 err:
   PX_PRINT_ERROR("read error %d killed %s", result, cstr(thd()->killed));
-  return result;  
-}
-
-void PX_receiver::End() {
-  if (m_codec) {
-    destroy(m_codec);
+  if (thd()->killed) {
+    thd()->send_kill_message();
   }
+  End();
+  return result;
 }
 
 /**
@@ -242,10 +246,14 @@ end:
          (result == 1 && !m_handles.empty()) ||
          (result == -1 && m_handles.empty()));
 
-  // No more read remaining handles on ERROR
-  if (result) detach();
-
   return result;
+}
+
+void PX_receiver::End() {
+  if (m_codec) {
+    destroy(m_codec);
+  }
+  detach();
 }
 
 void PX_receiver::detach() {

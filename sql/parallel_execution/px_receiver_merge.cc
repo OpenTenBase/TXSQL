@@ -24,9 +24,7 @@ PX_receiver_merge::PX_receiver_merge(
 
 bool PX_receiver_merge::Init() {
   /* Register the PX_process to PX_exchange_info and attach to responding channels. */
-  if (PX_receiver::Init()) {
-    return true;
-  }
+  if (PX_receiver::Init()) return true;
 
   TABLE *table = get_table();
   /*
@@ -42,14 +40,14 @@ bool PX_receiver_merge::Init() {
     int s_length = m_sort->px_make_sortorder(m_sort->m_order, false);
     if (!s_length) {
       assert(0);
-      return true;
+      goto err;
     }
 
     // generate sort_param.
     m_sort_param = new (thd()->mem_root) Sort_param();
     if (!m_sort_param) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_receiver_merge::Init()");
-      return true;
+      goto err;
     }
 
     m_sort_param->init_for_filesort(
@@ -68,12 +66,12 @@ bool PX_receiver_merge::Init() {
     keys[0] = new (thd()->mem_root) uchar[key_len];
     if (keys[0] == nullptr) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_receiver_merge::Init()");
-      return true;
+      goto err;
     }
     keys[1] = new (thd()->mem_root) uchar[key_len];
     if (keys[1] == nullptr) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_receiver_merge::Init()");
-      return true;
+      goto err;
     }
 
     memset(keys[0], 0, key_len);
@@ -81,10 +79,17 @@ bool PX_receiver_merge::Init() {
   }
 
   if (alloc()) {
-    return true;
+    goto err;
   }
 
   return false;
+
+err:
+  if (thd()->killed) {
+    thd()->send_kill_message();
+  }
+  End();
+  return true;
 }
 
 /**
@@ -94,19 +99,27 @@ bool PX_receiver_merge::Init() {
 */
 int PX_receiver_merge::Read() {
   assert(get_pei()->format() == PX_COMPACT_ROW);
+  int result = 0;
   mq_record_st *record = get_min_record();
 
   // TODO: There is no distinction between error and EOF cases.
   if (!record) {
-    detach();
-    return -1;
+    result = -1;
+    goto end;
   }
 
   if (get_pei()->format() == PX_COMPACT_ROW) {
-    get_codec()->decode(record->m_data, record->m_length);
+    result = get_codec()->decode(record->m_data, record->m_length);
+    if (result) goto end;
   }
 
   return 0;
+end:
+  if (thd()->killed) {
+    thd()->send_kill_message();
+  }
+  End();
+  return result;
 }
 
 /**
@@ -118,10 +131,12 @@ void PX_receiver_merge::End() {
   if (m_heap) {
     m_heap->cleanup();
     destroy(m_heap);
+    m_heap = nullptr;
   }
 
   if (m_sort_param) {
     destroy(m_sort_param);
+    m_sort_param = nullptr;
   }
 }
 

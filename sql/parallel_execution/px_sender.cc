@@ -87,7 +87,6 @@ bool PX_sender::Init() {
       else if (error < 0)
         break;
       else if (thd()->killed) {
-        thd()->send_kill_message();
         goto err;
       }
 
@@ -132,7 +131,11 @@ bool PX_sender::Init() {
   return false;
 
 err:
-  detach();
+  if (thd()->killed) {
+    thd()->send_kill_message();
+  }
+
+  End();
   return true;
 }
 
@@ -143,15 +146,16 @@ err:
 */
 int PX_sender::Read() {
   std::vector<PX_iovec> out_fields;
-  int result = 1;
+  int result = 0;
 #ifndef DBUG_OFF
   String buf;
 #endif
 
-  if (!m_materialize) result = m_source->Read();
-  else result = m_table_path->Read();
-
-  if (result || thd()->killed) goto end;
+  while ((result = (m_materialize ? m_table_path->Read() : m_source->Read()))) {
+    if (result == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+    goto end;
+  }
+  DBUG_EXECUTE_IF("px_kill_worker_before_send", { thd()->killed = THD::KILL_QUERY; });
 
   // Convert read data to protocol format.
   if (m_codec->encode(out_fields)) {
@@ -169,35 +173,46 @@ int PX_sender::Read() {
 
   for (auto &handle: m_handles) {
     // TODO skip unmatch handle m_reshuffle_key m_sender_id
-
     PX_io_error error = handle->send(out_fields.data(), out_fields.size(),
                                      /*nowait=*/false);
 
     // Never gets non-blocking because of it is a blocking send.
     assert(error != PX_IO_WOULD_BLOCK);
 
+    DBUG_EXECUTE_IF("px_kill_worker_after_send", { thd()->killed = THD::KILL_QUERY; });
+
     /*
       Because data flow must be ended by the producer side, any send that is
       not successful indicates an error.
      */
-    if (error != PX_IO_OK) {
+    if (error != PX_IO_OK || thd()->killed) {
       result = 1;
       goto end;
     }
   }
 
-  result = 0;
+  return 0;
 
 end:
-  if (result) detach();
+  if (thd()->killed) {
+    thd()->send_kill_message();
+  }
 
+  End();
   return result;
 }
 
 void PX_sender::End() {
+  /*
+   Before PX_send exits, make sure to call the End function
+   to clean up resources and detach from the exchange channel.
+   Note: The End function can only be called once.
+  */
   if (m_codec) {
     destroy(m_codec);
   }
+
+  detach();
 }
 
 void PX_sender::detach() {
