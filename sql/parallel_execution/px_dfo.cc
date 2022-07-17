@@ -169,9 +169,6 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
   PX_exchange_info *exchange_info = nullptr;
   Dfo *last = nullptr; // last parent of scheduling pair.
   int64_t total = 0;
-  const size_t default_dop = m_thd->variables.px_parallel_degree;
-  // Zero dop by definition prevents parallel execution.
-  assert(default_dop > 0);
 
   while(true) {
     if (get_ready_dfos(ready_dfos)) {
@@ -220,12 +217,14 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
             return true;
           }
 
-          size_t given_dop = get_parallel_degree_hint(m_thd);
+          size_t given_dop =
+              get_parallel_degree_hint(m_thd, /*should_effect=*/true);
           // If given_dop was 0, this place could not be entered.
           assert(given_dop > 0);
           if (given_dop == UINT_MAX32) {
-            given_dop = default_dop;
+            given_dop =  m_thd->variables.px_parallel_degree;;
           }
+          assert(given_dop > 0);
 
           /*
             Parallel threads of a single statement should use the same

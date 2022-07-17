@@ -18,7 +18,7 @@ void check_parallel_table_hint(const THD *thd, bool do_parallel);
 
 void set_parallel_degree_hint(const THD *thd, TABLE_LIST *tbl);
 
-ulong get_parallel_degree_hint(const THD *thd);
+ulong get_parallel_degree_hint(const THD *thd, bool should_effect);
 
 bool px_optimize(THD *thd, JOIN *join, AccessPath *root);
 

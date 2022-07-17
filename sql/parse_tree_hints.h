@@ -329,7 +329,6 @@ class PT_hint_parallel : public PT_hint {
         contextualized(false) {}
 
   ulong get_degree() {
-    assert(effective_hint);
     return degree;
   }
 
