@@ -79,6 +79,8 @@
 #include "sql_update.h"  // Sql_cmd_update
 #include "template_utils.h"
 
+#include "sql/parallel_execution/px_optimizer.h"  // get_parallel_degree_hint()
+
 class PT_hint_list;
 
 extern int HINT_PARSER_parse(THD *thd, Hint_scanner *scanner,
@@ -856,7 +858,8 @@ bool LEX::check_px_execution() const {
   }
 
   // By definition, zero px_parallel_degree disables parallel execution.
-  if (!thd->variables.px_parallel_degree) {
+  if (!thd->variables.px_parallel_degree &&
+      get_parallel_degree_hint(thd, false) == UINT_MAX32) {
     return false;
   }
 

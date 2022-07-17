@@ -42,7 +42,7 @@ void check_parallel_table_hint(const THD *thd, bool do_parallel) {
 
       bool do_parallel_scan_hint = table_hint->do_parallel_scan();
       if (!tab->m_parallel_scan && do_parallel_scan_hint) {
-        if (do_parallel) {
+        if (do_parallel || thd->variables.px_parallel_degree == 0) {
           push_warning(current_thd, Sql_condition::SL_WARNING,
                        ER_WARN_UNSUPPORTED_PARALLEL,
                        "parallel hint has no effect, not the chosen table.");
@@ -72,14 +72,15 @@ void set_parallel_degree_hint(const THD *thd, TABLE_LIST *tbl) {
 /**
  * @return degree hint if found, UINT_MAX32 otherwise
  */
-ulong get_parallel_degree_hint(const THD *thd) {
+ulong get_parallel_degree_hint(const THD *thd, bool should_effect) {
   ulong degree_hint = UINT_MAX32;
   Opt_hints_global *global_hints = thd->lex->opt_hints_global;
-  if (global_hints && global_hints->is_specified(PARALLEL_HINT_ENUM) &&
-      global_hints->parallel_hint->is_effective_hint()) {
+  if (global_hints && global_hints->is_specified(PARALLEL_HINT_ENUM)) {
     PT_hint_parallel *parallel_hint = global_hints->parallel_hint;
     assert(parallel_hint);
-    degree_hint = parallel_hint->get_degree();
+    if (!should_effect || parallel_hint->is_effective_hint()) {
+      degree_hint = parallel_hint->get_degree();
+    }
   }
   return degree_hint;
 }
@@ -118,6 +119,14 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
       thd, root, nullptr, join, /*parallel_scan=*/true, /*root=*/true,
       /*root_all=*/true, ref_slice, max_px_subpath, is_stream, &mat_access_path,
       &split_positions_all, exchange_safe);
+
+  // The Parallel degree hint may have no effect, if px_parallel_degree is also
+  // set to 0, the query should not be executed in parallel.
+  if (!thd->variables.px_parallel_degree &&
+      get_parallel_degree_hint(thd, /*should_effect=*/true) == UINT_MAX32) {
+    thd->lex->pass_px_check = false;
+    return false;
+  }
 
   size_t exchange_count =
       px_access_path::count_exchange_in_split_pos(&split_positions_all);
