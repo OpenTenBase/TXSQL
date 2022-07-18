@@ -517,6 +517,8 @@ struct System_variables {
   bool px_fallback_in_execution;
   /// @sa Sys_txsql_parallel_execution_enabled
   bool txsql_parallel_execution_enabled;
+  /// @sa Sys_txsql_optimizer_context_max_mem_size
+  ulong txsql_optimizer_context_max_mem_size;
 };
 
 /**

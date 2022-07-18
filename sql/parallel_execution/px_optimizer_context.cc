@@ -7,7 +7,7 @@
 #include "m_string.h"
 #include "map_helpers.h"
 #include "mutex_lock.h"           // MUTEX_LOCK
-#include "mysys_err.h"
+#include "mysys_err.h"            // EE_CAPACITY_EXCEEDED
 #include "my_dbug.h"
 #include "sql/item.h"
 #include "sql/key.h"
@@ -17,6 +17,9 @@
 #include "sql/sql_class.h"        // THD
 #include "sql/sql_lex.h"          // LEX
 #include "sql/sql_plugin.h"       // intern_plugin_lock
+#include "sql/current_thd.h"
+#include "sql/derror.h"           // ER_THD
+#include "sql/error_handler.h"    // Internal_error_handler
 #include "thr_lock.h"
 #include "thr_mutex.h"
 
@@ -201,9 +204,15 @@ class Opt_ctx {
   long long m_versions[OPT_REPO_TYPE_LEN];
 };
 
+extern "C" void sql_alloc_error_handler(void);
+
 Opt_ctx::Opt_ctx(PSI_memory_key psi_memory_key)
     : m_stats_cache_alloc(psi_memory_key, 16384 /* 16 kB */),
       m_opt_stats(&m_stats_cache_alloc) {
+  assert(current_thd);
+  m_stats_cache_alloc.set_max_capacity(current_thd->variables.txsql_optimizer_context_max_mem_size);
+  m_stats_cache_alloc.set_error_for_capacity_exceeded(true);
+  m_stats_cache_alloc.set_error_handler(sql_alloc_error_handler);
   for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
 }
@@ -572,7 +581,10 @@ ha_rows Opt_ctx_client::records_in_range(TABLE *table, uint keyno,
       }
       rows = table->file->records_in_range(keyno, min_endp, max_endp);
       if (rows != HA_POS_ERROR) {
-        cache->set_index_dive(table, keyno, min_endp, max_endp, rows);
+        if (cache->set_index_dive(table, keyno, min_endp, max_endp, rows)) {
+          rows = HA_POS_ERROR;
+          goto end;
+        }
         m_calls[OPT_CALL_INDEX_DIVE]++;
       }
     } else {
@@ -767,15 +779,69 @@ bool Stats_cache::get_index_dive(const TABLE *table, const uint keyno,
   return true;
 }
 
+/**
+  Error handling class for optimizer context. We handle only out of memory
+  error here. This is to give a hint to the user to
+  raise txsql_optimizer_context_max_mem_size if required.
+  Warning for the memory error is pushed only once. The consequent errors
+  will be ignored.
+*/
+class Px_optimizer_context_error_handler : public Internal_error_handler {
+ public:
+  Px_optimizer_context_error_handler()
+      : m_is_mem_error(false) {}
+
+  bool handle_condition(THD *thd, uint sql_errno, const char *,
+                        Sql_condition::enum_severity_level *level,
+                        const char *) override {
+    if (*level == Sql_condition::SL_ERROR) {
+      /* Out of memory error is reported only once. Return as handled */
+      if (m_is_mem_error && sql_errno == EE_CAPACITY_EXCEEDED) return true;
+      if (sql_errno == EE_CAPACITY_EXCEEDED) {
+        m_is_mem_error = true;
+        /* Convert the error into a warning. */
+        *level = Sql_condition::SL_WARNING;
+        push_warning_printf(
+            thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED,
+            ER_THD(thd, ER_CAPACITY_EXCEEDED),
+            (ulonglong)thd->variables.txsql_optimizer_context_max_mem_size,
+            "ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT",
+            ER_THD(thd, ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT));
+        mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
+        txsql_parallel_stmt_memory_refused++;
+        mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
+        my_error(ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT, MYF(0));
+        return true;
+      }
+    }
+    return false;
+  }
+
+ private:
+  bool m_is_mem_error;
+};
+
 bool Stats_cache::set_index_dive(const TABLE *table,
                                  const uint keyno,
                                  const key_range *min_endp,
                                  const key_range *max_endp,
                                  const ha_rows rows) {
+  assert(current_thd);
+  Px_optimizer_context_error_handler error_handler;
+  current_thd->push_internal_handler(&error_handler);
+
   index_dive_args *dive_args = new (m_mem_root) index_dive_args;
-  if (dive_args->init(m_mem_root, table->s, keyno, min_endp, max_endp)) {
+  bool error = current_thd->is_error();
+  if (error) {
+    return error;
+  }
+
+  if (!dive_args ||
+      dive_args->init(m_mem_root, table->s, keyno, min_endp, max_endp)) {
+    current_thd->pop_internal_handler();
     return true;
   }
+  current_thd->pop_internal_handler();
 
   index_dive_map.emplace(*dive_args, rows);
   return false;
@@ -787,7 +853,17 @@ void Stats_cache::print_index_dive_map(int error, const TABLE *table,
                                        const key_range *min_endp,
                                        const key_range *max_endp) {
   index_dive_args dive_args;
-  dive_args.init(m_mem_root, table->s, keyno, min_endp, max_endp);
+  assert(current_thd);
+  Px_optimizer_context_error_handler error_handler;
+  current_thd->push_internal_handler(&error_handler);
+  bool err =
+      dive_args.init(m_mem_root, table->s, keyno, min_endp, max_endp);
+  current_thd->pop_internal_handler();
+
+  if (err) {
+    return;
+  }
+
   String range_min;
   range_min.set_charset(system_charset_info);
   if (dive_args.min_end_key && *dive_args.min_end_key) {
@@ -857,8 +933,15 @@ bool Stats_cache::get_ha_stats(const TABLE *table,
 }
 
 bool Stats_cache::set_ha_stats(const TABLE *table) {
+  assert(current_thd);
+  Px_optimizer_context_error_handler error_handler;
+  current_thd->push_internal_handler(&error_handler);
+
   ha_statistics *stats = new (m_mem_root) ha_statistics;
-  if (!stats) {
+  bool error = current_thd->is_error();
+  current_thd->pop_internal_handler();
+
+  if (error || !stats) {
     OPT_CTX_WARN("optimization context: cannot create ha_statistics");
     return true;
   }
@@ -930,9 +1013,16 @@ bool Stats_cache::set_ha_info(const TABLE *table) {
       return true;
     }
 
+    assert(current_thd);
+    Px_optimizer_context_error_handler error_handler;
+    current_thd->push_internal_handler(&error_handler);
+
     rec_per_key_t *tmp_rec_per_keys_float =
         new (m_mem_root) rec_per_key_t[key->actual_key_parts];
-    if (!tmp_rec_per_keys_float) {
+    bool error = current_thd->is_error();
+    current_thd->pop_internal_handler();
+
+    if (error || !tmp_rec_per_keys_float) {
       OPT_CTX_WARN("optimization context: cannot create ha_info cache");
       return true;
     }

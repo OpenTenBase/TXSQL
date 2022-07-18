@@ -29,10 +29,16 @@ int show_px_stmt_executed(THD *, SHOW_VAR *var, char *buff);
 int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff);
 int show_px_stmt_error(THD *, SHOW_VAR *var, char *buff);
 int show_px_used_threadpool_size(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_stmt_thread_refused(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_stmt_hint_executed(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_stmt_memory_refused(THD *, SHOW_VAR *var, char *buff);
 
 void reset_px_stmt_executed();
 void reset_px_stmt_fallback();
 void reset_px_stmt_error();
+void reset_txsql_parallel_stmt_thread_refused();
+void reset_txsql_parallel_stmt_hint_executed();
+void reset_txsql_parallel_stmt_memory_refused();
 
 class THD;
 class RowIterator;
