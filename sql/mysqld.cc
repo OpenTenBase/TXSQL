@@ -10307,6 +10307,12 @@ SHOW_VAR status_vars[] = {
     {"PX_stmt_error", (char *)&show_px_stmt_error, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"PX_thread_current", (char *)&show_px_used_threadpool_size,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Txsql_parallel_stmt_thread_refused", (char *)&show_txsql_parallel_stmt_thread_refused,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Txsql_parallel_stmt_hint_executed", (char *)&show_txsql_parallel_stmt_hint_executed,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Txsql_parallel_stmt_memory_refused", (char *)&show_txsql_parallel_stmt_memory_refused,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Questions", (char *)offsetof(System_status_var, questions),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Secondary_engine_execution_count",
@@ -12272,6 +12278,9 @@ void refresh_status() {
   reset_px_stmt_executed();
   reset_px_stmt_fallback();
   reset_px_stmt_error();
+  reset_txsql_parallel_stmt_thread_refused();
+  reset_txsql_parallel_stmt_hint_executed();
+  reset_txsql_parallel_stmt_memory_refused();
 }
 
 class Do_THD_reset_status : public Do_THD_Impl {

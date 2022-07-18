@@ -10011,6 +10011,9 @@ ER_PX_CREATE_THREAD_ERROR
 ER_PX_FALLBACK_SERIAL_EXECUTION
   eng "Fallback to serial execution."
 
+ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
+  eng "Optimization context cache isn't enabled due to memory limitation."
+
 #
 # End of MyRocks specific client messages
 #

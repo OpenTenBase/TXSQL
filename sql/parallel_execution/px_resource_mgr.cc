@@ -12,6 +12,10 @@ bool PX_resource_manager::acquire(int64_t cpu_cores)
   if (px_used_threadpool_size + cpu_cores <= px_max_parallel_threads) {
     px_used_threadpool_size += cpu_cores;
     enough = true;
+  } else {
+    mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_thread_refused);
+    txsql_parallel_stmt_thread_refused++;
+    mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_thread_refused);
   }
   mysql_mutex_unlock(&LOCK_allocate_resource);
   return enough;
