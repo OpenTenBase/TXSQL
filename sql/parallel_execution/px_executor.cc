@@ -286,6 +286,7 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
 
     worker_thd->px_coordinator = thd;
     worker_thd->set_is_killable(true);
+    worker_thd->m_is_worker = true;
     coordinator->thd_list.push_back(worker_thd);
   }
   mysql_mutex_unlock(&thd->LOCK_thd_data);
@@ -631,8 +632,6 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     THD *worker_new_thd = worker_pool->thread_args[i].worker_thd;
     assert(worker_new_thd);
 
-    worker_new_thd->m_is_worker = true;
-
     worker_new_thd->set_db(thd()->db());
     // Set the thread_id of the THD by Global_THD_Manager, in temp table
     // creatation, thread_id is needed to name a temp file in disk.
@@ -691,7 +690,7 @@ void PX_coordinator::notify_all_workers(THD::killed_state state_to_set)
   mysql_mutex_assert_owner(&thd()->LOCK_thd_data);
   for (auto &worker_thd : thd_list) {
     mysql_mutex_lock(&worker_thd->LOCK_thd_data);
-    // assert(worker_thd->m_is_worker);
+    assert(worker_thd->m_is_worker);
     worker_thd->awake(state_to_set);
     mysql_mutex_unlock(&worker_thd->LOCK_thd_data);
   }
