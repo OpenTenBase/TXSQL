@@ -1,0 +1,52 @@
+
+--source include/have_binlog_format_row.inc
+--source include/not_group_replication_plugin.inc
+--source include/master-slave.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+
+--echo #
+--echo # Prepare
+--echo #
+--source include/rpl_connection_master.inc
+--let $MYSQL_SOCKET= `SELECT @@socket`
+--let $MYSQL_PORT= `SELECT @@port`
+
+create table t1 (a varchar(2048));
+--source include/sync_slave_sql_with_master.inc
+show tables;
+
+--echo #
+--echo # Run
+--echo #
+--source include/rpl_connection_master.inc
+set global debug="d,get_binlog_end_pos_before_flush_net";
+set global debug="+d,close_connections_before_kill_binlog_dump";
+show variables like "debug";
+begin;
+insert into t1 values(repeat("a", 1024)),(repeat("b", 1024)),(repeat("c", 1024));
+commit;
+--sleep 1
+--source include/rpl_connection_slave.inc
+--source include/stop_slave_io.inc
+
+--echo # Shutdown Server
+--let $rpl_server_number= 1
+--source include/rpl_stop_server.inc
+
+--let $rpl_server_number= 1
+--source include/rpl_start_server.inc
+
+--source include/rpl_connection_slave.inc
+--source include/start_slave_io.inc
+
+--echo #
+--echo # Cleanup
+--echo #
+
+--source include/rpl_connection_master.inc
+DROP TABLE t1;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
+
