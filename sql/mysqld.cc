@@ -2265,6 +2265,15 @@ class Set_kill_conn : public Do_THD_Impl {
                killing_thd->get_command() != COM_BINLOG_DUMP_GTID);
       };);
     }
+    DBUG_EXECUTE_IF("close_connections_before_kill_binlog_dump",
+                    {
+                      if (killing_thd->get_command() == COM_BINLOG_DUMP ||
+                          killing_thd->get_command() == COM_BINLOG_DUMP_GTID)
+                      {
+                        extern uint kill_binlog_dump;
+                        kill_binlog_dump = 1;
+                      }
+                    };);
     mysql_mutex_lock(&killing_thd->LOCK_thd_data);
 
     if (killing_thd->kill_immunizer) {

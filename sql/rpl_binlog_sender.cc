@@ -68,6 +68,7 @@
 
 #ifndef NDEBUG
 static uint binlog_dump_count = 0;
+volatile uint kill_binlog_dump= 0;
 #endif
 using binary_log::checksum_crc32;
 
@@ -551,11 +552,19 @@ int Binlog_sender::get_binlog_end_pos(File_reader *reader, my_off_t *end_pos) {
 
     if (read_pos < *end_pos) return 0;
 
+    DBUG_EXECUTE_IF("get_binlog_end_pos_before_flush_net",
+                    {
+                      while (!kill_binlog_dump) {
+                        my_sleep(1*1000*1000);
+                      }
+                      my_sleep(1*1000*1000);
+                    };);
+
     /* Some data may be in net buffer, it should be flushed before waiting */
     if (!m_wait_new_events || flush_net()) return 1;
 
     if (unlikely(wait_new_events(read_pos))) return 1;
-  } while (unlikely(!m_thd->killed));
+  } while (likely(!m_thd->killed));
 
   return 1;
 }
@@ -780,10 +789,12 @@ int Binlog_sender::wait_new_events(my_off_t log_pos) {
                     mysql_bin_log.get_binlog_end_pos_lock(),
                     &stage_source_has_sent_all_binlog_to_replica, &old_stage);
 
-  if (m_heartbeat_period.count() > 0)
-    ret = wait_with_heartbeat(log_pos);
-  else
-    ret = wait_without_heartbeat();
+  if (likely(!m_thd->killed)) {
+    if (m_heartbeat_period.count() > 0)
+      ret = wait_with_heartbeat(log_pos);
+    else
+      ret = wait_without_heartbeat();
+  }
 
   mysql_bin_log.unlock_binlog_end_pos();
   m_thd->EXIT_COND(&old_stage);
