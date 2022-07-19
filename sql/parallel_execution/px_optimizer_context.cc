@@ -123,8 +123,8 @@ class Opt_dbug_session {
  private:
   std::vector<const char*> m_dbug_vals;
   PSI_memory_key m_psi_memory_key;
-#endif
 };
+#endif
 
 /**
   Optimization context.
@@ -156,8 +156,10 @@ class Opt_ctx {
   void set_calls(enum enum_opt_call_type type, int calls);
   /// Set given THD as a source of optimization context.
   void set_env(THD *thd);
+#ifndef DBUG_OFF
   void set_source_session(std::shared_ptr<Opt_dbug_session> session);
   std::shared_ptr<Opt_dbug_session> source_session();
+#endif
 
   /// Apply the optimization context to given THD. Was post_init_worker_thd().
   bool init_thd(THD *thd);
@@ -240,6 +242,7 @@ void Opt_ctx::set_env(THD *thd) {
   m_thd = thd;
 }
 
+#ifndef DBUG_OFF
 void Opt_ctx::set_source_session(std::shared_ptr<Opt_dbug_session> session) {
   m_source_session = session;
 }
@@ -247,6 +250,7 @@ void Opt_ctx::set_source_session(std::shared_ptr<Opt_dbug_session> session) {
 std::shared_ptr<Opt_dbug_session> Opt_ctx::source_session() {
   return m_source_session;
 }
+#endif
 
 bool Opt_ctx::init_thd(THD *thd) {
   return post_init_worker_thd(m_thd, thd);
@@ -276,7 +280,9 @@ Opt_ctx_client::Opt_ctx_client(PSI_memory_key psi_memory_key, THD *thd)
     : m_thd(thd), m_nested_level(0), m_opt_ctx(), m_mode(OPT_CTX_NATIVE) {
   for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
+#ifndef DBUG_OFF
   m_dbug_session.reset(new (std::nothrow) Opt_dbug_session(psi_memory_key));
+#endif
 }
 
 Opt_ctx_client::~Opt_ctx_client() {}
