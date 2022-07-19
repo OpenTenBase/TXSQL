@@ -337,7 +337,17 @@ bool px_access_path::WalkAccessPathsForCompat(
                  child_ref_slice_l, max_px_subpath, is_stream_l,
                  mat_access_path, split_positions, exchange_safe_l));
         is_stream = is_stream_r;  // Only concern the branch to parallelize scan
-      } else {
+      } else if (path->nested_loop_join().join_type == JoinType::INNER) {
+        // Only when the join type is Inner Join, the inner table can be select
+        // as the parallel table. If the join type is Left Join or Anti Join,
+        // the inner table cannot be a parallel table, because when the inner
+        // table scans the slice without corresponding data and the
+        // corresponding data is in another slice, a join record will also be
+        // generated. Nested semi join is rarely used so ignore it for now.
+        // TODO: If the join type is not Inner Join, although the Nested join
+        // itself cannot be parallelized, the inner branch can still be
+        // parallelized. But exchange injection not support this condition
+        // currently.
         exchange_safe_r = true;
         is_stream_r = true;
         child_parallel_safe = WalkAccessPathsForCompat(
