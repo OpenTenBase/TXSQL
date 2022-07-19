@@ -153,7 +153,7 @@ CALL mtr.add_suppression("Worker 2 failed executing transaction.*");
 
 --echo #
 --echo # 3.2. Wait till the co-ordinator thread to error out with ER_LOCK_DEADLOCK(8.0.18 can't report this error).
---let $slave_sql_errno = convert_error(ER_MTS_INCONSISTENT_DATA)
+--let $slave_sql_errno = convert_error(ER_LOCK_DEADLOCK)
 --source include/wait_for_slave_sql_error.inc
 
 --echo #

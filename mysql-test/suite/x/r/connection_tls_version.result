@@ -223,7 +223,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: error:1425F102:SSL routines:ssl_choose_client_version:unsupported protocol (code 2026)
+Application terminated with expected error: socket layer receive error (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -238,7 +238,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: error:1425F102:SSL routines:ssl_choose_client_version:unsupported protocol (code 2026)
+Application terminated with expected error: socket layer receive error (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -481,7 +481,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: error:1425F102:SSL routines:ssl_choose_client_version:unsupported protocol (code 2026)
+Application terminated with expected error: socket layer receive error (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -496,7 +496,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: error:1425F102:SSL routines:ssl_choose_client_version:unsupported protocol (code 2026)
+Application terminated with expected error: socket layer receive error (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
