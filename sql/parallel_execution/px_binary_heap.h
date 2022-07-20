@@ -12,11 +12,11 @@
 #include "sql/sql_base.h"
 
 // compare based on the sort_key
-typedef bool (*binaryheap_comparator)(int a, int b, void *arg);
+typedef bool (*binaryheap_comparator)(uint a, uint b, void *arg);
 
 class binary_heap {
  public:
-  binary_heap(int element_size, void *arg, binaryheap_comparator cmp, THD *thd)
+  binary_heap(uint element_size, void *arg, binaryheap_comparator cmp, THD *thd)
       : m_queue(NULL),
         m_capacity(element_size),
         m_size(0),
@@ -29,27 +29,30 @@ class binary_heap {
   */
   bool init_binary_heap() {
     if (!m_capacity) return true;
-    m_queue = new (m_thd->mem_root) int[m_capacity + 1];
+    m_queue = new (m_thd->mem_root) uint[m_capacity + 1];
+    if (!m_queue || DBUG_EVALUATE_IF("px_binary_heap_error1", true, false)) {
+      return true;
+    }
 
     return false;
   }
 
   /* return the index ((i - 1) / 2) of the parent node of node i */
-  inline int parent(unsigned int i) {
+  inline uint parent(unsigned int i) {
     assert(i != 0);
     return (--i) >> 1;
   }
 
   /* return the index (2 * i + 1) of the left child of node i */
-  inline int left(unsigned int i) { return (i << 1) | 1; }
+  inline uint left(unsigned int i) { return (i << 1) | 1; }
 
   /* return the index (2 * i + 2) of the right child of node */
-  inline int right(unsigned int i) { return (++i) << 1; }
+  inline uint right(unsigned int i) { return (++i) << 1; }
 
   void reset() { m_size = 0; }
   uint size() { return m_size; }
 
-  void add_unorderd(int element) {
+  void add_unorderd(uint element) {
     if (m_size >= m_capacity) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "(PX::add_unorderd)");
       return;
@@ -62,7 +65,7 @@ class binary_heap {
     for (int i = parent(m_size - 1); i >= 0; i--) sift_down(i);
   }
 
-  void add(int element) {
+  void add(uint element) {
     if (m_size >= m_capacity) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "out of binary heap space");
       return;
@@ -71,11 +74,12 @@ class binary_heap {
     sift_up(m_size - 1);
   }
 
-  int first() {
+  uint first() {
     assert(!empty());
     return m_queue[0];
   }
-  int remove_first() {
+
+  uint remove_first() {
     assert(!empty());
     if (m_size == 1) {
       m_size--;
@@ -89,7 +93,7 @@ class binary_heap {
     return m_queue[m_size];
   }
 
-  void replace_first(int element) {
+  void replace_first(uint element) {
     assert(!empty());
     m_queue[0] = element;
     if (m_size > 1) sift_down(0);
@@ -101,18 +105,18 @@ class binary_heap {
   }
 
  private:
-  void swap_node(int a, int b) {
-    int T;
+  void swap_node(uint a, uint b) {
+    uint T;
     T = m_queue[a];
     m_queue[a] = m_queue[b];
     m_queue[b] = T;
   }
 
-  void sift_down(int node_off) {
+  void sift_down(uint node_off) {
     while (true) {
-      int left_off = left(node_off);
-      int right_off = right(node_off);
-      int swap_off = 0;
+      uint left_off = left(node_off);
+      uint right_off = right(node_off);
+      uint swap_off = 0;
 
       if (left_off < m_size &&
           m_compare(m_queue[left_off], m_queue[node_off], m_arg))
@@ -132,9 +136,9 @@ class binary_heap {
     }
   }
 
-  void sift_up(int node_off) {
+  void sift_up(uint node_off) {
     bool cmp = false;
-    int parent_off;
+    uint parent_off;
     while (node_off != 0) {
       parent_off = parent(node_off);
       cmp = m_compare(m_queue[parent_off], m_queue[node_off], m_arg);
@@ -146,9 +150,9 @@ class binary_heap {
   }
 
  private:
-  int *m_queue;
-  int m_capacity;
-  int m_size;
+  uint *m_queue;
+  uint m_capacity;
+  uint m_size;
   binaryheap_comparator m_compare;
   void *m_arg;
   THD *m_thd;

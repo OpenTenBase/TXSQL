@@ -2425,7 +2425,7 @@ void change_double_for_sort(double nr, uchar *to) {
     false otherwise.
 */
 
-bool heap_compare_records(int a, int b, void *arg) {
+bool heap_compare_records(uint a, uint b, void *arg) {
   assert(arg);
   bool convert_res;
 

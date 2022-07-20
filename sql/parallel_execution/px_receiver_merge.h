@@ -5,7 +5,7 @@
 #define RECORD_BUFFER_SIZE 128
 
 /** Compare two nodes in heap. */
-extern bool heap_compare_records(int a, int b, void *arg);
+extern bool heap_compare_records(uint a, uint b, void *arg);
 
 /**
   Wrapper of record in message queue
@@ -30,9 +30,9 @@ typedef struct mq_record_struct {
 typedef struct mq_records_batch_struct {
   mq_record_st **records;
   /* Total number of records cached */
-  int n_total;
+  uint n_total;
   /* Number of records have been read */
-  int n_read;
+  uint n_read;
   bool completed;
 } mq_records_batch_st;
 
@@ -42,7 +42,6 @@ typedef struct mq_records_batch_struct {
 */
 class PX_receiver_merge : public PX_receiver {
  public:
-  // PX_receiver_merge();
   PX_receiver_merge(THD *thd, uint receiver_no, PX_exchange_info *pei,
                     mem_root_deque<TABLE *> *tables, Filesort *sort,
                     unique_ptr_destroy_only<RowIterator> source, JOIN *join,
@@ -61,8 +60,8 @@ class PX_receiver_merge : public PX_receiver {
     mq_record_st *record = m_min_records[k];
     return record;
   }
-  uchar *get_key(int i) {
-    assert(0 <= i && i < 2);
+  uchar *get_key(uint i) {
+    assert(i < 2);
     return keys[i];
   }
 
@@ -71,21 +70,21 @@ class PX_receiver_merge : public PX_receiver {
   /** alloc space for sort */
   bool alloc();
   /** build the binary heap */
-  void build_heap();
+  int build_heap();
   /** get minimum record */
-  mq_record_st *get_min_record();
+  int get_min_record(mq_record_st **record);
   /**
     read one message from the id-th message queue and then
     copy it to m_record_groups[id].records[i].
   */
-  bool load_group_record(uint id, int i, bool *completed, bool nowait);
+  int load_group_record(uint id, int i, bool *completed, bool nowait);
   /**
     fetch the current minimum record of the id-th records
     group and store it in m_min_records.
   */
-  bool read_group(uint id, bool nowait);
+  int read_group(uint id, bool nowait);
   /** try to load a batch of messages in no-blocking mode */
-  void load_group_records(int id);
+  int load_group_records(uint id);
   /** store message from table->record as a mq_record_st */
   bool store_mq_record(mq_record_st *rec, uchar *data, uint32 msg_len);
 
