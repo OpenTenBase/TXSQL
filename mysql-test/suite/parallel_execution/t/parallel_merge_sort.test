@@ -1,0 +1,62 @@
+#################################################
+# Test for parallel query merge sort exceptions #
+#################################################
+--source include/have_debug.inc
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+
+ANALYZE TABLE t1;
+--enable_query_log
+
+EXPLAIN FORMAT=TREE select * from t1 order by col2;
+select * from t1 order by col2;
+
+set session debug="+d,px_receiver_init_error1";
+set session debug="+d,px_binary_heap_error1";
+set session debug="+d,px_load_group_record_error1";
+set session debug="+d,px_store_mq_record_error";
+set session debug="+d,px_decode_error";
+
+EXPLAIN FORMAT=TREE select * from t1 order by col2;
+--error ER_PX_EXECUTE_ERROR
+select * from t1 order by col2;
+
+set session debug="-d,px_receiver_init_error1";
+--error ER_PX_EXECUTE_ERROR
+select * from t1 order by col2;
+
+set session debug="-d,px_binary_heap_error1";
+EXPLAIN FORMAT=TREE select * from t1 order by col2;
+--error ER_QUERY_INTERRUPTED
+select * from t1 order by col2;
+
+set session debug="-d,px_load_group_record_error1";
+EXPLAIN FORMAT=TREE select * from t1 order by col2;
+--error ER_PX_EXECUTE_ERROR
+select * from t1 order by col2;
+
+set session debug="-d,px_store_mq_record_error";
+EXPLAIN FORMAT=TREE select * from t1 order by col2;
+--error ER_PX_EXECUTE_ERROR
+select * from t1 order by col2;
+
+set session debug="-d,px_decode_error";
+EXPLAIN FORMAT=TREE select * from t1 order by col2;
+select * from t1 order by col2;
+
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+DROP TABLE t1;

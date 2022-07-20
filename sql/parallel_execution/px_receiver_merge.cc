@@ -23,21 +23,27 @@ PX_receiver_merge::PX_receiver_merge(
       m_tmp_key(nullptr) {}
 
 bool PX_receiver_merge::Init() {
-  /* Register the PX_process to PX_exchange_info and attach to responding channels. */
+  TABLE *table = get_table();
+  uint curr_slice = 0;
+
+  /*
+    Register the PX_process to PX_exchange_info and attach to responding channels.
+    Notes: The End() of PX_receiver should have been called in PX_receiver::Init
+    if error occurs.
+  */
   if (PX_receiver::Init()) return true;
 
-  TABLE *table = get_table();
   /*
     1) Generate the sort_order and sort_param
     2) Generate the compare keys
     3) Alloc space for merge sort structures
   */
-  int curr_slice = m_join->current_ref_item_slice;
+  curr_slice = m_join->current_ref_item_slice;
   SwitchSlice(m_join, m_ref_slice);
 
   if (m_sort && m_sort->m_order) {
     // generate sort_order.
-    int s_length = m_sort->px_make_sortorder(m_sort->m_order, false);
+    uint s_length = m_sort->px_make_sortorder(m_sort->m_order, false);
     if (!s_length) {
       assert(0);
       goto err;
@@ -62,7 +68,13 @@ bool PX_receiver_merge::Init() {
   SwitchSlice(m_join, curr_slice);
 
   if (m_sort_param) {
-    int key_len = m_sort_param->max_record_length() + 1;
+    /*
+      Parallel query merge sort will use two temporary buffers to save the sort key.
+      By default, the length of the sort key is set to Sort_param::m_fixed_rec_length.
+      For sorting fields of json type, Sort_param::m_fixed_rec_length will be set to 4G,
+      so the maximum sort key length of json type will be explicitly limited.
+    */
+    uint key_len = m_sort_param->max_record_length() + 1;
     keys[0] = new (thd()->mem_root) uchar[key_len];
     if (keys[0] == nullptr) {
       my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_receiver_merge::Init()");
@@ -88,6 +100,7 @@ err:
   if (thd()->killed) {
     thd()->send_kill_message();
   }
+
   End();
   return true;
 }
@@ -100,16 +113,14 @@ err:
 int PX_receiver_merge::Read() {
   assert(get_pei()->format() == PX_COMPACT_ROW);
   int result = 0;
-  mq_record_st *record = get_min_record();
+  mq_record_st *min_rec = nullptr;
 
-  // TODO: There is no distinction between error and EOF cases.
-  if (!record) {
-    result = -1;
-    goto end;
-  }
+  result = get_min_record(&min_rec);
+  if (result != 0) goto end;
 
+  assert(min_rec && min_rec->m_data);
   if (get_pei()->format() == PX_COMPACT_ROW) {
-    result = get_codec()->decode(record->m_data, record->m_length);
+    result = get_codec()->decode(min_rec->m_data, min_rec->m_length);
     if (result) goto end;
   }
 
@@ -187,9 +198,9 @@ err:
   return true;
 }
 
-mq_record_st *PX_receiver_merge::get_min_record() {
+int PX_receiver_merge::get_min_record(mq_record_st **record) {
   int i;
-
+  int result = 0;
   /*
     If the binary heap has not built, build heap firstly.
     If we have built the heap:
@@ -201,25 +212,33 @@ mq_record_st *PX_receiver_merge::get_min_record() {
     Then we can fetch the top element of binary heap
   */
   if (!m_init_heap) {
-    build_heap();
+    result = build_heap();
+    if (result == 1) return result;
   } else {
     i = m_heap->first();
-    if (read_group(i, false)) {
+    result = read_group(i, false);
+
+    if (result == 0) {
       m_heap->replace_first(i);
-    } else {
+    } else if (result == -1) {
       m_heap->remove_first();
+    } else {
+      return result;
     }
   }
 
   if (m_heap->empty()) {
-    return nullptr;
+    *record = nullptr;
+    return -1;
   } else {
     i = m_heap->first();
-    return m_min_records[i];
+    *record = m_min_records[i];
   }
+
+  return 0;
 }
 
-void PX_receiver_merge::build_heap() {
+int PX_receiver_merge::build_heap() {
   uint ngroups = senders();
 
   for (uint i = 0; i < ngroups; i++) {
@@ -236,14 +255,28 @@ void PX_receiver_merge::build_heap() {
     one record through read message from MQ in a blocking mode.
   */
   bool nowait = false;
+  int result = 0;
 
 reread:
   for (uint i = 0; i < ngroups; i++) {
     if (!m_record_groups[i].completed) {
       if (m_min_records[i]->m_data == nullptr) {
-        if (read_group(i, nowait)) m_heap->add_unorderd(i);
+        result = read_group(i, nowait);
+        /*
+          Try to read valid records from the corresponding channel of each
+          producer and load them into the record group. If the read reaches
+          EOF, it means that the producer does not need to be added to the heap.
+        */
+        if (result == 0) {
+          m_heap->add_unorderd(i);
+        } else if (result == -1) {
+          continue;
+        } else {
+          return result;
+        }
       } else {
-        load_group_records(i);
+        result = load_group_records(i);
+        if (result == 1) return result;
       }
     }
   }
@@ -259,76 +292,136 @@ reread:
   /** build the binary heap */
   m_heap->build();
   m_init_heap = true;
+  return 0;
 }
 
-bool PX_receiver_merge::read_group(uint id, bool nowait) {
+/*
+  Attempt to read records from the record group. If there is a cached
+  record in the record group, load it directly into m_min_records and
+  return 0; otherwise, return -1 when it is found that the EOF has
+  been read; otherwise, read the record from the corresponding channel
+  into the record group.
+
+  @return 0 read a valid record, -1 read eof, 1 error occurs
+*/
+int PX_receiver_merge::read_group(uint id, bool nowait) {
   assert(id < senders());
   mq_records_batch_st *rec_group = &m_record_groups[id];
 
   /* the record has been fetched into records_batch. */
   if (rec_group->n_read < rec_group->n_total) {
     m_min_records[id] = rec_group->records[rec_group->n_read++];
-    return true;
+    return 0;
   } else if (rec_group->completed) {
-    return false;
+    return -1;
   } else {
     if (rec_group->n_read == rec_group->n_total) {
       rec_group->n_read = rec_group->n_total = 0;
     }
 
     /* fetch the record from the id-th message queue. */
-    int i = rec_group->n_read;
-    if (!load_group_record(id, i, &rec_group->completed, nowait)) {
-      return false;
+    uint i = rec_group->n_read;
+    int result = load_group_record(id, i, &rec_group->completed, nowait);
+    if (result != 0) {
+      return result;
     }
 
     rec_group->n_total++;
     m_min_records[id] = rec_group->records[rec_group->n_read++];
 
-    /** load a batch of records into the id-th record group */
-    load_group_records(id);
-    return true;
+    /* load a batch of records into the id-th record group */
+    result = load_group_records(id);
+    /*
+      This position indicates that there must be at least one valid
+      record in the record group, so unless load_group_records
+      reports an error (the return value is equal to 1), it returns 0
+    */
+    return (result == 1) ? 1 : 0;
   }
 }
 
-void PX_receiver_merge::load_group_records(int id) {
+int PX_receiver_merge::load_group_records(uint id) {
   mq_records_batch_st *rec_group = &m_record_groups[id];
   /* try to read message from message queue with a non-blocking mode */
-  for (int i = rec_group->n_total; i < MAX_RECORD_STORE; i++) {
-    if (!load_group_record(id, i, &rec_group->completed, true)) break;
+  for (uint i = rec_group->n_total; i < MAX_RECORD_STORE; i++) {
+    // Only the return value equal to 0 can ensure that a valid record is read into the record group
+    int result = load_group_record(id, i, &rec_group->completed, true);
+    if (result != 0) {
+      return result;
+    }
     // now, read a new message
     rec_group->n_total++;
   }
+  return 0;
 }
 
-bool PX_receiver_merge::load_group_record(uint32 id, int i, bool *completed, bool nowait) {
+/*
+  Attempt to read a record into the record group.
+    1) If the record is successfully read from the corresponding channel, store it in the record buffer and return 0
+    2) If it is found to read EOF, return -1 directly
+    3) Read the error from the exchange channel or transfer it to the record buffer to report an error, return 1
+    4) Reading records from channel shows PX_IO_WOULD_BLOCK, returns 2
+
+  @return  0 load a valid record to record group
+*/
+int PX_receiver_merge::load_group_record(uint32 id, int i, bool *completed, bool nowait) {
   auto handle = m_handles[id];
   uchar *data = nullptr;
   Size msg_len = 0;
+  int result = 0;
 
   if (completed) {
     *completed = false;
   }
 
   /** receive one message from message queue. */
-  PX_io_error result = handle->receive((void **)&data, &msg_len, nowait);
+  PX_io_error err = handle->receive((void **)&data, &msg_len, nowait);
   mq_records_batch_st *rec_group = &m_record_groups[id];
 
-  if (result == PX_IO_EOF) {
-    rec_group->completed = true;
-    return false;
+  DBUG_EXECUTE_IF("px_load_group_record_error1", {
+    thd()->killed = THD::KILL_QUERY;
+    err = PX_IO_ERROR;
+  });
+
+  switch (err) {
+    case PX_IO_OK: {
+      result = 0;
+      goto load_to_group;
+      break;
+    }
+    case PX_IO_EOF: {
+      result = -1;
+      rec_group->completed = true;
+      goto end;
+      break;
+    }
+    case PX_IO_WOULD_BLOCK: {
+      result = -2;
+      goto end;
+      break;
+    }
+    case PX_IO_ERROR: {
+      result = 1;
+      goto end;
+      break;
+    }
+    default: {
+      assert(0);
+      result = 1;
+      goto end;
+      break;
+    }
   }
 
-  if (result == PX_IO_WOULD_BLOCK) {
-    return false;
-  }
-
+load_to_group:
+  assert(err == PX_IO_OK && result == 0);
   // copy data into m_record_groups[id].records[i]
-  if (store_mq_record(rec_group->records[i], data, msg_len)) {
-    return true;
+  if (!store_mq_record(rec_group->records[i], data, msg_len)) {
+    return 1;
   }
 
-  return false;
+end:
+  return result;
 }
 
 /**
@@ -362,6 +455,10 @@ bool PX_receiver_merge::store_mq_record(mq_record_st *rec, uchar *data, uint32 m
 
     rec->m_buffer_len = new_buffer_len;
   }
+
+  DBUG_EXECUTE_IF("px_store_mq_record_error", {
+    goto err;
+  });
 
   memcpy(rec->m_data, data, msg_len);
   rec->m_length = msg_len;

@@ -56,7 +56,7 @@ bool PX_receiver::Init() {
   switch (m_pei->format()) {
     case PX_COMPACT_ROW: {
       m_codec = new (thd()->mem_root) PX_compact_codec(thd(), /*use_item=*/false, nullptr);
-      if (m_codec == nullptr) {
+      if (m_codec == nullptr || DBUG_EVALUATE_IF("px_receiver_init_error1", true, false)) {
         my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "creating codec", "PX_receiver::Init()");
         goto err;
       }
