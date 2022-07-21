@@ -97,7 +97,8 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
 #endif
 
   // Check compatibility for parallel
-  if (thd->need_fallback ||
+  if (!txsql_parallel_execution_enabled ||
+      thd->need_fallback ||
       !thd->lex->pass_px_check ||
       !thd->lex->check_px_execution()) {
     thd->lex->pass_px_check = false;

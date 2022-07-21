@@ -515,6 +515,8 @@ struct System_variables {
   ulong px_exchange_buffer_size;
   /// @sa Sys_px_fallback_in_execution
   bool px_fallback_in_execution;
+  /// @sa Sys_txsql_parallel_execution_enabled
+  bool txsql_parallel_execution_enabled;
 };
 
 /**
