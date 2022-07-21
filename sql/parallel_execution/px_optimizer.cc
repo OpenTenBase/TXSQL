@@ -380,6 +380,8 @@ bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
   return false;
 }
 
+static void clear_copy_fields(Mem_root_vector<Copy_field>* copy_fields, TABLE *table);
+
 /**
   Fix connections for unit.
 
@@ -451,12 +453,15 @@ static void FixAccessPathForUnion(AccessPath *target_path) {
         if (query_block.subquery_path != qb_root_path) {
           query_block.subquery_path = qb_root_path;
         }
-        // Fix items_to_copy
+        // Fix items_to_copy and copy_fields
         if (join->tmp_table_param.items_to_copy) {
           join->tmp_table_param.items_to_copy = nullptr;
-          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
-                             &join->tmp_table_param);
         }
+        if(!join->tmp_table_param.copy_fields.empty()) {
+          clear_copy_fields(&join->tmp_table_param.copy_fields, dst_table);
+        }
+        ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                           &join->tmp_table_param);
       }
       break;
     }
@@ -475,16 +480,36 @@ static void FixAccessPathForUnion(AccessPath *target_path) {
           stream_path->stream().child = qb_root_path;
         }
         TABLE *dst_table = stream_path->stream().table;
-        // Fix items_to_copy
+        // Fix items_to_copy and copy_fields
         if (join->tmp_table_param.items_to_copy) {
           join->tmp_table_param.items_to_copy = nullptr;
-          ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
-                              &join->tmp_table_param);
         }
+        if(!join->tmp_table_param.copy_fields.empty()) {
+          clear_copy_fields(&join->tmp_table_param.copy_fields, dst_table);
+        }
+        ConvertItemsToCopy(*join->fields, dst_table->visible_field_ptr(),
+                           &join->tmp_table_param);
       }
       break;
     }
     default:
       assert(false);
   }
+}
+
+/**
+  Clear copy_fields with condition.
+
+  When fix a copy_fields, we don't need to remove all of the copy_fields,
+  just remove the copy_field which copy field to the current materialize
+  table.
+  @param copy_fields copy_fields in tmp_table_param.
+  @param table which do copy_field to.
+*/
+static void clear_copy_fields(Mem_root_vector<Copy_field>* copy_fields, TABLE *table) {
+  copy_fields->erase(std::remove_if(copy_fields->begin(), copy_fields->end(),
+      [&table](Copy_field& copy_field){
+        TABLE *this_table = copy_field.to_field()->table;
+        return this_table == table;
+      }), copy_fields->end());
 }
