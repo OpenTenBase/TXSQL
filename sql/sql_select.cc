@@ -2047,8 +2047,8 @@ void JOIN::destroy() {
     close_tmp_table(aggr_tmp_table);
     free_tmp_table(aggr_tmp_table);
   }
-  if (aggr_tmp_table_param) {
-    aggr_tmp_table_param->cleanup();
+  if (local_tmp_table_param) {
+    local_tmp_table_param->cleanup();
   }
   if (final_tmpaggr_tmp_table) {
     if (final_tmpaggr_tmp_table->file != nullptr) {
@@ -2057,8 +2057,8 @@ void JOIN::destroy() {
     close_tmp_table(final_tmpaggr_tmp_table);
     free_tmp_table(final_tmpaggr_tmp_table);
   }
-  if (final_aggr_tmp_table_param) {
-    final_aggr_tmp_table_param->cleanup();
+  if (final_tmp_table_param) {
+    final_tmp_table_param->cleanup();
   }
 
   if (!px_plan_slices.empty()) {
@@ -4201,50 +4201,6 @@ bool JOIN::alloc_func_list() {
       (Item_sum **)thd->mem_calloc(sizeof(Item_sum **) * (func_count + 1) +
                                    sizeof(Item_sum ***) * (group_parts + 1));
   return sum_funcs == nullptr;
-}
-
-/**
-  Make an array of pointers to final sum_functions to speed up
-  sum_func calculation.
-
-  @retval
-    0	ok
-  @retval
-    1	Error
-*/
-bool JOIN::alloc_func_list_with_param(Temp_table_param *param, Item_sum ***new_sum_funcs) {
-  uint func_count, group_parts;
-  DBUG_TRACE;
-
-  func_count = param->sum_func_count;
-  /*
-    If we are using rollup, we need a copy of the summary functions for
-    each level
-  */
-  if (rollup_state != RollupState::NONE) func_count *= (send_group_parts + 1);
-
-  group_parts = send_group_parts;
-  /*
-    If distinct, reserve memory for possible
-    disctinct->group_by optimization
-  */
-  if (select_distinct) {
-    group_parts += CountVisibleFields(*fields);
-    /*
-      If the ORDER clause is specified then it's possible that
-      it also will be optimized, so reserve space for it too
-    */
-    if (!order.empty()) {
-      ORDER *ord;
-      for (ord = order.order; ord; ord = ord->next) group_parts++;
-    }
-  }
-
-  /* This must use calloc() as rollup_make_fields depends on this */
-  *new_sum_funcs =
-      (Item_sum **)thd->mem_calloc(sizeof(Item_sum **) * (func_count + 1) +
-                                   sizeof(Item_sum ***) * (group_parts + 1));
-  return *new_sum_funcs == nullptr;
 }
 
 /**

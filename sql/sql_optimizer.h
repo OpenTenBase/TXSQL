@@ -149,10 +149,6 @@ class ORDER_with_src {
 };
 
 class JOIN {
-  // friend bool RebuildTempAggregateAccessPath(
-  //     THD *thd, JOIN *join, AccessPath *const path,
-  //     uint curr_slice, uint *avg_count);
-
  public:
   JOIN(THD *thd_arg, Query_block *select);
   JOIN(const JOIN &rhs) = delete;
@@ -390,8 +386,8 @@ class JOIN {
      to build the tmp table's own tmp_table_param.
   */
   Temp_table_param tmp_table_param;
-  Temp_table_param *aggr_tmp_table_param = nullptr;
-  Temp_table_param *final_aggr_tmp_table_param = nullptr;
+  Temp_table_param *local_tmp_table_param = nullptr;
+  Temp_table_param *final_tmp_table_param = nullptr;
   TABLE *aggr_tmp_table = nullptr;
   TABLE *final_tmpaggr_tmp_table = nullptr;
   MYSQL_LOCK *lock;
@@ -682,7 +678,6 @@ class JOIN {
   bool alloc_func_list();
   bool make_sum_func_list(const mem_root_deque<Item *> &fields,
                           bool before_group_by, bool recompute = false);
-  bool alloc_func_list_with_param(Temp_table_param *param, Item_sum ***new_sum_funcs);
 
   /**
      Overwrites one slice of ref_items with the contents of another slice.

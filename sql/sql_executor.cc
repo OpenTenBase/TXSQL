@@ -5212,7 +5212,7 @@ bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
       if (aggr_tmp_table->const_table) aggr_tmp_table->save_null_flags();
       aggr_tmp_table->set_null_row();
     }
-    if (copy_fields(final_aggr_tmp_table_param, thd)) return true;
+    if (copy_fields(final_tmp_table_param, thd)) return true;
     if (final_aggr_sum_funcs) {
       Item_sum *func, **func_ptr = final_aggr_sum_funcs;
       while ((func = *(func_ptr++))) func->clear();
@@ -5229,7 +5229,7 @@ bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
       table->set_null_row();  // All fields are NULL
     }
   }
-  if (copy_fields((agg_type == AggType::PX_LOCAL_AGG) ? aggr_tmp_table_param
+  if (copy_fields((agg_type == AggType::PX_LOCAL_AGG) ? local_tmp_table_param
                                                       : &tmp_table_param, thd)) {
     return true;
   }
@@ -5352,7 +5352,6 @@ err:
   thd->lex->allow_sum_func = saved_allow_sum_funcs;
   return true;
 }
-
 
 /**
   Rebuild sum funcs for final aggregate.
