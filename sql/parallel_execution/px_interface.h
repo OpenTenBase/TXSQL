@@ -20,6 +20,7 @@ void px_destroy(void);
 
 extern unsigned long px_max_parallel_threads;
 extern bool px_fallback_in_execution;
+extern bool txsql_parallel_execution_enabled;
 
 class THD;
 struct SHOW_VAR;
@@ -39,7 +40,7 @@ struct AccessPath;
 class JOIN;
 class PX_executor;
 
-#define PX_ENABLED(thd) (px_max_parallel_threads > 0)
+#define PX_ENABLED(thd) (px_max_parallel_threads > 0 && txsql_parallel_execution_enabled)
 /*
   Assume thd->use_px, otherwise the coordinator is indistinguishable from
   serial executor.

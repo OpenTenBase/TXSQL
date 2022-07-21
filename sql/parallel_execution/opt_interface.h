@@ -16,6 +16,7 @@
 
 #include "sql/key.h"        // rec_per_key_t
 #include "sql/sql_class.h"  // THD, because it is used by OPT_CTX_ macros.
+#include "sql/parallel_execution/px_interface.h" // txsql_parallel_execution_enabled
 
 class THD;
 class TABLE;
@@ -212,6 +213,7 @@ extern unsigned long px_max_parallel_threads;
  */
 #define OPT_CTX_ENABLED(thd) \
   (px_max_parallel_threads > 0 && \
+   txsql_parallel_execution_enabled && \
    (thd)->system_thread == NON_SYSTEM_THREAD && \
    (thd)->opt_ctx_client)
 /// Access to the interceptor, assuming the protection of OPT_CTX_ENABLED().

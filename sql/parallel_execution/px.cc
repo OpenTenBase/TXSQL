@@ -52,6 +52,8 @@ ulong px_stmt_error = 0;
 unsigned long px_max_parallel_threads;
 /// Force fallback in execution phase. It is for testing purpose.
 bool px_fallback_in_execution = false;
+/// Forcibly disable parallel execution on the server.
+bool txsql_parallel_execution_enabled = true;
 
 static void px_init_psi_keys(void);
 

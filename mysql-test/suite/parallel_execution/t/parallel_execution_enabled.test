@@ -1,0 +1,115 @@
+#
+#type: parameter test
+#name: txsql_parallel_execution_enabled
+#scope: global
+#range: {true|false}
+#default: true
+#description:
+#    "Forcibly disable parallel execution on the server, taking priority over "
+#    "any user visible setting. It is for the cloud provider only."
+#note: tencent var
+#
+
+#### tesecase arrangement ###################
+### 1. visibility:                          #
+###     1.1 normal user cannot see.         #
+###     1.2 tencentroot can see.            #
+### 2. priority                             #
+###     2.1 enable=true,  max_threads > 0   #
+###     2.2 enable=true,  max_threads = 0   #
+###     2.3 enable=false, max_threads > 0   #
+###     2.4 enable=false, max_threads = 0   #
+#############################################
+
+
+--echo ###
+--echo ### 0. Prepare Data
+--echo ###
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT,
+        KEY idx_col2(col2)
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+--enable_query_log
+ANALYZE TABLE t1;
+
+
+--echo ###
+--echo ### 0. Save Initial Value
+--echo ###
+connect(conn1,localhost,tencentroot,,);
+connection conn1;
+--source suite/parallel_execution/inc/save_and_set_px.inc
+set @saved_txsql_parallel_execution_enabled = @@txsql_parallel_execution_enabled;
+
+
+--echo ###
+--echo ### 1. Visibility
+--echo ###
+
+  --echo # 1.1 normal user cant see this switch
+  connection default;
+  SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
+  --echo
+
+  --echo # 1.2 only tencentroot can see/set this switch
+  connection conn1;
+  SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
+  set global txsql_parallel_execution_enabled = 0;
+  SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
+  --echo
+
+
+--echo ###
+--echo ### 2. Priority
+--echo ###
+set global txsql_parallel_execution_enabled = 1;
+connection default;
+
+  --echo # 2.1 enable=true,  max_threads > 0
+  set global px_max_parallel_threads = 8;
+  --echo # expect: parallel plan
+  EXPLAIN FORMAT = TREE SELECT * FROM t1;
+  --echo
+
+  --echo # 2.2 enable=true,  max_threads = 0
+  set global px_max_parallel_threads = 0;
+  --echo # expect: serial plan
+  EXPLAIN FORMAT = TREE SELECT * FROM t1;
+  --echo
+
+
+connection conn1;
+set global txsql_parallel_execution_enabled = 0;
+connection default;
+
+  --echo # 2.3 enable=false, max_threads > 0
+  set global px_max_parallel_threads = 8;
+  --echo # expect: serial plan
+  EXPLAIN FORMAT = TREE SELECT * FROM t1;
+  --echo
+
+  --echo # 2.4 enable=false,  max_threads = 0
+  set global px_max_parallel_threads = 0;
+  --echo # expect: serial plan
+  EXPLAIN FORMAT = TREE SELECT * FROM t1;
+  --echo
+
+
+--echo ###
+--echo ### Clean Up
+--echo ###
+connection conn1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+set global txsql_parallel_execution_enabled = @saved_txsql_parallel_execution_enabled;
+drop table t1;
