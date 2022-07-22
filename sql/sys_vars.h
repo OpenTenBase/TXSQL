@@ -1272,15 +1272,11 @@ class Sys_var_dbug : public sys_var {
     const char *val = var->save_result.string_value.str;
     if (!var->value) {
       DBUG_POP();
-#if defined(HAVE_OPT_CTX)
-      OPT_CTX(thd).dbug_pop();
-#endif
+      thd->opt_dbug_session.dbug_pop();
     }
     else {
       DBUG_SET(val);
-#if defined(HAVE_OPT_CTX)
-      OPT_CTX(thd).dbug_set(val);
-#endif
+      thd->opt_dbug_session.dbug_set(val);
     }
     return false;
   }

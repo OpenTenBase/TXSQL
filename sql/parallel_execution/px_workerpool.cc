@@ -456,7 +456,9 @@ static void* thread_func_in_worker(void *arg)
 
 #if defined(HAVE_OPT_CTX)
   assert(OPT_CTX_ENABLED(thread_arg->worker_thd));
-  OPT_CTX(thread_arg->worker_thd).post_init_thd();
+#ifndef DBUG_OFF
+  OPT_CTX(thread_arg->worker_thd).dbug_init_thd();
+#endif
 #else
 #ifndef DBUG_OFF
   THD *coordinator_thd = thread_arg->worker_thd->px_coordinator;

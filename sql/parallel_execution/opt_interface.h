@@ -113,17 +113,15 @@ class Opt_ctx_client {
   bool init_query();
   /// Initialize the default db of the attached thd.
   bool init_db();
+#ifndef DBUG_OFF
+  /// Init the attached (current) thd by the connected optimization context.
+  bool dbug_init_thd();
+#endif
   /// Init the attached thd by the connected optimization context.
   bool init_thd();
   /// Init in the running thread. e.g. manipulate thread-locals, by the
   /// connected optimization context.
   bool post_init_thd();
-
-#ifndef DBUG_OFF
-  // To intercept Sys_var_dbug::session_update() for SET SESSION debug = '...'.
-  void dbug_set(const char *val);
-  void dbug_pop();
-#endif
 
   /// Set the query in optimization.
   void set_query(LEX_CSTRING query_arg);
@@ -195,8 +193,9 @@ class Opt_ctx_client {
   /// The optimization context that the client is currently connected to.
   std::shared_ptr<Opt_ctx> m_opt_ctx;
 #ifndef DBUG_OFF
-  /// DBUG interactive session history. It is not cleaned per statement.
-  std::shared_ptr<Opt_dbug_session> m_dbug_session;
+  /// DBUG interactive session state of either the attached THD or connected
+  /// optimization context.
+  Opt_dbug_session *m_dbug_session;
 #endif
   /// Instruct the client to act as native behavior, to build
   /// a consistent context or to replay with a complete context.
