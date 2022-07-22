@@ -152,8 +152,13 @@ class Opt_ctx {
   /// Statistics cache.
   Stats_cache *stats_cache() { return &m_opt_stats; }
 
+  const LEX_CSTRING &query() const { return m_query_string; }
+  const LEX_CSTRING &db() const { return m_db; }
+
   /// Set the query in optimization.
-  void set_query(const char *query_string, size_t query_length);
+  void set_query(LEX_CSTRING query_arg);
+  /// Set the default db.
+  void set_db(const LEX_CSTRING &new_db);
   /// Set optimizer rule repo version.
   void set_rule_version(enum enum_opt_repo_type type, long long version);
   void set_calls(enum enum_opt_call_type type, int calls);
@@ -175,8 +180,9 @@ class Opt_ctx {
 
   // Original query text. May be different from THD::m_query_string due to
   // Rewriter plugin.
-  const char *m_query_string;
-  size_t m_query_length;
+  LEX_CSTRING m_query_string;
+  // Original default db.
+  LEX_CSTRING m_db;
 
 #ifndef DBUG_OFF
   // Session state, shared with the source thread.
@@ -207,7 +213,8 @@ class Opt_ctx {
 extern "C" void sql_alloc_error_handler(void);
 
 Opt_ctx::Opt_ctx(PSI_memory_key psi_memory_key)
-    : m_stats_cache_alloc(psi_memory_key, 16384 /* 16 kB */),
+    : m_thd(), m_query_string(NULL_CSTR), m_db(NULL_CSTR),
+      m_stats_cache_alloc(psi_memory_key, 16384 /* 16 kB */),
       m_opt_stats(&m_stats_cache_alloc) {
   assert(current_thd);
   m_stats_cache_alloc.set_max_capacity(current_thd->variables.txsql_optimizer_context_max_mem_size);
@@ -222,8 +229,8 @@ Opt_ctx::~Opt_ctx() {}
 void Opt_ctx::reset() {
   cleanup();
   m_thd = nullptr;
-  m_query_string = nullptr;
-  m_query_length = 0;
+  m_query_string = NULL_CSTR;
+  m_db = NULL_CSTR;
   for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
 }
@@ -233,9 +240,12 @@ void Opt_ctx::cleanup() {
   m_stats_cache_alloc.Clear();
 }
 
-void Opt_ctx::set_query(const char *query_string, size_t query_length) {
-  m_query_string = query_string;
-  m_query_length = query_length;
+void Opt_ctx::set_query(LEX_CSTRING query_arg) {
+  m_query_string = query_arg;
+}
+
+void Opt_ctx::set_db(const LEX_CSTRING &new_db) {
+  m_db = new_db;
 }
 
 void Opt_ctx::set_calls(enum enum_opt_call_type type, int calls) {
@@ -451,6 +461,32 @@ void Opt_ctx_client::set_ctx(enum enum_opt_ctx_mode mode,
   }
 }
 
+bool Opt_ctx_client::init_query() {
+  bool ret = false;
+  if (m_mode == OPT_CTX_REPLAY) {
+    OPT_CTX_TRACE_CLIENT("init_query %s", m_opt_ctx->query().str);
+    // void
+    m_thd->set_query(m_opt_ctx->query());
+  } else {
+    assert(0);
+    ret = true;
+  }
+  return ret;
+}
+
+bool Opt_ctx_client::init_db() {
+  bool ret = false;
+  if (m_mode == OPT_CTX_REPLAY) {
+    OPT_CTX_TRACE_CLIENT("init_db %s",
+                         m_opt_ctx->db().str ? m_opt_ctx->db().str : "(null)");
+    ret = m_thd->set_db(m_opt_ctx->db());
+  } else {
+    assert(0);
+    ret = true;
+  }
+  return ret;
+}
+
 bool Opt_ctx_client::init_thd() {
   bool ret = false;
   if (m_mode == OPT_CTX_REPLAY) {
@@ -458,6 +494,7 @@ bool Opt_ctx_client::init_thd() {
     ret = m_opt_ctx->init_thd(m_thd);
   } else {
     assert(0);
+    ret = true;
   }
   return ret;
 }
@@ -469,6 +506,7 @@ bool Opt_ctx_client::post_init_thd() {
     ret = m_opt_ctx->post_init_thd(m_thd);
   } else {
     assert(0);
+    ret = true;
   }
   return ret;
 }
@@ -492,10 +530,17 @@ void Opt_ctx_client::dbug_pop() {
 }
 #endif
 
-void Opt_ctx_client::set_query(const char *query_string, size_t query_length) {
-  OPT_CTX_TRACE_CLIENT("set_query %s", query_string);
+void Opt_ctx_client::set_query(LEX_CSTRING query_arg) {
+  OPT_CTX_TRACE_CLIENT("set_query %s", query_arg.str);
   if (m_nested_level == 0 && m_mode == OPT_CTX_RECORD) {
-    m_opt_ctx->set_query(query_string, query_length);
+    m_opt_ctx->set_query(query_arg);
+  }
+}
+
+void Opt_ctx_client::set_db(const LEX_CSTRING &new_db) {
+  OPT_CTX_TRACE_CLIENT("set_db %s", new_db.str ? new_db.str : "(null)");
+  if (m_nested_level == 0 && m_mode == OPT_CTX_RECORD) {
+    m_opt_ctx->set_db(new_db);
   }
 }
 

@@ -2273,12 +2273,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       copy_bind_parameter_values(thd, com_data->com_query.parameters,
                                  com_data->com_query.parameter_count);
-#if defined(HAVE_OPT_CTX)
-     if (OPT_CTX_ENABLED(thd) && !thd->in_sub_stmt)
-        OPT_CTX(thd).set_query(orig_query.str, orig_query.length);
-#endif
-      dispatch_sql_command(thd, &parser_state);
-
+      dispatch_sql_command(thd, &parser_state, false, /*interceptable=*/true);
 
       // If PX execution fails to execute properly, fallback to serial.
       if (thd->need_fallback)
@@ -2368,12 +2363,9 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         parser_state.reset(beginning_of_next_stmt, length);
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
-#if defined(HAVE_OPT_CTX)
-        if (OPT_CTX_ENABLED(thd) && !thd->in_sub_stmt)
-          OPT_CTX(thd).set_query(beginning_of_next_stmt, length);
-#endif
+
         /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-        dispatch_sql_command(thd, &parser_state);
+        dispatch_sql_command(thd, &parser_state, false, /*interceptable=*/true);
 
         check_secondary_engine_statement(thd, &parser_state,
                                          beginning_of_next_stmt, length);
@@ -5851,7 +5843,9 @@ void THD::reset_for_next_command() {
   @param parser_state Parser state.
 */
 
-void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_statement) {
+void dispatch_sql_command(THD *thd, Parser_state *parser_state,
+                          bool log_statement,
+                          bool interceptable MY_ATTRIBUTE((unused))) {
   DBUG_TRACE;
   DBUG_PRINT("dispatch_sql_command", ("query: '%s'", thd->query().str));
 
@@ -5864,6 +5858,15 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_stateme
   ulong old_binlog_format = BINLOG_FORMAT_UNSPEC; 
 
   mysql_reset_thd_for_next_command(thd);
+
+#if defined(HAVE_OPT_CTX)
+  // The optimization context is reset in THD::reset_for_next_command().
+  if (OPT_CTX_ENABLED(thd) && interceptable) {
+    OPT_CTX(thd).set_query(thd->query());
+    OPT_CTX(thd).set_db(thd->db());
+  }
+#endif
+
   lex_start(thd);
 
   thd->m_parser_state = parser_state;

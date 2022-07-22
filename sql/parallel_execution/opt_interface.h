@@ -108,6 +108,11 @@ class Opt_ctx_client {
   void set_ctx(enum enum_opt_ctx_mode mode,
                std::shared_ptr<Opt_ctx> ctx = nullptr);
 
+  /// Initialize the query text of the attached thd by the connected
+  /// optimization context.
+  bool init_query();
+  /// Initialize the default db of the attached thd.
+  bool init_db();
   /// Init the attached thd by the connected optimization context.
   bool init_thd();
   /// Init in the running thread. e.g. manipulate thread-locals, by the
@@ -121,7 +126,9 @@ class Opt_ctx_client {
 #endif
 
   /// Set the query in optimization.
-  void set_query(const char *query_string, size_t query_length);
+  void set_query(LEX_CSTRING query_arg);
+  /// Set the default db.
+  void set_db(const LEX_CSTRING &new_db);
 
   /// To intercept handler::info().
   int info(TABLE *table, uint flag);
