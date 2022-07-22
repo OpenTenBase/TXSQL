@@ -10918,6 +10918,16 @@ int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tupl
   m_prebuilt->idx_cond = saved_ipc;
   m_prebuilt->px_reading = false;
 
+  /*
+    During backward scan, the parallel query partition end tuple must
+    be located accurately. So there are three cases:
+    1) end_key can locate a valid record and directly use the tuple
+       as the end tuple
+    2) end_key cannot locate a valid record, call index_last to try
+       to use the last record as the end tuple
+    3) If index_last cannot locate a valid record, it means that
+       the query interval is invalid
+  */
   if (!err) {
     range_tuple = dtuple_copy(m_prebuilt->px_range_tuple, heap);
     range_tuple->n_fields_cmp = m_prebuilt->px_range_tuple->n_fields_cmp;
@@ -10933,8 +10943,7 @@ int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tupl
     }
   } else {
     if (err == HA_ERR_KEY_NOT_FOUND) {
-      index_last(table->record[0]);
-      result = 0;
+      result = index_last(table->record[0]);
     } else {
       result = err;
     }
@@ -10953,6 +10962,7 @@ int ha_innobase::px_make_range_tuple(key_range *range_key, dtuple_t *&range_tupl
 */
 int ha_innobase::px_partition(PX_reader *reader, key_range *start_key, key_range *end_key, bool reverse_scan) {
   int result{0};
+  dberr_t success = DB_SUCCESS;
   dtuple_t *range_start{nullptr};
   dtuple_t *range_end{nullptr};
   mem_heap_t *heap{nullptr};
@@ -10963,9 +10973,8 @@ int ha_innobase::px_partition(PX_reader *reader, key_range *start_key, key_range
     that the life of scan range tuple is longer than the
     PX_reader::add_scan.
   */
-  if (!heap) {
-    heap = mem_heap_create(2 * (sizeof(btr_pcur_t) + (srv_page_size / 16)), UT_LOCATION_HERE);
-  }
+  heap = mem_heap_create(2 * (sizeof(btr_pcur_t) + (srv_page_size / 16)), UT_LOCATION_HERE);
+  if (heap == nullptr) return HA_ERR_OUT_OF_MEM;
 
   if (start_key) {
     result = px_make_range_tuple(start_key, range_start, reverse_scan, heap, true);
@@ -10984,7 +10993,13 @@ int ha_innobase::px_partition(PX_reader *reader, key_range *start_key, key_range
     result = px_make_range_tuple(end_key, range_end, reverse_scan, heap, false);
   }
 
+  DBUG_EXECUTE_IF("px_partition_error3", { 
+    result = HA_ERR_GENERIC;
+  });
+
   if (result) {
+    if (heap != nullptr) mem_heap_free(heap);
+    heap = nullptr;
     return result;
   }
 
@@ -10994,18 +11009,22 @@ int ha_innobase::px_partition(PX_reader *reader, key_range *start_key, key_range
   config.m_reverse_scan = reverse_scan;
 
   /* Do the partition. */
-  auto success = reader->add_scan(m_prebuilt->trx, config);
+  success = reader->add_scan(m_prebuilt->trx, config);
+  DBUG_EXECUTE_IF("px_partition_error4", { 
+    success = DB_OUT_OF_MEMORY;
+  });
 
-  if (heap) {
-    mem_heap_free(heap);
+  if (success != DB_SUCCESS) {
+    result = HA_ERR_GENERIC;
+    goto end;
   }
 
-  if (!success) {
-    ut::delete_(reader);
-    return (HA_ERR_GENERIC);
-  }
+  result = 0;
 
-  return 0;
+end:
+  if (heap != nullptr) mem_heap_free(heap);
+  heap = nullptr;
+  return result;
 }
 
 /**
@@ -11018,6 +11037,7 @@ int ha_innobase::px_full_scan_init(PX_reader *reader, bool reverse_scan) {
   dtuple_t *range_end{nullptr};
   dict_index_t *index = innobase_get_index(active_index);
   m_prebuilt->index = index;
+  ut_a(index);
 
   /** reverse table/index scan, get the persitent cursor of last record. */
   if (reverse_scan) {
@@ -11040,6 +11060,9 @@ int ha_innobase::px_full_scan_init(PX_reader *reader, bool reverse_scan) {
   config.m_reverse_scan = reverse_scan;
 
   auto success = reader->add_scan(m_prebuilt->trx, config);
+  DBUG_EXECUTE_IF("px_partition_error4", { 
+    success = DB_OUT_OF_MEMORY;
+  });
 
   if (!success) {
     return (HA_ERR_GENERIC);
@@ -11054,6 +11077,7 @@ int ha_innobase::px_full_scan_init(PX_reader *reader, bool reverse_scan) {
 int ha_innobase::px_range_scan_init(PX_reader *reader, bool reverse_scan) {
   dict_index_t *index = innobase_get_index(active_index);
   m_prebuilt->index = index;
+  ut_a(index);
   int result = 0;
 
   uint range_res{0};
@@ -11078,13 +11102,14 @@ int ha_innobase::px_range_scan_init(PX_reader *reader, bool reverse_scan) {
 int ha_innobase::px_ref_scan_init(PX_reader *reader, bool reverse_scan) {
   dict_index_t *index = innobase_get_index(active_index);
   m_prebuilt->index = index;
+  ut_a(index);
   int result = 0;
 
   auto start_key = px_ref_key.keypart_map ? &px_ref_key : 0;
   auto end_key = px_ref_key.keypart_map ? &px_ref_key : 0;
 
   if ((result = px_partition(reader, start_key, end_key, reverse_scan))) {
-      return result;
+    return result;
   }
 
   return 0;
@@ -11143,7 +11168,7 @@ int ha_innobase::px_trx_init(void *&coordinator_trx) {
 */
 int ha_innobase::px_do_partition(
     uint dop, uint key, void *&scan_ctx, uint &partitions, bool reverse_scan) {
-  ut_a(!thd_is_parallel_worker(ha_thd()));
+  ut_a(!thd_is_parallel_worker(ha_thd()) && m_prebuilt->trx->mysql_thd);
 
   if (dict_table_is_discarded(m_prebuilt->table)) {
     ib_senderrf(ha_thd(), IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
@@ -11154,13 +11179,22 @@ int ha_innobase::px_do_partition(
   auto trx = m_prebuilt->trx;
 
   int result = 0;
+  dberr_t success = DB_SUCCESS;
   active_index = key;
+  ulong avg_partitions = thd_px_partitions_per_worker(m_prebuilt->trx->mysql_thd);
   result = change_active_index(active_index);
+  DBUG_EXECUTE_IF("px_partition_error1", result = HA_ERR_TABLE_DEF_CHANGED;);
+
   if (result) {
     return result;
   }
-  
+
   auto reader = ut::new_withkey<PX_reader>(UT_NEW_THIS_FILE_PSI_KEY, dop);
+  DBUG_EXECUTE_IF("px_partition_error2", {
+    if (reader != nullptr) ut::delete_(reader);
+    reader = nullptr;
+  });
+
   if (reader == nullptr) {
     return (HA_ERR_OUT_OF_MEM);
   }
@@ -11185,21 +11219,43 @@ int ha_innobase::px_do_partition(
       break;
   }
 
+  /*
+    There are two cases for handling the exception of the first partition:
+    1) The query range is an invalid range, no error code is returned, and
+       only the number of partitions is set to 0
+    2) An error occurs when constructing a partition boundary tuple or
+       executing the first partition, and an error code is returned.
+  */
   if (result == HA_ERR_END_OF_FILE || result == HA_ERR_KEY_NOT_FOUND) {
     partitions = 0;
     scan_ctx = reader;
     return 0;
   } else if (result) {
-    ut::delete_(reader);
-    return result;
+    goto err;
   }
 
-  ulong avg_partitions = thd_px_partitions_per_worker(m_prebuilt->trx->mysql_thd);
-  reader->split(avg_partitions);
+  /*
+    To reduce the impact of data skew, adaptive repartitioning is performed until
+    each partition is small enough or the number of partitions is large enough
+  */
+  success = reader->split(avg_partitions);
+  DBUG_EXECUTE_IF("px_partition_error5", {
+    success = (success == DB_SUCCESS) ? DB_OUT_OF_MEMORY : success;
+  });
+
+  if (success != DB_SUCCESS) {
+    result = HA_ERR_GENERIC;
+    goto err;
+  }
+
   partitions = reader->get_total_ctxs();
   scan_ctx = reader;
-
   return (0);
+
+err:
+  if (reader != nullptr) ut::delete_(reader);
+  reader = nullptr;
+  return result;
 }
 
 /**
