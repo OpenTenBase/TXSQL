@@ -116,6 +116,10 @@
 
 /* Changes from TXSQL start. */
 #include "sql/sql_seq.h"
+#include <list>
+#ifndef DBUG_OFF
+#include "sql/parallel_execution/opt_dbug.h"  // Opt_dbug_session
+#endif
 /* Changes from TXSQL end. */
 
 enum enum_check_fields : int;
@@ -4856,6 +4860,11 @@ private:
   bool m_is_local_or_admin_conn;
 
  public:
+#ifndef DBUG_OFF
+  /// Interactive DBUG session state, after a series of "SET SESSION
+  /// debug = '...'" commands.
+  Opt_dbug_session opt_dbug_session{PSI_NOT_INSTRUMENTED};
+#endif
 #if defined(HAVE_OPT_CTX)
   /// Optimization context interceptor.
   std::unique_ptr<Opt_ctx_client> opt_ctx_client;
