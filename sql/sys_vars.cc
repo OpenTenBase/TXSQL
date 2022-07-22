@@ -8856,7 +8856,7 @@ static Sys_var_bool Sys_txsql_parallel_execution_enabled (
     "txsql_parallel_execution_enabled",
     "Forcibly disable parallel execution on the server, taking priority over "
     "any user visible setting. It is for the cloud provider only.",
-    TENCENT_VAR GLOBAL_VAR(txsql_parallel_execution_enabled),
+    GLOBAL_VAR(txsql_parallel_execution_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
