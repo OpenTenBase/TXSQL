@@ -178,6 +178,11 @@ bool PX_mq_channel::attach(PX_proc *me, PX_exchange_handle *&handle) {
     handle = nullptr;
   });
 
+  DBUG_EXECUTE_IF("px_receiver_attach_error", {
+    if (handle) px_free(handle);
+    handle = nullptr;
+  });
+
   if (handle == nullptr) {
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_mq_channel::attach()");
     PX_PRINT_ERROR("attach to channel %u failed", id());

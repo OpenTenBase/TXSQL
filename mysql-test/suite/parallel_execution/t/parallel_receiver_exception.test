@@ -1,0 +1,88 @@
+######################################
+# Test for parallel query sort split #
+######################################
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT,
+        KEY idx_col2(col2)
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+
+ANALYZE TABLE t1;
+--enable_query_log
+
+--echo ###
+--echo ### There are also records that meet the limit condition when they are not read
+--echo ###
+SET session debug = "+d,px_no_row_split";
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+SELECT * FROM t1 order by col2 limit 3;
+SET session debug = "-d,px_no_row_split";
+
+--echo ###
+--echo ### oom when attach to exchange channel
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+set session debug="+d,px_receiver_attach_error";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1 order by col2 limit 3;
+set session debug="-d,px_receiver_attach_error";
+SELECT * FROM t1 order by col2 limit 3;
+
+--echo ###
+--echo ### oom when create PX_compact_codec
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+set session debug="+d,px_codec_create_error";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1 order by col2 limit 3;
+set session debug="-d,px_codec_create_error";
+SELECT * FROM t1 order by col2 limit 3;
+
+--echo ###
+--echo ### oom when PX_compact_codec::init
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+set session debug="+d,px_codec_init_error";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1 order by col2 limit 3;
+set session debug="-d,px_codec_init_error";
+SELECT * FROM t1 order by col2 limit 3;
+
+SET session debug = "+d,px_no_row_split";
+--echo ###
+--echo ### THD killed before receive data
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+set session debug="+d,px_error_before_receive_data";
+--error ER_QUERY_INTERRUPTED
+SELECT * FROM t1;
+set session debug="-d,px_error_before_receive_data";
+SELECT * FROM t1;
+
+--echo ###
+--echo ### THD killed after receive data
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+set session debug="+d,px_error_after_receive_data";
+--error ER_QUERY_INTERRUPTED
+SELECT * FROM t1;
+set session debug="-d,px_error_after_receive_data";
+SELECT * FROM t1;
+
+SET session debug = "-d,px_no_row_split";
+
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+DROP TABLE t1;
