@@ -381,10 +381,20 @@ insert into t2 values(7,7);
 insert into t2 values(8,8);
 insert into t2 values(9,9);
 insert into t2 values(10,10);
-analyze table t1,t2;
+create table t3(a int, b int, c int, d int);
+insert into t3 values (1,2,3,4), (2,1,0,3), (3,3,3,3), (3,4,4,4), (3,5,4,5), (5,5,5,6);
+create temporary table tmp as (select * from t3);
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+insert into tmp select * from t3;
+insert into t3 select * from tmp;
+drop table tmp;
+analyze table t1,t2,t3;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 #
 # Sort under join
 # join -> px_merge_sort -> px_send -> sort -> scan
@@ -489,6 +499,110 @@ a	sum(t1.b)
 8	8
 9	9
 10	10
+# Multiple group fields
+explain format=tree select sql_big_result a,c, sum(b) from t3 group by a,c order by a,c;
+EXPLAIN
+-> Group aggregate: sum(t3.b)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Group aggregate: sum(t3.b)
+                -> Sort: t3.a, t3.c  (cost=8.05 rows=78)
+                    -> Parallel table scan on t3  (cost=8.05 rows=78)
+
+select sql_big_result a,c, sum(b) from t3 group by a,c order by a,c;
+a	c	sum(b)
+1	3	26
+2	0	13
+3	3	39
+3	4	117
+5	5	65
+explain format=tree select sql_big_result a,c, sum(b) from t3 group by c,a order by c,a;
+EXPLAIN
+-> Group aggregate: sum(t3.b)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Group aggregate: sum(t3.b)
+                -> Sort: t3.c, t3.a  (cost=8.05 rows=78)
+                    -> Parallel table scan on t3  (cost=8.05 rows=78)
+
+select sql_big_result a,c, sum(b) from t3 group by c,a order by c,a;
+a	c	sum(b)
+2	0	13
+1	3	26
+3	3	39
+3	4	117
+5	5	65
+explain format=tree select sql_big_result a,c, sum(b) from t3 group by a,c order by c,a;
+EXPLAIN
+-> Sort: t3.c, t3.a
+    -> Stream results
+        -> Group aggregate: sum(t3.b)
+            -> PX Receiver (merge sort; slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Group aggregate: sum(t3.b)
+                        -> Sort: t3.a, t3.c  (cost=8.05 rows=78)
+                            -> Parallel table scan on t3  (cost=8.05 rows=78)
+
+select sql_big_result a,c, sum(b) from t3 group by a,c order by c,a;
+a	c	sum(b)
+2	0	13
+1	3	26
+3	3	39
+3	4	117
+5	5	65
+explain format=tree select sql_big_result a,c,d, sum(b) from t3 group by a,c,d order by a,c,d;
+EXPLAIN
+-> Group aggregate: sum(t3.b)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Group aggregate: sum(t3.b)
+                -> Sort: t3.a, t3.c, t3.d  (cost=8.05 rows=78)
+                    -> Parallel table scan on t3  (cost=8.05 rows=78)
+
+select sql_big_result a,c,d, sum(b) from t3 group by a,c,d order by a,c,d;
+a	c	d	sum(b)
+1	3	4	26
+2	0	3	13
+3	3	3	39
+3	4	4	52
+3	4	5	65
+5	5	6	65
+explain format=tree select sql_big_result a,c,d, sum(b) from t3 group by d,a,c order by d,a,c;
+EXPLAIN
+-> Group aggregate: sum(t3.b)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Group aggregate: sum(t3.b)
+                -> Sort: t3.d, t3.a, t3.c  (cost=8.05 rows=78)
+                    -> Parallel table scan on t3  (cost=8.05 rows=78)
+
+select sql_big_result a,c,d, sum(b) from t3 group by d,a,c order by d,a,c;
+a	c	d	sum(b)
+2	0	3	13
+3	3	3	39
+1	3	4	26
+3	4	4	52
+3	4	5	65
+5	5	6	65
+explain format=tree select sql_big_result a,c,d, sum(b) from t3 group by d,a,c order by a,c,d;
+EXPLAIN
+-> Sort: t3.a, t3.c, t3.d
+    -> Stream results
+        -> Group aggregate: sum(t3.b)
+            -> PX Receiver (merge sort; slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Group aggregate: sum(t3.b)
+                        -> Sort: t3.d, t3.a, t3.c  (cost=8.05 rows=78)
+                            -> Parallel table scan on t3  (cost=8.05 rows=78)
+
+select sql_big_result a,c,d, sum(b) from t3 group by d,a,c order by a,c,d;
+a	c	d	sum(b)
+1	3	4	26
+2	0	3	13
+3	3	3	39
+3	4	4	52
+3	4	5	65
+5	5	6	65
 #
 # Agg after Stream.
 #
@@ -515,7 +629,7 @@ a	sum(b)
 8	8
 9	9
 10	10
-drop table t1,t2;
+drop table t1,t2,t3
 #
 # Temp fields created for exchange are of type BLOB, changing exchange send mode from Item to field
 #
