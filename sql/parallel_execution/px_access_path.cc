@@ -99,17 +99,25 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
  */
 static bool group_field_eq_sort_list(List<Cached_item> group_fields,
                                      ORDER *sort_order) {
-  auto first = group_fields.begin();
+  // Note: The group and order columns are in reverse order. see
+  // alloc_group_fields()
+  List<Item> group_fields_reverse;
+  for (auto first = group_fields.begin(); first != group_fields.end();
+       ++first) {
+    group_fields_reverse.push_front(first->get_item());
+  }
+  auto first = group_fields_reverse.begin();
   ORDER *second = sort_order;
-  for (; first != group_fields.end() && second;
+
+  for (; first != group_fields_reverse.end() && second;
        ++first, second = second->next) {
-    if ((first->get_item())->eq(*second->item, true)) {
+    if (first->eq(*second->item, true)) {
       continue;
     } else {
       return false;
     }
   }
-  if (first != group_fields.end() || second) return false;
+  if (first != group_fields_reverse.end() || second) return false;
   return true;
 }
 
