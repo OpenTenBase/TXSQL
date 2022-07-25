@@ -56,10 +56,17 @@ bool PX_receiver::Init() {
   switch (m_pei->format()) {
     case PX_COMPACT_ROW: {
       m_codec = new (thd()->mem_root) PX_compact_codec(thd(), /*use_item=*/false, nullptr);
+
+      DBUG_EXECUTE_IF("px_codec_create_error", {
+        if (m_codec) destroy(m_codec);
+        m_codec = nullptr;
+      });
+
       if (m_codec == nullptr || DBUG_EVALUATE_IF("px_receiver_init_error1", true, false)) {
         my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "creating codec", "PX_receiver::Init()");
         goto err;
       }
+
       if (m_codec->init(nullptr, &m_fields)) {
         goto err;
       }
@@ -173,6 +180,10 @@ int PX_receiver::receive(void **datap, Size *len) {
     }
     PX_PRINT_DEBUG("receive from channels%s", buf.c_ptr_safe());
 #endif
+    // THD killed before receive data
+    DBUG_EXECUTE_IF("px_error_before_receive_data", {
+      thd()->killed = THD::KILL_QUERY;
+    });
 
     if (thd()->is_killed()) {
       PX_PRINT_ERROR("receive killed");
@@ -188,6 +199,12 @@ int PX_receiver::receive(void **datap, Size *len) {
     assert(m_cursor < m_handles.size());
     PX_exchange_handle *handle = m_handles[m_cursor];
     PX_io_error error = handle->receive(datap, len, /*nowait=*/true);
+    // THD killed after receiver data
+    DBUG_EXECUTE_IF("px_error_after_receive_data", {
+      thd()->killed = THD::KILL_QUERY;
+      error = PX_IO_ERROR;
+    });
+
     switch (error) {
       case PX_IO_OK: {
         m_skip_count = 0;

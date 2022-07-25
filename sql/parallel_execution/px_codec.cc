@@ -44,6 +44,11 @@ int PX_compact_codec::init(mem_root_deque<Item *> *items, std::vector<Field *> *
   m_items = items;
   m_fields = fields;
   m_compact_row = new (thd->mem_root) PX_field_data[field_size + PX_HIDDEN_FIELD_COUNT];
+  DBUG_EXECUTE_IF("px_codec_init_error", {
+    if (m_compact_row) destroy(m_compact_row);
+    m_compact_row = nullptr;
+  });
+
   if (!m_compact_row) goto oom;
 
   /*
