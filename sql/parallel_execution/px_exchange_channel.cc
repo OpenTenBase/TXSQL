@@ -173,6 +173,11 @@ bool PX_mq_channel::attach(PX_proc *me, PX_exchange_handle *&handle) {
 
   // Will be deallocated by PX_exchange_handle_mq::detach().
   handle = (PX_exchange_handle_mq*) px_malloc(sizeof(PX_exchange_handle_mq));
+  DBUG_EXECUTE_IF("px_sender_attach_error", {
+    if (handle) px_free(handle);
+    handle = nullptr;
+  });
+
   if (handle == nullptr) {
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_mq_channel::attach()");
     PX_PRINT_ERROR("attach to channel %u failed", id());

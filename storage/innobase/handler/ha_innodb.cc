@@ -11322,7 +11322,8 @@ int ha_innobase::px_scan_next(uchar *buf, void *scan_ctx) {
   ut_a(reader->key == active_index);
   /* Already has error occurs. */
   if (reader->is_error_set()) {
-    return err;
+    err = reader->get_error_state();
+    goto end;
   }
 
   while(true) {
@@ -11354,6 +11355,7 @@ int ha_innobase::px_scan_next(uchar *buf, void *scan_ctx) {
     break;
   }
 
+end:
   return (convert_error_code(err, 0, current_thd, m_prebuilt, table));
 }
 

@@ -1,0 +1,67 @@
+######################################
+# Test for exception parallel scan   #
+######################################
+
+--source include/have_debug.inc
+--source suite/parallel_execution/inc/save_and_set_px.inc
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT,
+        KEY idx_col2(col2)
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+ANALYZE TABLE t1;
+--enable_query_log
+SET session debug = "+d,px_no_row_split";
+
+--echo ###
+--echo ### TEST ATTACH TO EXCHANGE CHANNEL OOM FOR WORKER
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+SET session debug = "+d,px_sender_attach_error";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1;
+SET session debug = "-d,px_sender_attach_error";
+SELECT * FROM t1;
+
+--echo ###
+--echo ### TEST CREATE PX_CODEC OOM FOR WORKER
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+SET session debug = "+d,px_sender_create_codec_error";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1;
+SET session debug = "-d,px_sender_create_codec_error";
+SELECT * FROM t1;
+
+--echo ###
+--echo ### TEST INIT PX_CODEC OOM FOR WORKER
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+SET session debug = "+d,px_sender_init_codec_error";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1;
+SET session debug = "-d,px_sender_init_codec_error";
+SELECT * FROM t1;
+
+--echo ###
+--echo ### TEST PARALLEL SCAN ERROR FOR WORKER
+--echo ###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+SET session debug = "+d,px_sender_parallel_scan_error1";
+--error ER_PX_EXECUTE_ERROR
+SELECT * FROM t1;
+SET session debug = "-d,px_sender_parallel_scan_error1";
+
+SET session debug = "-d,px_no_row_split";
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+DROP TABLE t1;
