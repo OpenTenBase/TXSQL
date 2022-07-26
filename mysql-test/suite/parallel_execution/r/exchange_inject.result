@@ -4232,4 +4232,51 @@ found_rows()
 Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 drop table t1;
+#
+# Special ref slice for Aggregate
+#
+CREATE TABLE t1 (a INT PRIMARY KEY NOT NULL, b INT);
+INSERT INTO t1 VALUES (1,1),(2,2),(3,1);
+CREATE TABLE t2 (a INT NOT NULL, b INT);
+INSERT INTO t2 VALUES (1,1),(2,2),(3,3);
+ANALYZE TABLE t1,t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
+EXPLAIN
+-> Group aggregate: count(distinct t1.a)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 3)
+            -> Sort: t1.b
+                -> Table scan on <temporary>
+                    -> Temporary table  (cost=1.60 rows=3)
+                        -> Nested loop inner join  (cost=1.60 rows=3)
+                            -> Parallel table scan on t2  (cost=0.55 rows=3)
+                            -> Single-row index lookup on t1 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
+
+SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
+b	COUNT(DISTINCT t1.a)
+1	2
+2	1
+EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Temporary table
+        -> Group aggregate with rollup: count(t1.a)
+            -> PX Receiver (merge sort; slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 3)
+                    -> Sort: t1.b
+                        -> Table scan on <temporary>
+                            -> Temporary table  (cost=1.60 rows=3)
+                                -> Nested loop inner join  (cost=1.60 rows=3)
+                                    -> Parallel table scan on t2  (cost=0.55 rows=3)
+                                    -> Single-row index lookup on t1 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
+
+SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
+b	COUNT(t1.a)
+1	2
+2	1
+NULL	3
+DROP TABLE t1,t2;
 # --include set_px_to_saved.inc

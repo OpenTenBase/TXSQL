@@ -3969,7 +3969,13 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       //output_slice = path->aggregate().output_slice;
 
       child = path->aggregate().child;
-      child_slice = REF_SLICE_SAVED_BASE;
+      if (output_slice == REF_SLICE_TMP2) {
+        child_slice = REF_SLICE_TMP1;
+      } else if (output_slice == REF_SLICE_TMP1) {
+        child_slice = REF_SLICE_SAVED_BASE;
+      } else if (output_slice != REF_SLICE_FINAL_AGGREGATE) {
+        assert(0);
+      }
 
       break;
     }
@@ -3981,7 +3987,13 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       output_slice = path->temptable_aggregate().ref_slice;
 
       child = path->temptable_aggregate().subquery_path;
-      child_slice = REF_SLICE_SAVED_BASE;
+      if (output_slice == REF_SLICE_TMP2) {
+        child_slice = REF_SLICE_TMP1;
+      } else if (output_slice == REF_SLICE_TMP1) {
+        child_slice = REF_SLICE_SAVED_BASE;
+      } else if (output_slice != REF_SLICE_FINAL_AGGREGATE) {
+        assert(0);
+      }
 
       break;
     }
@@ -4055,6 +4067,10 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
         tables->push_back(table);
       }
       assert(tables->size());
+      // TODO: ref slice number saved in split position was tested to always be
+      // equal to output_slice, possibly using split_pos in the future.
+      // assert(output_slice <= 0 ||
+      //             uint(output_slice) == split_pos->m_ref_slice);
 
       exchange = CreateExchangeAccessPathUseTables(
           thd, join, path, tables, output_slice,
