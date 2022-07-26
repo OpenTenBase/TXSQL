@@ -32,6 +32,8 @@ bool PX_receiver_merge::Init() {
     if error occurs.
   */
   if (PX_receiver::Init()) return true;
+  assert(thd()->px_receiver);
+  thd()->px_receiver = this;
 
   /*
     1) Generate the sort_order and sort_param
@@ -102,6 +104,7 @@ err:
   }
 
   End();
+  thd()->px_receiver = nullptr;
   return true;
 }
 
@@ -111,7 +114,7 @@ err:
   @return 1 error occurs or killed, -1 for EOF , 0 for read success.
 */
 int PX_receiver_merge::Read() {
-  assert(get_pei()->format() == PX_COMPACT_ROW);
+  assert(thd()->px_receiver == this && get_pei()->format() == PX_COMPACT_ROW);
   int result = 0;
   mq_record_st *min_rec = nullptr;
 
@@ -130,6 +133,7 @@ end:
     thd()->send_kill_message();
   }
   End();
+  thd()->px_receiver = nullptr;
   return result;
 }
 

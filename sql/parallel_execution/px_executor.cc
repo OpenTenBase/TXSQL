@@ -520,6 +520,18 @@ bool px_run_task(THD *thd, RowIterator *sub_iterator) {
 }
 void PX_task::run(THD *thd) {
   px_run_task(thd, sub_iterator);
+  /*
+    Explicitly call the End function to release resources
+    and complete detach
+  */
+  if (thd->px_sender) {
+    thd->px_sender->End();
+    thd->px_sender = nullptr;
+  }
+  if (thd->px_receiver) {
+    thd->px_receiver->End();
+    thd->px_receiver = nullptr;
+  }
 }
 
 /**
@@ -631,7 +643,17 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   return query_result->send_eof(thd);
 }
 bool PX_task::run_root(THD *thd) {
-  return px_run_root(thd, sub_iterator);
+  bool result = px_run_root(thd, sub_iterator);
+  /*
+    Explicitly call the End function to release resources
+    and complete detach
+  */
+  assert(!thd->px_sender);
+  if (thd->px_receiver) {
+    thd->px_receiver->End();
+    thd->px_receiver = nullptr;
+  }
+  return result;
 }
 
 bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
