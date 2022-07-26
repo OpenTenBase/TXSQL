@@ -908,6 +908,23 @@ dberr_t PX_Ctx::row_search_px(uchar *buf, row_prebuilt_t *prebuilt) {
       m_range.second->m_tuple : m_range.first->m_tuple;
   btr_pcur_t *pcur = from->m_pcur;
 
+  DBUG_EXECUTE_IF("px_sender_parallel_scan_error1", {
+    prebuilt->table->ibd_file_missing = true;
+  });
+
+  if (dict_table_is_discarded(prebuilt->table)) {
+    return DB_TABLESPACE_DELETED;
+
+  } else if (prebuilt->table->ibd_file_missing) {
+    return DB_TABLESPACE_NOT_FOUND;
+
+  } else if (!prebuilt->index_usable) {
+    return DB_MISSING_HISTORY;
+
+  } else if (prebuilt->index->is_corrupted()) {
+    return DB_CORRUPTION;
+  }
+
   /*-------------------------------------------------------------*/
   /* PHASE 1: Try to pop the row from the record buffer */
   const auto record_buffer = row_sel_get_record_buffer(prebuilt);

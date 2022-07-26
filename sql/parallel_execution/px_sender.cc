@@ -51,6 +51,11 @@ bool PX_sender::Init() {
   switch (m_pei->format()) {
     case PX_COMPACT_ROW: {
       m_codec = new (thd()->mem_root) PX_compact_codec(thd(), m_use_item, m_temp_table_param);
+      DBUG_EXECUTE_IF("px_sender_create_codec_error", {
+        if (m_codec) destroy(m_codec);
+        m_codec = nullptr;
+      });
+
       if (m_codec == nullptr) {
         my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "creating codec",
                  "PX_sender::register_to_exchange()");
@@ -127,6 +132,13 @@ bool PX_sender::Init() {
     }
     if (m_codec->init(nullptr, &m_fields)) goto err;
   }
+
+  DBUG_EXECUTE_IF("px_sender_init_codec_error", {
+    if (m_codec) destroy(m_codec);
+    m_codec = nullptr;
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_compact_codec::init()");
+    goto err;
+  });
 
   return false;
 
