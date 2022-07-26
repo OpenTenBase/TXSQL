@@ -208,7 +208,7 @@ class Opt_ctx_client {
 };
 
 // Avoid dependency on px_interface.h
-extern unsigned long px_max_parallel_threads;
+extern unsigned long txsql_max_parallel_worker_threads;
 
 /**
   Tell if optimization context is enabled as well as applicable.
@@ -218,7 +218,7 @@ extern unsigned long px_max_parallel_threads;
     3. The intercepting client is attached.
  */
 #define OPT_CTX_ENABLED(thd) \
-  (px_max_parallel_threads > 0 && \
+  (txsql_max_parallel_worker_threads > 0 && \
    txsql_parallel_execution_enabled && \
    (thd)->system_thread == NON_SYSTEM_THREAD && \
    (thd)->opt_ctx_client)

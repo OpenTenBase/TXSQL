@@ -24,25 +24,25 @@ insert into t3 values(7,7,7,7);
 insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
-SET @saved_px_fallback_in_execution =@@px_fallback_in_execution;
-set global px_fallback_in_execution = 0;
+SET @saved_txsql_parallel_fallback_in_execution =@@txsql_parallel_fallback_in_execution;
+set global txsql_parallel_fallback_in_execution = 0;
 # --include save_and_set_px.inc
 set global debug='+d,disable_debug_sync_check';
-set global px_parallel_table_record_threshold = 2;
-SET @saved_px_parallel_degree = @@px_parallel_degree;
-set global px_parallel_degree = 1;
+set global txsql_parallel_table_record_threshold = 2;
+SET @saved_txsql_parallel_degree = @@txsql_parallel_degree;
+set global txsql_parallel_degree = 1;
 flush status;
 #
 # Case 1:
 #   Query A uses up threads, preventing query B from executing in parallel.
 #
-set global px_max_parallel_threads = 3;
+set global txsql_max_parallel_worker_threads = 3;
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	0
-PX_stmt_fallback	0
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_threads_currently_used	0
 # Query A
 set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for killed";
 select a,sum(b) from t1 group by a;;
@@ -71,10 +71,10 @@ SET DEBUG_SYNC = 'RESET';
 # Expect error 0 executed 1 fallback 1
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	1
-PX_stmt_fallback	1
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	1
+Txsql_parallel_threads_currently_used	0
 #
 # Case 2:
 #   Query A uses up threads, preventing query B from executing in parallel.
@@ -103,15 +103,15 @@ SET DEBUG_SYNC = 'RESET';
 # Expect error 1 executed 1 fallback 2
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	1
-PX_stmt_executed	1
-PX_stmt_fallback	2
-PX_thread_current	0
+Txsql_parallel_stmt_error	1
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	2
+Txsql_parallel_threads_currently_used	0
 #
 # Case 3:
 #   When thread limit is big enough, both query A and query B execute in parallel.
 #
-set global px_max_parallel_threads = 16;
+set global txsql_max_parallel_worker_threads = 16;
 # Query A
 set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for killed";
 select a,sum(b) from t1 group by a union select a,b from t2 union select a,sum(b) from t3 group by a;;
@@ -145,21 +145,21 @@ SET DEBUG_SYNC = 'RESET';
 # Expect error 1 executed 3 fallback 2
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	1
-PX_stmt_executed	3
-PX_stmt_fallback	2
-PX_thread_current	0
-set global px_parallel_degree = @saved_px_parallel_degree;
+Txsql_parallel_stmt_error	1
+Txsql_parallel_stmt_executed	3
+Txsql_parallel_stmt_fallback	2
+Txsql_parallel_threads_currently_used	0
+set global txsql_parallel_degree = @saved_txsql_parallel_degree;
 # --include set_px_to_saved.inc
-set global px_fallback_in_execution = @saved_px_fallback_in_execution;
+set global txsql_parallel_fallback_in_execution = @saved_txsql_parallel_fallback_in_execution;
 flush status;
 # Expect error 0 executed 0 fallback 0
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	0
-PX_stmt_fallback	0
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_threads_currently_used	0
 drop table t1;
 drop table t2;
 drop table t3;

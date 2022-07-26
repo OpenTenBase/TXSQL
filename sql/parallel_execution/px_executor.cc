@@ -314,9 +314,9 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
   release_worker_threads(worker_pool);
 
   if (!res) {
-    mysql_mutex_lock(&LOCK_inc_px_stmt_executed);
-    px_stmt_executed++;
-    mysql_mutex_unlock(&LOCK_inc_px_stmt_executed);
+    mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_executed);
+    txsql_parallel_stmt_executed++;
+    mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_executed);
   }
 
   goto finish;
@@ -331,9 +331,9 @@ err:
 
 err_finish:
   if (thd->killed) {
-    mysql_mutex_lock(&LOCK_inc_px_stmt_error);
-    px_stmt_error++;
-    mysql_mutex_unlock(&LOCK_inc_px_stmt_error);
+    mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_error);
+    txsql_parallel_stmt_error++;
+    mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_error);
   }
   res = true;
 
@@ -1006,9 +1006,9 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
         // Throw error 'ER_PX_EXECUTE_ERROR' when sending data.
         thd()->get_stmt_da()->reset_diagnostics_area();
         my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd()->px_errno);
-        mysql_mutex_lock(&LOCK_inc_px_stmt_error);
-        px_stmt_error++;
-        mysql_mutex_unlock(&LOCK_inc_px_stmt_error);
+        mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_error);
+        txsql_parallel_stmt_error++;
+        mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_error);
         return true;
       }
 
@@ -1077,9 +1077,9 @@ void fallback_to_serial_execution(THD *thd, Parser_state *parser_state,
                                   size_t query_length) {
   PX_PRINT_INFO("fall back to serial execution.");
 
-  mysql_mutex_lock(&LOCK_inc_px_stmt_fallback);
-  px_stmt_fallback++;
-  mysql_mutex_unlock(&LOCK_inc_px_stmt_fallback);
+  mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_fallback);
+  txsql_parallel_stmt_fallback++;
+  mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_fallback);
 
   // Tell performance schema that the statement is restarted.
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());

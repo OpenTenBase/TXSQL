@@ -1914,9 +1914,9 @@ sub command_line_setup {
   # Push Parallel Query (PQ) related options for testing
   if ($opt_pq_protocol) {
     mtr_print("Using pqprotocol, turn on parallel query.");
-    push(@opt_extra_mysqld_opt, '--px_max_parallel_threads=8');
-    push(@opt_extra_mysqld_opt, '--px_parallel_cost_threshold=0');
-    push(@opt_extra_mysqld_opt, '--px_parallel_table_record_threshold=0');
+    push(@opt_extra_mysqld_opt, '--txsql_max_parallel_worker_threads=8');
+    push(@opt_extra_mysqld_opt, '--txsql_parallel_cost_threshold=0');
+    push(@opt_extra_mysqld_opt, '--txsql_parallel_table_record_threshold=0');
   }
 
   # Find out type of logging that are being used

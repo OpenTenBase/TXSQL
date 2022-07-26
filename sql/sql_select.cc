@@ -884,8 +884,8 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   // Calculate the current statement cost.
   accumulate_statement_cost(lex);
 
-  // Fallback to serial if px_fallback_in_execution is on.
-  if (!lex->is_explain() && thd->use_px && px_fallback_in_execution) {
+  // Fallback to serial if txsql_parallel_fallback_in_execution is on.
+  if (!lex->is_explain() && thd->use_px && txsql_parallel_fallback_in_execution) {
     thd->need_fallback = true;
     my_error(ER_PX_FALLBACK_SERIAL_EXECUTION, MYF(0));
     return true;
@@ -900,7 +900,7 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
    */
 #if 0
   if (thd->use_px &&
-      thd->m_current_query_cost < thd->variables.px_parallel_cost_threshold) {
+      thd->m_current_query_cost < thd->variables.txsql_parallel_cost_threshold) {
     thd->need_fallback = true; // fall back to serial execution.
     return false;
   }

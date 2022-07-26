@@ -1,6 +1,6 @@
 #include "px_dfo.h"
 #include "sql/iterators/row_iterator.h"  // RowIterator
-#include "sql/parallel_execution/px_interface.h" // px_max_parallel_threads
+#include "sql/parallel_execution/px_interface.h" // txsql_max_parallel_worker_threads
 #include "sql/parallel_execution/px_optimizer.h"  // get_parallel_degree_hint
 #include "sql/parallel_execution/px_receiver.h"  // PX_receiver
 #include "sql/parallel_execution/px_sender.h"  // PX_sender

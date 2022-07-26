@@ -57,7 +57,7 @@ create table t5(a int, b int, c int, d int);
 
 connection conn1;
 --source suite/parallel_execution/inc/save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 set global debug = '+d, disable_debug_sync_check';
 
 flush status;

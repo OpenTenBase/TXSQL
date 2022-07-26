@@ -843,10 +843,10 @@ Warnings:
 Warning	#	'SHOW PROFILE' is deprecated and will be removed in a future release. Please use Performance Schema instead
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	47
-PX_stmt_fallback	1
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	47
+Txsql_parallel_stmt_fallback	1
+Txsql_parallel_threads_currently_used	0
 drop table t1;
 create table t1(f1 date, f2 time, f3 datetime);
 insert into t1 values ("2006-01-01", "12:01:01", "2006-01-01 12:01:01");
@@ -972,17 +972,17 @@ EXPLAIN
 
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	47
-PX_stmt_fallback	7
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	47
+Txsql_parallel_stmt_fallback	7
+Txsql_parallel_threads_currently_used	0
 flush status;
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	0
-PX_stmt_fallback	0
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_threads_currently_used	0
 # --include set_px_to_saved.inc
 drop table t1;
 drop table t2;

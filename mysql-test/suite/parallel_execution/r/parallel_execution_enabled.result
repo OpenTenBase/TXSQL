@@ -39,7 +39,7 @@ txsql_parallel_execution_enabled	OFF
 ###
 set global txsql_parallel_execution_enabled = 1;
 # 2.1 enable=true,  max_threads > 0
-set global px_max_parallel_threads = 8;
+set global txsql_max_parallel_worker_threads = 8;
 # expect: parallel plan
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
@@ -49,7 +49,7 @@ EXPLAIN
 
 
 # 2.2 enable=true,  max_threads = 0
-set global px_max_parallel_threads = 0;
+set global txsql_max_parallel_worker_threads = 0;
 # expect: serial plan
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
@@ -58,7 +58,7 @@ EXPLAIN
 
 set global txsql_parallel_execution_enabled = 0;
 # 2.3 enable=false, max_threads > 0
-set global px_max_parallel_threads = 8;
+set global txsql_max_parallel_worker_threads = 8;
 # expect: serial plan
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN
@@ -66,7 +66,7 @@ EXPLAIN
 
 
 # 2.4 enable=false,  max_threads = 0
-set global px_max_parallel_threads = 0;
+set global txsql_max_parallel_worker_threads = 0;
 # expect: serial plan
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 EXPLAIN

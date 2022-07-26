@@ -405,7 +405,7 @@ Warnings:
 Warning	3128	Unresolved name `t2`@`select#1` for NO_PARALLEL hint
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1`
 # 1.3 set parallel degree to 0
-SET px_parallel_degree=0;
+SET txsql_parallel_degree=0;
 explain format=tree select * from t1;
 EXPLAIN
 -> Table scan on t1  (cost=0.95 rows=7)

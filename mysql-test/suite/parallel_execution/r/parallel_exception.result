@@ -39,7 +39,7 @@ create table t4(a int, b int, c int, d int);
 insert into t4 values(100,100,100,100);
 create table t5(a int, b int, c int, d int);
 # --include save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 set global debug = '+d, disable_debug_sync_check';
 flush status;
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
@@ -80,10 +80,10 @@ ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	1
-PX_stmt_fallback	0
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_error";
 select a, sum(b) from t1 group by a;
 ERROR HY000: Memory allocation error:  in function px_execute_in_coordinator.
@@ -92,10 +92,10 @@ select a,b from t1 union select a,c from t2;
 ERROR HY000: Memory allocation error:  in function px_execute_in_coordinator.
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	1
-PX_stmt_fallback	0
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_fallback";
 select a, sum(b) from t1 group by a order by a;
 a	sum(b)
@@ -119,10 +119,10 @@ a	b
 5	5
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	1
-PX_stmt_fallback	2
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	2
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_sleep";
 select a,b,c,d from t1;
 a	b	c	d
@@ -148,10 +148,10 @@ a	b	c	d
 5	5	5	5
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	3
-PX_stmt_fallback	2
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	3
+Txsql_parallel_stmt_fallback	2
+Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_before_kill SIGNAL waiting wait_for killed';
 select a,sum(b),avg(d) from t1 group by a order by a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -168,10 +168,10 @@ ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	5
-PX_stmt_fallback	2
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	5
+Txsql_parallel_stmt_fallback	2
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_fallback";
 select a, sum(b), avg(c)+avg(d) from t2 group by a order by a;
 a	sum(b)	avg(c)+avg(d)
@@ -197,10 +197,10 @@ a	b	sum(c)
 5	5	10.0000
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	5
-PX_stmt_fallback	4
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	5
+Txsql_parallel_stmt_fallback	4
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_sleep";
 select a,b,c,d from t1 order by d;
 a	b	c	d
@@ -226,10 +226,10 @@ a	b	c	d
 5	5	5	5
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	7
-PX_stmt_fallback	4
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	7
+Txsql_parallel_stmt_fallback	4
+Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
 select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -246,10 +246,10 @@ ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	9
-PX_stmt_fallback	4
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	9
+Txsql_parallel_stmt_fallback	4
+Txsql_parallel_threads_currently_used	0
 set global debug="+d,schedule_before_schedule_error";
 select b, sum(a) from t1 group by b order by b;
 b	sum(a)
@@ -276,10 +276,10 @@ b	a	sum(c)
 set global debug="-d,schedule_before_schedule_error";
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	9
-PX_stmt_fallback	6
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	9
+Txsql_parallel_stmt_fallback	6
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_schedule_sleep";
 select a,b,c,d from t1 order by a,b,c,d;
 a	b	c	d
@@ -307,10 +307,10 @@ a	b	c	d
 5	5	5	5
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	11
-PX_stmt_fallback	6
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	11
+Txsql_parallel_stmt_fallback	6
+Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
 select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -334,10 +334,10 @@ ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	11
-PX_stmt_fallback	6
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	11
+Txsql_parallel_stmt_fallback	6
+Txsql_parallel_threads_currently_used	0
 set global debug="+d,schedule_one_loop_sleep_worker";
 select a,b,c+d from t1 order by a,b;
 a	b	c+d
@@ -385,10 +385,10 @@ a	b	c	d
 10	10	10	10
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	14
-PX_stmt_fallback	6
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	14
+Txsql_parallel_stmt_fallback	6
+Txsql_parallel_threads_currently_used	0
 set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 select /*+no_bnl(t1,t2)*/ t1.* from t1,t3 where t1.a = t3.a order by t1.a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -405,10 +405,10 @@ ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	14
-PX_stmt_fallback	6
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	14
+Txsql_parallel_stmt_fallback	6
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,run_root_before_sending_data_error";
 select a+b+c+d from t1 where a > 1 order by a,b,c,d;
 a+b+c+d
@@ -438,10 +438,10 @@ set session debug="+d,run_root_in_sending_data_error";
 ERROR HY000: PX execute error of errno[3044].
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	14
-PX_stmt_fallback	8
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	14
+Txsql_parallel_stmt_fallback	8
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,run_root_in_sending_data_sleep";
 select a+b,c+d from t1 order by a+b,c+d;
 a+b	c+d
@@ -469,10 +469,10 @@ a+b	c+d
 10	10
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	16
-PX_stmt_fallback	8
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	16
+Txsql_parallel_stmt_fallback	8
+Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
 (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t4 order by a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -521,10 +521,10 @@ a	b	c	d
 SET DEBUG_SYNC = 'RESET';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	18
-PX_stmt_fallback	8
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	18
+Txsql_parallel_stmt_fallback	8
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_after_schedule_sleep";
 select a+b,c+d from t1 order by a,b,c,d;
 a+b	c+d
@@ -552,54 +552,54 @@ a+b	c+d
 10	10
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	20
-PX_stmt_fallback	8
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	20
+Txsql_parallel_stmt_fallback	8
+Txsql_parallel_threads_currently_used	0
 set session debug="+d,create_partial_threads_error";
 select a+b,sum(c),avg(d) from t5 group by a+b;
 a+b	sum(c)	avg(d)
 set session debug="-d,create_partial_threads_error";
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	20
-PX_stmt_fallback	9
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	20
+Txsql_parallel_stmt_fallback	9
+Txsql_parallel_threads_currently_used	0
 select a from t5 union select b from t5 union select c from t5 union select d from t5;
 a
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	21
-PX_stmt_fallback	9
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	21
+Txsql_parallel_stmt_fallback	9
+Txsql_parallel_threads_currently_used	0
 select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
 ERROR HY000: Query execution was interrupted, maximum statement execution time exceeded
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	22
-PX_stmt_fallback	9
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	22
+Txsql_parallel_stmt_fallback	9
+Txsql_parallel_threads_currently_used	0
 SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
 select /*+max_execution_time(1000)*/ * FROM t1;
 ERROR HY000: Query execution was interrupted, maximum statement execution time exceeded
 SET GLOBAL debug = '-d,px_simulate_worker_timeout_kill';
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	2
-PX_stmt_executed	23
-PX_stmt_fallback	9
-PX_thread_current	0
+Txsql_parallel_stmt_error	2
+Txsql_parallel_stmt_executed	23
+Txsql_parallel_stmt_fallback	9
+Txsql_parallel_threads_currently_used	0
 # --include set_px_to_saved.inc
 flush status;
 show status like '%px%';
 Variable_name	Value
-PX_stmt_error	0
-PX_stmt_executed	0
-PX_stmt_fallback	0
-PX_thread_current	0
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_threads_currently_used	0
 drop table t1;
 drop table t2;
 drop table t3;

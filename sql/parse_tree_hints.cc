@@ -591,7 +591,7 @@ bool PT_hint_parallel::contextualize(Parse_context *pc) {
     pc->thd->lex->pass_px_check = (switch_on() && (degree != 0));
 
     if (is_degree_hint && !pc->thd->lex->is_explain() &&
-        (!px_max_parallel_threads || !pc->thd->variables.px_parallel_degree)) {
+        (!txsql_max_parallel_worker_threads || !pc->thd->variables.txsql_parallel_degree)) {
       mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
       txsql_parallel_stmt_hint_executed++;
       mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_hint_executed);

@@ -42,7 +42,7 @@ void check_parallel_table_hint(const THD *thd, bool do_parallel) {
 
       bool do_parallel_scan_hint = table_hint->do_parallel_scan();
       if (!tab->m_parallel_scan && do_parallel_scan_hint) {
-        if (do_parallel || thd->variables.px_parallel_degree == 0) {
+        if (do_parallel || thd->variables.txsql_parallel_degree == 0) {
           push_warning(current_thd, Sql_condition::SL_WARNING,
                        ER_WARN_UNSUPPORTED_PARALLEL,
                        "parallel hint has no effect, not the chosen table.");
@@ -121,9 +121,9 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
       /*root_all=*/true, ref_slice, max_px_subpath, is_stream, &mat_access_path,
       &split_positions_all, exchange_safe);
 
-  // The Parallel degree hint may have no effect, if px_parallel_degree is also
+  // The Parallel degree hint may have no effect, if txsql_parallel_degree is also
   // set to 0, the query should not be executed in parallel.
-  if (!thd->variables.px_parallel_degree &&
+  if (!thd->variables.txsql_parallel_degree &&
       get_parallel_degree_hint(thd, /*should_effect=*/true) == UINT_MAX32) {
     thd->lex->pass_px_check = false;
     return false;

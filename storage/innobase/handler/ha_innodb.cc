@@ -1185,8 +1185,8 @@ static MYSQL_THDVAR_BOOL(txsql_parallel_ddl, PLUGIN_VAR_OPCMDARG,
                          "Enable parallel ddl. Default is FALSE.", nullptr, nullptr,
                          /* default */ false);
 
-static MYSQL_THDVAR_ULONG(px_partitions_per_worker, PLUGIN_VAR_RQCMDARG,
-                          "Average number of partitions a worker could get in parallel query.",
+static MYSQL_THDVAR_ULONG(txsql_parallel_partitions_per_worker, PLUGIN_VAR_RQCMDARG,
+                          "Average number of partitions a worker could get in parallel execution.",
                           nullptr, nullptr, 13, /* Default. */
                           0,          /* Minimum. */
                           4294967295, 0);    /* Maximum. */
@@ -2202,8 +2202,8 @@ size_t thd_txsql_ddl_threads(THD *thd) noexcept { return THDVAR(thd, txsql_ddl_t
 
 bool thd_txsql_parallel_ddl(THD *thd) noexcept { return THDVAR(thd, txsql_parallel_ddl); }
 
-ulong thd_px_partitions_per_worker(THD *thd) {
-  return (THDVAR(thd, px_partitions_per_worker));
+ulong thd_txsql_parallel_partitions_per_worker(THD *thd) {
+  return (THDVAR(thd, txsql_parallel_partitions_per_worker));
 }
 
 /** Check if statement is of type INSERT .... SELECT that involves
@@ -11181,7 +11181,7 @@ int ha_innobase::px_do_partition(
   int result = 0;
   dberr_t success = DB_SUCCESS;
   active_index = key;
-  ulong avg_partitions = thd_px_partitions_per_worker(m_prebuilt->trx->mysql_thd);
+  ulong avg_partitions = thd_txsql_parallel_partitions_per_worker(m_prebuilt->trx->mysql_thd);
   result = change_active_index(active_index);
   DBUG_EXECUTE_IF("px_partition_error1", result = HA_ERR_TABLE_DEF_CHANGED;);
 
@@ -24879,7 +24879,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(log_checksums),
     MYSQL_SYSVAR(commit_concurrency),
     MYSQL_SYSVAR(concurrency_tickets),
-    MYSQL_SYSVAR(px_partitions_per_worker),
+    MYSQL_SYSVAR(txsql_parallel_partitions_per_worker),
     MYSQL_SYSVAR(compression_level),
     MYSQL_SYSVAR(ddl_buffer_size),
     MYSQL_SYSVAR(ddl_threads),
