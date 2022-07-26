@@ -151,12 +151,12 @@ drop table t2,t3;
 --echo
 --echo # 3) test Txsql_parallel_stmt_thread_refused
 --echo
-SET global px_max_parallel_threads = 1;
+SET global txsql_max_parallel_worker_threads = 1;
 
 connect(conn1,localhost,root,,);
 connection conn1;
 
-show variables like 'px_max_parallel_threads';
+show variables like 'txsql_max_parallel_worker_threads';
 
 CREATE TABLE t1 (
   f1 varchar(16) PRIMARY KEY,
@@ -179,11 +179,11 @@ show status like '%txsql_parallel_stmt_%';
 --echo
 connection default;
 
-SET global px_max_parallel_threads = 0;
+SET global txsql_max_parallel_worker_threads = 0;
 
 connection conn1;
 
-show variables like 'px_max_parallel_threads';
+show variables like 'txsql_max_parallel_worker_threads';
 
 --echo # test counting the PARALLEL(n)
 SELECT /*+PARALLEL(1)*/ * FROM t1;
@@ -206,11 +206,11 @@ show status like '%txsql_parallel_stmt_%';
 
 connection default;
 
-SET global px_max_parallel_threads = 2;
+SET global txsql_max_parallel_worker_threads = 2;
 
 connection conn1;
 
-show variables like 'px_max_parallel_threads';
+show variables like 'txsql_max_parallel_worker_threads';
 
 SELECT /*+PARALLEL(1)*/ * FROM t1;
 

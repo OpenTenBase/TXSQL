@@ -1,5 +1,5 @@
 # --include save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 #
 # Table scan -> exchange
 #

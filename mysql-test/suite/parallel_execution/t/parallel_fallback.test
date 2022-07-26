@@ -2,7 +2,7 @@
 
 --disable_ps_protocol
 
-SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -23,29 +23,29 @@ ANALYZE TABLE t1;
 
 connect(conn1,localhost,tencentroot,,);
 connection conn1;
-SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 --source suite/parallel_execution/inc/save_and_set_px.inc
-SET @saved_px_fallback_in_execution =@@px_fallback_in_execution;
-set global px_fallback_in_execution = 0;
+SET @saved_txsql_parallel_fallback_in_execution =@@txsql_parallel_fallback_in_execution;
+set global txsql_parallel_fallback_in_execution = 0;
 
 connect(conn2,localhost,tencentroot,,);
 connection conn2;
 --echo ###
 --echo ### Execute statement in parallel mode.
 --echo ###
-SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 --sorted_result
 SELECT * FROM t1;
 
 connection conn1;
-set global px_fallback_in_execution = 1;
+set global txsql_parallel_fallback_in_execution = 1;
 --echo ###
 --echo ### Disable Execute statement in parallel mode but the parallel explain mode
 --echo ###
 connect(conn3,localhost,tencentroot,,);
 connection conn3;
-SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;
 --sorted_result
 SELECT * FROM t1;
@@ -56,8 +56,8 @@ drop table t1;
 --echo # [bugfix]#1023 Rewriter rule mismatch in fallback execution
 --echo #
 connection conn1;
-set global px_fallback_in_execution = 1;
-SHOW VARIABLES LIKE "%px_fallback_in_execution%";
+set global txsql_parallel_fallback_in_execution = 1;
+SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 
 CREATE TABLE t1 ( c1 INTEGER, c2 INTEGER );
 CREATE TABLE t2 ( c1 INTEGER, c2 INTEGER );
@@ -78,7 +78,7 @@ CALL query_rewrite.flush_rewrite_rules();
 SELECT * FROM query_rewrite.rewrite_rules;
 
 FLUSH STATUS;
-SHOW STATUS LIKE 'PX_stmt_fallback';
+SHOW STATUS LIKE 'Txsql_parallel_stmt_fallback';
 SHOW STATUS LIKE 'Rewriter%';
 
 explain SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
@@ -86,7 +86,7 @@ explain SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
 SELECT * FROM ( SELECT * FROM test.t2 WHERE c1 = 3 ) b;
 
 SHOW STATUS LIKE 'Rewriter%';
-SHOW STATUS LIKE 'PX_stmt_fallback';
+SHOW STATUS LIKE 'Txsql_parallel_stmt_fallback';
 
 SET sql_mode = DEFAULT;
 
@@ -96,5 +96,5 @@ DROP TABLE t1;
 DROP TABLE t2;
 
 connection conn1;
-set global px_fallback_in_execution = @saved_px_fallback_in_execution;
+set global txsql_parallel_fallback_in_execution = @saved_txsql_parallel_fallback_in_execution;
 --source suite/parallel_execution/inc/set_px_to_saved.inc

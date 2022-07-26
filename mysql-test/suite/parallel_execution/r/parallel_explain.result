@@ -42,7 +42,7 @@ test.t2	analyze	status	OK
 test.t3	analyze	status	OK
 test.t4	analyze	status	OK
 # --include save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 EXPLAIN FORMAT=tree SELECT /*+NO_PARALLEL(t1)*/ * FROM t1;
 EXPLAIN
 -> Table scan on t1  (cost=0.95 rows=7)
@@ -985,7 +985,7 @@ EXPLAIN
 }
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`c` AS `c`,`test`.`t2`.`d` AS `d` from `test`.`t3` join `test`.`t2` where ((`test`.`t3`.`a` = `test`.`t2`.`a`) and (`test`.`t2`.`a` > 1)) order by `test`.`t2`.`a`
-set @@px_parallel_table_record_threshold=5;
+set @@txsql_parallel_table_record_threshold=5;
 explain format=tree select sum(a) from t1 group by b union select variance(a) from t2 group by b;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -1122,7 +1122,7 @@ EXPLAIN
 }
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1` group by `test`.`t1`.`b` union /* select#2 */ select variance(`test`.`t2`.`a`) AS `variance(a)` from `test`.`t2` group by `test`.`t2`.`b`
-set @@px_parallel_table_record_threshold=0;
+set @@txsql_parallel_table_record_threshold=0;
 # --include set_px_to_saved.inc
 drop table t1;
 drop table t2;

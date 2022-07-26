@@ -79,7 +79,7 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
     execution.
   */
   if (tb->file->stats.records <
-      thd->variables.px_parallel_table_record_threshold) {
+      thd->variables.txsql_parallel_table_record_threshold) {
     return false;
   }
 

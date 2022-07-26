@@ -89,18 +89,18 @@ extern PSI_cond_key key_px_thd_cond;
 extern PSI_mutex_key key_px_mq_lock;
 extern PSI_memory_key key_px_mq_memory;
 
-extern ulong px_used_threadpool_size;
-extern ulong px_stmt_executed;
-extern ulong px_stmt_fallback;
-extern ulong px_stmt_error;
+extern ulong txsql_parallel_threads_currently_used;
+extern ulong txsql_parallel_stmt_executed;
+extern ulong txsql_parallel_stmt_fallback;
+extern ulong txsql_parallel_stmt_error;
 extern ulong txsql_parallel_stmt_thread_refused;
 extern ulong txsql_parallel_stmt_hint_executed;
 extern ulong txsql_parallel_stmt_memory_refused;
 
 extern mysql_mutex_t LOCK_allocate_resource;
-extern mysql_mutex_t LOCK_inc_px_stmt_executed;
-extern mysql_mutex_t LOCK_inc_px_stmt_fallback;
-extern mysql_mutex_t LOCK_inc_px_stmt_error;
+extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_executed;
+extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_fallback;
+extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_error;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_thread_refused;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_hint_executed;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_memory_refused;

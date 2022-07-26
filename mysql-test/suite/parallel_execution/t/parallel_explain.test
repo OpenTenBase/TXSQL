@@ -43,7 +43,7 @@ ANALYZE TABLE t1,t2,t3,t4;
 
 connection conn1;
 --source suite/parallel_execution/inc/save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 connect(conn2,localhost,user1,,);
 
 ###
@@ -106,11 +106,11 @@ explain format=json select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 or
 ###
 ### only part branch can use px in union
 ###
-set @@px_parallel_table_record_threshold=5;
+set @@txsql_parallel_table_record_threshold=5;
 explain format=tree select sum(a) from t1 group by b union select variance(a) from t2 group by b;
 explain select sum(a) from t1 group by b union select variance(a) from t2 group by b;
 explain format=json select sum(a) from t1 group by b union select variance(a) from t2 group by b;
-set @@px_parallel_table_record_threshold=0;
+set @@txsql_parallel_table_record_threshold=0;
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc

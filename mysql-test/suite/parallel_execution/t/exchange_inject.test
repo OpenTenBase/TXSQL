@@ -34,7 +34,7 @@ call p1(10);
 --enable_query_log
 
 --source suite/parallel_execution/inc/save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 
 --echo #
 --echo # Table scan -> exchange

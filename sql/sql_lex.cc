@@ -857,8 +857,8 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
-  // By definition, zero px_parallel_degree disables parallel execution.
-  if (!thd->variables.px_parallel_degree &&
+  // By definition, zero txsql_parallel_degree disables parallel execution.
+  if (!thd->variables.txsql_parallel_degree &&
       get_parallel_degree_hint(thd, false) == UINT_MAX32) {
     return false;
   }

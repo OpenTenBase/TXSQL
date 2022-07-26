@@ -20,7 +20,7 @@ PX_exchange_info::PX_exchange_info(THD *thd, PX_exchange_type exchange_type,
     PX_channel_type type, uint senders, uint receivers, PX_exchange_format format,
     bool need_materialize, reshuffle_func_t reshuffle_func)
     : m_coordinator_thd(thd),
-      m_exchange_buffer_size(thd->variables.px_exchange_buffer_size),
+      m_exchange_buffer_size(thd->variables.txsql_parallel_exchange_buffer_size),
       m_channel_type(type),
       m_format(format),
       m_type(exchange_type),

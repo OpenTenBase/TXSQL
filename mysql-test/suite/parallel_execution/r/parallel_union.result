@@ -38,7 +38,7 @@ insert into t3 values(10,10,10,10);
 create table t4(a int, b int, c int, d int);
 insert into t4 values(100,100,100,100);
 # --include save_and_set_px.inc
-set px_parallel_table_record_threshold = 2;
+set txsql_parallel_table_record_threshold = 2;
 select * from t1 union select * from t2;
 a	b	c	d
 1	1	1	1

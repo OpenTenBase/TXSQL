@@ -106,7 +106,7 @@
 #include "sql/my_decimal.h"
 #include "sql/opt_trace_context.h"
 #include "sql/options_mysqld.h"
-#include "sql/parallel_execution/px_interface.h" // px_max_parallel_threads
+#include "sql/parallel_execution/px_interface.h" // txsql_max_parallel_worker_threads
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
@@ -8807,47 +8807,57 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     "The partion key doesn't need to be part of all unique index if setting to true",
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 
-static Sys_var_ulong Sys_px_max_parallel_threads(
-    "px_max_parallel_threads",
-    "Specify the maximum number of threads to use for parallel execution. "
-    "A zero value ensures sequential execution.",
-    GLOBAL_VAR(px_max_parallel_threads), CMD_LINE(OPT_ARG),
+static Sys_var_ulong Sys_txsql_max_parallel_worker_threads(
+    "txsql_max_parallel_worker_threads",
+    "Specify the maximum number of worker threads for parallel execution "
+    "on the server. A zero value disables parallel execution for any "
+    "statement.",
+    GLOBAL_VAR(txsql_max_parallel_worker_threads), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, 1024), DEFAULT(0), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 
-static Sys_var_ulonglong Sys_px_parallel_table_record_threshold(
-    "px_parallel_table_record_threshold",
+static Sys_var_ulong Sys_txsql_parallel_degree(
+    "txsql_parallel_degree",
+    "Default degree of parallelism for a statement. "
+    "A zero value effectively disables parallel execution.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_parallel_degree),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 1024), DEFAULT(4), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_ulonglong Sys_txsql_parallel_table_record_threshold(
+    "txsql_parallel_table_record_threshold",
     "Only tables with rows above the specified "
     "threshold can be chosen as parallel tables "
     "which are partitioned across parallel threads.",
-    HINT_UPDATEABLE SESSION_VAR(px_parallel_table_record_threshold),
+    HINT_UPDATEABLE SESSION_VAR(txsql_parallel_table_record_threshold),
     CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULLONG_MAX), DEFAULT(5000), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
-static Sys_var_double Sys_px_parallel_cost_threshold(
-    "px_parallel_cost_threshold",
+static Sys_var_double Sys_txsql_parallel_cost_threshold(
+    "txsql_parallel_cost_threshold",
     "Only statements with estimated cost above the specified threshold "
     "can be executed in parallel.",
-    HINT_UPDATEABLE SESSION_VAR(px_parallel_cost_threshold),
+    HINT_UPDATEABLE SESSION_VAR(txsql_parallel_cost_threshold),
     CMD_LINE(OPT_ARG),
     VALID_RANGE(0, DBL_MAX), DEFAULT(50000),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
-static Sys_var_ulonglong Sys_px_exchange_buffer_size(
-    "px_exchange_buffer_size",
-    "Specify the exchange buffer size. There is one buffer for each pair "
-    "of sender thread and receiver thread.",
-    HINT_UPDATEABLE SESSION_VAR(px_exchange_buffer_size),
+static Sys_var_ulonglong Sys_txsql_parallel_exchange_buffer_size(
+    "txsql_parallel_exchange_buffer_size",
+    "Specify the parallel exchange buffer size. There is one buffer for each "
+    "pair of sender and receiver thread.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_parallel_exchange_buffer_size),
     CMD_LINE(OPT_ARG),
     VALID_RANGE(128, ULONG_MAX), DEFAULT(1048576), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
-static Sys_var_bool Sys_px_fallback_in_execution(
-    "px_fallback_in_execution",
-    "Always fallback to sequential execution in execution phase. "
-    "It is for testing purpose only.",
-    GLOBAL_VAR(px_fallback_in_execution),
+static Sys_var_bool Sys_txsql_parallel_fallback_in_execution(
+    "txsql_parallel_fallback_in_execution",
+    "Always fallback to sequential execution in the parallel execution phase. "
+    "It is for testing purposes only.",
+    GLOBAL_VAR(txsql_parallel_fallback_in_execution),
     CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
@@ -8855,7 +8865,7 @@ static Sys_var_bool Sys_px_fallback_in_execution(
 static Sys_var_bool Sys_txsql_parallel_execution_enabled (
     "txsql_parallel_execution_enabled",
     "Forcibly disable parallel execution on the server, taking priority over "
-    "any user visible setting. It is for the cloud provider only.",
+    "any user-visible setting. It is for the cloud provider only.",
     GLOBAL_VAR(txsql_parallel_execution_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,

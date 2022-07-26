@@ -505,16 +505,17 @@ struct System_variables {
   bool log_profile_in_slow_log;
   uint txsql_extend_slow_log_level;
   ulonglong log_slow_verbosity;
-  /// @sa Sys_px_parallel_degree
-  ulong px_parallel_degree;
-  /// @sa Sys_px_parallel_table_record_threshold
-  ulonglong px_parallel_table_record_threshold;
-  /// @sa Sys_px_parallel_cost_threshold
-  double px_parallel_cost_threshold;
-  /// @sa Sys_px_exchange_buffer_size
-  ulong px_exchange_buffer_size;
-  /// @sa Sys_px_fallback_in_execution
-  bool px_fallback_in_execution;
+
+  /// @sa Sys_txsql_parallel_degree
+  ulong txsql_parallel_degree;
+  /// @sa Sys_txsql_parallel_table_record_threshold
+  ulonglong txsql_parallel_table_record_threshold;
+  /// @sa Sys_txsql_parallel_cost_threshold
+  double txsql_parallel_cost_threshold;
+  /// @sa Sys_txsql_parallel_exchange_buffer_size
+  ulong txsql_parallel_exchange_buffer_size;
+  /// @sa Sys_txsql_parallel_fallback_in_execution
+  bool txsql_parallel_fallback_in_execution;
   /// @sa Sys_txsql_parallel_execution_enabled
   bool txsql_parallel_execution_enabled;
   /// @sa Sys_txsql_optimizer_context_max_mem_size

@@ -18,24 +18,24 @@
 bool px_init(void);
 void px_destroy(void);
 
-extern unsigned long px_max_parallel_threads;
-extern bool px_fallback_in_execution;
+extern unsigned long txsql_max_parallel_worker_threads;
+extern bool txsql_parallel_fallback_in_execution;
 extern bool txsql_parallel_execution_enabled;
 
 class THD;
 struct SHOW_VAR;
 
-int show_px_stmt_executed(THD *, SHOW_VAR *var, char *buff);
-int show_px_stmt_fallback(THD *, SHOW_VAR *var, char *buff);
-int show_px_stmt_error(THD *, SHOW_VAR *var, char *buff);
-int show_px_used_threadpool_size(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_stmt_executed(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_stmt_fallback(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_stmt_error(THD *, SHOW_VAR *var, char *buff);
+int show_txsql_parallel_threads_currently_used(THD *, SHOW_VAR *var, char *buff);
 int show_txsql_parallel_stmt_thread_refused(THD *, SHOW_VAR *var, char *buff);
 int show_txsql_parallel_stmt_hint_executed(THD *, SHOW_VAR *var, char *buff);
 int show_txsql_parallel_stmt_memory_refused(THD *, SHOW_VAR *var, char *buff);
 
-void reset_px_stmt_executed();
-void reset_px_stmt_fallback();
-void reset_px_stmt_error();
+void reset_txsql_parallel_stmt_executed();
+void reset_txsql_parallel_stmt_fallback();
+void reset_txsql_parallel_stmt_error();
 void reset_txsql_parallel_stmt_thread_refused();
 void reset_txsql_parallel_stmt_hint_executed();
 void reset_txsql_parallel_stmt_memory_refused();
@@ -46,7 +46,7 @@ struct AccessPath;
 class JOIN;
 class PX_executor;
 
-#define PX_ENABLED(thd) (px_max_parallel_threads > 0 && txsql_parallel_execution_enabled)
+#define PX_ENABLED(thd) (txsql_max_parallel_worker_threads > 0 && txsql_parallel_execution_enabled)
 #define PX_EXECUTOR(thd) (thd)->px_executor
 
 #define PX_ROOT_ITERATOR(unit) (unit)->root_iterator()

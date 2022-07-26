@@ -9,8 +9,8 @@ bool PX_resource_manager::acquire(int64_t cpu_cores)
 {
   bool enough = false;
   mysql_mutex_lock(&LOCK_allocate_resource);
-  if (px_used_threadpool_size + cpu_cores <= px_max_parallel_threads) {
-    px_used_threadpool_size += cpu_cores;
+  if (txsql_parallel_threads_currently_used + cpu_cores <= txsql_max_parallel_worker_threads) {
+    txsql_parallel_threads_currently_used += cpu_cores;
     enough = true;
   } else {
     mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_thread_refused);
@@ -24,7 +24,7 @@ bool PX_resource_manager::acquire(int64_t cpu_cores)
 void PX_resource_manager::release(int64_t cpu_cores)
 {
   mysql_mutex_lock(&LOCK_allocate_resource);
-  px_used_threadpool_size -= cpu_cores;
+  txsql_parallel_threads_currently_used -= cpu_cores;
   mysql_mutex_unlock(&LOCK_allocate_resource);
 }
 
