@@ -171,6 +171,8 @@ class Time_zone;
 class sp_cache;
 class PX_executor;
 class PX_coordinator;
+class PX_sender;
+class PX_receiver;
 struct Binlog_user_var_event;
 struct LOG_INFO;
 
@@ -1104,6 +1106,13 @@ class THD : public MDL_context_owner,
     Was THD::px_coordinator_trx.
    */
   void *px_trx{nullptr};
+  /**
+    The currently executing Exchange operator, after the DFO is
+    executed, use this variables to release resources and detach
+    the exchange channel connections.
+  */
+  PX_sender *px_sender{nullptr};
+  PX_receiver *px_receiver{nullptr};
  private:
   /**
     The lex to hold the parsed tree of conventional (non-prepared) queries.

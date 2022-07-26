@@ -35,7 +35,7 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
 PX_proc *PX_sender::me() const { return thd()->px_executor->proc(); }
 
 bool PX_sender::Init() {
-  assert(m_pei && !m_codec && m_handles.empty());
+  assert(m_pei && !m_codec && m_handles.empty() && !thd()->px_sender);
 
   // Register and get receiver id.
   if (m_pei->register_proc(me(), /*as_sender=*/true, m_sender_id)) {
@@ -140,6 +140,7 @@ bool PX_sender::Init() {
     goto err;
   });
 
+  thd()->px_sender = this;
   return false;
 
 err:
@@ -157,6 +158,7 @@ err:
   @return 0 for success, -1 for EOF and 1 for error
 */
 int PX_sender::Read() {
+  assert(thd()->px_sender == this);
   std::vector<PX_iovec> out_fields;
   int result = 0;
 #ifndef DBUG_OFF
@@ -222,6 +224,7 @@ void PX_sender::End() {
   */
   if (m_codec) {
     destroy(m_codec);
+    m_codec = nullptr;
   }
 
   detach();
@@ -231,4 +234,5 @@ void PX_sender::detach() {
   for (auto &handle : m_handles) {
     handle->detach();
   }
+  m_handles.clear();
 }

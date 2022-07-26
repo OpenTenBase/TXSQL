@@ -33,7 +33,7 @@ PX_receiver::PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei,
 PX_proc *PX_receiver::me() const { return thd()->px_executor->proc(); }
 
 bool PX_receiver::Init() {
-  assert(m_pei && !m_codec && m_handles.empty());
+  assert(m_pei && !m_codec && m_handles.empty() && !thd()->px_receiver);
 
   // Register and get receiver id.
   if (m_pei->register_proc(me(), /*as_sender=*/false, m_receiver_id)) {
@@ -81,6 +81,7 @@ bool PX_receiver::Init() {
     m_input_slice = m_join->get_ref_item_slice();
   }
 
+  thd()->px_receiver = this;
   return false;
 
 err:
@@ -127,6 +128,7 @@ static const char* cstr(THD::killed_state state) {
   @return 0 for success, -1 for EOF and 1 for error
 */
 int PX_receiver::Read() {
+  assert(thd()->px_receiver == this);
   int result = 0;
   uchar *data = nullptr;
   Size len = 0;
@@ -160,6 +162,7 @@ err:
     thd()->send_kill_message();
   }
   End();
+  thd()->px_receiver = nullptr;
   return result;
 }
 
@@ -269,6 +272,7 @@ end:
 void PX_receiver::End() {
   if (m_codec) {
     destroy(m_codec);
+    m_codec = nullptr;
   }
   detach();
 }
@@ -277,4 +281,5 @@ void PX_receiver::detach() {
   for (auto &handle : m_handles) {
     handle->detach();
   }
+  m_handles.clear();
 }

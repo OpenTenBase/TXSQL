@@ -39,6 +39,7 @@ class PX_sender : public RowIterator {
 
   bool Init() override;
   int Read() override;
+  void End();
 
   void StartPSIBatchMode() override {
     if (!m_materialize) {
@@ -78,7 +79,6 @@ class PX_sender : public RowIterator {
   virtual void adjust_children() override { add_child(m_source.get()); }
 
  private:
-  void End();
   bool register_to_exchange();
   bool attach();
   void detach();
