@@ -1646,4 +1646,20 @@ select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
 select found_rows();
 drop table t1;
 
+--echo #
+--echo # Special ref slice for Aggregate
+--echo #
+CREATE TABLE t1 (a INT PRIMARY KEY NOT NULL, b INT);
+INSERT INTO t1 VALUES (1,1),(2,2),(3,1);
+CREATE TABLE t2 (a INT NOT NULL, b INT);
+INSERT INTO t2 VALUES (1,1),(2,2),(3,3);
+ANALYZE TABLE t1,t2;
+
+EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
+SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
+EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
+SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
+
+DROP TABLE t1,t2;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc
