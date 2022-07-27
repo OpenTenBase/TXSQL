@@ -27,6 +27,7 @@ SET session debug = "-d,px_sender_attach_error";
 SELECT * FROM t1;
 id	col1	col2
 1	testtesttesttest	10
+10	testtesttesttest	1
 2	testtesttesttest	9
 3	testtesttesttest	8
 4	testtesttesttest	7
@@ -35,7 +36,6 @@ id	col1	col2
 7	testtesttesttest	4
 8	testtesttesttest	3
 9	testtesttesttest	2
-10	testtesttesttest	1
 ###
 ### TEST CREATE PX_CODEC OOM FOR WORKER
 ###
@@ -52,6 +52,7 @@ SET session debug = "-d,px_sender_create_codec_error";
 SELECT * FROM t1;
 id	col1	col2
 1	testtesttesttest	10
+10	testtesttesttest	1
 2	testtesttesttest	9
 3	testtesttesttest	8
 4	testtesttesttest	7
@@ -60,7 +61,6 @@ id	col1	col2
 7	testtesttesttest	4
 8	testtesttesttest	3
 9	testtesttesttest	2
-10	testtesttesttest	1
 ###
 ### TEST INIT PX_CODEC OOM FOR WORKER
 ###
@@ -77,6 +77,7 @@ SET session debug = "-d,px_sender_init_codec_error";
 SELECT * FROM t1;
 id	col1	col2
 1	testtesttesttest	10
+10	testtesttesttest	1
 2	testtesttesttest	9
 3	testtesttesttest	8
 4	testtesttesttest	7
@@ -85,7 +86,6 @@ id	col1	col2
 7	testtesttesttest	4
 8	testtesttesttest	3
 9	testtesttesttest	2
-10	testtesttesttest	1
 ###
 ### TEST PARALLEL SCAN ERROR FOR WORKER
 ###

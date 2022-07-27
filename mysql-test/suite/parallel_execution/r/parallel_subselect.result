@@ -179,7 +179,7 @@ LIMIT 100;
 EXPLAIN
 -> Limit: 100 row(s)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
             -> Sort: supplier.s_acctbal DESC, nation.n_name, supplier.s_name, part.p_partkey, limit input to 100 row(s) per chunk
                 -> Stream results  (cost=*** rows=***)
                     -> Nested loop inner join  (cost=*** rows=***)
@@ -247,15 +247,17 @@ EXPLAIN
         -> Table scan on inner_query  (cost=*** rows=***)
             -> Materialize
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 0; workers: 1)
-                            -> PX Sender (slice: 1; workers: 1)
-                                -> Nested loop inner join  (cost=*** rows=***)
-                                    -> Nested loop inner join  (cost=*** rows=***)
-                                        -> Filter: (nation.n_name = 'GERMANY')  (cost=*** rows=***)
-                                            -> Parallel table scan on nation  (cost=*** rows=***)
-                                        -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=*** rows=***)
-                                    -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=*** rows=***)
+                            -> PX Sender (slice: 1; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Nested loop inner join  (cost=*** rows=***)
+                                            -> Nested loop inner join  (cost=*** rows=***)
+                                                -> Filter: (nation.n_name = 'GERMANY')  (cost=*** rows=***)
+                                                    -> Parallel table scan on nation  (cost=*** rows=***)
+                                                -> Index lookup on supplier using s_nationkey_idx (s_nationkey=nation.n_nationkey)  (cost=*** rows=***)
+                                            -> Index lookup on partsupp using ps_suppkey_idx (ps_suppkey=supplier.s_suppkey)  (cost=*** rows=***)
         -> Select #3 (subquery in condition; run only once)
             -> Aggregate: sum((partsupp.ps_supplycost * partsupp.ps_availqty))
                 -> Nested loop inner join  (cost=*** rows=***)
@@ -287,8 +289,10 @@ custdist desc,
 c_count desc;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	3562	100.00	Using temporary; Using filesort
-2	DERIVED	customer	NULL	index	PRIMARY,c_custkey_idx,c_nationkey_idx,c_acctbal_idx	c_custkey_idx	4	NULL	1500	100.00	Using index
+2	DERIVED	customer	NULL	index	PRIMARY,c_custkey_idx,c_nationkey_idx,c_acctbal_idx	c_custkey_idx	4	NULL	1500	100.00	Parallel scan (4 workers); Using index
 2	DERIVED	orders	NULL	ref	o_custkey_idx	o_custkey_idx	4	test.customer.c_custkey	2	100.00	Using where
+2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `c_orders`.`c_count` AS `c_count`,count(0) AS `custdist` from (/* select#2 */ select `test`.`customer`.`c_custkey` AS `c_custkey`,count(`test`.`orders`.`o_orderkey`) AS `c_count` from `test`.`customer` left join `test`.`orders` on(((`test`.`orders`.`o_custkey` = `test`.`customer`.`c_custkey`) and (not((`test`.`orders`.`o_comment` like '%special%requests%'))))) where true group by `test`.`customer`.`c_custkey`) `c_orders` group by `c_orders`.`c_count` order by `custdist` desc,`c_orders`.`c_count` desc
 explain format=tree select
@@ -318,12 +322,13 @@ EXPLAIN
             -> Table scan on c_orders  (cost=*** rows=***)
                 -> Materialize
                     -> Group aggregate: count(orders.o_orderkey)
-                        -> Nested loop left join  (cost=*** rows=***)
-                            -> PX Receiver (merge sort; slice: 0; workers: 1)
-                                -> PX Sender (slice: 1; workers: 1)
-                                    -> Parallel index scan on customer using c_custkey_idx  (cost=*** rows=***)
-                            -> Filter: (not((orders.o_comment like '%special%requests%')))  (cost=*** rows=***)
-                                -> Index lookup on orders using o_custkey_idx (o_custkey=customer.c_custkey)  (cost=*** rows=***)
+                        -> PX Receiver (merge sort; slice: 0; workers: 1)
+                            -> PX Sender (slice: 1; workers: 4)
+                                -> Group aggregate: count(orders.o_orderkey)
+                                    -> Nested loop left join  (cost=*** rows=***)
+                                        -> Parallel index scan on customer using c_custkey_idx  (cost=*** rows=***)
+                                        -> Filter: (not((orders.o_comment like '%special%requests%')))  (cost=*** rows=***)
+                                            -> Index lookup on orders using o_custkey_idx (o_custkey=customer.c_custkey)  (cost=*** rows=***)
 
 create view revenue0 (supplier_no, total_revenue) as
 select
@@ -435,10 +440,12 @@ p_brand,
 p_type,
 p_size;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	part	NULL	range	PRIMARY,p_partkey_idx,p_size_idx	p_size_idx	4	NULL	319	80.00	Using index condition; Using where; Using temporary; Using filesort
+1	SIMPLE	part	NULL	range	PRIMARY,p_partkey_idx,p_size_idx	p_size_idx	4	NULL	319	80.00	Parallel scan (4 workers); Using index condition; Using where; Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	319	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	319	100.00	Receive from (<sender1>); Using merge sort
 1	SIMPLE	partsupp	NULL	ref	PRIMARY,ps_partkey_idx	PRIMARY	4	test.part.p_partkey	4	100.00	Using index
-1	SIMPLE	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.partsupp.ps_suppkey	1	100.00	Using where; Not exists
 2	MATERIALIZED	supplier	NULL	ALL	PRIMARY,s_suppkey_idx	NULL	NULL	NULL	100	100.00	Using where
+1	SIMPLE	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.partsupp.ps_suppkey	1	100.00	Using where; Not exists; Using filesort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`part`.`p_brand` AS `p_brand`,`test`.`part`.`p_type` AS `p_type`,`test`.`part`.`p_size` AS `p_size`,count(distinct `test`.`partsupp`.`ps_suppkey`) AS `supplier_cnt` from `test`.`partsupp` join `test`.`part` anti join (`test`.`supplier`) on(((`<subquery2>`.`s_suppkey` = `test`.`partsupp`.`ps_suppkey`) and (`test`.`supplier`.`s_comment` like '%Customer%Complaints%'))) where ((`test`.`partsupp`.`ps_partkey` = `test`.`part`.`p_partkey`) and (`test`.`part`.`p_brand` <> 'Brand#45') and (not((`test`.`part`.`p_type` like 'MEDIUM POLISHED%'))) and (`test`.`part`.`p_size` in (49,14,23,45,19,3,36,9))) group by `test`.`part`.`p_brand`,`test`.`part`.`p_type`,`test`.`part`.`p_size` order by `supplier_cnt` desc,`test`.`part`.`p_brand`,`test`.`part`.`p_type`,`test`.`part`.`p_size`
 explain format=tree
@@ -508,8 +515,10 @@ where
 l_partkey = p_partkey
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	part	NULL	ALL	PRIMARY,p_partkey_idx	NULL	NULL	NULL	2029	1.00	Using where
+1	PRIMARY	part	NULL	ALL	PRIMARY,p_partkey_idx	NULL	NULL	NULL	2029	1.00	Parallel scan (4 workers); Using where
 1	PRIMARY	lineitem	NULL	ref	l_partkey_idx,l_quantity_idx,i_l_suppkey_partkey	l_partkey_idx	4	test.part.p_partkey	1	100.00	Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	lineitem	NULL	ref	l_partkey_idx,i_l_suppkey_partkey	l_partkey_idx	4	test.part.p_partkey	1	100.00	NULL
 Warnings:
 Note	1276	Field or reference 'test.part.p_partkey' of SELECT #2 was resolved in SELECT #1
@@ -584,9 +593,11 @@ cntrycode
 order by
 cntrycode;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	customer	NULL	ALL	c_acctbal_idx	NULL	NULL	NULL	1500	43.87	Using where; Using temporary; Using filesort
-1	PRIMARY	<subquery4>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.customer.c_custkey	1	100.00	Using where; Not exists
+1	PRIMARY	customer	NULL	ALL	c_acctbal_idx	NULL	NULL	NULL	1500	43.87	Parallel scan (4 workers); Using where
 4	MATERIALIZED	orders	NULL	index	o_custkey_idx	o_custkey_idx	4	NULL	2000	100.00	Using index
+1	PRIMARY	<subquery4>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.customer.c_custkey	1	100.00	Using where; Not exists; Using temporary
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary; Using filesort
 3	SUBQUERY	customer	NULL	ALL	c_acctbal_idx	NULL	NULL	NULL	1500	90.73	Using where
 Warnings:
 Note	1276	Field or reference 'test.customer.c_custkey' of SELECT #4 was resolved in SELECT #2
@@ -628,7 +639,7 @@ order by
 cntrycode;
 EXPLAIN
 -> Sort: custsale.cntrycode
-    -> Table scan on <temp>
+    -> Table scan on <temporary>
         -> Final Aggregate using temporary table
             -> PX Receiver (slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)

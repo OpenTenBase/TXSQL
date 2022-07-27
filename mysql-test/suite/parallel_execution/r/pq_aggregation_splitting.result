@@ -62,25 +62,25 @@ avg(col2)*avg(col2)/count(col1)*2
 #
 select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
 col1	col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
-6	1	1	2.0000	2	2	1	6
-5	3	1	2.0000	2	2	1	5
-4	2	1	2.0000	2	2	1	4
-3	4	1	3.0000	3	3	1	3
 2	6	1	1.0000	1	1	1	2
+3	4	1	3.0000	3	3	1	3
+4	2	1	2.0000	2	2	1	4
+5	3	1	2.0000	2	2	1	5
+6	1	1	2.0000	2	2	1	6
 select count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
 count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
-1	2.0000	2	2	1	6
-1	2.0000	2	2	1	5
-1	2.0000	2	2	1	4
-1	3.0000	3	3	1	3
 1	1.0000	1	1	1	2
+1	2.0000	2	2	1	4
+1	2.0000	2	2	1	5
+1	2.0000	2	2	1	6
+1	3.0000	3	3	1	3
 #
 # test aggregation function with group by(with index)
 #
 select sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
 sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
-2	2.0000	1	2	2
 15	5.0000	3	4	6
+2	2.0000	1	2	2
 3	3.0000	1	3	3
 select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
 col2	sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
@@ -148,9 +148,9 @@ INSERT INTO t1 VALUES (5, 5, 1, 6);
 #
 select t1.col1, col2, sum(t1col3) from t1, t where t1.col1 = 5 group by col1, col2;
 col1	col2	sum(t1col3)
+5	1	9
 5	2	27
 5	3	9
-5	1	9
 #
 # test aggregation function with union
 # not supported by exchange yet
@@ -208,23 +208,23 @@ EXPLAIN
     -> Materialize
         -> Group aggregate: sum(t1.col1)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
-                -> PX Sender (slice: 1; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
                     -> Group aggregate: sum(t1.col1)
                         -> Parallel index scan on t1 using idx_col2  (cost=*** rows=***)
 
 select * from (select sum(col1) as a from t1 group by t1col2) as t;
 a
-5
 15
 3
+5
 explain format=tree select * from (select sum(t1col2) as a from t1 group by col1) as t;
 EXPLAIN
 -> Table scan on t  (cost=*** rows=***)
     -> Materialize
-        -> Table scan on <temp>
+        -> Table scan on <temporary>
             -> Final Aggregate using temporary table
                 -> PX Receiver (slice: 0; workers: 1)
-                    -> PX Sender (slice: 1; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
                         -> Table scan on <temporary>
                             -> Aggregate using temporary table
                                 -> Parallel table scan on t1  (cost=*** rows=***)
@@ -232,8 +232,8 @@ EXPLAIN
 select * from (select sum(t1col2) as a from t1 group by col1) as t;
 a
 2
-3
 2
+3
 3
 DROP TABLE t;
 DROP TABLE t1;
@@ -253,7 +253,7 @@ INSERT INTO t1 values(NULL, '');
 INSERT INTO `t2` VALUES ('486878','WDT'),('486910','WDT');
 explain format=tree SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'WDT' GROUP BY t1.f1;
 EXPLAIN
--> Table scan on <temp>
+-> Table scan on <temporary>
     -> Temporary table
         -> Group aggregate: sum(t2.f1), count(t2.f1)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
@@ -275,14 +275,14 @@ Table	Op	Msg_type	Msg_text
 test.t3	analyze	status	OK
 explain format=tree SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
 EXPLAIN
--> Sort: `any_value((``count(0)`` - ``count(t3.b)``))`
+-> Sort: `any_value((``sum(````count(0)````)`` - ``sum(````count(t3.b)````)``))`
     -> Limit: 1 row(s)
-        -> Table scan on 
+        -> Table scan on <temporary>
             -> Temporary table
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 0; workers: 1)
-                            -> PX Sender (slice: 1; workers: 1)
+                            -> PX Sender (slice: 1; workers: 4)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t3  (cost=*** rows=***)
@@ -293,12 +293,12 @@ SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
 explain format=tree SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(b);
 EXPLAIN
 -> Sort: `(``sum(````count(0)````)`` - ``sum(````count(t3.b)````)``)`
-    -> Table scan on 
+    -> Table scan on <temporary>
         -> Temporary table with deduplication
-            -> Table scan on <temp>
+            -> Table scan on <temporary>
                 -> Final Aggregate using temporary table
                     -> PX Receiver (slice: 0; workers: 1)
-                        -> PX Sender (slice: 1; workers: 1)
+                        -> PX Sender (slice: 1; workers: 4)
                             -> Table scan on <temporary>
                                 -> Aggregate using temporary table
                                     -> Parallel table scan on t3  (cost=*** rows=***)
@@ -309,13 +309,13 @@ SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(
 explain format=tree SELECT distinct 1, (avg(b)-count(b)) FROM t3 group by a order by avg(b)-count(b);
 EXPLAIN
 -> Sort: `((``sum(````sum(t3.b)````)`` / ``sum(````count(t3.b)````)``) - ``sum(````count(t3.b)````)``)`
-    -> Table scan on 
+    -> Table scan on <temporary>
         -> Temporary table with deduplication
-            -> Table scan on <temp>
+            -> Table scan on <temporary>
                 -> Final Aggregate using temporary table
                     -> PX Receiver (slice: 0; workers: 1)
-                        -> PX Sender (slice: 1; workers: 1)
-                            -> Table scan on 
+                        -> PX Sender (slice: 1; workers: 4)
+                            -> Table scan on <temporary>
                                 -> Aggregate using temporary table
                                     -> Parallel table scan on t3  (cost=*** rows=***)
 

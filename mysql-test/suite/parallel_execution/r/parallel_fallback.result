@@ -114,11 +114,11 @@ SHOW STATUS LIKE 'Rewriter%';
 Variable_name	Value
 Rewriter_number_loaded_rules	1
 Rewriter_number_reloads	2
-Rewriter_number_rewritten_queries	2
+Rewriter_number_rewritten_queries	1
 Rewriter_reload_error	OFF
 SHOW STATUS LIKE 'Txsql_parallel_stmt_fallback';
 Variable_name	Value
-Txsql_parallel_stmt_fallback	1
+Txsql_parallel_stmt_fallback	0
 SET sql_mode = DEFAULT;
 Warnings:
 Warning	1620	Plugin is busy and will be uninstalled on shutdown

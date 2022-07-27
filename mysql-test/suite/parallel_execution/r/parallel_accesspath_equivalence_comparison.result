@@ -237,8 +237,8 @@ WHERE ta.b=tc.e));
 a	b
 2	10
 2	20
-3	20
 2	30
+3	20
 set @@optimizer_switch='materialization=off,semijoin=on';
 EXPLAIN SELECT * FROM t1 AS ta
 WHERE ta.a IN (SELECT c FROM t2 AS tb
@@ -258,8 +258,8 @@ WHERE ta.b=tc.e));
 a	b
 2	10
 2	20
-3	20
 2	30
+3	20
 # Subquery with GROUP BY and HAVING
 set @@optimizer_switch='materialization=off,semijoin=off';
 EXPLAIN SELECT * FROM t1 AS ta
@@ -282,10 +282,10 @@ WHERE tb.d >= SOME(SELECT SUM(g) FROM t4 as tc
 GROUP BY f
 HAVING ta.a=tc.f));
 a	b
-2	20
-3	20
-2	30
 2	10
+2	20
+2	30
+3	20
 set @@optimizer_switch='materialization=off,semijoin=on';
 EXPLAIN SELECT * FROM t1 AS ta
 WHERE ta.a IN (SELECT c FROM t2 AS tb
@@ -307,8 +307,8 @@ HAVING ta.a=tc.f));
 a	b
 2	10
 2	20
-3	20
 2	30
+3	20
 # Subquery with ORDER BY and LIMIT
 set @@optimizer_switch='materialization=off,semijoin=off';
 # NOTE: The ordered subquery should have a LIMIT clause to make sense

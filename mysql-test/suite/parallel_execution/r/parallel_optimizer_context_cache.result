@@ -159,7 +159,7 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
       "optimizer_statistics": [
         {
           "db": "test",
-          "table": "t1",
+          "table": "t2",
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -181,7 +181,7 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
         },
         {
           "db": "test",
-          "table": "t2",
+          "table": "t1",
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -470,10 +470,10 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
 }	0	0
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
 name	count(*)
+Iranizes	4181
 extramarital	4181
 gazer	4181
 gems	4181
-Iranizes	4181
 spates	4181
 tucked	4181
 violinist	4181
@@ -753,19 +753,6 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
             ]
           }
         ]
-      }
-    },
-    {
-      "creating_tmp_table": {
-        "tmp_table_info": {
-          "columns": 2,
-          "row_length": 137,
-          "key_length": 0,
-          "unique_constraint": false,
-          "makes_grouped_rows": false,
-          "cannot_insert_duplicates": false,
-          "location": "TempTable"
-        }
       }
     },
     {
@@ -1092,20 +1079,48 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
       }
     },
     {
-      "creating_tmp_table": {
-        "tmp_table_info": {
-          "columns": 2,
-          "row_length": 137,
-          "key_length": 0,
-          "unique_constraint": false,
-          "makes_grouped_rows": false,
-          "cannot_insert_duplicates": false,
-          "location": "TempTable"
-        }
-      }
-    },
-    {
       "optimizer_statistics": [
+        {
+          "db": "test",
+          "table": "t2",
+          "table_statistics": {
+            "data_file_length": 16384,
+            "delete_length": 0,
+            "records": 9,
+            "deleted": 0,
+            "table_in_mem_estimate": 1
+          },
+          "index_statistics": [
+            {
+              "name": "PRIMARY",
+              "in_memory_estimate": 1,
+              "records_per_key": [
+                4.5
+              ],
+              "records_in_range": [
+              ]
+            },
+            {
+              "name": "fld1",
+              "in_memory_estimate": 1,
+              "records_per_key": [
+                4.5
+              ],
+              "records_in_range": [
+              ]
+            },
+            {
+              "name": "fld3",
+              "in_memory_estimate": 1,
+              "records_per_key": [
+                4.5,
+                4.5
+              ],
+              "records_in_range": [
+              ]
+            }
+          ]
+        },
         {
           "db": "test",
           "table": "t3",
@@ -1147,47 +1162,6 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
               "records_per_key": [
                 4173.6,
                 1
-              ],
-              "records_in_range": [
-              ]
-            }
-          ]
-        },
-        {
-          "db": "test",
-          "table": "t2",
-          "table_statistics": {
-            "data_file_length": 16384,
-            "delete_length": 0,
-            "records": 9,
-            "deleted": 0,
-            "table_in_mem_estimate": 1
-          },
-          "index_statistics": [
-            {
-              "name": "PRIMARY",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "fld1",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "fld3",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                4.5,
-                4.5
               ],
               "records_in_range": [
               ]

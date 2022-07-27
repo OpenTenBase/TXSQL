@@ -37,11 +37,11 @@ EXPLAIN
 
 SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
 pk	kp1	kp2	col1
+10	10	10	10
 2	2	2	2
 4	4	4	4
 6	6	6	6
 8	8	8	8
-10	10	10	10
 # --include set_px_to_saved.inc
 drop table t0,t1,t2;
 drop database test1;

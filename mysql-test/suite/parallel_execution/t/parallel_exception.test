@@ -140,7 +140,7 @@ connection conn104;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 1.1 execute_in_parallel_before_error.
 connect(conn111,localhost,root,,);
@@ -155,7 +155,7 @@ set session debug="+d,execute_in_parallel_before_error";
 --error ER_STD_BAD_ALLOC_ERROR
 select a,b from t1 union select a,c from t2;
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 1.2 execute_in_parallel_before_fallback.
 connect(conn121,localhost,root,,);
@@ -168,7 +168,7 @@ connection conn122;
 set session debug="+d,execute_in_parallel_before_fallback";
 (select a,b from t1 order by a) union (select a,c from t2 order by a);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 1.3 execute_in_parallel_before_sleep.
 connect(conn131,localhost,root,,);
@@ -181,7 +181,7 @@ connection conn132;
 set session debug="+d,execute_in_parallel_before_sleep";
 (select a,b,c,d from t1) union (select a,b,sum(c),sum(d) from t2 group by a,b order by a,b);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #====================//** 2. schedule before query begin.======================
 #==============** 2.0 schedule_before_kill.
@@ -217,7 +217,7 @@ connection conn202;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 2.1 schedule_before_error(never).
 #==============** 2.2 schedule_before_fallback.
@@ -231,7 +231,7 @@ connection conn222;
 set session debug="+d,schedule_before_fallback";
 (select a,b,sum(c) from t1 group by a,b) union (select a, sum(b), avg(c)+avg(d) from t2 group by a order by a);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 2.3 schedule_before_sleep.
 connect(conn231,localhost,root,,);
@@ -244,7 +244,7 @@ connection conn232;
 set session debug="+d,schedule_before_sleep";
 (select a,b,c,d from t1 order by d) union (select a,b,sum(c),sum(d) from t2 group by a,b);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #====================//** 3. schedule before schedule begin.======================
 #==============** 3.0 schedule_before_schedule_kill.
@@ -280,7 +280,7 @@ connection conn302;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 #==============** 3.1 schedule_before_schedule_error.
 connection conn1;
 set global debug="+d,schedule_before_schedule_error";
@@ -298,7 +298,7 @@ connection conn312;
 connection conn1;
 set global debug="-d,schedule_before_schedule_error";
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 3.2 schedule_before_schedule_fallback.
 #==============** 3.3 schedule_before_schedule_sleep.
@@ -312,7 +312,7 @@ connection conn332;
 set session debug="+d,schedule_before_schedule_sleep";
 (select a,b,c,d from t1 order by a,b,c,d) union all (select d,c,b,a from t2 order by d,c);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #====================//** 4. schedule one loop begin.======================
 #==============** 4.0 schedule_one_loop_kill.
@@ -347,7 +347,7 @@ connection conn402;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 4.1 schedule_one_loop_error.
 #connection conn1;(worker被干掉了，coordinator没有数据一直在等)
@@ -389,7 +389,7 @@ connection conn433;
 set session debug="+d,schedule_one_loop_sleep";
 (select * from t1) union (select * from t2) union (select * from t3);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #====================//** 5. run root begin.======================
 #==============** 5.0 run_root_sending_data_kill.
@@ -425,7 +425,7 @@ connection conn502;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 #==============** 5.1 run_root_before_sending_data_error.
 connect(conn511,localhost,root,,);
 connection conn511;
@@ -450,7 +450,7 @@ set session debug="+d,run_root_in_sending_data_error";
 --error 8020
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #==============** 5.3 run_root_in_sending_data_sleep.
 connect(conn531,localhost,root,,);
@@ -463,7 +463,7 @@ connection conn532;
 set session debug="+d,run_root_in_sending_data_sleep";
 (select a+b,c+d from t1 order by a+b,c+d) union all (select d+c,b+a from t2 order by d+c);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #====================//** 6. schedule after schedule.======================
 #==============** 6.0 schedule_after_schedule_kill.
@@ -497,7 +497,7 @@ connection conn602;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 #==============** 6.1 schedule_after_schedule_error(never).
 #==============** 6.2 schedule_after_schedule_fallback(never).
 #==============** 6.3 schedule_after_schedule_sleep.
@@ -511,7 +511,7 @@ connection conn632;
 set session debug="+d,schedule_after_schedule_sleep";
 (select a+b,c+d from t1 order by a,b,c,d) union all (select d+c,b+a from t2 order by d,c);
 
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #====================//** 7. other exceptions.======================
 #==============** 7.0 create threads failed.
@@ -520,7 +520,7 @@ connection conn701;
 set session debug="+d,create_partial_threads_error";
 select a+b,sum(c),avg(d) from t5 group by a+b;
 set session debug="-d,create_partial_threads_error";
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 # enhanced testing as following:
 #--let $num=10000
@@ -531,13 +531,13 @@ show status like '%px%';
 #  --dec $num
 #}
 #set session debug="-d,create_partial_threads_error";
-#show status like '%px%';
+#show status like '%txsql_parallel%';
 
 #===============** 7.1 test schedule only.
 connect(conn702,localhost,root,,);
 connection conn702;
 select a from t5 union select b from t5 union select c from t5 union select d from t5;
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 # enhanced testing as following:
 #--let $num=10000
@@ -547,20 +547,20 @@ show status like '%px%';
 #  --eval select a from t5 union select b from t5 union select c from t5 union select d from t5;
 #  --dec $num
 #}
-#show status like '%px%';
+#show status like '%txsql_parallel%';
 
 #===============** 7.2 whenever kill by max_execution_time
 connect(conn703,localhost,root,,);
 connection conn703;
 --error ER_QUERY_TIMEOUT
 select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
-show status like '%px%';
+show status like '%txsql_parallel%';
 # The worker thread may have already exited before be killed
 SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
 --error ER_QUERY_TIMEOUT
 select /*+max_execution_time(1000)*/ * FROM t1;
 SET GLOBAL debug = '-d,px_simulate_worker_timeout_kill';
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 # enhanced testing as following:
 #--let $num=10000
@@ -571,14 +571,14 @@ show status like '%px%';
 #  --eval select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
 #  --dec $num
 #}
-#show status like '%px%';
+#show status like '%txsql_parallel%';
 
 ##=========================================================================
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc
 flush status;
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 drop table t1;
 drop table t2;

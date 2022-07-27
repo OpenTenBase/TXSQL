@@ -42,7 +42,7 @@ WHERE c2 IN ('1971-01-01 00:00:01','2038-01-09 03:14:07')
 ORDER BY c2;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
         -> Parallel index range scan on t1 using c2, with index condition: (t1.c2 in ('1971-01-01 00:00:01','2038-01-09 03:14:07'))  (cost=1.41 rows=2)
 
 SELECT * 

@@ -52,6 +52,7 @@ EXPLAIN
 select * from t1 limit 10;
 id	col1	col2	col3
 1	testtesttesttest	10	10
+10	testtesttesttest	1	1
 2	testtesttesttest	9	9
 3	testtesttesttest	8	8
 4	testtesttesttest	7	7
@@ -60,7 +61,6 @@ id	col1	col2	col3
 7	testtesttesttest	4	4
 8	testtesttesttest	3	3
 9	testtesttesttest	2	2
-10	testtesttesttest	1	1
 limit after index scan
 explain format=tree select col2 from t1 order by col2 limit 5;
 EXPLAIN
@@ -91,7 +91,7 @@ explain format=tree select sum(id) from t1 group by col3 order by col3 limit 5;
 EXPLAIN
 -> Limit: 5 row(s)
     -> Sort: t1.col3, limit input to 5 row(s) per chunk
-        -> Table scan on <temp>
+        -> Table scan on <temporary>
             -> Final Aggregate using temporary table
                 -> PX Receiver (slice: 0; workers: 1)
                     -> PX Sender (slice: 1; workers: 4)

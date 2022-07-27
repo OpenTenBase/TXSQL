@@ -2942,7 +2942,7 @@ static bool FixMaterializeAccessPath(THD *thd, JOIN *join,
   join->set_ref_item_slice(curr_slice);
   tmp_table = create_tmp_table(thd, tab->tmp_table_param, *curr_fields,
                                nullptr, distinct_arg, true,
-                               join->query_block->active_options(), HA_POS_ERROR, "");
+                               join->query_block->active_options(), HA_POS_ERROR, "<temporary>");
   if (!tmp_table) return true;
   tab->set_table(tmp_table);
   //tab->set_temporary_table_deduplicates(distinct_arg);
@@ -3436,7 +3436,7 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
     tmp_table = create_tmp_table(
       thd, join->final_tmp_table_param, *curr_fields, final_order,
       /*distinct=*/false, /*save_sum_fields=*/true, join->query_block->active_options(),
-      /*rows_limit=*/HA_POS_ERROR, "<temp>");
+      /*rows_limit=*/HA_POS_ERROR, "<temporary>");
     if (!tmp_table) goto build_err;
     join->final_tmpaggr_tmp_table = tmp_table;
     tab->set_table(tmp_table);
@@ -3545,7 +3545,7 @@ static TABLE *CreateTmpTableForAgg(THD *thd, JOIN *join, Temp_table_param *param
 
   TABLE *table = create_tmp_table(thd, param, *tmp_table_fields, group, distinct_arg,
                                   save_sum_fields, join->query_block->active_options(),
-                                  tmp_rows_limit, "<temp>");
+                                  tmp_rows_limit, "<temporary>");
   if (!table) return nullptr;
 
   if (tab) {

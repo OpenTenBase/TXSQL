@@ -78,7 +78,7 @@ KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
@@ -90,7 +90,7 @@ ERROR HY000: Memory allocation error:  in function px_execute_in_coordinator.
 set session debug="+d,execute_in_parallel_before_error";
 select a,b from t1 union select a,c from t2;
 ERROR HY000: Memory allocation error:  in function px_execute_in_coordinator.
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
@@ -117,7 +117,7 @@ a	b
 3	3
 4	4
 5	5
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
@@ -146,7 +146,7 @@ a	b	c	d
 3	3	3	3
 4	4	4	4
 5	5	5	5
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	3
@@ -166,7 +166,7 @@ KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	5
@@ -195,7 +195,7 @@ a	b	sum(c)
 3	3	6.0000
 4	4	8.0000
 5	5	10.0000
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	5
@@ -224,7 +224,7 @@ a	b	c	d
 3	3	3	3
 4	4	4	4
 5	5	5	5
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	7
@@ -244,7 +244,7 @@ KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	9
@@ -274,7 +274,7 @@ b	a	sum(c)
 4	4	4
 5	5	5
 set global debug="-d,schedule_before_schedule_error";
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	9
@@ -305,7 +305,7 @@ a	b	c	d
 3	3	3	3
 4	4	4	4
 5	5	5	5
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	11
@@ -332,7 +332,7 @@ KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	11
@@ -383,7 +383,7 @@ a	b	c	d
 8	8	8	8
 9	9	9	9
 10	10	10	10
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	14
@@ -403,7 +403,7 @@ KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
 SET DEBUG_SYNC = 'RESET';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	14
@@ -436,7 +436,7 @@ ERROR HY000: PX execute error of errno[3044].
 set session debug="+d,run_root_in_sending_data_error";
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
 ERROR HY000: PX execute error of errno[3044].
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	14
@@ -467,7 +467,7 @@ a+b	c+d
 6	6
 8	8
 10	10
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	16
@@ -519,7 +519,7 @@ a	b	c	d
 4	5	6	7
 5	6	7	8
 SET DEBUG_SYNC = 'RESET';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	18
@@ -550,7 +550,7 @@ a+b	c+d
 6	6
 8	8
 10	10
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	20
@@ -560,7 +560,7 @@ set session debug="+d,create_partial_threads_error";
 select a+b,sum(c),avg(d) from t5 group by a+b;
 a+b	sum(c)	avg(d)
 set session debug="-d,create_partial_threads_error";
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	20
@@ -568,7 +568,7 @@ Txsql_parallel_stmt_fallback	9
 Txsql_parallel_threads_currently_used	0
 select a from t5 union select b from t5 union select c from t5 union select d from t5;
 a
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	21
@@ -576,7 +576,7 @@ Txsql_parallel_stmt_fallback	9
 Txsql_parallel_threads_currently_used	0
 select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
 ERROR HY000: Query execution was interrupted, maximum statement execution time exceeded
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	22
@@ -586,7 +586,7 @@ SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
 select /*+max_execution_time(1000)*/ * FROM t1;
 ERROR HY000: Query execution was interrupted, maximum statement execution time exceeded
 SET GLOBAL debug = '-d,px_simulate_worker_timeout_kill';
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	2
 Txsql_parallel_stmt_executed	23
@@ -594,7 +594,7 @@ Txsql_parallel_stmt_fallback	9
 Txsql_parallel_threads_currently_used	0
 # --include set_px_to_saved.inc
 flush status;
-show status like '%px%';
+show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0

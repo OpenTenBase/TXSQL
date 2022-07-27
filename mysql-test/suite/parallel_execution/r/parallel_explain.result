@@ -242,7 +242,7 @@ Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1`
 EXPLAIN FORMAT=tree SELECT count(a) FROM t1 group by b;
 EXPLAIN
--> Table scan on <temp>
+-> Table scan on <temporary>
     -> Final Aggregate using temporary table
         -> PX Receiver (slice: 0; workers: 1)
             -> PX Sender (slice: 1; workers: 4)
@@ -993,19 +993,21 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
                             -> PX Sender (slice: 2; workers: 4)
-                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
                         -> Table scan on t2  (cost=0.65 rows=4)
 
 explain select sum(a) from t1 group by b union select variance(a) from t2 group by b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
-1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver2>)
-1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender2>); Using temporary
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using temporary
+1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver2>)
+1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender2>); Using temporary
 2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
 Warnings:
@@ -1053,9 +1055,9 @@ EXPLAIN
                   "exchange_table": {
                     "table_name": "<sender2>",
                     "access_type": "ALL",
-                    "rows_examined_per_scan": 7,
+                    "rows_examined_per_scan": 0,
                     "rows_produced_per_join": 0,
-                    "filtered": "100.00",
+                    "filtered": "0.00",
                     "send_to": "<receiver2>",
                     "cost_info": {
                       "read_cost": "0.00",
@@ -1069,9 +1071,9 @@ EXPLAIN
                   "exchange_table": {
                     "table_name": "<receiver2>",
                     "access_type": "ALL",
-                    "rows_examined_per_scan": 7,
+                    "rows_examined_per_scan": 0,
                     "rows_produced_per_join": 0,
-                    "filtered": "100.00",
+                    "filtered": "0.00",
                     "receive_from": "<sender2>",
                     "cost_info": {
                       "read_cost": "0.00",

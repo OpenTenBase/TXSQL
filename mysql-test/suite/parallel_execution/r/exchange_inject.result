@@ -6,6 +6,7 @@ set txsql_parallel_table_record_threshold = 2;
 select * from t2;
 id	col1	col2
 1	9	1
+10	0	10
 2	8	2
 3	7	3
 4	6	4
@@ -14,9 +15,10 @@ id	col1	col2
 7	3	7
 8	2	8
 9	1	9
-10	0	10
 select col1+1 from t1;
 col1+1
+10
+11
 2
 3
 4
@@ -25,8 +27,6 @@ col1+1
 7
 8
 9
-10
-11
 #
 # Table scan -> filter -> exchange
 #
@@ -83,6 +83,7 @@ id	col1	col2
 select * from t1 join t2 on t1.id=t2.id;
 id	col1	col2	id	col1	col2
 1	1	1	1	9	1
+10	10	10	10	0	10
 2	2	2	2	8	2
 3	3	3	3	7	3
 4	4	4	4	6	4
@@ -91,7 +92,6 @@ id	col1	col2	id	col1	col2
 7	7	7	7	3	7
 8	8	8	8	2	8
 9	9	9	9	1	9
-10	10	10	10	0	10
 #
 # Table scan -> exchange -> Aggregate -> exchange
 #
@@ -141,6 +141,7 @@ select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
 group by t1.col2;
 sum(t1.col1)	sum(t2.col1)
 1	9
+10	0
 2	8
 3	7
 4	6
@@ -149,7 +150,6 @@ sum(t1.col1)	sum(t2.col1)
 7	3
 8	2
 9	1
-10	0
 #
 # join -> exchange -> TemptableAggregate -> exchange -> sort -> exchange
 #
@@ -172,6 +172,7 @@ sum(t1.col1)	sum(t2.col1)
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
 group by t1.col2 having sum(t1.col1)>1;
 sum(t1.col1)	sum(t2.col1)
+10	0
 2	8
 3	7
 4	6
@@ -180,11 +181,10 @@ sum(t1.col1)	sum(t2.col1)
 7	3
 8	2
 9	1
-10	0
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
 group by t1.col2 having sum(t1.col1)>1 limit 1;
 sum(t1.col1)	sum(t2.col1)
-2	8
+4	6
 #
 # join -> exchange -> Aggregate -> exchange
 #
@@ -213,6 +213,7 @@ count(*)
 select col2 from t1 group by col2;
 col2
 1
+10
 2
 3
 4
@@ -221,7 +222,6 @@ col2
 7
 8
 9
-10
 #
 # Aggregate\TemptableAggregate with function
 #
@@ -231,6 +231,7 @@ count(*)	repeat("a",count(*))
 select col1,repeat("a",col1),count(*) from t1 group by col1;
 col1	repeat("a",col1)	count(*)
 1	a	1
+10	aaaaaaaaaa	1
 2	aa	1
 3	aaa	1
 4	aaaa	1
@@ -239,17 +240,16 @@ col1	repeat("a",col1)	count(*)
 7	aaaaaaa	1
 8	aaaaaaaa	1
 9	aaaaaaaaa	1
-10	aaaaaaaaaa	1
 #
 # filter -> exchange -> Aggregate
 #
 select col1,count(*) from t1 where col1 > 5 group by col1;
 col1	count(*)
+10	1
 6	1
 7	1
 8	1
 9	1
-10	1
 drop table t1, t2;
 CREATE TABLE t1 (a INT, b INT, c INT, KEY (a,b));
 INSERT INTO t1 VALUES (1,1,1), (1,2,1), (1,3,1), (1,4,1);
@@ -266,10 +266,10 @@ CREATE TABLE t2 SELECT DISTINCT a FROM t1;
 SELECT (SELECT t2.a FROM t2 WHERE t2.a = t1.a) aa, b, COUNT(         b)
 FROM t1 GROUP BY aa, b;
 aa	b	COUNT(         b)
-4	40	1
 1	10	1
 2	20	2
 3	30	1
+4	40	1
 drop table if exists t1;
 drop table if exists t2;
 drop procedure if exists p1;
@@ -400,20 +400,20 @@ test.t3	analyze	status	OK
 # join -> px_merge_sort -> px_send -> sort -> scan
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1;
 a	b	a	b
-3	3	3	3
-2	2	2	2
-5	5	5	5
-4	4	4	4
 10	10	10	10
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
 6	6	6	6
-8	8	8	8
 7	7	7	7
+8	8	8	8
 9	9	9	9
 explain format=tree select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
 EXPLAIN
 -> Nested loop inner join  (cost=4.75 rows=10)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
             -> Sort: t1.a  (cost=1.25 rows=10)
                 -> Filter: ((t1.a > 1) and (t1.a is not null))  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -437,7 +437,7 @@ explain format=tree select sql_big_result a, sum(b) from t1 group by a order by 
 EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
             -> Group aggregate: sum(t1.b)
                 -> Sort: t1.a  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -458,7 +458,7 @@ explain format=tree select sql_big_result a, sum(b) from t1 group by a order by 
 EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
             -> Group aggregate: sum(t1.b)
                 -> Sort: t1.a  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -480,7 +480,7 @@ explain format=tree select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.
 EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
             -> Group aggregate: sum(t1.b)
                 -> Nested loop inner join  (cost=4.75 rows=10)
                     -> Sort: t1.a  (cost=1.25 rows=10)
@@ -612,7 +612,7 @@ EXPLAIN
     -> Stream results
         -> Group aggregate: sum(t1.b)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
-                -> PX Sender (slice: 1; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
                     -> Group aggregate: sum(t1.b)
                         -> Sort: t1.a  (cost=1.25 rows=10)
                             -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -629,7 +629,7 @@ a	sum(b)
 8	8
 9	9
 10	10
-drop table t1,t2,t3
+drop table t1,t2,t3;
 #
 # Temp fields created for exchange are of type BLOB, changing exchange send mode from Item to field
 #
@@ -641,7 +641,7 @@ INSERT INTO t1 (st, u) VALUES ('a',1),('A',1),('aa',1),('AA',1),('aaa',0),('BBB'
 explain format=tree select if(u=1,binary st,st) s from t1 order by s;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Sort: if((t1.u = 1),cast(t1.st as char charset binary),t1.st)  (cost=0.85 rows=6)
             -> Parallel table scan on t1  (cost=0.85 rows=6)
 
@@ -4209,16 +4209,16 @@ id
 select found_rows();
 found_rows()
 4
-Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+Warnings:
 select * from t1 order by id limit 1;
 id
 1
 select found_rows();
 found_rows()
 1
-Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+Warnings:
 select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
 id
 1
@@ -4226,11 +4226,14 @@ Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 select found_rows();
 found_rows()
 4
-Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+Warnings:
 drop table t1;
 #
 # Special ref slice for Aggregate

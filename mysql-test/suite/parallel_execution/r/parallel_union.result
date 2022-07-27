@@ -58,18 +58,18 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 union select * from t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (1 workers)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers)
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers)
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -96,19 +96,19 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=5)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 union all select * from t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (1 workers)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers)
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers)
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender3>)
 Warnings:
@@ -132,19 +132,19 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 union select * from t2 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (1 workers)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -170,20 +170,20 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 union all select * from t2 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (1 workers)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
 Warnings:
@@ -205,20 +205,20 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 where a > 1 union select * from t2 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -242,21 +242,21 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 where a > 1 union all select * from t2 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
 Warnings:
@@ -283,20 +283,20 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
                             -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 explain select * from t1 where a > 1 union select * from t3 where a between 1 and 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t3	NULL	range	PRIMARY	PRIMARY	4	NULL	9	100.00	Parallel scan (1 workers); Using where
+2	UNION	t3	NULL	range	PRIMARY	PRIMARY	4	NULL	9	100.00	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -325,21 +325,21 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=2.06 rows=9)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
                             -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
 explain select * from t1 where a > 1 union all select * from t3 where a between 1 and 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t3	NULL	range	PRIMARY	PRIMARY	4	NULL	9	100.00	Parallel scan (1 workers); Using where
+2	UNION	t3	NULL	range	PRIMARY	PRIMARY	4	NULL	9	100.00	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender3>)
 Warnings:
@@ -360,20 +360,20 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a >= 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 explain select * from t1 where a >=1 union select * from t1 where b > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+2	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -401,21 +401,21 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a >= 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 explain select * from t1 where a >=1 union all select * from t1 where b > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+2	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender3>)
 Warnings:
@@ -443,26 +443,26 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.a = 1)  (cost=0.75 rows=1)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 explain select * from t1 where a > 1 union select * from t2 where a = 1 union select * from t3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
-3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (1 workers)
+3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers)
 3	UNION	<sender4>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver4>)
 3	UNION	<receiver4>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender4>)
 NULL	UNION RESULT	<union1,2,3>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -493,28 +493,28 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=1)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.a = 1)  (cost=0.75 rows=1)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results  (cost=1.25 rows=10)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 explain select * from t1 where a > 1 union all select * from t2 where a = 1 union all select * from t3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
-3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (1 workers)
+3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers)
 3	UNION	<sender4>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver4>)
 3	UNION	<receiver4>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender4>)
 Warnings:
@@ -535,27 +535,27 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.c > 3)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 explain select * from t1 where a > 1 union select * from t2 where c > 3 union select * from t1 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
-3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 3	UNION	<sender4>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver4>)
 3	UNION	<receiver4>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender4>)
 NULL	UNION RESULT	<union1,2,3>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
@@ -582,29 +582,29 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.c > 3)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 explain select * from t1 where a > 1 union all select * from t2 where c > 3 union all select * from t1 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
-3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 3	UNION	<sender4>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver4>)
 3	UNION	<receiver4>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender4>)
 Warnings:
@@ -627,15 +627,15 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.c > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
@@ -644,13 +644,13 @@ EXPLAIN
 
 explain select * from t1 where a > 1 union select * from t2 where c > 1 union select * from t1 where a > 1 union select * from t4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (1 workers); Using where
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Parallel scan (4 workers); Using where
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
-3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 3	UNION	<sender4>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver4>)
 3	UNION	<receiver4>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender4>)
 4	UNION	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
@@ -683,17 +683,17 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.c > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.35 rows=1)
@@ -717,14 +717,14 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 1)
                         -> Parallel table scan on t4  (cost=0.35 rows=1)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
@@ -753,7 +753,7 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.35 rows=1)
@@ -762,7 +762,7 @@ EXPLAIN
                         -> Parallel table scan on t4  (cost=0.35 rows=1)
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Filter: (t1.b > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.35 rows=1)
@@ -795,24 +795,24 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 1)
                         -> Parallel table scan on t4  (cost=0.35 rows=1)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 5; workers: 1)
+                    -> PX Sender (slice: 5; workers: 4)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 6; workers: 1)
+                    -> PX Sender (slice: 6; workers: 4)
                         -> Parallel table scan on t3  (cost=1.25 rows=10)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 7; workers: 1)
+                    -> PX Sender (slice: 7; workers: 4)
                         -> Filter: (t3.a > 1)  (cost=2.06 rows=9)
                             -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
@@ -861,7 +861,7 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.35 rows=1)
@@ -870,20 +870,20 @@ EXPLAIN
                         -> Parallel table scan on t4  (cost=0.35 rows=1)
             -> Stream results  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 4; workers: 1)
+                    -> PX Sender (slice: 4; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=2)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 5; workers: 1)
+                    -> PX Sender (slice: 5; workers: 4)
                         -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results  (cost=1.25 rows=10)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 6; workers: 1)
+                    -> PX Sender (slice: 6; workers: 4)
                         -> Parallel table scan on t3  (cost=1.25 rows=10)
             -> Stream results  (cost=2.06 rows=9)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 7; workers: 1)
+                    -> PX Sender (slice: 7; workers: 4)
                         -> Filter: (t3.a > 1)  (cost=2.06 rows=9)
                             -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
 
@@ -906,10 +906,10 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 (select * from t1 order by b) union all (select * from t2 order by c);
@@ -933,11 +933,11 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results  (cost=0.75 rows=5)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a union select b,sum(c) from t2 group by b;
@@ -959,15 +959,19 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 1)
-                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                            -> PX Sender (slice: 2; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
-                                -> Parallel table scan on t2  (cost=0.75 rows=5)
+                            -> PX Sender (slice: 3; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b;
 a	sum(b)
@@ -987,18 +991,18 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 1)
+                            -> PX Sender (slice: 2; workers: 4)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
+                            -> PX Sender (slice: 3; workers: 4)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t2  (cost=0.75 rows=5)
@@ -1027,19 +1031,24 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 1)
-                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                            -> PX Sender (slice: 2; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
-                                -> Parallel table scan on t2  (cost=0.75 rows=5)
+                            -> PX Sender (slice: 3; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
                 -> Group aggregate: sum(t3.d)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
-                        -> PX Sender (slice: 4; workers: 1)
-                            -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
+                        -> PX Sender (slice: 4; workers: 4)
+                            -> Group aggregate: sum(t3.d)
+                                -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
 select a,sum(b) from t1 group by a union all select b,sum(c) from t2 group by b union all select b,sum(d) from t3 group by b;
 a	sum(b)
@@ -1069,25 +1078,25 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 1)
+                            -> PX Sender (slice: 2; workers: 4)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
+                            -> PX Sender (slice: 3; workers: 4)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results
                 -> Group aggregate: sum(t3.d)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
-                        -> PX Sender (slice: 4; workers: 1)
+                        -> PX Sender (slice: 4; workers: 4)
                             -> Group aggregate: sum(t3.d)
                                 -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
@@ -1115,19 +1124,24 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 1)
-                                -> Parallel table scan on t1  (cost=0.95 rows=7)
+                            -> PX Sender (slice: 2; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
                 -> Table scan on <temporary>
-                    -> Aggregate using temporary table
+                    -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
-                                -> Parallel table scan on t2  (cost=0.75 rows=5)
-                -> Group aggregate: sum(t3.d), avg(t3.c)
+                            -> PX Sender (slice: 3; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t2  (cost=0.75 rows=5)
+                -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
-                        -> PX Sender (slice: 4; workers: 1)
-                            -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
+                        -> PX Sender (slice: 4; workers: 4)
+                            -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
+                                -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
 select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
 a	sum(b)	sum(d)
@@ -1157,25 +1171,25 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 1)
         -> Append
             -> Stream results
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 1)
+                            -> PX Sender (slice: 2; workers: 4)
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t1  (cost=0.95 rows=7)
             -> Stream results
-                -> Table scan on <temp>
+                -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
-                                -> Table scan on 
+                            -> PX Sender (slice: 3; workers: 4)
+                                -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t2  (cost=0.75 rows=5)
             -> Stream results
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
-                        -> PX Sender (slice: 4; workers: 1)
+                        -> PX Sender (slice: 4; workers: 4)
                             -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                                 -> Parallel index scan on t3 using idx  (cost=1.25 rows=10)
 
@@ -1197,13 +1211,13 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Nested loop inner join  (cost=2.50 rows=5)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
                                 -> Parallel table scan on t2  (cost=0.75 rows=5)
                             -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
                         -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=1)
                             -> Parallel table scan on t3  (cost=1.25 rows=10)
 
@@ -1230,7 +1244,7 @@ EXPLAIN
         -> Append
             -> Stream results  (cost=1.25 rows=1)
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Filter: ((t3.c > 1) and (t3.d > 3))  (cost=1.25 rows=1)
                             -> Parallel table scan on t3  (cost=1.25 rows=10)
             -> Stream results  (cost=5.25 rows=5)
@@ -1239,7 +1253,7 @@ EXPLAIN
                         -> Table scan on t1  (cost=0.07 rows=7)
                         -> Hash
                             -> PX Receiver (slice: 1; workers: 1)
-                                -> PX Sender (slice: 3; workers: 1)
+                                -> PX Sender (slice: 3; workers: 4)
                                     -> Filter: (t2.a is not null)  (cost=0.75 rows=5)
                                         -> Parallel table scan on t2  (cost=0.75 rows=5)
                     -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.07 rows=1)
@@ -1257,7 +1271,7 @@ EXPLAIN
         -> Table scan on <union temporary>  (cost=2.50 rows=0)
             -> Union materialize with deduplication
                 -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 2; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
                         -> Nested loop inner join  (cost=2.50 rows=5)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
                                 -> Parallel table scan on t2  (cost=0.75 rows=5)
@@ -1267,16 +1281,16 @@ EXPLAIN
                         -> Table scan on t1  (cost=0.95 rows=7)
                     -> Hash
                         -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 3; workers: 1)
+                            -> PX Sender (slice: 3; workers: 4)
                                 -> Parallel table scan on t2  (cost=0.32 rows=5)
 
 explain (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
 1	PRIMARY	t3	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.a	1	100.00	Using index
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers); Using where; Using join buffer (hash join)
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where; Using join buffer (hash join)
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender3>)
 2	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Using where
@@ -1303,18 +1317,18 @@ EXPLAIN
             -> Table scan on <union temporary>  (cost=2.50 rows=0)
                 -> Union materialize with deduplication
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 2; workers: 1)
+                        -> PX Sender (slice: 2; workers: 4)
                             -> Parallel table scan on t1  (cost=0.95 rows=7)
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 3; workers: 1)
+                        -> PX Sender (slice: 3; workers: 4)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
 
 explain select * from t1 union select * from t2 order by a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (1 workers)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers)
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers)
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary; Using filesort
@@ -1350,25 +1364,25 @@ EXPLAIN
             -> Table scan on <union temporary>  (cost=2.50 rows=0)
                 -> Union materialize
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 2; workers: 1)
+                        -> PX Sender (slice: 2; workers: 4)
                             -> Filter: (t1.a > 1)  (cost=0.95 rows=2)
                                 -> Parallel table scan on t1  (cost=0.95 rows=7)
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 3; workers: 1)
+                        -> PX Sender (slice: 3; workers: 4)
                             -> Parallel table scan on t2  (cost=0.75 rows=5)
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 4; workers: 1)
+                        -> PX Sender (slice: 4; workers: 4)
                             -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 explain select * from t1 where a > 1 union all select * from t2 union all select * from t3 order by a,b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (1 workers); Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver2>)
 1	PRIMARY	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender2>)
-2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers)
+2	UNION	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers)
 2	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver3>)
 2	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender3>)
-3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (1 workers)
+3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers)
 3	UNION	<sender4>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver4>)
 3	UNION	<receiver4>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender4>)
 NULL	UNION RESULT	<union1,2,3>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary; Using filesort
@@ -1393,13 +1407,13 @@ EXPLAIN
             -> Table scan on v  (cost=3.29 rows=7)
                 -> Union materialize with deduplication
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 2; workers: 1)
+                        -> PX Sender (slice: 2; workers: 4)
                             -> Nested loop inner join  (cost=2.50 rows=5)
                                 -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
                                     -> Parallel table scan on t2  (cost=0.75 rows=5)
                                 -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
                     -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 3; workers: 1)
+                        -> PX Sender (slice: 3; workers: 4)
                             -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=1)
                                 -> Parallel table scan on t3  (cost=1.25 rows=10)
 
@@ -1408,11 +1422,11 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	7	33.33	Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (1 workers); Using where
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
 2	DERIVED	t3	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.a	1	100.00	Using index
 2	DERIVED	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver2>)
 2	DERIVED	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender2>)
-3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	11.11	Parallel scan (1 workers); Using where
+3	UNION	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	11.11	Parallel scan (4 workers); Using where
 3	UNION	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver3>)
 3	UNION	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender3>)
 NULL	UNION RESULT	<union2,3>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using temporary
