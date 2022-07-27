@@ -180,7 +180,6 @@ int PX_sender::Read() {
     if (result == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
     goto end;
   }
-  DBUG_EXECUTE_IF("px_kill_worker_before_send", { thd()->killed = THD::KILL_QUERY; });
 
   // Convert read data to protocol format.
   if (m_codec->encode(out_fields)) {
