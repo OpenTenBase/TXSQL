@@ -282,4 +282,22 @@ SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY c;
 
 DROP TABLE t1;
 
+--echo #
+--echo # MATCH functions
+--echo #
+CREATE TABLE wp(
+FTS_DOC_ID bigint unsigned PRIMARY KEY,
+title VARCHAR(255) NOT NULL DEFAULT '',
+text MEDIUMTEXT NOT NULL ) ENGINE=InnoDB;
+
+INSERT INTO wp (FTS_DOC_ID, title, text) VALUES
+(1, 'MySQL Tutorial','DBMS stands for DataBase ...'),
+(2, 'How To Use MySQL Well','After you went through a ...');
+CREATE FULLTEXT INDEX idx ON wp(title, text);
+
+explain format=tree SELECT FTS_DOC_ID, MATCH(title, text) AGAINST ('database') FROM wp;
+SELECT FTS_DOC_ID, MATCH(title, text) AGAINST ('database') FROM wp;
+
+drop table wp;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc

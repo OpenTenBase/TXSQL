@@ -1136,4 +1136,24 @@ SUM(a)	SUM(AVG(a)) OVER ()
 6	7.0000
 15	7.0000
 DROP TABLE t1;
+#
+# MATCH functions
+#
+CREATE TABLE wp(
+FTS_DOC_ID bigint unsigned PRIMARY KEY,
+title VARCHAR(255) NOT NULL DEFAULT '',
+text MEDIUMTEXT NOT NULL ) ENGINE=InnoDB;
+INSERT INTO wp (FTS_DOC_ID, title, text) VALUES
+(1, 'MySQL Tutorial','DBMS stands for DataBase ...'),
+(2, 'How To Use MySQL Well','After you went through a ...');
+CREATE FULLTEXT INDEX idx ON wp(title, text);
+explain format=tree SELECT FTS_DOC_ID, MATCH(title, text) AGAINST ('database') FROM wp;
+EXPLAIN
+-> Index scan on wp using PRIMARY  (cost=0.45 rows=2)
+
+SELECT FTS_DOC_ID, MATCH(title, text) AGAINST ('database') FROM wp;
+FTS_DOC_ID	MATCH(title, text) AGAINST ('database')
+1	0.0906190574169159
+2	0
+drop table wp;
 # --include set_px_to_saved.inc
