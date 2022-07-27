@@ -868,11 +868,12 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
-  if (locking_clause ||
-      sql_command != SQLCOM_SELECT ||
-      unit->has_user_vars() ||
-      is_from_ps ||
-      is_from_sp) {
+  if (locking_clause || sql_command != SQLCOM_SELECT || unit->has_user_vars() ||
+      is_from_ps || is_from_sp ||
+      get_using_match()) {  // MATCH function, Use ft_prebuilt->fts_doc_id to
+                            // scan full text index. ft_prebuilt->fts_doc_id
+                            // does not update correctly in parallel execution
+                            // even in serial plan slices.
     return false;
   }
 

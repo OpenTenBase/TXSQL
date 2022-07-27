@@ -3124,7 +3124,7 @@ class Query_tables_list {
   bool uses_stored_routines() const { return sroutines_list.elements != 0; }
 
   void set_using_match() { using_match = true; }
-  bool get_using_match() { return using_match; }
+  bool get_using_match() const { return using_match; }
 
   void set_stmt_unsafe_with_mixed_mode() { stmt_unsafe_with_mixed_mode = true; }
   bool is_stmt_unsafe_with_mixed_mode() const {
