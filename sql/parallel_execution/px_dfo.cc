@@ -240,8 +240,9 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
       }
 
       // Get the the maximum threads per each pair to reserve workers.
-      if (total < child->dop() + parent->dop())
-        total = child->dop() + parent->dop();
+      int64_t current_pair_cores = child->dop() + (
+                parent->is_root_dfo() ? 0 : parent->dop());
+      if (total < current_pair_cores) total = current_pair_cores;
 
       // Set dfo state, required by iteration.
       child->set_dfo_finished(true);
