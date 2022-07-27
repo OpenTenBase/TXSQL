@@ -33,6 +33,29 @@ PX_receiver::PX_receiver(THD *thd, uint receiver_id, PX_exchange_info *pei,
 PX_proc *PX_receiver::me() const { return thd()->px_executor->proc(); }
 
 bool PX_receiver::Init() {
+  /*
+    In some scenarios, a task may have a set of exchange receiver operators instead of
+    one exchange receiver operator, such as multiple query blocks combined by union.
+    For example: (select * from t1 order by a limit 10) union (select * from t2);
+    In the first union branch of this query, due to the existence of limit, the exchange
+    receiver operator itself cannot perceive the end of the query, so it will miss End
+    call. The processing at this time includes two situations:
+      1) If an exception occurs before the exchange receiver operator attach of the second
+        branch, the task ends, and the End interface is explicitly called at the end of the
+        task scheduling.
+      2) If no exception occurs before the exchange receiver operator of the second branch
+        is attached, the End interface of the exchange operator of the previous branch is
+        explicitly called before the attach.
+    Otherwise, the receiver of the previous branch may not be detached, so the sender cannot
+    sense the end of the query and is blocked in data exchange; and after the receiver of
+    the second branch is started, the receiver is blocked waiting for the sender to attach.
+  */
+  if (thd()->px_receiver) {
+    assert(thd()->px_receiver != this);
+    thd()->px_receiver->End();
+    thd()->px_receiver = nullptr;
+  }
+
   assert(m_pei && !m_codec && m_handles.empty() && !thd()->px_receiver);
 
   // Register and get receiver id.
