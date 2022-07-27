@@ -482,6 +482,21 @@ static void debug_print_dfo(const char *prefix, Dfo *dfo, int indent) {
   either send result set metadata.
 */
 bool px_run_task(THD *thd, RowIterator *sub_iterator) {
+  auto exchange_detach = create_scope_guard([thd] {
+    /*
+      Explicitly call the End function to release resources
+      and complete detach
+    */
+    if (thd->px_sender) {
+      thd->px_sender->End();
+      thd->px_sender = nullptr;
+    }
+    if (thd->px_receiver) {
+      thd->px_receiver->End();
+      thd->px_receiver = nullptr;
+    }
+  });
+
   if (sub_iterator->Init()) return true;
 
   Query_expression *unit = thd->lex->unit;
@@ -520,18 +535,6 @@ bool px_run_task(THD *thd, RowIterator *sub_iterator) {
 }
 void PX_task::run(THD *thd) {
   px_run_task(thd, sub_iterator);
-  /*
-    Explicitly call the End function to release resources
-    and complete detach
-  */
-  if (thd->px_sender) {
-    thd->px_sender->End();
-    thd->px_sender = nullptr;
-  }
-  if (thd->px_receiver) {
-    thd->px_receiver->End();
-    thd->px_receiver = nullptr;
-  }
 }
 
 /**
@@ -579,6 +582,18 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
     return true;
 
   thd->get_stmt_da()->reset_diagnostics_area();
+
+  auto exchange_detach = create_scope_guard([thd] {
+    assert(!thd->px_sender);
+    /*
+      Explicitly call the End function to release resources
+      and complete detach
+    */
+    if (thd->px_receiver) {
+      thd->px_receiver->End();
+      thd->px_receiver = nullptr;
+    }
+  });
 
   // Before this point, we can fallback before something goes wrong.
   if (sub_iterator->Init()) return true;
@@ -643,17 +658,7 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   return query_result->send_eof(thd);
 }
 bool PX_task::run_root(THD *thd) {
-  bool result = px_run_root(thd, sub_iterator);
-  /*
-    Explicitly call the End function to release resources
-    and complete detach
-  */
-  assert(!thd->px_sender);
-  if (thd->px_receiver) {
-    thd->px_receiver->End();
-    thd->px_receiver = nullptr;
-  }
-  return result;
+  return px_run_root(thd, sub_iterator);
 }
 
 bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,

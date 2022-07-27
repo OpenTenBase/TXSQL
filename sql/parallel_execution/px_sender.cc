@@ -35,6 +35,17 @@ PX_sender::PX_sender(THD *thd, uint sender_no, PX_exchange_info *pei,
 PX_proc *PX_sender::me() const { return thd()->px_executor->proc(); }
 
 bool PX_sender::Init() {
+  /*
+    TODO: If there is a set of exchange sender operators in a PX_task supported
+    in the future, you need to explicitly call the End interface of the previous
+    PX_sender to ensure the completion of resource release and detach.
+  */
+  if (thd()->px_sender) {
+    assert(thd()->px_sender != this);
+    thd()->px_sender->End();
+    thd()->px_sender = nullptr;
+  }
+
   assert(m_pei && !m_codec && m_handles.empty() && !thd()->px_sender);
 
   // Register and get receiver id.
