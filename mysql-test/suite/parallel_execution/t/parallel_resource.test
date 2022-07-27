@@ -35,7 +35,6 @@ insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
 
-# run test with --mysqld=--tencent-root-cnf=`pwd`/../../mysql-test/tmy.conf
 connect(con_tencentroot,localhost,tencentroot,,);
 # Fallback affects debug_sync
 SET @saved_txsql_parallel_fallback_in_execution =@@txsql_parallel_fallback_in_execution;
@@ -59,7 +58,7 @@ flush status;
 
 connection conn1;
 set global txsql_max_parallel_worker_threads = 3;
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 --echo # Query A
 connect(conn3,localhost,root,,);
@@ -79,7 +78,7 @@ connection conn3;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 --echo # Expect error 0 executed 1 fallback 1
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 --echo #
 --echo # Case 2:
@@ -108,7 +107,7 @@ connection conn5;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 --echo # Expect error 1 executed 1 fallback 2
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 --echo #
 --echo # Case 3:
@@ -134,7 +133,7 @@ connection conn7;
 --reap;
 SET DEBUG_SYNC = 'RESET';
 --echo # Expect error 1 executed 3 fallback 2
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 connection conn1;
 set global txsql_parallel_degree = @saved_txsql_parallel_degree;
@@ -145,7 +144,7 @@ set global txsql_parallel_fallback_in_execution = @saved_txsql_parallel_fallback
 
 flush status;
 --echo # Expect error 0 executed 0 fallback 0
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 drop table t1;
 drop table t2;

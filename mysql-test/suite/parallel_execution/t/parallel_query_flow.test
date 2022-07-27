@@ -189,7 +189,7 @@ select a, sum(b) from t1 group by a;
 show profiles;
 --replace_column 2 #
 show profile for query 2;
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 #bugfix2: warning informations missing
 connection conn1;
@@ -238,9 +238,9 @@ explain format=tree select * from t1 where a=b and b=0x01;
 
 #bugfix3: `flush status` can not reset the statistical data
 connection conn1;
-show status like '%px%';
+show status like '%txsql_parallel%';
 flush status;
-show status like '%px%';
+show status like '%txsql_parallel%';
 
 connection conn1;
 --source suite/parallel_execution/inc/set_px_to_saved.inc

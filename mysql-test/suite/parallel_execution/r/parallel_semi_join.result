@@ -46,15 +46,17 @@ set optimizer_switch='semijoin=on,loosescan=off';
 set optimizer_switch='materialization=on';
 explain select * from t2 where t2.a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	a	a	5	NULL	#	#	Using where; Using index
-1	SIMPLE	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.t2.a	#	#	NULL
+1	SIMPLE	t2	NULL	index	a	a	5	NULL	#	#	Parallel scan (4 workers); Using where; Using index
 2	MATERIALIZED	t1	NULL	index	a	a	10	NULL	#	#	Using index
+1	SIMPLE	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	5	test.t2.a	#	#	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`<subquery2>`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Nested loop inner join  (cost=*** rows=***)
             -> Filter: (t2.a is not null)  (cost=*** rows=***)
                 -> Parallel index scan on t2 using a  (cost=*** rows=***)
@@ -68,14 +70,16 @@ set optimizer_switch='semijoin=on,materialization=off';
 set optimizer_switch='firstmatch=on';
 explain select * from t2 where t2.a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	a	a	5	NULL	#	#	Using where; Using index
+1	SIMPLE	t2	NULL	index	a	a	5	NULL	#	#	Parallel scan (4 workers); Using where; Using index
 1	SIMPLE	t1	NULL	ref	a	a	5	test.t2.a	#	#	Using index; FirstMatch(t2)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`test`.`t1`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Nested loop semijoin  (cost=*** rows=***)
             -> Filter: (t2.a is not null)  (cost=*** rows=***)
                 -> Parallel index scan on t2 using a  (cost=*** rows=***)
@@ -86,14 +90,16 @@ set optimizer_switch='semijoin=on,firstmatch=off';
 set optimizer_switch='duplicateweedout=on';
 explain select * from t2 where t2.a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	a	a	5	NULL	#	#	Using where; Using index
+1	SIMPLE	t2	NULL	index	a	a	5	NULL	#	#	Parallel scan (4 workers); Using where; Using index
 1	SIMPLE	t1	NULL	ref	a	a	5	test.t2.a	#	#	Using index; Start temporary; End temporary
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` semi join (`test`.`t1`) where (`test`.`t1`.`a` = `test`.`t2`.`a`)
 explain format=tree select * from t2 where t2.a in (select a from t1);
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Nested loop inner join  (cost=*** rows=***)
             -> Filter: (t2.a is not null)  (cost=*** rows=***)
                 -> Parallel index scan on t2 using a  (cost=*** rows=***)

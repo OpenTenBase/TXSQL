@@ -758,6 +758,7 @@ price	count(distinct name)
 13803	1
 13804	1
 13901	1
+141903	1
 16001	1
 16201	1
 16202	1
@@ -1064,7 +1065,6 @@ price	count(distinct name)
 98006	1
 98008	1
 98009	1
-141903	1
 #
 # Table scan -> Filter -> Sort -> PX_send -> PX_receiver_merge
 #

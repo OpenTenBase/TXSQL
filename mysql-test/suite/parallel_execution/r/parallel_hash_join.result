@@ -29,7 +29,7 @@ EXPLAIN
             -> Table scan on t2  (cost=0.09 rows=4)
             -> Hash
                 -> PX Receiver (slice: 0; workers: 1)
-                    -> PX Sender (slice: 1; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
                         -> Parallel table scan on t1  (cost=0.65 rows=4)
 
 SELECT t1.col1, t2.col1 FROM t1 JOIN t2 ON t1.col1 = t2.col1 ORDER BY t1.col1;

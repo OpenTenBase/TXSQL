@@ -24,7 +24,7 @@ set session debug="+d,px_force_isolation";
 EXPLAIN FORMAT=TREE SELECT * FROM t order by a;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Parallel index scan on t using PRIMARY  (cost=0.95 rows=7)
 
 SELECT * FROM t order by a;
@@ -38,7 +38,7 @@ set session debug="-d,px_force_isolation";
 EXPLAIN FORMAT=TREE SELECT * FROM t order by a;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
         -> Parallel index scan on t using PRIMARY  (cost=0.95 rows=7)
 
 SELECT * FROM t order by a;
