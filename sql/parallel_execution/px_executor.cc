@@ -51,6 +51,8 @@ static void *rebuild_query_execution(void *args)
   // handle found_semicolon situation forbidden.
   bool err = thd->get_stmt_da()->is_error();
 
+  DBUG_EXECUTE_IF("enter_worker_sleep", sleep(2););
+
   if (!err) err = parse_sql(thd, parser_state, nullptr);
   if (err) {
     PX_PRINT_ERROR(
@@ -68,7 +70,6 @@ static void *rebuild_query_execution(void *args)
   thd->lex->destroy();
   thd->end_statement();
   thd->cleanup_after_query();
-  thd->mem_root->Clear();
 
   // mysql_trx_list assert to 0 at last if no release resources.
   thd->release_resources();
@@ -323,9 +324,9 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
 
 lack:
   thd->px_exchange_context->clean();
-  destroy(thd->px_exchange_context);
 
 err:
+  destroy(thd->px_exchange_context);
   destroy(thd->px_executor);
   return true;
 
@@ -344,20 +345,15 @@ finish:
   PX_PRINT_INFO("release %ld cores", requested_cores);
 
   DBUG_EXECUTE_IF("px_simulate_worker_timeout_kill", {
-    // Pause the coordinator long enough to get timeout KILL.
-    WaitLatch(PX_EXECUTOR(thd)->proc(), 5/*sec*/);
-    if (thd->killed) {
-      thd->send_kill_message();
-      res = true;
-    } else {
-      // Take over query_result->send_eof(thd)
-      ::my_eof(thd);
-    }
+    sleep(5); // Pause coordinator long to get timeout KILL.
+    if (thd->killed) res = true;
   });
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
-  for (auto &itr : coordinator->thd_list)
+  for (auto &itr : coordinator->thd_list) {
+    if (itr->px_executor) destroy(itr->px_executor);
     delete (itr);
+  }
   coordinator->thd_list.clear();
   mysql_mutex_unlock(&thd->LOCK_thd_data);
 
@@ -389,11 +385,9 @@ bool px_execute_in_worker(THD *thd) {
   worker->loop();
   PX_PRINT_INFO("worker %d leave task loop", thd->worker_id);
 
-  destroy(worker);
   return thd->is_error();
 
 err:
-  destroy(worker);
   return true;
 }
 
@@ -498,6 +492,8 @@ bool px_run_task(THD *thd, RowIterator *sub_iterator) {
   });
 
   if (sub_iterator->Init()) return true;
+
+  DBUG_EXECUTE_IF("enter_worker_sleep", sleep(10););
 
   Query_expression *unit = thd->lex->unit;
   auto reset_join_counter = create_scope_guard([thd, unit] {
