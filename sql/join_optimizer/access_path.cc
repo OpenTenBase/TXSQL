@@ -2742,6 +2742,7 @@ AccessPath *WalkAccessPathsForAggregationSplit(THD *thd, JOIN *join,
       }
       if (param->ref_slice == REF_SLICE_TMP1) {
         Temp_table_param *table_param = param->query_blocks[0].temp_table_param;
+        AccessPath *table_path = path->materialize().table_path;
         join->final_tmp_table_param = new (thd->mem_root) Temp_table_param();
         if (join->final_tmp_table_param == nullptr) goto err;
         join->final_tmp_table_param->pq_copy_from(table_param);
@@ -2750,6 +2751,7 @@ AccessPath *WalkAccessPathsForAggregationSplit(THD *thd, JOIN *join,
         if (!new_child) goto err;
         param->ref_slice = REF_SLICE_FINAL_AGGREGATE;
         param->table = join->final_tmpaggr_tmp_table;
+        table_path->table_scan().table = join->final_tmpaggr_tmp_table;
         join->final_tmpaggr_tmp_table = nullptr;
       } else if (param->ref_slice == REF_SLICE_TMP2) {
         new_child = WalkAccessPathsForAggregationSplit(thd, join, child, stream_agg);
