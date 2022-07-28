@@ -256,7 +256,8 @@ inline bool ignore_table(TABLE *table) {
 }
 
 Opt_ctx_client::Opt_ctx_client(PSI_memory_key psi_memory_key, THD *thd)
-    : m_thd(thd), m_nested_level(0), m_opt_ctx(), m_mode(OPT_CTX_NATIVE) {
+    : m_thd(thd), m_nested_level(0), m_optimizing(), m_opt_ctx(),
+      m_mode(OPT_CTX_NATIVE) {
   for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
 #ifndef DBUG_OFF
