@@ -1,0 +1,23 @@
+--source suite/parallel_execution/inc/save_and_set_px.inc
+--source suite/query_rewrite_plugins/include/have_plugin_rewriter.inc
+
+CREATE TABLE t1 ( a INTEGER, b CHAR(1) );
+INSERT INTO t1 VALUES ( 1, 'a' ), ( 2, 'b' ), ( 3, 'c' );
+
+--source suite/query_rewrite_plugins/include/install_rewriter.inc
+
+INSERT INTO query_rewrite.rewrite_rules ( pattern, replacement )
+VALUES ( 'SELECT a FROM test.t1 WHERE a = ?',
+         'SELECT b FROM test.t1 WHERE a = ?' ),
+       ( 'SELECT 1, ?', 'SELECT "rewritten"' );
+
+CALL query_rewrite.flush_rewrite_rules();
+
+PREPARE stmt2 FROM 'SELECT a FROM test.t1 WHERE a = ?';
+
+SET @var = 1;
+EXECUTE stmt2 USING @var;
+
+DROP TABLE t1;
+--source suite/query_rewrite_plugins/include/uninstall_rewriter.inc
+--source suite/parallel_execution/inc/set_px_to_saved.inc

@@ -4062,6 +4062,8 @@ struct LEX : public Query_tables_list {
 
   bool is_from_ps;
   bool is_from_sp;
+
+  bool is_executing_ps{false};
   /* Prepared statements SQL syntax:*/
   LEX_CSTRING prepared_stmt_name; /* Statement name (in all queries) */
   /*
