@@ -1417,6 +1417,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %token<lexer.keyword> RECYCLE_BIN_SYM 1301
 %token<lexer.keyword> RECYCLE_NAME_SYM 1302
+%token<lexer.keyword> PARALLEL 1303                        /* MYSQL */
 /* Changes from txsql end. */
 
 /*
@@ -14576,7 +14577,7 @@ show_status_stmt:
 show_processlist_stmt:
           SHOW opt_detail PROCESSLIST_SYM
           {
-            $$ = NEW_PTN PT_show_processlist(@$, Lex->verbose, Lex->detail);
+            $$ = NEW_PTN PT_show_processlist(@$, Lex->verbose, Lex->detail, Lex->parallel);
           }
         | SHOW SQL_CDB_FILTER_SYM
           {
@@ -14765,9 +14766,10 @@ opt_full:
         ;
 
 opt_detail:
-          /* empty */ { Lex->verbose=0; Lex->detail=0; }
-        | FULL        { Lex->verbose=1; Lex->detail=0; }
-        | DETAIL      { Lex->verbose=0; Lex->detail=1; }
+          /* empty */ { Lex->verbose=0; Lex->detail=0; Lex->parallel=0; }
+        | FULL        { Lex->verbose=1; Lex->detail=0; Lex->parallel=0; }
+        | DETAIL      { Lex->verbose=0; Lex->detail=1; Lex->parallel=0; }
+        | PARALLEL    { Lex->verbose=0; Lex->detail=0; Lex->parallel=1; }
         ;
 
 opt_extended:
@@ -16301,6 +16303,7 @@ ident_keywords_unambiguous:
         | PARTITIONS_SYM
         | PASSWORD %prec KEYWORD_USED_AS_IDENT
         | PASSWORD_LOCK_TIME_SYM
+        | PARALLEL
         | PATH_SYM
         | PHASE_SYM
         | PLUGINS_SYM

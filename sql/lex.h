@@ -528,6 +528,7 @@ static const SYMBOL symbols[] = {
     {SYM("PATH", PATH_SYM)},
     {SYM("PARSER", PARSER_SYM)},
     {SYM("PAGE", PAGE_SYM)},
+    {SYM("PARALLEL", PARALLEL)},
     {SYM("PARTIAL", PARTIAL)},
     {SYM("PARTITION", PARTITION_SYM)},
     {SYM("PARTITIONING", PARTITIONING_SYM)},

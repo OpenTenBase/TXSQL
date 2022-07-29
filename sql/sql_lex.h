@@ -4034,7 +4034,7 @@ struct LEX : public Query_tables_list {
   bool drop_temporary;
   enum enum_recycle_bin_op recycle_bin_op;
   bool autocommit;
-  bool verbose, no_write_to_binlog, detail;
+  bool verbose, no_write_to_binlog, detail, parallel;
   // For show commands to show hidden columns and indexes.
   bool m_extended_show;
 

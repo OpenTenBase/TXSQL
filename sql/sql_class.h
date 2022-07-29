@@ -1156,6 +1156,8 @@ class THD : public MDL_context_owner,
   PX_exchange_context *px_exchange_context{nullptr};
   /* If threads creation failed, set true, only used in workers. */
   bool px_create_failed{false};
+  /* Whether task is running. */
+  bool is_running_task{false};
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;

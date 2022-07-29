@@ -1,0 +1,353 @@
+--echo # Infrastructure for test parallel execution frame
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+
+--disable_query_log
+call mtr.add_suppression("THD::check_error_before_sending_data");
+--enable_query_log
+
+show grants;
+connect(conn1,localhost,root,,);
+select user();
+
+create database test1;
+
+create user 'user1'@'%';
+grant all on test1.* to 'user1'@'%';
+
+# Build the test case schema.
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(2,3,4,5);
+
+create table t2(a int, b int, c int, d int);
+insert into t2 values(1,1,1,1);
+insert into t2 values(2,2,2,2);
+
+create table t3(a int, b int, c int, d int);
+
+connection conn1;
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+flush status;
+
+#================================basic function============================
+#1. sleep on parse and optimize
+connection conn1;
+set global debug="+d,enter_worker_sleep";
+
+connect(conn2,localhost,root,,);
+connection conn2;
+--send (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t2 order by a);
+
+connection conn1;
+sleep 1;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show parallel processlist;
+
+connection conn2;
+--sorted_result
+--reap;
+
+connection conn1;
+set global debug="-d,enter_worker_sleep";
+
+#2. sleep before parallel execute
+connection conn1;
+set global debug="+d,execute_in_parallel_before_sleep";
+
+connect(conn3,localhost,root,,);
+connection conn3;
+--send (select a+b,c+d from t1 order by a+b,c+d) union all (select d+c,b+a from t2 order by d+c);
+
+connection conn1;
+sleep 1;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show parallel processlist;
+
+connection conn3;
+--sorted_result
+--reap;
+
+connection conn1;
+set global debug="-d,execute_in_parallel_before_sleep";
+
+#3. sleep in sending data.
+connection conn1;
+set global debug="+d,run_root_in_sending_data_sleep";
+
+connect(conn4,localhost,root,,);
+connection conn4;
+--send (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
+
+connection conn1;
+sleep 1;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show parallel processlist;
+
+connection conn4;
+--sorted_result
+--reap;
+
+connection conn1;
+set global debug="-d,run_root_in_sending_data_sleep";
+
+#4. sleep before schedule
+connection conn1;
+set global debug="+d,schedule_before_sleep";
+
+connect(conn5,localhost,root,,);
+connection conn5;
+--send (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t2 order by a);
+
+connection conn1;
+sleep 1;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show parallel processlist;
+
+connection conn5;
+--sorted_result
+--reap;
+
+connection conn1;
+set global debug="-d,schedule_before_sleep";
+
+#5. sleep schedule before schedule
+connection conn1;
+set global debug="+d,schedule_before_schedule_sleep";
+
+connect(conn6,localhost,root,,);
+connection conn6;
+--send (select a+b,c+d from t1) union (select d+c,b+a from t2 order by d+c);
+
+connection conn1;
+sleep 1;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show parallel processlist;
+
+connection conn6;
+--sorted_result
+--reap;
+
+connection conn1;
+set global debug="-d,schedule_before_schedule_sleep";
+
+#6. sleep schedule one loop
+connection conn1;
+set global debug="+d,schedule_one_loop_sleep";
+
+connect(conn7,localhost,root,,);
+connection conn7;
+--send (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
+
+connection conn1;
+sleep 1;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show parallel processlist;
+
+connection conn7;
+--sorted_result
+--reap;
+
+connection conn1;
+set global debug="-d,schedule_one_loop_sleep";
+
+#==================================kill worker==============================
+#7. kill query before schedule
+connect(conn8,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
+--send select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a;
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL QUERY $id + 1
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn8;
+--sorted_result
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+#8. kill connection before schedule
+connect(conn9,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
+--send (select a,sum(b) from t3 group by a order by a) union (select a,b from t2 order by a);
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL CONNECTION $id + 1
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn9;
+--sorted_result
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+#9. kill query one loop finish
+connect(conn10,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
+--send select a,b from t1 union (select a,b from t2 order by a);
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL QUERY $id + 1
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn10;
+--sorted_result
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+#10. kill connection one loop finish
+connect(conn11,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
+--send (select a,b,c,d from t1) union (select a,b,sum(c),sum(d) from t2 group by a,b order by a,b);
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL CONNECTION $id + 1
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn11;
+--sorted_result
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+#11. kill query sending data
+connect(conn12,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
+--send (select a,b,sum(c) from t1 group by a,b) union (select a, sum(b), avg(c)+avg(d) from t2 group by a order by a);
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL QUERY $id + 1
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn12;
+--sorted_result
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+#12. kill connection sending data
+connect(conn13,localhost,root,,);
+--let $id= `SELECT CONNECTION_ID()`
+set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
+--send (select a,b,c,d from t1 order by d) union (select a,b,sum(c),sum(d) from t2 group by a,b);
+
+connection conn1;
+SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_result $id <id>
+--eval KILL CONNECTION $id + 1
+SET DEBUG_SYNC= 'now SIGNAL killed';
+
+connection conn13;
+--sorted_result
+--reap;
+SET DEBUG_SYNC = 'RESET';
+
+#================================different role=============================
+connect(conn_default, localhost, root, , );
+
+create user user101@localhost, user102@localhost,
+            user103@localhost, user104@localhost;
+
+grant ALL on *.* to user101@localhost;
+grant ALL on *.* to user102@localhost;
+grant SELECT on *.* to user103@localhost;
+grant SELECT on *.* to user104@localhost;
+
+create table t4(a int, b int, c int, d int);
+insert into t4 values(1,1,1,1);
+
+set global debug="+d,enter_worker_sleep";
+
+connect(con_tencentroot1,localhost,tencentroot,,);
+--send select * from t4 union select * from t4;
+
+connect (conn101, localhost, user101, , );
+--send select * from t4 union select * from t4;
+
+connect (conn102, localhost, user102, , );
+
+connect (conn103, localhost, user103, , );
+--send select * from t4 union select * from t4;
+
+connect (conn104, localhost, user104, , );
+
+connect(con_tencentroot2,localhost,tencentroot,,);
+
+--echo root see all.
+connection conn_default;
+sleep 5;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show processlist;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+show parallel processlist;
+
+--echo user with root see all
+connection conn102;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show processlist;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+show parallel processlist;
+
+--echo user with no root see only himself
+connection conn104;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show processlist;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+show parallel processlist;
+
+--echo tencent root see everything.
+connection con_tencentroot2;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show processlist;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+show parallel processlist;
+
+--echo root can not see tencent root.
+connection conn102;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--sorted_result
+show processlist;
+--replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+show parallel processlist;
+
+set global debug="-d,enter_worker_sleep";
+
+#==========================================================================
+
+connection conn1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop database test1;
+drop user user1;
+drop user user101@localhost;
+drop user user102@localhost;
+drop user user103@localhost;
+drop user user104@localhost;

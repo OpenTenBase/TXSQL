@@ -22,6 +22,7 @@
 #include "sql/error_handler.h"    // Internal_error_handler
 #include "thr_lock.h"
 #include "thr_mutex.h"
+#include "mysql/thread_pool_priv.h"
 
 #define my_intern_plugin_lock(A, B) intern_plugin_lock(A, B)
 #define my_intern_plugin_lock_ci(A, B) intern_plugin_lock(A, B)
@@ -1291,6 +1292,8 @@ static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
     worker_thd->mdl_context.clone_tickets(&coordinator_thd->mdl_context,
                                           (enum_mdl_duration)i);
   }
+
+  thd_set_net_read_write(worker_thd, 0);
 
   return false;
 }

@@ -10014,6 +10014,9 @@ ER_PX_FALLBACK_SERIAL_EXECUTION
 ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
   eng "Optimization context cache isn't enabled due to memory limitation."
 
+ER_WARN_FORBID_KILL_WORKER
+  eng "Killing worker is not allowed, please kill query/connection %d"
+
 #
 # End of MyRocks specific client messages
 #
