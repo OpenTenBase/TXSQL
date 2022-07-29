@@ -22,6 +22,10 @@
 #include "sql/join_optimizer/explain_access_path.h" // CheckPlanEquivalence
 #include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
+#include "sql/mysqld_thd_manager.h"
+#include "sql/psi_memory_key.h"
+
+PSI_stage_info stage_running_task = {0, "Task runing", 0, PSI_DOCUMENT_ME};
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
@@ -73,6 +77,9 @@ static void *rebuild_query_execution(void *args)
 
   // mysql_trx_list assert to 0 at last if no release resources.
   thd->release_resources();
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd_manager->remove_thd(thd);
 
   return nullptr;
 }
@@ -667,9 +674,6 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
     assert(worker_new_thd);
 
     worker_new_thd->set_db(thd()->db());
-    // Set the thread_id of the THD by Global_THD_Manager, in temp table
-    // creatation, thread_id is needed to name a temp file in disk.
-    worker_new_thd->set_new_thread_id();
     worker_new_thd->worker_id = i;
     worker_new_thd->px_exchange_context = worker_pool->px_exchange_context;
     // Set the query to worker THD.
@@ -893,6 +897,10 @@ void PX_worker::loop()
     if (*thread_arg->finished)
       break;
 
+    thread_arg->worker_thd->set_time();
+
+    THD_STAGE_INFO(thread_arg->worker_thd, stage_running_task);
+
     thread_func = *(thread_arg->thread_func);
     thread_func_arg = *(thread_arg->thread_func_arg);
 
@@ -1079,6 +1087,7 @@ void PX_parallel_coordinator::prepare_schedule_single_dfo(int num_workers,
       args[i]->task_id = dfo->dfo_id();
       args[i]->exchange_info = exchange_info;
       args[i]->worker_thd->thread_group_id = exec_ctx->group_id();
+      args[i]->worker_thd->worker_arg->task_id = dfo->dfo_id();
       if (dfo->is_leaf_dfo()) // set px scan ctx for leaf dfo.
         args[i]->scan_ctx = static_cast<PX_reader*>(dfo->m_px_scan_ctx);
     }

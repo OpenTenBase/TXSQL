@@ -2698,7 +2698,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       mysqld_list_processes(
           thd, global_access ? NullS : thd->security_context()->priv_user().str,
-          false, false, false);
+          false, false, false, false);
 
       DBUG_EXECUTE_IF("force_db_name_to_null", thd->reset_db(db_saved););
       break;
@@ -7237,8 +7237,12 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
       If user of both killer and killee are non-NULL, proceed with
       slayage if both are string-equal.
     */
-
-    if (sctx->check_access(SUPER_ACL) ||
+    if (PX_ROLE_WORKER(tmp)) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING,
+        ER_WARN_FORBID_KILL_WORKER, ER_THD(thd, ER_WARN_FORBID_KILL_WORKER),
+        tmp->px_coordinator->thread_id());
+      error = 0;
+    } else if (sctx->check_access(SUPER_ACL) ||
         sctx->has_global_grant(STRING_WITH_LEN("CONNECTION_ADMIN")).first ||
         sctx->user_matches(tmp->security_context())) {
       /*

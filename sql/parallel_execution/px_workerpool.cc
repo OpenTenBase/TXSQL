@@ -6,6 +6,7 @@
 #include "px_executor.h"
 #include "sql/log.h"
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
+#include "sql/mysqld_thd_manager.h"
 
 static const int right_deep_tree_limit = 64;
 static void* thread_func_in_worker(void *);
@@ -17,11 +18,11 @@ PSI_stage_info stage_waiting_finish_query_finally =
   {0, "Waiting query finish finally", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_waiting_workers_finish_task =
   {0, "Waiting workers finish task", 0, PSI_DOCUMENT_ME};
-// Currently we could not see the state in worker thread.
+
 PSI_stage_info stage_waiting_signal_to_begin_query =
-  {0, "Waiting coordinator signal to begin query", 0, PSI_DOCUMENT_ME};
+  {0, "Waiting to begin query", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_waiting_signal_to_begin_task =
-  {0, "Waiting coordinator signal to begin task", 0, PSI_DOCUMENT_ME};
+  {0, "Waiting to dispatch task", 0, PSI_DOCUMENT_ME};
 
 void px_send_command(cond_with_lock_t *px_cond)
 {
@@ -386,6 +387,7 @@ void wait_for_begin_task(worker_thread_arg *arg)
   px_wait_for_signal(arg->worker_thd, &arg->sem_task_signal,
                      &stage_waiting_signal_to_begin_task,
                      __FUNCTION__, __FILE__, __LINE__);
+  arg->worker_thd->is_running_task = true;
 }
 
 /**
@@ -404,6 +406,7 @@ void finish_task(worker_thread_arg *arg)
     bitmap_free((*arg->bitmap)[group_id]);
     px_send_command(arg->sem_tasks_done);
   }
+  arg->worker_thd->is_running_task = false;
   mysql_mutex_unlock(arg->mutex_task);
 }
 
@@ -447,9 +450,12 @@ static void* thread_func_in_worker(void *arg)
   worker_thread_arg *thread_arg = (worker_thread_arg *) arg;
   my_thread_init();
 
-  // thread_arg->worker_thd->set_new_thread_id();
   thread_arg->worker_thd->thread_stack = (char *)&arg;
+  thread_arg->worker_thd->set_new_thread_id();
   thread_arg->worker_thd->store_globals();
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd_manager->add_thd(thread_arg->worker_thd);
 
 #if defined(HAVE_OPT_CTX)
   assert(OPT_CTX_ENABLED(thread_arg->worker_thd));

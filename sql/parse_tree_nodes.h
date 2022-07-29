@@ -3567,8 +3567,9 @@ class PT_show_procedure_code final : public PT_show_routine_code {
 
 class PT_show_processlist final : public PT_show_base {
  public:
-  PT_show_processlist(const POS &pos, bool verbose, bool detail)
-      : PT_show_base(pos, SQLCOM_SHOW_PROCESSLIST), m_sql_cmd(verbose, detail) {}
+  PT_show_processlist(const POS &pos, bool verbose, bool detail, bool parallel)
+      : PT_show_base(pos, SQLCOM_SHOW_PROCESSLIST),
+        m_sql_cmd(verbose, detail, parallel) {}
 
   Sql_cmd *make_cmd(THD *thd) override;
 

@@ -74,7 +74,7 @@ bool mysqld_show_create(THD *thd, TABLE_LIST *table_list);
 bool mysqld_show_create_db(THD *thd, char *dbname, HA_CREATE_INFO *create);
 
 void mysqld_list_processes(THD *thd, const char *user, bool verbose,
-                           bool has_cursor, bool detail);
+                           bool has_cursor, bool detail, bool parallel);
 void mysqld_list_cdb_sql_filters(THD *thd);
 bool mysqld_list_outline_rules(THD *thd);
 
@@ -482,14 +482,16 @@ class Sql_cmd_show_outline_info_status : public Sql_cmd_show_noplan {
 class Sql_cmd_show_processlist : public Sql_cmd_show {
  public:
   Sql_cmd_show_processlist() : Sql_cmd_show(SQLCOM_SHOW_PROCESSLIST) {}
-  explicit Sql_cmd_show_processlist(bool verbose, bool detail)
-      : Sql_cmd_show(SQLCOM_SHOW_PROCESSLIST), m_verbose(verbose), m_detail(detail) {}
+  explicit Sql_cmd_show_processlist(bool verbose, bool detail, bool parallel)
+      : Sql_cmd_show(SQLCOM_SHOW_PROCESSLIST), m_verbose(verbose),
+        m_detail(detail), m_parallel(parallel) {}
   bool check_privileges(THD *thd) override;
   bool execute_inner(THD *thd) override;
 
   void set_use_pfs(bool use_pfs) { m_use_pfs = use_pfs; }
   bool verbose() const { return m_verbose; }
   bool detail() const { return m_detail; }
+  bool parallel() const { return m_parallel; }
 
  private:
   bool use_pfs() { return m_use_pfs; }
@@ -497,6 +499,7 @@ class Sql_cmd_show_processlist : public Sql_cmd_show {
   const bool m_verbose{false};
   bool m_use_pfs{false};
   bool m_detail{false};
+  const bool m_parallel{false};
 };
 
 /// Represents SHOW PROFILE statement.
