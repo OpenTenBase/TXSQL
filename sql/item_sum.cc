@@ -587,6 +587,12 @@ bool Item_sum::eq(const Item *item, bool binary_cmp) const {
     return false;
   const Item_sum *item_sum = down_cast<const Item_sum *>(item);
   const enum Sumfunctype my_sum_func = sum_func();
+  /*
+    When testing the equality of item_sum, the field pointer of window function
+    is different between worker threads and the coordinator thread. But it is ok,
+    while the window function under the exchange operator, the false returning
+    disables the window function in parallel execution.
+  */
   if (item_sum->sum_func() != my_sum_func || item_sum->m_window != m_window)
     return false;
 

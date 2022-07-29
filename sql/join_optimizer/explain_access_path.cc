@@ -1577,7 +1577,8 @@ PlanEquivalenceData CheckAndExplainAccessPath(
     JOIN *coordinator_join,
     const AccessPath *worker_path,
     JOIN *worker_join,
-    bool &are_equivalent) {
+    bool &are_equivalent,
+    bool sub_tree_of_exchange) {
   int level = 0;
   vector<string> description;
   ExplainData worker_table_explain;
@@ -1592,58 +1593,62 @@ PlanEquivalenceData CheckAndExplainAccessPath(
     goto end;
   }
 
-  if (!((*worker_path) == (*coordinator_path))) {
-    are_equivalent = false;
-    goto end;
+  // only the sub tree of exchange needs to check
+  if (sub_tree_of_exchange) {
+    if (!((*worker_path) == (*coordinator_path))) {
+      are_equivalent = false;
+      goto end;
+    }
+
+    // add other necessary check
+    switch (worker_path->type) {
+      case AccessPath::UNQUALIFIED_COUNT: {
+        // equivalence check: same TABLE_SHARE
+        if (!EquivalenceCheckHelper::eq_table_share(
+                  worker_join->qep_tab->table(),
+                  coordinator_join->qep_tab->table())) {
+          are_equivalent = false;
+          goto end;
+        }
+        break;
+      }
+      case AccessPath::AGGREGATE: {
+        if (worker_join->group_optimized_away !=
+                coordinator_join->group_optimized_away ||
+            worker_join->grouped != coordinator_join->grouped) {
+          are_equivalent = false;
+          goto end;
+        }
+        Item_sum **coordinator_item = coordinator_join->sum_funcs;
+        for (Item_sum **item = worker_join->sum_funcs; *item != nullptr; ++item) {
+          if (*coordinator_item == nullptr) {
+            are_equivalent = false;
+            goto end;
+          }
+          if (worker_path->aggregate().rollup &&
+              !EquivalenceCheckHelper::eq_item(
+                  down_cast<Item_rollup_sum_switcher *>(*item)->master(),
+                  down_cast<Item_rollup_sum_switcher *>(*item)->master())) {
+            are_equivalent = false;
+            goto end;
+          } else if (!worker_path->aggregate().rollup &&
+              !EquivalenceCheckHelper::eq_item(*item, *coordinator_item)) {
+            are_equivalent = false;
+            goto end;
+          }
+          ++coordinator_item;
+        }
+        if (*coordinator_item != nullptr) {
+          are_equivalent = false;
+          goto end;
+        }
+        break;
+      }
+      default:
+        break;
+    }
   }
 
-  // add other necessary check
-  switch (worker_path->type) {
-    case AccessPath::UNQUALIFIED_COUNT: {
-      // equivalence check: same TABLE_SHARE
-      if (!EquivalenceCheckHelper::eq_table_share(
-                worker_join->qep_tab->table(),
-                coordinator_join->qep_tab->table())) {
-        are_equivalent = false;
-        goto end;
-      }
-      break;
-    }
-    case AccessPath::AGGREGATE: {
-      if (worker_join->group_optimized_away !=
-              coordinator_join->group_optimized_away ||
-          worker_join->grouped != coordinator_join->grouped) {
-        are_equivalent = false;
-        goto end;
-      }
-      Item_sum **coordinator_item = coordinator_join->sum_funcs;
-      for (Item_sum **item = worker_join->sum_funcs; *item != nullptr; ++item) {
-        if (*coordinator_item == nullptr) {
-          are_equivalent = false;
-          goto end;
-        }
-        if (worker_path->aggregate().rollup &&
-            !EquivalenceCheckHelper::eq_item(
-                down_cast<Item_rollup_sum_switcher *>(*item)->master(),
-                down_cast<Item_rollup_sum_switcher *>(*item)->master())) {
-          are_equivalent = false;
-          goto end;
-        } else if (!worker_path->aggregate().rollup &&
-            !EquivalenceCheckHelper::eq_item(*item, *coordinator_item)) {
-          are_equivalent = false;
-          goto end;
-        }
-        ++coordinator_item;
-      }
-      if (*coordinator_item != nullptr) {
-        are_equivalent = false;
-        goto end;
-      }
-      break;
-    }
-    default:
-      break;
-  }
   worker_table_explain = GetChildrenFromAccessPath(worker_path, worker_join);
   coordinator_table_explain = GetChildrenFromAccessPath(coordinator_path, coordinator_join);
 end:
@@ -1654,7 +1659,8 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
                           JOIN *coordinator_join,
                           AccessPath *worker_path,
                           JOIN *worker_join,
-                          bool is_root_of_join) {
+                          bool is_root_of_join,
+                          bool sub_tree_of_exchange) {
   string ret;
   bool are_equivalent = true;
 
@@ -1665,9 +1671,17 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
     return false;
   }
 
+  // only the sub tree of exchange needs to check
+  if (!sub_tree_of_exchange &&
+      worker_path->type == coordinator_path->type &&
+      worker_path->type == AccessPath::PX_SEND) {
+    sub_tree_of_exchange = true;
+  }
+
   PlanEquivalenceData bothPlan = CheckAndExplainAccessPath(
       coordinator_path, coordinator_join,
-      worker_path, worker_join, are_equivalent);
+      worker_path, worker_join, are_equivalent,
+      sub_tree_of_exchange);
 
   if (!are_equivalent) {
     return false;
@@ -1685,7 +1699,8 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
                               coordinator_subjoin,
                               bothPlan.worker_path_children[i].path,
                               worker_subjoin,
-                              child_is_root_of_join)) {
+                              child_is_root_of_join,
+                              sub_tree_of_exchange)) {
       return false;
     }
   }
@@ -1707,7 +1722,8 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
                                path_from_select_list[i].path,
                                path_from_select_list[i].join,
                                child.path, child.join,
-                               /*is_root_of_join=*/true)) {
+                               /*is_root_of_join=*/true,
+                               sub_tree_of_exchange)) {
         return false;
       }
       i++;
