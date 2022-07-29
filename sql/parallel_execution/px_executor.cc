@@ -417,7 +417,8 @@ static bool check_plan_equivalence(THD *thd, AccessPath *plan, JOIN *join) {
                            thd->worker_arg->coordinator_join,
                            plan,
                            join,
-                           /*is_root_of_join=*/!join);
+                           /*is_root_of_join=*/!join,
+                           /*sub_tree_of_exchange=*/false);
   thd->m_equivalence_check_phase = false;
 
   return thd->worker_arg->is_equivalent_plan;

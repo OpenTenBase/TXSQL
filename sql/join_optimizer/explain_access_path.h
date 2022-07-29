@@ -77,5 +77,6 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
                           JOIN *coordinator_join,
                           AccessPath *worker_path,
                           JOIN *worker_join,
-                          bool is_root_of_join);
+                          bool is_root_of_join,
+                          bool sub_tree_of_exchange);
 #endif  // SQL_JOIN_OPTIMIZER_EXPLAIN_ACCESS_PATH_H
