@@ -410,6 +410,10 @@ class Statement_backup {
     default. This can be changed in future if required. */
     thd->set_safe_display(true);
 
+    if (thd->lex != nullptr) {
+      thd->lex->is_executing_ps = true;
+    }
+
     return;
   }
 
@@ -429,6 +433,10 @@ class Statement_backup {
 
     stmt->m_query_string = thd->query();
     thd->set_query(m_query_string);
+
+    thd->lex->is_executing_ps = false;
+
+    return;
   }
 
   /**
