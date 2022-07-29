@@ -180,10 +180,9 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   return false;
 
  dfo_prepared_failed:
-  destroy(thd->px_exchange_context);
+  if (PX_ROLE_COORDINATOR(thd)) destroy(thd->px_exchange_context);
 
  check_eq_failed: // only in workers.
-  destroy(executor);
   return true;
 
  create_exchange_context_failed:
