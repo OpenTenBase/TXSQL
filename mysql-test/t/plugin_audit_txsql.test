@@ -96,9 +96,9 @@ sleep 2;
 uninstall plugin audit_txsql;
 disconnect con1;
 
---remove_file $DATA_DIR/audit_log1
---remove_file $DATA_DIR/pos_file
---remove_file $TMP_DIR/audit_log1
---remove_file $TMP_DIR/audit_log2
---remove_file $TMP_DIR/audit_log3
---remove_file $TMP_DIR/pos_file
+#--remove_file $DATA_DIR/audit_log1
+#--remove_file $DATA_DIR/pos_file
+#--remove_file $TMP_DIR/audit_log1
+#--remove_file $TMP_DIR/audit_log2
+#--remove_file $TMP_DIR/audit_log3
+#--remove_file $TMP_DIR/pos_file

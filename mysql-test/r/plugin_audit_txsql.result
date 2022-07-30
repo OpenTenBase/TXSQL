@@ -1,8 +1,8 @@
 show variables like "%audit_txsql%";
 Variable_name	Value
 install plugin audit_txsql soname 'audit_txsql.so';
-Found pos file
-Found log file
+ERROR
+ERROR
 set global audit_txsql_audit_dir=@@global.tmpdir;
 show databases;
 Database
@@ -12,8 +12,8 @@ mysql
 performance_schema
 sys
 test
-Found pos file
-Found log file
+ERROR
+ERROR
 set global audit_txsql_audit_mode="filter";
 set global audit_txsql_filter_db="test#mysql#audit";
 create database audit;
