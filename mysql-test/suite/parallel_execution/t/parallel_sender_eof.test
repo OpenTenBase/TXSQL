@@ -1,0 +1,31 @@
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+create table t4 (
+  companynr tinyint(2) unsigned zerofill NOT NULL default '00',
+  companyname char(30) NOT NULL default '',
+  PRIMARY KEY (companynr),
+  UNIQUE KEY companyname(companyname)
+) MAX_ROWS=50 PACK_KEYS=1 COMMENT='companynames';
+
+--disable_query_log
+INSERT INTO t4 (companynr, companyname) VALUES (29,'company 1');
+INSERT INTO t4 (companynr, companyname) VALUES (34,'company 2');
+INSERT INTO t4 (companynr, companyname) VALUES (36,'company 3');
+INSERT INTO t4 (companynr, companyname) VALUES (37,'company 4');
+INSERT INTO t4 (companynr, companyname) VALUES (40,'company 5');
+INSERT INTO t4 (companynr, companyname) VALUES (41,'company 6');
+INSERT INTO t4 (companynr, companyname) VALUES (53,'company 7');
+INSERT INTO t4 (companynr, companyname) VALUES (58,'company 8');
+INSERT INTO t4 (companynr, companyname) VALUES (65,'company 9');
+INSERT INTO t4 (companynr, companyname) VALUES (68,'company 10');
+INSERT INTO t4 (companynr, companyname) VALUES (50,'company 11');
+INSERT INTO t4 (companynr, companyname) VALUES (00,'Unknown');
+--enable_query_log
+
+analyze table t4;
+explain format=tree select distinct 1 from t4 group by companynr;
+select distinct 1 from t4 group by companynr;
+
+drop table t4;
+--source suite/parallel_execution/inc/set_px_to_saved.inc

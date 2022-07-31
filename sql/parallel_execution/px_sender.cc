@@ -176,8 +176,8 @@ int PX_sender::Read() {
   String buf;
 #endif
 
-  while ((result = (m_materialize ? m_table_path->Read() : m_source->Read()))) {
-    if (result == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+  result = (m_materialize ? m_table_path->Read() : m_source->Read());
+  if (result) {
     goto end;
   }
 
@@ -196,26 +196,56 @@ int PX_sender::Read() {
 #endif
 
   for (auto &handle: m_handles) {
+    // skip the detached channel.
+    if (handle->get_detached()) continue;
+
     // TODO skip unmatch handle m_reshuffle_key m_sender_id
     PX_io_error error = handle->send(out_fields.data(), out_fields.size(),
                                      /*nowait=*/false);
-
-    // Never gets non-blocking because of it is a blocking send.
-    assert(error != PX_IO_WOULD_BLOCK);
-
     DBUG_EXECUTE_IF("px_kill_worker_after_send", { thd()->killed = THD::KILL_QUERY; });
 
-    /*
-      Because data flow must be ended by the producer side, any send that is
-      not successful indicates an error.
-     */
-    if (error != PX_IO_OK || thd()->killed) {
+    if (thd()->killed) {
       result = 1;
       goto end;
     }
+
+    switch (error) {
+      case PX_IO_OK: {
+        result = 0;
+        break;
+      }
+      case PX_IO_EOF: {
+        result = -1;
+        // send data to next channel and skip the detached channel in next loop
+        handle->set_detached();
+        break;
+      }
+      case PX_IO_ERROR: {
+        result = 1;
+        break;
+      }
+      case PX_IO_WOULD_BLOCK:
+      default: {
+        // Never gets non-blocking because of it is a blocking send.
+        assert(0);
+        result = 1;
+        break;
+      }
+    }
+
+    if (result > 0) goto end;
   }
 
-  return 0;
+  assert(result == 0 || result == -1);
+  /*
+    If there is a receiver without detached, it means that the sending
+    is not over. Else return EOF.
+  */
+  for (auto &handle: m_handles) {
+    if (!handle->get_detached()) return 0;
+  }
+
+  result = -1;
 
 end:
   if (thd()->killed) {

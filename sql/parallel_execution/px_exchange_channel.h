@@ -67,8 +67,12 @@ class PX_exchange_handle {
   virtual void set_worker_handle(PX_worker_handle *worker_handle) = 0;
   virtual void detach() = 0;
   uint channel_id() const { return m_channel_id; }
+
+  void set_detached() { m_detached = true; }
+  bool get_detached() { return m_detached; }
  private:
   uint m_channel_id;
+  bool m_detached{false};
 };
 
 /**
