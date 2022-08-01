@@ -51,11 +51,13 @@
 #include "sql/sql_update.h"
 #include "sql/table.h"
 #include "sql/iterators/sort_merge_join_iterator.h"
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_sender.h"
 #include "sql/parallel_execution/px_receiver.h"
 #include "sql/parallel_execution/px_receiver_merge.h"
 #include "sql/log.h"
 #include "sql/table_function.h"  // Table_function
+#endif /* defined(HAVE_PX) */
 
 #include <vector>
 

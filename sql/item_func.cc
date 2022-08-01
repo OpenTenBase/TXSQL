@@ -6144,6 +6144,10 @@ longlong Item_func_sleep::val_int() {
            = NULL: variable does not exist (if cs == NULL), or
                    could not create variable (if cs != NULL)
 */
+#if defined(HAVE_PX)
+#else
+static
+#endif /* defined(HAVE_PX) */
 user_var_entry *get_variable(THD *thd, const Name_string &name,
                                     const CHARSET_INFO *cs) {
   const std::string key(name.ptr(), name.length());
@@ -6350,6 +6354,7 @@ bool user_var_entry::store(const void *ptr, size_t length, Item_result type,
   return false;
 }
 
+#if defined(HAVE_PX)
 bool user_var_entry::store(const user_var_entry *from) {
   assert_locked();
 
@@ -6383,6 +6388,7 @@ bool user_var_entry::store(const user_var_entry *from) {
   unsigned_flag = from->unsigned_flag;
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
 void user_var_entry::lock() {
   assert(m_owner != nullptr);

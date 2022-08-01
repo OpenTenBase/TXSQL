@@ -964,6 +964,7 @@ struct row_prebuilt_t {
                                         and clust_pcur, and we do not need
                                         to reposition the cursors. */
   void try_unlock(bool has_latches_on_recs);
+#if defined(HAVE_PX)
  public:
   /** The PX_Ctx attached to worker. */
   std::shared_ptr<PX_Ctx> px_ctx{};
@@ -987,6 +988,7 @@ struct row_prebuilt_t {
 
  public:
   bool has_attach_ctx() { return px_ctx != nullptr; }
+#endif /* defined(HAVE_PX) */
 
  private:
   /** A helper function for init_search_tuples_types() which prepares the shape

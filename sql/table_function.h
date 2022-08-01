@@ -95,6 +95,7 @@ class Table_function {
     return table->field[i];
   }
 
+#if defined(HAVE_PX)
   /**
     Returns table
 
@@ -104,6 +105,7 @@ class Table_function {
   TABLE *get_table() {
     return table;
   }
+#endif /* defined(HAVE_PX) */
 
   /**
     Delete all rows in the table

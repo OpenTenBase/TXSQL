@@ -6,6 +6,7 @@
 #include "sql/filesort.h"
 #include "sql/sql_optimizer.h"
 #include "sql/log.h"
+#include "sql/sql_optimizer.h"  // JOIN
 
 PX_receiver_merge::PX_receiver_merge(
     THD *thd, uint receiver_id, PX_exchange_info *pei,

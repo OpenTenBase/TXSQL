@@ -219,7 +219,9 @@ class Item_json_func : public Item_func {
   */
   void mark_for_partial_update(const Field_json *field);
 
+#if defined(HAVE_PX)
   enum Functype functype() const override { return JSON_FUNC; }
+#endif /* defined(HAVE_PX) */
 };
 
 bool sql_scalar_to_json(Item *arg, const char *calling_function, String *value,

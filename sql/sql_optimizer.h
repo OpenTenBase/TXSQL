@@ -55,17 +55,18 @@
 #include "sql/temp_table_param.h"
 #include "sql/parallel_execution/px_access_path.h"
 
+#if defined(HAVE_PX)
+#include "sql/parallel_execution/px_types.h"  // AggType
+#endif /* defined(HAVE_PX) */
+
 enum class Subquery_strategy : int;
-enum exchange_inject_position;
 class COND_EQUAL;
 class Item_subselect;
 class Item_sum;
 class Opt_trace_context;
 class THD;
 class Window;
-class PX_plan_slice;
 struct AccessPath;
-struct Exchange_Info;
 struct MYSQL_LOCK;
 
 class Item_equal;
@@ -88,9 +89,15 @@ class mem_root_deque;
     1    We can skip sorting.
 */
 bool test_if_skip_smj_sort(TABLE *tab, ORDER_with_src &order, int keynr, bool reverse);
+#if defined(HAVE_PX)
+enum exchange_inject_position;
+class PX_plan_slice;
+struct Exchange_Info;
+
 namespace px_access_path {
 struct Split_Position;
 }
+#endif /* defined(HAVE_PX) */
 
 // Key_use has a trivial destructor, no need to run it from Mem_root_array.
 typedef Mem_root_array<Key_use> Key_use_array;
@@ -173,6 +180,7 @@ class JOIN {
   /// Array of QEP_TABs
   QEP_TAB *qep_tab{nullptr};
 
+#if defined(HAVE_PX)
   /**
     Array of plan slices.
     Plan slice represents an execution plan fragment of an execution plan tree,
@@ -184,6 +192,7 @@ class JOIN {
   std::vector<PX_plan_slice*> px_plan_slices;
   /// Whether the query block has encounter a exchange operator.
   bool px_encounter_exchange{false};
+#endif /* defined(HAVE_PX) */
   /**
     Array of plan operators representing the current (partial) best
     plan. The array is allocated in JOIN::make_join_plan() and is valid only
@@ -369,16 +378,18 @@ class JOIN {
   /// Expected cost of windowing;
   double windowing_cost{0.0};
   mem_root_deque<Item *> *fields;
-  mem_root_deque<Item *> *saved_base_fields{nullptr};
   List<Cached_item> group_fields{};
-  List<Cached_item> final_group_feilds{};
   List<Cached_item> group_fields_cache{};
 
   // For destroying fields otherwise owned by RemoveDuplicatesIterator.
   List<Cached_item> semijoin_deduplication_fields{};
 
   Item_sum **sum_funcs{nullptr};
+#if defined(HAVE_PX)
+  mem_root_deque<Item *> *saved_base_fields{nullptr};
+  List<Cached_item> final_group_feilds{};
   Item_sum **final_aggr_sum_funcs{nullptr};
+#endif /* defined(HAVE_PX) */
   /**
      Describes a temporary table.
      Each tmp table has its own tmp_table_param.
@@ -386,10 +397,12 @@ class JOIN {
      to build the tmp table's own tmp_table_param.
   */
   Temp_table_param tmp_table_param;
+#if defined(HAVE_PX)
   Temp_table_param *local_tmp_table_param = nullptr;
   Temp_table_param *final_tmp_table_param = nullptr;
   TABLE *aggr_tmp_table = nullptr;
   TABLE *final_tmpaggr_tmp_table = nullptr;
+#endif /* defined(HAVE_PX) */
   MYSQL_LOCK *lock;
 
   enum class RollupState { NONE, INITED, READY };
@@ -398,6 +411,7 @@ class JOIN {
 
   /**
     At construction time, set if SELECT DISTINCT. May be reset to false
+    later, when we set up a temporary table operation that deduplicates for us.
    */
   bool select_distinct;
 
@@ -480,8 +494,10 @@ class JOIN {
     ORDER BY and GROUP BY lists, to transform with prepare,optimize and exec
   */
   ORDER_with_src order, group_list;
+#if defined(HAVE_PX)
   ORDER_with_src *saved_group_list = nullptr,
                  *saved_order = nullptr;  // Reserved for px.
+#endif /* defined(HAVE_PX) */
 
   // Used so that AggregateIterator knows which items to signal when the rollup
   // level changes. Obviously only used in the presence of rollup.
@@ -628,8 +644,10 @@ class JOIN {
 
   /* Temporary tables used to weed-out semi-join duplicates */
   List<TABLE> sj_tmp_tables{};
+#if defined(HAVE_PX)
   /* Temporary tables used to set in exchange sender and receiver. */
   List<TABLE> exchange_tmp_tables{};
+#endif /* defined(HAVE_PX) */
   List<Semijoin_mat_exec> sjm_exec_list{};
   /* end of allocation caching storage */
 
@@ -647,12 +665,14 @@ class JOIN {
   */
   bool with_json_agg;
 
+#if defined(HAVE_PX)
   // If true, do parallel.
   bool exchange_inject{false};
   // Saved for cleanup.
   mem_root_deque<TABLE *> *exchange_temp_table = nullptr;
   mem_root_deque<Temp_table_param *> *exchange_temp_table_param = nullptr;
   List_item  *exchange_tmp_fields = nullptr;
+#endif /* defined(HAVE_PX) */
 
   /// True if plan is const, ie it will return zero or one rows.
   bool plan_is_const() const { return const_tables == primary_tables; }
@@ -665,6 +685,7 @@ class JOIN {
 
   bool optimize(bool finalize_access_paths);
 
+#if defined(HAVE_PX)
   bool px_generate_plan(px_access_path::Split_Position *split_position);
   QEP_TAB *get_matched_tab(TABLE *table) {
     for (uint i = 0; i < tables; ++i) {
@@ -672,6 +693,7 @@ class JOIN {
     }
     return nullptr;
   }
+#endif /* defined(HAVE_PX) */
   void reset();
   bool prepare_result();
   void destroy();
@@ -743,8 +765,13 @@ class JOIN {
   /** Cleanup this JOIN. Not a full cleanup. reusable? */
   void cleanup();
 
+#if defined(HAVE_PX)
   bool clear_fields(table_map *save_nullinfo, AggType agg_type);
   void restore_fields(table_map save_nullinfo, AggType agg_type);
+#else
+  bool clear_fields(table_map *save_nullinfo);
+  void restore_fields(table_map save_nullinfo);
+#endif /* defined(HAVE_PX) */
 
   /**
     Return whether the caller should send a row even if the join
@@ -780,7 +807,9 @@ class JOIN {
   table_map calculate_deps_of_remaining_lateral_derived_tables(
       table_map plan_tables, uint idx) const;
   bool clear_sj_tmp_tables();
+#if defined(HAVE_PX)
   bool clear_exchange_tmp_tables();
+#endif /* defined(HAVE_PX) */
   bool clear_corr_derived_tmp_tables();
   void clear_hash_tables() { ++hash_table_generation; }
 
@@ -796,8 +825,10 @@ class JOIN {
   enum_plan_state get_plan_state() const { return plan_state; }
   bool is_optimized() const { return optimized; }
   void set_optimized() { optimized = true; }
+#if defined(HAVE_PX)
   bool is_px_generated() const { return px_generated; }
   void set_px_generated() { px_generated = true; }
+#endif /* defined(HAVE_PX) */
   bool is_executed() const { return executed; }
   void set_executed() { executed = true; }
 
@@ -862,7 +893,9 @@ class JOIN {
  private:
   bool optimized{false};  ///< flag to avoid double optimization in EXPLAIN
 
+#if defined(HAVE_PX)
   bool px_generated{false}; ///< flag to sign parallel optimization
+#endif /* defined(HAVE_PX) */
 
   /**
     Set by exec(), reset by reset(). Note that this needs to be set
@@ -885,6 +918,7 @@ class JOIN {
   */
   bool select_count{false};
 
+#if defined(HAVE_PX)
   /**
     Transform ref_items[curr_slice] to fields format and save it in
     saved_fields.
@@ -900,11 +934,11 @@ class JOIN {
 
     @param thd
     @param curr_slice current slice in ref_items.
-    
+
     @return false if successful
   */
   bool rebuild_sum_funcs(THD *thd, uint curr_slice);
-  
+
   /**
     Rebuild aggregate functions for final_aggregate.
 
@@ -913,8 +947,9 @@ class JOIN {
     @param avg_count number of Item_sum_avg
   */
   bool rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count);
+#endif /* defined(HAVE_PX) */
 
-private:
+ private:
   /**
     Create a temporary table to be used for processing DISTINCT/ORDER
     BY/GROUP BY.
@@ -931,31 +966,34 @@ private:
 
     @returns false on success, true on failure
   */
+#if defined(HAVE_PX)
  public:
+#endif /* defined(HAVE_PX) */
   bool create_intermediate_table(QEP_TAB *tab,
                                  const mem_root_deque<Item *> &tmp_table_fields,
                                  ORDER_with_src &tmp_table_group,
                                  bool save_sum_fields);
 
+#if defined(HAVE_PX)
   /**
    * @brief Create a intermediate table to be used by exchange
-   * 
+   *
    * @param[in,out] exchange_info
-   * @param[in,out] tmp_table_fields 
-   * @param[in] save_sum_fields 
+   * @param[in,out] tmp_table_fields
+   * @param[in] save_sum_fields
    * @return true on failure, false on success
    */
   bool create_exchange_intermediate_table(
       Exchange_Info *exchange_info,
       const mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields);
-
+ private:
+#endif /* defined(HAVE_PX) */
   /**
     Optimize distinct when used on a subset of the tables.
 
     E.g.,: SELECT DISTINCT t1.a FROM t1,t2 WHERE t1.b=t2.b
     In this case we can stop scanning t2 when we have found one t1.a
   */
- private:
   void optimize_distinct();
 
   /**
@@ -1099,9 +1137,11 @@ private:
 
   bool alloc_indirection_slices();
 
+#if defined(HAVE_PX)
   bool choose_parallel_table(QEP_TAB *parallel_tab);
 
   bool check_expression_parallel_safe();
+#endif /* defined(HAVE_PX) */
   /**
     Convert the executor structures to a set of access paths, storing
     the result in m_root_access_path.

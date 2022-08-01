@@ -31,9 +31,11 @@
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "my_table_map.h"
-#include "sql/join_optimizer/access_path.h"
 #include "sql/sort_param.h"
+
+#if defined(HAVE_PX)
 #include "sql/join_optimizer/access_path.h"
+#endif /* defined(HAVE_PX) */
 
 class Addon_fields;
 class Field;
@@ -51,19 +53,22 @@ enum class Addon_fields_status;
   Sorting related info.
 */
 class Filesort {
+#if defined(HAVE_PX)
   friend bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join,
     AccessPath *path, int ref_slice);
- 
+
   friend void FixSortAccessPath(JOIN *join, AccessPath *path,
                                 TABLE *const new_table, int ref_slice);
-
+#endif /* defined(HAVE_PX) */
  public:
   THD *m_thd;
   /// The tables we are sorting.
   Mem_root_array<TABLE *> tables;
 
+#if defined(HAVE_PX)
   ///  List of expressions to order the table by
   ORDER *m_order;
+#endif /* defined(HAVE_PX) */
 
   /// If true, do not free the filesort buffers (use if you expect to sort many
   /// times, like in an uncacheable subquery).
@@ -105,9 +110,11 @@ class Filesort {
   /// circumstances (see NewWeedoutAccessPathForTables()).
   void clear_addon_fields();
 
+#if defined(HAVE_PX)
   uint px_make_sortorder(ORDER *order, bool unwrap_rollup) {
     return make_sortorder(order, unwrap_rollup);
   }
+#endif /* defined(HAVE_PX) */
 
  private:
   /* Prepare ORDER BY list for sorting. */

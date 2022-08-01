@@ -52,7 +52,9 @@
 #include "prealloced_array.h"
 #include "sql/debug_sync.h"
 #include "sql/thr_malloc.h"
+#if defined(HAVE_PX)
 #include "sql/sql_class.h"
+#endif /* defined(HAVE_PX) */
 
 extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *system_charset_info;
 
@@ -4503,12 +4505,14 @@ void MDL_context::release_statement_locks() {
   release_locks_stored_before(MDL_STATEMENT, nullptr);
 }
 
+#if defined(HAVE_PX)
 void MDL_context::release_locks_for_parallel_worker() {
   DBUG_TRACE;
   for (int i = 0; i < MDL_DURATION_END; i++) {
     release_locks_stored_before((enum_mdl_duration)i, nullptr);
   }
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   Does this savepoint have this lock?

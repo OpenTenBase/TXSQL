@@ -76,9 +76,11 @@ void trans_reset_one_shot_chistics(THD *thd) {
     tst->set_isol_level(thd, TX_ISOL_INHERIT);
   }
 
+#if defined(HAVE_PX)
   if (thd->use_px && thd->need_fallback) {
     return;
   }
+#endif /* defined(HAVE_PX) */
 
   thd->tx_isolation = (enum_tx_isolation)thd->variables.transaction_isolation;
   thd->tx_read_only = thd->variables.transaction_read_only;

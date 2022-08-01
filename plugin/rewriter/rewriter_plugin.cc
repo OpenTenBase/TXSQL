@@ -44,7 +44,9 @@
 #include "plugin/rewriter/rule.h"  // Rewrite_result
 #include "plugin/rewriter/services.h"
 #include "template_utils.h"
+#if defined(HAVE_PX)
 #include "sql/mysqld.h"  // rewriter_plugin_reload_version
+#endif /* defined(HAVE_PX) */
 
 using std::string;
 
@@ -223,7 +225,9 @@ static int rewriter_plugin_init(MYSQL_PLUGIN plugin_ref) {
   status_var_reload_error = false;
   status_var_number_loaded_rules = 0;
   status_var_number_reloads = 0;
+#if defined(HAVE_PX)
   rewriter_plugin_reload_version = 0L;
+#endif /* defined(HAVE_PX) */
 
   rewriter = new Rewriter();
   /*
@@ -265,7 +269,9 @@ static bool reload(MYSQL_THD thd) {
 
 static bool lock_and_reload(MYSQL_THD thd) {
   mysql_rwlock_wrlock(&LOCK_table);
+#if defined(HAVE_PX)
   ++rewriter_plugin_reload_version;
+#endif /* defined(HAVE_PX) */
   status_var_reload_error = reload(thd);
   status_var_number_loaded_rules = rewriter->get_number_loaded_rules();
   ++status_var_number_reloads;

@@ -835,11 +835,13 @@ class Item : public Parse_tree_node {
   static void operator delete(void *, MEM_ROOT *,
                               const std::nothrow_t &) noexcept {}
 
+#if defined(HAVE_PX)
   /**
      Check the item is parallel safe or not.
      @retval true the item is parallel safe.
    */
   virtual bool parallel_safe() { return true; }
+#endif /* defined(HAVE_PX) */
 
   enum Type {
     INVALID_ITEM = 0,
@@ -1061,7 +1063,9 @@ class Item : public Parse_tree_node {
   ~Item() override = default;
 #endif
 
+#if defined(HAVE_PX)
   virtual bool pq_copy_item(THD *thd, Query_block *select, Item *item);
+#endif /* defined(HAVE_PX) */
 
  private:
   /*
@@ -2555,7 +2559,9 @@ class Item : public Parse_tree_node {
   virtual bool is_non_const_over_literals(uchar *) {
     return !basic_const_item();
   }
+#if defined(HAVE_PX)
   virtual bool check_compat_for_parallel(uchar *) { return false; }
+#endif /* defined(HAVE_PX) */
   /// Is this an Item_field which references the given Field argument?
   virtual bool find_field_processor(uchar *) { return false; }
   /// Wrap incompatible arguments in CAST nodes to the expected data types
@@ -3180,6 +3186,7 @@ class Item : public Parse_tree_node {
   /// Set the property: this item is a call to GROUPING
   void set_grouping_func() { m_accum_properties |= PROP_GROUPING_FUNC; }
 
+#if defined(HAVE_PX)
   /// @return true if this item or any of its decendents was an aggregated func.
   bool has_saved_aggregation() const { return m_accum_properties & PROP_SAVED_AGGREGATION; }
 
@@ -3188,6 +3195,7 @@ class Item : public Parse_tree_node {
 
   /// Reset the "has saved aggregation" property
   void reset_saved_aggregation() { m_accum_properties &= ~PROP_SAVED_AGGREGATION; }
+#endif /* defined(HAVE_PX) */
 
   /// Whether this Item was created by the IN->EXISTS subquery transformation
   virtual bool created_by_in2exists() const { return false; }
@@ -3421,11 +3429,13 @@ class Item : public Parse_tree_node {
     function.
   */
   static constexpr uint8 PROP_GROUPING_FUNC = 0x20;
+#if defined(HAVE_PX)
   /**
     Set if this item or any of its decendents was an aggregated func.
     PROP_AGGREGATION maybe reset in function count_field_types.
    */
   static constexpr uint8 PROP_SAVED_AGGREGATION = 0x40;
+#endif /* defined(HAVE_PX) */
   uint8 m_accum_properties;
 
  public:
@@ -5596,8 +5606,6 @@ class Item_result_field : public Item {
     raise_numeric_overflow(unsigned_flag ? "DECIMAL UNSIGNED" : "DECIMAL");
     return E_DEC_OVERFLOW;
   }
-
-  // bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 };
 
 class Item_ref : public Item_ident {
@@ -5653,7 +5661,14 @@ class Item_ref : public Item_ident {
         result_field(item->result_field),
         ref(item->ref) {}
   enum Type type() const override { return REF_ITEM; }
+#if defined(HAVE_PX)
   bool eq(const Item *item, bool binary_cmp) const override;
+#else
+  bool eq(const Item *item, bool binary_cmp) const override {
+    const Item *it = const_cast<Item *>(item)->real_item();
+    return ref && (*ref)->eq(it, binary_cmp);
+  }
+#endif /* defined(HAVE_PX) */
   double val_real() override;
   longlong val_int() override;
   longlong val_time_temporal() override;
@@ -6553,7 +6568,9 @@ class Item_cache : public Item_basic_constant {
     null_value = true;
   }
 
+#if defined(HAVE_PX)
   Item *get_example() { return example; }
+#endif /* defined(HAVE_PX) */
 
   void fix_after_pullout(Query_block *parent_query_block,
                          Query_block *removed_query_block) override {
@@ -6589,7 +6606,11 @@ class Item_cache : public Item_basic_constant {
   bool eq_def(const Field *field) {
     return cached_field != nullptr && cached_field->field->eq_def(field);
   }
+#if defined(HAVE_PX)
   bool eq(const Item *item, bool binary_cmp) const override;
+#else
+  bool eq(const Item *item, bool) const override { return this == item; }
+#endif /* defined(HAVE_PX) */
   /**
      Check if saved item has a non-NULL value.
      Will cache value of saved item if not already done.

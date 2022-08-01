@@ -528,7 +528,9 @@ static const SYMBOL symbols[] = {
     {SYM("PATH", PATH_SYM)},
     {SYM("PARSER", PARSER_SYM)},
     {SYM("PAGE", PAGE_SYM)},
+#if defined(HAVE_PX)
     {SYM("PARALLEL", PARALLEL)},
+#endif /* defined(HAVE_PX) */
     {SYM("PARTIAL", PARTIAL)},
     {SYM("PARTITION", PARTITION_SYM)},
     {SYM("PARTITIONING", PARTITIONING_SYM)},
@@ -958,7 +960,10 @@ static const SYMBOL symbols[] = {
     {SYM_H("NO_SORT_MERGE_JOIN", NO_SORT_MERGE_JOIN_HINT)},
     {SYM("RECYCLE_NAME", RECYCLE_NAME_SYM)},
     {SYM("RECYCLE_BIN", RECYCLE_BIN_SYM)},
+#if defined(HAVE_PX)
     {SYM_H("PARALLEL", PARALLEL_HINT)},
-    {SYM_H("NO_PARALLEL", NO_PARALLEL_HINT)}};
+    {SYM_H("NO_PARALLEL", NO_PARALLEL_HINT)}
+#endif /* defined(HAVE_PX) */
+    };
 
 #endif /* LEX_INCLUDED */

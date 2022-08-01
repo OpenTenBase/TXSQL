@@ -48,7 +48,10 @@
 #include "sql/sql_optimizer.h"
 #include "sql/table.h"
 #include "template_utils.h"
+
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_access_path.h"  // EquivalenceCheckHelper
+#endif /* defined(HAVE_PX) */
 
 using std::string;
 using std::vector;
@@ -90,6 +93,7 @@ struct ExplainData {
   vector<Child> children;
 };
 
+#if defined(HAVE_PX)
 struct PlanEquivalenceData {
   int level;
 
@@ -97,14 +101,15 @@ struct PlanEquivalenceData {
   /// By convention, if there are multiple ones (ie., we're doing a join),
   /// the outer iterator is listed first. So for a LEFT JOIN b, we'd list
   /// a before b.
-  vector<ExplainData::Child> coordinator_path_children;
+  std::vector<ExplainData::Child> coordinator_path_children;
 
   /// List of zero or more access paths which are direct children of this one.
   /// By convention, if there are multiple ones (ie., we're doing a join),
   /// the outer iterator is listed first. So for a LEFT JOIN b, we'd list
   /// a before b.
-  vector<ExplainData::Child> worker_path_children;
+  std::vector<ExplainData::Child> worker_path_children;
 };
+#endif /* defined(HAVE_PX) */
 
 string JoinTypeToString(JoinType join_type) {
   switch (join_type) {
@@ -529,18 +534,6 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       description.push_back(string("Table scan on ") +
                             path->table_scan().table->alias +
                             path->table_scan().table->file->explain_extra());
-      /*
-      QEP_TAB *tab = path->table_scan().qep_tab;
-      if (tab && tab->get_parallel_scan()) {
-        description.push_back(string("Parallel table scan on ") +
-                            path->table_scan().table->alias +
-                            path->table_scan().table->file->explain_extra());
-      } else {
-        description.push_back(string("Table scan on ") +
-                            path->table_scan().table->alias +
-                            path->table_scan().table->file->explain_extra());
-      }
-      */
       AddChildrenFromPushedCondition(path->table_scan().table, &children);
       break;
     }
@@ -700,18 +693,6 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       if (path->index_range_scan().reverse) {
         ret += " (reverse)";
       }
-      /*
-      TABLE *table = path->index_range_scan().table;
-      // TODO(sgunders): Convert QUICK_SELECT_I to RowIterator so that we can
-      // get better outputs here (similar to dbug_dump()).
-      QEP_TAB *tab = path->index_range_scan().qep_tab;
-      String str;
-      path->index_range_scan().quick->add_info_string(&str);
-      string ret = ((tab && tab->get_parallel_scan()) ?
-                    string("Parallel index range scan on ") :
-                    string("Index range scan on ")) +
-                    table->alias + " using " + to_string(str);
-      */
       if (table->file->pushed_idx_cond != nullptr) {
         ret += ", with index condition: " +
                ItemToString(table->file->pushed_idx_cond);
@@ -955,7 +936,9 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
     }
     case AccessPath::AGGREGATE: {
       string ret;
+#if defined(HAVE_PX)
       if (path->aggregate().px_agg_type == AggType::PX_FINAL_AGG) ret += "Final ";
+#endif /* defind(HAVE_PX) */
 
       if (join->grouped || join->group_optimized_away) {
         if (*join->sum_funcs == nullptr) {
@@ -993,9 +976,13 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       ExplainData table_explain = ExplainAccessPath(
           path->temptable_aggregate().table_path, join, include_costs);
       description = move(table_explain.description);
+#if defined(HAVE_PX)
       path->temptable_aggregate().px_agg_type == AggType::PX_FINAL_AGG ?
         description.emplace_back("Final Aggregate using temporary table") :
         description.emplace_back("Aggregate using temporary table");
+#else
+      description.emplace_back("Aggregate using temporary table");
+#endif /* defined(HAVE_PX) */
       children.push_back({path->temptable_aggregate().subquery_path});
       break;
     }
@@ -1196,6 +1183,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       children.push_back({path->update_rows().child});
       break;
     }
+#if defined(HAVE_PX)
     case AccessPath::PX_RECEIVE: {
       PX_exchange_info *exchange_info = path->px_receiver().exchange_info;
       assert(exchange_info);
@@ -1220,12 +1208,16 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       children.push_back({path->px_receiver_merge().child});
       break;
     }
+#endif /* defined_HAVE_PX) */
   }
+
+#if defined(HAVE_PX)
   if (path->type == AccessPath::PX_RECEIVE ||
       path->type == AccessPath::PX_SEND ||
       path->type == AccessPath::PX_RECEIVER_MERGE) {
     return {description, children};
   }
+#endif /* defined(HAVE_PX) */
   if (include_costs && path->num_output_rows >= 0.0) {
     double first_row_cost;
     if (path->num_output_rows <= 1.0) {
@@ -1296,9 +1288,10 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
   return {description, children};
 }
 
+#if defined(HAVE_PX)
 ExplainData GetChildrenFromAccessPath(const AccessPath *path, JOIN *join) {
-  vector<string> description;
-  vector<ExplainData::Child> children;
+  std::vector<string> description;
+  std::vector<ExplainData::Child> children;
   switch (path->type) {
     case AccessPath::TABLE_SCAN:
       AddChildrenFromPushedCondition(path->table_scan().table, &children);
@@ -1458,6 +1451,7 @@ ExplainData GetChildrenFromAccessPath(const AccessPath *path, JOIN *join) {
   }
   return {description, children};
 }
+#endif /* defined(HAVE_PX) */
 
 string PrintQueryPlan(int level, AccessPath *path, JOIN *join,
                       bool is_root_of_join,
@@ -1573,6 +1567,7 @@ string GetForceSubplanToken(AccessPath *path, JOIN *join) {
   return ret;
 }
 
+#if defined(HAVE_PX)
 PlanEquivalenceData CheckAndExplainAccessPath(
     const AccessPath *coordinator_path,
     JOIN *coordinator_join,
@@ -1733,3 +1728,4 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
 
   return true;
 }
+#endif /* defined(HAVE_PX) */

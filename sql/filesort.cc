@@ -110,9 +110,12 @@
 #include "sql/thr_malloc.h"
 #include "sql/tztime.h"
 #include "sql_string.h"
+#include "template_utils.h"
+
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_receiver_merge.h"
 #include "sql/parallel_execution/px_codec.h"
-#include "template_utils.h"
+#endif /* defined(HAVE_PX) */
 
 using std::max;
 using std::min;
@@ -669,7 +672,9 @@ Filesort::Filesort(THD *thd, Mem_root_array<TABLE *> tables_arg,
                    bool unwrap_rollup)
     : m_thd(thd),
       tables(std::move(tables_arg)),
+#if defined(HAVE_PX)
       m_order(order),
+#endif /* defined(HAVE_PX) */
       keep_buffers(keep_buffers_arg),
       limit(limit_arg),
       sortorder(nullptr),
@@ -2415,6 +2420,7 @@ void change_double_for_sort(double nr, uchar *to) {
 #endif
 }
 
+#if defined(HAVE_PX)
 /**
   compare the record of two workers in PX_receiver_merge
   @param a the ID of first worker
@@ -2483,3 +2489,4 @@ bool heap_compare_records(uint a, uint b, void *arg) {
     return cmp < 0;
   }
 }
+#endif /* defined(HAVE_PX) */

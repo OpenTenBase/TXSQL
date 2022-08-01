@@ -1,6 +1,7 @@
 #include "px_explain.h"
 
 #include "sql/join_optimizer/access_path.h"
+#include "sql/sql_optimizer.h"
 #include "sql/sql_select.h"
 #include "sql/sql_optimizer.h"
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice

@@ -342,9 +342,6 @@
 #define HAVE_SYS_TYPES_H 1
 #define SIZEOF_CHAR 1
 
-#define HAVE_OPT_CTX 1
-#define HAVE_OPT_STATS 1
-
 /* For --secure-file-priv */
 #cmakedefine DEFAULT_SECURE_FILE_PRIV_DIR @DEFAULT_SECURE_FILE_PRIV_DIR@
 #cmakedefine HAVE_LIBNUMA 1
@@ -364,5 +361,8 @@
 
 /* ARM crc32 support */
 #cmakedefine HAVE_ARMV8_CRC32_INTRINSIC @HAVE_ARMV8_CRC32_INTRINSIC@
+
+#cmakedefine HAVE_OPT_CTX 1
+#cmakedefine HAVE_PX 1
 
 #endif

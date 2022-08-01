@@ -217,11 +217,15 @@ extern unsigned long txsql_max_parallel_worker_threads;
        optimizer rule repositiory init version assertions (init_file.test).
     3. The intercepting client is attached.
  */
+#if defined(HAVE_PX)
 #define OPT_CTX_ENABLED(thd) \
   (txsql_max_parallel_worker_threads > 0 && \
    txsql_parallel_execution_enabled && \
    (thd)->system_thread == NON_SYSTEM_THREAD && \
    (thd)->opt_ctx_client)
+#else
+#define OPT_CTX_ENABLED(thd) false
+#endif /* defined(HAVE_PX) */
 /// Access to the interceptor, assuming the protection of OPT_CTX_ENABLED().
 #define OPT_CTX(thd) (*(thd)->opt_ctx_client)
 

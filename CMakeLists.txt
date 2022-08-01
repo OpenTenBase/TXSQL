@@ -1102,6 +1102,12 @@ if(WITH_PPOLL)
   SET(HAVE_PPOLL 1) 
 endif()
 
+OPTION(WITH_PX "Enable parallel execution" ON)
+IF(WITH_PX)
+  SET(HAVE_PX 1)
+  SET(HAVE_OPT_CTX 1)
+ENDIF()
+
 OPTION(WITH_ASAN "Enable address sanitizer" OFF)
 IF(WITH_ASAN)
   IF(WIN32_CLANG)

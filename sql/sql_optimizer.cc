@@ -985,10 +985,12 @@ bool JOIN::optimize(bool finalize_access_paths) {
 
   count_field_types(query_block, &tmp_table_param, *fields, false, false);
 
+#if defined(HAVE_PX)
   if (query_expression()->exchange_inject && rollup_state == RollupState::NONE &&
       !m_windowing_steps && m_windows.elements == 0) {
     exchange_inject = true;
   }
+#endif /* defined(HAVE_PX) */
 
   create_access_paths();
 

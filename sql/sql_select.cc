@@ -125,21 +125,23 @@
 #include "sql/temp_table_param.h"
 #include "sql/thd_raii.h"
 #include "sql/window.h"  // ignore_gaf_const_opt
-#include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
-#include "sql/parallel_execution/px_executor.h"  // PX_coordinator
-#include "sql/parallel_execution/px_workerpool.h"  // worker_pool
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX Auto_optimization_scope
 #endif
+#if defined(HAVE_PX)
+#include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
+#include "sql/parallel_execution/px_executor.h"  // PX_coordinator
+#include "sql/parallel_execution/px_workerpool.h"  // worker_pool
 #include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/parallel_execution/px_access_path.h"  // MAX_EXCHANGE_NUM
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/log.h"
+#include "my_alloc.h" // destory
+#endif /* defined(HAVE_PX) */
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_lock.h"
-#include "my_alloc.h" // destory
 
 using std::max;
 using std::min;
@@ -205,8 +207,12 @@ static inline bool is_timer_applicable_to_statement(THD *thd) {
           (have_statement_timeout == SHOW_OPTION_YES) && !thd->slave_thread &&
           !thd->timer &&
           (thd->lex->max_execution_time || thd->variables.max_execution_time) &&
-          !thd->sp_runtime_ctx &&
-          PX_ROLE_USER(thd));
+          !thd->sp_runtime_ctx
+#if defined(HAVE_PX)
+          &&
+          PX_ROLE_USER(thd)
+#endif /* defined(HAVE_PX) */
+          );
 }
 
 /**
@@ -450,7 +456,11 @@ bool Sql_cmd_dml::prepare(THD *thd) {
   }
 
   // Perform a coarse statement-specific privilege check.
+#if defined(HAVE_PX)
   if (PX_ROLE_USER(thd) && precheck(thd)) goto err;
+#else
+  if (precheck(thd)) goto err;
+#endif /* defined(HAVE_PX) */
 
   // Trigger out_of_memory condition inside open_tables_for_query()
   DBUG_EXECUTE_IF("sql_cmd_dml_prepare__out_of_memory",
@@ -884,12 +894,14 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   // Calculate the current statement cost.
   accumulate_statement_cost(lex);
 
+#if defined(HAVE_PX)
   // Fallback to serial if txsql_parallel_fallback_in_execution is on.
   if (!lex->is_explain() && thd->use_px && txsql_parallel_fallback_in_execution) {
     thd->need_fallback = true;
     my_error(ER_PX_FALLBACK_SERIAL_EXECUTION, MYF(0));
     return true;
   }
+#endif /* defined(HAVE_PX) */
 
   /*
     FIXME: use cost threshold as a prerequiste rather than a postfix to avoid
@@ -922,6 +934,7 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   }
 #endif
 
+#if defined(HAVE_PX)
   int64_t requested_cores = 0;
   /*
     The root join may be null for some scenarios for SELECT_LEX_UNIT contains
@@ -942,8 +955,10 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     thd->need_fallback = true; // fall back to serial execution.
     return true;
   }
+#endif /* defined(HAVE_PX) */
 
   if (lex->is_explain()) {
+#if defined(HAVE_PX)
     bool res = false;
     if (thd->use_px) {
       res = px_explain_init(thd, PX_ROOT_ACCESS_PATH(unit),
@@ -963,6 +978,9 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     } else {
       if (px_execute_in_worker(thd)) return true;
     }
+#else
+    if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
+#endif /* defined(HAVE_PX) */
   } else {
     if (unit->execute(thd)) return true;
 
@@ -1760,6 +1778,7 @@ static void destroy_sj_tmp_tables(JOIN *join) {
   join->sj_tmp_tables.clear();
 }
 
+#if defined(HAVE_PX)
 /*
   Destroy all temporary tables created by exchange
 */
@@ -1781,6 +1800,7 @@ static void destroy_exchange_tmp_tables(JOIN *join) {
   }
   join->exchange_tmp_tables.clear();
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   Remove all rows from all temp tables used by NL-semijoin runtime
@@ -1798,6 +1818,7 @@ bool JOIN::clear_sj_tmp_tables() {
   return false;
 }
 
+#if defined(HAVE_PX)
 /**
   Remove all rows from all temp tables used by exchange
 
@@ -1813,7 +1834,7 @@ bool JOIN::clear_exchange_tmp_tables() {
   }
   return false;
 }
-
+#endif /* defined(HAVE_PX) */
 
 /// Empties all correlated materialized derived tables
 bool JOIN::clear_corr_derived_tmp_tables() {
@@ -1861,7 +1882,9 @@ void JOIN::reset() {
     }
   }
   clear_sj_tmp_tables();
+#if defined(HAVE_PX)
   clear_exchange_tmp_tables();
+#endif /* defined(HAVE_PX) */
   set_ref_item_slice(REF_SLICE_SAVED_BASE);
 
   if (qep_tab) {
@@ -1977,7 +2000,9 @@ void JOIN::destroy() {
   // Run Cached_item DTORs!
   group_fields.destroy_elements();
   semijoin_deduplication_fields.destroy_elements();
+#if defined(HAVE_PX)
   final_group_feilds.destroy_elements();
+#endif /* defined(HAVE_PX) */
 
   tmp_table_param.cleanup();
 
@@ -1985,12 +2010,14 @@ void JOIN::destroy() {
   if (tmp_fields != nullptr) {
     cleanup_item_list(tmp_fields[REF_SLICE_TMP1]);
     cleanup_item_list(tmp_fields[REF_SLICE_TMP2]);
+#if defined(HAVE_PX)
     cleanup_item_list(tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
     cleanup_item_list(tmp_fields[REF_SLICE_SAVED_TMP1]);
     cleanup_item_list(tmp_fields[REF_SLICE_SAVED_ORDERED_GROUP_BY]);
     cleanup_item_list(tmp_fields[REF_SLICE_EXCHANGE_1]);
     cleanup_item_list(tmp_fields[REF_SLICE_EXCHANGE_2]);
     cleanup_item_list(tmp_fields[REF_SLICE_EXCHANGE_3]);
+#endif /* defined(HAVE_PX) */
     for (uint widx = 0; widx < m_windows.elements; widx++) {
       cleanup_item_list(tmp_fields[REF_SLICE_WIN_1 + widx]);
     }
@@ -2004,7 +2031,9 @@ void JOIN::destroy() {
   if (const_tables > 0) query_block->update_used_tables();
 
   destroy_sj_tmp_tables(this);
+#if defined(HAVE_PX)
   destroy_exchange_tmp_tables(this);
+#endif /* defined(HAVE_PX) */
 
   List_iterator<Semijoin_mat_exec> sjm_list_it(sjm_exec_list);
   Semijoin_mat_exec *sjm;
@@ -2020,6 +2049,7 @@ void JOIN::destroy() {
     rollup_sums.shrink_to_fit();
   }
 
+#if defined(HAVE_PX)
   if (exchange_temp_table) {
     for (TABLE *table : *exchange_temp_table) {
       if (table->file != nullptr) {
@@ -2064,6 +2094,7 @@ void JOIN::destroy() {
     for (auto slice : px_plan_slices) ::destroy(slice);
   }
   px_plan_slices.clear();
+#endif /* defined(HAVE_PX) */
 }
 
 void JOIN::cleanup_item_list(const mem_root_deque<Item *> &items) const {
@@ -3631,20 +3662,6 @@ void QEP_TAB::cleanup() {
 
     close_tmp_table(t);
   }
-  // if (exchange_send && exchange_send->size()) {
-  //   DBUG_ASSERT(exchange_gather->size() == exchange_send->size());
-  //   for (auto exchanges : {exchange_send, exchange_gather}) {
-  //     for (auto exchange_info : *exchanges) {
-  //       if (exchange_info->table != nullptr &&
-  //           exchange_info->temp_table_param != nullptr) {
-  //         close_tmp_table(current_thd, exchange_info->table);
-  //         free_tmp_table(exchange_info->table);
-  //         destroy(exchange_info->temp_table_param);
-  //         exchange_info->temp_table_param = nullptr;
-  //       }
-  //     }
-  //   }
-  // }
 }
 
 void QEP_shared_owner::qs_cleanup() {
@@ -4061,7 +4078,9 @@ void count_field_types(const Query_block *query_block, Temp_table_param *param,
       param->func_count++;
       if (reset_with_sum_func) {
         field->reset_aggregation();
+#if defined(HAVE_PX)
         field->set_saved_aggregation();
+#endif /* defined(HAVE_PX) */
       }
       if (field->has_aggregation()) param->outer_sum_func_count++;
     }
@@ -4460,7 +4479,8 @@ bool JOIN::make_tmp_tables_info() {
   bool materialize_join = false;
   uint curr_tmp_table = const_tables;
   TABLE *exec_tmp_table = nullptr;
-  
+
+#if defined(HAVE_PX)
   // Save group list and order for parallel split.
   if (thd->lex->pass_px_check) {
     if (!group_list.empty()) {
@@ -4474,7 +4494,7 @@ bool JOIN::make_tmp_tables_info() {
       if (!saved_order) return true;
     }
   }
-
+#endif /* defined(HAVE_PX) */
   auto cleanup_tmp_tables_on_error =
       create_scope_guard([this, &curr_tmp_table] {
         if (qep_tab == nullptr) {
@@ -4553,7 +4573,9 @@ bool JOIN::make_tmp_tables_info() {
     if (alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) return true;
 
     copy_ref_item_slice(REF_SLICE_SAVED_BASE, REF_SLICE_ACTIVE);
+#if defined(HAVE_PX)
     tmp_fields[REF_SLICE_SAVED_BASE] = *fields;
+#endif /* defined(HAVE_PX) */
     current_ref_item_slice = REF_SLICE_SAVED_BASE;
 
     /*
@@ -4567,12 +4589,21 @@ bool JOIN::make_tmp_tables_info() {
     if (!simple_group && !(test_flags & TEST_NO_KEY_GROUP) && !with_json_agg)
       tmp_group = group_list;
 
+#if defined(HAVE_PX)
     tmp_table_param.hidden_field_count = CountHiddenFields(*curr_fields);
 
     if (create_intermediate_table(&qep_tab[curr_tmp_table], *curr_fields,
                                   tmp_group,
                                   !group_list.empty() && simple_group))
       return true;
+#else
+    tmp_table_param.hidden_field_count = CountHiddenFields(*fields);
+
+    if (create_intermediate_table(&qep_tab[curr_tmp_table], *fields, tmp_group,
+                                  !group_list.empty() && simple_group))
+      return true;
+#endif
+
     exec_tmp_table = qep_tab[curr_tmp_table].table();
 
     if (exec_tmp_table->s->is_distinct) optimize_distinct();
@@ -4595,6 +4626,7 @@ bool JOIN::make_tmp_tables_info() {
     if (alloc_ref_item_slice(thd, REF_SLICE_TMP1)) return true;
 
     // Change sum_fields reference to calculated fields in tmp_table
+#if defined(HAVE_PX)
     if (streaming_aggregation || qep_tab[curr_tmp_table].table()->group ||
         tmp_table_param.precomputed_group_by) {
       if (change_to_use_tmp_fields(fields, thd, ref_items[REF_SLICE_TMP1],
@@ -4608,6 +4640,20 @@ bool JOIN::make_tmp_tables_info() {
               query_block->m_added_non_hidden_fields))
         return true;
     }
+#else
+    if (streaming_aggregation || qep_tab[curr_tmp_table].table()->group ||
+        tmp_table_param.precomputed_group_by) {
+      if (change_to_use_tmp_fields(fields, thd, ref_items[REF_SLICE_TMP1],
+                                   &tmp_fields[REF_SLICE_TMP1]))
+        return true;
+    } else {
+      if (change_to_use_tmp_fields_except_sums(fields, thd, select_lex,
+                                               ref_items[REF_SLICE_TMP1],
+                                               &tmp_fields[REF_SLICE_TMP1]))
+        return true;
+    }
+#endif /* defined(HAVE_PX) */
+
     curr_fields = &tmp_fields[REF_SLICE_TMP1];
     // Need to set them now for correct group_fields setup, reset at the end.
     set_ref_item_slice(REF_SLICE_TMP1);
@@ -4666,7 +4712,6 @@ bool JOIN::make_tmp_tables_info() {
       }
       group_list.clean();
     }
-
     /*
       If we have different sort & group then we must sort the data by group
       and copy it to a second temporary table.

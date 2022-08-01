@@ -62,7 +62,9 @@ enum enum_parsing_context {
   CTX_INSERT_UPDATE,  ///< INSERT ... ON DUPLICATE KEY UPDATE ...
   CTX_JOIN,
   CTX_QEP_TAB,
+#if defined(HAVE_PX)
   CTX_FAKE_QEP_TAB,
+#endif /* defined(HAVE_PX) */
   CTX_MATERIALIZATION,
   CTX_DUPLICATES_WEEDOUT,
   CTX_DERIVED,                  ///< "Derived" subquery

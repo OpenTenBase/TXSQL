@@ -506,6 +506,7 @@ struct System_variables {
   uint txsql_extend_slow_log_level;
   ulonglong log_slow_verbosity;
 
+#if defined(HAVE_PX)
   /// @sa Sys_txsql_parallel_degree
   ulong txsql_parallel_degree;
   /// @sa Sys_txsql_parallel_table_record_threshold
@@ -520,12 +521,13 @@ struct System_variables {
   bool txsql_parallel_execution_enabled;
   /// @sa Sys_txsql_optimizer_context_max_mem_size
   ulong txsql_optimizer_context_max_mem_size;
-  /// @sa Sys_txsql_pread_count_enabled
-  bool txsql_pread_count_enabled;
   /// @sa Sys_txsql_parallel_execution_max_lob_size
   ulong txsql_parallel_execution_max_lob_size;
   /// @sa Sys_txsql_parallel_lob_enabled
   bool txsql_parallel_lob_enabled;
+#endif /* HAVE_PX */
+  /// @sa Sys_txsql_pread_count_enabled
+  bool txsql_pread_count_enabled;
 };
 
 /**

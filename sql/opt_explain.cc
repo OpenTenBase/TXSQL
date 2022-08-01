@@ -104,7 +104,11 @@
 #include "sql/temp_table_param.h"  // Func_ptr
 #include "sql_string.h"
 #include "template_utils.h"
+
+#if defined(HAVE_PX)
+#include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "scope_guard.h" // create_scope_guard
+#endif /* defined(HAVE_PX) */
 
 class Opt_trace_context;
 
@@ -466,8 +470,12 @@ class Explain_join : public Explain_table_base {
                                  enum_parsing_context ctx);
   bool end_simple_sort_context(Explain_sort_clause clause,
                                enum_parsing_context ctx);
+#if defined(HAVE_PX)
   bool explain_qep_tab(size_t tab_num, PX_plan_slice *slice = nullptr);
   bool explain_plan_slice(PX_plan_slice *slice);
+#else
+  bool explain_qep_tab(size_t tab_num);
+#endif /* defined(HAVE_PX) */
 
  protected:
   bool shallow_explain() override;
@@ -799,6 +807,7 @@ bool Explain_no_table::explain_modify_flags() {
 
 /* Explain_union_result class functions
  * ****************************************/
+
 bool Explain_union_result::explain_id() { return false; }
 
 bool Explain_union_result::explain_table_name() {
@@ -1289,6 +1298,7 @@ bool Explain_join::shallow_explain() {
   if (begin_sort_context(ESC_BUFFER_RESULT, CTX_BUFFER_RESULT))
     return true; /* purecov: inspected */
 
+#if defined(HAVE_PX)
   /*
     If the query block is divided into plan slices for
     the format=traditional/json, explain each plan slice.
@@ -1298,6 +1308,7 @@ bool Explain_join::shallow_explain() {
       if (explain_plan_slice(plan_slice)) return true; /* purecov: inspected */
     goto end_context;
   }
+#endif /* defined(HAVE_PX) */
 
   for (size_t t = 0, cnt = fmt->is_hierarchical() ? join->primary_tables
                                                   : join->tables;
@@ -1305,7 +1316,9 @@ bool Explain_join::shallow_explain() {
     if (explain_qep_tab(t)) return true;
   }
 
+#if defined(HAVE_PX)
 end_context:
+#endif /* defined(HAVE_PX) */
   if (end_sort_context(ESC_BUFFER_RESULT, CTX_BUFFER_RESULT)) return true;
   if (end_sort_context(ESC_GROUP_BY, CTX_GROUP_BY)) return true;
   if (join->m_windowing_steps) {
@@ -1318,6 +1331,7 @@ end_context:
   return false;
 }
 
+#if defined(HAVE_PX)
 bool Explain_join::explain_plan_slice(PX_plan_slice *slice) {
   need_tmp_table = slice->get_explain_flags()->any(ESP_USING_TMPTABLE);
   need_order = slice->get_explain_flags()->any(ESP_USING_FILESORT);
@@ -1328,9 +1342,19 @@ bool Explain_join::explain_plan_slice(PX_plan_slice *slice) {
 
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
-bool Explain_join::explain_qep_tab(size_t tabnum, PX_plan_slice *slice) {
+#if defined(HAVE_PX)
+bool Explain_join::explain_qep_tab(size_t tabnum, PX_plan_slice *slice)
+#else
+bool Explain_join::explain_qep_tab(size_t tabnum)
+#endif /* defined(HAVE_PX) */
+  {
+#if defined(HAVE_PX)
   tab = slice ? slice->get_tab(tabnum) : join->qep_tab + tabnum;
+#else
+  tab = join->qep_tab + tabnum;
+#endif /* defined(HAVE_PX) */
   if (!tab->position()) return false;
   table = tab->table();
   usable_keys = tab->keys();
@@ -1356,8 +1380,12 @@ bool Explain_join::explain_qep_tab(size_t tabnum, PX_plan_slice *slice) {
   }
 
   Semijoin_mat_exec *const sjm = tab->sj_mat_exec();
+#if defined(HAVE_PX)
   const enum_parsing_context c = sjm ? CTX_MATERIALIZATION :
       tab->fake_qep_tab() ? CTX_FAKE_QEP_TAB : CTX_QEP_TAB;
+#else
+  const enum_parsing_context c = sjm ? CTX_MATERIALIZATION : CTX_QEP_TAB;
+#endif /* defined(HAVE_PX) */
 
   if (fmt->begin_context(c) || prepare_columns()) return true;
 
@@ -1521,6 +1549,8 @@ bool Explain_join::explain_rows_and_filtered() {
 
 bool Explain_join::explain_extra() {
   if (!tab) return false;
+
+#if defined(HAVE_PX)
   if (tab->get_parallel_scan()) {
     StringBuffer<64> buff(cs);
     buff.append_ulonglong(tab->get_parallel_workers());
@@ -1541,6 +1571,7 @@ bool Explain_join::explain_extra() {
       if (push_extra(ET_PARALLEL_MERGE)) return true;
     }
   }
+#endif /* defined(HAVE_PX) */
 
   if (tab->type() == JT_SYSTEM && tab->position()->rows_fetched == 0.0) {
     if (push_extra(ET_CONST_ROW_NOT_FOUND))
@@ -1559,9 +1590,11 @@ bool Explain_join::explain_extra() {
     else if (tab->type() == JT_RANGE || tab->type() == JT_INDEX_MERGE)
       keyno = used_index(range_scan_path);
 
-    if (!tab->fake_qep_tab() && explain_extra_common(range_scan_type, keyno)) {
-      return true;
-    }
+    if (
+#if defined(HAVE_PX)
+        !tab->fake_qep_tab() &&
+#endif  /* defined(HAVE_PX) */
+        explain_extra_common(range_scan_type, keyno)) return true;
 
     if (((tab->type() == JT_INDEX_SCAN || tab->type() == JT_CONST) &&
          table->covering_keys.is_set(tab->index())) ||
@@ -1652,7 +1685,11 @@ bool Explain_join::explain_extra() {
       if (push_extra(ET_USING_JOIN_BUFFER, buff)) return true;
     }
   }
-  if (!tab->fake_qep_tab() && fmt->is_hierarchical() && (!bitmap_is_clear_all(table->read_set) ||
+  if (
+#if defined(HAVE_PX)
+      !tab->fake_qep_tab() &&
+#endif /* defined(HAVE_PX) */
+      fmt->is_hierarchical() && (!bitmap_is_clear_all(table->read_set) ||
                                  !bitmap_is_clear_all(table->write_set))) {
     Field **fld;
     for (fld = table->field; *fld; fld++) {
@@ -1992,6 +2029,7 @@ bool explain_query_specification(THD *explain_thd, const THD *query_thd,
   JOIN *join = query_block->join;
   const bool other = (query_thd != explain_thd);
 
+#if defined(HAVE_PX)
   // cleanup plan slice after explain.
   auto slice_cleanup = create_scope_guard([join] {
     if (join && !join->px_plan_slices.empty()) {
@@ -1999,6 +2037,7 @@ bool explain_query_specification(THD *explain_thd, const THD *query_thd,
       join->px_plan_slices.clear();
     }
   });
+#endif /* defined(HAVE_PX) */
 
   if (!join || join->get_plan_state() == JOIN::NO_PLAN)
     return explain_no_table(explain_thd, query_thd, query_block,

@@ -113,11 +113,13 @@
 #include "storage/perfschema/terminology_use_previous.h"
 #include "template_utils.h"
 #include "thr_mutex.h"
+#if defined(HAVE_PX)
+#include "sql/parallel_execution/px_interface.h" // PX_ENABLED
 #include "parallel_execution/px_executor.h"  //PX_executor
+#endif /* defined(HAVE_PX) */
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 #endif
-#include "sql/parallel_execution/px_interface.h" // PX_ENABLED
 
 /* Changes from TXSQL start. */
 #include "rpl_handler.h"
@@ -1319,6 +1321,7 @@ void THD::cleanup(void) {
     additionally copy tickets from the coordinator when they are created.
     So they must release all metadata locks.
   */
+#if defined(HAVE_PX)
   if (!m_is_worker) {
     mdl_context.release_transactional_locks();
   } else {
@@ -1327,6 +1330,9 @@ void THD::cleanup(void) {
     assert(ull_hash.empty());
     ull_hash.clear();
   }
+#else
+  mdl_context.release_transactional_locks();
+#endif /* defined(HAVE_PX) */
 
   /* Release the global read lock, if acquired. */
   if (global_read_lock.is_acquired())
@@ -1565,6 +1571,7 @@ THD::~THD() {
 
   @note Do always call this while holding LOCK_thd_data.
 */
+
 void THD::awake(THD::killed_state state_to_set) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("this: %p current_thd: %p", this, current_thd));
@@ -1641,7 +1648,11 @@ void THD::awake(THD::killed_state state_to_set) {
   if (state_to_set != THD::NOT_KILLED) ha_kill_connection(this);
 
   /* Only the coordinator or non-px thread acts on behalf of the query. */
-  if (!m_is_worker && state_to_set == THD::KILL_TIMEOUT) {
+  if (
+#if defined(HAVE_PX)
+    !m_is_worker &&
+#endif /* defined(HAVE_PX) */
+    state_to_set == THD::KILL_TIMEOUT) {
     assert(!status_var_aggregated);
     status_var.max_execution_time_exceeded++;
   }
@@ -1686,6 +1697,7 @@ void THD::awake(THD::killed_state state_to_set) {
     mysql_mutex_unlock(&LOCK_current_cond);
   }
 
+#if defined(HAVE_PX)
   /*
     Propagate KILL to workers if the coordinator is killed.
 
@@ -1694,6 +1706,7 @@ void THD::awake(THD::killed_state state_to_set) {
    */
   if (!m_is_worker && use_px && px_executor)
     px_executor->notify_all_workers(state_to_set);
+#endif /* defined(HAVE_PX) */
 }
 
 /**
@@ -1909,8 +1922,10 @@ void THD::cleanup_after_query() {
 #if defined(HAVE_OPT_CTX)
   OPT_CTX(this).cleanup_after_query();
 #endif
+#if defined(HAVE_PX)
   use_px = false;
   px_trx = nullptr;
+#endif /* defined(HAVE_PX) */
 }
 
 /*
@@ -2375,13 +2390,17 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
     get_transaction()->get_transaction_write_set_ctx()->reset_savepoint_list();
   }
 
+#if defined(HAVE_OPT_CTX)
   OPT_CTX(this).begin_sub_statement();
+#endif
 }
 
 void THD::restore_sub_statement_state(Sub_statement_state *backup) {
   DBUG_TRACE;
 
+#if defined(HAVE_OPT_CTX)
   OPT_CTX(this).end_sub_statement();
+#endif
 
   /* BUG#33029, if we are replicating from a buggy master, restore
      auto_inc_intervals_forced so that the top statement can use the
@@ -2590,12 +2609,17 @@ void THD::debug_assert_query_locked() const {
 }
 
 void THD::set_query(LEX_CSTRING query_arg) {
-  assert(PX_ENABLED(this) || this == current_thd);
+  assert(
+#if defined(HAVE_PX)
+      PX_ENABLED(this) ||
+#endif /* defined(HAVE_PX) */
+      this == current_thd);
   mysql_mutex_lock(&LOCK_thd_query);
   m_query_string = query_arg;
   mysql_mutex_unlock(&LOCK_thd_query);
 }
 
+#if defined(HAVE_PX)
 bool THD::check_px_error()
 {
   bool ret = false;
@@ -2623,6 +2647,7 @@ void THD::collect_px_stmt_da_for_warnings()
                      worker_thd->get_stmt_da());
   }
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   Leave explicit LOCK TABLES or prelocked mode and restore value of

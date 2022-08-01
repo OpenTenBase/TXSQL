@@ -624,6 +624,8 @@ enum {
      table
   */
   REF_SLICE_TMP2,
+
+#if defined(HAVE_PX)
   /**
      The slice with pointers to columns of table about final aggregator.
   */
@@ -632,6 +634,8 @@ enum {
   REF_SLICE_SAVED_TMP1,
 
   REF_SLICE_SAVED_ORDERED_GROUP_BY,
+#endif /* defined(HAVE_PX) */
+
   /**
      The slice with pointers to columns of table(s), ie., the actual Items.
      Only used for queries involving temporary tables or the likes; for simple
@@ -639,10 +643,13 @@ enum {
      here. See REF_SLICE_ACTIVE for more discussion.
   */
   REF_SLICE_SAVED_BASE,
+
+#if defined(HAVE_PX)
   /**
       The slice with pointers to columns of 1st exchange tmp table.
   */
   REF_SLICE_EXCHANGE_1,
+
   /**
       The slice with pointers to columns of 2st exchange tmp table.
   */
@@ -651,6 +658,8 @@ enum {
       The slice with pointers to columns of 3st exchange tmp table.
   */
   REF_SLICE_EXCHANGE_3,
+#endif /* defined(HAVE_PX) */
+
   /**
      The slice with pointers to columns of 1st tmp table of windowing
   */

@@ -229,9 +229,11 @@ class Temp_table_param {
 
   void cleanup() { copy_fields.clear(); }
 
+#if defined(HAVE_PX)
   void pq_copy_from(Temp_table_param *orig_param);
 
   bool eq(const Temp_table_param *other) const;
+#endif /* defined(HAVE_PX) */
 };
 
 #endif  // TEMP_TABLE_PARAM_INCLUDED

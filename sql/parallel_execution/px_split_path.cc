@@ -3,6 +3,7 @@
 #include "sql/filesort.h"
 #include "sql/item_sum.h"
 #include "sql/join_optimizer/access_path.h"
+#include "sql/sql_optimizer.h"
 #include "sql/join_optimizer/walk_access_paths.h"
 #include "sql/sql_optimizer.h"
 #include "sql/sql_tmp_table.h"

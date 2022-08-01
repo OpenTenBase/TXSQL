@@ -12035,11 +12035,15 @@ ER_READ_TIME_AND_GTS_FROM_RELAYLOG_FAILED
 ER_READ_TIME_AND_GTS_FROM_PREV
   eng "Can't read latest time and gts in current file : %s, move to previous one"
 
+#if defined(HAVE_PX)
+
 ER_IB_ERR_PX_OOM
   eng "%s"
 
 ER_PX_THREAD_HANDLING_OOM
   eng "Could not allocate memory for parallel thread handling"
+
+#endif /* defined(HAVE_PX) */
 
 #
 # End of server-to-error-log message for CDB 8.0.

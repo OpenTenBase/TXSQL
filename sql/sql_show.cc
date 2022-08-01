@@ -137,7 +137,9 @@
 #include "sql/trigger.h"                   // Trigger
 #include "sql/tztime.h"                    // my_tz_SYSTEM
 #include "sql/opt_outline_loader.h"
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_workerpool.h"  // worker arg
+#endif /* defined(HAVE_PX) */
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_lock.h"
@@ -602,7 +604,11 @@ bool Sql_cmd_show_processlist::execute_inner(THD *thd) {
                           thd->security_context()->check_access(PROCESS_ACL)
                               ? NullS
                               : thd->security_context()->priv_user().str,
-                          m_verbose, true, m_detail, m_parallel);
+                          m_verbose, true, m_detail
+#if defined(HAVE_PX)
+                         , m_parallel
+#endif /* defined(HAVE_PX) */
+                         );
     return false;
   }
 }
@@ -2869,10 +2875,12 @@ class thread_info {
 class thread_info_compare {
  public:
   bool operator()(const thread_info *p1, const thread_info *p2) {
+#if defined(HAVE_PX)
     if (p1->coord_thread_id != p2->coord_thread_id)
       return p1->coord_thread_id < p2->coord_thread_id;
     else // compare thread id when coordinator id is same.
-      return p1->thread_id < p2->thread_id;
+#endif /* defined(HAVE_PX) */
+    return p1->thread_id < p2->thread_id;
   }
 };
 
@@ -3011,9 +3019,12 @@ class List_process_list : public Do_THD_Impl {
       thd_info->thread_id = inspect_thd->thread_id();
 
       /* USER */
+#if defined(HAVE_PX)
       if (inspect_thd->m_is_worker)
         thd_info->user = " ";
-      else if (inspect_sctx_user.str)
+      else
+#endif /* defined(HAVE_PX) */
+      if (inspect_sctx_user.str)
         thd_info->user = m_client_thd->mem_strdup(inspect_sctx_user.str);
       else if (inspect_thd->system_thread)
         thd_info->user = "system user";
@@ -3021,10 +3032,13 @@ class List_process_list : public Do_THD_Impl {
         thd_info->user = "unauthenticated user";
 
       /* HOST */
+#if defined(HAVE_PX)
       if (inspect_thd->m_is_worker)
       {
         thd_info->host = " ";
-      } else
+      } 
+      else
+#endif /* defined(HAVE_PX) */
       if (inspect_thd->peer_port &&
           (inspect_sctx_host.length || inspect_sctx->ip().length) &&
           m_client_thd->security_context()->host_or_ip().str[0]) {
@@ -3049,21 +3063,29 @@ class List_process_list : public Do_THD_Impl {
     });
     /* DB */
     mysql_mutex_lock(&inspect_thd->LOCK_thd_data);
-    if (!inspect_thd->m_is_worker) {
-      const char *db = inspect_thd->db().str;
-      if (db) thd_info->db = m_client_thd->mem_strdup(db);
-    } else {
+#if defined(HAVE_PX)
+    if (inspect_thd->m_is_worker) {
       thd_info->db = " ";
+    } else {
+#endif /* defined(HAVE_PX) */
+    const char *db = inspect_thd->db().str;
+    if (db) thd_info->db = m_client_thd->mem_strdup(db);
+#if defined(HAVE_PX)
     }
+#endif /* defined(HAVE_PX) */
 
     /* COMMAND */
+#if defined(HAVE_PX)
     if (!inspect_thd->m_is_worker) {
-      if (inspect_thd->killed == THD::KILL_CONNECTION)
-        thd_info->proc_info = "Killed";
-      thd_info->command = (int)inspect_thd->get_command();  // Used for !killed.
-    } else {
       thd_info->proc_info = inspect_thd->is_running_task ? "Task" : "Wait";
+    } else {
+#endif /* defined(HAVE_PX) */
+    if (inspect_thd->killed == THD::KILL_CONNECTION)
+      thd_info->proc_info = "Killed";
+    thd_info->command = (int)inspect_thd->get_command();  // Used for !killed.
+#if defined(HAVE_PX)
     }
+#endif /* defined(HAVE_PX) */
 
     /* STATE */
     thd_info->state_info = thread_state_info(m_client_thd, inspect_thd);
@@ -3072,7 +3094,24 @@ class List_process_list : public Do_THD_Impl {
 
     /* INFO */
     mysql_mutex_lock(&inspect_thd->LOCK_thd_query);
-    if (!inspect_thd->m_is_worker) {
+#if defined(HAVE_PX)
+    if (inspect_thd->m_is_worker) {
+      char *q = static_cast<char *>(m_client_thd->alloc(128));
+      if (q) {
+        if (inspect_thd->is_running_task) {
+          snprintf(q, 128, "connection %d, worker %d, task %d",
+            inspect_thd->px_coordinator->thread_id(), inspect_thd->worker_id,
+            inspect_thd->worker_arg->task_id);
+        } else {
+          snprintf(q, 128, "connection %d, worker %d",
+            inspect_thd->px_coordinator->thread_id(), inspect_thd->worker_id);
+        }
+        thd_info->query_string =
+            CSET_STRING(q, q ? 128 : 0, inspect_thd->charset());
+      }
+    } else
+#endif /* defined(HAVE_PX) */
+    {
       const char *query_str = nullptr;
       size_t query_length = 0;
 
@@ -3112,20 +3151,6 @@ class List_process_list : public Do_THD_Impl {
         thd_info->query_string =
             CSET_STRING(q, q ? width : 0, inspect_thd->charset());
       }
-    } else {
-      char *q = static_cast<char *>(m_client_thd->alloc(128));
-      if (q) {
-        if (inspect_thd->is_running_task) {
-          snprintf(q, 128, "connection %d, worker %d, task %d",
-            inspect_thd->px_coordinator->thread_id(), inspect_thd->worker_id,
-            inspect_thd->worker_arg->task_id);
-        } else {
-          snprintf(q, 128, "connection %d, worker %d",
-            inspect_thd->px_coordinator->thread_id(), inspect_thd->worker_id);
-        }
-        thd_info->query_string =
-            CSET_STRING(q, q ? 128 : 0, inspect_thd->charset());
-      }
     }
     mysql_mutex_unlock(&inspect_thd->LOCK_thd_query);
 
@@ -3136,6 +3161,7 @@ class List_process_list : public Do_THD_Impl {
     thd_info->to_per_thread = inspect_thd->to_per_thread;
     thd_info->to_thread_pool = inspect_thd->to_thread_pool;
 
+#if defined(HAVE_PX)
     thd_info->coord_thread_id = inspect_thd->m_is_worker ?
       inspect_thd->px_coordinator->thread_id() : inspect_thd->thread_id();
 
@@ -3145,6 +3171,9 @@ class List_process_list : public Do_THD_Impl {
     } else if (!inspect_thd->m_is_worker) { // not show parallel worker threads.
       m_thread_infos->push_back(thd_info);
     } else { /*do nothing.*/ }
+#else
+    m_thread_infos->push_back(thd_info);
+#endif /* defined(HAVE_PX) */
   }
 };
 
@@ -3159,8 +3188,12 @@ class List_process_list : public Do_THD_Impl {
                     explicitly with my_eof() call.
 */
 
-void mysqld_list_processes(THD *thd, const char *user, bool verbose,
-                           bool has_cursor, bool detail, bool parallel) {
+void mysqld_list_processes(THD *thd, const char *user,
+                           bool verbose, bool has_cursor, bool detail
+#if defined(HAVE_PX)
+                           , bool parallel
+#endif /* defined(HAVE_PX) */
+                           ) {
   Item *field;
   mem_root_deque<Item *> field_list(thd->mem_root);
   Thread_info_array thread_infos(thd->mem_root);

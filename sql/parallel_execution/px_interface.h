@@ -11,6 +11,8 @@
 
 #if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"
+#else
+#error "Optimization context is required by parallel execution."
 #endif
 
 #include "sql/sql_class.h"  // THD, because it is used by PX_ macros.

@@ -343,6 +343,7 @@ SET(SQL_GIS_SOURCES
   options_parser.cc
 )
 
+IF(HAVE_PX)
 SET(SQL_PX_SOURCES
   parallel_execution/px.cc
   parallel_execution/px_access_path.cc
@@ -364,6 +365,7 @@ SET(SQL_PX_SOURCES
   parallel_execution/px_explain.cc
   parallel_execution/px_split_path.cc
 )
+ENDIF()
 
 SET(SQL_SHARED_SOURCES
   auth/auth_acls.cc

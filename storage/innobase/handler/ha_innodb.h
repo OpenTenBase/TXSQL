@@ -40,7 +40,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0pread-histogram.h"
 #include "trx0trx.h"
 
+#if defined(HAVE_PX)
 class PX_reader;
+#endif /* defined(HAVE_PX) */
 
 /** "GEN_CLUST_INDEX" is the name reserved for InnoDB default
 system clustered index when there is no primary key. */
@@ -531,6 +533,7 @@ class ha_innobase : public handler {
   @param[in]      scan_ctx      A scan context created by parallel_scan_init. */
   void parallel_scan_end(void *scan_ctx) override;
 
+#if defined(HAVE_PX)
   int px_do_partition(uint dop, uint key, void *&scan_ctx, uint &partitions,
                       bool reverse_scan = false) override;
 
@@ -552,6 +555,7 @@ class ha_innobase : public handler {
   int px_scan_next(uchar *buf, void *scan_ctx) override;
 
   int px_scan_end(void *scan_ctx) override;
+#endif /* defined(HAVE_PX) */
 
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
                                   uint table_changes) override;
@@ -789,7 +793,9 @@ extern const struct _ft_vft ft_vft_result;
                           innodb_parallel_read_threads value. */
 ulong thd_parallel_read_threads(THD *thd);
 
+#if defined(HAVE_PX)
 ulong thd_txsql_parallel_partitions_per_worker(THD *thd);
+#endif /* defined(HAVE_PX) */
 
 /** Structure Returned by ha_innobase::ft_init_ext() */
 typedef struct new_ft_info {

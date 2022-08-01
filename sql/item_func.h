@@ -127,7 +127,9 @@ class Item_func : public Item_result_field {
   inline Item **arguments() const {
     return (argument_count() > 0) ? args : nullptr;
   }
+#if defined(HAVE_PX)
   virtual bool check_safe() { return true; }
+#endif /* defined(HAVE_PX) */
 
  protected:
   /*
@@ -296,9 +298,12 @@ class Item_func : public Item_result_field {
     MEMBER_OF_FUNC,
     STRCMP_FUNC,
     TRUE_FUNC,
-    FALSE_FUNC,
+    FALSE_FUNC
+#if defined(HAVE_PX)
+    ,
     JSON_FUNC,
     XML_FUNC
+#endif /* defined(HAVE_PX) */
   };
   enum optimize_type {
     OPTIMIZE_NONE,
@@ -538,6 +543,7 @@ class Item_func : public Item_result_field {
   void traverse_cond(Cond_traverser traverser, void *arg,
                      traverse_order order) override;
 
+#if defined(HAVE_PX)
   /*
     Check compatible for parallel execution, we forbid the item which can't
     be evaluated in the query.
@@ -547,6 +553,7 @@ class Item_func : public Item_result_field {
       if (!check_safe()) return true;
     return false;
   }
+#endif /* defined(HAVE_PX) */
 
   /**
      Throw an error if the input double number is not finite, i.e. is either
@@ -2060,7 +2067,9 @@ class Item_func_last_insert_id final : public Item_int_func {
     func_arg->banned_function_name = func_name();
     return true;
   }
+#if defined(HAVE_PX)
   virtual bool check_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_func_benchmark final : public Item_int_func {
@@ -3213,6 +3222,8 @@ class user_var_entry {
    */
   bool store(const void *ptr, size_t length, Item_result type,
              const CHARSET_INFO *cs, Derivation dv, bool unsigned_arg);
+
+#if defined(HAVE_PX)
   /**
     Copy value to user variable.
 
@@ -3226,6 +3237,8 @@ class user_var_entry {
       true    failure
    */
   bool store(const user_var_entry *from);
+#endif /* defined(HAVE_PX) */
+
   /**
     Set type of to the given value.
     @param type  Data type.
@@ -4158,6 +4171,8 @@ public:
 
 /* Changes from TXSQL end. */
 
+#if defined(HAVE_PX)
 user_var_entry *get_variable(THD *thd, const Name_string &name,
-                                    const CHARSET_INFO *cs);
+                             const CHARSET_INFO *cs);
+#endif /* defined(HAVE_PX) */
 #endif /* ITEM_FUNC_INCLUDED */

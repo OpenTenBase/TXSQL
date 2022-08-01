@@ -72,6 +72,7 @@ class List;
 template <typename Element_type>
 class Mem_root_array;
 
+#if defined(HAVE_PX)
 enum exchange_inject_position {
   EXCHANGE_NULL = 0,
   EXCHANGE_AFTER_JOIN,
@@ -96,6 +97,7 @@ struct Exchange_Info {
         ref_slice(-1),
         record(nullptr) {}
 };
+#endif /* defined(HAVE_PX) */
 
 /*
   Array of pointers to tables whose rowids compose the temporary table
@@ -377,13 +379,13 @@ class QEP_TAB : public QEP_shared_owner {
 
   bool pfs_batch_update(const JOIN *join) const;
 
+#if defined(HAVE_PX)
   void set_parallel_scan(bool parallel_scan) { m_parallel_scan = parallel_scan; }
   bool get_parallel_scan() const  { return m_parallel_scan; }
   void set_parallel_workers(uint workers) { m_parallel_workers = workers; }
   uint get_parallel_workers() const { return m_parallel_workers; }
   bool fake_qep_tab() { return exchange_type != Exchange_none; }
 
- public:
   enum Exchange_type {
     Exchange_none = 0,
     Exchange_sender,
@@ -410,13 +412,14 @@ class QEP_TAB : public QEP_shared_owner {
     return ret;
   }
 
- public:
   Exchange_type exchange_type{Exchange_none};
   uint px_exchange_id{UINT_MAX};
   mutable bool m_parallel_scan{false};
   /// parallel workers launched to scan the table.
   mutable uint m_parallel_workers{0};
+#endif /* defined(HAVE_PX) */
 
+ public:
   /// Pointer to table reference
   TABLE_LIST *table_ref;
 
@@ -542,6 +545,7 @@ class QEP_TAB : public QEP_shared_owner {
   // Temporary table for table sample @see JOIN::Init_sample_tables()
   TABLE *m_table_sample_tmp_table = nullptr;
   Temp_table_param *m_table_sample_tmp_table_param = nullptr;
+#if defined(HAVE_PX)
   // Pointer of exchange after this. Only one exchange(gather or sender) is
   // needed actually, in this demo we're simulating multithreading with a single
   // thread, so we need two exchange.
@@ -549,6 +553,7 @@ class QEP_TAB : public QEP_shared_owner {
   mem_root_deque<Exchange_Info *> *exchange_send = nullptr;
   uint curr_exchange_index = 0;
   bool use_exchange_after_all = false;
+#endif /* defined(HAVE_PX) */
 
   QEP_TAB(const QEP_TAB &);             // not defined
   QEP_TAB &operator=(const QEP_TAB &);  // not defined
@@ -610,6 +615,7 @@ void SplitConditions(Item *condition, QEP_TAB *current_table,
                      std::vector<PendingCondition> *join_conditions,
                      plan_idx semi_join_table_idx, qep_tab_map left_tables);
 
+#if defined(HAVE_PX)
 /**
   For a MATERIALIZE access path, move any non-basic iterators (e.g. sorts and
   filters) from table_path to above the path, for easier EXPLAIN and generally
@@ -624,6 +630,7 @@ void SplitConditions(Item *condition, QEP_TAB *current_table,
   path with the ZERO_ROWS path, since there is nothing to materialize.
  */
 AccessPath *MoveCompositeIteratorsFromTablePath(AccessPath *path);
+#endif /* defined(HAVE_PX) */
 
 AccessPath *GetAccessPathForDerivedTable(THD *thd, QEP_TAB *qep_tab,
                                          AccessPath *table_path);

@@ -118,6 +118,7 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
                              lob::undo_vers_t *lob_undo,
                              mem_heap_t *&blob_heap);
 
+#if defined(HAVE_PX)
 /** Helper class to cache clust_rec and old_ver */
 class Row_sel_get_clust_rec_for_mysql {
   const rec_t *cached_clust_rec;
@@ -153,6 +154,7 @@ class Row_sel_get_clust_rec_for_mysql {
                      const dtuple_t **vrow, mtr_t *mtr,
                      lob::undo_vers_t *lob_undo);
 };
+#endif /* defined(HAVE_PX) */
 
 /** Converts a key value stored in MySQL format to an Innobase dtuple. The last
 field of the key value may be just a prefix of a fixed length field: hence

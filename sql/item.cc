@@ -84,7 +84,9 @@
 #include "sql/system_variables.h"
 #include "sql/thd_raii.h"
 #include "sql/tztime.h"  // my_tz_UTC
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_access_path.h"  //EquivalenceCheckHelper
+#endif /* defined(HAVE_PX) */
 #include "template_utils.h"
 #include "typelib.h"
 #include "unsafe_string_append.h"
@@ -483,7 +485,6 @@ longlong Item::val_int_from_datetime() {
     });
   }
 }
-
 
 longlong Item::val_int_from_string() {
   assert(fixed);
@@ -1231,11 +1232,13 @@ void Item_name_string::copy(const char *str_arg, size_t length_arg,
 */
 
 bool Item::eq(const Item *item, bool) const {
+#if defined(HAVE_PX)
   if (current_thd && current_thd->m_equivalence_check_phase) {
     if (!item_name.is_set()) {
       return type() == item->type();
     }
   }
+#endif /* defined(HAVE_PX) */
   /*
     Note, that this is never true if item is a Item_param:
     for all basic constants we have special checks, and Item_param's
@@ -3053,8 +3056,8 @@ bool Item_field::eq(const Item *item, bool) const {
     where the semijoin-merged 'a' and the top query's 'a' are both named t1.a
     and coexist in the top query.
   */
-  if (fixed && item_field->fixed)
-  {
+  if (fixed && item_field->fixed) {
+#if defined(HAVE_PX)
     if (current_thd && current_thd->m_equivalence_check_phase) {
       // logical equivalence comparison in worker thd.
       if (!EquivalenceCheckHelper::eq_table_share(
@@ -3070,6 +3073,7 @@ bool Item_field::eq(const Item *item, bool) const {
       }
       return true;
     }
+#endif /* defined(HAVE_PX) */
 
     return base_item_field()->field == item_field->base_item_field()->field;
   }
@@ -4666,6 +4670,7 @@ Item *Item_param::clone_item() const {
 }
 
 bool Item_param::eq(const Item *arg, bool) const {
+#if defined(HAVE_PX)
   if (current_thd && current_thd->m_equivalence_check_phase) {
     // PARAM_ITEM
     if (type() == arg->type()) {
@@ -4688,6 +4693,7 @@ bool Item_param::eq(const Item *arg, bool) const {
     }
     return false;
   }
+#endif /* defined(HAVE_PX) */
 
   return this == arg;
 }
@@ -8268,6 +8274,7 @@ void Item_ref::cleanup() {
   result_field = nullptr;
 }
 
+#if defined(HAVE_PX)
 bool Item_ref::eq(const Item *item, bool binary_cmp) const {
   if (current_thd && current_thd->m_equivalence_check_phase) {
     if (item->type() == REF_ITEM) {
@@ -8279,6 +8286,7 @@ bool Item_ref::eq(const Item *item, bool binary_cmp) const {
   const Item *it = const_cast<Item *>(item)->real_item();
   return ref && (*ref)->eq(it, binary_cmp);
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   Transform an Item_ref object with a transformer callback function.
@@ -8637,6 +8645,7 @@ bool Item_view_ref::eq(const Item *item, bool) const {
     const Item_ref *item_ref = down_cast<const Item_ref *>(item);
     if (item_ref->ref_type() == VIEW_REF) {
       Item *item_ref_ref = *(item_ref->ref);
+#if defined(HAVE_PX)
       if (current_thd && current_thd->m_equivalence_check_phase) {
         bool db_name_eq = 
             (db_name && item_ref->db_name)
@@ -8649,6 +8658,7 @@ bool Item_view_ref::eq(const Item *item, bool) const {
         }
         return ref && (*ref)->eq(item_ref_ref, true);
       }
+#endif /* defined(HAVE_PX) */
       return ((*ref)->real_item() == item_ref_ref->real_item());
     }
   }
@@ -9535,6 +9545,7 @@ bool Item_cache::walk(Item_processor processor, enum_walk walk, uchar *arg) {
          ((walk & enum_walk::POSTFIX) && (this->*processor)(arg));
 }
 
+#if defined(HAVE_PX)
 bool Item_cache::eq(const Item *item, bool binary_cmp) const {
   if (current_thd && current_thd->m_equivalence_check_phase) {
     if (type() == item->type()) {
@@ -9555,6 +9566,7 @@ bool Item_cache::eq(const Item *item, bool binary_cmp) const {
   }
   return this == item;
 }
+#endif /* defined(HAVE_PX) */
 
 bool Item_cache::has_value() {
   if (value_cached || cache_value()) {
@@ -10546,6 +10558,7 @@ Item_values_column::Item_values_column(THD *thd, Item *ref) : super(thd, ref) {
 /* purecov: begin deadcode */
 
 bool Item_values_column::eq(const Item *item, bool binary_cmp) const {
+#if defined(HAVE_PX)
   if (current_thd && current_thd->m_equivalence_check_phase) {
     const Item *it = const_cast<Item *>(item)->real_item();
     if (type() == it->type()) {
@@ -10553,6 +10566,7 @@ bool Item_values_column::eq(const Item *item, bool binary_cmp) const {
     }
     return false;
   }
+#endif /* defined(HAVE_PX) */
   assert(false);
   const Item *it = const_cast<Item *>(item)->real_item();
   return m_value_ref && m_value_ref->eq(it, binary_cmp);

@@ -54,7 +54,6 @@ class ReadView {
  public:
   ReadView();
   ~ReadView();
-
   /** Check whether transaction id is valid.
   @param[in]    id              transaction id to check
   @param[in]    name            table name */
@@ -233,8 +232,10 @@ uint32_t get_state() const {
 
   /** Open a read view by cloning from another read view */
   void open_by_copy(ReadView *other);
+#if defined(HAVE_PX)
   /** Clone from another read view in parallel execution */
   void px_clone_from(const ReadView *other);
+#endif /* defined(HAVE_PX) */
 
 #ifdef UNIV_DEBUG
   /**
