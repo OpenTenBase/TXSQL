@@ -1,0 +1,63 @@
+#####################################################################
+#                                                                   #
+# Test for new txsql_parallel_cost_threshold.                       #
+#                                                                   #
+#####################################################################
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+--echo #
+--echo # Create tables
+--echo #
+create table t1(id int, col1 int, col2 int, primary key(id), key idx(col2));
+insert into t1 values(1,1,1);
+insert into t1 values(2,2,2);
+insert into t1 values(3,3,3);
+insert into t1 values(4,4,4);
+insert into t1 values(5,5,5);
+insert into t1 values(6,6,6);
+insert into t1 values(7,7,7);
+insert into t1 values(8,8,8);
+insert into t1 values(9,9,9);
+insert into t1 values(10,10,10);
+create table t2(id int, col1 int, col2 int, primary key(id), key idx(col2));
+insert into t2 values(1,1,1);
+insert into t2 values(2,2,2);
+insert into t2 values(3,3,3);
+insert into t2 values(4,4,4);
+insert into t2 values(5,5,5);
+insert into t2 values(6,6,6);
+insert into t2 values(7,7,7);
+insert into t2 values(8,8,8);
+insert into t2 values(9,9,9);
+insert into t2 values(10,10,10);
+analyze table t1,t2;
+
+let $1 = 0;
+while ($1 < 16)
+{
+--echo #
+--echo # Set cost threshold to $1.
+--echo #
+eval SET SESSION txsql_parallel_cost_threshold=$1;
+explain format=tree select col1 from t1;
+explain format=tree select t1.col1 from t1 join t2 on t1.col2=t2.col2 order by t1.col1;
+--echo # UNION
+explain format=tree (select * from t1 where id > 2) union all (select * from t2 where id > 3);
+--echo # Subquery
+set @old_optimizer_switch = @@optimizer_switch;
+set optimizer_switch='semijoin=on,materialization=on,loosescan=off,firstmatch=off,duplicateweedout=off,index_condition_pushdown=off,mrr=off';
+explain format=tree select * from t1 where col1 in (select col1 from t2 where col1 > 2);
+set optimizer_switch = @old_optimizer_switch;
+--echo # Derived table
+explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+let $2 = 5;
+while ($2)
+{
+inc $1;
+dec $2;
+}
+}
+
+drop table t1,t2;
+--source suite/parallel_execution/inc/set_px_to_saved.inc

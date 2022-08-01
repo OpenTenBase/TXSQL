@@ -817,6 +817,24 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
   set_optimized();  // All query blocks optimized, update the state
 
   if (thd->lex->unit == this) {
+    // Calculate the current statement cost. It will be made available in
+    // the Last_query_cost status variable.
+    accumulate_statement_cost(thd->lex);
+
+    /*
+      Use cost threshold as a prerequiste rather than a postfix to avoid
+      fallback overhead for small statements. It requires that parallel
+      optimization is completely after sequential optimization.
+
+      TODO: The test against cost theshold is not reliable. A postfix is
+      expected.
+     */
+    if (thd->lex->pass_px_check &&
+        thd->m_current_query_cost <
+            thd->variables.txsql_parallel_cost_threshold) {
+      thd->lex->pass_px_check = false;
+    }
+
     JOIN *join = fake_query_block ? fake_query_block->join
                                  : first_query_block()->join;
     if (px_optimize(thd, join, root_access_path())) {
