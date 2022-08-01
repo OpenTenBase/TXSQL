@@ -3602,7 +3602,13 @@ static void DisableEqRefCache(AccessPath *path) {
 }
 
 AccessPath *JOIN::create_root_access_path_for_join() {
-  if (select_count) {
+  /*
+    UnqualifiedCountAccessPath is an AccessPath for unqualified COUNT(*)
+    (ie., no WHERE, no join conditions, etc.), taking a special fast path
+    in the handler. It returns a single row. Ignore UnqualifiedCountAccessPath
+    if turn txsql_pread_count_enabled off.
+  */
+  if (thd->variables.txsql_pread_count_enabled && select_count) {
     return NewUnqualifiedCountAccessPath(thd);
   }
 
