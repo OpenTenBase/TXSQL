@@ -10,6 +10,7 @@
 --echo # 7) test copying resource of user()
 --echo # 8) test copying resource of last insert id
 --echo # 9) test ror scan of index dive cache
+--echo # 10) test copying user vars
 
 --source include/have_optimizer_trace.inc
 
@@ -292,5 +293,107 @@ where st_a=1 and swt1a=1 and swt2a=1 and st_b=1 and swt1b=1 and swt2b=1 limit 5;
 
 select * from t1
 where st_a=1 and swt1a=1 and swt2a=1 and st_b=1 and swt1b=1 and swt2b=1 limit 5;
+
+drop table t1;
+
+--echo
+--echo # 10) test copying user vars (note the case is blocked by check_px_execution now)
+--echo
+create table t1 (c1 int ,c2 int);
+
+set @arg01= 8;
+set @arg02= 8.0;
+set @arg03= 80.00000000000e-1;
+set @arg04= 'abc' ;
+set @arg05= CAST('abc' as binary) ;
+set @arg06= '1991-08-05' ;
+set @arg07= CAST('1991-08-05' as date);
+set @arg08= '1991-08-05 01:01:01' ;
+set @arg09= CAST('1991-08-05 01:01:01' as datetime) ;
+set @arg10= unix_timestamp('1991-01-01 01:01:01');
+set @arg11= YEAR('1991-01-01 01:01:01');
+# This first assignment to @arg<n> fixes the type of the variable
+# The second assignment sets the value to NULL, but it does not change
+# the numeric types.
+set @arg12= 8 ;
+set @arg12= NULL ;
+set @arg13= 8.0 ;
+set @arg13= NULL ;
+set @arg14= 'abc';
+set @arg14= NULL ;
+set @arg15= CAST('abc' as binary) ;
+set @arg15= NULL ;
+
+explain select
+8                           as const01, @arg01 as param01,
+8.0                         as const02, @arg02 as param02,
+80.00000000000e-1           as const03, @arg03 as param03,
+'abc'                       as const04, @arg04 as param04,
+CAST('abc' as binary)       as const05, @arg05 as param05,
+'1991-08-05'                as const06, @arg06 as param06,
+CAST('1991-08-05' as date)  as const07, @arg07 as param07,
+'1991-08-05 01:01:01'       as const08, @arg08 as param08,
+CAST('1991-08-05 01:01:01'  as datetime) as const09, @arg09 as param09,
+unix_timestamp('1991-01-01 01:01:01')    as const10, @arg10 as param10,
+YEAR('1991-01-01 01:01:01') as const11, @arg11 as param11,
+NULL                        as const12, @arg12 as param12,
+                                        @arg13 as param13,
+                                        @arg14 as param14,
+                                        @arg15 as param15,
+sum(c1) from t1;
+
+select
+8                           as const01, @arg01 as param01,
+8.0                         as const02, @arg02 as param02,
+80.00000000000e-1           as const03, @arg03 as param03,
+'abc'                       as const04, @arg04 as param04,
+CAST('abc' as binary)       as const05, @arg05 as param05,
+'1991-08-05'                as const06, @arg06 as param06,
+CAST('1991-08-05' as date)  as const07, @arg07 as param07,
+'1991-08-05 01:01:01'       as const08, @arg08 as param08,
+CAST('1991-08-05 01:01:01'  as datetime) as const09, @arg09 as param09,
+unix_timestamp('1991-01-01 01:01:01')    as const10, @arg10 as param10,
+YEAR('1991-01-01 01:01:01') as const11, @arg11 as param11,
+NULL                        as const12, @arg12 as param12,
+                                        @arg13 as param13,
+                                        @arg14 as param14,
+                                        @arg15 as param15,
+sum(c1) from t1;
+
+explain select
+  sum(c1) from t1
+where 8  = @arg01
+  and 8.0 = @arg02
+  and 80.00000000000e-1 = @arg03
+  and 'abc' = @arg04
+  and CAST('abc' as binary) = @arg05
+  and '1991-08-05' = @arg06
+  and CAST('1991-08-05' as date)  =  @arg07
+  and '1991-08-05 01:01:01' = @arg08
+  and CAST('1991-08-05 01:01:01'  as datetime) = @arg09
+  and unix_timestamp('1991-01-01 01:01:01') = @arg10
+  and YEAR('1991-01-01 01:01:01') = @arg11
+  and @arg12 is null
+  and @arg13 is null
+  and @arg14 is null
+  and @arg15 is null;
+
+select
+  sum(c1) from t1
+where 8  = @arg01
+  and 8.0 = @arg02
+  and 80.00000000000e-1 = @arg03
+  and 'abc' = @arg04
+  and CAST('abc' as binary) = @arg05
+  and '1991-08-05' = @arg06
+  and CAST('1991-08-05' as date)  =  @arg07
+  and '1991-08-05 01:01:01' = @arg08
+  and CAST('1991-08-05 01:01:01'  as datetime) = @arg09
+  and unix_timestamp('1991-01-01 01:01:01') = @arg10
+  and YEAR('1991-01-01 01:01:01') = @arg11
+  and @arg12 is null
+  and @arg13 is null
+  and @arg14 is null
+  and @arg15 is null;
 
 drop table t1;

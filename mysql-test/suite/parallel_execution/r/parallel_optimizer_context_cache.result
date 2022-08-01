@@ -10,6 +10,7 @@
 # 7) test copying resource of user()
 # 8) test copying resource of last insert id
 # 9) test ror scan of index dive cache
+# 10) test copying user vars
 
 # 1) test reading const table and handler::stats
 
@@ -159,7 +160,7 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
       "optimizer_statistics": [
         {
           "db": "test",
-          "table": "t2",
+          "table": "t1",
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -181,7 +182,7 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
         },
         {
           "db": "test",
-          "table": "t1",
+          "table": "t2",
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -470,10 +471,10 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
 }	0	0
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
 name	count(*)
-Iranizes	4181
 extramarital	4181
 gazer	4181
 gems	4181
+Iranizes	4181
 spates	4181
 tucked	4181
 violinist	4181
@@ -946,7 +947,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                   ],
                   "best_covering_index_scan": {
                     "index": "name",
-                    "cost": 4837.06,
+                    "cost": 4832.54,
                     "chosen": false,
                     "cause": "cost"
                   },
@@ -972,7 +973,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                         "using_mrr": false,
                         "index_only": true,
                         "rows": 7596,
-                        "cost": 881.166,
+                        "cost": 880.337,
                         "chosen": true
                       }
                     ],
@@ -991,7 +992,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                       ]
                     },
                     "rows_for_plan": 7596,
-                    "cost_for_plan": 881.166,
+                    "cost_for_plan": 880.337,
                     "chosen": true
                   }
                 }
@@ -1011,7 +1012,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                       "access_type": "ref",
                       "index": "name",
                       "rows": 7596,
-                      "cost": 881.156,
+                      "cost": 880.327,
                       "chosen": true
                     },
                     {
@@ -1026,7 +1027,7 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
                 },
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 7596,
-                "cost_for_plan": 881.156,
+                "cost_for_plan": 880.327,
                 "chosen": true
               }
             ]
@@ -1082,47 +1083,6 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
       "optimizer_statistics": [
         {
           "db": "test",
-          "table": "t2",
-          "table_statistics": {
-            "data_file_length": 16384,
-            "delete_length": 0,
-            "records": 9,
-            "deleted": 0,
-            "table_in_mem_estimate": 1
-          },
-          "index_statistics": [
-            {
-              "name": "PRIMARY",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "fld1",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "fld3",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                4.5,
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            }
-          ]
-        },
-        {
-          "db": "test",
           "table": "t3",
           "table_statistics": {
             "data_file_length": 4734976,
@@ -1162,6 +1122,47 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
               "records_per_key": [
                 4173.6,
                 1
+              ],
+              "records_in_range": [
+              ]
+            }
+          ]
+        },
+        {
+          "db": "test",
+          "table": "t2",
+          "table_statistics": {
+            "data_file_length": 16384,
+            "delete_length": 0,
+            "records": 9,
+            "deleted": 0,
+            "table_in_mem_estimate": 1
+          },
+          "index_statistics": [
+            {
+              "name": "PRIMARY",
+              "in_memory_estimate": 1,
+              "records_per_key": [
+                4.5
+              ],
+              "records_in_range": [
+              ]
+            },
+            {
+              "name": "fld1",
+              "in_memory_estimate": 1,
+              "records_per_key": [
+                4.5
+              ],
+              "records_in_range": [
+              ]
+            },
+            {
+              "name": "fld3",
+              "in_memory_estimate": 1,
+              "records_per_key": [
+                4.5,
+                4.5
               ],
               "records_in_range": [
               ]
@@ -1327,4 +1328,108 @@ st_a	swt1a	swt2a	st_b	swt1b	swt2b
 1	1	1	1	1	1
 1	1	1	1	1	1
 1	1	1	1	1	1
+drop table t1;
+
+# 10) test copying user vars (note the case is blocked by check_px_execution now)
+
+create table t1 (c1 int ,c2 int);
+set @arg01= 8;
+set @arg02= 8.0;
+set @arg03= 80.00000000000e-1;
+set @arg04= 'abc' ;
+set @arg05= CAST('abc' as binary) ;
+set @arg06= '1991-08-05' ;
+set @arg07= CAST('1991-08-05' as date);
+set @arg08= '1991-08-05 01:01:01' ;
+set @arg09= CAST('1991-08-05 01:01:01' as datetime) ;
+set @arg10= unix_timestamp('1991-01-01 01:01:01');
+set @arg11= YEAR('1991-01-01 01:01:01');
+set @arg12= 8 ;
+set @arg12= NULL ;
+set @arg13= 8.0 ;
+set @arg13= NULL ;
+set @arg14= 'abc';
+set @arg14= NULL ;
+set @arg15= CAST('abc' as binary) ;
+set @arg15= NULL ;
+explain select
+8                           as const01, @arg01 as param01,
+8.0                         as const02, @arg02 as param02,
+80.00000000000e-1           as const03, @arg03 as param03,
+'abc'                       as const04, @arg04 as param04,
+CAST('abc' as binary)       as const05, @arg05 as param05,
+'1991-08-05'                as const06, @arg06 as param06,
+CAST('1991-08-05' as date)  as const07, @arg07 as param07,
+'1991-08-05 01:01:01'       as const08, @arg08 as param08,
+CAST('1991-08-05 01:01:01'  as datetime) as const09, @arg09 as param09,
+unix_timestamp('1991-01-01 01:01:01')    as const10, @arg10 as param10,
+YEAR('1991-01-01 01:01:01') as const11, @arg11 as param11,
+NULL                        as const12, @arg12 as param12,
+@arg13 as param13,
+@arg14 as param14,
+@arg15 as param15,
+sum(c1) from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select 8 AS `const01`,(@`arg01`) AS `param01`,8.0 AS `const02`,(@`arg02`) AS `param02`,80.00000000000e-1 AS `const03`,(@`arg03`) AS `param03`,'abc' AS `const04`,(@`arg04`) AS `param04`,cast('abc' as char charset binary) AS `const05`,(@`arg05`) AS `param05`,'1991-08-05' AS `const06`,(@`arg06`) AS `param06`,cast('1991-08-05' as date) AS `const07`,(@`arg07`) AS `param07`,'1991-08-05 01:01:01' AS `const08`,(@`arg08`) AS `param08`,cast('1991-08-05 01:01:01' as datetime) AS `const09`,(@`arg09`) AS `param09`,unix_timestamp('1991-01-01 01:01:01') AS `const10`,(@`arg10`) AS `param10`,year('1991-01-01 01:01:01') AS `const11`,(@`arg11`) AS `param11`,NULL AS `const12`,(@`arg12`) AS `param12`,(@`arg13`) AS `param13`,(@`arg14`) AS `param14`,(@`arg15`) AS `param15`,sum(`test`.`t1`.`c1`) AS `sum(c1)` from `test`.`t1`
+select
+8                           as const01, @arg01 as param01,
+8.0                         as const02, @arg02 as param02,
+80.00000000000e-1           as const03, @arg03 as param03,
+'abc'                       as const04, @arg04 as param04,
+CAST('abc' as binary)       as const05, @arg05 as param05,
+'1991-08-05'                as const06, @arg06 as param06,
+CAST('1991-08-05' as date)  as const07, @arg07 as param07,
+'1991-08-05 01:01:01'       as const08, @arg08 as param08,
+CAST('1991-08-05 01:01:01'  as datetime) as const09, @arg09 as param09,
+unix_timestamp('1991-01-01 01:01:01')    as const10, @arg10 as param10,
+YEAR('1991-01-01 01:01:01') as const11, @arg11 as param11,
+NULL                        as const12, @arg12 as param12,
+@arg13 as param13,
+@arg14 as param14,
+@arg15 as param15,
+sum(c1) from t1;
+const01	param01	const02	param02	const03	param03	const04	param04	const05	param05	const06	param06	const07	param07	const08	param08	const09	param09	const10	param10	const11	param11	const12	param12	param13	param14	param15	sum(c1)
+8	8	8.0	8.000000000000000000000000000000	8	8	abc	abc	abc	abc	1991-08-05	1991-08-05	1991-08-05	1991-08-05	1991-08-05 01:01:01	1991-08-05 01:01:01	1991-08-05 01:01:01	1991-08-05 01:01:01	662680861	662680861	1991	1991	NULL	NULL	NULL	NULL	NULL	NULL
+explain select
+sum(c1) from t1
+where 8  = @arg01
+and 8.0 = @arg02
+and 80.00000000000e-1 = @arg03
+and 'abc' = @arg04
+and CAST('abc' as binary) = @arg05
+and '1991-08-05' = @arg06
+and CAST('1991-08-05' as date)  =  @arg07
+and '1991-08-05 01:01:01' = @arg08
+and CAST('1991-08-05 01:01:01'  as datetime) = @arg09
+and unix_timestamp('1991-01-01 01:01:01') = @arg10
+and YEAR('1991-01-01 01:01:01') = @arg11
+and @arg12 is null
+and @arg13 is null
+and @arg14 is null
+and @arg15 is null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`c1`) AS `sum(c1)` from `test`.`t1` where true
+select
+sum(c1) from t1
+where 8  = @arg01
+and 8.0 = @arg02
+and 80.00000000000e-1 = @arg03
+and 'abc' = @arg04
+and CAST('abc' as binary) = @arg05
+and '1991-08-05' = @arg06
+and CAST('1991-08-05' as date)  =  @arg07
+and '1991-08-05 01:01:01' = @arg08
+and CAST('1991-08-05 01:01:01'  as datetime) = @arg09
+and unix_timestamp('1991-01-01 01:01:01') = @arg10
+and YEAR('1991-01-01 01:01:01') = @arg11
+and @arg12 is null
+and @arg13 is null
+and @arg14 is null
+and @arg15 is null;
+sum(c1)
+NULL
 drop table t1;

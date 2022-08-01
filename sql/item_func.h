@@ -3214,6 +3214,19 @@ class user_var_entry {
   bool store(const void *ptr, size_t length, Item_result type,
              const CHARSET_INFO *cs, Derivation dv, bool unsigned_arg);
   /**
+    Copy value to user variable.
+
+    @param from   pointer to to-be-copied variable
+
+    @note Sets error and fatal error if allocation fails.
+
+    @retval
+      false   success
+    @retval
+      true    failure
+   */
+  bool store(const user_var_entry *from);
+  /**
     Set type of to the given value.
     @param type  Data type.
   */

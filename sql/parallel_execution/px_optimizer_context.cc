@@ -1206,26 +1206,12 @@ static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
     /* Copy VARIABLE_NAME */
     const char *name = sql_uvar->entry_name.ptr();
     size_t name_length = sql_uvar->entry_name.length();
-    Item_result res_type = sql_uvar->type();  // Don't change type of item
     const Name_string key(name, name_length);
 
     user_var_entry *entry = get_variable(worker_thd, key, cs);
     if (entry != nullptr) {
       /* Copy VARIABLE_VALUE */
-      bool null_value;
-      String *str_value;
-      String str_buffer;
-      uint decimals = 0;
-      str_value = sql_uvar->val_str(&null_value, &str_buffer, decimals);
-
-      if (null_value) {
-        entry->set_null_value(res_type);
-      } else {
-        entry->store(str_value->ptr(), str_value->length(),
-                    res_type, sql_uvar->collation.collation,
-                    sql_uvar->collation.derivation,
-                    sql_uvar->unsigned_flag);
-      }
+      entry->store(sql_uvar);
     }
   }
 
