@@ -421,7 +421,9 @@ void Opt_ctx_client::set_ctx(enum enum_opt_ctx_mode mode,
     }
 #endif
   } else {
+#ifndef DBUG_OFF
     m_dbug_session = &m_thd->opt_dbug_session;
+#endif
   }
 }
 
