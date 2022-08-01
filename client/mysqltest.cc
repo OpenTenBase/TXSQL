@@ -47,7 +47,9 @@
 #include <thread>  // std::thread
 #endif
 
+#if defined(HAVE_PX)
 #include <regex> // std::regex
+#endif /* defined(HAVE_PX) */
 
 #include <assert.h>
 #if defined MY_MSCRT_DEBUG || defined _WIN32
@@ -179,8 +181,10 @@ enum {
 #ifdef _WIN32
   OPT_SAFEPROCESS_PID,
 #endif
+#if defined(HAVE_PX)
   OPT_SORT_RESULT,
   OPT_SORT_NO_ORDERBY,
+#endif /* defined(HAVE_PX) */
   OPT_SP_PROTOCOL,
   OPT_TAIL_LINES,
   OPT_TRACE_EXEC,
@@ -221,8 +225,10 @@ static bool testcase_disabled = false;
 static bool display_result_vertically = false, display_result_lower = false,
             display_metadata = false, display_result_sorted = false,
             display_session_track_info = false;
+#if defined(HAVE_PX)
 static bool opt_sort_result = false;
 static bool opt_sort_no_orderby = false;
+#endif /* defined(HAVE_PX) */
 static bool skip_if_hypergraph = false;
 static int start_sort_column = 0;
 static bool disable_query_log = false, disable_result_log = false;
@@ -7786,6 +7792,7 @@ static struct my_option my_long_options[] = {
      &opt_safe_process_pid, &opt_safe_process_pid, 0, GET_INT, REQUIRED_ARG, 0,
      0, 0, 0, 0, 0},
 #endif
+#if defined(HAVE_PX)
     {"sort-result", OPT_SORT_RESULT, "Sort all select results in display.",
      &opt_sort_result, &opt_sort_result, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr,
      0, nullptr},
@@ -7793,6 +7800,7 @@ static struct my_option my_long_options[] = {
       "Sort all select without order by results in display.",
      &opt_sort_no_orderby, &opt_sort_no_orderby, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
+#endif /* defined(HAVE_PX) */
     {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
      "Base name of shared memory.", &shared_memory_base_name,
      &shared_memory_base_name, nullptr, GET_STR, REQUIRED_ARG, 0, 0, 0, nullptr,
@@ -8031,7 +8039,11 @@ static int parse_args(int argc, char **argv) {
   if (!record) {
     /* Check that the result file exists */
     if (result_file_name && access(result_file_name, F_OK) != 0)
+#if defined(HAVE_PX)
       log_msg("The specified result file '%s' does not exist", result_file_name);
+#else
+      die("The specified result file '%s' does not exist", result_file_name);
+#endif /* defined(HAVE_PX) */
   }
 
   return 0;
@@ -8941,6 +8953,7 @@ static void run_query(struct st_connection *cn, struct st_command *command,
     query_len = std::strlen(query);
   }
 
+#if defined(HAVE_PX)
   /*
     Sort a query result's displayed order based on its type.
   */
@@ -8963,6 +8976,7 @@ static void run_query(struct st_connection *cn, struct st_command *command,
 
   my_query_str.clear();
   select_prefix.clear();
+#endif /* defined(HAVE_PX) */
 
   /*
     Create a temporary dynamic string to contain the

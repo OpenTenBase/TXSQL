@@ -801,7 +801,9 @@ MySQL clients support the protocol:
 #include "sql/mysqld_thd_manager.h"              // Global_THD_manager
 #include "sql/opt_costconstantcache.h"           // delete_optimizer_cost_module
 #include "sql/options_mysqld.h"                  // OPT_THREAD_CACHE_SIZE
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_interface.h" // px_init px_destroy
+#endif /* defined(HAVE_PX) */
 #include "sql/partitioning/partition_handler.h"  // partitioning_init
 #include "sql/persisted_variable.h"              // Persisted_variables_cache
 #include "sql/plugin_table.h"
@@ -1434,9 +1436,11 @@ Deployed_components *g_deployed_components = nullptr;
   Is necessary to protect the server against out-of-memory attacks.
 */
 ulong max_prepared_stmt_count;
+#if defined(HAVE_OPT_CTX)
 std::atomic<long long> outline_reload_version{-1L};
 std::atomic<long long> optimizer_cost_reload_version{-1L};
 std::atomic<long long> rewriter_plugin_reload_version{0L};
+#endif
 
 /**
   Current total number of prepared statements in the server. This number
@@ -2764,7 +2768,9 @@ static void clean_up(bool print_message) {
   acl_free(true);
   grant_free();
   sql_statistics_deinit();
+#if defined(HAVE_PX)
   px_destroy();
+#endif /* defined(HAVE_PX) */
   hostname_cache_free();
   range_optimizer_free();
   item_func_sleep_free();
@@ -6430,7 +6436,9 @@ static int init_server_components() {
   }
 
   sql_statistics_init();
+#if defined(HAVE_PX)
   px_init();
+#endif /* defined(HAVE_PX) */
 
   randominit(&sql_rand, (ulong)server_start_time, (ulong)server_start_time / 2);
   setup_fpu();
@@ -10302,6 +10310,7 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
 #endif
     {"Queries", (char *)&show_queries, SHOW_FUNC, SHOW_SCOPE_ALL},
+#if defined(HAVE_PX)
     {"Txsql_parallel_stmt_executed",
      (char *)&show_txsql_parallel_stmt_executed,
       SHOW_FUNC, SHOW_SCOPE_GLOBAL},
@@ -10323,6 +10332,7 @@ SHOW_VAR status_vars[] = {
     {"Txsql_parallel_stmt_memory_refused",
      (char *)&show_txsql_parallel_stmt_memory_refused,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+#endif /* defined(HAVE_PX) */
     {"Questions", (char *)offsetof(System_status_var, questions),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Secondary_engine_execution_count",
@@ -12284,6 +12294,7 @@ void refresh_status() {
   */
   Connection_handler_manager::reset_max_used_connections();
 
+#if defined(HAVE_PX)
   /* Reset the Parallel eXecution statistical data when `flush status`. */
   reset_txsql_parallel_stmt_executed();
   reset_txsql_parallel_stmt_fallback();
@@ -12291,6 +12302,7 @@ void refresh_status() {
   reset_txsql_parallel_stmt_thread_refused();
   reset_txsql_parallel_stmt_hint_executed();
   reset_txsql_parallel_stmt_memory_refused();
+#endif /* defined(HAVE_PX) */
 }
 
 class Do_THD_reset_status : public Do_THD_Impl {
@@ -12467,8 +12479,10 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_statistics_tasks_pool, "LOCK_stats_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+#if defined(HAVE_PX)
   { &key_LOCK_Exchange_Info_Channel, "Exchange_Info_Channel_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_Running_Task_Barrier, "key_LOCK_Running_PX_Task_Barrier_mutex", 0, 0, PSI_DOCUMENT_ME}
+#endif /* defined(HAVE_PX) */
 };
 /* clang-format on */
 
@@ -12777,7 +12791,9 @@ PSI_stage_info stage_rpl_failover_fetching_source_member_details= { 0, "Fetching
 PSI_stage_info stage_rpl_failover_updating_source_member_details= { 0, "Updating fetched source member details on receiver", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_rpl_failover_wait_before_next_fetch= { 0, "Wait before trying to fetch next membership changes from source", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_communication_delegation= { 0, "Connection delegated to Group Replication", 0, PSI_DOCUMENT_ME};
+#if defined(HAVE_PX)
 PSI_stage_info stage_starting_fallback= { 0, "starting fallback execution", 0, PSI_DOCUMENT_ME};
+#endif /* defined(HAVE_PX) */
 /* clang-format on */
 
 extern PSI_stage_info stage_waiting_for_disk_space;
@@ -12881,8 +12897,12 @@ PSI_stage_info *all_server_stages[] = {
     &stage_rpl_failover_fetching_source_member_details,
     &stage_rpl_failover_updating_source_member_details,
     &stage_rpl_failover_wait_before_next_fetch,
-    &stage_communication_delegation,
-    &stage_starting_fallback};
+    &stage_communication_delegation
+#if defined(HAVE_PX)
+    ,
+    &stage_starting_fallback
+#endif /* defined(HAVE_PX) */
+    };
 
 PSI_socket_key key_socket_tcpip;
 PSI_socket_key key_socket_unix;
@@ -13213,5 +13233,7 @@ bool g_enable_backup_dcn_switch = false;
 bool g_log_statement_of_query_event = false;
 bool txsql_parallel_copy_ddl = false;
 bool cdb_optimize_gtid_lock = false;
+#if defined(HAVE_PX)
 PSI_mutex_key key_LOCK_Exchange_Info_Channel;
 PSI_mutex_key key_LOCK_Running_Task_Barrier;
+#endif /* defined(HAVE_PX) */

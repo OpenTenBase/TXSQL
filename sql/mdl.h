@@ -1447,7 +1447,9 @@ class MDL_context {
   void release_all_locks_for_name(MDL_ticket *ticket);
   void release_locks(MDL_release_locks_visitor *visitor);
   void release_lock(MDL_ticket *ticket);
+#if defined(HAVE_PX)
   void release_locks_for_parallel_worker();
+#endif /* defined(HAVE_PX) */
 
   bool owns_equal_or_stronger_lock(const MDL_key *mdl_key,
                                    enum_mdl_type mdl_type);

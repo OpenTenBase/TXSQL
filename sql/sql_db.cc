@@ -82,7 +82,9 @@
 #include "sql/log_event.h"  // Query_log_event
 #include "sql/mdl.h"
 #include "sql/mysqld.h"          // key_file_misc
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_interface.h"
+#endif /* defined(HAVE_PX) */
 #include "sql/psi_memory_key.h"  // key_memory_THD_db
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_replica_commit_order_manager.h"  // Commit_order_manager
@@ -1507,6 +1509,7 @@ bool mysql_change_db(THD *thd, const LEX_CSTRING &new_db_name,
                 sctx->master_access(new_db_file_name.str);
   }
 
+#if defined(HAVE_PX)
   if (!PX_ENABLED(thd)) {
     // TODO: check priviledge for parallel worker.
     if (!force_switch && !(db_access & DB_OP_ACLS) &&
@@ -1520,6 +1523,7 @@ bool mysql_change_db(THD *thd, const LEX_CSTRING &new_db_name,
       return true;
     }
   }
+#endif /* defined(HAVE_PX) */
 
   if (mdl_handler.ensure_locked(new_db_file_name.str) ||
       thd->dd_client()->acquire(new_db_file_name.str, &schema)) {

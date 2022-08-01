@@ -218,7 +218,6 @@ SET(INNOBASE_SOURCES
   row/row0purge.cc
   row/row0pread-adapter.cc
   row/row0pread-histogram.cc
-  row/row0px.cc
   row/row0row.cc
   row/row0sel.cc
   row/row0uins.cc
@@ -259,6 +258,10 @@ SET(INNOBASE_SOURCES
   ut/ut0vec.cc
   ut/ut0wqueue.cc)
 
+IF(HAVE_PX)
+  LIST(APPEND INNOBASE_SOURCES row/row0px.cc)
+ENDIF()
+  
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98753
 IF(MY_COMPILER_IS_GNU AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
   ADD_COMPILE_FLAGS(

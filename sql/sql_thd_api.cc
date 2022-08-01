@@ -732,6 +732,7 @@ bool thd_has_backquery(MYSQL_THD thd) {
   return false;
 }
 
+#if defined(HAVE_PX)
 bool thd_is_parallel_worker(MYSQL_THD thd) {
   if (thd && PX_ROLE_WORKER(thd)) {
     return true;
@@ -746,7 +747,7 @@ void *thd_get_coordinator_trx(MYSQL_THD thd) {
   }
   return nullptr;
 }
-
+#endif /* defined(HAVE_PX) */
 /**
   Changes from txsql end.
 */

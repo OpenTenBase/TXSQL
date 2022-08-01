@@ -94,12 +94,14 @@
 #include "sql/visible_fields.h"
 #include "sql/window.h"  // Window
 #include "template_utils.h"
+#if defined(HAVE_PX)
+#include "sql/sql_optimizer.h"  // ORDER_with_src
 #include "sql/table.h"
 #include "sql/parallel_execution/px_interface.h" // PX_ENABLED
 #include "sql/parallel_execution/px_receiver.h" // PX_receiver
 #include "sql/parallel_execution/px_sender.h" // PX_sender
 #include "sql/parallel_execution/px_optimizer.h"  // px_optimize
-#include "sql/log.h"
+#endif /* defined(HAVE_PX) */
 
 using std::move;
 using std::vector;
@@ -107,8 +109,10 @@ using std::vector;
 class Item_rollup_group_item;
 class Item_rollup_sum_switcher;
 class Opt_trace_context;
+#if defined(HAVE_PX)
 class ORDER_with_src;
 struct ORDER;
+#endif /* defined(HAVE_PX) */
 
 bool Query_result_union::prepare(THD *, const mem_root_deque<Item *> &,
                                  Query_expression *u) {
@@ -816,6 +820,7 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
   set_optimized();  // All query blocks optimized, update the state
 
+#if defined(HAVE_PX)
   if (thd->lex->unit == this) {
     // Calculate the current statement cost. It will be made available in
     // the Last_query_cost status variable.
@@ -843,6 +848,7 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
     }
     check_parallel_table_hint(thd, thd->lex->pass_px_check);
   }
+#endif /* defined(HAVE_PX) */
 
   if (item != nullptr) {
     // If we're part of an IN subquery, the containing engine may want to
@@ -890,11 +896,13 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
                   .c_str());
     }
 
-    /// If cdb_parallel_execution_enabled if off, and at least one exchange in
-    /// access path tree, execute the iterator tree by using plan which has only
-    /// one exchange. single thread mode.
+#if defined(HAVE_PX)
+    // If cdb_parallel_execution_enabled if off, and at least one exchange in
+    // access path tree, execute the iterator tree by using plan which has only
+    // one exchange. single thread mode.
     if (!PX_ENABLED(thd) && thd->lex->only_one_exchange())
       create_single_thread_iterators(thd);
+#endif /* defined(HAVE_PX) */
   }
 
   return false;
@@ -912,6 +920,7 @@ bool Query_expression::finalize(THD *thd) {
   return false;
 }
 
+#if defined(HAVE_PX)
 void init_exchange_channel(RowIterator *iterator) {
   iterator = iterator->real_iterator();
   if (iterator->type() == RowIterator::PHY_PX_RECEIVE)
@@ -949,6 +958,7 @@ bool Query_expression::create_single_thread_iterators(THD *thd) {
   attach_exchange_info(root, exchange_info);
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
 bool Query_expression::force_create_iterators(THD *thd) {
   if (m_root_iterator == nullptr) {
@@ -1088,7 +1098,9 @@ void Query_expression::create_access_paths(THD *thd) {
         /*rematerialize=*/true, push_limit_down ? limit : HA_POS_ERROR,
         /*reject_multiple_rows=*/false);
     EstimateMaterializeCost(thd, param.path);
+#if defined(HAVE_PX)
     param.path = MoveCompositeIteratorsFromTablePath(param.path);
+#endif /* defined(HAVE_PX) */
     param.join = nullptr;
     union_all_sub_paths->push_back(param);
   }
@@ -1382,10 +1394,12 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
       }
     });
 
-    /// Init the exchange info when is single thread mode.
+#if defined(HAVE_PX)
+    // Init the exchange info when is single thread mode.
     if (!PX_ENABLED(thd) &&
         thd->lex->only_one_exchange() && exchange_info)
       init_exchange_info(thd);
+#endif /* defined(HAVE_PX) */
 
     if (m_root_iterator->Init()) {
       return true;

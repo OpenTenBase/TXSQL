@@ -85,9 +85,11 @@ enum opt_hints_enum {
   ORDER_INDEX_HINT_ENUM,
   DERIVED_CONDITION_PUSHDOWN_HINT_ENUM,
   SORT_MERGE_JOIN_HINT_ENUM,
+#if defined(HAVE_PX)
   PARALLEL_HINT_ENUM,
   PARALLEL_TABLE_DEGREE_HINT_ENUM,
   PARALLEL_TABLE_HINT_ENUM,
+#endif /* defined(HAVE_PX) */
   MAX_HINT_ENUM
 };
 
@@ -346,7 +348,9 @@ class Opt_hints {
                                      String *str [[maybe_unused]]) {}
 };
 
+#if defined(HAVE_PX)
 class PT_hint_parallel;
+#endif /* defined(HAVE_PX) */
 /**
   User define optimizer hints banding to lex.
  */
@@ -404,19 +408,25 @@ class Opt_hints_global : public Opt_hints {
  public:
   PT_hint_max_execution_time *max_exec_time;
   Sys_var_hint *sys_var_hint;
+#if defined(HAVE_PX)
   PT_hint_parallel *parallel_hint;
+#endif /* defined(HAVE_PX) */
 
   Opt_hints_global(MEM_ROOT *mem_root_arg)
       : Opt_hints(nullptr, nullptr, mem_root_arg) {
     max_exec_time = nullptr;
     sys_var_hint = nullptr;
+#if defined(HAVE_PX)
     parallel_hint = nullptr;
+#endif /* defined(HAVE_PX) */
   }
 
   void append_name(const THD *, String *) override {}
   PT_hint *get_complex_hints(opt_hints_enum type) override;
   void print_irregular_hints(const THD *thd, String *str) override;
+#if defined(HAVE_PX)
   bool is_resolved(opt_hints_enum type_arg) override;
+#endif /* defined(HAVE_PX) */
 };
 
 class PT_qb_level_hint;
@@ -477,9 +487,11 @@ class Opt_hints_qb : public Opt_hints {
                       get_print_name()->length);
   }
 
+#if defined(HAVE_PX)
   bool ignore_print(opt_hints_enum type_arg) const override {
     return (type_arg == PARALLEL_TABLE_HINT_ENUM);
   }
+#endif /* defined(HAVE_PX) */
 
   PT_hint *get_complex_hints(opt_hints_enum type) override;
 
@@ -694,6 +706,7 @@ class Opt_hints_table : public Opt_hints {
                              opt_hints_enum type_arg);
   bool update_index_hint_maps(THD *thd, TABLE *tbl);
 
+#if defined(HAVE_PX)
   /**
     return true if already set parallel hint.
   */
@@ -726,6 +739,7 @@ class Opt_hints_table : public Opt_hints {
     }
     return false;
   }
+#endif /* defined(HAVE_PX) */
 };
 
 /**

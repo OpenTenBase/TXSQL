@@ -587,12 +587,14 @@ bool Item_sum::eq(const Item *item, bool binary_cmp) const {
     return false;
   const Item_sum *item_sum = down_cast<const Item_sum *>(item);
   const enum Sumfunctype my_sum_func = sum_func();
+#if defined(HAVE_PX)
   /*
     When testing the equality of item_sum, the field pointer of window function
     is different between worker threads and the coordinator thread. But it is ok,
     while the window function under the exchange operator, the false returning
     disables the window function in parallel execution.
   */
+#endif /* defined(HAVE_PX) */
   if (item_sum->sum_func() != my_sum_func || item_sum->m_window != m_window)
     return false;
 
@@ -1408,7 +1410,11 @@ bool Item_sum_num::fix_fields(THD *thd, Item **ref) {
 
   for (uint i = 0; i < arg_count; i++) {
     if ((!args[i]->fixed && args[i]->fix_fields(thd, args + i)) ||
-        (PX_ROLE_USER(thd) && args[i]->check_cols(1)))
+        (
+#if defined(HAVE_PX)
+         PX_ROLE_USER(thd) &&
+#endif /* defined(HAVE_PX) */
+         args[i]->check_cols(1)))
       // TODO: No need to check columns' privileges as a worker thread.
       // unified approach to handle THD evironments restore.
       return true;
@@ -1850,11 +1856,13 @@ Item *Item_sum_sum::copy_or_same(THD *thd) {
 }
 
 void Item_sum_sum::clear() {
+#if defined(HAVE_PX)
   if (pq_create_for_count) {
     sum = 0;
     null_value = false;
     return ;
   }
+#endif /* defined(HAVE_PX) */
   null_value = true;
   if (hybrid_type == DECIMAL_RESULT) {
     curr_dec_buff = 0;
@@ -3371,10 +3379,14 @@ void Item_sum_sum::reset_field() {
     if (!arg_val)  // Null
       arg_val = &decimal_zero;
     result_field->store_decimal(arg_val);
-  } else if (hybrid_type == INT_RESULT){
+  }
+#if defined(HAVE_PX)
+  else if (hybrid_type == INT_RESULT){
     longlong nr = args[0]->val_int();
     int8store(result_field->field_ptr(), nr);
-  } else {
+  }
+#endif /* defined(HAVE_PX) */
+  else {
     assert(hybrid_type == REAL_RESULT);
     double nr = args[0]->val_real();  // Nulls also return 0
     float8store(result_field->field_ptr(), nr);
@@ -3471,7 +3483,9 @@ void Item_sum_sum::update_field() {
         result_field->set_notnull();
       }
     }
-  } else if (hybrid_type == INT_RESULT) {
+  }
+#if defined(HAVE_PX)
+  else if (hybrid_type == INT_RESULT) {
     longlong old_nr;
     uchar *res = result_field->field_ptr();
 
@@ -3482,7 +3496,9 @@ void Item_sum_sum::update_field() {
       result_field->set_notnull();
     }
     int8store(res, old_nr);
-  } else {
+  }
+#endif /* defined(HAVE_PX) */
+  else {
     uchar *res = result_field->field_ptr();
 
     double old_nr = float8get(res);
@@ -4802,6 +4818,7 @@ void Item_func_group_concat::print(const THD *thd, String *str,
   str->append(STRING_WITH_LEN("\')"));
 }
 
+#if defined(HAVE_PX)
 bool Item_func_group_concat::reset(THD *thd) {
   if (original == nullptr) {
     destroy(tmp_table_param);
@@ -4829,6 +4846,7 @@ bool Item_func_group_concat::reset(THD *thd) {
   assert(tree == nullptr);
   return setup(thd);
 }
+#endif /* defined(HAVE_PX) */
 
 bool Item_non_framing_wf::fix_fields(THD *thd, Item **items) {
   if (super::fix_fields(thd, items)) return true;

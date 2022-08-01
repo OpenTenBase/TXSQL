@@ -1881,7 +1881,9 @@ bool PT_create_table_default_collation::contextualize(
 
 bool PT_locking_clause::contextualize(Parse_context *pc) {
   LEX *lex = pc->thd->lex;
+#if defined(HAVE_PX)
   lex->locking_clause = true;
+#endif /* defined(HAVE_PX) */
 
   if (lex->is_explain()) return false;
 

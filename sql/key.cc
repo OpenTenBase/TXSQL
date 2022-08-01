@@ -42,9 +42,9 @@
 #include "sql/sql_error.h"
 #include "sql/table.h"
 #include "sql_string.h"
+#if defined(HAVE_OPT_CTX)
 #include "sql/current_thd.h"    // current_thd
 #include "sql/sql_class.h"      // THD
-#if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
 #endif
 
@@ -60,74 +60,63 @@ bool KEY::is_functional_index() const {
   return false;
 }
 
-bool KEY::has_records_per_key(uint key_part_no) const {
 #if defined(HAVE_OPT_CTX)
+bool KEY::has_records_per_key(uint key_part_no) const {
+
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).has_records_per_key(this, key_part_no);
   }
-#endif
   return has_records_per_key_low(key_part_no);
 }
 
 rec_per_key_t KEY::records_per_key(uint key_part_no) const {
-#if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).records_per_key(this, key_part_no);
   }
-#endif
   return records_per_key_low(key_part_no);
 }
 
 void KEY::set_records_per_key(uint key_part_no, rec_per_key_t rec_per_key_est) {
-#if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     OPT_CTX(current_thd).set_records_per_key(this, key_part_no,
                                              rec_per_key_est);
     return;
   }
-#endif
   set_records_per_key_low(key_part_no, rec_per_key_est);
 }
 
 bool KEY::supports_records_per_key() const {
-#if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).supports_records_per_key(this);
   }
-#endif
   return supports_records_per_key_low();
 }
 
 void KEY::set_rec_per_key_array(ulong *rec_per_key_arg,
                            rec_per_key_t *rec_per_key_float_arg) {
-#if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     OPT_CTX(current_thd).set_rec_per_key_array(
         this, rec_per_key_arg, rec_per_key_float_arg);
     return;
   }
-#endif
   set_rec_per_key_array_low(rec_per_key_arg, rec_per_key_float_arg);
 }
 
 double KEY::in_memory_estimate() const {
-#if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     return OPT_CTX(current_thd).in_memory_estimate(this);
   }
-#endif
   return in_memory_estimate_low();
 }
 
 void KEY::set_in_memory_estimate(double in_memory_estimate) {
-#if defined(HAVE_OPT_CTX)
   if (OPT_CTX_ENABLED(current_thd)) {
     OPT_CTX(current_thd).set_in_memory_estimate(this, in_memory_estimate);
     return;
   }
-#endif
   set_in_memory_estimate_low(in_memory_estimate);
 }
+#endif
 
 /*
   Search after a key that starts with 'field'

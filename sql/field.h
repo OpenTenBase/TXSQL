@@ -1055,7 +1055,15 @@ class Field {
   static enum_field_types field_type_merge(enum_field_types, enum_field_types);
   static Item_result result_merge_type(enum_field_types);
   bool gcol_expr_is_equal(const Create_field *field) const;
-  virtual bool eq(const Field *field) const;
+  virtual bool eq(const Field *field) const
+#if defined(HAVE_PX)
+  ;
+#else
+  {
+    return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
+            null_bit == field->null_bit && field->type() == type());
+  }
+#endif /* defined(HAVE_PX) */
   virtual bool eq_def(const Field *field) const;
 
   /*
@@ -4501,7 +4509,16 @@ class Field_bit : public Field {
     bit_ptr = bit_ptr_arg;
     bit_ofs = bit_ofs_arg;
   }
-  bool eq(const Field *field) const final;
+  bool eq(const Field *field) const final
+#if defined(HAVE_PX)
+  ;
+#else
+  {
+    return (Field::eq(field) &&
+            bit_ptr == down_cast<const Field_bit *>(field)->bit_ptr &&
+            bit_ofs == down_cast<const Field_bit *>(field)->bit_ofs);
+  }
+#endif /* defined(HAVE_PX) */
   uint is_equal(const Create_field *new_field) const final;
   void move_field_offset(ptrdiff_t ptr_diff) final {
     Field::move_field_offset(ptr_diff);
@@ -4639,6 +4656,7 @@ class Copy_field {
 
   void set(Field *to, Field *from);  // Field to field
 
+#if defined(HAVE_PX)
   void reset();  // Reset m_do_copy
 
   void set_from_field(Field *from) {
@@ -4646,6 +4664,7 @@ class Copy_field {
                 m_to_field->type() == from->type());
     m_from_field = from;
   }
+#endif /* defined(HAVE_PX) */
 
  private:
   void (*m_do_copy)(Copy_field *, const Field *, Field *);

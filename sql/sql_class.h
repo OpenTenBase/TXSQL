@@ -147,12 +147,6 @@ struct TABLE_LIST;
 struct timeval;
 struct User_level_lock;
 struct YYLTYPE;
-struct worker_thread_arg;
-class RowIterator;
-struct worker_pool_t;
-class PX_exchange_info;
-class PX_exchange_context;
-class Opt_ctx_client;
 
 namespace dd {
 namespace cache {
@@ -169,16 +163,25 @@ class Reprepare_observer;
 class Rows_log_event;
 class Time_zone;
 class sp_cache;
+struct Binlog_user_var_event;
+struct LOG_INFO;
+
+#if defined(HAVE_PX)
+struct worker_thread_arg;
+class RowIterator;
+struct worker_pool_t;
+class PX_exchange_info;
+class PX_exchange_context;
+class Opt_ctx_client;
 class PX_executor;
 class PX_coordinator;
 class PX_sender;
 class PX_receiver;
-struct Binlog_user_var_event;
-struct LOG_INFO;
 
-enum enum_px_worker_state_type { PX_WORKER_NONE = 0, 
+enum enum_px_worker_state_type { PX_WORKER_NONE = 0,
                                  PX_WORKER_PARSE_OPTIMIZE,
                                  PX_WORKER_EXECUTE };
+#endif /* defined(HAVE_PX) */
 
 typedef struct user_conn USER_CONN;
 struct MYSQL_LOCK;
@@ -360,6 +363,7 @@ typedef struct rpl_event_coordinates {
 
 #define THD_CHECK_SENTRY(thd) assert(thd->dbug_sentry == THD_SENTRY_MAGIC)
 
+#if defined(HAVE_PX)
 /*
   Assume thd->use_px, otherwise the coordinator is indistinguishable from
   serial executor.
@@ -368,6 +372,7 @@ typedef struct rpl_event_coordinates {
 #define PX_ROLE_COORDINATOR(thd) !(thd)->m_is_worker
 #define PX_ROLE_WORKER(thd) (thd)->m_is_worker
 #define PX_ROLE_USER(thd) (PX_ROLE_NONE(thd) || PX_ROLE_COORDINATOR(thd))
+#endif /* defined(HAVE_PX) */
 
 class Query_arena {
  private:
@@ -1092,6 +1097,7 @@ class THD : public MDL_context_owner,
   */
   ulong want_privilege;
 
+#if defined(HAVE_PX)
   /**
     Reference to the parallel scan context for the currently running DFO which
     has a parallel table. Supposed to be set and then reset by the DFO as it is
@@ -1113,6 +1119,8 @@ class THD : public MDL_context_owner,
   */
   PX_sender *px_sender{nullptr};
   PX_receiver *px_receiver{nullptr};
+#endif /* defined(HAVE_PX) */
+
  private:
   /**
     The lex to hold the parsed tree of conventional (non-prepared) queries.
@@ -1132,6 +1140,7 @@ class THD : public MDL_context_owner,
   bool is_legal_column_encrypt_read;
 
  public:
+#if defined(HAVE_PX)
   /* Worker execute state type, only used in workers.*/
   enum_px_worker_state_type px_worker_state{PX_WORKER_NONE};
   /* Worker arguments to be assigned tasks. */
@@ -1158,6 +1167,7 @@ class THD : public MDL_context_owner,
   bool px_create_failed{false};
   /* Whether task is running. */
   bool is_running_task{false};
+#endif /* defined(HAVE_PX) */
 
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
@@ -1505,6 +1515,7 @@ class THD : public MDL_context_owner,
     return pointer_cast<Protocol_classic *>(m_protocol);
   }
 
+#if defined(HAVE_PX)
   /**
     Check error before sending data, if occurred, set `need_fallback`
     to serial execution. And leave log message for user.
@@ -1519,6 +1530,7 @@ class THD : public MDL_context_owner,
     coordinator and workers.
   */
   void collect_px_stmt_da_for_warnings();
+#endif /* defined(HAVE_PX) */
 
  private:
   Protocol *m_protocol;  // Current protocol
@@ -2150,9 +2162,11 @@ private:
 
  public:
   enum enum_reset_lex { RESET_LEX, DO_NOT_RESET_LEX };
+#if defined(HAVE_PX)
   // See also PX_ROLE_ macros.
   bool m_is_worker{false};
   bool m_equivalence_check_phase{false};
+#endif /* defined(HAVE_PX) */
 
  private:
   /**

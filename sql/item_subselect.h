@@ -121,7 +121,9 @@ class Item_subselect : public Item_result_field {
   const TABLE_REF &get_table_ref() const;
   join_type get_join_type() const;
 
+#if defined(HAVE_PX)
   bool check_compat_for_parallel(uchar *) override { return true; }
+#endif /* defined(HAVE_PX) */
 
   void create_iterators(THD *thd);
   virtual AccessPath *root_access_path() const { return nullptr; }

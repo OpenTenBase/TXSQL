@@ -46,7 +46,9 @@
 #include "sql/sql_const.h"
 #include "sql/sql_error.h"
 #include "sql/sql_lex.h"
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_interface.h" // txsql_parallel_stmt_hint_executed
+#endif /* defined(HAVE_PX) */
 
 extern struct st_opt_hint_info opt_hint_info[];
 
@@ -521,6 +523,7 @@ bool PT_hint_max_execution_time::contextualize(Parse_context *pc) {
   return false;
 }
 
+#if defined(HAVE_PX)
 bool PT_hint_parallel::contextualize(Parse_context *pc) {
   if (super::contextualize(pc)) return true;
 
@@ -614,7 +617,7 @@ bool PT_hint_parallel::contextualize(Parse_context *pc) {
 
   return false;
 }
-
+#endif /* defined(HAVE_PX) */
 
 bool PT_hint_sys_var::contextualize(Parse_context *pc) {
   if (!sys_var_value) {

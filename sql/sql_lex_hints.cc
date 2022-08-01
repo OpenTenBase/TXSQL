@@ -228,8 +228,10 @@ void Hint_scanner::add_hint_token_digest() {
           case NO_DERIVED_CONDITION_PUSHDOWN_HINT:
           case SORT_MERGE_JOIN_HINT:
           case NO_SORT_MERGE_JOIN_HINT:
+#if defined(HAVE_PX)
           case PARALLEL_HINT:
           case NO_PARALLEL_HINT:
+#endif /* defined(HAVE_PX) */
             break;
           default:
             assert(false);

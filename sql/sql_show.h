@@ -73,12 +73,17 @@ void mysqld_list_fields(THD *thd, TABLE_LIST *table, const char *wild);
 bool mysqld_show_create(THD *thd, TABLE_LIST *table_list);
 bool mysqld_show_create_db(THD *thd, char *dbname, HA_CREATE_INFO *create);
 
+#if defined(HAVE_PX)
 void mysqld_list_processes(THD *thd, const char *user, bool verbose,
                            bool has_cursor, bool detail, bool parallel);
+#else
+void mysqld_list_processes(THD *thd, const char *user, bool verbose,
+                           bool has_cursor, bool detail);
+#endif /* defined(HAVE_PX) */
 void mysqld_list_cdb_sql_filters(THD *thd);
 bool mysqld_list_outline_rules(THD *thd);
-
 void mysqld_list_stats_node(THD *thd);
+bool mysqld_list_plan_cache_stats(THD *thd);
 bool mysqld_show_privileges(THD *thd);
 void calc_sum_of_all_status(System_status_var *to);
 void append_definer(const THD *thd, String *buffer,
@@ -482,16 +487,24 @@ class Sql_cmd_show_outline_info_status : public Sql_cmd_show_noplan {
 class Sql_cmd_show_processlist : public Sql_cmd_show {
  public:
   Sql_cmd_show_processlist() : Sql_cmd_show(SQLCOM_SHOW_PROCESSLIST) {}
+#if defined(HAVE_PX)
   explicit Sql_cmd_show_processlist(bool verbose, bool detail, bool parallel)
       : Sql_cmd_show(SQLCOM_SHOW_PROCESSLIST), m_verbose(verbose),
         m_detail(detail), m_parallel(parallel) {}
+#else
+  explicit Sql_cmd_show_processlist(bool verbose, bool detail)
+      : Sql_cmd_show(SQLCOM_SHOW_PROCESSLIST), m_verbose(verbose),
+        m_detail(detail) {}
+#endif /* defined(HAVE_PX) */
   bool check_privileges(THD *thd) override;
   bool execute_inner(THD *thd) override;
 
   void set_use_pfs(bool use_pfs) { m_use_pfs = use_pfs; }
   bool verbose() const { return m_verbose; }
   bool detail() const { return m_detail; }
+#if defined(HAVE_PX)
   bool parallel() const { return m_parallel; }
+#endif /* defined(HAVE_PX) */
 
  private:
   bool use_pfs() { return m_use_pfs; }
@@ -499,7 +512,9 @@ class Sql_cmd_show_processlist : public Sql_cmd_show {
   const bool m_verbose{false};
   bool m_use_pfs{false};
   bool m_detail{false};
+#if defined(HAVE_PX)
   const bool m_parallel{false};
+#endif /* defined(HAVE_PX) */
 };
 
 /// Represents SHOW PROFILE statement.

@@ -158,7 +158,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0import.h"
 #include "row0ins.h"
 #include "row0mysql.h"
+#if defined(HAVE_PX)
 #include "row0px.h"
+#endif /* defined(HAVE_PX) */
 #include "row0quiesce.h"
 #include "row0sel.h"
 #include "row0upd.h"
@@ -1185,11 +1187,13 @@ static MYSQL_THDVAR_BOOL(txsql_parallel_ddl, PLUGIN_VAR_OPCMDARG,
                          "Enable parallel ddl. Default is FALSE.", nullptr, nullptr,
                          /* default */ false);
 
+#if defined(HAVE_PX)
 static MYSQL_THDVAR_ULONG(txsql_parallel_partitions_per_worker, PLUGIN_VAR_RQCMDARG,
                           "Average number of partitions a worker could get in parallel execution.",
                           nullptr, nullptr, 13, /* Default. */
                           0,          /* Minimum. */
                           4294967295, 0);    /* Maximum. */
+#endif /* defined(HAVE_PX) */
 
 static SHOW_VAR innodb_status_variables[] = {
     {"buffer_pool_dump_status",
@@ -2202,9 +2206,11 @@ size_t thd_txsql_ddl_threads(THD *thd) noexcept { return THDVAR(thd, txsql_ddl_t
 
 bool thd_txsql_parallel_ddl(THD *thd) noexcept { return THDVAR(thd, txsql_parallel_ddl); }
 
+#if defined(HAVE_PX)
 ulong thd_txsql_parallel_partitions_per_worker(THD *thd) {
   return (THDVAR(thd, txsql_parallel_partitions_per_worker));
 }
+#endif /* defined(HAVE_PX) */
 
 /** Check if statement is of type INSERT .... SELECT that involves
 use of intrinsic tables.
@@ -10855,6 +10861,7 @@ dict_index_t *ha_innobase::innobase_get_index(
   return index;
 }
 
+#if defined(HAVE_PX)
 static int convert_error_code(dberr_t err, int flags, THD *thd,
                               row_prebuilt_t *prebuilt, TABLE *table) {
   int error;
@@ -11376,6 +11383,7 @@ int ha_innobase::px_scan_end(void *scan_ctx) {
   ut::delete_(reader);
   return 0;
 }
+#endif /* defined(HAVE_PX) */
 
 /** Changes the active index of a handle.
  @return 0 or error code */
@@ -24881,7 +24889,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(log_checksums),
     MYSQL_SYSVAR(commit_concurrency),
     MYSQL_SYSVAR(concurrency_tickets),
+#if defined(HAVE_PX)
     MYSQL_SYSVAR(txsql_parallel_partitions_per_worker),
+#endif /* defined(HAVE_PX) */
     MYSQL_SYSVAR(compression_level),
     MYSQL_SYSVAR(ddl_buffer_size),
     MYSQL_SYSVAR(ddl_threads),

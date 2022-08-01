@@ -89,7 +89,9 @@
 #include "sql/opt_costmodel.h"
 #include "sql/opt_explain_format.h"
 #include "sql/opt_trace.h"  // Opt_trace_object
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_item.h"
+#endif /* defined(HAVE_PX) */
 #include "sql/query_options.h"
 #include "sql/record_buffer.h"  // Record_buffer
 #include "sql/sort_param.h"
@@ -250,7 +252,11 @@ bool JOIN::create_intermediate_table(
       goto err;
 
     if (alloc_group_fields(this, group_list.order)) goto err;
+#if defined(HAVE_PX)
     if (make_sum_func_list(tmp_table_fields, true)) goto err;
+#else
+    if (make_sum_func_list(*fields, true)) goto err;
+#endif /* defined(HAVE_PX) */
     const bool need_distinct =
         !(tab->range_scan() &&
           tab->range_scan()->type == AccessPath::GROUP_INDEX_SKIP_SCAN);
@@ -258,7 +264,11 @@ bool JOIN::create_intermediate_table(
     if (setup_sum_funcs(thd, sum_funcs)) goto err;
     group_list.clean();
   } else {
+#if defined(HAVE_PX)
     if (make_sum_func_list(tmp_table_fields, false)) goto err;
+#else
+    if (make_sum_func_list(*fields, false)) goto err;
+#endif /* defined(HAVE_PX) */
     const bool need_distinct =
         !(tab->range_scan() &&
           tab->range_scan()->type == AccessPath::GROUP_INDEX_SKIP_SCAN);
@@ -293,6 +303,7 @@ err:
   return true;
 }
 
+#if defined(HAVE_PX)
 bool JOIN::create_exchange_intermediate_table(
     Exchange_Info *exchange_info,
     const mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields) {
@@ -320,6 +331,7 @@ bool JOIN::create_exchange_intermediate_table(
 
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   Checks if an item has a ROLLUP NULL which needs to be written to
@@ -5210,7 +5222,13 @@ bool change_to_use_tmp_fields_except_sums(mem_root_deque<Item *> *fields,
   @returns false if success, true if error
 */
 
-bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
+bool JOIN::clear_fields(table_map *save_nullinfo
+#if defined(HAVE_PX)
+                        ,
+                        AggType agg_type
+#endif /* defined(HAVE_PX) */
+                        ) {
+#if defined(HAVE_PX)
   if (agg_type == AggType::PX_FINAL_AGG) {
     // Set all column values from all input tables to NULL.
     if (!aggr_tmp_table->has_null_row()) {
@@ -5224,6 +5242,7 @@ bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
     }
     return false;
   }
+#endif /* defined(HAVE_PX) */
   // Set all column values from all input tables to NULL.
   for (uint tableno = 0; tableno < primary_tables; tableno++) {
     QEP_TAB *const tab = qep_tab + tableno;
@@ -5234,10 +5253,14 @@ bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
       table->set_null_row();  // All fields are NULL
     }
   }
+#if defined(HAVE_PX)
   if (copy_fields((agg_type == AggType::PX_LOCAL_AGG) ? local_tmp_table_param
                                                       : &tmp_table_param, thd)) {
     return true;
   }
+#else
+  if (copy_fields(&tmp_table_param, thd)) return true;
+#endif /* defined(HAVE_PX) */
 
   if (sum_funcs) {
     Item_sum *func, **func_ptr = sum_funcs;
@@ -5254,14 +5277,20 @@ bool JOIN::clear_fields(table_map *save_nullinfo, AggType agg_type) {
   @note Const tables must have their NULL value flags restored,
         @see JOIN::clear_fields().
 */
-void JOIN::restore_fields(table_map save_nullinfo, AggType agg_type) {
-  assert(save_nullinfo);
-
+void JOIN::restore_fields(table_map save_nullinfo
+#if defined(HAVE_PX)
+                          ,
+                          AggType agg_type
+#endif /* defined(HAVE_PX) */
+                          ) {
+#if defined(HAVE_PX)
   if (agg_type == AggType::PX_FINAL_AGG) {
     if (aggr_tmp_table->const_table) aggr_tmp_table->restore_null_flags();
     aggr_tmp_table->reset_null_row();
     return ;
   }
+#endif /* defined(HAVE_PX) */
+  assert(save_nullinfo);
 
   for (uint tableno = 0; tableno < primary_tables; tableno++) {
     QEP_TAB *const tab = qep_tab + tableno;
@@ -5273,6 +5302,7 @@ void JOIN::restore_fields(table_map save_nullinfo, AggType agg_type) {
   }
 }
 
+#if defined(HAVE_PX)
 /**
   Transform ref_items to fields array.
 
@@ -5323,7 +5353,7 @@ bool JOIN::rebuild_sum_funcs(THD *thd, uint curr_slice) {
       Item_sum *item_sum = dynamic_cast<Item_sum *>(item);
       const Item_sum::Sumfunctype sum_type = item_sum->sum_func();
       Item_sum **new_item_list{nullptr};
-      
+
       if (sum_type == Item_sum::AVG_FUNC) {
         Item_sum_avg *item_sum_avg = dynamic_cast<Item_sum_avg *>(item);
         new_item_list = item_sum_avg->pq_rebuild_item(thd, query_block);
@@ -5365,7 +5395,7 @@ err:
   @param thd
   @param curr_slice current slice of aggregate
   @param avg_count number of avg func
-  
+
   @return false if successful, true if fail.
 */
 bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
@@ -5407,7 +5437,7 @@ bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
         arg = new_item_list[0]->set_arg(thd, 0, new(thd->mem_root) Item_field(res_field));
         if (!arg) return true;
       }
-      
+
       // fix fields after set args
       new_item_list[0]->fix_fields(thd, nullptr);
       // fix result type for count->sum
@@ -5491,7 +5521,7 @@ bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
         visible_fields->push_back(item_div);
       }
     }
-    
+
     i++;
     if (avg_inject_step >= 0) avg_inject_step--;
   }
@@ -5512,6 +5542,7 @@ bool JOIN::rebuild_final_sum_funcs(THD *thd, uint curr_slice, uint avg_count) {
   thd->lex->allow_sum_func = saved_allow_sum_funcs;
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
 /******************************************************************************
   Code for pfs_batch_update

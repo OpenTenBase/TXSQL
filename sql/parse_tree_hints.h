@@ -286,6 +286,7 @@ class PT_hint_max_execution_time : public PT_hint {
   }
 };
 
+#if defined(HAVE_PX)
 /**
   Parse tree hint object for PARALLEL hint.
 */
@@ -386,6 +387,16 @@ class PT_hint_parallel : public PT_hint {
     }
   }
 };
+#else
+class PT_hint_parallel : public PT_hint {
+ public:
+  explicit PT_hint_parallel(Hint_param_table &, bool)
+      : PT_hint(MAX_HINT_ENUM, true) {}
+  explicit PT_hint_parallel(ulong) : PT_hint(MAX_HINT_ENUM, true) {}
+  explicit PT_hint_parallel(Hint_param_table &, ulong, bool)
+      : PT_hint(MAX_HINT_ENUM, true) {}
+};
+#endif /* defined(HAVE_PX) */
 
 class PT_hint_sys_var : public PT_hint {
   const LEX_CSTRING sys_var_name;

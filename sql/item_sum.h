@@ -449,8 +449,10 @@ class Item_sum : public Item_func {
     SUM_DISTINCT_FUNC,    // SUM (DISTINCT)
     AVG_FUNC,             // AVG
     AVG_DISTINCT_FUNC,    // AVG (DISTINCT)
+#if defined(HAVE_PX)
     PX_AVG_FUNC,          // PX_AVG
     PX_AVG_DISTINCT_FUNC, // PX_AVG(DISTINCT)
+#endif /* defined(HAVE_PX) */
     MIN_FUNC,             // MIN
     MAX_FUNC,             // MAX
     STD_FUNC,             // STD/STDDEV/STDDEV_POP
@@ -786,11 +788,13 @@ class Item_sum : public Item_func {
   /// Non-const version
   virtual Item_sum *unwrap_sum() { return this; }
 
+#if defined(HAVE_PX)
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
 
   virtual Item_sum **pq_rebuild_item(THD *, Query_block *) { return nullptr; }
 
   virtual void pq_fix_result_type(Item_result) {}
+#endif /* defined(HAVE_PX) */
 
  protected:
   /*
@@ -983,7 +987,10 @@ class Item_sum_num : public Item_sum {
     return get_time_from_numeric(ltime); /* Decimal or real */
   }
   void reset_field() override;
+
+#if defined(HAVE_PX)
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_sum_int : public Item_sum_num {
@@ -1039,7 +1046,9 @@ class Item_sum_sum : public Item_sum_num {
   */
   ulonglong m_frame_null_count;
 
+#if defined(HAVE_PX)
   bool pq_create_for_count = false;
+#endif /* defined(HAVE_PX) */
 
  public:
   Item_sum_sum(const POS &pos, Item *item_par, bool distinct, PT_window *window)
@@ -1068,6 +1077,7 @@ class Item_sum_sum : public Item_sum_num {
   void update_field() override;
   const char *func_name() const override { return "sum"; }
   Item *copy_or_same(THD *thd) override;
+#if defined(HAVE_PX)
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
   void pq_fix_result_type(Item_result item_result) override { hybrid_type = item_result; }
@@ -1077,6 +1087,7 @@ class Item_sum_sum : public Item_sum_num {
   void pq_set_create_for_count(bool is_create_for_count){
     pq_create_for_count = is_create_for_count;
   }
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_sum_count : public Item_sum_int {
@@ -1127,10 +1138,12 @@ class Item_sum_count : public Item_sum_int {
   void update_field() override;
   const char *func_name() const override { return "count"; }
   Item *copy_or_same(THD *thd) override;
+#if defined(HAVE_PX)
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
   virtual bool parallel_safe() override {
     return (sum_func() == COUNT_DISTINCT_FUNC) ? false : true;
   }
+#endif /* defined(HAVE_PX) */
 };
 
 /* Item to get the value of a stored sum function */
@@ -1274,7 +1287,9 @@ class Item_sum_json : public Item_sum {
 
   bool check_wf_semantics1(THD *, Query_block *,
                            Window_evaluation_requirements *) override;
+#if defined(HAVE_PX)
   virtual bool parallel_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_sum_histogram final : public Item_sum_json {
@@ -1416,11 +1431,14 @@ class Item_sum_avg final : public Item_sum_sum {
     m_frame_null_count = 0;
     Item_sum_sum::cleanup();
   }
+
+#if defined(HAVE_PX)
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
 
   virtual bool parallel_safe() override {
     return (sum_func() == AVG_DISTINCT_FUNC) ? false : true;
   }
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_sum_variance;
@@ -1558,7 +1576,9 @@ class Item_sum_variance : public Item_sum_num {
   }
   bool check_wf_semantics1(THD *thd, Query_block *select,
                            Window_evaluation_requirements *reqs) override;
+#if defined(HAVE_PX)
   virtual bool parallel_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_sum_std;
@@ -1600,7 +1620,9 @@ class Item_sum_std : public Item_sum_variance {
   }
   Item *copy_or_same(THD *thd) override;
   enum Item_result result_type() const override { return REAL_RESULT; }
+#if defined(HAVE_PX)
   virtual bool parallel_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 };
 
 // This class is a string or number function depending on num_func
@@ -1765,7 +1787,9 @@ class Item_sum_hybrid : public Item_sum {
   Item *copy_or_same(THD *thd) override;
   bool check_wf_semantics1(THD *thd, Query_block *select,
                            Window_evaluation_requirements *r) override;
+#if defined(HAVE_PX)
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
+#endif /* defined(HAVE_PX) */
 
  private:
   /*
@@ -1790,8 +1814,10 @@ class Item_sum_min final : public Item_sum_hybrid {
       : Item_sum_hybrid(thd, item) {}
   enum Sumfunctype sum_func() const override { return MIN_FUNC; }
   const char *func_name() const override { return "min"; }
+#if defined(HAVE_PX)
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
+#endif /* defined(HAVE_PX) */
 
  private:
   Item_sum_min *clone_hybrid(THD *thd) const override;
@@ -1806,8 +1832,10 @@ class Item_sum_max final : public Item_sum_hybrid {
       : Item_sum_hybrid(thd, item) {}
   enum Sumfunctype sum_func() const override { return MAX_FUNC; }
   const char *func_name() const override { return "max"; }
+#if defined(HAVE_PX)
   Item_sum **pq_rebuild_item(THD *thd, Query_block *select) override;
   bool pq_copy_item(THD *thd, Query_block *select, Item *item) override;
+#endif /* defined(HAVE_PX) */
 
  private:
   Item_sum_max *clone_hybrid(THD *thd) const override;
@@ -1942,7 +1970,9 @@ class Item_sum_bit : public Item_sum {
   /// @returns true iff this is BIT_AND.
   inline bool is_and() const { return reset_bits != 0; }
 
+#if defined(HAVE_PX)
   virtual bool parallel_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 
  private:
   /**
@@ -2055,7 +2085,9 @@ class Item_udf_sum : public Item_sum {
   void cleanup() override;
   void print(const THD *thd, String *str,
              enum_query_type query_type) const override;
+#if defined(HAVE_PX)
   virtual bool parallel_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 };
 
 class Item_sum_udf_float final : public Item_udf_sum {
@@ -2296,11 +2328,13 @@ class Item_func_group_concat final : public Item_sum {
     return true;
   }
 
+#if defined(HAVE_PX)
   /**
    * Temp_table_param should be reset when injected exchange before.
    */
   bool reset(THD *thd);
   virtual bool parallel_safe() override { return false; }
+#endif /* defined(HAVE_PX) */
 };
 
 /**

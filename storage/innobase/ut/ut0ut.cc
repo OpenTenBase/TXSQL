@@ -485,8 +485,10 @@ const char *ut_strerr(dberr_t num) {
       return "Auto-increment read failed";
     case DB_FILE_READ_BEYOND_SIZE:
       return "File read failure because of the read being beyond file size.";
+#if defined(HAVE_PX)
     case DB_END_OF_PX_CTX:
       return ("End of PX Ctx range");
+#endif /* defined(HAVE_PX) */
     case DB_ERROR_UNSET:;
       /* Fall through. */
 

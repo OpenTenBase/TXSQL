@@ -66,7 +66,9 @@ extern bool debug_sync_update(THD *thd, char *val_str);
 extern uchar *debug_sync_value_ptr(THD *thd);
 extern void conditional_sync_point_for_timestamp(std::string name);
 extern void conditional_sync_point(std::string name);
+#if defined(HAVE_PX)
 extern bool check_debug_sync_for_px(THD *thd);
+#endif /* defined(HAVE_PX) */
 
 /**
   This macro simplifies when a DBUG_EXECUTE_IF will generate a given

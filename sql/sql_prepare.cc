@@ -410,9 +410,11 @@ class Statement_backup {
     default. This can be changed in future if required. */
     thd->set_safe_display(true);
 
+#if defined(HAVE_PX)
     if (thd->lex != nullptr) {
       thd->lex->is_executing_ps = true;
     }
+#endif /* defined(HAVE_PX) */
 
     return;
   }
@@ -434,7 +436,9 @@ class Statement_backup {
     stmt->m_query_string = thd->query();
     thd->set_query(m_query_string);
 
+#if defined(HAVE_PX)
     thd->lex->is_executing_ps = false;
+#endif /* defined(HAVE_PX) */
 
     return;
   }

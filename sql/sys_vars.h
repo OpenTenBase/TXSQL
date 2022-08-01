@@ -76,7 +76,9 @@
 #include "sql/tztime.h"           // Time_zone
 #include "sql_string.h"
 #include "typelib.h"
-#include "sql/parallel_execution/px_interface.h" // OPT_CTX
+#ifndef DBUG_OFF
+#include "sql/parallel_execution/opt_dbug.h" // Opt_dbug_session
+#endif
 
 class Sys_var_bit;
 class Sys_var_bool;
@@ -1268,6 +1270,7 @@ class Sys_var_dbug : public sys_var {
           thd->strmake(res->ptr(), res->length());
     return false;
   }
+#if defined(HAVE_OPT_CTX)
   bool session_update(THD *thd, set_var *var) override {
     const char *val = var->save_result.string_value.str;
     if (!var->value) {
@@ -1280,6 +1283,16 @@ class Sys_var_dbug : public sys_var {
     }
     return false;
   }
+#else
+  bool session_update(THD *, set_var *var) override {
+    const char *val = var->save_result.string_value.str;
+    if (!var->value)
+      DBUG_POP();
+    else
+      DBUG_SET(val);
+    return false;
+  }
+#endif /* defined(HAVE_OPT_CTX) */
   bool global_update(THD *, set_var *var) override {
     const char *val = var->save_result.string_value.str;
     DBUG_SET_INITIAL(val);

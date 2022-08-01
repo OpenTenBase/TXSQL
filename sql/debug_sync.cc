@@ -2001,6 +2001,7 @@ void conditional_sync_point_for_timestamp(std::string name) {
                          std::to_string(current_thd->start_time.tv_sec));
 }
 
+#if defined(HAVE_PX)
 /**
   Check whether dbug sync is set.
 
@@ -2021,5 +2022,6 @@ bool check_debug_sync_for_px(THD *thd) {
   }
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
 #endif /* defined(ENABLED_DEBUG_SYNC) */

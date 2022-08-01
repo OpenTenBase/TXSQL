@@ -94,7 +94,9 @@
 #include "thr_lock.h"  // thr_lock_type
 #include "violite.h"   // SSL_type
 #include "sql/recycle_bin.h"
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_exchange_info.h"
+#endif /* defined(HAVE_PX) */
 
 class Alter_info;
 class Event_parse_data;
@@ -671,7 +673,9 @@ class Query_expression {
   Query_block *slave;
 
  private:
+#if defined(HAVE_PX)
   PX_exchange_info *exchange_info{nullptr};
+#endif /* defined(HAVE_PX) */
   /**
     Marker for subqueries in WHERE, HAVING, ORDER BY, GROUP BY and
     SELECT item lists.
@@ -741,7 +745,9 @@ class Query_expression {
 
   explicit Query_expression(enum_parsing_context parsing_context);
 
+#if defined(HAVE_PX)
   bool exchange_inject;
+#endif /* defined(HAVE_PX) */
 
   /// @return true for a query expression without UNION or multi-level ORDER
   bool is_simple() const { return !(is_union() || fake_query_block); }
@@ -856,7 +862,9 @@ class Query_expression {
   */
   bool m_reject_multiple_rows{false};
 
+#if defined(HAVE_PX)
   AccessPath *m_max_px_subpath{nullptr};
+#endif /* defined(HAVE_PX) */
 
   /// @return true if query expression can be merged into an outer query
   bool is_mergeable() const;
@@ -892,7 +900,9 @@ class Query_expression {
     m_root_iterator.reset();
   }
 
+#if defined(HAVE_PX)
   void set_root_access_path(AccessPath *root_path) { m_root_access_path = root_path; }
+#endif /* defined(HAVE_PX) */
 
   /**
     Ensures that there are iterators created for the access paths created
@@ -908,9 +918,11 @@ class Query_expression {
    */
   bool force_create_iterators(THD *thd);
 
+#if defined(HAVE_PX)
   bool create_single_thread_iterators(THD *thd);
 
   bool init_exchange_info(THD *thd);
+#endif /* defined(HAVE_PX) */
 
   /// See optimize().
   bool unfinished_materialization() const {
@@ -1002,7 +1014,9 @@ class Query_expression {
   */
   void destroy();
 
+#if defined(HAVE_PX)
   bool has_user_vars() const;
+#endif /* defined(HAVE_PX) */
   void print(const THD *thd, String *str, enum_query_type query_type);
   bool accept(Select_lex_visitor *visitor);
 
@@ -1143,7 +1157,9 @@ class Query_expression {
   */
   friend bool parse_view_definition(THD *thd, TABLE_LIST *view_ref);
 
+#if defined(HAVE_PX)
   Query_result_union *get_union_result() { return union_result; }
+#endif /* defined(HAVE_PX) */
 };
 
 typedef Bounds_checked_array<Item *> Ref_item_array;
@@ -4009,7 +4025,9 @@ struct LEX : public Query_tables_list {
   bool grant_privilege;
   uint slave_thd_opt, start_transaction_opt;
   int select_number;  ///< Number of query block (by EXPLAIN)
+#if defined(HAVE_PX)
   int m_exchange_number;  ///< Number of exchange injected.
+#endif /* defined(HAVE_PX) */
   uint8 create_view_algorithm;
   uint8 create_view_check;
   /**
@@ -4034,7 +4052,11 @@ struct LEX : public Query_tables_list {
   bool drop_temporary;
   enum enum_recycle_bin_op recycle_bin_op;
   bool autocommit;
-  bool verbose, no_write_to_binlog, detail, parallel;
+  bool verbose, no_write_to_binlog, detail;
+// #if defined(HAVE_PX)
+  // Unconditional parallel field since required by sql_yacc.yy
+  bool parallel;
+// #endif /* defined(HAVE_PX) */
   // For show commands to show hidden columns and indexes.
   bool m_extended_show;
 
@@ -4062,8 +4084,9 @@ struct LEX : public Query_tables_list {
 
   bool is_from_ps;
   bool is_from_sp;
-
+#if defined(HAVE_PX)
   bool is_executing_ps{false};
+#endif /* defined(HAVE_PX) */
   /* Prepared statements SQL syntax:*/
   LEX_CSTRING prepared_stmt_name; /* Statement name (in all queries) */
   /*
@@ -4185,6 +4208,7 @@ struct LEX : public Query_tables_list {
            (sroutines != nullptr && !sroutines->empty());
   }
 
+#if defined(HAVE_PX)
   /// Compatiable code, only support one exchange currently.
   bool only_one_exchange() const { return thd->lex->m_exchange_number == 1; }
   /// Mark a LEX can not be executed parallel if
@@ -4192,6 +4216,7 @@ struct LEX : public Query_tables_list {
   ///  2. it's not a dynamic SQL, it's in PS/SP, or
   ///  3. query which has at least one table.
   bool check_px_execution() const;
+#endif /* defined(HAVE_PX) */
 
  public:
   st_sp_chistics sp_chistics;
@@ -4280,10 +4305,12 @@ struct LEX : public Query_tables_list {
   bool clear_all_name;
   // Whether can use parallel execution.
   bool use_px{false};
+#if defined(HAVE_PX)
   // Whether the query pass the parallel compatibility check
   bool pass_px_check{true};
   // Whether statement contains locking clause.
   bool locking_clause{false};
+#endif /* defined(HAVE_PX) */
 
   LEX();
 

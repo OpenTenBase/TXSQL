@@ -106,7 +106,9 @@
 #include "sql/my_decimal.h"
 #include "sql/opt_trace_context.h"
 #include "sql/options_mysqld.h"
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_interface.h" // txsql_max_parallel_worker_threads
+#endif /* defined(HAVE_PX) */
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
@@ -3541,8 +3543,12 @@ static Sys_var_flagset Sys_optimizer_trace_features(
     " optimizer_trace_features=option=val[,option=val...], where option is "
     "one "
     "of"
+#if defined(HAVE_PX)
     " {greedy_search, range_optimizer, dynamic_range, repeated_subselect, "
     "statistics}"
+#else
+    " {greedy_search, range_optimizer, dynamic_range, repeated_subselect}"
+#endif /* defined(HAVE_PX) */
     " and val is one of {on, off, default}",
     SESSION_VAR(optimizer_trace_features), CMD_LINE(REQUIRED_ARG),
     Opt_trace_context::feature_names,
@@ -8807,6 +8813,7 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     "The partion key doesn't need to be part of all unique index if setting to true",
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 
+#if defined(HAVE_PX)
 static Sys_var_ulong Sys_txsql_max_parallel_worker_threads(
     "txsql_max_parallel_worker_threads",
     "Specify the maximum number of worker threads for parallel execution "
@@ -8883,14 +8890,6 @@ static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
     BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
 
-static Sys_var_bool Sys_txsql_pread_count_enabled(
-    "txsql_pread_count_enabled",
-    "Allow count start to use pread parallel optimization "
-    "It is for Unqualified count star only.",
-    HINT_UPDATEABLE SESSION_VAR(txsql_pread_count_enabled),
-    CMD_LINE(OPT_ARG), DEFAULT(true),
-    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
-
 static Sys_var_ulonglong Sys_txsql_parallel_execution_max_lob_size(
     "txsql_parallel_execution_max_lob_size",
     "Specify the max lob object size.",
@@ -8905,4 +8904,13 @@ static Sys_var_bool Sys_txsql_parallel_lob_enabled(
     "It is for blob/text/json now.",
     HINT_UPDATEABLE SESSION_VAR(txsql_parallel_lob_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+#endif /* defined(HAVE_PX) */
+
+static Sys_var_bool Sys_txsql_pread_count_enabled(
+    "txsql_pread_count_enabled",
+    "Allow count start to use pread parallel optimization "
+    "It is for Unqualified count star only.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_pread_count_enabled),
+    CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));

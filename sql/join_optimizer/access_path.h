@@ -40,7 +40,11 @@
 #include "sql/mem_root_array.h"
 #include "sql/sql_array.h"
 #include "sql/sql_class.h"
-#include "sql/parallel_execution/px_mq.h"
+
+#if defined(HAVE_PX)
+#include "sql/sql_lex.h"                      // List_item
+#include "sql/parallel_execution/px_types.h"  // AggType
+#endif /* defined(HAVE_PX) */
 
 class PX_plan_slice;
 enum class AggType;
@@ -63,7 +67,6 @@ class SJ_TMP_TABLE;
 class Table_function;
 class Temp_table_param;
 class Window;
-class PX_mq_handle;
 struct AccessPath;
 struct GroupIndexSkipScanParameters;
 struct IndexSkipScanParameters;
@@ -73,7 +76,10 @@ struct POSITION;
 struct RelationalExpression;
 struct TABLE;
 struct TABLE_REF;
-struct SplitPosition;
+
+#if defined(HAVE_PX)
+enum class AggType;
+#endif /* defined(HAVE_PX) */
 
 /**
   A specification that two specific relational expressions
@@ -261,7 +267,9 @@ struct AccessPath {
     REMOVE_DUPLICATES,
     REMOVE_DUPLICATES_ON_INDEX,
     ALTERNATIVE,
-    CACHE_INVALIDATOR,
+    CACHE_INVALIDATOR
+#if defined(HAVE_PX)
+    ,
 
     // Access paths that modify tables.
     DELETE_ROWS,
@@ -271,6 +279,7 @@ struct AccessPath {
     PX_RECEIVE,
     PX_SEND,
     PX_RECEIVER_MERGE
+#endif /* defined(HAVE_PX) */
   } type;
 
   /// A general enum to describe the safety of a given operation.
@@ -871,6 +880,7 @@ struct AccessPath {
     assert(type == UPDATE_ROWS);
     return u.update_rows;
   }
+#if defined(HAVE_PX)
   auto &px_receiver() {
     assert(type == PX_RECEIVE);
     return u.px_receiver;
@@ -897,7 +907,9 @@ struct AccessPath {
   }
 
   bool operator==(const AccessPath &other) const;
+#endif /* defined(HAVE_PX) */
 
+ private:
   // We'd prefer if this could be an std::variant, but we don't have C++17 yet.
   // It is private to force all access to be through the type-checking
   // accessors.
@@ -1179,7 +1191,9 @@ struct AccessPath {
     struct {
       AccessPath *child;
       bool rollup;
+#if defined(HAVE_PX)
       AggType px_agg_type;
+#endif /* defined(HAVE_PX) */
     } aggregate;
     struct {
       AccessPath *subquery_path;
@@ -1187,7 +1201,9 @@ struct AccessPath {
       TABLE *table;
       AccessPath *table_path;
       int ref_slice;
+#if defined(HAVE_PX)
       AggType px_agg_type;
+#endif /* defined(HAVE_PX) */
     } temptable_aggregate;
     struct {
       AccessPath *child;
@@ -1260,6 +1276,7 @@ struct AccessPath {
       AccessPath *child;
       const char *name;
     } cache_invalidator;
+#if defined(HAVE_PX)
     struct {
       AccessPath *child;
       table_map tables_to_delete_from;
@@ -1297,6 +1314,7 @@ struct AccessPath {
       bool use_temp_table;
       PX_exchange_info *exchange_info;
     } px_receiver_merge;
+#endif /* defined(HAVE_PX) */
   } u;
 };
 static_assert(std::is_trivially_destructible<AccessPath>::value,
@@ -1524,20 +1542,30 @@ AccessPath *NewSortAccessPath(THD *thd, AccessPath *child, Filesort *filesort,
                               bool count_examined_rows);
 
 inline AccessPath *NewAggregateAccessPath(THD *thd, AccessPath *child,
-                                          bool rollup,
-                                          AggType px_agg_type = AggType::PX_NONE) {
+                                          bool rollup
+#if defined(HAVE_PX)
+                                          ,
+                                          AggType px_agg_type = AggType::PX_NONE
+#endif /* defined(HAVE_PX) */
+                                          ) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::AGGREGATE;
   path->aggregate().child = child;
   path->aggregate().rollup = rollup;
+#if defined(HAVE_PX)
   path->aggregate().px_agg_type = px_agg_type;
+#endif /* defined(HAVE_PX) */
   return path;
 }
 
 inline AccessPath *NewTemptableAggregateAccessPath(
     THD *thd, AccessPath *subquery_path, Temp_table_param *temp_table_param,
-    TABLE *table, AccessPath *table_path, int ref_slice,
-    AggType px_agg_type = AggType::PX_NONE) {
+    TABLE *table, AccessPath *table_path, int ref_slice
+#if defined(HAVE_PX)
+    ,
+    AggType px_agg_type = AggType::PX_NONE
+#endif /* defined(HAVE_PX) */
+    ) {
   AccessPath *path = new (thd->mem_root) AccessPath;
   path->type = AccessPath::TEMPTABLE_AGGREGATE;
   path->temptable_aggregate().subquery_path = subquery_path;
@@ -1545,7 +1573,9 @@ inline AccessPath *NewTemptableAggregateAccessPath(
   path->temptable_aggregate().table = table;
   path->temptable_aggregate().table_path = table_path;
   path->temptable_aggregate().ref_slice = ref_slice;
+#if defined(HAVE_PX)
   path->temptable_aggregate().px_agg_type = px_agg_type;
+#endif /* defined(HAVE_PX) */
   return path;
 }
 
@@ -1813,6 +1843,7 @@ AccessPath *NewUpdateRowsAccessPath(THD *thd, AccessPath *child,
                                     table_map delete_tables,
                                     table_map immediate_tables);
 
+#if defined(HAVE_PX)
 inline AccessPath *NewPXReceiveAccessPath(THD *thd, AccessPath *child,
                                           mem_root_deque<TABLE *> *tables,
                                           int ref_slice, bool use_temp_table) {
@@ -1857,6 +1888,7 @@ inline AccessPath *NewPXSendAccessPath(THD *thd, AccessPath *child,
   path->px_send().table_path = table_path;
   return path;
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   Modifies "path" and the paths below it so that they provide row IDs for

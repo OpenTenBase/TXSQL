@@ -171,7 +171,9 @@ class KEY {
   LEX_CSTRING secondary_engine_attribute{nullptr, 0};
 
  private:
+#if defined(HAVE_OPT_CTX)
   friend class Stats_cache;
+#endif
   /**
     Estimate for how much of the index data that is currently
     available in a memory buffer. Valid range is [0..1]. This will be
@@ -211,8 +213,13 @@ class KEY {
     @return true if records per key estimate is available, false otherwise
   */
 
+#if defined(HAVE_OPT_CTX)
   bool has_records_per_key(uint key_part_no) const;
-  bool has_records_per_key_low(uint key_part_no) const {
+  bool has_records_per_key_low(uint key_part_no) const
+#else
+  bool has_records_per_key(uint key_part_no) const
+#endif
+  {
     assert(key_part_no < actual_key_parts);
 
     return ((rec_per_key_float &&
@@ -234,9 +241,13 @@ class KEY {
       @retval != REC_PER_KEY_UNKNOWN record per key estimate
   */
 
+#if defined(HAVE_OPT_CTX)
   rec_per_key_t records_per_key(uint key_part_no) const;
-
-  rec_per_key_t records_per_key_low(uint key_part_no) const {
+  rec_per_key_t records_per_key_low(uint key_part_no) const
+#else
+  rec_per_key_t records_per_key(uint key_part_no) const
+#endif
+  {
     assert(key_part_no < actual_key_parts);
 
     /*
@@ -261,11 +272,14 @@ class KEY {
                            must be in [0, KEY::actual_key_parts)
     @param rec_per_key_est new records per key estimate
   */
-
+#if defined(HAVE_OPT_CTX)
   void set_records_per_key(uint key_part_no, rec_per_key_t rec_per_key_est);
-
   void set_records_per_key_low(uint key_part_no,
-                               rec_per_key_t rec_per_key_est) {
+                               rec_per_key_t rec_per_key_est)
+#else
+  void set_records_per_key(uint key_part_no, rec_per_key_t rec_per_key_est)
+#endif
+  {
     assert(key_part_no < actual_key_parts);
     assert(rec_per_key_est == REC_PER_KEY_UNKNOWN ||
                 rec_per_key_est >= 1.0);
@@ -281,9 +295,13 @@ class KEY {
             false otherwise.
   */
 
+#if defined(HAVE_OPT_CTX)
   bool supports_records_per_key() const;
-
-  bool supports_records_per_key_low() const {
+  bool supports_records_per_key_low() const
+#else
+  bool supports_records_per_key() const
+#endif
+  {
     if (rec_per_key_float != nullptr && rec_per_key != nullptr) return true;
 
     return false;
@@ -303,6 +321,7 @@ class KEY {
                                  records per key using float
   */
 
+#if defined(HAVE_OPT_CTX)
   void set_rec_per_key_array(ulong *rec_per_key_arg,
                              rec_per_key_t *rec_per_key_float_arg);
 
@@ -311,7 +330,12 @@ class KEY {
   }
 
   void set_rec_per_key_array_low(ulong *rec_per_key_arg,
-                                 rec_per_key_t *rec_per_key_float_arg) {
+                                 rec_per_key_t *rec_per_key_float_arg)
+#else
+  void set_rec_per_key_array(ulong *rec_per_key_arg,
+                             rec_per_key_t *rec_per_key_float_arg)
+#endif
+  {
     rec_per_key = rec_per_key_arg;
     rec_per_key_float = rec_per_key_float_arg;
   }
@@ -349,9 +373,13 @@ class KEY {
       @retval != IN_MEMORY_ESTIMATE_UNKNOWN estimate
   */
 
+#if defined(HAVE_OPT_CTX)
   double in_memory_estimate() const;
-
-  double in_memory_estimate_low() const {
+  double in_memory_estimate_low() const
+#else
+  double in_memory_estimate() const
+#endif
+  {
     assert(m_in_memory_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
                 (m_in_memory_estimate >= 0.0 && m_in_memory_estimate <= 1.0));
 
@@ -366,9 +394,13 @@ class KEY {
     IN_MEMORY_ESTIMATE_UNKNOWN.
   */
 
+#if defined(HAVE_OPT_CTX)
   void set_in_memory_estimate(double in_memory_estimate);
-
-  void set_in_memory_estimate_low(double in_memory_estimate) {
+  void set_in_memory_estimate_low(double in_memory_estimate)
+#else
+  void set_in_memory_estimate(double in_memory_estimate)
+#endif
+  {
     assert(in_memory_estimate == IN_MEMORY_ESTIMATE_UNKNOWN ||
                 (in_memory_estimate >= 0.0 && in_memory_estimate <= 1.0));
 

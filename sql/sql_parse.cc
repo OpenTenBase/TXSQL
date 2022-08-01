@@ -191,8 +191,10 @@
 #include "sql/opt_outline_builder.h"
 #include "sql/sql_seq.h"
 #include "sql/parallel_execution/px.h" // PX_PRINT_
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_executor.h" // PX_executor
 #include "sql/parallel_execution/px_interface.h" // fallback_to_serial_execution
+#endif /* defined(HAVE_PX) */
 /**
   Changes from txsql end.
 */
@@ -1811,10 +1813,12 @@ static void check_secondary_engine_statement(THD *thd,
   // Restart the statement.
   dispatch_sql_command(thd, parser_state);
 
+#if defined(HAVE_PX)
   // If PX execution fails to execute properly, fallback to serial.
   if (thd->need_fallback)
     fallback_to_serial_execution(thd, parser_state, query_string,
                                  query_length);
+#endif /* defined(HAVE_PX) */
 
   // Restore the original option bits.
   thd->variables.option_bits = saved_option_bits;
@@ -1930,7 +1934,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
   Sql_cmd_clone *clone_cmd = nullptr;
 
+#if defined(HAVE_PX)
   thd->need_fallback = false;
+#endif /* defined(HAVE_PX) */
+
   /* SHOW PROFILE instrumentation, begin */
 #if defined(ENABLED_PROFILING)
   thd->profiling->start_new_query();
@@ -2241,15 +2248,17 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       thd->profiling->set_query_source(thd->query().str, thd->query().length);
 #endif
 
+#if defined(HAVE_PX)
       thd->lex->pass_px_check = true;
 
 #if defined(ENABLED_DEBUG_SYNC)
-  /* Check the Debug Sync Facility. See debug_sync.cc. */
-  if (check_debug_sync_for_px(thd) &&
-      DBUG_EVALUATE_IF("disable_debug_sync_check", false, true)) {
-    thd->lex->pass_px_check = false;
-  }
+      /* Check the Debug Sync Facility. See debug_sync.cc. */
+      if (check_debug_sync_for_px(thd) &&
+          DBUG_EVALUATE_IF("disable_debug_sync_check", false, true)) {
+        thd->lex->pass_px_check = false;
+      }
 #endif /* defined(ENABLED_DEBUG_SYNC) */
+#endif /* defined(HAVE_PX) */
 
       const LEX_CSTRING orig_query = thd->query();
 
@@ -2273,12 +2282,19 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       copy_bind_parameter_values(thd, com_data->com_query.parameters,
                                  com_data->com_query.parameter_count);
-      dispatch_sql_command(thd, &parser_state, false, /*interceptable=*/true);
+      dispatch_sql_command(thd, &parser_state, false
+#if defined(HAVE_PX)
+                  ,
+                  /*interceptable=*/true
+#endif /* defined(HAVE_PX) */
+      );
 
+#if defined(HAVE_PX)
       // If PX execution fails to execute properly, fallback to serial.
       if (thd->need_fallback)
         fallback_to_serial_execution(thd, &parser_state, orig_query.str,
                                      orig_query.length);
+#endif /* defined(HAVE_PX) */
 
       // Check if the statement failed and needs to be restarted in
       // another storage engine.
@@ -2363,9 +2379,14 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         parser_state.reset(beginning_of_next_stmt, length);
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
-
         /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-        dispatch_sql_command(thd, &parser_state, false, /*interceptable=*/true);
+
+        dispatch_sql_command(thd, &parser_state, false
+#if defined(HAVE_PX)
+                    ,
+                    /*interceptable=*/true
+#endif /* defined(HAVE_PX) */
+        );
 
         check_secondary_engine_statement(thd, &parser_state,
                                          beginning_of_next_stmt, length);
@@ -2698,7 +2719,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       mysqld_list_processes(
           thd, global_access ? NullS : thd->security_context()->priv_user().str,
-          false, false, false, false);
+          false, false, false
+#if defined(HAVE_PX)
+          ,
+          false
+#endif /* defined(HAVE_PX) */
+          );
 
       DBUG_EXECUTE_IF("force_db_name_to_null", thd->reset_db(db_saved););
       break;
@@ -2820,6 +2846,7 @@ done:
   thd->set_command(COM_SLEEP);
   thd->set_proc_info(nullptr);
   thd->lex->sql_command = SQLCOM_END;
+#if defined(HAVE_PX)
   thd->lex->pass_px_check = true;
 
 #if defined(ENABLED_DEBUG_SYNC)
@@ -2829,6 +2856,7 @@ done:
     thd->lex->pass_px_check = false;
   }
 #endif /* defined(ENABLED_DEBUG_SYNC) */
+#endif /* defined(HAVE_PX) */
 
   /* Performance Schema Interface instrumentation, end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
@@ -3307,8 +3335,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
   /* cdb_sql_filter: store matched rules */
   std::vector<cdb_sql_filter::Rule*> matched_rules;
+#if defined(HAVE_PX)
   /* Set worker execution state to PX_WORKER_PARSE_OPTIMIZE */
   if (PX_ROLE_WORKER(thd)) thd->px_worker_state = PX_WORKER_PARSE_OPTIMIZE;
+#endif /* defined(HAVE_PX) */
 
   /*
     If there is a CREATE TABLE...START TRANSACTION command which
@@ -5758,8 +5788,12 @@ void THD::reset_for_next_command() {
     thd->get_transaction()->reset_unsafe_rollback_flags(
         Transaction_ctx::SESSION);
   }
-  if (PX_ROLE_USER(thd))
-    assert(thd->security_context() == &thd->m_main_security_ctx);
+  assert(
+#if defined(HAVE_PX)
+      // Do not check background threads with proxied security context.
+      !PX_ROLE_USER(thd) ||
+#endif /* defined(HAVE_PX) */
+      thd->security_context() == &thd->m_main_security_ctx);
   thd->thread_specific_used = false;
 
   if (opt_bin_log) {
@@ -5843,8 +5877,12 @@ void THD::reset_for_next_command() {
 */
 
 void dispatch_sql_command(THD *thd, Parser_state *parser_state,
-                          bool log_statement,
-                          bool interceptable MY_ATTRIBUTE((unused))) {
+                          bool log_statement
+#if defined(HAVE_PX)
+                 ,
+                 bool interceptable MY_ATTRIBUTE((unused))
+#endif /* defined(HAVE_PX) */
+                 ) {
   DBUG_TRACE;
   DBUG_PRINT("dispatch_sql_command", ("query: '%s'", thd->query().str));
 
@@ -5883,8 +5921,10 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
     parser_state->m_input.m_compute_digest = true;
 
   LEX *lex = thd->lex;
+#if defined(HAVE_PX)
   lex->locking_clause = false;
   thd->use_px = false;
+#endif /* defined(HAVE_PX) */
   const char *found_semicolon = nullptr;
 
   bool err = thd->get_stmt_da()->is_error();
@@ -5910,8 +5950,10 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
     if (!err) err = invoke_post_parse_rewrite_plugins(thd, false);
 
     found_semicolon = parser_state->m_lip.found_semicolon;
+#if defined(HAVE_PX)
     // set found_simicolon is true when found semicolon in multi statement.
     if (found_semicolon) lex->pass_px_check = false;
+#endif /* defined(HAVE_PX) */
   }
 
   if (thd->variables.cdb_opt_outline_enabled && !err) 
@@ -5969,7 +6011,10 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
     thd->m_statement_psi = MYSQL_REFINE_STATEMENT(
         thd->m_statement_psi, sql_statement_info[thd->lex->sql_command].m_key);
 
-    if (mqh_used && thd->get_user_connect() && !thd->need_fallback &&
+    if (mqh_used && thd->get_user_connect() &&
+#if defined(HAVE_PX)
+        !thd->need_fallback &&
+#endif /* defined(HAVE_PX) */
         check_mqh(thd, lex->sql_command)) {
       if (thd->is_classic_protocol())
         thd->get_protocol_classic()->get_net()->error = NET_ERROR_UNSET;
@@ -7237,12 +7282,16 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
       If user of both killer and killee are non-NULL, proceed with
       slayage if both are string-equal.
     */
+
+#if defined(HAVE_PX)
     if (PX_ROLE_WORKER(tmp)) {
       push_warning_printf(thd, Sql_condition::SL_WARNING,
         ER_WARN_FORBID_KILL_WORKER, ER_THD(thd, ER_WARN_FORBID_KILL_WORKER),
         tmp->px_coordinator->thread_id());
       error = 0;
-    } else if (sctx->check_access(SUPER_ACL) ||
+    } else
+#endif /* defined(HAVE_PX) */
+    if (sctx->check_access(SUPER_ACL) ||
         sctx->has_global_grant(STRING_WITH_LEN("CONNECTION_ADMIN")).first ||
         sctx->user_matches(tmp->security_context())) {
       /*

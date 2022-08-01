@@ -203,7 +203,9 @@ class Opt_trace_context {
     RANGE_OPTIMIZER = 1 << 1,
     DYNAMIC_RANGE = 1 << 2,
     REPEATED_SUBSELECT = 1 << 3,
+#if defined(HAVE_OPT_CTX)
     STATISTICS = 1 << 4,
+#endif
     /*
       If you add here, update feature_value of empty implementation
       and default_features!

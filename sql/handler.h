@@ -3919,9 +3919,11 @@ class ha_statistics {
         block_size(0),
         table_in_mem_estimate(IN_MEMORY_ESTIMATE_UNKNOWN) {}
 
+#if defined(HAVE_PX)
   void copy_from(const ha_statistics *other) {
     memcpy(this, other, sizeof(ha_statistics));
   }
+#endif /* defined(HAVE_PX) */
 };
 
 /**
@@ -4449,9 +4451,11 @@ class handler {
   */
   enum enum_range_scan_direction { RANGE_SCAN_ASC, RANGE_SCAN_DESC };
 
+#if defined(HAVE_PX)
   key_range px_ref_key;
   enum PX_SCAN_TYPE px_scan_type;
   void *px_scan_ctx{nullptr};
+#endif /* defined(HAVE_PX) */
  private:
   Record_buffer *m_record_buffer = nullptr;  ///< Buffer for multi-row reads.
   /*
@@ -4496,7 +4500,14 @@ class handler {
   /** Length of ref (1-8 or the clustered key length) */
   uint ref_length;
   FT_INFO *ft_handler;
-  enum { NONE = 0, INDEX, RND, SAMPLING, PQ } inited;
+
+  enum { NONE = 0, INDEX, RND, SAMPLING
+#if defined(HAVE_PX)
+      ,
+      PQ
+#endif /* defined(HAVE_PX) */
+      } inited;
+
   bool implicit_emptied; /* Can be !=0 only if HEAP */
   const Item *pushed_cond;
 
@@ -4752,11 +4763,16 @@ class handler {
   int ha_reset();
   /* this is necessary in many places, e.g. in HANDLER command */
   int ha_index_or_rnd_end() {
-    return inited == INDEX ? ha_index_end() : 
-      inited == RND ? ha_rnd_end() : 
-        inited == PQ ? ha_px_end() : 0;
+    return inited == INDEX ? ha_index_end() : inited == RND ? ha_rnd_end() :
+#if defined(HAVE_PX)
+           inited == PQ ? ha_px_end() : 0
+#else
+           0
+#endif /* defined(HAVE_PX) */
+     ;
   }
 
+#if defined(HAVE_PX)
   /*
     Handler interface methods for parallel execution.
 
@@ -4782,6 +4798,7 @@ class handler {
   int ha_px_scan_next(uchar *buf, void *scan_ctx);
 
   int ha_px_end();
+#endif /* defined(HAVE_PX) */
 
   /**
     The cached_table_flags is set at ha_open and ha_external_lock
@@ -4926,6 +4943,7 @@ class handler {
   */
   virtual void parallel_scan_end(void *scan_ctx [[maybe_unused]]) { return; }
 
+#if defined(HAVE_PX)
   virtual int px_trx_init(void *&coordinator_trx MY_ATTRIBUTE((unused))) {
     return 0;
   }
@@ -4950,6 +4968,7 @@ class handler {
   virtual int px_scan_end(void *scan_ctx MY_ATTRIBUTE((unused))) {
     return 0;
   }
+#endif /* defined(HAVE_PX) */
 
   /**
     Submit a dd::Table object representing a core DD table having

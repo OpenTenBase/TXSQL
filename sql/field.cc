@@ -8464,6 +8464,7 @@ void Field_set::sql_type(String &res) const {
   res.append(')');
 }
 
+#if defined(HAVE_PX)
 /**
   @retval
     true   if the fields are equally
@@ -8487,6 +8488,7 @@ bool Field::eq(const Field *field) const {
   return (ptr == field->ptr && m_null_ptr == field->m_null_ptr &&
       null_bit == field->null_bit && field->type() == type());
 }
+#endif /* defined(HAVE_PX) */
 
 /**
   @retval
@@ -8752,6 +8754,7 @@ Field *Field_bit::new_key_field(MEM_ROOT *root, TABLE *new_table,
   return res;
 }
 
+#if defined(HAVE_PX)
 bool Field_bit::eq(const Field *field) const {
   // Support equality test between two plans between worker and coordinator
   if (current_thd && current_thd->m_equivalence_check_phase) {
@@ -8764,6 +8767,7 @@ bool Field_bit::eq(const Field *field) const {
           bit_ptr == down_cast<const Field_bit *>(field)->bit_ptr &&
           bit_ofs == down_cast<const Field_bit *>(field)->bit_ofs);
 }
+#endif /* defined(HAVE_PX) */
 
 uint Field_bit::is_equal(const Create_field *new_field) const {
   return (new_field->sql_type == real_type() &&

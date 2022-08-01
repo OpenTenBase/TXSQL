@@ -182,9 +182,10 @@ enum_server_operational_state get_server_state();
 extern mysql_rwlock_t LOCK_whitelist_array;
 extern PSI_rwlock_key key_rwlock_LOCK_whitelist_array;
 extern PSI_rwlock_key key_LOCK_Sql_Filter_Rule;
+#if defined(HAVE_PX)
 extern PSI_mutex_key key_LOCK_Exchange_Info_Channel;
 extern PSI_mutex_key key_LOCK_Running_Task_Barrier;
-extern bool cdb_session_var_privilege_check_enabled;
+#endif /*defined(HAVE_PX) */
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log;
 extern bool opt_log_replica_updates;
@@ -469,6 +470,7 @@ extern std::atomic<long> auto_stats_thread_monitor_interval;
 extern bool auto_perf_node_request;
 extern char cdb_statistics_host[HOSTNAME_LENGTH + 1];
 extern uint cdb_statistics_port;
+#if defined(HAVE_OPT_CTX)
 /**
   Cache versions to detect changes, used as optimistic locking
   for parallel execution.
@@ -476,6 +478,7 @@ extern uint cdb_statistics_port;
 extern std::atomic<long long> outline_reload_version;
 extern std::atomic<long long> optimizer_cost_reload_version;
 extern std::atomic<long long> rewriter_plugin_reload_version;
+#endif
 /**
   Variable to check if connection related options are set
   as part of keyring migration.
@@ -716,7 +719,9 @@ extern PSI_stage_info stage_rpl_failover_fetching_source_member_details;
 extern PSI_stage_info stage_rpl_failover_updating_source_member_details;
 extern PSI_stage_info stage_rpl_failover_wait_before_next_fetch;
 extern PSI_stage_info stage_communication_delegation;
+#if defined(HAVE_PX)
 extern PSI_stage_info stage_starting_fallback;
+#endif /* defined(HAVE_PX) */
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).

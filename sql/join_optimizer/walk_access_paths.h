@@ -242,6 +242,7 @@ void WalkAccessPaths(AccessPath *path, JoinPtr join,
       WalkAccessPaths(path->update_rows().child, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
       break;
+#if defined(HAVE_PX)
     case AccessPath::PX_RECEIVE:
       WalkAccessPaths(path->px_receiver().child, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
@@ -254,6 +255,7 @@ void WalkAccessPaths(AccessPath *path, JoinPtr join,
       WalkAccessPaths(path->px_receiver_merge().child, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
       break;
+#endif /* defined(HAVE_PX) */
   }
   if (post_order_traversal) {
     if (func(path, join)) {
@@ -356,12 +358,14 @@ void WalkTablesUnderAccessPath(AccessPath *root_path, Func &&func,
           case AccessPath::DELETE_ROWS:
           case AccessPath::UPDATE_ROWS:
             return false;
+#if defined(HAVE_PX)
           case AccessPath::PX_RECEIVE:
             return func(path->px_receiver().tables->front());
           case AccessPath::PX_SEND:
             return func(path->px_send().tables->front());
           case AccessPath::PX_RECEIVER_MERGE:
             return func(path->px_receiver_merge().tables->front());
+#endif /* defined(HAVE_PX) */
         }
         assert(false);
         return true;

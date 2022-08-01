@@ -48,12 +48,10 @@
 #include "sql/mysqld.h"  // table_alias_charset
 #include "sql/nested_join.h"
 #include "sql/opt_hints.h"
-#include "sql/parallel_execution/px_interface.h"  // PX_ENABLED
 #include "sql/parse_location.h"
 #include "sql/parse_tree_nodes.h"  // PT_with_clause
 #include "sql/protocol.h"
 #include "sql/select_lex_visitor.h"
-#include "sql/sp.h"  // Sroutine_hash_entry
 #include "sql/sp_head.h"  // sp_head
 #include "sql/sql_admin.h"
 #include "sql/sql_base.h"
@@ -79,14 +77,20 @@
 #include "sql_update.h"  // Sql_cmd_update
 #include "template_utils.h"
 
+#if defined(HAVE_PX)
+#include "sql/sp.h"  // Sroutine_hash_entry
+#include "sql/parallel_execution/px_interface.h"  // PX_ENABLED
 #include "sql/parallel_execution/px_optimizer.h"  // get_parallel_degree_hint()
+#endif /* defined(HAVE_PX) */
 
 class PT_hint_list;
 
 extern int HINT_PARSER_parse(THD *thd, Hint_scanner *scanner,
                              PT_hint_list **ret);
 
+#if defined(HAVE_PX)
 extern bool compat_for_table(TABLE *table);
+#endif /* defined(HAVE_PX) */
 
 static int lex_one_token(Lexer_yystype *yylval, THD *thd);
 
@@ -469,7 +473,9 @@ void LEX::reset() {
   event_parse_data = nullptr;
   profile_options = PROFILE_NONE;
   select_number = 0;
+#if defined(HAVE_PX)
   m_exchange_number = 0;
+#endif /* defined(HAVE_PX) */
   allow_sum_func = 0;
   m_deny_window_func = 0;
   m_subquery_to_derived_is_impossible = false;
@@ -846,6 +852,7 @@ bool LEX::check_preparation_invalid(THD *thd_arg) {
   DBUG_RETURN(false);
 }
 
+#if defined(HAVE_PX)
 bool LEX::check_px_execution() const {
   // Do the statement global check.
   if (!PX_ENABLED(thd)) {
@@ -898,6 +905,7 @@ bool LEX::check_px_execution() const {
 
   return true;
 }
+#endif /* defined(HAVE_PX) */
 
 Yacc_state::~Yacc_state() {
   if (yacc_yyss) {
@@ -2220,7 +2228,9 @@ Query_expression::Query_expression(enum_parsing_context parsing_context)
       table(nullptr),
       m_query_result(nullptr),
       uncacheable(0),
+#if defined(HAVE_PX)
       exchange_inject(false),
+#endif /* defined(HAVE_PX) */
       cleaned(UC_DIRTY),
       item_list(current_thd->mem_root),
       types(current_thd->mem_root),
@@ -2697,11 +2707,13 @@ bool Query_block::setup_base_ref_items(THD *thd) {
   return false;
 }
 
+#if defined(HAVE_PX)
 bool Query_expression::has_user_vars() const {
   for (Query_block *sl = first_query_block(); sl; sl = sl->next_query_block())
     if (sl->has_user_vars) return true;
   return false;
 }
+#endif /* defined(HAVE_PX) */
 
 void Query_expression::print(const THD *thd, String *str,
                              enum_query_type query_type) {

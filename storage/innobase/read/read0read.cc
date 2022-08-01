@@ -605,10 +605,12 @@ MVCC::read_snapshot(ReadView* &view) {
   return true;
 }
 
+#if defined(HAVE_PX)
 void ReadView::px_clone_from(const ReadView *other) {
   clone_from(other);
   m_creator_trx_id = other->m_creator_trx_id;
 }
+#endif /* defined(HAVE_PX) */
 
 /**
  Changes from txsql end.
