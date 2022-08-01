@@ -34,37 +34,37 @@ set session debug="+d,px_partition_error5";
 --echo ###
 --echo ### HA_ERR_TABLE_DEF_CHANGED in px_do_partition
 --echo ###
---error ER_TABLE_DEF_CHANGED
+--echo # Fallback for ER_TABLE_DEF_CHANGED
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 set session debug="-d,px_partition_error1";
 --echo ###
 --echo ### Create PX_reader oom
 --echo ###
---error ER_OUT_OF_RESOURCES
+--echo # Fallback for ER_OUT_OF_RESOURCES
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 set session debug="-d,px_partition_error2";
 --echo ###
 --echo ### make partition tuple error
 --echo ###
---error ER_GET_ERRNO
+--echo # Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 set session debug="-d,px_partition_error3";
 --echo ###
 --echo ### add_scan oom
 --echo ###
---error ER_GET_ERRNO
+--echo # Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
---error ER_GET_ERRNO
+--echo # Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 
 set session debug="-d,px_partition_error4";
 --echo ###
 --echo ### repartitioning oom
 --echo ###
---error ER_GET_ERRNO
+--echo # Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 set session debug="-d,px_partition_error5";
@@ -74,7 +74,7 @@ EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3
 --echo ### tablespace was discarded
 --echo ###
 ALTER TABLE t1 DISCARD TABLESPACE;
---error ER_TABLESPACE_DISCARDED
+--echo # Fallback for ER_TABLESPACE_DISCARDED
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 --source suite/parallel_execution/inc/set_px_to_saved.inc
