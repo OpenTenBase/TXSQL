@@ -8882,3 +8882,11 @@ static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
     CMD_LINE(OPT_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(8388608),
     BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_txsql_pread_count_enabled(
+    "txsql_pread_count_enabled",
+    "Allow count start to use pread parallel optimization "
+    "It is for Unqualified count star only.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_pread_count_enabled),
+    CMD_LINE(OPT_ARG), DEFAULT(true),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));

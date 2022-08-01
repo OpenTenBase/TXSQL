@@ -1,0 +1,32 @@
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        col1 VARCHAR(100),
+        col2 INT,
+        KEY idx_col2(col2)
+ )ENGINE = InnoDB;
+
+--disable_query_log
+ let $loop=10;
+ while($loop)
+ {
+  eval INSERT INTO t1(col1, col2) VALUES(repeat('test', 4), $loop);
+  dec $loop;
+ }
+--enable_query_log
+ANALYZE TABLE t1;
+
+EXPLAIN FORMAT=TREE SELECT count(*) from t1;
+SELECT count(*) from t1;
+
+set session txsql_pread_count_enabled=false;
+EXPLAIN FORMAT=TREE SELECT count(*) from t1;
+SELECT count(*) from t1;
+set session txsql_pread_count_enabled=true;
+EXPLAIN FORMAT=TREE SELECT count(*) from t1;
+SELECT count(*) from t1;
+
+DROP TABLE t1;
+--source suite/parallel_execution/inc/set_px_to_saved.inc

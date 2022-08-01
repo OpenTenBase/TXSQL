@@ -520,6 +520,8 @@ struct System_variables {
   bool txsql_parallel_execution_enabled;
   /// @sa Sys_txsql_optimizer_context_max_mem_size
   ulong txsql_optimizer_context_max_mem_size;
+  /// @sa Sys_txsql_pread_count_enabled
+  bool txsql_pread_count_enabled;
 };
 
 /**
