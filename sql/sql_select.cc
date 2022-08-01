@@ -898,13 +898,11 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 
     TODO: The test against cost theshold is not reliable. A postfix is expected.
    */
-#if 0
   if (thd->use_px &&
       thd->m_current_query_cost < thd->variables.txsql_parallel_cost_threshold) {
     thd->need_fallback = true; // fall back to serial execution.
     return false;
   }
-#endif
 
   // Perform secondary engine optimizations, if needed.
   if (optimize_secondary_engine(thd)) return true;
@@ -941,6 +939,7 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   if (thd->use_px &&
       px_execute_init(thd, PX_ROOT_ITERATOR(unit), PX_ROOT_ACCESS_PATH(unit),
                       PX_ROOT_JOIN(unit), requested_cores)) {
+    thd->need_fallback = true; // fall back to serial execution.
     return true;
   }
 

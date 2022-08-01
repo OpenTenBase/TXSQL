@@ -25,34 +25,57 @@ set session debug="+d,px_partition_error5";
 ###
 ### HA_ERR_TABLE_DEF_CHANGED in px_do_partition
 ###
+# Fallback for ER_TABLE_DEF_CHANGED
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-ERROR HY000: Table definition has changed, please retry transaction
+EXPLAIN
+-> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
+    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+
 set session debug="-d,px_partition_error1";
 ###
 ### Create PX_reader oom
 ###
+# Fallback for ER_OUT_OF_RESOURCES
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
+EXPLAIN
+-> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
+    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+
 set session debug="-d,px_partition_error2";
 ###
 ### make partition tuple error
 ###
+# Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-ERROR HY000: Got error 168 - 'Unknown (generic) error from engine' from storage engine
+EXPLAIN
+-> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
+    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+
 set session debug="-d,px_partition_error3";
 ###
 ### add_scan oom
 ###
+# Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-ERROR HY000: Got error 168 - 'Unknown (generic) error from engine' from storage engine
+EXPLAIN
+-> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
+    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+
+# Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
-ERROR HY000: Got error 168 - 'Unknown (generic) error from engine' from storage engine
+EXPLAIN
+-> Table scan on t1  (cost=1.25 rows=10)
+
 set session debug="-d,px_partition_error4";
 ###
 ### repartitioning oom
 ###
+# Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-ERROR HY000: Got error 168 - 'Unknown (generic) error from engine' from storage engine
+EXPLAIN
+-> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
+    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+
 set session debug="-d,px_partition_error5";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
@@ -65,7 +88,11 @@ EXPLAIN
 ### tablespace was discarded
 ###
 ALTER TABLE t1 DISCARD TABLESPACE;
+# Fallback for ER_TABLESPACE_DISCARDED
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-ERROR HY000: Tablespace has been discarded for table 'test/t1'
+EXPLAIN
+-> Filter: (t1.col2 < 3)  (cost=12.00 rows=3)
+    -> Index scan on t1 using idx_col2  (cost=12.00 rows=10)
+
 # --include set_px_to_saved.inc
 DROP TABLE t1;
