@@ -76,6 +76,10 @@ void trans_reset_one_shot_chistics(THD *thd) {
     tst->set_isol_level(thd, TX_ISOL_INHERIT);
   }
 
+  if (thd->use_px && thd->need_fallback) {
+    return;
+  }
+
   thd->tx_isolation = (enum_tx_isolation)thd->variables.transaction_isolation;
   thd->tx_read_only = thd->variables.transaction_read_only;
   thd->variables.binlog_format= thd->get_save_binlog_format();
