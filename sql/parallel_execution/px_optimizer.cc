@@ -7,6 +7,7 @@
 #include "sql/parallel_execution/px_executor.h"  // PX_executor
 #include "sql/parallel_execution/px_interface.h" // PX_ROLE_COORDINATOR
 #include "sql/parallel_execution/px.h"           // PX_PRINT_INFO
+#include "sql/parallel_execution/px_split_path.h"  // WalkAccessPathsForAggregationSplit
 #include "sql/sql_class.h"
 #include "sql/sql_union.h"
 #include "sql/sql_optimizer.h"

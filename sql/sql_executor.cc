@@ -89,7 +89,6 @@
 #include "sql/opt_costmodel.h"
 #include "sql/opt_explain_format.h"
 #include "sql/opt_trace.h"  // Opt_trace_object
-#include "sql/px_exchange.h"  // Exchange_info
 #include "sql/parallel_execution/px_item.h"
 #include "sql/query_options.h"
 #include "sql/record_buffer.h"  // Record_buffer

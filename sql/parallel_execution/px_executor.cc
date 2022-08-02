@@ -22,6 +22,7 @@
 #include "sql/join_optimizer/explain_access_path.h" // CheckPlanEquivalence
 #include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
+#include "sql/parallel_execution/px_explain.h"  // WalkAccessPathsForExplain
 #include "sql/mysqld_thd_manager.h"
 #include "sql/psi_memory_key.h"
 

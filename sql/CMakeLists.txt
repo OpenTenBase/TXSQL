@@ -361,6 +361,8 @@ SET(SQL_PX_SOURCES
   parallel_execution/px_optimizer_context.cc
   parallel_execution/px_codec.cc
   parallel_execution/px_resource_mgr.cc
+  parallel_execution/px_explain.cc
+  parallel_execution/px_split_path.cc
 )
 
 SET(SQL_SHARED_SOURCES
@@ -511,7 +513,6 @@ SET(SQL_SHARED_SOURCES
   persisted_variable.cc
   protocol_classic.cc
   psi_memory_key.cc
-  px_exchange.cc
   query_result.cc
   range_optimizer/geometry_index_range_scan.cc
   range_optimizer/group_index_skip_scan.cc

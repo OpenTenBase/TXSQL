@@ -84,7 +84,7 @@
 #include "sql/system_variables.h"
 #include "sql/thd_raii.h"
 #include "sql/tztime.h"  // my_tz_UTC
-#include "sql/join_optimizer/access_path.h"  //EquivalenceCheckHelper
+#include "sql/parallel_execution/px_access_path.h"  //EquivalenceCheckHelper
 #include "template_utils.h"
 #include "typelib.h"
 #include "unsafe_string_append.h"

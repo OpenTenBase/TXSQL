@@ -98,7 +98,6 @@
 #include "sql/opt_trace.h"
 #include "sql/opt_trace_context.h"
 #include "sql/parse_tree_node_base.h"
-#include "sql/px_exchange.h"  // Exchange_info
 #include "sql/query_options.h"
 #include "sql/query_result.h"
 #include "sql/range_optimizer/path_helpers.h"
@@ -134,6 +133,7 @@
 #endif
 #include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
+#include "sql/parallel_execution/px_access_path.h"  // MAX_EXCHANGE_NUM
 #include "sql/sql_db.h"  // mysql_change_db
 #include "sql/log.h"
 #include "sql_string.h"

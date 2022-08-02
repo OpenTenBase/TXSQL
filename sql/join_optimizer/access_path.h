@@ -41,8 +41,6 @@
 #include "sql/sql_array.h"
 #include "sql/sql_class.h"
 #include "sql/parallel_execution/px_mq.h"
-#include "sql/sql_lex.h"
-#include "sql/parallel_execution/px.h"
 
 class PX_plan_slice;
 enum class AggType;
@@ -50,6 +48,7 @@ namespace px_access_path {
 struct Split_Position;
 }
 
+using List_item = mem_root_deque<Item *>;
 template <class T>
 class Bounds_checked_array;
 class Common_table_expr;
@@ -174,97 +173,6 @@ struct AppendPathParameters {
   JOIN *join;
 };
 
-struct ReceiverParam {
-  int ref_slice;
-  TABLE *table;
-  AccessPath *child;
-  bool use_temp_table;
-};
-
-class EquivalenceCheckHelper {
-public:
-  static inline bool eq_table_share (const TABLE *a, const TABLE *b) {
-    if (a == nullptr || b == nullptr) {
-      if (a == nullptr && b == nullptr) {
-        return true;
-      }
-      return false;
-    }
-    if (a->s->table_category == TABLE_CATEGORY_TEMPORARY &&
-        b->s->table_category == TABLE_CATEGORY_TEMPORARY) {
-      return true;
-    }
-    return (a->s == b->s);
-  }
-
-  static inline bool eq_lex_string (const LEX_CSTRING *a, const LEX_CSTRING *b) {
-    if (a == nullptr || b == nullptr) {
-      if (a == nullptr && b == nullptr) {
-        return true;
-      }
-      return false;
-    }
-    if (a->length != b->length || strncmp(a->str, b->str, a->length) != 0) {
-      return false;
-    }
-    return true;
-  }
-
-  static inline bool eq_table_share_without_icp (const TABLE *a, const TABLE *b) {
-    if (a == nullptr || b == nullptr) {
-      return false;
-    }
-    assert(a->file->pushed_idx_cond == nullptr);
-    assert(b->file->pushed_idx_cond == nullptr);
-    if (a->s->table_category == TABLE_CATEGORY_TEMPORARY &&
-        b->s->table_category == TABLE_CATEGORY_TEMPORARY) {
-      return true;
-    }
-    return (a->s == b->s);
-  }
-
-  static inline bool eq_table_ref (const TABLE_REF *a, const TABLE_REF *b) {
-    if (a == nullptr || b == nullptr) {
-      if (a == nullptr && b == nullptr) {
-        return true;
-      }
-      return false;
-    }
-    if (a->key_parts != b->key_parts ||
-        a->key_length != b->key_length) {
-      return false;
-    }
-    for (unsigned key_part_idx = 0; key_part_idx < a->key_parts;
-        ++key_part_idx) {
-      bool *cond_guard_a = a->cond_guards[key_part_idx];
-      bool *cond_guard_b = b->cond_guards[key_part_idx];
-      if (cond_guard_a == nullptr || cond_guard_b == nullptr) {
-        if (cond_guard_a == nullptr && cond_guard_b == nullptr) {
-          continue;
-        }
-        return false;
-      }
-      if (*cond_guard_a != *cond_guard_b) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  static inline bool eq_item (const Item *a, const Item *b) {
-    if (a != nullptr) {
-      if (b == nullptr) {
-        return false;
-      }
-      // item equivalence check (recursive call eq_item)
-      return a->eq(b, true);
-    }
-    if (b != nullptr) {
-      return false;
-    }
-    return true;
-  }
-};
 /**
   Access paths are a query planning structure that correspond 1:1 to iterators,
   in that an access path contains pretty much exactly the information
@@ -1969,14 +1877,6 @@ void FindTablesToGetRowidFor(AccessPath *path);
  */
 bool FinalizeMaterializedSubqueries(THD *thd, JOIN *join, AccessPath *path);
 
-AccessPath *WalkAccessPathsForAggregationSplit(THD *thd, JOIN *join,
-                                               AccessPath *const path,
-                                               bool stream_agg);
-
-void RebuildCurrentRefItems(THD *thd, JOIN *join, uint curr_slice, bool is_final_aggr);
-
-bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice);
-
 unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
     THD *thd, MEM_ROOT *mem_root, AccessPath *path, JOIN *join,
     bool eligible_for_batch_mode);
@@ -2048,33 +1948,5 @@ void ExpandSingleFilterAccessPath(THD *thd, AccessPath *path, const JOIN *join,
 
 /// Returns the tables that are part of a hash join.
 table_map GetHashJoinTables(AccessPath *path);
-
-// AccessPath *inject_exchange_access_path(QEP_TAB *tab, AccessPath *path,
-//                                         exchange_inject_position position);
-void FixSortAccessPath(JOIN *join, AccessPath *path, TABLE *const new_table,
-                       int ref_slice);
-
-AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
-                                       px_access_path::Split_Position *split_pos,
-                                       AccessPath *const path,
-                                       AccessPath *const target_path,
-                                       uint curr_exchange, bool &new_child,
-                                       int cur_slice, bool alloc_group_field,
-                                       bool in_join);
-
-bool compat_for_table(TABLE *table);
-
-bool WalkAccessPathsForCompat(AccessPath *path, bool check = true);
-
-AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
-                                              TABLE *table, bool is_append = false);
-
-void ConnectAccessPathWithChildExchange(AccessPath *const path,
-                                        AccessPath *receiver);
-
-void GetExchangeTables(px_access_path::Split_Position *split_pos);
-
-bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *exchange_context,
-                               uint &exchange_count, JOIN *join, PX_plan_slice *plan_slice);
 
 #endif  // SQL_JOIN_OPTIMIZER_ACCESS_PATH_H
