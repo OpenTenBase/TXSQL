@@ -3919,9 +3919,6 @@ static void FixAccessPathForExchange(AccessPath *const path,
 static void GetExchangeParam(ReceiverParam *receiver_param, AccessPath *receiver,
                              bool do_merge_sort);
 
-static void ConnectAccessPathWithChildExchange(AccessPath *const path,
-                                               AccessPath *receiver);
-
 /**
  * Walk through access path to inject exchange.
  * (1) Create exchange up to this path using CreateExchangeAccessPath(), the new
@@ -4899,8 +4896,8 @@ static void FixAccessPathForExchange(AccessPath *const path,
   }
 }
 
-static void ConnectAccessPathWithChildExchange(AccessPath *const path,
-                                               AccessPath *receiver) {
+void ConnectAccessPathWithChildExchange(AccessPath *const path,
+                                        AccessPath *receiver) {
   switch (path->type) {
     case AccessPath::NESTED_LOOP_JOIN:
       path->nested_loop_join().outer = receiver;

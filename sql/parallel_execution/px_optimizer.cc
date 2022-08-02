@@ -230,18 +230,22 @@ bool px_generate_plan(THD *thd,
 
     // Inject exchange for union.
     if (sp.m_split_union) {
-      AccessPath *root_path = nullptr;
+      AccessPath *exchange_path = nullptr;
       if (target_path->type == AccessPath::MATERIALIZE) {
         TABLE *table = target_path->materialize().param->table;
-        root_path =
+        exchange_path =
             CreateExchangeAccessPathForUnion(thd, target_path, table);
       } else if (target_path->type == AccessPath::APPEND) {
-        root_path =
+        exchange_path =
             CreateExchangeAccessPathForUnion(thd, target_path,
               join->query_expression()->get_union_result()->table, true);
       }
-      if (root_path == nullptr) return true;
-      join->query_expression()->set_root_access_path(root_path);
+      if (exchange_path == nullptr) return true;
+      if (sp.m_parent) {
+        ConnectAccessPathWithChildExchange(sp.m_parent, exchange_path);
+      } else {
+        join->query_expression()->set_root_access_path(exchange_path);
+      }
       thd->lex->m_exchange_number++;
       continue;
     }

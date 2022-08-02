@@ -4282,4 +4282,83 @@ b	COUNT(t1.a)
 2	1
 NULL	3
 DROP TABLE t1,t2;
+#
+# Union
+#
+CREATE TABLE t1 (a INT);
+INSERT INTO t1 values (1),(2),(3);
+CREATE TABLE t2 (a INT);
+INSERT INTO t2 values (3),(4),(5);
+ANALYZE TABLE t1,t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+EXPLAIN FORMAT=TREE (SELECT SQL_CALC_FOUND_ROWS * FROM t1 LIMIT 1) UNION SELECT * FROM t2 LIMIT 1;
+EXPLAIN
+-> Limit: 1 row(s) (no early end due to SQL_CALC_FOUND_ROWS)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Table scan on <union temporary>  (cost=2.50 rows=0)
+                -> Union materialize with deduplication
+                    -> Limit: 1 row(s)  (cost=0.55 rows=1)
+                        -> Table scan on t1  (cost=0.55 rows=3)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 2; workers: 3)
+                            -> Parallel table scan on t2  (cost=0.55 rows=3)
+
+Warnings:
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+(SELECT SQL_CALC_FOUND_ROWS * FROM t1 LIMIT 1) UNION SELECT * FROM t2 LIMIT 1;
+a
+1
+Warnings:
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+EXPLAIN FORMAT=TREE SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t where a>RAND(1);
+EXPLAIN
+-> Filter: (t.a > rand(1))
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Table scan on t  (cost=2.77 rows=6)
+                -> Union materialize with deduplication
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 2; workers: 3)
+                            -> Parallel table scan on t1  (cost=0.55 rows=3)
+                    -> PX Receiver (slice: 1; workers: 1)
+                        -> PX Sender (slice: 3; workers: 3)
+                            -> Parallel table scan on t2  (cost=0.55 rows=3)
+
+SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t where a>RAND(1);
+a
+1
+2
+3
+4
+5
+EXPLAIN FORMAT=TREE SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t ORDER BY RAND(1);
+EXPLAIN
+-> Sort: `rand(1)`
+    -> Stream results
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
+                -> Table scan on t  (cost=3.18 rows=6)
+                    -> Union materialize with deduplication
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 2; workers: 3)
+                                -> Parallel table scan on t1  (cost=0.55 rows=3)
+                        -> PX Receiver (slice: 1; workers: 1)
+                            -> PX Sender (slice: 3; workers: 3)
+                                -> Parallel table scan on t2  (cost=0.55 rows=3)
+
+SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t ORDER BY RAND(1);
+a
+1
+2
+3
+4
+5
+DROP TABLE t1,t2;
 # --include set_px_to_saved.inc

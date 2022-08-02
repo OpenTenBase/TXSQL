@@ -2069,6 +2069,9 @@ bool WalkAccessPathsForCompat(AccessPath *path, bool check = true);
 AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
                                               TABLE *table, bool is_append = false);
 
+void ConnectAccessPathWithChildExchange(AccessPath *const path,
+                                        AccessPath *receiver);
+
 void GetExchangeTables(px_access_path::Split_Position *split_pos);
 
 bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *exchange_context,
