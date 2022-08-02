@@ -6356,20 +6356,25 @@ bool user_var_entry::store(const user_var_entry *from) {
   m_type = from->m_type;
   m_length = from->m_length;
 
-  // Store strings with end \0
-  if (mem_realloc(m_length + (m_type == STRING_RESULT)))
-    return true;
-  if (m_type == STRING_RESULT) m_ptr[m_length] = 0;  // Store end \0
+  if (from->m_ptr != nullptr && m_length) {
+    // Store strings with end \0
+    if (mem_realloc(m_length + (m_type == STRING_RESULT)))
+      return true;
+    if (m_type == STRING_RESULT) m_ptr[m_length] = 0;  // Store end \0
 
-  // Avoid memcpy of a my_decimal object, use copy CTOR instead.
-  if (m_type == DECIMAL_RESULT) {
-    assert(m_length == sizeof(my_decimal));
-    const my_decimal *dec = static_cast<const my_decimal *>(
-        static_cast<const void *>(from->m_ptr));
-    dec->sanity_check();
-    new (m_ptr) my_decimal(*dec);
+    // Avoid memcpy of a my_decimal object, use copy CTOR instead.
+    if (m_type == DECIMAL_RESULT) {
+      assert(m_length == sizeof(my_decimal));
+      const my_decimal *dec = static_cast<const my_decimal *>(
+          static_cast<const void *>(from->m_ptr));
+      dec->sanity_check();
+      new (m_ptr) my_decimal(*dec);
+    } else {
+      memcpy(m_ptr, from->m_ptr, m_length);
+    }
   } else {
-    memcpy(m_ptr, from->m_ptr, m_length);
+    assert(m_length == 0);
+    set_null_value(m_type);
   }
 
   set_used_query_id(current_thd->query_id);
