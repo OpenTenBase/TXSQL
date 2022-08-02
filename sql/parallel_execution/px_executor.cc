@@ -76,12 +76,6 @@ static void *rebuild_query_execution(void *args)
   thd->end_statement();
   thd->cleanup_after_query();
 
-  // mysql_trx_list assert to 0 at last if no release resources.
-  thd->release_resources();
-
-  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
-  thd_manager->remove_thd(thd);
-
   return nullptr;
 }
 
@@ -188,7 +182,10 @@ bool px_execute_init(THD *thd, RowIterator *root_iterator, AccessPath *root_path
   return false;
 
  dfo_prepared_failed:
-  if (PX_ROLE_COORDINATOR(thd)) destroy(thd->px_exchange_context);
+  if (PX_ROLE_COORDINATOR(thd)) {
+    destroy(thd->px_exchange_context);
+    if (thd->lex->is_explain()) destroy(executor);
+  }
 
  check_eq_failed: // only in workers.
   return true;
@@ -537,6 +534,7 @@ bool px_run_task(THD *thd, RowIterator *sub_iterator) {
 
   return false;
 }
+
 void PX_task::run(THD *thd) {
   px_run_task(thd, sub_iterator);
 }
@@ -663,6 +661,7 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
 
   return query_result->send_eof(thd);
 }
+
 bool PX_task::run_root(THD *thd) {
   return px_run_root(thd, sub_iterator);
 }
@@ -718,13 +717,16 @@ bool PX_coordinator::create_worker_context(worker_pool_t *&worker_pool,
 */
 bool PX_coordinator::run_root_dfo_task()
 {
+  bool ret = false;
   Dfo *root_dfo = dfo_mgr()->root_dfo();
   PX_task *task = new (thd()->mem_root) PX_task(root_dfo->root_iterator());
   if (nullptr == task) {
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
     return true;
   }
-  return task->run_root(thd());;
+  ret = task->run_root(thd());
+  destroy(task); // destruct the root task in coordinator.
+  return ret;
 }
 
 void PX_coordinator::notify_all_workers(THD::killed_state state_to_set)

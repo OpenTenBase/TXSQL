@@ -27,6 +27,9 @@ PSI_cond_key key_px_thd_cond;
 PSI_mutex_key key_px_mq_lock;
 PSI_memory_key key_px_mq_memory;
 
+PSI_mutex_key key_px_worker_lock;
+PSI_cond_key key_px_worker_cond;
+
 static PSI_mutex_key key_LOCK_allocate_resource;
 static PSI_mutex_key key_LOCK_inc_txsql_parallel_stmt_executed;
 static PSI_mutex_key key_LOCK_inc_txsql_parallel_stmt_fallback;
@@ -142,10 +145,12 @@ static PSI_mutex_info all_px_mutexes[] = {
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
     {&key_LOCK_inc_px_memory_refused, "LOCK_inc_txsql_parallel_stmt_memory_refused",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&key_px_worker_lock, "cond_with_lock_t::LOCK_worker", 0, 0, PSI_DOCUMENT_ME}
 };
 
 static PSI_cond_info all_px_conds[] = {
     {&key_px_thd_cond, "PX::COND_thd", 0, 0, PSI_DOCUMENT_ME},
+    {&key_px_worker_cond, "cond_with_lock_t::COND_worker", 0, 0, PSI_DOCUMENT_ME}
 };
 
 #if 0
