@@ -440,7 +440,6 @@ static bool check_px_unsafe_func(Item *item) {
     if (func->functype() == Item_func::JSON_FUNC ||
         func->functype() == Item_func::XML_FUNC ||
         func->functype() == Item_func::SUSERVAR_FUNC ||
-        func->functype() == Item_func::SUSERVAR_FUNC ||
         func->functype() == Item_func::MATCH_FUNC) {
       return true;
     }
@@ -480,7 +479,6 @@ static bool check_px_unsafe_cond(Item *item) {
     }
     if (condition->functype() == Item_func::JSON_FUNC ||
         condition->functype() == Item_func::XML_FUNC ||
-        condition->functype() == Item_func::SUSERVAR_FUNC ||
         condition->functype() == Item_func::SUSERVAR_FUNC ||
         condition->functype() == Item_func::MATCH_FUNC) {
       return true;

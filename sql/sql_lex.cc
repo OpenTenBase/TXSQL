@@ -868,7 +868,7 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
-  if (locking_clause || sql_command != SQLCOM_SELECT || unit->has_user_vars() ||
+  if (locking_clause || sql_command != SQLCOM_SELECT ||
       is_from_ps || is_from_sp || is_executing_ps ||
       get_using_match()) {  // MATCH function, Use ft_prebuilt->fts_doc_id to
                             // scan full text index. ft_prebuilt->fts_doc_id

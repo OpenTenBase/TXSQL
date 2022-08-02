@@ -1,0 +1,39 @@
+
+#########################################
+# Test for parallel query with user_var #
+#########################################
+
+--source suite/parallel_execution/inc/save_and_set_px.inc
+
+--disable_warnings
+drop table if exists t1, t9 ;
+--enable_warnings
+
+create table t1 (
+  a int, b varchar(30),
+  primary key(a)
+);
+
+insert into t1 values (1,'one');
+insert into t1 values (2,'two');
+insert into t1 values (3,'three');
+insert into t1 values (4,'four');
+
+ANALYZE TABLE t1;
+
+##### parameter in select column list
+set @arg00=1 ;
+
+explain format=tree select @arg00, b from t1 where a > 1 ;
+select @arg00, b from t1 where a > 1 ;
+
+###### parameter in the inner part
+set @arg00=2 ;
+explain format=tree select a, b FROM t1 outer_table where
+   a = (select a from t1 where a = @arg00 and b = outer_table.b) and b='two' ;
+select a, b FROM t1 outer_table where
+   a = (select a from t1 where a = @arg00 and b = outer_table.b) and b='two' ;
+
+--source suite/parallel_execution/inc/set_px_to_saved.inc
+
+DROP table t1;
