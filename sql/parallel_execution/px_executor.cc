@@ -556,6 +556,8 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   // Check other workers' execution, need fallback if error ocurred.
   if (thd->check_px_error()) {
     PX_PRINT_ERROR("detected error %d", thd->px_errno);
+    if (!thd->is_error()) // if coordinator no error.
+      my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd->px_errno);
     thd->need_fallback = true;
     return true;
   }
