@@ -54,8 +54,6 @@ typedef void *(*worker_func)(void *);
 typedef struct cond_with_lock_t {
   mysql_cond_t COND_worker_signal; // condition for worker start.
   mysql_mutex_t LOCK_worker_signal; // mutex for worker start.
-  PSI_cond_key key_COND_worker_signal; // PSI key for condition.
-  PSI_mutex_key key_LOCK_worker_signal; // PSI key for mutex.
   int flag_COND_signal; // flag for condition to wait.
 } cond_with_lock_t; // use for synchronize of down instrument flows.
 

@@ -233,8 +233,11 @@ void release_worker_threads(worker_pool_t *worker_pool)
   destroy_cond_for_worker(&worker_pool->sem_tasks_done);
   destroy_cond_for_worker(&worker_pool->sem_workers_done);
   mysql_mutex_destroy(&worker_pool->mutex_task);
-  for (int i = 0; i < right_deep_tree_limit; ++i)
+  for (int i = 0; i < right_deep_tree_limit; ++i) {
+    if (bitmap_is_set(worker_pool->bitmap_map, i))
+      bitmap_free(worker_pool->bitmap[i]);
     free(worker_pool->bitmap[i]);
+  }
   free (worker_pool->bitmap);
   bitmap_free(worker_pool->bitmap_map);
   free (worker_pool->bitmap_map);
@@ -249,9 +252,9 @@ void release_worker_threads(worker_pool_t *worker_pool)
 void px_condition_init(cond_with_lock_t *condition_with_lock)
 {
   condition_with_lock->flag_COND_signal = 0;
-  mysql_mutex_init(condition_with_lock->key_LOCK_worker_signal,
+  mysql_mutex_init(key_px_worker_lock,
   &condition_with_lock->LOCK_worker_signal, MY_MUTEX_INIT_FAST);
-  mysql_cond_init(condition_with_lock->key_COND_worker_signal,
+  mysql_cond_init(key_px_worker_cond,
   &condition_with_lock->COND_worker_signal);
 }
 
@@ -486,6 +489,8 @@ static void* thread_func_in_worker(void *arg)
   (*thread_func)(thread_func_arg);
 
  finish:
+  thread_arg->worker_thd->release_resources();
+  thd_manager->remove_thd(thread_arg->worker_thd);
   finish_query(thread_arg);
   my_thread_end();
   my_thread_exit(nullptr);

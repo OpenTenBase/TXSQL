@@ -89,6 +89,9 @@ extern PSI_cond_key key_px_thd_cond;
 extern PSI_mutex_key key_px_mq_lock;
 extern PSI_memory_key key_px_mq_memory;
 
+extern PSI_mutex_key key_px_worker_lock;
+extern PSI_cond_key key_px_worker_cond;
+
 extern ulong txsql_parallel_threads_currently_used;
 extern ulong txsql_parallel_stmt_executed;
 extern ulong txsql_parallel_stmt_fallback;
