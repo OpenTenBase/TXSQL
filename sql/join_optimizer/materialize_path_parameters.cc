@@ -21,7 +21,8 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "sql/join_optimizer/materialize_path_parameters.h"
-#include "sql/join_optimizer/access_path.h"  //EquivalenceCheckHelper
+#include "sql/join_optimizer/access_path.h"
+#include "sql/parallel_execution/px_access_path.h"  //EquivalenceCheckHelper
 #include <vector>
 
 using std::vector;

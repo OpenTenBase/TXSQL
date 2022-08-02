@@ -5,6 +5,10 @@
 #include <sys/types.h>
 #include <list>
 #include <vector>
+#include "lex_string.h"
+#include "sql/item.h"
+#include "sql/table.h"
+#include "sql/sql_opt_exec_shared.h"
 
 class Filesort;
 class JOIN;
@@ -15,6 +19,9 @@ class QEP_TAB;
 
 template <class T>
 class mem_root_deque;
+
+constexpr uint MAX_EXCHANGE_NUM =
+    3;  // The maximum number of exchanges in a query block
 
 namespace px_access_path {
 struct Split_Position {
@@ -92,4 +99,112 @@ void PrintSplitPostion(const char *str,
 #endif
 }  // namespace px_access_path
 
+struct ReceiverParam {
+  int ref_slice;
+  TABLE *table;
+  AccessPath *child;
+  bool use_temp_table;
+};
+
+class EquivalenceCheckHelper {
+public:
+  static inline bool eq_table_share (const TABLE *a, const TABLE *b) {
+    if (a == nullptr || b == nullptr) {
+      if (a == nullptr && b == nullptr) {
+        return true;
+      }
+      return false;
+    }
+    if (a->s->table_category == TABLE_CATEGORY_TEMPORARY &&
+        b->s->table_category == TABLE_CATEGORY_TEMPORARY) {
+      return true;
+    }
+    return (a->s == b->s);
+  }
+
+  static inline bool eq_lex_string (const LEX_CSTRING *a, const LEX_CSTRING *b) {
+    if (a == nullptr || b == nullptr) {
+      if (a == nullptr && b == nullptr) {
+        return true;
+      }
+      return false;
+    }
+    if (a->length != b->length || strncmp(a->str, b->str, a->length) != 0) {
+      return false;
+    }
+    return true;
+  }
+
+  static inline bool eq_table_share_without_icp (const TABLE *a, const TABLE *b) {
+    if (a == nullptr || b == nullptr) {
+      return false;
+    }
+    assert(a->file->pushed_idx_cond == nullptr);
+    assert(b->file->pushed_idx_cond == nullptr);
+    if (a->s->table_category == TABLE_CATEGORY_TEMPORARY &&
+        b->s->table_category == TABLE_CATEGORY_TEMPORARY) {
+      return true;
+    }
+    return (a->s == b->s);
+  }
+
+  static inline bool eq_table_ref (const TABLE_REF *a, const TABLE_REF *b) {
+    if (a == nullptr || b == nullptr) {
+      if (a == nullptr && b == nullptr) {
+        return true;
+      }
+      return false;
+    }
+    if (a->key_parts != b->key_parts ||
+        a->key_length != b->key_length) {
+      return false;
+    }
+    for (unsigned key_part_idx = 0; key_part_idx < a->key_parts;
+        ++key_part_idx) {
+      bool *cond_guard_a = a->cond_guards[key_part_idx];
+      bool *cond_guard_b = b->cond_guards[key_part_idx];
+      if (cond_guard_a == nullptr || cond_guard_b == nullptr) {
+        if (cond_guard_a == nullptr && cond_guard_b == nullptr) {
+          continue;
+        }
+        return false;
+      }
+      if (*cond_guard_a != *cond_guard_b) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static inline bool eq_item (const Item *a, const Item *b) {
+    if (a != nullptr) {
+      if (b == nullptr) {
+        return false;
+      }
+      // item equivalence check (recursive call eq_item)
+      return a->eq(b, true);
+    }
+    if (b != nullptr) {
+      return false;
+    }
+    return true;
+  }
+};
+
+void FixSortAccessPath(JOIN *join, AccessPath *path, TABLE *const new_table,
+                       int ref_slice);
+
+AccessPath *WalkAccessPathsForExchange(
+    THD *thd, JOIN *join, px_access_path::Split_Position *split_pos,
+    AccessPath *const path, AccessPath *const target_path, uint curr_exchange,
+    bool &new_child, int cur_slice, bool alloc_group_field, bool in_join);
+
+AccessPath *CreateExchangeAccessPathForUnion(THD *thd, AccessPath *const path,
+                                             TABLE *table,
+                                             bool is_append = false);
+
+void GetExchangeTables(px_access_path::Split_Position *split_pos);
+
+void ConnectAccessPathWithChildExchange(AccessPath *const path,
+                                        AccessPath *receiver);
 #endif

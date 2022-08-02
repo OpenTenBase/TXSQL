@@ -48,6 +48,7 @@
 #include "sql/sql_optimizer.h"
 #include "sql/table.h"
 #include "template_utils.h"
+#include "sql/parallel_execution/px_access_path.h"  // EquivalenceCheckHelper
 
 using std::string;
 using std::vector;

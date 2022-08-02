@@ -108,7 +108,6 @@
 #include "sql/window.h"
 #include "sql_string.h"
 #include "template_utils.h"
-#include "sql/px_exchange.h"
 
 using std::max;
 using std::min;

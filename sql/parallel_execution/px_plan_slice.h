@@ -2,6 +2,7 @@
 #define PX_PLAN_SLICE_INCLUDED
 
 #include "sql/sql_executor.h" // QEP_TAB
+#include "sql/opt_explain_format.h"
 #include <vector>
 
 class QEP_TAB;
