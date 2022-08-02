@@ -305,6 +305,7 @@ SET(SERVER_TESTS
   ha_info_iterator
   xid_extract
   binlog_test
+  log_event_status_size
 )
 
 DISABLE_GOOGLEMOCK_UNINITIALIZED_WARNING(
