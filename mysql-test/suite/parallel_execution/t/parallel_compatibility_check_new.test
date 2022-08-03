@@ -38,11 +38,11 @@ analyze table t1,t2;
 --echo #
 
 --echo # Single table
-explain format=tree select col1+RAND(1) from t1;
-select col1+RAND(1) from t1;
+explain format=tree select col1+RAND(1) from t1 order by col1;
+select col1+RAND(1) from t1 order by col1;
 
-explain format=tree select * from t1 order by RAND(1);
-select * from t1 order by RAND(1);
+explain format=tree select * from t1 order by col1+RAND(1);
+select * from t1 order by col1+RAND(1);
 
 explain format=tree select sum(col1+RAND(1)) from t1;
 select sum(col1+RAND(1)) from t1;
@@ -51,6 +51,7 @@ explain format=tree select sum(col1)+RAND(1) from t1;
 select sum(col1)+RAND(1) from t1;
 
 explain format=tree select * from t1 where RAND(1)>1;
+--sorted_result
 select * from t1 where RAND(1)>1;
 
 explain format=tree select sum(col1) + RAND(1) from t1 group by col2 order by col2;
@@ -71,9 +72,11 @@ select t1.col1, RAND(1) from t1 join t2 on t1.id=t2.id order by t1.col1;
 
 --echo # Hash Join
 explain format=tree select * from t1 join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
+--sorted_result
 select * from t1 join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
 
 explain format=tree select * from t1 straight_join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
+--sorted_result
 select * from t1 straight_join t2 join t1 as t3 where t1.id = t2.id and t2.col1 = t3.col1;
 
 --echo # LIMIT
@@ -93,21 +96,27 @@ select distinct col1 from t1 limit 1;
 --echo # Union
 --echo #
 explain format=tree select * from t1 union select * from t2;
+--sorted_result
 select * from t1 union select * from t2;
 
 explain format=tree select * from t1 union all select * from t2;
+--sorted_result
 select * from t1 union all select * from t2;
 
 explain format=tree select * from t1 union (select * from t2 where id > RAND(1));
+--sorted_result
 select * from t1 union all (select * from t2 where id > RAND(1));
 
 explain format=tree (select * from t1 where id > RAND(1)) union (select * from t2 where id > RAND(1));
+--sorted_result
 (select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
 
 explain format=tree select * from t1 union all (select * from t2 where id > RAND(1));
+--sorted_result
 select * from t1 union all (select * from t2 where id > RAND(1));
 
 explain format=tree (select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
+--sorted_result
 (select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
 
 explain format=tree (SELECT 1 as a) UNION (SELECT 1) ORDER BY (SELECT a+0);
@@ -115,6 +124,7 @@ explain format=tree (SELECT 1 as a) UNION (SELECT 1) ORDER BY (SELECT a+0);
 
 --echo # UNION and UNION ALL in one statement
 explain format=tree select * from t1 union select * from t2 union all select * from t1;
+--sorted_result
 select * from t1 union select * from t2 union all select * from t1;
 
 --echo # LIMIT
@@ -130,12 +140,15 @@ select * from t1 union all select * from t2 limit 2;
 set @old_optimizer_switch = @@optimizer_switch;
 set optimizer_switch='semijoin=on,materialization=on,loosescan=off,firstmatch=off,duplicateweedout=off,index_condition_pushdown=off,mrr=off';
 explain format=tree select * from t1 where id in (select col1 from t2);
+--sorted_result
 select * from t1 where id in (select col1 from t2);
 
 explain format=tree select * from t1 where id in (select col1 from t2 where col1 > RAND(1));
+--sorted_result
 select * from t1 where id in (select col1 from t2 where col1 > RAND(1));
 
 explain format=tree select * from t1 where col1 in (select col1 from t2 where col1 > RAND(1));
+--sorted_result
 select * from t1 where col1 in (select col1 from t2 where col1 > RAND(1));
 
 explain format=tree SELECT SUM(EXISTS(SELECT RAND() FROM t1)) FROM t1;
@@ -147,6 +160,7 @@ SELECT SUM(EXISTS(SELECT 1 FROM t1)) FROM t1;
 set optimizer_switch = @old_optimizer_switch;
 
 explain format=tree select * from t1 order by (select col1 from t2 limit 1);
+--sorted_result
 select * from t1 order by (select col1 from t2 limit 1);
 
 explain format=tree select * from t1 order by (select col1 from t2 where col1 = t1.col1);
@@ -155,30 +169,35 @@ select * from t1 order by (select col1 from t2 where col1 = t1.col1);
 --echo # Derived table
 --echo #
 explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2;
+--sorted_result
 select * from (select distinct col1 from t1) as t where t.col1>2;
 
 explain format=tree select * from (select sum(col2) as a from t1 group by col1) as t where t.a>2;
+--sorted_result
 select * from (select sum(col2) as a from t1 group by col1) as t where t.a>2;
 
 explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+--sorted_result
 select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 
 explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
+--sorted_result
 select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 
 --echo # Aggregate(stream or temptable) below Materialize can NOT be split now.
 explain format=tree select * from (select sum(col2) as a from t1 group by col1) as t;
+--sorted_result
 select * from (select sum(col2) as a from t1 group by col1) as t;
 
 --echo # LIMIT
-explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2 limit 1;
-select * from (select distinct col1 from t1) as t where t.col1>2 limit 1;
+explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2 order by t.col1 limit 1;
+select * from (select distinct col1 from t1) as t where t.col1>2 order by t.col1 limit 1;
 
-explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
-select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
+select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
 
-explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
-select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
+select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
 
 drop table t1,t2;
 
@@ -192,33 +211,43 @@ insert into t2 values ('a', 1),('b', 2);
 analyze table t1,t2;
 
 explain format=tree select * from t1;
+--sorted_result
 select * from t1;
 
 explain format=tree select b from t1;
+--sorted_result
 select b from t1;
 
 explain format=tree select a from t2 where length(hex(a)) >1;
+--sorted_result
 select a from t2 where length(hex(a)) >1;
 
 explain format=tree select sum(length(a)) from t1;
+--sorted_result
 select sum(length(a)) from t1;
 
 explain format=tree select * from t1 join t2 on t1.b=t2.b;
+--sorted_result
 select * from t1 join t2 on t1.b=t2.b;
 
 explain format=tree select * from t1 union all select * from t2;
+--sorted_result
 select * from t1 union all select * from t2;
 
 explain format=tree select 1 union all select 2;
+--sorted_result
 select 1 union all select 2;
 
 explain format=tree select 1 union select 2;
+--sorted_result
 select 1 union select 2;
 
 explain format=tree select * from t1 union all select * from t1;
+--sorted_result
 select * from t1 union all select * from t1;
 
 explain format=tree select * from t1 union select * from t1;
+--sorted_result
 select * from t1 union select * from t1;
 
 drop table t1,t2;
@@ -250,19 +279,24 @@ INSERT INTO t4 VALUES (3, 3);
 ANALYZE TABLE t1, t2, t3, t4;
 --echo # Inner table in left join can't be the parallel table
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t2 USING(a) WHERE a=1;
+--sorted_result
 SELECT * FROM t1 LEFT JOIN t2 USING(a) WHERE a=1;
 
 # two const tables
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t3 USING(a) LEFT JOIN t2 USING(a) WHERE a=1;
+--sorted_result
 SELECT * FROM t1 LEFT JOIN t3 USING(a) LEFT JOIN t2 USING(a) WHERE a=1;
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t2 USING(a) LEFT JOIN t3 USING(a) WHERE a=1;
+--sorted_result
 SELECT * FROM t1 LEFT JOIN t2 USING(a) LEFT JOIN t3 USING(a) WHERE a=1;
 
 # const table and derived table
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=1;
+--sorted_result
 SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=1;
 
 EXPLAIN FORMAT=TREE SELECT /*+JOIN_ORDER(t1,t4)*/ * FROM t1 LEFT JOIN t4 USING(a) WHERE a=1;
+--sorted_result
 SELECT /*+JOIN_ORDER(t1,t4)*/ * FROM t1 LEFT JOIN t4 USING(a) WHERE a=1;
 
 DROP TABLE t1, t2, t3, t4;
@@ -274,10 +308,13 @@ CREATE TABLE t1 (a INT, b INT, c INT, KEY b_idx(b));
 INSERT INTO t1 VALUES (1,1,1),(2,1,1),(3,1,1),(4,2,2),(5,2,2),(6,2,2);
 ANALYZE TABLE t1;
 EXPLAIN FORMAT=TREE SELECT SUM(AVG(a)) OVER () FROM t1;
+--sorted_result
 SELECT SUM(AVG(a)) OVER () FROM t1;
 EXPLAIN FORMAT=TREE SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY b;
+--sorted_result
 SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY b;
 EXPLAIN FORMAT=TREE SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY c;
+--sorted_result
 SELECT SUM(a), SUM(AVG(a)) OVER () FROM t1 GROUP BY c;
 
 DROP TABLE t1;

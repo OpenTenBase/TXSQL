@@ -32,44 +32,45 @@ test.t2	analyze	status	OK
 # Single Query block
 #
 # Single table
-explain format=tree select col1+RAND(1) from t1;
+explain format=tree select col1+RAND(1) from t1 order by col1;
 EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
+-> PX Receiver (merge sort; slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
-        -> Parallel table scan on t1  (cost=1.25 rows=10)
+        -> Sort: t1.col1  (cost=1.25 rows=10)
+            -> Parallel table scan on t1  (cost=1.25 rows=10)
 
-select col1+RAND(1) from t1;
+select col1+RAND(1) from t1 order by col1;
 col1+RAND(1)
 1.4054035371219773
-10.3163084427978
 2.8716141803857074
-3.094459096057768
-4.141860321296249
+3.141860321296249
+4.0944590960577685
 5.046714547133739
-6.2035824984345425
-7.185411181473556
-8.950195478229034
-9.6108337804776
-explain format=tree select * from t1 order by RAND(1);
+6.950195478229034
+7.6108337804776
+8.203582498434542
+9.185411181473556
+10.3163084427978
+explain format=tree select * from t1 order by col1+RAND(1);
 EXPLAIN
--> Sort: `rand(1)`
+-> Sort: `(t1.col1 + rand(1))`
     -> Stream results  (cost=1.25 rows=10)
         -> PX Receiver (slice: 0; workers: 1)
             -> PX Sender (slice: 1; workers: 4)
                 -> Parallel table scan on t1  (cost=1.25 rows=10)
 
-select * from t1 order by RAND(1);
+select * from t1 order by col1+RAND(1);
 id	col1	col2
-5	5	5
+1	1	1
+2	2	2
 3	3	3
 4	4	4
-10	10	10
-9	9	9
-8	8	8
-1	1	1
-7	7	7
-2	2	2
+5	5	5
 6	6	6
+7	7	7
+8	8	8
+9	9	9
+10	10	10
 explain format=tree select sum(col1+RAND(1)) from t1;
 EXPLAIN
 -> Aggregate: sum((t1.col1 + rand(1)))
@@ -402,25 +403,25 @@ EXPLAIN
 (select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
 id	col1	col2
 1	1	1
-2	2	2
-3	3	3
-5	5	5
-4	4	4
-6	6	6
-7	7	7
-8	8	8
-10	10	10
-9	9	9
 1	1	1
+10	10	10
+10	10	10
+2	2	2
 2	2	2
 3	3	3
+3	3	3
+4	4	4
 4	4	4
 5	5	5
-7	7	7
+5	5	5
 6	6	6
-10	10	10
-9	9	9
+6	6	6
+7	7	7
+7	7	7
 8	8	8
+8	8	8
+9	9	9
+9	9	9
 explain format=tree select * from t1 union all (select * from t2 where id > RAND(1));
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -477,24 +478,24 @@ EXPLAIN
 (select * from t1 where id > RAND(1)) union all (select * from t2 where id > RAND(1));
 id	col1	col2
 1	1	1
-2	2	2
-3	3	3
-4	4	4
-5	5	5
-7	7	7
-6	6	6
-8	8	8
-10	10	10
-9	9	9
 1	1	1
+10	10	10
+10	10	10
+2	2	2
 2	2	2
 3	3	3
+3	3	3
 4	4	4
-7	7	7
+4	4	4
 5	5	5
-8	8	8
+5	5	5
 6	6	6
-10	10	10
+6	6	6
+7	7	7
+7	7	7
+8	8	8
+8	8	8
+9	9	9
 9	9	9
 explain format=tree (SELECT 1 as a) UNION (SELECT 1) ORDER BY (SELECT a+0);
 EXPLAIN
@@ -687,15 +688,15 @@ EXPLAIN
 select * from t1 order by (select col1 from t2 limit 1);
 id	col1	col2
 1	1	1
-4	4	4
+10	10	10
 2	2	2
 3	3	3
+4	4	4
 5	5	5
-8	8	8
-7	7	7
 6	6	6
+7	7	7
+8	8	8
 9	9	9
-10	10	10
 explain format=tree select * from t1 order by (select col1 from t2 where col1 = t1.col1);
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
@@ -841,55 +842,59 @@ a
 8
 9
 # LIMIT
-explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2 limit 1;
+explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2 order by t.col1 limit 1;
 EXPLAIN
 -> Limit: 1 row(s)  (cost=1.25 rows=1)
-    -> Table scan on t  (cost=2.84 rows=3)
-        -> Materialize  (cost=1.25 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=1.25 rows=3)
-                    -> PX Receiver (slice: 0; workers: 1)
-                        -> PX Sender (slice: 1; workers: 4)
-                            -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
-                                -> Parallel table scan on t1  (cost=1.25 rows=10)
-
-select * from (select distinct col1 from t1) as t where t.col1>2 limit 1;
-col1
-3
-explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
-EXPLAIN
--> Limit: 1 row(s)  (cost=3.89 rows=1)
-    -> Nested loop inner join  (cost=3.89 rows=3)
-        -> Filter: (t.col1 is not null)  (cost=2.84 rows=3)
-            -> Table scan on t  (cost=2.84 rows=3)
-                -> Materialize  (cost=1.25 rows=3)
-                    -> Table scan on <temporary>
-                        -> Temporary table with deduplication  (cost=1.25 rows=3)
-                            -> PX Receiver (slice: 0; workers: 1)
-                                -> PX Sender (slice: 1; workers: 4)
-                                    -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
-                                        -> Parallel table scan on t1  (cost=1.25 rows=10)
-        -> Single-row index lookup on t1 using PRIMARY (id=t.col1)  (cost=0.28 rows=1)
-
-select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
-id	col1	col2	col1
-3	3	3	3
-explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
-EXPLAIN
--> Limit: 1 row(s)  (cost=7.12 rows=1)
-    -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-        -> Table scan on t  (cost=0.26 rows=3)
+    -> Sort: t.col1, limit input to 1 row(s) per chunk  (cost=1.25 rows=3)
+        -> Table scan on t  (cost=2.84 rows=3)
             -> Materialize  (cost=1.25 rows=3)
                 -> Table scan on <temporary>
                     -> Temporary table with deduplication  (cost=1.25 rows=3)
-                        -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
-                            -> Table scan on t1  (cost=1.25 rows=10)
-        -> Hash
-            -> PX Receiver (slice: 0; workers: 1)
-                -> PX Sender (slice: 1; workers: 4)
-                    -> Parallel table scan on t1  (cost=1.25 rows=10)
+                        -> PX Receiver (slice: 0; workers: 1)
+                            -> PX Sender (slice: 1; workers: 4)
+                                -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
+                                    -> Parallel table scan on t1  (cost=1.25 rows=10)
 
-select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 limit 1;
+select * from (select distinct col1 from t1) as t where t.col1>2 order by t.col1 limit 1;
+col1
+3
+explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
+EXPLAIN
+-> Limit: 1 row(s)  (cost=2.33 rows=1)
+    -> Nested loop inner join  (cost=2.33 rows=3)
+        -> Sort: t.col1  (cost=1.25 rows=3)
+            -> Filter: (t.col1 is not null)  (cost=2.84 rows=3)
+                -> Table scan on t  (cost=2.84 rows=3)
+                    -> Materialize  (cost=1.25 rows=3)
+                        -> Table scan on <temporary>
+                            -> Temporary table with deduplication  (cost=1.25 rows=3)
+                                -> PX Receiver (slice: 0; workers: 1)
+                                    -> PX Sender (slice: 1; workers: 4)
+                                        -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
+                                            -> Parallel table scan on t1  (cost=1.25 rows=10)
+        -> Single-row index lookup on t1 using PRIMARY (id=t.col1)  (cost=0.28 rows=1)
+
+select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
+id	col1	col2	col1
+3	3	3	3
+explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
+EXPLAIN
+-> Limit: 1 row(s)
+    -> Sort: t.col1, limit input to 1 row(s) per chunk
+        -> Stream results  (cost=7.12 rows=11)
+            -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
+                -> Table scan on t  (cost=0.26 rows=3)
+                    -> Materialize  (cost=1.25 rows=3)
+                        -> Table scan on <temporary>
+                            -> Temporary table with deduplication  (cost=1.25 rows=3)
+                                -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
+                                    -> Table scan on t1  (cost=1.25 rows=10)
+                -> Hash
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 4)
+                            -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
 id	col1	col2	col1
 3	3	3	3
 drop table t1,t2;
