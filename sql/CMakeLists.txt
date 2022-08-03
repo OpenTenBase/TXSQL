@@ -375,6 +375,7 @@ SET(SQL_SHARED_SOURCES
   dd_sql_view.cc
   dd_sp.cc
   dd_table_share.cc
+  deadlock_history.cc
   debug_sync.cc
   default_values.cc
   derror.cc

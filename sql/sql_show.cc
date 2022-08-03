@@ -145,6 +145,7 @@
 #include "rpl_rli_pdb.h"
 #include "rpl_msr.h"
 #include "cdb_sql_filter.h"
+#include "sql/deadlock_history.h"
 
 /* @see dynamic_privileges_table.cc */
 bool iterate_all_dynamic_privileges(THD *thd,
@@ -3567,6 +3568,18 @@ int fill_sql_filter_status(THD *thd, TABLE_LIST *tables,
   DBUG_RETURN(0);
 }
 
+/* changes from txsql start. */
+
+int fill_deadlock_fields_info(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)))
+{
+  DBUG_TRACE;
+  TABLE *table= tables->table;
+
+  return deadlock_history_fill_i_s(thd, table);
+}
+
+/* changes from txsql end. */
+
 /*****************************************************************************
   Status functions
 *****************************************************************************/
@@ -5404,6 +5417,29 @@ ST_FIELD_INFO cdb_sql_filter_fields_info[] =
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}
 };
 
+/* changes from txsql start. */
+
+ST_FIELD_INFO deadlock_fields_info[] = {
+  {"GROUP_ID", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"LOOP_ID", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"THREAD_ID", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"TRX_ID", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"LOCK_TYPE", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"LOCK_MODE", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"INDEX_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"TABLE_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"QUERY", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"LOCK_DATA", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"LOCK_WAIT_DATA", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"HOST", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"USER", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"TRX_START_TIME", 0, MYSQL_TYPE_DATETIME, 0, 0, 0, 0},
+  {"DETECTION_TIME", 0, MYSQL_TYPE_DATETIME, 0, 0, 0, 0},
+  {nullptr, 0, MYSQL_TYPE_STRING, 0, 0, nullptr, 0}
+};
+
+/* changes from txsql end. */
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -5442,7 +5478,9 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_tmp_table_columns_format, get_schema_tmp_table_columns_record, true},
     {"TMP_TABLE_KEYS", tmp_table_keys_fields_info, show_temporary_tables,
      make_old_format, get_schema_tmp_table_keys_record, true},
-    {"CDB_SQL_FILTER_INFO", cdb_sql_filter_fields_info, fill_cdb_sql_filter_info,
+    {"CDB_SQL_FILTER_INFO", cdb_sql_filter_fields_info,
+     fill_cdb_sql_filter_info, make_old_format, nullptr, false},
+    {"TXSQL_DEADLOCK_HISTORY", deadlock_fields_info, fill_deadlock_fields_info,
      make_old_format, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
