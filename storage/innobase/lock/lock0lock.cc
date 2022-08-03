@@ -64,6 +64,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "my_psi_config.h"
 #include "mysql/plugin.h"
 #include "mysql/psi/psi_thread.h"
+#include "sql/deadlock_history.h"
 
 /* Flag to enable/disable deadlock detector. */
 bool innobase_deadlock_detect = true;
@@ -79,6 +80,14 @@ static const ulint TABLE_LOCK_CACHE = 8;
 
 /** Size in bytes, of the table lock instance */
 static const ulint TABLE_LOCK_SIZE = sizeof(ib_lock_t);
+
+/* changes from txsql start. */
+
+/* Maximum number of records in table deadlock_hostory.
+If 0, no historical deadlock information is recorded. */
+uint innobase_txsql_deadlock_history_size = 0;
+
+/* changes from txsql end. */
 
 template <typename T>
 using Locks = std::vector<T, mem_heap_allocator<T>>;
@@ -6400,6 +6409,7 @@ void Deadlock_notifier::notify(const ut::vector<const trx_t *> &trxs_on_cycle,
   ut_ad(locksys::owns_exclusive_global_latch());
 
   start_print();
+  uint deadlock_group_id = deadlock_history::get_next_deadlock_group_id();
   const auto n = trxs_on_cycle.size();
   for (size_t i = 0; i < n; ++i) {
     const trx_t *trx = trxs_on_cycle[i];
@@ -6416,6 +6426,11 @@ void Deadlock_notifier::notify(const ut::vector<const trx_t *> &trxs_on_cycle,
 
     print_title(i, "WAITING FOR THIS LOCK TO BE GRANTED");
     print(trx->lock.wait_lock);
+
+    if (innobase_txsql_deadlock_history_size) {
+      write_deadlock_record(deadlock_group_id, i, trx,
+                            blocking_lock, trx->lock.wait_lock);
+    }
   }
   const auto victim_it =
       std::find(trxs_on_cycle.begin(), trxs_on_cycle.end(), victim_trx);
@@ -6527,3 +6542,143 @@ void lock_notify_about_deadlock(const ut::vector<const trx_t *> &trxs_on_cycle,
                                 const trx_t *victim_trx) {
   Deadlock_notifier::notify(trxs_on_cycle, victim_trx);
 }
+
+/* changes from txsql start. */
+
+/** Get the lock data of the lock
+  Store only the columns contained in the index record.
+  If multiple records are locked, they will all be stored in lock_data,
+  The maximum length of stored data is max_size.
+
+  @param lock_data Locked rows of data
+  @param max_size The maximum length of stored data
+  @param data_len The true length of the lock_data
+  @param blocking_lock The Lock that need to be recorded
+ */
+void get_lock_data(char *lock_data, ulint max_size, ulint &data_len,
+                   const lock_t *blocking_lock) {
+  Rec_offsets rec_offsets;
+  mtr_t mtr;
+  ulint heap_no = lock_rec_find_set_bit(blocking_lock);
+  const dict_index_t *index = lock_rec_get_index(blocking_lock);
+  ulint n_fields = dict_index_get_n_unique_in_tree(index);
+  ulint len = 0;
+  data_len = 0;
+
+  mtr_start(&mtr);
+  const buf_block_t *block = buf_page_try_get(
+      lock_rec_get_page_id(blocking_lock), UT_LOCATION_HERE, &mtr);
+  if (block == nullptr) {
+    mtr_commit(&mtr);
+    return;
+  }
+
+  const page_t *page =
+      reinterpret_cast<const page_t *>(buf_block_get_frame(block));
+
+  while (heap_no != ULINT_UNDEFINED) {
+    if (heap_no == PAGE_HEAP_NO_INFIMUM) {
+      len = std::min(max_size, (ulint)strlen("infimum,"));
+      memcpy(lock_data, "infimum,", len);
+      data_len += len;
+      max_size -= len;
+      lock_data += len;
+      heap_no = lock_rec_find_next_set_bit(blocking_lock, heap_no);
+      continue;
+    } else if (heap_no == PAGE_HEAP_NO_SUPREMUM) {
+      len = std::min(max_size, (ulint)strlen("supremum,"));
+      memcpy(lock_data, "supermum,", len);
+      data_len += len;
+      max_size -= len;
+      lock_data += len;
+      heap_no = lock_rec_find_next_set_bit(blocking_lock, heap_no);
+      continue;
+    }
+
+    const rec_t *rec = page_find_rec_with_heap_no(page, heap_no);
+    const ulint *offsets = rec_offsets.compute(rec, index);
+    for (ulint i = 0; i < n_fields; i++) {
+      const byte *data = rec_get_nth_field(index, rec, offsets, i, &len);
+      dict_field_t *dict_field = index->get_field(i);
+      ulint read_len = row_raw_format((const char *)data, len, dict_field,
+                                      lock_data, max_size);
+      /* read_len contains the last character '\0',
+      ',' is used here instead of '\0'. */
+      lock_data[read_len - 1] = ',';
+      lock_data += read_len;
+      data_len += read_len;
+      max_size -= read_len;
+
+      if (max_size == 0) break;
+    }
+
+    heap_no = lock_rec_find_next_set_bit(blocking_lock, heap_no);
+  }
+  mtr_commit(&mtr);
+}
+
+/** Generate a record of deadlock information,
+and sotred in historical list.
+
+@param[in] group_id Identify which deadlock loop it belongs to
+@param[in] loop_id The relative order in a deadlock loop
+@param[in] trx transaction
+@param[in] blocking_lock The conflicting lock which is the
+reason wait_lock has to wait
+@param[in] wait_lock The lock request of this transaction is waiting for.
+*/
+void write_deadlock_record(uint group_id, uint loop_id, const trx_t *trx,
+                           const lock_t *blocking_lock,
+                           const lock_t *wait_lock) {
+  THD *thd = trx->mysql_thd;
+  Security_context *sctx = &thd->m_main_security_ctx;
+  size_t max_query_len = DEADLOCK_MAX_QUERY_LEN;
+  size_t len;
+  std::string query_str;
+  const char *lock_mode = lock_get_mode_str(blocking_lock);
+  const char *lock_type = lock_get_type_str(blocking_lock);
+  const char *index_name = lock_rec_get_index_name(blocking_lock);
+  const char *table_name = lock_get_table_name(blocking_lock).m_name;
+  ulonglong thread_id = trx->mysql_thd->thread_id();
+  ulonglong trx_id = trx->id;
+  char lock_data[DEADLOCK_MAX_LOCKDATA_LEN];
+  ulint data_len = 0;
+  char wait_lock_data[DEADLOCK_MAX_LOCKDATA_LEN];
+  ulint wait_lock_data_len = 0;
+
+  mysql_mutex_lock(&thd->LOCK_thd_query);
+  if (thd->query().str) {
+    /* thd->query().length contains the '\0', so minus 1. */
+    len = std::min(thd->query().length, max_query_len);
+    query_str.assign(thd->query().str, len);
+  }
+  mysql_mutex_unlock(&thd->LOCK_thd_query);
+
+  if (lock_get_type_low(blocking_lock) == LOCK_REC) {
+    get_lock_data(lock_data, DEADLOCK_MAX_LOCKDATA_LEN, data_len,
+                  blocking_lock);
+  }
+  if (lock_get_type_low(wait_lock) == LOCK_REC) {
+    get_lock_data(wait_lock_data, DEADLOCK_MAX_LOCKDATA_LEN, wait_lock_data_len,
+                  wait_lock);
+  }
+  row_deadlock deadlock_record;
+  deadlock_record.m_group_id = group_id;
+  deadlock_record.m_thread_id = thread_id;
+  deadlock_record.m_loop_id = loop_id;
+  deadlock_record.m_trx_id = trx_id;
+  deadlock_record.init_host(sctx->host_or_ip().str, sctx->host_or_ip().length);
+  deadlock_record.init_index_name(index_name, strlen(index_name));
+  deadlock_record.init_lock_data(lock_data, data_len);
+  deadlock_record.init_query(query_str.c_str(), query_str.length());
+  deadlock_record.init_table_name(table_name, strlen(table_name));
+  deadlock_record.init_user(sctx->user().str, sctx->user().length);
+  deadlock_record.init_wait_lock_data(wait_lock_data, wait_lock_data_len);
+  deadlock_record.init_lock_mode(lock_mode, strlen(lock_mode));
+  deadlock_record.init_lock_type(lock_type, strlen(lock_type));
+  deadlock_record.trx_start_time =
+      std::chrono::system_clock::to_time_t(trx->start_time);
+  deadlock_record.m_detection_time = time(0);
+  store_deadlock_record(deadlock_record);
+}
+/* changes from txsql end. */

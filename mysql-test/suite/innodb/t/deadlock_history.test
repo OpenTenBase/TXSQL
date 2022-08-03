@@ -1,0 +1,200 @@
+connect (con1,localhost,root,,);
+connect (con2,127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+connect (con3,localhost,root,,);
+
+connection default;
+SET @old_deadlock_histroy_size = @@global.innodb_txsql_deadlock_history_size;
+SET @old_deadlock_detect = @@global.innodb_deadlock_detect;
+
+--echo # 1. Historical deadlock cannot be opened when deadlock detect is turned off
+
+DROP TABLE IF EXISTS t1;
+create table t1 (a int primary key ,b int);
+insert into t1 values (1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(7,8),(8,9),(9,10);
+
+SET GLOBAL innodb_deadlock_detect = OFF;
+--error 1231
+SET GLOBAL innodb_txsql_deadlock_history_size = 2;
+
+--echo # 2. Test innodb_txsql_deadlock_history_size = 0
+SET GLOBAL innodb_deadlock_detect = ON;
+SET GLOBAL innodb_txsql_deadlock_history_size = 0;
+
+connection con1;
+begin;
+select * from t1 where a = 1 for update;
+
+connection con2;
+begin;
+select * from t1 where a = 2 for update;
+
+connection con1;
+send select * from t1 where a = 2 for update;
+
+connection con2;
+let $wait_condition=
+  SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
+  WHERE trx_operation_state = 'starting index read' AND
+  trx_state = 'LOCK WAIT';
+--source include/wait_condition.inc
+--error ER_LOCK_DEADLOCK
+select * from t1 where a = 1 for update;
+commit;
+
+connection con1;
+reap;
+commit;
+
+select * from information_schema.txsql_deadlock_history;
+
+--echo # 3. Test record lock not gap
+SET GLOBAL innodb_txsql_deadlock_history_size = 6;
+
+connection con1;
+begin;
+select * from t1 where a = 1 for update;
+
+connection con2;
+begin;
+select * from t1 where a = 2 for update;
+
+connection con1;
+send select * from t1 where a = 2 for update;
+
+connection con2;
+let $wait_condition=
+  SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
+  WHERE trx_operation_state = 'starting index read' AND
+  trx_state = 'LOCK WAIT';
+--source include/wait_condition.inc
+--error ER_LOCK_DEADLOCK
+select * from t1 where a = 1 for update;
+commit;
+
+connection con1;
+reap;
+commit;
+
+--replace_column 3 <THREAD_ID>  4 <TRX_ID>  14 <TRX_START_TIME> 15 <DETECTION_TIME>
+select * from information_schema.txsql_deadlock_history;
+
+--echo # 4. Test record lock gap
+SET GLOBAL innodb_txsql_deadlock_history_size = 6;
+
+connection con1;
+begin;
+select * from t1 where a < 3 for update;
+
+connection con2;
+begin;
+select * from t1 where a > 5 for update;
+
+connection con1;
+send select * from t1 where a < 8 for update;
+
+connection con2;
+let $wait_condition=
+  SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
+  WHERE trx_operation_state = 'starting index read' AND
+  trx_state = 'LOCK WAIT';
+--source include/wait_condition.inc
+--error ER_LOCK_DEADLOCK
+select * from t1 where a > 1 for update;
+commit;
+
+connection con1;
+reap;
+commit;
+
+--replace_column 3 <THREAD_ID>  4 <TRX_ID>  14 <TRX_START_TIME> 15 <DETECTION_TIME>
+select * from information_schema.txsql_deadlock_history;
+
+--echo # 5. Test exceeds innodb_txsql_deadlock_history_size
+
+connection con1;
+begin;
+select * from t1 where a = 1 for update;
+
+connection con2;
+begin;
+select * from t1 where a = 2 for update;
+
+connection con3;
+begin;
+select * from t1 where a = 3 for update;
+
+connection con1;
+send select * from t1 where a = 2 for update;
+
+connection con2;
+let $wait_condition=
+  SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
+  WHERE trx_operation_state = 'starting index read' AND
+  trx_state = 'LOCK WAIT';
+--source include/wait_condition.inc
+send select * from t1 where a = 3 for update;
+
+connection con3;
+let $wait_condition=
+  SELECT COUNT(*) = 2 FROM information_schema.innodb_trx
+  WHERE trx_operation_state = 'starting index read' AND
+  trx_state = 'LOCK WAIT';
+--source include/wait_condition.inc
+--error ER_LOCK_DEADLOCK
+select * from t1 where a = 1 for update;
+commit;
+
+connection con2;
+reap;
+commit;
+
+connection con1;
+reap;
+commit;
+
+--replace_column 3 <THREAD_ID>  4 <TRX_ID>  14 <TRX_START_TIME> 15 <DETECTION_TIME>
+select * from information_schema.txsql_deadlock_history;
+
+--echo # 6. Test resize the innodb_txsql_deadlock_history_size
+SET GLOBAL innodb_txsql_deadlock_history_size = 2;
+--replace_column 3 <THREAD_ID>  4 <TRX_ID>  14 <TRX_START_TIME> 15 <DETECTION_TIME>
+select * from information_schema.txsql_deadlock_history;
+SET GLOBAL innodb_txsql_deadlock_history_size = 6;
+connection con1;
+begin;
+select * from t1 where a = 1 for update;
+
+connection con2;
+begin;
+select * from t1 where a = 2 for update;
+
+connection con1;
+send select * from t1 where a = 2 for update;
+
+connection con2;
+let $wait_condition=
+  SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
+  WHERE trx_operation_state = 'starting index read' AND
+  trx_state = 'LOCK WAIT';
+--source include/wait_condition.inc
+--error ER_LOCK_DEADLOCK
+select * from t1 where a = 1 for update;
+commit;
+
+connection con1;
+reap;
+commit;
+
+--replace_column 3 <THREAD_ID>  4 <TRX_ID>  14 <TRX_START_TIME> 15 <DETECTION_TIME>
+select * from information_schema.txsql_deadlock_history;
+
+--echo # 7. Test turn off deadlock detect
+SET GLOBAL innodb_deadlock_detect = OFF;
+--replace_column 3 <THREAD_ID>  4 <TRX_ID>  14 <TRX_START_TIME> 15 <DETECTION_TIME>
+select * from information_schema.txsql_deadlock_history;
+
+connection default;
+set global innodb_deadlock_detect = @old_deadlock_detect;
+set global innodb_txsql_deadlock_history_size = @old_deadlock_histroy_size;
+
+DROP TABLE t1;

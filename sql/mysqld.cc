@@ -880,6 +880,7 @@ MySQL clients support the protocol:
 #include "thr_mutex.h"
 #include "typelib.h"
 #include "violite.h"
+#include "sql/deadlock_history.h"
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_server.h"
@@ -2729,6 +2730,8 @@ static void clean_up(bool print_message) {
 
   udf_deinit_globals();
   cdb_sql_filter_manager.clean_up();
+
+  deadlock_history_deinit();
 
   /*
     killed us
@@ -7004,6 +7007,8 @@ static int init_server_components() {
 #endif  // MYSQL_ICU_DATADIR
 
   cdb_sql_filter_manager.init();
+
+  deadlock_history_init();
 
   return 0;
 }

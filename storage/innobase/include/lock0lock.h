@@ -246,6 +246,10 @@ class ReadView;
 
 extern bool innobase_deadlock_detect;
 
+/* changes from txsql start. */
+extern uint innobase_txsql_deadlock_history_size;
+/* changes from txsql end. */
+
 /** Gets the size of a lock struct.
  @return size in bytes */
 ulint lock_get_size(void);
@@ -1096,6 +1100,34 @@ void lock_rec_free_all_from_discard_page(
 @param[in] i    index of the bit that will be reset
 @param[in] type whether the lock is in wait mode */
 void lock_rec_trx_wait(lock_t *lock, ulint i, ulint type);
+
+/* changes from txsql start. */
+/** Get the lock data of the lock
+Store only the columns contained in the index record.
+If multiple records are locked, they will all be stored in lock_data,
+The maximum length of stored data is max_size.
+
+@param[in] lock_data Locked rows of data
+@param[in] max_size The maximum length of stored data
+@param[in] data_len The true length of the lock_data
+@param[in] blocking_lock The Lock that need to be recorded
+*/
+void get_lock_data(char *lock_data, ulint max_size,
+                   ulint &data_len, const lock_t *blocking_lock);
+/* changes from txsql end. */
+
+/** Generate a record of deadlock information,
+and sotred in historical list.
+
+@param[in] group_id Identify which deadlock loop it belongs to
+@param[in] loop_id The relative order in a deadlock loop
+@param[in] trx transaction
+@param[in] blocking_lock The conflicting lock which is the
+reason wait_lock has to wait
+@param[in] wait_lock The lock request of this transaction is waiting for.
+*/
+void write_deadlock_record(uint group_id, uint loop_id, const trx_t *trx,
+                           const lock_t *blocking_lock, const lock_t *wait_lock);
 
 /** The lock system */
 extern lock_sys_t *lock_sys;

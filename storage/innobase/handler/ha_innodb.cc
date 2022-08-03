@@ -202,6 +202,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <sstream>
 #include <string>
 #include <vector>
+#include "sql/deadlock_history.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -20616,6 +20617,13 @@ This function is registered as a callback with MySQL.
 static void innobase_deadlock_detect_update(THD *, SYS_VAR *, void *,
                                             const void *save) {
   innobase_deadlock_detect = *(bool *)save;
+
+  /* If deadlock monitoring is turned off,
+  innobase_txsql_deadlock_history_size should also be reset to 0. */
+  if (innobase_deadlock_detect == false) {
+    innobase_txsql_deadlock_history_size = 0;
+    deadlock_history_resize(0);
+  }
   /* In case deadlock detection was disabled for a long time it could happen
   that all clients have deadlocked with each other and thus they stopped
   changing the wait-for graph, which in turn causes deadlock detection to not
@@ -23499,6 +23507,34 @@ static MYSQL_SYSVAR_BOOL(log_dummy_cache, srv_log_dummy_cache,
                          PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
                          "Use dummy index cache in recovery.", nullptr, nullptr,
                          true);
+
+static int deadlock_history_size_check(THD *thd, SYS_VAR *var, void *save,
+                                       struct st_mysql_value *value) {
+  longlong size;
+  if (value->val_int(value, &size)) {
+    return 1;
+  }
+
+  *reinterpret_cast<uint *>(save) = static_cast<ulint>(size);
+  if (size > 0 && innobase_deadlock_detect == false) {
+    return 1;
+  }
+  return 0;
+}
+
+static void deadlock_history_size_update(THD *thd, SYS_VAR *var, void *var_ptr,
+                                         const void *save) {
+  uint size = *static_cast<const ulint *>(save);
+  innobase_txsql_deadlock_history_size = size;
+  deadlock_history_resize(size);
+}
+
+static MYSQL_SYSVAR_UINT(
+    txsql_deadlock_history_size, innobase_txsql_deadlock_history_size,
+    PLUGIN_VAR_OPCMDARG,
+    "Maximum number of records in table deadlock_hostory."
+    "If the value is 0, historical deadlock information is not recorded",
+    deadlock_history_size_check, deadlock_history_size_update, 0, 0, 16384, 0);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23735,6 +23771,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(async_drop_tmp_dir),
     MYSQL_SYSVAR(table_drop_mode),
     MYSQL_SYSVAR(log_dummy_cache),
+    MYSQL_SYSVAR(txsql_deadlock_history_size),
     nullptr};
 
 mysql_declare_plugin(innobase){
