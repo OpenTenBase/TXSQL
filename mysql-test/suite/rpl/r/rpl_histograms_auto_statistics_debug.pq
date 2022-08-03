@@ -1,0 +1,199 @@
+##################
+# auto stats of rpl
+##################
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+# Auto statistics depends on the host:port info reported by the slave
+show global variables like 'report_host';
+Variable_name	report_host
+Value	127.0.0.1
+show global variables like 'report_port';
+Variable_name	report_port
+Value	CURRENT_PORT
+show variables like '%cdb_statistics%';
+Variable_name	Value
+SET GLOBAL cdb_auto_statistics_enabled=1;
+# check host:port of statistics node on master node
+show cdb_statistics_node;
+Host	Port	Status
+127.0.0.1	CURRENT_PORT	NULL
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+#
+# check status
+#
+SELECT @@cdb_auto_statistics_enabled;
+@@cdb_auto_statistics_enabled
+1
+SELECT @@histogram_history_enabled;
+@@histogram_history_enabled
+0
+SELECT @@histogram_statistics_concurrency;
+@@histogram_statistics_concurrency
+10
+SELECT @@auto_stats_thread_monitor_interval;
+@@auto_stats_thread_monitor_interval
+1
+SELECT @@auto_stats_interval_duration;
+@@auto_stats_interval_duration
+23
+# Note: Histogram data is identified (hid) by '$."number-of-buckets-specified"' by design.
+CREATE TABLE tbl1(c1 INT);
+INSERT INTO tbl1(c1) VALUES (1),(1),(2),(3),(5);
+#
+# Test duplicate remove
+#
+SET SESSION debug= '+d,auto_statistic_execution_pending';
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 2 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 3 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+SET SESSION debug= '-d,auto_statistic_execution_pending';
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+hid
+1
+DROP TABLE tbl1;
+#
+# test sort of Priority_queue
+#
+CREATE TABLE tbl1(c1 INT, c2 int);
+CREATE TABLE tbl2(c1 INT, c2 int);
+INSERT INTO tbl1(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
+INSERT INTO tbl2(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
+SET SESSION debug= '+d,auto_statistic_execution_pending';
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1;
+Table	Op	Msg_type	Msg_text
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c2;
+Table	Op	Msg_type	Msg_text
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c2'.
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c2;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	Pending	Histogram statistics creation pending for column 'c2'.
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1,c2;
+Table	Op	Msg_type	Msg_text
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c2'.
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1,c2;
+Table	Op	Msg_type	Msg_text
+test.tbl2	histogram	Pending	Histogram statistics creation pending for column 'c1'.
+test.tbl2	histogram	Pending	Histogram statistics creation pending for column 'c2'.
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+SET SESSION debug= '-d,auto_statistic_execution_pending';
+# check information_schema
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+SET SESSION debug= '+d,auto_statistic_flush_pending';
+# check information_schema
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+SET SESSION debug= '-d,auto_statistic_flush_pending';
+# test delete / select column_statistics_history (lock)
+# check information_schema
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+hid
+100
+SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+hid
+100
+delete FROM mysql.column_statistics_history;
+SELECT * FROM mysql.column_statistics_history;
+schema_name	table_name	column_name	histogram	version	creation_time	options
+drop table tbl1,tbl2;
+SELECT * FROM information_schema.column_statistics;
+SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	HISTOGRAM
+#
+# test kill task
+#
+SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
+COUNT(*)
+0
+CREATE TABLE t1(
+class   INT,
+id      INT,
+title   VARCHAR(100)
+) ENGINE=InnoDB;
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+# check information_schema
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
+SET SESSION debug= '+d,auto_statistic_slave_sleep';
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON class, id, title;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	Pending	Histogram statistics creation pending for column 'class'.
+test.t1	histogram	Pending	Histogram statistics creation pending for column 'id'.
+test.t1	histogram	Pending	Histogram statistics creation pending for column 'title'.
+# check information_schema
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
+test	t1	class	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	t1	id	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	t1	title	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+test	t1	class	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	t1	id	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	t1	title	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
+COUNT(*)
+1
+DROP TABLE t1;
+SET SESSION debug= '-d,auto_statistic_slave_sleep';
+SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
+COUNT(*)
+0
+show cdb_statistics_tasks;
+TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+hid
+SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+hid
+include/rpl_end.inc

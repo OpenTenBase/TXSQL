@@ -1,0 +1,139 @@
+SET @start_global_value = @@global.txsql_parallel_table_record_threshold;
+SELECT @start_global_value;
+@start_global_value
+0
+SET @start_session_value = @@session.txsql_parallel_table_record_threshold;
+SELECT @start_session_value;
+@start_session_value
+0
+SET @@global.txsql_parallel_table_record_threshold = 100;
+SET @@global.txsql_parallel_table_record_threshold = DEFAULT;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+5000
+SET @@session.txsql_parallel_table_record_threshold = 200;
+SET @@session.txsql_parallel_table_record_threshold = DEFAULT;
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+5000
+SET @@global.txsql_parallel_table_record_threshold = DEFAULT;
+SELECT @@global.txsql_parallel_table_record_threshold = 5000;
+@@global.txsql_parallel_table_record_threshold = 5000
+1
+SET @@session.txsql_parallel_table_record_threshold = DEFAULT;
+SELECT @@session.txsql_parallel_table_record_threshold = 5000;
+@@session.txsql_parallel_table_record_threshold = 5000
+1
+SET @@global.txsql_parallel_table_record_threshold = 0;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@global.txsql_parallel_table_record_threshold = 100;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+100
+SET @@global.txsql_parallel_table_record_threshold = 18446744073709551615;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+18446744073709551615
+SET @@session.txsql_parallel_table_record_threshold = 0;
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+0
+SET @@session.txsql_parallel_table_record_threshold = 100;
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+100
+SET @@session.txsql_parallel_table_record_threshold = 18446744073709551615;
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+18446744073709551615
+SET @@global.txsql_parallel_table_record_threshold = -1024;
+Warnings:
+Warning	1292	Truncated incorrect txsql_parallel_table_record_threshold value: '-1024'
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@global.txsql_parallel_table_record_threshold = 18446744073709551616;
+ERROR 42000: Incorrect argument type to variable 'txsql_parallel_table_record_threshold'
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@global.txsql_parallel_table_record_threshold = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'txsql_parallel_table_record_threshold'
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@global.txsql_parallel_table_record_threshold = test;
+ERROR 42000: Incorrect argument type to variable 'txsql_parallel_table_record_threshold'
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@session.txsql_parallel_table_record_threshold = -2;
+Warnings:
+Warning	1292	Truncated incorrect txsql_parallel_table_record_threshold value: '-2'
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+0
+SET @@session.txsql_parallel_table_record_threshold = 18446744073709551616;
+ERROR 42000: Incorrect argument type to variable 'txsql_parallel_table_record_threshold'
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+0
+SET @@session.txsql_parallel_table_record_threshold = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'txsql_parallel_table_record_threshold'
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+0
+SET @@session.txsql_parallel_table_record_threshold = test;
+ERROR 42000: Incorrect argument type to variable 'txsql_parallel_table_record_threshold'
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+0
+SELECT @@global.txsql_parallel_table_record_threshold = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='txsql_parallel_table_record_threshold';
+@@global.txsql_parallel_table_record_threshold = VARIABLE_VALUE
+1
+SELECT @@session.txsql_parallel_table_record_threshold = VARIABLE_VALUE 
+FROM performance_schema.session_variables 
+WHERE VARIABLE_NAME='txsql_parallel_table_record_threshold';
+@@session.txsql_parallel_table_record_threshold = VARIABLE_VALUE
+1
+SET @@global.txsql_parallel_table_record_threshold = TRUE;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+1
+SET @@global.txsql_parallel_table_record_threshold = FALSE;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@global.txsql_parallel_table_record_threshold = 10;
+SELECT @@txsql_parallel_table_record_threshold = @@global.txsql_parallel_table_record_threshold;
+@@txsql_parallel_table_record_threshold = @@global.txsql_parallel_table_record_threshold
+0
+SET @@txsql_parallel_table_record_threshold = 100;
+SELECT @@txsql_parallel_table_record_threshold = @@local.txsql_parallel_table_record_threshold;
+@@txsql_parallel_table_record_threshold = @@local.txsql_parallel_table_record_threshold
+1
+SELECT @@local.txsql_parallel_table_record_threshold = @@session.txsql_parallel_table_record_threshold;
+@@local.txsql_parallel_table_record_threshold = @@session.txsql_parallel_table_record_threshold
+1
+SET txsql_parallel_table_record_threshold = 1;
+SELECT @@txsql_parallel_table_record_threshold;
+@@txsql_parallel_table_record_threshold
+1
+SELECT local.txsql_parallel_table_record_threshold;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT session.txsql_parallel_table_record_threshold;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT txsql_parallel_table_record_threshold = @@session.txsql_parallel_table_record_threshold;
+ERROR 42S22: Unknown column 'txsql_parallel_table_record_threshold' in 'field list'
+SET @@global.txsql_parallel_table_record_threshold = @start_global_value;
+SELECT @@global.txsql_parallel_table_record_threshold;
+@@global.txsql_parallel_table_record_threshold
+0
+SET @@session.txsql_parallel_table_record_threshold = @start_session_value;
+SELECT @@session.txsql_parallel_table_record_threshold;
+@@session.txsql_parallel_table_record_threshold
+0

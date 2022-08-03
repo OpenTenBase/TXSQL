@@ -1,0 +1,144 @@
+# --include save_and_set_px.inc
+DROP TABLE IF EXISTS t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+CREATE TABLE t1(
+id INT PRIMARY KEY AUTO_INCREMENT,
+col1 VARCHAR(100),
+col2 INT,
+KEY idx_col2(col2)
+)ENGINE = InnoDB;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+###
+### There are also records that meet the limit condition when they are not read
+###
+SET session debug = "+d,px_no_row_split";
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+EXPLAIN
+-> Limit: 3 row(s)  (cost=1.25 rows=3)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Sort: t1.col2, limit input to 3 row(s) per chunk  (cost=1.25 rows=10)
+                -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+SELECT * FROM t1 order by col2 limit 3;
+id	col1	col2
+10	testtesttesttest	1
+9	testtesttesttest	2
+8	testtesttesttest	3
+SET session debug = "-d,px_no_row_split";
+###
+### oom when attach to exchange channel
+###
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+EXPLAIN
+-> Limit: 3 row(s)  (cost=1.25 rows=3)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Sort: t1.col2, limit input to 3 row(s) per chunk  (cost=1.25 rows=10)
+                -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+set session debug="+d,px_receiver_attach_error";
+SELECT * FROM t1 order by col2 limit 3;
+ERROR HY000: PX execute error of errno[3044].
+set session debug="-d,px_receiver_attach_error";
+SELECT * FROM t1 order by col2 limit 3;
+id	col1	col2
+10	testtesttesttest	1
+9	testtesttesttest	2
+8	testtesttesttest	3
+###
+### oom when create PX_compact_codec
+###
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+EXPLAIN
+-> Limit: 3 row(s)  (cost=1.25 rows=3)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Sort: t1.col2, limit input to 3 row(s) per chunk  (cost=1.25 rows=10)
+                -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+set session debug="+d,px_codec_create_error";
+SELECT * FROM t1 order by col2 limit 3;
+ERROR HY000: PX execute error of errno[3044].
+set session debug="-d,px_codec_create_error";
+SELECT * FROM t1 order by col2 limit 3;
+id	col1	col2
+10	testtesttesttest	1
+9	testtesttesttest	2
+8	testtesttesttest	3
+###
+### oom when PX_compact_codec::init
+###
+EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
+EXPLAIN
+-> Limit: 3 row(s)  (cost=1.25 rows=3)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Sort: t1.col2, limit input to 3 row(s) per chunk  (cost=1.25 rows=10)
+                -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+set session debug="+d,px_codec_init_error";
+SELECT * FROM t1 order by col2 limit 3;
+ERROR HY000: PX execute error of errno[3044].
+set session debug="-d,px_codec_init_error";
+SELECT * FROM t1 order by col2 limit 3;
+id	col1	col2
+10	testtesttesttest	1
+9	testtesttesttest	2
+8	testtesttesttest	3
+SET session debug = "+d,px_no_row_split";
+###
+### THD killed before receive data
+###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+set session debug="+d,px_error_before_receive_data";
+SELECT * FROM t1;
+ERROR 70100: Query execution was interrupted
+set session debug="-d,px_error_before_receive_data";
+SELECT * FROM t1;
+id	col1	col2
+1	testtesttesttest	10
+10	testtesttesttest	1
+2	testtesttesttest	9
+3	testtesttesttest	8
+4	testtesttesttest	7
+5	testtesttesttest	6
+6	testtesttesttest	5
+7	testtesttesttest	4
+8	testtesttesttest	3
+9	testtesttesttest	2
+###
+### THD killed after receive data
+###
+EXPLAIN FORMAT=TREE SELECT * FROM t1;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t1  (cost=1.25 rows=10)
+
+set session debug="+d,px_error_after_receive_data";
+SELECT * FROM t1;
+ERROR 70100: Query execution was interrupted
+set session debug="-d,px_error_after_receive_data";
+SELECT * FROM t1;
+id	col1	col2
+1	testtesttesttest	10
+10	testtesttesttest	1
+2	testtesttesttest	9
+3	testtesttesttest	8
+4	testtesttesttest	7
+5	testtesttesttest	6
+6	testtesttesttest	5
+7	testtesttesttest	4
+8	testtesttesttest	3
+9	testtesttesttest	2
+SET session debug = "-d,px_no_row_split";
+# --include set_px_to_saved.inc
+DROP TABLE t1;

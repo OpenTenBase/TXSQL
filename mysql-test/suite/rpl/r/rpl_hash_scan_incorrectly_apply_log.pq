@@ -1,0 +1,49 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+# init ===================================================================
+show variables like 'slave_rows_search_algorithms';
+Variable_name	Value
+slave_rows_search_algorithms	INDEX_SCAN,HASH_SCAN
+CREATE TABLE t1 (
+a bigint unsigned not null,
+b bigint unsigned not null
+) ENGINE=InnoDB;
+# crc32(0xffa87ced4c74eee8a8ede45e459e115068)= crc32(0xff10b90d175cd25c1396c7927505c51669)
+insert into t1 values(0xa8e8ee744ced7ca8, 0x6850119e455ee4ed),(0x135cd25c170db910, 0x6916c5057592c796);
+show variables like 'slave_rows_search_algorithms';
+Variable_name	Value
+slave_rows_search_algorithms	INDEX_SCAN,HASH_SCAN
+select * from t1;
+a	b
+12171240176243014824	7516527149547709677
+1395221277543610640	7572456450708129686
+# phrase 1 ===================================================================
+# The log of the second record is applied to the first record
+update t1 set a=1 where a=0x135cd25c170db910 and b=0x6916c5057592c796;
+select * from t1;
+a	b
+1	7572456450708129686
+12171240176243014824	7516527149547709677
+# slave========================================
+select * from t1;
+a	b
+1	7572456450708129686
+12171240176243014824	7516527149547709677
+# phrase 2 ===================================================================
+# HA_ERR_KEY_NOT_FOUND error!
+update t1 set a=2 where a=1;
+select * from t1;
+a	b
+12171240176243014824	7516527149547709677
+2	7572456450708129686
+# slave========================================
+select * from t1;
+a	b
+12171240176243014824	7516527149547709677
+2	7572456450708129686
+# cleanup ===================================================================
+drop table t1;
+include/rpl_end.inc

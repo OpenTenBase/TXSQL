@@ -1,0 +1,122 @@
+SET GLOBAL innodb_lock_wait_timeout=600;
+DESCRIBE INFORMATION_SCHEMA.INNODB_TRX;
+Field	Type	Null	Key	Default	Extra
+trx_id	bigint unsigned	NO			
+trx_state	varchar(13)	NO			
+trx_started	datetime	NO			
+trx_requested_lock_id	varchar(105)	YES			
+trx_wait_started	datetime	YES			
+trx_weight	bigint unsigned	NO			
+trx_mysql_thread_id	bigint unsigned	NO			
+trx_query	varchar(1024)	YES			
+trx_operation_state	varchar(64)	YES			
+trx_tables_in_use	bigint unsigned	NO			
+trx_tables_locked	bigint unsigned	NO			
+trx_lock_structs	bigint unsigned	NO			
+trx_lock_memory_bytes	bigint unsigned	NO			
+trx_rows_locked	bigint unsigned	NO			
+trx_rows_modified	bigint unsigned	NO			
+trx_concurrency_tickets	bigint unsigned	NO			
+trx_isolation_level	varchar(16)	NO			
+trx_unique_checks	int	NO			
+trx_foreign_key_checks	int	NO			
+trx_last_foreign_key_error	varchar(256)	YES			
+trx_adaptive_hash_latched	int	NO			
+trx_adaptive_hash_timeout	bigint unsigned	NO			
+trx_is_read_only	int	NO			
+trx_autocommit_non_locking	int	NO			
+trx_schedule_weight	bigint unsigned	YES			
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (
+c01 INT,
+c02 INT,
+PRIMARY KEY (c01)
+) ENGINE=INNODB STATS_AUTO_RECALC=0;
+INSERT INTO t1 VALUES
+(1,2),(2,4),(3,6),(4,8);
+CREATE TABLE t2 (
+c01 INT,
+c02 INT,
+PRIMARY KEY (c01),
+CONSTRAINT fk1 FOREIGN KEY (c02) REFERENCES t1 (c01)
+) ENGINE=INNODB STATS_AUTO_RECALC=0;
+INSERT INTO t2 VALUES
+(1,1),(2,2),(3,3);
+SET autocommit=0;
+INSERT INTO t1 VALUES (5,10);
+SELECT * FROM t1 FOR UPDATE;
+c01	c02
+1	2
+2	4
+3	6
+4	8
+5	10
+SELECT trx_state, trx_weight, trx_tables_in_use, trx_tables_locked,
+trx_rows_locked, trx_rows_modified, trx_concurrency_tickets,
+trx_isolation_level, trx_unique_checks, trx_foreign_key_checks
+FROM INFORMATION_SCHEMA.INNODB_TRX;
+trx_state	trx_weight	trx_tables_in_use	trx_tables_locked	trx_rows_locked	trx_rows_modified	trx_concurrency_tickets	trx_isolation_level	trx_unique_checks	trx_foreign_key_checks
+RUNNING	5	0	1	7	1	0	REPEATABLE READ	1	1
+ROLLBACK;
+SET FOREIGN_KEY_CHECKS = 0;
+SET UNIQUE_CHECKS = 0;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN;
+INSERT INTO t1 VALUES (6,12);
+SELECT trx_isolation_level, trx_unique_checks, trx_foreign_key_checks
+FROM INFORMATION_SCHEMA.INNODB_TRX;
+trx_isolation_level	trx_unique_checks	trx_foreign_key_checks
+SERIALIZABLE	0	0
+ROLLBACK;
+SET FOREIGN_KEY_CHECKS = 1;
+SET UNIQUE_CHECKS = 1;
+BEGIN;
+INSERT INTO t2 VALUES (4,10);
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (`test`.`t2`, CONSTRAINT `fk1` FOREIGN KEY (`c02`) REFERENCES `t1` (`c01`))
+SELECT trx_state, trx_isolation_level, trx_last_foreign_key_error
+FROM INFORMATION_SCHEMA.INNODB_TRX;
+trx_state	trx_isolation_level	trx_last_foreign_key_error
+RUNNING	REPEATABLE READ	`test`.`t2`, CONSTRAINT `fk1` FOREIGN KEY (`c02`) REFERENCES `t1` (`c01`)
+CREATE TABLE t0 (
+id INT PRIMARY KEY,
+trx_mysql_thread_id BIGINT
+) ENGINE=InnoDB;
+INSERT INTO t0 VALUES (1, CONNECTION_ID());
+BEGIN;
+SELECT * FROM t1 FOR SHARE;
+c01	c02
+1	2
+2	4
+3	6
+4	8
+INSERT INTO t0 VALUES (2, CONNECTION_ID());
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+INSERT INTO t0 VALUES (3, CONNECTION_ID());
+BEGIN;
+SELECT * FROM t1 FOR SHARE;
+SELECT t0.id, trx_schedule_weight
+FROM INFORMATION_SCHEMA.INNODB_TRX
+JOIN t0 USING(trx_mysql_thread_id)
+ORDER BY t0.id;
+id	trx_schedule_weight
+1	NULL
+2	2
+3	1
+ROLLBACK;
+c01	c02
+1	2
+2	4
+3	6
+4	8
+ROLLBACK;
+c01	c02
+1	2
+2	4
+3	6
+4	8
+ROLLBACK;
+DROP TABLE t2;
+DROP TABLE t1;
+DROP TABLE t0;
+SET GLOBAL innodb_lock_wait_timeout=default;

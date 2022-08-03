@@ -1,0 +1,31 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+RESET SLAVE;
+Warnings:
+Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
+CHANGE MASTER TO master_host='127.0.0.1',master_port=MASTER_PORT,master_user='root';
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE IO_THREAD;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+include/wait_for_slave_io_to_start.inc
+SHOW SLAVE HOSTS;
+Server_id	Host	Port	Master_id	Slave_UUID	Role
+2	localhost	SLAVE_PORT	1	SLAVE_UUID	CDB_ROLE_UNKNOWN
+3	slave2	SLAVE_PORT	1	SLAVE_UUID	CDB_ROLE_UNKNOWN
+Warning	1287	SLAVE_PORT
+Warnings:
+include/stop_slave_io.inc
+CREATE TABLE t1(a int);
+DROP TABLE t1;
+SHOW SLAVE HOSTS;
+Server_id	Host	Port	Master_id	Slave_UUID	Role
+2	localhost	SLAVE_PORT	1	SLAVE_UUID	CDB_ROLE_UNKNOWN
+Warnings:
+Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
+include/rpl_end.inc

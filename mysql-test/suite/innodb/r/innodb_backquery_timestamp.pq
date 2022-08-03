@@ -1,0 +1,22 @@
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable=ON;
+create table t1(id int,c1 int);
+insert into t1 values(1,1),(2,2),(3,3),(4,4),(5,5);
+delete from t1 where id=5;
+## select * from t1 as of timestamp 'time1'
+id	c1
+1	1
+2	2
+3	3
+4	4
+5	5
+## date_sub
+id	c1
+1	1
+2	2
+3	3
+4	4
+## subselect
+ERROR 42000: This version of MySQL doesn't yet support 'Usage of subqueries or stored function calls as part of backquery timestmap'
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table if exists t1;

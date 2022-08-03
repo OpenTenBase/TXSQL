@@ -1,0 +1,87 @@
+INSTALL PLUGIN repl_speedlimit_master SONAME 'repl_speedlimit_master.so';
+SHOW VARIABLES LIKE 'repl_speedlimit_master%';
+Variable_name	Value
+repl_speedlimit_master_enabled	OFF
+repl_speedlimit_master_max_token_ratio	150
+repl_speedlimit_master_mode	FIX_BANDWIDTH
+repl_speedlimit_master_run_test	0
+repl_speedlimit_master_slave_bandwidth	10240
+repl_speedlimit_master_test_send_len	100
+repl_speedlimit_master_tick_interval	20
+repl_speedlimit_master_total_bandwidth	51200
+repl_speedlimit_master_trace_level	0
+SHOW STATUS LIKE 'repl_speedlimit_master%';
+Variable_name	Value
+SET GLOBAL repl_speedlimit_master_slave_bandwidth=1024;
+SET GLOBAL repl_speedlimit_master_enabled=on;
+SHOW VARIABLES LIKE 'repl_speedlimit_master%';
+Variable_name	Value
+repl_speedlimit_master_enabled	ON
+repl_speedlimit_master_max_token_ratio	150
+repl_speedlimit_master_mode	FIX_BANDWIDTH
+repl_speedlimit_master_run_test	0
+repl_speedlimit_master_slave_bandwidth	1024
+repl_speedlimit_master_test_send_len	100
+repl_speedlimit_master_tick_interval	20
+repl_speedlimit_master_total_bandwidth	51200
+repl_speedlimit_master_trace_level	0
+SHOW STATUS LIKE 'repl_speed_limit_master%';
+Variable_name	Value
+repl_speed_limit_master_bandwidth	0
+repl_speed_limit_master_bytes_send	0
+repl_speed_limit_master_clients	0
+repl_speed_limit_master_sleep_count	0
+repl_speed_limit_master_sleep_time	0
+SET GLOBAL repl_speedlimit_master_test_send_len=1024;
+SET GLOBAL repl_speedlimit_master_run_test=2;
+SET GLOBAL repl_speedlimit_master_test_send_len=1024*1024;
+SET GLOBAL repl_speedlimit_master_run_test=4;
+SET GLOBAL repl_speedlimit_master_test_send_len=2048*1024;
+SET GLOBAL repl_speedlimit_master_run_test=6;
+UNINSTALL PLUGIN repl_speedlimit_master;
+INSTALL PLUGIN repl_speedlimit_slave SONAME 'repl_speedlimit_slave.so';
+SHOW VARIABLES LIKE 'repl_speedlimit_slave%';
+Variable_name	Value
+repl_speedlimit_slave_enabled	OFF
+repl_speedlimit_slave_max_token_ratio	150
+repl_speedlimit_slave_mode	FIX_BANDWIDTH
+repl_speedlimit_slave_run_test	0
+repl_speedlimit_slave_slave_bandwidth	10240
+repl_speedlimit_slave_test_send_len	100
+repl_speedlimit_slave_tick_interval	20
+repl_speedlimit_slave_total_bandwidth	51200
+repl_speedlimit_slave_trace_level	0
+SHOW STATUS LIKE 'repl_speed_limit_slave%';
+Variable_name	Value
+repl_speed_limit_slave_bandwidth	0
+repl_speed_limit_slave_bytes_received	0
+repl_speed_limit_slave_clients	0
+repl_speed_limit_slave_sleep_count	0
+repl_speed_limit_slave_sleep_time	0
+SET GLOBAL repl_speedlimit_slave_slave_bandwidth=1024;
+SET GLOBAL repl_speedlimit_slave_enabled=on;
+SHOW VARIABLES LIKE 'repl_speedlimit_slave%';
+Variable_name	Value
+repl_speedlimit_slave_enabled	ON
+repl_speedlimit_slave_max_token_ratio	150
+repl_speedlimit_slave_mode	FIX_BANDWIDTH
+repl_speedlimit_slave_run_test	0
+repl_speedlimit_slave_slave_bandwidth	1024
+repl_speedlimit_slave_test_send_len	100
+repl_speedlimit_slave_tick_interval	20
+repl_speedlimit_slave_total_bandwidth	51200
+repl_speedlimit_slave_trace_level	0
+SHOW STATUS LIKE 'repl_speed_limit_slave%';
+Variable_name	Value
+repl_speed_limit_slave_bandwidth	0
+repl_speed_limit_slave_bytes_received	0
+repl_speed_limit_slave_clients	0
+repl_speed_limit_slave_sleep_count	0
+repl_speed_limit_slave_sleep_time	0
+SET GLOBAL repl_speedlimit_slave_test_send_len=1024;
+SET GLOBAL repl_speedlimit_slave_run_test=2;
+SET GLOBAL repl_speedlimit_slave_test_send_len=1024*1024;
+SET GLOBAL repl_speedlimit_slave_run_test=4;
+SET GLOBAL repl_speedlimit_slave_test_send_len=2048*1024;
+SET GLOBAL repl_speedlimit_slave_run_test=6;
+UNINSTALL PLUGIN repl_speedlimit_slave;

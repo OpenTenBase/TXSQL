@@ -1,0 +1,372 @@
+# --include save_and_set_px.inc
+#
+# create test table
+#
+CREATE TABLE `t` (
+`id` int NOT NULL AUTO_INCREMENT,
+`col1` int DEFAULT NULL,
+`col2` int DEFAULT NULL,
+`col3` double DEFAULT NULL,
+PRIMARY KEY (`id`),
+KEY `idx_col2` (`col2`)
+) ENGINE=InnoDB AUTO_INCREMENT=8;
+INSERT INTO t VALUES (1, 6, 2, 1);
+INSERT INTO t VALUES (2, 5, 2, 3);
+INSERT INTO t VALUES (3, 4, 2, 2);
+INSERT INTO t VALUES (4, 3, 3, 4);
+INSERT INTO t VALUES (5, 2, 1, 6);
+#
+# test aggregation function without splitting
+#
+select sum(col1), min(col1), max(col1) from t;
+sum(col1)	min(col1)	max(col1)
+20	2	6
+#
+# test aggregation function count()
+#
+select count(col1) from t;
+count(col1)
+5
+#
+# test aggregation function avg()
+#
+select avg(col1) from t;
+avg(col1)
+4.0000
+#
+# test aggregate function with expression
+#
+select sum(col1*4+2) from t;
+sum(col1*4+2)
+90
+select count(col1*4+2) from t;
+count(col1*4+2)
+5
+select max(col1*4+2) from t;
+max(col1*4+2)
+26
+select min(col1*4+2) from t;
+min(col1*4+2)
+10
+select avg(col1*4+2) from t;
+avg(col1*4+2)
+18.0000
+select 100*sum(col1)/count(col2)+min(col1)-max(col3) from t;
+100*sum(col1)/count(col2)+min(col1)-max(col3)
+396
+select avg(col2)*avg(col2)/count(col1)*2 from t;
+avg(col2)*avg(col2)/count(col1)*2
+1.600000000000
+#
+# test aggregation function with group by(no index)
+#
+select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+col1	col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+2	6	1	1.0000	1	1	1	2
+3	4	1	3.0000	3	3	1	3
+4	2	1	2.0000	2	2	1	4
+5	3	1	2.0000	2	2	1	5
+6	1	1	2.0000	2	2	1	6
+select count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+1	1.0000	1	1	1	2
+1	2.0000	2	2	1	4
+1	2.0000	2	2	1	5
+1	2.0000	2	2	1	6
+1	3.0000	3	3	1	3
+#
+# test aggregation function with group by(with index)
+#
+select sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
+sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
+15	5.0000	3	4	6
+2	2.0000	1	2	2
+3	3.0000	1	3	3
+select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
+col2	sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
+1	2	2.0000	1	2	2
+2	15	5.0000	3	4	6
+3	3	3.0000	1	3	3
+#
+# test aggregation function with order by
+#
+select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 order by col1;
+col1	col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+2	6	1	1.0000	1	1	1	2
+3	4	1	3.0000	3	3	1	3
+4	2	1	2.0000	2	2	1	4
+5	3	1	2.0000	2	2	1	5
+6	1	1	2.0000	2	2	1	6
+#
+# test aggregation function with having
+#
+select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4;
+col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+1	1	2.0000	2	2	1	6
+3	1	2.0000	2	2	1	5
+select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2 having sum(col1)>1;
+col2	sum(col1)	avg(col1)	count(col1)	min(col1)	max(col1)
+1	2	2.0000	1	2	2
+2	15	5.0000	3	4	6
+3	3	3.0000	1	3	3
+#
+# test aggregation function with having and order by
+#
+select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4 order by col1;
+col3	count(col2)	avg(col2)	min(col2)	max(col2)	count(*)	sum(col1)
+3	1	2.0000	2	2	1	5
+1	1	2.0000	2	2	1	6
+#
+# test aggregation function with order by (sort for distinct)
+#
+select distinct col2, repeat("a", length(col2)), count(*) from t group by col1, col2 limit 2;
+col2	repeat("a", length(col2))	count(*)
+1	a	1
+2	a	1
+select distinct min(col1) from t group by col3 order by min(col2);
+min(col1)
+2
+4
+5
+6
+3
+CREATE TABLE `t1` (
+`id` int NOT NULL AUTO_INCREMENT,
+`col1` int DEFAULT NULL,
+`t1col2` int DEFAULT NULL,
+`t1col3` double DEFAULT NULL,
+PRIMARY KEY (`id`),
+KEY `idx_col2` (`t1col2`)
+) ENGINE=InnoDB AUTO_INCREMENT=8;
+INSERT INTO t1 VALUES (1, 6, 2, 1);
+INSERT INTO t1 VALUES (2, 5, 2, 3);
+INSERT INTO t1 VALUES (3, 4, 2, 2);
+INSERT INTO t1 VALUES (4, 3, 3, 4);
+INSERT INTO t1 VALUES (5, 5, 1, 6);
+#
+# test aggregation function with const item in group list
+#
+select t1.col1, col2, sum(t1col3) from t1, t where t1.col1 = 5 group by col1, col2;
+col1	col2	sum(t1col3)
+5	1	9
+5	2	27
+5	3	9
+#
+# test aggregation function with union
+# not supported by exchange yet
+#
+# test Group (no aggregates)
+#
+SELECT 1 FROM DUAL WHERE 1 GROUP BY 1 HAVING 1 ORDER BY 1;
+1
+1
+#
+# count -> sum with right data_type
+#
+CREATE TABLE `t2` (
+`val` decimal(5,3) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT INTO t2 VALUES (0.114);
+INSERT INTO t2 VALUES (0.115);
+INSERT INTO t2 VALUES (0.116);
+SELECT COUNT(val) FROM t2 WHERE val > 0.115;
+COUNT(val)
+1
+DROP TABLE t2;
+#
+# count -> sum with right result_type
+#
+CREATE TABLE t2 (
+spID int(10) unsigned,
+userID int(10) unsigned,
+score smallint(5) unsigned,
+key (spid),
+key (score)
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t2 VALUES (1,1,1),(2,2,2),(2,1,1),(3,3,3),(4,3,3),(5,3,3),(6,3,3),(7,3,3);
+select userid,count(*) from t2 group by userid having 3 in (1,count(*));
+userid	count(*)
+DROP TABLE t2;
+#
+# support streaming aggregate
+#
+select sum(col1) s from t1 group by t1col2 order by s;
+s
+3
+5
+15
+#
+# support aggregate split under materialize
+#
+explain format=tree select * from (select sum(col1) as a from t1 group by t1col2) as t;
+EXPLAIN
+-> Table scan on t  (cost=*** rows=***)
+    -> Materialize
+        -> Group aggregate: sum(t1.col1)
+            -> PX Receiver (merge sort; slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Group aggregate: sum(t1.col1)
+                        -> Parallel index scan on t1 using idx_col2  (cost=*** rows=***)
+
+select * from (select sum(col1) as a from t1 group by t1col2) as t;
+a
+15
+3
+5
+explain format=tree select * from (select sum(t1col2) as a from t1 group by col1) as t;
+EXPLAIN
+-> Table scan on t  (cost=*** rows=***)
+    -> Materialize
+        -> Table scan on <temporary>
+            -> Final Aggregate using temporary table
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
+                        -> Table scan on <temporary>
+                            -> Aggregate using temporary table
+                                -> Parallel table scan on t1  (cost=*** rows=***)
+
+select * from (select sum(t1col2) as a from t1 group by col1) as t;
+a
+2
+2
+3
+3
+DROP TABLE t;
+DROP TABLE t1;
+CREATE TABLE t1 (
+f1 int(10) unsigned NOT NULL auto_increment primary key,
+f2 varchar(100) NOT NULL default ''
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE t2 (
+f1 varchar(10) NOT NULL default '',
+f2 char(3) NOT NULL default '',
+PRIMARY KEY  (`f1`),
+KEY `k1` (`f2`,`f1`)
+);
+INSERT INTO t1 values(NULL, '');
+INSERT INTO `t2` VALUES ('486878','WDT'),('486910','WDT');
+explain format=tree SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'WDT' GROUP BY t1.f1;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Temporary table
+        -> Group aggregate: sum(t2.f1), count(t2.f1)
+            -> PX Receiver (merge sort; slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 1)
+                    -> Group aggregate: sum(t2.f1), count(t2.f1)
+                        -> Nested loop inner join  (cost=*** rows=***)
+                            -> Parallel index scan on t1 using PRIMARY  (cost=*** rows=***)
+                            -> Filter: (t2.f2 = 'WDT')  (cost=*** rows=***)
+                                -> Index lookup on t2 using k1 (f2='WDT')  (cost=*** rows=***)
+
+SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'SIR' GROUP BY t1.f1;
+avg(t2.f1)
+DROP TABLE t1;
+DROP TABLE t2;
+create table t3(a int, b int, c int) engine=InnoDB;
+insert into t3 values(200,1,1),(100,1,2),(400,2,2),(300,2,1);
+analyze table t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	OK
+explain format=tree SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
+EXPLAIN
+-> Sort: `any_value((``sum(````count(0)````)`` - ``sum(````count(t3.b)````)``))`
+    -> Limit: 1 row(s)
+        -> Table scan on <temporary>
+            -> Temporary table
+                -> Table scan on <temporary>
+                    -> Final Aggregate using temporary table
+                        -> PX Receiver (slice: 0; workers: 1)
+                            -> PX Sender (slice: 1; workers: 4)
+                                -> Table scan on <temporary>
+                                    -> Aggregate using temporary table
+                                        -> Parallel table scan on t3  (cost=*** rows=***)
+
+SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
+1
+1
+explain format=tree SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(b);
+EXPLAIN
+-> Sort: `(``sum(````count(0)````)`` - ``sum(````count(t3.b)````)``)`
+    -> Table scan on <temporary>
+        -> Temporary table with deduplication
+            -> Table scan on <temporary>
+                -> Final Aggregate using temporary table
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 4)
+                            -> Table scan on <temporary>
+                                -> Aggregate using temporary table
+                                    -> Parallel table scan on t3  (cost=*** rows=***)
+
+SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(b);
+1	count(*)-count(b)
+1	0
+explain format=tree SELECT distinct 1, (avg(b)-count(b)) FROM t3 group by a order by avg(b)-count(b);
+EXPLAIN
+-> Sort: `((``sum(````sum(t3.b)````)`` / ``sum(````count(t3.b)````)``) - ``sum(````count(t3.b)````)``)`
+    -> Table scan on <temporary>
+        -> Temporary table with deduplication
+            -> Table scan on <temporary>
+                -> Final Aggregate using temporary table
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 4)
+                            -> Table scan on <temporary>
+                                -> Aggregate using temporary table
+                                    -> Parallel table scan on t3  (cost=*** rows=***)
+
+SELECT distinct 1, (avg(b)-count(b)) FROM t3 group by a order by avg(b)-count(b);
+1	(avg(b)-count(b))
+1	0.0000
+1	1.0000
+SELECT distinct 1, (avg(b)-count(b)) agg FROM t3 group by a having agg>0 order by agg;
+1	agg
+1	1.0000
+drop table t3;
+#
+# sum_funcs with no rows in table
+#
+CREATE TABLE t (a int);
+select sum(a), count(a), avg(a), max(a), min(a) from t;
+sum(a)	count(a)	avg(a)	max(a)	min(a)
+NULL	0	NULL	NULL	NULL
+select sum(7), count(7), avg(7), max(7), min(7) from t;
+sum(7)	count(7)	avg(7)	max(7)	min(7)
+NULL	0	NULL	NULL	NULL
+insert into t values (null);
+select count(a) as b from t where a=0 having b >=0;
+b
+0
+DROP TABLE t;
+#
+# sum_funcs with const_item
+#
+CREATE TABLE t1 (
+c1 INT AUTO_INCREMENT PRIMARY KEY,
+c2 INT,
+c3 INT,
+c4 INT,
+INDEX k2(c2)
+) Engine=InnoDB;
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+INSERT INTO t1(c2,c3,c4) VALUES (1, 1, 1);
+SELECT AVG(c1), MAX(c1), MIN(c2), AVG(c3), SUM(c4) FROM t1;
+AVG(c1)	MAX(c1)	MIN(c2)	AVG(c3)	SUM(c4)
+5.5000	10	1	1.0000	10
+SELECT AVG(c1), MAX(c1)/2, MIN(c2), AVG(c3)/max(c1), SUM(c4) FROM t1;
+AVG(c1)	MAX(c1)/2	MIN(c2)	AVG(c3)/max(c1)	SUM(c4)
+5.5000	5.0000	1	0.10000000	10
+DROP TABLE t1;
+# --include set_px_to_saved.inc

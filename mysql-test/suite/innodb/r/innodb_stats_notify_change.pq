@@ -1,0 +1,204 @@
+set @saved_value= @@global.innodb_stats_notify_change;
+# with innodb_stats_notify_change being OFF, records_per_key could be stale.
+create table t1 (a int, b int, key (a), key (b));
+set global innodb_stats_notify_change = off;
+insert t1 values (1, 1), (1, 2);
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+test	t1	a	n_diff_pfx01	1
+test	t1	b	n_diff_pfx01	2
+set debug='+d,print_records_per_key';
+select count(*) from t1;
+count(*)
+2
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warnings:
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+test	t1	a	n_diff_pfx01	1
+test	t1	b	n_diff_pfx01	2
+set debug='+d,print_records_per_key';
+select count(*) from t1;
+count(*)
+2
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warnings:
+truncate t1;
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+test	t1	a	n_diff_pfx01	0
+test	t1	b	n_diff_pfx01	0
+set debug='+d,print_records_per_key';
+select count(*) from t1;
+count(*)
+0
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warnings:
+drop table t1;
+# with innodb_stats_notify_change being ON, records_per_key is up to update.
+create table t1 (a int, b int, key (a), key (b));
+set global innodb_stats_notify_change = on;
+insert t1 values (1, 1), (1, 2);
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+test	t1	a	n_diff_pfx01	1
+test	t1	b	n_diff_pfx01	2
+set debug='+d,print_records_per_key';
+select count(*) from t1;
+count(*)
+2
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warnings:
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+test	t1	a	n_diff_pfx01	1
+test	t1	b	n_diff_pfx01	2
+set debug='+d,print_records_per_key';
+select count(*) from t1;
+count(*)
+2
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warnings:
+truncate t1;
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+test	t1	a	n_diff_pfx01	0
+test	t1	b	n_diff_pfx01	0
+set debug='+d,print_records_per_key';
+select count(*) from t1;
+count(*)
+0
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t1 t1 b(b) = (1.000000)
+Warnings:
+drop table t1;
+# with innodb_stats_notify_change being OFF, records_per_key could be stale (for partition table).
+create table t2 (a int, b int, key (a), key (b))
+partition by range (a) (
+partition p0 values less than (100),
+partition p1 values less than MAXVALUE
+);
+set global innodb_stats_notify_change = off;
+insert t2 values (1, 1), (1, 2);
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+set debug='+d,print_records_per_key';
+select count(*) from t2;
+count(*)
+2
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warnings:
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+set debug='+d,print_records_per_key';
+select count(*) from t2;
+count(*)
+2
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warnings:
+truncate t2;
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+set debug='+d,print_records_per_key';
+select count(*) from t2;
+count(*)
+0
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warnings:
+drop table t2;
+# with innodb_stats_notify_change being ON, records_per_key is up to update (for partition table).
+create table t2 (a int, b int, key (a), key (b))
+partition by range (a) (
+partition p0 values less than (100),
+partition p1 values less than MAXVALUE
+);
+set global innodb_stats_notify_change = on;
+insert t2 values (1, 1), (1, 2);
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+set debug='+d,print_records_per_key';
+select count(*) from t2;
+count(*)
+2
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warnings:
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+set debug='+d,print_records_per_key';
+select count(*) from t2;
+count(*)
+2
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (2.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warnings:
+truncate t2;
+set debug='-d,print_records_per_key';
+select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+database_name	table_name	index_name	stat_name	stat_value
+set debug='+d,print_records_per_key';
+select count(*) from t2;
+count(*)
+0
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 a(a) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warning	168	print_records_per_key: test.t2 t2 b(b) = (1.000000)
+Warnings:
+drop table t2;
+# clean up
+set debug='-d,print_records_per_key';
+set global innodb_stats_notify_change = @saved_value;

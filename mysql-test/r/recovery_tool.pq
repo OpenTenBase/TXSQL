@@ -1,0 +1,528 @@
+# Test for different charsets and row_types
+USE test;
+CREATE TABLE `news` (
+`id` int(13) unsigned NOT NULL AUTO_INCREMENT,
+`catid` smallint(5) unsigned NOT NULL DEFAULT '0',
+`typeid` smallint(5) unsigned NOT NULL,
+`title` varchar(150) NOT NULL DEFAULT '',
+`style` char(24) NOT NULL DEFAULT '',
+`thumb` varchar(200) NOT NULL DEFAULT '',
+`keywords` varchar(100) NOT NULL DEFAULT '',
+`description` mediumtext NOT NULL,
+`posids` tinyint(1) unsigned NOT NULL DEFAULT '0',
+`url` char(100) NOT NULL,
+`listorder` tinyint(3) unsigned NOT NULL DEFAULT '0',
+`status` tinyint(2) unsigned NOT NULL DEFAULT '1',
+`sysadd` tinyint(1) unsigned NOT NULL DEFAULT '0',
+`islink` tinyint(1) unsigned NOT NULL DEFAULT '0',
+`username` char(20) NOT NULL,
+`inputtime` int(10) unsigned NOT NULL DEFAULT '0',
+`updatetime` int(10) unsigned NOT NULL DEFAULT '0',
+`subtitle` varchar(255) NOT NULL DEFAULT '',
+`passname` varchar(255) NOT NULL DEFAULT '',
+`modifyname` varchar(255) NOT NULL DEFAULT '',
+`ztsc` tinyint(1) NOT NULL DEFAULT '0',
+`yuansuid` mediumint(9) NOT NULL DEFAULT '0' COMMENT '游戏元素对应ID',
+`zhnaduiid` mediumint(9) NOT NULL DEFAULT '0' COMMENT '战队对应ID',
+`duiyaunid` mediumint(9) NOT NULL DEFAULT '0' COMMENT '站队成员对应ID',
+`gameid` mediumint(8) NOT NULL DEFAULT '0' COMMENT '属于哪个游戏',
+`gameclassid` tinyint(3) NOT NULL COMMENT '属于什么游戏，手机、PC，网游',
+`baidu` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否提交了百度原创',
+`gamename` varchar(50) NOT NULL COMMENT '对应的游戏名称',
+PRIMARY KEY (`id`),
+KEY `status` (`status`,`listorder`,`id`),
+KEY `listorder` (`catid`,`status`,`listorder`,`id`),
+KEY `catid` (`catid`,`status`,`id`),
+KEY `username` (`username`),
+KEY `updatetime` (`updatetime`),
+KEY `inputtime` (`inputtime`),
+KEY `status_2` (`status`,`username`) USING BTREE,
+KEY `title` (`title`),
+KEY `gameid` (`gameid`),
+KEY `duiyaunid` (`duiyaunid`),
+KEY `zhnaduiid` (`zhnaduiid`),
+KEY `yuansuid` (`yuansuid`),
+KEY `gameid_2` (`gameid`,`catid`) USING BTREE,
+KEY `catid_2` (`catid`),
+KEY `keywords` (`keywords`),
+KEY `modifyname` (`modifyname`),
+KEY `status_3` (`status`),
+KEY `gameclassid` (`gameclassid`,`gameid`) USING BTREE,
+KEY `baidu` (`baidu`,`status`,`username`) USING BTREE,
+KEY `status_4` (`status`,`catid`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+CREATE TABLE `types` (
+`a` tinyint(4) NOT NULL,
+`b` smallint(6) DEFAULT NULL,
+`c` mediumint(9) DEFAULT NULL,
+`d` int(10) DEFAULT NULL,
+`e` bigint(20) DEFAULT NULL,
+`f` float(10,2) DEFAULT NULL,
+`g` double(15,6) DEFAULT NULL,
+`h` decimal(20,10) DEFAULT NULL,
+`i` char(10) DEFAULT NULL,
+`j` varchar(10) DEFAULT NULL,
+`k` tinyblob,
+`l` tinytext,
+`m` blob,
+`n` text,
+`o` mediumblob,
+`p` mediumtext,
+`q` longblob,
+`r` longtext,
+`s` varbinary(100) DEFAULT NULL,
+`t` binary(100) DEFAULT NULL,
+`u` date DEFAULT NULL,
+`v` time DEFAULT NULL,
+`w` year DEFAULT NULL,
+`x` datetime DEFAULT NULL,
+`y` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPACT;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+INSERT INTO `test`.`news` (`id`, `catid`, `typeid`, `title`, `style`, `thumb`, `keywords`, `description`, `posids`, `url`, `listorder`, `status`, `sysadd`, `islink`, `username`, `inputtime`, `updatetime`, `subtitle`, `passname`, `modifyname`, `ztsc`, `yuansuid`, `zhnaduiid`, `duiyaunid`, `gameid`, `gameclassid`, `baidu`, `gamename`) VALUES ('20676114', '19', '0', '药品管理法修订草案:网售第三方不得直接销售处方药', '', '', '不得 网售 药品 第三方 管理法 修订草案', '@@?value.islive$$@@=', '0', 'http://www.haoxyx.com/yxrd/20190607/20676114.html', '0', '1', '1', '0', 'meihua', '1559908139', '1559908139', '药品管理法修订草案:网售第三方不得直接销售处方药', '', '', '0', '0', '0', '0', '0', '0', '0', '');
+INSERT INTO `test`.`news` (`id`, `catid`, `typeid`, `title`, `style`, `thumb`, `keywords`, `description`, `posids`, `url`, `listorder`, `status`, `sysadd`, `islink`, `username`, `inputtime`, `updatetime`, `subtitle`, `passname`, `modifyname`, `ztsc`, `yuansuid`, `zhnaduiid`, `duiyaunid`, `gameid`, `gameclassid`, `baidu`, `gamename`) VALUES ('20676115', '19', '0', '别有用心?称“中国90后或成不买房一代”者偷换概念', '', 'http://picc.haoxyx.com/http://t10.baidu.com/it/u=3113118225,780181707&amp;fm=173&amp;s=952AE4B64AF94B8E2CB2317203005039&amp;w=640&amp;h=394&amp;img.JPEG', '90 中国 成不 别有用心', '别有用心？称“中国90后或成不买房一代”者偷换概念青锋在新一轮政策调控使得一二线城市房价上涨势头得到有效遏制后，关于房子和房价的各种议论或者观点如百花般齐放，近日，媒体有援引外媒报道，称“更看重个人价', '0', 'http://www.haoxyx.com/yxrd/20190607/20676115.html', '0', '1', '1', '0', 'meihua', '1559908139', '1559908139', '别有用心?称“中国90后或成不买房一代”者偷换概念', '', '', '0', '0', '0', '0', '0', '0', '0', '');
+INSERT INTO `test`.`news` (`id`, `catid`, `typeid`, `title`, `style`, `thumb`, `keywords`, `description`, `posids`, `url`, `listorder`, `status`, `sysadd`, `islink`, `username`, `inputtime`, `updatetime`, `subtitle`, `passname`, `modifyname`, `ztsc`, `yuansuid`, `zhnaduiid`, `duiyaunid`, `gameid`, `gameclassid`, `baidu`, `gamename`) VALUES ('20676116', '19', '0', '国际商业结算(00147.HK):预计2019财年亏损将大幅度增加', '', '', 'hk 商业 国际 结算 预计 00147.', '@@?value.islive$$@@=', '0', 'http://www.haoxyx.com/yxrd/20190607/20676116.html', '0', '1', '1', '0', 'meihua', '1559908139', '1559908139', '国际商业结算(00147.HK):预计2019财年亏损将大幅度增加', '', '', '0', '0', '0', '0', '0', '0', '0', '');
+INSERT INTO types SELECT -128, 32767, -8388608, -2147483648, -92333720368775808, -3.40282, -43243.4025282, -4324324243.4025282, repeat('a', 10), repeat('b', 10), repeat('c', 200), repeat('d', 200), repeat('e', 6000),repeat('f', 6000), repeat('g', 6000), repeat('h', 6000),repeat('i', 6000), repeat('j', 6000),repeat('k', 20),repeat('l', 20), '2018-12-20', '10:01:01', '2019', '1000-01-01 00:00:00', '2019-01-01 00:00:00';
+INSERT INTO types SELECT 127, NULL ,8388607, 2147483647, 92233720368547707, 1.175494, 43243.4025282, 4324324243.40252, repeat('\'', 10), repeat('\\', 10), repeat('\*', 200), repeat('\#', 200), repeat('\'', 6000), repeat('\'', 6000), repeat('\'', 6000), repeat('\'', 6000),repeat('\'', 6000),repeat('\'', 6000), repeat('\'', 20), repeat('\'', 20), '2019-12-20', '12:01:01', '2018', '2000-01-01 02:00:00', '1999-01-01 00:00:00';
+# restart
+Start analyzing test/news.
+Finish analyzing test/news, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.news.normal.sql-n and test.news.warning.sql.
+Table definition has been dumped to test.news.def.txt.
+Please refer to test.news.info.txt to get more details.
+Start analyzing test/types.
+Finish analyzing test/types, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.types.normal.sql-n and test.types.warning.sql.
+Table definition has been dumped to test.types.def.txt.
+Please refer to test.types.info.txt to get more details.
+SHOW CREATE TABLE news;
+Table	Create Table
+news	CREATE TABLE `news` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `catid` smallint unsigned NOT NULL DEFAULT '0',
+  `typeid` smallint unsigned NOT NULL,
+  `title` varchar(150) NOT NULL DEFAULT '',
+  `style` char(24) NOT NULL DEFAULT '',
+  `thumb` varchar(200) NOT NULL DEFAULT '',
+  `keywords` varchar(100) NOT NULL DEFAULT '',
+  `description` mediumtext NOT NULL,
+  `posids` tinyint unsigned NOT NULL DEFAULT '0',
+  `url` char(100) NOT NULL,
+  `listorder` tinyint unsigned NOT NULL DEFAULT '0',
+  `status` tinyint unsigned NOT NULL DEFAULT '1',
+  `sysadd` tinyint unsigned NOT NULL DEFAULT '0',
+  `islink` tinyint unsigned NOT NULL DEFAULT '0',
+  `username` char(20) NOT NULL,
+  `inputtime` int unsigned NOT NULL DEFAULT '0',
+  `updatetime` int unsigned NOT NULL DEFAULT '0',
+  `subtitle` varchar(255) NOT NULL DEFAULT '',
+  `passname` varchar(255) NOT NULL DEFAULT '',
+  `modifyname` varchar(255) NOT NULL DEFAULT '',
+  `ztsc` tinyint(1) NOT NULL DEFAULT '0',
+  `yuansuid` mediumint NOT NULL DEFAULT '0' COMMENT '游戏元素对应ID',
+  `zhnaduiid` mediumint NOT NULL DEFAULT '0' COMMENT '战队对应ID',
+  `duiyaunid` mediumint NOT NULL DEFAULT '0' COMMENT '站队成员对应ID',
+  `gameid` mediumint NOT NULL DEFAULT '0' COMMENT '属于哪个游戏',
+  `gameclassid` tinyint NOT NULL COMMENT '属于什么游戏，手机、PC，网游',
+  `baidu` tinyint NOT NULL DEFAULT '0' COMMENT '是否提交了百度原创',
+  `gamename` varchar(50) NOT NULL COMMENT '对应的游戏名称',
+  PRIMARY KEY (`id`),
+  KEY `status` (`status`,`listorder`,`id`),
+  KEY `listorder` (`catid`,`status`,`listorder`,`id`),
+  KEY `catid` (`catid`,`status`,`id`),
+  KEY `username` (`username`),
+  KEY `updatetime` (`updatetime`),
+  KEY `inputtime` (`inputtime`),
+  KEY `status_2` (`status`,`username`) USING BTREE,
+  KEY `title` (`title`),
+  KEY `gameid` (`gameid`),
+  KEY `duiyaunid` (`duiyaunid`),
+  KEY `zhnaduiid` (`zhnaduiid`),
+  KEY `yuansuid` (`yuansuid`),
+  KEY `gameid_2` (`gameid`,`catid`) USING BTREE,
+  KEY `catid_2` (`catid`),
+  KEY `keywords` (`keywords`),
+  KEY `modifyname` (`modifyname`),
+  KEY `status_3` (`status`),
+  KEY `gameclassid` (`gameclassid`,`gameid`) USING BTREE,
+  KEY `baidu` (`baidu`,`status`,`username`) USING BTREE,
+  KEY `status_4` (`status`,`catid`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8
+SHOW CREATE TABLE types;
+Table	Create Table
+types	CREATE TABLE `types` (
+  `a` tinyint NOT NULL,
+  `b` smallint DEFAULT NULL,
+  `c` mediumint DEFAULT NULL,
+  `d` int DEFAULT NULL,
+  `e` bigint DEFAULT NULL,
+  `f` float(10,2) DEFAULT NULL,
+  `g` double(15,6) DEFAULT NULL,
+  `h` decimal(20,10) DEFAULT NULL,
+  `i` char(10) DEFAULT NULL,
+  `j` varchar(10) DEFAULT NULL,
+  `k` tinyblob,
+  `l` tinytext,
+  `m` blob,
+  `n` text,
+  `o` mediumblob,
+  `p` mediumtext,
+  `q` longblob,
+  `r` longtext,
+  `s` varbinary(100) DEFAULT NULL,
+  `t` binary(100) DEFAULT NULL,
+  `u` date DEFAULT NULL,
+  `v` time DEFAULT NULL,
+  `w` year DEFAULT NULL,
+  `x` datetime DEFAULT NULL,
+  `y` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPACT
+DROP TABLE news;
+DROP TABLE types;
+# Create tables
+SHOW CREATE TABLE news;
+Table	Create Table
+news	CREATE TABLE `news` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `catid` smallint unsigned NOT NULL DEFAULT '0',
+  `typeid` smallint unsigned NOT NULL,
+  `title` varchar(150) NOT NULL DEFAULT '',
+  `style` char(24) NOT NULL DEFAULT '',
+  `thumb` varchar(200) NOT NULL DEFAULT '',
+  `keywords` varchar(100) NOT NULL DEFAULT '',
+  `description` mediumtext NOT NULL,
+  `posids` tinyint unsigned NOT NULL DEFAULT '0',
+  `url` char(100) NOT NULL,
+  `listorder` tinyint unsigned NOT NULL DEFAULT '0',
+  `status` tinyint unsigned NOT NULL DEFAULT '1',
+  `sysadd` tinyint unsigned NOT NULL DEFAULT '0',
+  `islink` tinyint unsigned NOT NULL DEFAULT '0',
+  `username` char(20) NOT NULL,
+  `inputtime` int unsigned NOT NULL DEFAULT '0',
+  `updatetime` int unsigned NOT NULL DEFAULT '0',
+  `subtitle` varchar(255) NOT NULL DEFAULT '',
+  `passname` varchar(255) NOT NULL DEFAULT '',
+  `modifyname` varchar(255) NOT NULL DEFAULT '',
+  `ztsc` tinyint(1) NOT NULL DEFAULT '0',
+  `yuansuid` mediumint NOT NULL DEFAULT '0' COMMENT '游戏元素对应ID',
+  `zhnaduiid` mediumint NOT NULL DEFAULT '0' COMMENT '战队对应ID',
+  `duiyaunid` mediumint NOT NULL DEFAULT '0' COMMENT '站队成员对应ID',
+  `gameid` mediumint NOT NULL DEFAULT '0' COMMENT '属于哪个游戏',
+  `gameclassid` tinyint NOT NULL COMMENT '属于什么游戏，手机、PC，网游',
+  `baidu` tinyint NOT NULL DEFAULT '0' COMMENT '是否提交了百度原创',
+  `gamename` varchar(50) NOT NULL COMMENT '对应的游戏名称',
+  PRIMARY KEY (`id`),
+  KEY `status` (`status`,`listorder`,`id`),
+  KEY `listorder` (`catid`,`status`,`listorder`,`id`),
+  KEY `catid` (`catid`,`status`,`id`),
+  KEY `username` (`username`),
+  KEY `updatetime` (`updatetime`),
+  KEY `inputtime` (`inputtime`),
+  KEY `status_2` (`status`,`username`) USING BTREE,
+  KEY `title` (`title`),
+  KEY `gameid` (`gameid`),
+  KEY `duiyaunid` (`duiyaunid`),
+  KEY `zhnaduiid` (`zhnaduiid`),
+  KEY `yuansuid` (`yuansuid`),
+  KEY `gameid_2` (`gameid`,`catid`) USING BTREE,
+  KEY `catid_2` (`catid`),
+  KEY `keywords` (`keywords`),
+  KEY `modifyname` (`modifyname`),
+  KEY `status_3` (`status`),
+  KEY `gameclassid` (`gameclassid`,`gameid`) USING BTREE,
+  KEY `baidu` (`baidu`,`status`,`username`) USING BTREE,
+  KEY `status_4` (`status`,`catid`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC
+SHOW CREATE TABLE types;
+Table	Create Table
+types	CREATE TABLE `types` (
+  `a` tinyint NOT NULL,
+  `b` smallint DEFAULT NULL,
+  `c` mediumint DEFAULT NULL,
+  `d` int DEFAULT NULL,
+  `e` bigint DEFAULT NULL,
+  `f` float(10,2) DEFAULT NULL,
+  `g` double(15,6) DEFAULT NULL,
+  `h` decimal(20,10) DEFAULT NULL,
+  `i` char(10) DEFAULT NULL,
+  `j` varchar(10) DEFAULT NULL,
+  `k` tinyblob,
+  `l` tinytext,
+  `m` blob,
+  `n` text,
+  `o` mediumblob,
+  `p` mediumtext,
+  `q` longblob,
+  `r` longtext,
+  `s` varbinary(100) DEFAULT NULL,
+  `t` binary(100) DEFAULT NULL,
+  `u` date DEFAULT NULL,
+  `v` time DEFAULT NULL,
+  `w` year DEFAULT NULL,
+  `x` datetime DEFAULT NULL,
+  `y` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPACT
+# Load data
+# Checksum table and compare two checksums
+DROP TABLE news;
+DROP TABLE types;
+CREATE TABLE `partition_t` (
+`id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+`uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+`avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+`avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+`pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+`dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`id`,`pt`),
+KEY `uid_idx` (`uid`(191)),
+KEY `avatar_name_idx` (`avatar_name`(191)),
+KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+/*!50500 PARTITION BY LIST  COLUMNS(pt)
+(PARTITION `preserve` VALUES IN ('preserve') ENGINE = InnoDB,
+PARTITION p20181109 VALUES IN ('2018-11-09') ENGINE = InnoDB,
+PARTITION p20181110 VALUES IN ('2018-11-10') ENGINE = InnoDB,
+PARTITION p20181111 VALUES IN ('2018-11-11') ENGINE = InnoDB,
+PARTITION p20181112 VALUES IN ('2018-11-12') ENGINE = InnoDB,
+PARTITION p20181113 VALUES IN ('2018-11-13') ENGINE = InnoDB,
+PARTITION p20181114 VALUES IN ('2018-11-14') ENGINE = InnoDB,
+PARTITION p20181115 VALUES IN ('2018-11-15') ENGINE = InnoDB,
+PARTITION p20181116 VALUES IN ('2018-11-16') ENGINE = InnoDB,
+PARTITION p20181117 VALUES IN ('2018-11-17') ENGINE = InnoDB,
+PARTITION p20181118 VALUES IN ('2018-11-18') ENGINE = InnoDB,
+PARTITION p20181119 VALUES IN ('2018-11-19') ENGINE = InnoDB) */;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+# restart
+SHOW CREATE TABLE partition_t;
+Table	Create Table
+partition_t	CREATE TABLE `partition_t` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `uid` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+  `avatar_name` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+  `avatar_url` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+  `pt` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+  `dhash` char(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`,`pt`),
+  KEY `uid_idx` (`uid`(191)),
+  KEY `avatar_name_idx` (`avatar_name`(191)),
+  KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB AUTO_INCREMENT=2941818062 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+/*!50500 PARTITION BY LIST  COLUMNS(pt)
+(PARTITION `preserve` VALUES IN ('preserve') ENGINE = InnoDB,
+ PARTITION p20181109 VALUES IN ('2018-11-09') ENGINE = InnoDB,
+ PARTITION p20181110 VALUES IN ('2018-11-10') ENGINE = InnoDB,
+ PARTITION p20181111 VALUES IN ('2018-11-11') ENGINE = InnoDB,
+ PARTITION p20181112 VALUES IN ('2018-11-12') ENGINE = InnoDB,
+ PARTITION p20181113 VALUES IN ('2018-11-13') ENGINE = InnoDB,
+ PARTITION p20181114 VALUES IN ('2018-11-14') ENGINE = InnoDB,
+ PARTITION p20181115 VALUES IN ('2018-11-15') ENGINE = InnoDB,
+ PARTITION p20181116 VALUES IN ('2018-11-16') ENGINE = InnoDB,
+ PARTITION p20181117 VALUES IN ('2018-11-17') ENGINE = InnoDB,
+ PARTITION p20181118 VALUES IN ('2018-11-18') ENGINE = InnoDB,
+ PARTITION p20181119 VALUES IN ('2018-11-19') ENGINE = InnoDB) */
+Start analyzing test/partition_t#p#preserve.
+Finish analyzing test/partition_t#p#preserve, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#preserve.normal.sql-n and test.partition_t#p#preserve.warning.sql.
+Table definition has been dumped to test.partition_t#p#preserve.def.txt.
+Please refer to test.partition_t#p#preserve.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181109.
+Finish analyzing test/partition_t#p#p20181109, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181109.normal.sql-n and test.partition_t#p#p20181109.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181109.def.txt.
+Please refer to test.partition_t#p#p20181109.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181110.
+Finish analyzing test/partition_t#p#p20181110, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181110.normal.sql-n and test.partition_t#p#p20181110.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181110.def.txt.
+Please refer to test.partition_t#p#p20181110.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181111.
+Finish analyzing test/partition_t#p#p20181111, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181111.normal.sql-n and test.partition_t#p#p20181111.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181111.def.txt.
+Please refer to test.partition_t#p#p20181111.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181112.
+Finish analyzing test/partition_t#p#p20181112, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181112.normal.sql-n and test.partition_t#p#p20181112.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181112.def.txt.
+Please refer to test.partition_t#p#p20181112.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181113.
+Finish analyzing test/partition_t#p#p20181113, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181113.normal.sql-n and test.partition_t#p#p20181113.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181113.def.txt.
+Please refer to test.partition_t#p#p20181113.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181114.
+Finish analyzing test/partition_t#p#p20181114, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181114.normal.sql-n and test.partition_t#p#p20181114.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181114.def.txt.
+Please refer to test.partition_t#p#p20181114.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181115.
+Finish analyzing test/partition_t#p#p20181115, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181115.normal.sql-n and test.partition_t#p#p20181115.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181115.def.txt.
+Please refer to test.partition_t#p#p20181115.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181116.
+Finish analyzing test/partition_t#p#p20181116, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181116.normal.sql-n and test.partition_t#p#p20181116.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181116.def.txt.
+Please refer to test.partition_t#p#p20181116.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181117.
+Finish analyzing test/partition_t#p#p20181117, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181117.normal.sql-n and test.partition_t#p#p20181117.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181117.def.txt.
+Please refer to test.partition_t#p#p20181117.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181118.
+Finish analyzing test/partition_t#p#p20181118, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181118.normal.sql-n and test.partition_t#p#p20181118.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181118.def.txt.
+Please refer to test.partition_t#p#p20181118.info.txt to get more details.
+Start analyzing test/partition_t#p#p20181119.
+Finish analyzing test/partition_t#p#p20181119, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.partition_t#p#p20181119.normal.sql-n and test.partition_t#p#p20181119.warning.sql.
+Table definition has been dumped to test.partition_t#p#p20181119.def.txt.
+Please refer to test.partition_t#p#p20181119.info.txt to get more details.
+DROP TABLE partition_t;
+SHOW CREATE TABLE partition_t;
+Table	Create Table
+partition_t	CREATE TABLE `partition_t` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `uid` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+  `avatar_name` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+  `avatar_url` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+  `pt` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+  `dhash` char(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`,`pt`),
+  KEY `uid_idx` (`uid`(191)),
+  KEY `avatar_name_idx` (`avatar_name`(191)),
+  KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB AUTO_INCREMENT=2941818062 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC
+/*!50500 PARTITION BY LIST  COLUMNS(pt)
+(PARTITION `preserve` VALUES IN ('preserve') ENGINE = InnoDB,
+ PARTITION p20181109 VALUES IN ('2018-11-09') ENGINE = InnoDB,
+ PARTITION p20181110 VALUES IN ('2018-11-10') ENGINE = InnoDB,
+ PARTITION p20181111 VALUES IN ('2018-11-11') ENGINE = InnoDB,
+ PARTITION p20181112 VALUES IN ('2018-11-12') ENGINE = InnoDB,
+ PARTITION p20181113 VALUES IN ('2018-11-13') ENGINE = InnoDB,
+ PARTITION p20181114 VALUES IN ('2018-11-14') ENGINE = InnoDB,
+ PARTITION p20181115 VALUES IN ('2018-11-15') ENGINE = InnoDB,
+ PARTITION p20181116 VALUES IN ('2018-11-16') ENGINE = InnoDB,
+ PARTITION p20181117 VALUES IN ('2018-11-17') ENGINE = InnoDB,
+ PARTITION p20181118 VALUES IN ('2018-11-18') ENGINE = InnoDB,
+ PARTITION p20181119 VALUES IN ('2018-11-19') ENGINE = InnoDB) */
+# Checksum table for partition table
+DROP TABLE partition_t;
+# Check options for ibddump
+CREATE TABLE `t` (
+`a` int(11) NOT NULL AUTO_INCREMENT,
+`b` varchar(7000) DEFAULT NULL,
+PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE PROCEDURE load_t (count INT UNSIGNED)
+BEGIN
+DECLARE s INT UNSIGNED DEFAULT 1;
+DECLARE c VARCHAR(7000) DEFAULT REPEAT(CHAR(97+rand()*26), 7000);
+WHILE s <= count DO
+INSERT INTO t SELECT NULL,c;
+SET s=s+1;
+END WHILE;
+END;
+|
+call load_t(10000);
+# restart
+# Test for file-max-size, occupancy, sql-max-size, total, threads, definition
+Start analyzing test/t.
+Finish analyzing test/t, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.t.normal.sql-n and test.t.warning.sql.
+Table definition has been dumped to test.t.def.txt.
+Please refer to test.t.info.txt to get more details.
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` varchar(7000) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB AUTO_INCREMENT=10001 DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+DROP TABLE t;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` varchar(7000) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB AUTO_INCREMENT=10000 DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+# Checksum table and compare two checksums
+# Remove all test.t.normal.sql to avoid its impact on following tests
+# restart
+# Test for start-page and end-page
+Start analyzing test/t.
+Finish analyzing test/t, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.t.normal.sql-n and test.t.warning.sql.
+Please refer to test.t.info.txt to get more details.
+Start analyzing test/t.
+Finish analyzing test/t, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.t.normal.sql-n and test.t.warning.sql.
+Please refer to test.t.info.txt to get more details.
+DELETE FROM t;
+# Checksum table and compare two checksums when enable start-page and end-page
+# restart
+# Test for version
+# Test for help
+# Test for ibdata, undo
+Start analyzing ibdata.
+Finish analyzing ibdata.
+Please refer to info.txt and type.txt to get more details about corrupted pages and page_type information.
+Start analyzing undo.
+Finish analyzing undo.
+Please refer to undo.txt to get more details about rollback segments.
+# Test for analyze
+Start analyzing test/t.
+Finish analyzing test/t, 0 corrupted pages found.
+Please refer to test.t.info.txt to get more details.
+# Test for force, copy another ibdata to datadir and dump forcely
+Start analyzing test/t.
+Finish analyzing test/t, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.t.normal.sql-n and test.t.warning.sql.
+Please refer to test.t.info.txt to get more details.
+DELETE FROM t;
+# Checksum table and compare two checksums after dumpping forcely
+# Test for corrupted pages dumpping
+Start analyzing test/t.
+Finish analyzing test/t, 0 corrupted pages found.
+Normal/Warning data has been dumped to test.t.normal.sql-n and test.t.warning.sql.
+Please refer to test.t.info.txt to get more details.
+DELETE FROM t;
+# Checksum table for table with corrupted pages
+# Origin table checksum is 1040545197
+DROP TABLE t;
+DROP PROCEDURE load_t;

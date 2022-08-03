@@ -1,0 +1,57 @@
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+root@localhost
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+CREATE TABLE t(a INT PRIMARY KEY, b INT)ENGINE=InnoDB;
+INSERT INTO t VALUES(2,2),(4,4),(8,8),(16,16),(32,32);
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+# --include save_and_set_px.inc
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+begin;
+INSERT INTO t VALUES(1,1);
+INSERT INTO t VALUES(64,64);
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+set session debug="+d,px_force_isolation";
+EXPLAIN FORMAT=TREE SELECT * FROM t order by a;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Parallel index scan on t using PRIMARY  (cost=0.95 rows=7)
+
+SELECT * FROM t order by a;
+a	b
+2	2
+4	4
+8	8
+16	16
+32	32
+set session debug="-d,px_force_isolation";
+EXPLAIN FORMAT=TREE SELECT * FROM t order by a;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Parallel index scan on t using PRIMARY  (cost=0.95 rows=7)
+
+SELECT * FROM t order by a;
+a	b
+1	1
+2	2
+4	4
+8	8
+16	16
+32	32
+64	64
+commit;
+# --include set_px_to_saved.inc
+drop table t;
+drop database test1;
+drop user user1;

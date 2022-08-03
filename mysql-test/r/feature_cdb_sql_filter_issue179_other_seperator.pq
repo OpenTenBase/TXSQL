@@ -1,0 +1,285 @@
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+tencentroot@localhost
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+select * from information_schema.cdb_sql_filter_info;
+TYPE	ITEN_ID	CURRENCT_CONN	MAX_CONN	REJECTED_SQL_COUNT	CREATED_TIME	EXPIRE_TIME	EXPIRED	KEY_STR	ORIGIN_STR
+set global cdb_sql_filter = "+SELECT~1~1~value";
+set global cdb_sql_filter = "+SELECT~1~1";
+ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax after concurrence, there is no keys.
+set global cdb_sql_filter = "+SELECT~1~1~";
+ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax, kew words is invalid.
+set global cdb_sql_filter = "+SELECT~1~1~~~";
+ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax, kew words is invalid.
+set global cdb_sql_filter = "+SELECT~~1~1~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+SELECT~1~~1~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause concurrence should be an non-zero integer or -1.
+set global cdb_sql_filter = "+UPDATE~1~1~value";
+set global cdb_sql_filter = "+INSERT~1~1~value";
+set global cdb_sql_filter = "+DELETE~1~1~value";
+set global cdb_sql_filter = "+REPLACE~1~1~value";
+set global cdb_sql_filter = "+REPLACE~0~1~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~-1~1~value";
+set global cdb_sql_filter = "+REPLACE~-2~1~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~1~0~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause concurrence should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~1~-1~value";
+set global cdb_sql_filter = "+REPLACE~1~-2~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause concurrence should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~-2~0~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~0~-2~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~2147483648~1~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~2147483647~1~value";
+set global cdb_sql_filter = "+REPLACE~1~2147483648~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause concurrence should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~1~2147483647~value";
+set global cdb_sql_filter = "+REPLACE~aaa~2147483648~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause expire time should be an non-zero integer or -1.
+set global cdb_sql_filter = "+REPLACE~1~aaa~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause concurrence should be an non-zero integer or -1.
+set global cdb_sql_filter = "+RPLACE~1~1~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause sql_command should be [ SELECT | UPDATE | INSERT | DELETE | REPLACE ](must uppercase), and without prefix space.
+set global cdb_sql_filter = "+~1~aaa~value";
+ERROR HY000: SET cdb_sql_filter failed, bacause sql_command should be [ SELECT | UPDATE | INSERT | DELETE | REPLACE ](must uppercase), and without prefix space.
+set global cdb_sql_filter = "+SELECT~1~1~~value~~value~~";
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+SELECT	1	0	1	0	#	#	#	value	SELECT~1~1~value
+SELECT	12	0	1	0	#	#	#	value~value	SELECT~1~1~~value~~value~~
+UPDATE	4	0	1	0	#	#	#	value	UPDATE~1~1~value
+INSERT	5	0	1	0	#	#	#	value	INSERT~1~1~value
+DELETE	6	0	1	0	#	#	#	value	DELETE~1~1~value
+REPLACE	7	0	1	0	#	#	#	value	REPLACE~1~1~value
+REPLACE	8	0	1	0	#	#	#	value	REPLACE~-1~1~value
+REPLACE	9	0	-1	0	#	#	#	value	REPLACE~1~-1~value
+REPLACE	10	0	1	0	#	#	#	value	REPLACE~2147483647~1~value
+REPLACE	11	0	2147483647	0	#	#	#	value	REPLACE~1~2147483647~value
+select * from information_schema.cdb_sql_filter_info;
+TYPE	ITEN_ID	CURRENCT_CONN	MAX_CONN	REJECTED_SQL_COUNT	CREATED_TIME	EXPIRE_TIME	EXPIRED	KEY_STR	ORIGIN_STR
+DELETE	6	0	1	0	#	#	#	value	DELETE~1~1~value
+INSERT	5	0	1	0	#	#	#	value	INSERT~1~1~value
+REPLACE	10	0	1	0	#	#	#	value	REPLACE~2147483647~1~value
+REPLACE	11	0	2147483647	0	#	#	#	value	REPLACE~1~2147483647~value
+REPLACE	7	0	1	0	#	#	#	value	REPLACE~1~1~value
+REPLACE	8	0	1	0	#	#	#	value	REPLACE~-1~1~value
+REPLACE	9	0	-1	0	#	#	#	value	REPLACE~1~-1~value
+SELECT	1	0	1	0	#	#	#	value	SELECT~1~1~value
+SELECT	12	0	1	0	#	#	#	value~value	SELECT~1~1~~value~~value~~
+UPDATE	4	0	1	0	#	#	#	value	UPDATE~1~1~value
+set global cdb_sql_filter = "-1";
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+SELECT	12	0	1	0	#	#	#	value~value	SELECT~1~1~~value~~value~~
+UPDATE	4	0	1	0	#	#	#	value	UPDATE~1~1~value
+INSERT	5	0	1	0	#	#	#	value	INSERT~1~1~value
+DELETE	6	0	1	0	#	#	#	value	DELETE~1~1~value
+REPLACE	7	0	1	0	#	#	#	value	REPLACE~1~1~value
+REPLACE	8	0	1	0	#	#	#	value	REPLACE~-1~1~value
+REPLACE	9	0	-1	0	#	#	#	value	REPLACE~1~-1~value
+REPLACE	10	0	1	0	#	#	#	value	REPLACE~2147483647~1~value
+REPLACE	11	0	2147483647	0	#	#	#	value	REPLACE~1~2147483647~value
+select * from information_schema.cdb_sql_filter_info;
+TYPE	ITEN_ID	CURRENCT_CONN	MAX_CONN	REJECTED_SQL_COUNT	CREATED_TIME	EXPIRE_TIME	EXPIRED	KEY_STR	ORIGIN_STR
+DELETE	6	0	1	0	#	#	#	value	DELETE~1~1~value
+INSERT	5	0	1	0	#	#	#	value	INSERT~1~1~value
+REPLACE	10	0	1	0	#	#	#	value	REPLACE~2147483647~1~value
+REPLACE	11	0	2147483647	0	#	#	#	value	REPLACE~1~2147483647~value
+REPLACE	7	0	1	0	#	#	#	value	REPLACE~1~1~value
+REPLACE	8	0	1	0	#	#	#	value	REPLACE~-1~1~value
+REPLACE	9	0	-1	0	#	#	#	value	REPLACE~1~-1~value
+SELECT	12	0	1	0	#	#	#	value~value	SELECT~1~1~~value~~value~~
+UPDATE	4	0	1	0	#	#	#	value	UPDATE~1~1~value
+set global cdb_sql_filter = "-1";
+ERROR HY000: SET cdb_sql_filter failed, bacause There is no such rule.
+set global cdb_sql_filter = "-0";
+ERROR HY000: SET cdb_sql_filter failed, bacause There is no such rule.
+set global cdb_sql_filter = "--1";
+ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax, delete id should be an integer.
+set global cdb_sql_filter = "-23123132321321321312";
+ERROR HY000: SET cdb_sql_filter failed, bacause There is no such rule.
+set global cdb_sql_filter = "-dsadsadasdsa";
+ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax, delete id should be an integer.
+set global cdb_sql_filter = "reset";
+ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax.
+set global cdb_sql_filter = "reset_all";
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+set global cdb_sql_filter = "+SELECT~5~1~value";
+create user 'xx'@'%';
+grant all on test.* to 'xx'@'%';
+create table test(id int, value1 int, value2 int, value3 int);
+insert into test values(1,1,1,1);
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	1	1	1
+select value1 from test lock in share mode;;
+select value2 from test lock in share mode;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+value1
+1
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+SELECT	1	0	1	1	#	#	True	value	SELECT~5~1~value
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	1	1	1
+select value1 from test lock in share mode;;
+select value2 from test lock in share mode;;
+commit;
+value1
+1
+value2
+1
+set global cdb_sql_filter = "reset_all";
+set global cdb_sql_filter = "+UPDATE~-1~2~value";
+set global cdb_sql_filter = "+DELETE~-1~2~value";
+set global cdb_sql_filter = "+INSERT~-1~2~value";
+set global cdb_sql_filter = "+REPLACE~-1~2~value";
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	1	1	1
+update test set value1 = 0;;
+update test set value2 = 0;;
+update test set value3 = 0;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+update test set value3 = 0;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+update test set value3 = 0;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+update test set value3 = 0;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	0	0	1
+delete from test where value1 = 9;;
+delete from test where value2 = 9;;
+delete from test where value3 = 9;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+delete from test where value3 = 9;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+delete from test where value3 = 9;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	0	0	1
+insert into test (id) values(1);;
+insert into test (id) values(1);;
+insert into test (value3) values(1);
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+insert into test (value3) values(1);
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+insert into test (value3) values(1);
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	0	0	1
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+replace into test (id) values(1);;
+replace into test (id) values(1);;
+replace into test (value3) values(1);
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+replace into test (value3) values(1);
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+replace into test (value3) values(1);
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+UPDATE	1	0	2	4	#	#	False	value	UPDATE~-1~2~value
+INSERT	3	0	2	3	#	#	False	value	INSERT~-1~2~value
+DELETE	2	0	2	3	#	#	False	value	DELETE~-1~2~value
+REPLACE	4	0	2	3	#	#	False	value	REPLACE~-1~2~value
+insert into test (id) values(1);
+set global cdb_sql_filter = "reset_all";
+set global cdb_sql_filter = "+SELECT~-1~2~value3";
+set global cdb_sql_filter = "+SELECT~-1~1~value1~value2";
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	0	0	1
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+select value3,value1,value2 from test lock in share mode;;
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+SELECT	1	1	2	0	#	#	False	value3	SELECT~-1~2~value3
+SELECT	2	1	1	0	#	#	False	value1~value2	SELECT~-1~1~value1~value2
+select value3,value1,value2 from test lock in share mode;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+select value3 from test lock in share mode;
+select value3 from test lock in share mode;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+value3	value1	value2
+1	0	0
+NULL	NULL	NULL
+NULL	NULL	NULL
+NULL	NULL	NULL
+NULL	NULL	NULL
+NULL	NULL	NULL
+value3
+1
+NULL
+NULL
+NULL
+NULL
+NULL
+set global cdb_sql_filter = "+SELECT~-1~-1~value2~value3";
+begin;
+select * from test for update;
+id	value1	value2	value3
+1	0	0	1
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+1	NULL	NULL	NULL
+select value2,value3 from test;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+select value1,value2,value3 from test;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+select value1,value2 from test lock in share mode;;
+select value1,value2 from test lock in share mode;
+ERROR HY000: SQL rejected by CDB_SQL_FILTER
+commit;
+value1	value2
+0	0
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+show cdb_sql_filters;
+type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	expired	key_str	origin_str
+SELECT	1	0	2	1	#	#	False	value3	SELECT~-1~2~value3
+SELECT	2	0	1	2	#	#	False	value1~value2	SELECT~-1~1~value1~value2
+SELECT	3	0	-1	2	#	#	False	value2~value3	SELECT~-1~-1~value2~value3
+set global cdb_sql_filter = 'reset_all';
+drop table test;
+drop user 'xx'@'%';

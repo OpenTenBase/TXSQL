@@ -1,0 +1,1001 @@
+# Infrastructure for test parallel execution frame
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+root@localhost
+create database test1;
+create user 'user1'@'%';
+grant all on test1.* to 'user1'@'%';
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(2,3,4,5);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
+create table t2(a int, b int, c int, d int);
+insert into t2 values(1,1,1,1);
+insert into t2 values(2,2,2,2);
+insert into t2 values(3,3,3,3);
+insert into t2 values(4,4,4,4);
+insert into t2 values(5,5,5,5);
+create table t3(a int, b int, c int, d int, primary key(a), key idx(b));
+insert into t3 values(1,1,1,1);
+insert into t3 values(2,2,2,2);
+insert into t3 values(3,3,3,3);
+insert into t3 values(4,4,4,4);
+insert into t3 values(5,5,5,5);
+insert into t3 values(6,6,6,6);
+insert into t3 values(7,7,7,7);
+insert into t3 values(8,8,8,8);
+insert into t3 values(9,9,9,9);
+insert into t3 values(10,10,10,10);
+create table t4(a int, b int, c int, d int);
+# --include save_and_set_px.inc
+flush status;
+select * from t2;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+explain format=tree select * from t2;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Parallel table scan on t2  (cost=0.75 rows=5)
+
+select * from t2 where a = 3;
+a	b	c	d
+3	3	3	3
+explain format=tree select * from t2 where a = 3;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Filter: (t2.a = 3)  (cost=0.75 rows=1)
+            -> Parallel table scan on t2  (cost=0.75 rows=5)
+
+select * from t3;
+a	b	c	d
+1	1	1	1
+10	10	10	10
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+explain format=tree select * from t3;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Parallel table scan on t3  (cost=1.25 rows=10)
+
+select * from t3 where a between 1 and 9;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+explain format=tree select * from t3 where a between 1 and 9;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
+            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+
+select * from t3 where b > 2 and b < 10;
+a	b	c	d
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+explain format=tree select * from t3 where b > 2 and b < 10;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Parallel index range scan on t3 using idx, with index condition: ((t3.b > 2) and (t3.b < 10))  (cost=3.41 rows=7)
+
+select * from t3 where a < 10 and b > 2;
+a	b	c	d
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+explain format=tree select * from t3 where a < 10 and b > 2;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Filter: ((t3.a < 10) and (t3.b > 2))  (cost=2.06 rows=7)
+            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+
+select * from t3 order by b,c;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+10	10	10	10
+explain format=tree select * from t3 order by b,c;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Sort: t3.b, t3.c  (cost=1.25 rows=10)
+            -> Parallel table scan on t3  (cost=1.25 rows=10)
+
+select * from t3 order by b,c desc;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+10	10	10	10
+explain format=tree select * from t3 order by b,c desc;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Sort: t3.b, t3.c DESC  (cost=1.25 rows=10)
+            -> Parallel table scan on t3  (cost=1.25 rows=10)
+
+select * from t3 where c > 1 order by d;
+a	b	c	d
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+10	10	10	10
+explain format=tree select * from t3 where c > 1 order by d;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Sort: t3.d  (cost=1.25 rows=10)
+            -> Filter: (t3.c > 1)  (cost=1.25 rows=10)
+                -> Parallel table scan on t3  (cost=1.25 rows=10)
+
+select * from t3 where c > 1 and d > 3 order by a,b;
+a	b	c	d
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+10	10	10	10
+explain format=tree select * from t3 where c > 1 and d > 3 order by a,b;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Sort: t3.a, t3.b  (cost=1.25 rows=10)
+            -> Filter: ((t3.c > 1) and (t3.d > 3))  (cost=1.25 rows=10)
+                -> Parallel table scan on t3  (cost=1.25 rows=10)
+
+select * from t3 where c > 1 and d > 2 order by b,c desc;
+a	b	c	d
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+10	10	10	10
+explain format=tree select * from t3 where c > 1 and d > 2 order by b,c desc;
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Sort: t3.b, t3.c DESC  (cost=1.25 rows=10)
+            -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=1.25 rows=10)
+                -> Parallel table scan on t3  (cost=1.25 rows=10)
+
+select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
+a	b	c	d	a	b	c	d
+2	2	2	2	2	2	2	2
+3	3	3	3	3	3	3	3
+4	4	4	4	4	4	4	4
+5	5	5	5	5	5	5	5
+explain format=tree select * from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
+EXPLAIN
+-> Nested loop inner join  (cost=2.50 rows=5)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Sort: t2.a  (cost=0.75 rows=5)
+                -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.75 rows=5)
+                    -> Parallel table scan on t2  (cost=0.75 rows=5)
+    -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.27 rows=1)
+
+select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a;
+a	b	c	d	a	b	c	d	a	b	c	d
+1	2	3	4	1	1	1	1	1	1	1	1
+2	3	4	5	2	2	2	2	2	2	2	2
+3	4	5	6	3	3	3	3	3	3	3	3
+4	5	6	7	4	4	4	4	4	4	4	4
+5	6	7	8	5	5	5	5	5	5	5	5
+explain format=tree select * from t1,t2,t3 where t1.a = t2.a and t2.a = t3.a order by t1.a;
+EXPLAIN
+-> Sort: t1.a
+    -> Stream results  (cost=4.25 rows=5)
+        -> Nested loop inner join  (cost=4.25 rows=5)
+            -> Inner hash join (t2.a = t1.a)  (cost=3.50 rows=5)
+                -> Table scan on t2  (cost=0.07 rows=5)
+                -> Hash
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 4)
+                            -> Filter: (t1.a is not null)  (cost=0.75 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
+            -> Single-row index lookup on t3 using PRIMARY (a=t1.a)  (cost=0.07 rows=1)
+
+select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc;
+a	b	c	d	a	b	c	d
+5	6	7	8	5	5	5	5
+4	5	6	7	4	4	4	4
+3	4	5	6	3	3	3	3
+2	3	4	5	2	2	2	2
+explain format=tree select * from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc;
+EXPLAIN
+-> Sort: t1.b DESC
+    -> Stream results  (cost=1.53 rows=8)
+        -> Left hash join (t2.a = t1.a)  (cost=1.53 rows=8)
+            -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+                -> Table scan on t1  (cost=0.75 rows=5)
+            -> Hash
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
+                        -> Parallel table scan on t2  (cost=0.45 rows=5)
+
+select sum(b) from t1;
+sum(b)
+20
+explain format=tree select sum(b) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.b)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum(t1.b)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select max(b) from t1;
+max(b)
+6
+explain format=tree select max(b) from t1;
+EXPLAIN
+-> Aggregate: max(t1.b)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: max(t1.b)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select min(c) from t1;
+min(c)
+3
+explain format=tree select min(c) from t1;
+EXPLAIN
+-> Aggregate: min(t1.c)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: min(t1.c)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select count(b) from t1;
+count(b)
+5
+explain format=tree select count(b) from t1;
+EXPLAIN
+-> Aggregate: count(t1.b)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: count(t1.b)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a), sum(b), sum(c), sum(d) from t1;
+sum(a)	sum(b)	sum(c)	sum(d)
+15	20	25	30
+explain format=tree select sum(a), sum(b), sum(c), sum(d) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a), sum(b), count(c), count(d) from t1;
+sum(a)	sum(b)	count(c)	count(d)
+15	20	5	5
+explain format=tree select sum(a), sum(b), count(c), count(d) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a), sum(b), avg(c), avg(d) from t1;
+sum(a)	sum(b)	avg(c)	avg(d)
+15	20	5.0000	6.0000
+explain format=tree select sum(a), sum(b), avg(c), avg(d) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
+sum(a+1)	count(b)	avg(c+10)	avg(d+100)
+20	5	15.0000	106.0000
+explain format=tree select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
+EXPLAIN
+-> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a), sum(b), 1+sum(c) from t1;
+sum(a)	sum(b)	1+sum(c)
+15	20	26
+explain format=tree select sum(a), sum(b), 1+sum(c) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select variance(a) from t1;
+variance(a)
+2
+explain format=tree select variance(a) from t1;
+EXPLAIN
+-> Aggregate: variance(t1.a)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a), variance(b), avg(c) from t1;
+sum(a)	variance(b)	avg(c)
+15	2	5.0000
+explain format=tree select sum(a), variance(b), avg(c) from t1;
+EXPLAIN
+-> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
+sum(a)	variance(b)	avg(c)
+14	1.25	5.5000
+explain format=tree select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
+EXPLAIN
+-> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+                -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
+a	sum(b)	variance(b)
+2	3	0
+3	4	0
+4	5	0
+5	6	0
+explain format=tree select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
+                    -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,sum(b) from t1 group by a;
+a	sum(b)
+1	2
+2	3
+3	4
+4	5
+5	6
+explain format=tree select a,sum(b) from t1 group by a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,max(b) from t1 group by a;
+a	max(b)
+1	2
+2	3
+3	4
+4	5
+5	6
+explain format=tree select a,max(b) from t1 group by a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,sum(c) from t1 group by a,b;
+a	b	sum(c)
+1	2	3
+2	3	4
+3	4	5
+4	5	6
+5	6	7
+explain format=tree select a,b,sum(c) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,sum(c),avg(d) from t1 group by a,b;
+a	b	sum(c)	avg(d)
+1	2	3	4.0000
+2	3	4	5.0000
+3	4	5	6.0000
+4	5	6	7.0000
+5	6	7	8.0000
+explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,avg(c),avg(d) from t1 group by a,b;
+a	b	avg(c)	avg(d)
+1	2	3.0000	4.0000
+2	3	4.0000	5.0000
+3	4	5.0000	6.0000
+4	5	6.0000	7.0000
+5	6	7.0000	8.0000
+explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
+a+1	b	avg(c)	avg(d)
+2	2	3.0000	4.0000
+3	3	4.0000	5.0000
+4	4	5.0000	6.0000
+5	5	6.0000	7.0000
+6	6	7.0000	8.0000
+explain format=tree select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
+a	b	sum(c+1)	sum(d+10)
+1	2	4	14
+2	3	5	15
+3	4	6	16
+4	5	7	17
+5	6	8	18
+explain format=tree select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,sum(c+1),avg(d+100) from t1 group by a,b;
+a	b	sum(c+1)	avg(d+100)
+1	2	4	104.0000
+2	3	5	105.0000
+3	4	6	106.0000
+4	5	7	107.0000
+5	6	8	108.0000
+explain format=tree select a,b,sum(c+1),avg(d+100) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,1+sum(c),avg(d) from t1 group by a,b;
+a	b	1+sum(c)	avg(d)
+1	2	4	4.0000
+2	3	5	5.0000
+3	4	6	6.0000
+4	5	7	7.0000
+5	6	8	8.0000
+explain format=tree select a,b,1+sum(c),avg(d) from t1 group by a,b;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,sum(b) from t1 group by a order by a;
+a	sum(b)
+1	2
+2	3
+3	4
+4	5
+5	6
+explain format=tree select a,sum(b) from t1 group by a order by a;
+EXPLAIN
+-> Sort: t1.a
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,max(b) from t1 group by a order by a;
+a	max(b)
+1	2
+2	3
+3	4
+4	5
+5	6
+explain format=tree select a,max(b) from t1 group by a order by a;
+EXPLAIN
+-> Sort: t1.a
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,sum(c) from t1 group by a,b order by a,b;
+a	b	sum(c)
+1	2	3
+2	3	4
+3	4	5
+4	5	6
+5	6	7
+explain format=tree select a,b,sum(c) from t1 group by a,b order by a,b;
+EXPLAIN
+-> Sort: t1.a, t1.b
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
+a	b	sum(c)	avg(d)
+1	2	3	4.0000
+2	3	4	5.0000
+3	4	5	6.0000
+4	5	6	7.0000
+5	6	7	8.0000
+explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b order by a,b;
+EXPLAIN
+-> Sort: t1.a, t1.b
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
+a	b	avg(c)	avg(d)
+1	2	3.0000	4.0000
+2	3	4.0000	5.0000
+3	4	5.0000	6.0000
+4	5	6.0000	7.0000
+5	6	7.0000	8.0000
+explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b order by a,b;
+EXPLAIN
+-> Sort: t1.a, t1.b
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
+a+1	b	avg(c)
+2	2	3.0000
+3	3	4.0000
+4	4	5.0000
+5	5	6.0000
+6	6	7.0000
+explain format=tree select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
+EXPLAIN
+-> Sort: `a+1`, t1.b
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+
+select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
+a	max(t1.b)
+1	2
+2	3
+3	4
+4	5
+5	6
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=4.50 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+                            -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                -> Table scan on t2  (cost=0.27 rows=5)
+
+select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
+a	min(t1.b)	avg(t1.c)
+1	2	3.0000
+2	3	4.0000
+3	4	5.0000
+4	5	6.0000
+5	6	7.0000
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=4.50 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+                            -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                -> Table scan on t2  (cost=0.27 rows=5)
+
+select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
+a	sum(t1.b)	avg(t1.c)
+1	2	3.0000
+2	3	4.0000
+3	4	5.0000
+4	5	6.0000
+5	6	7.0000
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
+EXPLAIN
+-> Sort: t2.a
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Nested loop inner join  (cost=4.50 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
+                                -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                    -> Table scan on t2  (cost=0.27 rows=5)
+
+select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
+t1.a+1	max(t1.b)
+2	2
+3	3
+4	4
+5	5
+6	6
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Nested loop inner join  (cost=4.50 rows=5)
+                            -> Parallel table scan on t1  (cost=0.75 rows=5)
+                            -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                -> Table scan on t2  (cost=0.27 rows=5)
+
+select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;
+t1.a+1	max(t1.b)
+2	2
+3	3
+4	4
+5	5
+6	6
+explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;
+EXPLAIN
+-> Sort: `t1.a+1`
+    -> Table scan on <temporary>
+        -> Final Aggregate using temporary table
+            -> PX Receiver (slice: 0; workers: 1)
+                -> PX Sender (slice: 1; workers: 4)
+                    -> Table scan on <temporary>
+                        -> Aggregate using temporary table
+                            -> Nested loop inner join  (cost=4.50 rows=5)
+                                -> Parallel table scan on t1  (cost=0.75 rows=5)
+                                -> Filter: (t2.a = t1.a)  (cost=0.27 rows=1)
+                                    -> Table scan on t2  (cost=0.27 rows=5)
+
+set debug="+d,execute_in_parallel_before_fallback";
+set profiling = 1;
+Warnings:
+Warning	1287	'@@profiling' is deprecated and will be removed in a future release.
+select a, sum(b) from t1 group by a;
+a	sum(b)
+1	2
+2	3
+3	4
+4	5
+5	6
+show profiles;
+Query_ID	Duration	Query
+1	#	SHOW WARNINGS
+2	#	select a, sum(b) from t1 group by a
+Warnings:
+Warning	#	'SHOW PROFILES' is deprecated and will be removed in a future release. Please use Performance Schema instead
+show profile for query 2;
+Status	Duration
+starting	#
+Executing hook on transaction 	#
+starting	#
+checking permissions	#
+Opening tables	#
+init	#
+System lock	#
+optimizing	#
+statistics	#
+preparing	#
+Creating tmp table	#
+end	#
+query end	#
+removing tmp table	#
+query end	#
+removing tmp table	#
+query end	#
+closing tables	#
+freeing items	#
+starting fallback execution	#
+Executing hook on transaction 	#
+starting fallback execution	#
+checking permissions	#
+Opening tables	#
+init	#
+System lock	#
+optimizing	#
+statistics	#
+preparing	#
+Creating tmp table	#
+executing	#
+end	#
+query end	#
+waiting for handler commit	#
+removing tmp table	#
+waiting for handler commit	#
+closing tables	#
+freeing items	#
+cleaning up	#
+Warnings:
+Warning	#	'SHOW PROFILE' is deprecated and will be removed in a future release. Please use Performance Schema instead
+show status like '%txsql_parallel%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	47
+Txsql_parallel_stmt_fallback	1
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_threads_currently_used	0
+drop table t1;
+create table t1(f1 date, f2 time, f3 datetime);
+insert into t1 values ("2006-01-01", "12:01:01", "2006-01-01 12:01:01");
+insert into t1 values ("2006-01-02", "12:01:02", "2006-01-02 12:01:02");
+select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
+f1
+Warning	1292	Incorrect datetime value: 'zzz'
+Warnings:
+explain format=tree select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
+        -> Filter: (<cache>(cast('2006-1-1' as date)) between t1.f1 and <cache>(cast('zzz' as date)))  (cost=0.45 rows=1)
+            -> Parallel table scan on t1  (cost=0.45 rows=2)
+
+DROP TABLE t1;
+CREATE TABLE t1(a CHAR(10) NOT NULL);
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+INSERT INTO t1 VALUES (''),('');
+SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
+COUNT(*)
+18
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warnings:
+EXPLAIN FORMAT=TREE SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=2.05 rows=18)
+
+DROP TABLE t1;
+CREATE TABLE t1 ( f1 INTEGER );
+INSERT INTO t1 VALUES (0), (1), (101);
+SELECT * FROM t1 ORDER BY UNIX_TIMESTAMP(f1);
+f1
+0
+1
+101
+Warnings:
+Warning	1292	Incorrect datetime value: '1'
+EXPLAIN FORMAT=TREE SELECT * FROM t1 ORDER BY UNIX_TIMESTAMP(f1);
+EXPLAIN
+-> PX Receiver (merge sort; slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 3)
+        -> Sort: unix_timestamp(t1.f1)  (cost=0.55 rows=3)
+            -> Parallel table scan on t1  (cost=0.55 rows=3)
+
+drop table t1;
+create table t1 (a int not null);
+insert into t1 values (-1), (-2);
+select min(a) from t1 group by inet_ntoa(a);
+min(a)
+-2
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warnings:
+explain format=tree select min(a) from t1 group by inet_ntoa(a);
+EXPLAIN
+-> Table scan on <temporary>
+    -> Final Aggregate using temporary table
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 2)
+                -> Table scan on <temporary>
+                    -> Aggregate using temporary table
+                        -> Parallel table scan on t1  (cost=0.45 rows=2)
+
+drop table t1;
+create table t1 (a tinyint(1),b binary(1));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into t1 values (0x01,0x01);
+select * from t1 where a=b;
+a	b
+Warning	1292	Truncated incorrect DOUBLE value: '\x01'
+Warnings:
+explain format=tree select * from t1 where a=b;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Filter: (cast(t1.a as double) = cast(t1.b as double))  (cost=0.35 rows=1)
+            -> Parallel table scan on t1  (cost=0.35 rows=1)
+
+select * from t1 where a=b and b=0x01;
+a	b
+Warning	1292	Truncated incorrect DOUBLE value: '\x01'
+Warnings:
+explain format=tree select * from t1 where a=b and b=0x01;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Filter: ((t1.b = 0x01) and (cast(t1.a as double) = cast(t1.b as double)))  (cost=0.35 rows=1)
+            -> Parallel table scan on t1  (cost=0.35 rows=1)
+
+show status like '%txsql_parallel%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	47
+Txsql_parallel_stmt_fallback	7
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_threads_currently_used	0
+flush status;
+show status like '%txsql_parallel%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_threads_currently_used	0
+# --include set_px_to_saved.inc
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop database test1;
+drop user user1;
