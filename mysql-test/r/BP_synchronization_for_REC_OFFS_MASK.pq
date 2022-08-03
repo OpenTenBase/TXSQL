@@ -1,0 +1,62 @@
+create database if not exists test;
+Warnings:
+Note	1007	Can't create database 'test'; database exists
+use test;
+CREATE TABLE `news` (
+`id` int(13) unsigned NOT NULL AUTO_INCREMENT,
+`catid` smallint(5) unsigned NOT NULL DEFAULT '0',
+`typeid` smallint(5) unsigned NOT NULL,
+`title` varchar(150) NOT NULL DEFAULT '',
+`style` char(24) NOT NULL DEFAULT '',
+`thumb` varchar(200) NOT NULL DEFAULT '',
+`keywords` varchar(100) NOT NULL DEFAULT '',
+`description` mediumtext NOT NULL,
+`posids` tinyint(1) unsigned NOT NULL DEFAULT '0',
+`url` char(100) NOT NULL,
+`listorder` tinyint(3) unsigned DEFAULT NULL,
+`status` tinyint(2) unsigned NOT NULL DEFAULT '1',
+`sysadd` tinyint(1) unsigned NOT NULL DEFAULT '0',
+`islink` tinyint(1) unsigned NOT NULL DEFAULT '0',
+`username` char(20) NOT NULL,
+`inputtime` int(10) unsigned NOT NULL DEFAULT '0',
+`updatetime` int(10) unsigned NOT NULL DEFAULT '0',
+`subtitle` varchar(255) NOT NULL DEFAULT '',
+`passname` varchar(255) NOT NULL DEFAULT '',
+`modifyname` varchar(255) NOT NULL DEFAULT '',
+`ztsc` tinyint(1) NOT NULL DEFAULT '0',
+`yuansuid` mediumint(9) NOT NULL DEFAULT '0' COMMENT '游戏元素对应ID',
+`zhnaduiid` mediumint(9) NOT NULL DEFAULT '0' COMMENT '战队对应ID',
+`duiyaunid` mediumint(9) NOT NULL DEFAULT '0' COMMENT '站队成员对应ID',
+`gameid` mediumint(8) NOT NULL DEFAULT '0' COMMENT '属于哪个游戏',
+`gameclassid` tinyint(3) NOT NULL COMMENT '属于什么游戏，手机、PC，网游',
+`baidu` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否提交了百度原创',
+`gamename` varchar(50) NOT NULL COMMENT '对应的游戏名称',
+PRIMARY KEY (`id`, `status`),
+KEY `listorder` (`id`,`status`,`listorder`)
+) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+INSERT INTO `test`.`news` (`id`, `catid`, `typeid`, `title`, `style`, `thumb`, `keywords`, `description`, `posids`, `url`,  `status`, `sysadd`, `islink`, `username`, `inputtime`, `updatetime`, `subtitle`, `passname`, `modifyname`, `ztsc`, `yuansuid`, `zhnaduiid`, `duiyaunid`, `gameid`, `gameclassid`, `baidu`, `gamename`) VALUES ('20676114', '19', '0', '药品管理法修订草案:网售第三方不得直接销售处方药', '', '', '不得 网售 药品 第三方 管理法 修订草案', '@@?value.islive$$@@=', '0', 'http://www.haoxyx.com/yxrd/20190607/20676114.html', '1', '1', '0', 'meihua', '1559908139', '1559908139', '药品管理法修订草案:网售第三方不得直接销售处方药', '', '', '0', '0', '0', '0', '0', '0', '0', '');
+set global innodb_buffer_pool_snapshot_now = on;
+select sleep(5);
+sleep(5)
+0
+set global innodb_buffer_pool_snapshot_now = off;
+drop table news;

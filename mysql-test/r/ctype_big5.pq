@@ -1,0 +1,1040 @@
+drop table if exists t1;
+SET @test_character_set= 'big5';
+SET @test_collation= 'big5_chinese_ci';
+SET @safe_character_set_server= @@character_set_server;
+SET @safe_collation_server= @@collation_server;
+SET @safe_character_set_client= @@character_set_client;
+SET @safe_character_set_results= @@character_set_results;
+SET character_set_server= @test_character_set;
+SET collation_server= @test_collation;
+CREATE DATABASE d1;
+USE d1;
+CREATE TABLE t1 (c CHAR(10), KEY(c));
+SHOW FULL COLUMNS FROM t1;
+Field	Type	Collation	Null	Key	Default	Extra	Privileges	Comment
+c	char(10)	big5_chinese_ci	YES	MUL	NULL			
+INSERT INTO t1 VALUES ('aaa'),('aaaa'),('aaaaa');
+SELECT c as want3results FROM t1 WHERE c LIKE 'aaa%';
+want3results
+aaa
+aaaa
+aaaaa
+DROP TABLE t1;
+CREATE TABLE t1 (c1 varchar(15), KEY c1 (c1(2)));
+SHOW FULL COLUMNS FROM t1;
+Field	Type	Collation	Null	Key	Default	Extra	Privileges	Comment
+c1	varchar(15)	big5_chinese_ci	YES	MUL	NULL			
+INSERT INTO t1 VALUES ('location'),('loberge'),('lotre'),('boabab');
+SELECT c1 as want3results from t1 where c1 like 'l%';
+want3results
+loberge
+location
+lotre
+SELECT c1 as want3results from t1 where c1 like 'lo%';
+want3results
+loberge
+location
+lotre
+SELECT c1 as want1result  from t1 where c1 like 'loc%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'loca%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'locat%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'locati%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'locatio%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'location%';
+want1result
+location
+DROP TABLE t1;
+create table t1 (a set('a') not null);
+insert ignore into t1 values (),();
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+select cast(a as char(1)) from t1;
+cast(a as char(1))
+
+
+select a sounds like a from t1;
+a sounds like a
+1
+1
+select 1 from t1 order by cast(a as char(1));
+1
+1
+1
+drop table t1;
+set names utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+create table t1 (
+name varchar(10),
+level smallint unsigned);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `name` varchar(10) DEFAULT NULL,
+  `level` smallint unsigned DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=big5
+insert into t1 values ('string',1);
+select concat(name,space(level)), concat(name, repeat(' ',level)) from t1;
+concat(name,space(level))	concat(name, repeat(' ',level))
+string 	string 
+drop table t1;
+DROP DATABASE d1;
+USE test;
+SET character_set_server= @safe_character_set_server;
+SET collation_server= @safe_collation_server;
+SET character_set_client= @safe_character_set_client;
+SET character_set_results= @safe_character_set_results;
+SET NAMES big5;
+SET collation_connection='big5_chinese_ci';
+create table t1 select repeat('a',4000) a;
+delete from t1;
+insert into t1 values ('a'), ('a '), ('a\t');
+select collation(a),hex(a) from t1 order by a;
+collation(a)	hex(a)
+big5_chinese_ci	6109
+big5_chinese_ci	61
+big5_chinese_ci	6120
+drop table t1;
+create table t1 engine=innodb select repeat('a',50) as c1;
+alter table t1 add index(c1(5));
+insert into t1 values ('abcdefg'),('abcde100'),('abcde110'),('abcde111');
+select collation(c1) from t1 limit 1;
+collation(c1)
+big5_chinese_ci
+select c1 from t1 where c1 like 'abcdef%' order by c1;
+c1
+abcdefg
+select c1 from t1 where c1 like 'abcde1%' order by c1;
+c1
+abcde100
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde11%' order by c1;
+c1
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde111%' order by c1;
+c1
+abcde111
+drop table t1;
+select @@collation_connection;
+@@collation_connection
+big5_chinese_ci
+create table t1 ROW_FORMAT=DYNAMIC select repeat('a',50) as c1 ;
+insert into t1 values('abcdef');
+insert into t1 values('_bcdef');
+insert into t1 values('a_cdef');
+insert into t1 values('ab_def');
+insert into t1 values('abc_ef');
+insert into t1 values('abcd_f');
+insert into t1 values('abcde_');
+select c1 as c1u from t1 where c1 like 'ab\_def';
+c1u
+ab_def
+select c1 as c2h from t1 where c1 like 'ab#_def' escape '#';
+c2h
+ab_def
+drop table t1;
+CREATE TABLE t1 AS
+SELECT 10 AS a, REPEAT('a',20) AS b, REPEAT('a',8) AS c, REPEAT('a',8) AS d;
+ALTER TABLE t1 ADD PRIMARY KEY(a), ADD KEY(b);
+INSERT INTO t1 (a, b) VALUES (1, repeat(0xF1F2,5));
+INSERT INTO t1 (a, b) VALUES (2, repeat(0xF1F2,10));
+INSERT INTO t1 (a, b) VALUES (3, repeat(0xF1F2,11));
+INSERT INTO t1 (a, b) VALUES (4, repeat(0xF1F2,12));
+SELECT hex(concat(repeat(0xF1F2, 10), '%'));
+hex(concat(repeat(0xF1F2, 10), '%'))
+F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F225
+3 rows expected
+SELECT a, hex(b), c FROM t1 WHERE b LIKE concat(repeat(0xF1F2,10), '%');
+a	hex(b)	c
+2	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+3	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+4	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+DROP TABLE t1;
+drop table if exists t1;
+create table t1 select repeat('a',10) as c1;
+delete from t1;
+insert into t1 values (0x20),(0x21),(0x22),(0x23),(0x24),(0x25),(0x26),(0x27),(0x28),(0x29),(0x2A),(0x2B),(0x2C),(0x2D),(0x2E),(0x2F);
+insert into t1 values (0x30),(0x31),(0x32),(0x33),(0x34),(0x35),(0x36),(0x37),(0x38),(0x39),(0x3A),(0x3B),(0x3C),(0x3D),(0x3E),(0x3F);
+insert into t1 values (0x40),(0x41),(0x42),(0x43),(0x44),(0x45),(0x46),(0x47),(0x48),(0x49),(0x4A),(0x4B),(0x4C),(0x4D),(0x4E),(0x4F);
+insert into t1 values (0x50),(0x51),(0x52),(0x53),(0x54),(0x55),(0x56),(0x57),(0x58),(0x59),(0x5A),(0x5B),(0x5C),(0x5D),(0x5E),(0x5F);
+insert into t1 values (0x60),(0x61),(0x62),(0x63),(0x64),(0x65),(0x66),(0x67),(0x68),(0x69),(0x6A),(0x6B),(0x6C),(0x6D),(0x6E),(0x6F);
+insert into t1 values (0x70),(0x71),(0x72),(0x73),(0x74),(0x75),(0x76),(0x77),(0x78),(0x79),(0x7A),(0x7B),(0x7C),(0x7D),(0x7E),(0x7F);
+SELECT GROUP_CONCAT(c1 ORDER BY binary c1 SEPARATOR ''), GROUP_CONCAT(hex(c1) ORDER BY BINARY c1) FROM t1 GROUP BY c1;
+GROUP_CONCAT(c1 ORDER BY binary c1 SEPARATOR '')	GROUP_CONCAT(hex(c1) ORDER BY BINARY c1)
+ 	20
+!	21
+"	22
+#	23
+$	24
+%	25
+&	26
+'	27
+(	28
+)	29
+*	2A
++	2B
+,	2C
+-	2D
+.	2E
+/	2F
+0	30
+1	31
+2	32
+3	33
+4	34
+5	35
+6	36
+7	37
+8	38
+9	39
+:	3A
+;	3B
+<	3C
+=	3D
+>	3E
+?	3F
+@	40
+Aa	41,61
+Bb	42,62
+Cc	43,63
+Dd	44,64
+E`e	45,60,65
+Ff	46,66
+Gg	47,67
+Hh	48,68
+Ii	49,69
+Jj	4A,6A
+Kk	4B,6B
+Ll	4C,6C
+Mm	4D,6D
+Nn	4E,6E
+Oo	4F,6F
+Pp	50,70
+Qq	51,71
+Rr	52,72
+Ss	53,73
+Tt	54,74
+Uu	55,75
+Vv	56,76
+Ww	57,77
+Xx	58,78
+Yy~	59,79,7E
+Zz	5A,7A
+]	5D
+[	5B
+\	5C
+^	5E
+_	5F
+{	7B
+|	7C
+}	7D
+	7F
+drop table t1;
+SET collation_connection='big5_bin';
+create table t1 select repeat('a',4000) a;
+delete from t1;
+insert into t1 values ('a'), ('a '), ('a\t');
+select collation(a),hex(a) from t1 order by a;
+collation(a)	hex(a)
+big5_bin	6109
+big5_bin	61
+big5_bin	6120
+drop table t1;
+create table t1 engine=innodb select repeat('a',50) as c1;
+alter table t1 add index(c1(5));
+insert into t1 values ('abcdefg'),('abcde100'),('abcde110'),('abcde111');
+select collation(c1) from t1 limit 1;
+collation(c1)
+big5_bin
+select c1 from t1 where c1 like 'abcdef%' order by c1;
+c1
+abcdefg
+select c1 from t1 where c1 like 'abcde1%' order by c1;
+c1
+abcde100
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde11%' order by c1;
+c1
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde111%' order by c1;
+c1
+abcde111
+drop table t1;
+select @@collation_connection;
+@@collation_connection
+big5_bin
+create table t1 ROW_FORMAT=DYNAMIC select repeat('a',50) as c1 ;
+insert into t1 values('abcdef');
+insert into t1 values('_bcdef');
+insert into t1 values('a_cdef');
+insert into t1 values('ab_def');
+insert into t1 values('abc_ef');
+insert into t1 values('abcd_f');
+insert into t1 values('abcde_');
+select c1 as c1u from t1 where c1 like 'ab\_def';
+c1u
+ab_def
+select c1 as c2h from t1 where c1 like 'ab#_def' escape '#';
+c2h
+ab_def
+drop table t1;
+CREATE TABLE t1 AS
+SELECT 10 AS a, REPEAT('a',20) AS b, REPEAT('a',8) AS c, REPEAT('a',8) AS d;
+ALTER TABLE t1 ADD PRIMARY KEY(a), ADD KEY(b);
+INSERT INTO t1 (a, b) VALUES (1, repeat(0xF1F2,5));
+INSERT INTO t1 (a, b) VALUES (2, repeat(0xF1F2,10));
+INSERT INTO t1 (a, b) VALUES (3, repeat(0xF1F2,11));
+INSERT INTO t1 (a, b) VALUES (4, repeat(0xF1F2,12));
+SELECT hex(concat(repeat(0xF1F2, 10), '%'));
+hex(concat(repeat(0xF1F2, 10), '%'))
+F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F225
+3 rows expected
+SELECT a, hex(b), c FROM t1 WHERE b LIKE concat(repeat(0xF1F2,10), '%');
+a	hex(b)	c
+2	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+3	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+4	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+DROP TABLE t1;
+SET NAMES big5;
+CREATE TABLE t1 (a text) character set big5;
+INSERT INTO t1 VALUES ('��');
+SELECT * FROM t1;
+a
+��
+DROP TABLE t1;
+CREATE TABLE t1 (a CHAR(50) CHARACTER SET big5 NOT NULL, FULLTEXT(a));
+INSERT INTO t1 VALUES(0xA741ADCCA66EB6DC20A7DAADCCABDCA66E);
+SELECT HEX(a) FROM t1 WHERE MATCH(a) AGAINST (0xA741ADCCA66EB6DC IN BOOLEAN MODE);
+HEX(a)
+A741ADCCA66EB6DC20A7DAADCCABDCA66E
+DROP TABLE t1;
+set names big5;
+create table t1 (a char character set big5);
+insert into t1 values (0xF9D6),(0xF9D7),(0xF9D8),(0xF9D9);
+insert into t1 values (0xF9DA),(0xF9DB),(0xF9DC);
+select hex(a) a, hex(@u:=convert(a using utf8)) b,
+hex(convert(@u using big5)) c from t1 order by a;
+a	b	c
+F9D6	E7A281	F9D6
+F9D7	E98AB9	F9D7
+F9D8	E8A38F	F9D8
+F9D9	E5A2BB	F9D9
+F9DA	E68192	F9DA
+F9DB	E7B2A7	F9DB
+F9DC	E5ABBA	F9DC
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+alter table t1 convert to character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+select hex(a) from t1 where a = _big5 0xF9DC;
+hex(a)
+E5ABBA
+drop table t1;
+select hex(convert(_big5 0xC84041 using ucs2));
+hex(convert(_big5 0xC84041 using ucs2))
+003F0041
+End of 4.1 tests
+set names big5;
+create table t1 (a blob);
+insert into t1 values (0xEE00);
+select * into outfile 'test/t1.txt' from t1;
+delete from t1;
+select hex(load_file('MYSQLD_DATADIR/test/t1.txt'));;
+hex(load_file('MYSQLD_DATADIR/test/t1.txt'))
+5CEE5C300A
+load data infile 't1.txt' into table t1;
+select hex(a) from t1;
+hex(a)
+EE00
+drop table t1;
+End of 5.0 tests
+#
+# Start of 5.5 tests
+#
+#
+# Testing WL#4583 Case conversion in Asian character sets 
+#
+SET NAMES utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+SET collation_connection=big5_chinese_ci;
+CREATE TABLE t1 (b VARCHAR(2));
+INSERT INTO t1 VALUES ('0'),('1'),('2'),('3'),('4'),('5'),('6'),('7');
+INSERT INTO t1 VALUES ('8'),('9'),('A'),('B'),('C'),('D'),('E'),('F');
+CREATE TEMPORARY TABLE head AS SELECT concat(b1.b, b2.b) AS head FROM t1 b1, t1 b2;
+CREATE TEMPORARY TABLE tail AS SELECT concat(b1.b, b2.b) AS tail FROM t1 b1, t1 b2;
+DROP TABLE t1;
+CREATE TABLE t1 AS
+SELECT concat(head, tail) AS code, ' ' AS a
+FROM head, tail
+WHERE (head BETWEEN '80' AND 'FF') AND (tail BETWEEN '20' AND 'FF')
+ORDER BY head, tail;
+DROP TEMPORARY TABLE head, tail;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `code` varchar(8) DEFAULT NULL,
+  `a` varchar(1) CHARACTER SET big5 NOT NULL DEFAULT ''
+) ENGINE=default_engine DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+28672
+SET @@session.max_error_count = 64;
+UPDATE IGNORE t1 SET a=unhex(code) ORDER BY code;
+Warnings:
+Warning	1366	Incorrect string value: '\x80 ' for column 'a' at row 1
+Warning	1366	Incorrect string value: '\x80!' for column 'a' at row 2
+Warning	1366	Incorrect string value: '\x80"' for column 'a' at row 3
+Warning	1366	Incorrect string value: '\x80#' for column 'a' at row 4
+Warning	1366	Incorrect string value: '\x80$' for column 'a' at row 5
+Warning	1366	Incorrect string value: '\x80%' for column 'a' at row 6
+Warning	1366	Incorrect string value: '\x80&' for column 'a' at row 7
+Warning	1366	Incorrect string value: '\x80'' for column 'a' at row 8
+Warning	1366	Incorrect string value: '\x80(' for column 'a' at row 9
+Warning	1366	Incorrect string value: '\x80)' for column 'a' at row 10
+Warning	1366	Incorrect string value: '\x80*' for column 'a' at row 11
+Warning	1366	Incorrect string value: '\x80+' for column 'a' at row 12
+Warning	1366	Incorrect string value: '\x80,' for column 'a' at row 13
+Warning	1366	Incorrect string value: '\x80-' for column 'a' at row 14
+Warning	1366	Incorrect string value: '\x80.' for column 'a' at row 15
+Warning	1366	Incorrect string value: '\x80/' for column 'a' at row 16
+Warning	1366	Incorrect string value: '\x800' for column 'a' at row 17
+Warning	1366	Incorrect string value: '\x801' for column 'a' at row 18
+Warning	1366	Incorrect string value: '\x802' for column 'a' at row 19
+Warning	1366	Incorrect string value: '\x803' for column 'a' at row 20
+Warning	1366	Incorrect string value: '\x804' for column 'a' at row 21
+Warning	1366	Incorrect string value: '\x805' for column 'a' at row 22
+Warning	1366	Incorrect string value: '\x806' for column 'a' at row 23
+Warning	1366	Incorrect string value: '\x807' for column 'a' at row 24
+Warning	1366	Incorrect string value: '\x808' for column 'a' at row 25
+Warning	1366	Incorrect string value: '\x809' for column 'a' at row 26
+Warning	1366	Incorrect string value: '\x80:' for column 'a' at row 27
+Warning	1366	Incorrect string value: '\x80;' for column 'a' at row 28
+Warning	1366	Incorrect string value: '\x80<' for column 'a' at row 29
+Warning	1366	Incorrect string value: '\x80=' for column 'a' at row 30
+Warning	1366	Incorrect string value: '\x80>' for column 'a' at row 31
+Warning	1366	Incorrect string value: '\x80?' for column 'a' at row 32
+Warning	1366	Incorrect string value: '\x80@' for column 'a' at row 33
+Warning	1366	Incorrect string value: '\x80A' for column 'a' at row 34
+Warning	1366	Incorrect string value: '\x80B' for column 'a' at row 35
+Warning	1366	Incorrect string value: '\x80C' for column 'a' at row 36
+Warning	1366	Incorrect string value: '\x80D' for column 'a' at row 37
+Warning	1366	Incorrect string value: '\x80E' for column 'a' at row 38
+Warning	1366	Incorrect string value: '\x80F' for column 'a' at row 39
+Warning	1366	Incorrect string value: '\x80G' for column 'a' at row 40
+Warning	1366	Incorrect string value: '\x80H' for column 'a' at row 41
+Warning	1366	Incorrect string value: '\x80I' for column 'a' at row 42
+Warning	1366	Incorrect string value: '\x80J' for column 'a' at row 43
+Warning	1366	Incorrect string value: '\x80K' for column 'a' at row 44
+Warning	1366	Incorrect string value: '\x80L' for column 'a' at row 45
+Warning	1366	Incorrect string value: '\x80M' for column 'a' at row 46
+Warning	1366	Incorrect string value: '\x80N' for column 'a' at row 47
+Warning	1366	Incorrect string value: '\x80O' for column 'a' at row 48
+Warning	1366	Incorrect string value: '\x80P' for column 'a' at row 49
+Warning	1366	Incorrect string value: '\x80Q' for column 'a' at row 50
+Warning	1366	Incorrect string value: '\x80R' for column 'a' at row 51
+Warning	1366	Incorrect string value: '\x80S' for column 'a' at row 52
+Warning	1366	Incorrect string value: '\x80T' for column 'a' at row 53
+Warning	1366	Incorrect string value: '\x80U' for column 'a' at row 54
+Warning	1366	Incorrect string value: '\x80V' for column 'a' at row 55
+Warning	1366	Incorrect string value: '\x80W' for column 'a' at row 56
+Warning	1366	Incorrect string value: '\x80X' for column 'a' at row 57
+Warning	1366	Incorrect string value: '\x80Y' for column 'a' at row 58
+Warning	1366	Incorrect string value: '\x80Z' for column 'a' at row 59
+Warning	1366	Incorrect string value: '\x80[' for column 'a' at row 60
+Warning	1366	Incorrect string value: '\x80\' for column 'a' at row 61
+Warning	1366	Incorrect string value: '\x80]' for column 'a' at row 62
+Warning	1366	Incorrect string value: '\x80^' for column 'a' at row 63
+Warning	1366	Incorrect string value: '\x80_' for column 'a' at row 64
+SET @@session.max_error_count = DEFAULT;
+SELECT COUNT(*) FROM t1 WHERE a<>'';
+COUNT(*)
+13973
+SELECT code, hex(upper(a)), hex(lower(a)),a, upper(a), lower(a) FROM t1 WHERE hex(a)<>hex(upper(a)) OR hex(a)<>hex(lower(a));
+code	hex(upper(a))	hex(lower(a))	a	upper(a)	lower(a)
+A2CF	A2CF	A2E9	Ａ	Ａ	ａ
+A2D0	A2D0	A2EA	Ｂ	Ｂ	ｂ
+A2D1	A2D1	A2EB	Ｃ	Ｃ	ｃ
+A2D2	A2D2	A2EC	Ｄ	Ｄ	ｄ
+A2D3	A2D3	A2ED	Ｅ	Ｅ	ｅ
+A2D4	A2D4	A2EE	Ｆ	Ｆ	ｆ
+A2D5	A2D5	A2EF	Ｇ	Ｇ	ｇ
+A2D6	A2D6	A2F0	Ｈ	Ｈ	ｈ
+A2D7	A2D7	A2F1	Ｉ	Ｉ	ｉ
+A2D8	A2D8	A2F2	Ｊ	Ｊ	ｊ
+A2D9	A2D9	A2F3	Ｋ	Ｋ	ｋ
+A2DA	A2DA	A2F4	Ｌ	Ｌ	ｌ
+A2DB	A2DB	A2F5	Ｍ	Ｍ	ｍ
+A2DC	A2DC	A2F6	Ｎ	Ｎ	ｎ
+A2DD	A2DD	A2F7	Ｏ	Ｏ	ｏ
+A2DE	A2DE	A2F8	Ｐ	Ｐ	ｐ
+A2DF	A2DF	A2F9	Ｑ	Ｑ	ｑ
+A2E0	A2E0	A2FA	Ｒ	Ｒ	ｒ
+A2E1	A2E1	A2FB	Ｓ	Ｓ	ｓ
+A2E2	A2E2	A2FC	Ｔ	Ｔ	ｔ
+A2E3	A2E3	A2FD	Ｕ	Ｕ	ｕ
+A2E4	A2E4	A2FE	Ｖ	Ｖ	ｖ
+A2E5	A2E5	A340	Ｗ	Ｗ	ｗ
+A2E6	A2E6	A341	Ｘ	Ｘ	ｘ
+A2E7	A2E7	A342	Ｙ	Ｙ	ｙ
+A2E8	A2E8	A343	Ｚ	Ｚ	ｚ
+A2E9	A2CF	A2E9	ａ	Ａ	ａ
+A2EA	A2D0	A2EA	ｂ	Ｂ	ｂ
+A2EB	A2D1	A2EB	ｃ	Ｃ	ｃ
+A2EC	A2D2	A2EC	ｄ	Ｄ	ｄ
+A2ED	A2D3	A2ED	ｅ	Ｅ	ｅ
+A2EE	A2D4	A2EE	ｆ	Ｆ	ｆ
+A2EF	A2D5	A2EF	ｇ	Ｇ	ｇ
+A2F0	A2D6	A2F0	ｈ	Ｈ	ｈ
+A2F1	A2D7	A2F1	ｉ	Ｉ	ｉ
+A2F2	A2D8	A2F2	ｊ	Ｊ	ｊ
+A2F3	A2D9	A2F3	ｋ	Ｋ	ｋ
+A2F4	A2DA	A2F4	ｌ	Ｌ	ｌ
+A2F5	A2DB	A2F5	ｍ	Ｍ	ｍ
+A2F6	A2DC	A2F6	ｎ	Ｎ	ｎ
+A2F7	A2DD	A2F7	ｏ	Ｏ	ｏ
+A2F8	A2DE	A2F8	ｐ	Ｐ	ｐ
+A2F9	A2DF	A2F9	ｑ	Ｑ	ｑ
+A2FA	A2E0	A2FA	ｒ	Ｒ	ｒ
+A2FB	A2E1	A2FB	ｓ	Ｓ	ｓ
+A2FC	A2E2	A2FC	ｔ	Ｔ	ｔ
+A2FD	A2E3	A2FD	ｕ	Ｕ	ｕ
+A2FE	A2E4	A2FE	ｖ	Ｖ	ｖ
+A340	A2E5	A340	ｗ	Ｗ	ｗ
+A341	A2E6	A341	ｘ	Ｘ	ｘ
+A342	A2E7	A342	ｙ	Ｙ	ｙ
+A343	A2E8	A343	ｚ	Ｚ	ｚ
+A344	A344	A35C	Α	Α	α
+A345	A345	A35D	Β	Β	β
+A346	A346	A35E	Γ	Γ	γ
+A347	A347	A35F	Δ	Δ	δ
+A348	A348	A360	Ε	Ε	ε
+A349	A349	A361	Ζ	Ζ	ζ
+A34A	A34A	A362	Η	Η	η
+A34B	A34B	A363	Θ	Θ	θ
+A34C	A34C	A364	Ι	Ι	ι
+A34D	A34D	A365	Κ	Κ	κ
+A34E	A34E	A366	Λ	Λ	λ
+A34F	A34F	A367	Μ	Μ	μ
+A350	A350	A368	Ν	Ν	ν
+A351	A351	A369	Ξ	Ξ	ξ
+A352	A352	A36A	Ο	Ο	ο
+A353	A353	A36B	Π	Π	π
+A354	A354	A36C	Ρ	Ρ	ρ
+A355	A355	A36D	Σ	Σ	σ
+A356	A356	A36E	Τ	Τ	τ
+A357	A357	A36F	Υ	Υ	υ
+A358	A358	A370	Φ	Φ	φ
+A359	A359	A371	Χ	Χ	χ
+A35A	A35A	A372	Ψ	Ψ	ψ
+A35B	A35B	A373	Ω	Ω	ω
+A35C	A344	A35C	α	Α	α
+A35D	A345	A35D	β	Β	β
+A35E	A346	A35E	γ	Γ	γ
+A35F	A347	A35F	δ	Δ	δ
+A360	A348	A360	ε	Ε	ε
+A361	A349	A361	ζ	Ζ	ζ
+A362	A34A	A362	η	Η	η
+A363	A34B	A363	θ	Θ	θ
+A364	A34C	A364	ι	Ι	ι
+A365	A34D	A365	κ	Κ	κ
+A366	A34E	A366	λ	Λ	λ
+A367	A34F	A367	μ	Μ	μ
+A368	A350	A368	ν	Ν	ν
+A369	A351	A369	ξ	Ξ	ξ
+A36A	A352	A36A	ο	Ο	ο
+A36B	A353	A36B	π	Π	π
+A36C	A354	A36C	ρ	Ρ	ρ
+A36D	A355	A36D	σ	Σ	σ
+A36E	A356	A36E	τ	Τ	τ
+A36F	A357	A36F	υ	Υ	υ
+A370	A358	A370	φ	Φ	φ
+A371	A359	A371	χ	Χ	χ
+A372	A35A	A372	ψ	Ψ	ψ
+A373	A35B	A373	ω	Ω	ω
+C7B1	C7B1	C7CC	Д	Д	д
+C7B2	C7B2	C7CD	Е	Е	е
+C7B3	C7B3	C7CE	Ё	Ё	ё
+C7B4	C7B4	C7CF	Ж	Ж	ж
+C7B5	C7B5	C7D0	З	З	з
+C7B6	C7B6	C7D1	И	И	и
+C7B7	C7B7	C7D2	Й	Й	й
+C7B8	C7B8	C7D3	К	К	к
+C7B9	C7B9	C7D4	Л	Л	л
+C7BA	C7BA	C7D5	М	М	м
+C7BB	C7BB	C7DC	У	У	у
+C7BC	C7BC	C7DD	Ф	Ф	ф
+C7BD	C7BD	C7DE	Х	Х	х
+C7BE	C7BE	C7DF	Ц	Ц	ц
+C7BF	C7BF	C7E0	Ч	Ч	ч
+C7C0	C7C0	C7E1	Ш	Ш	ш
+C7C1	C7C1	C7E2	Щ	Щ	щ
+C7C2	C7C2	C7E3	Ъ	Ъ	ъ
+C7C3	C7C3	C7E4	Ы	Ы	ы
+C7C4	C7C4	C7E5	Ь	Ь	ь
+C7C5	C7C5	C7E6	Э	Э	э
+C7C6	C7C6	C7E7	Ю	Ю	ю
+C7C7	C7C7	C7E8	Я	Я	я
+C7CC	C7B1	C7CC	д	Д	д
+C7CD	C7B2	C7CD	е	Е	е
+C7CE	C7B3	C7CE	ё	Ё	ё
+C7CF	C7B4	C7CF	ж	Ж	ж
+C7D0	C7B5	C7D0	з	З	з
+C7D1	C7B6	C7D1	и	И	и
+C7D2	C7B7	C7D2	й	Й	й
+C7D3	C7B8	C7D3	к	К	к
+C7D4	C7B9	C7D4	л	Л	л
+C7D5	C7BA	C7D5	м	М	м
+C7DC	C7BB	C7DC	у	У	у
+C7DD	C7BC	C7DD	ф	Ф	ф
+C7DE	C7BD	C7DE	х	Х	х
+C7DF	C7BE	C7DF	ц	Ц	ц
+C7E0	C7BF	C7E0	ч	Ч	ч
+C7E1	C7C0	C7E1	ш	Ш	ш
+C7E2	C7C1	C7E2	щ	Щ	щ
+C7E3	C7C2	C7E3	ъ	Ъ	ъ
+C7E4	C7C3	C7E4	ы	Ы	ы
+C7E5	C7C4	C7E5	ь	Ь	ь
+C7E6	C7C5	C7E6	э	Э	э
+C7E7	C7C6	C7E7	ю	Ю	ю
+C7E8	C7C7	C7E8	я	Я	я
+SELECT * FROM t1
+WHERE HEX(CAST(LOWER(a) AS CHAR CHARACTER SET utf8)) <>
+HEX(LOWER(CAST(a AS CHAR CHARACTER SET utf8))) ORDER BY code;
+code	a
+A2B9	Ⅰ
+A2BA	Ⅱ
+A2BB	Ⅲ
+A2BC	Ⅳ
+A2BD	Ⅴ
+A2BE	Ⅵ
+A2BF	Ⅶ
+A2C0	Ⅷ
+A2C1	Ⅸ
+A2C2	Ⅹ
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+SELECT * FROM t1
+WHERE HEX(CAST(UPPER(a) AS CHAR CHARACTER SET utf8)) <>
+HEX(UPPER(CAST(a AS CHAR CHARACTER SET utf8))) ORDER BY code;
+code	a
+C7C8	а
+C7C9	б
+C7CA	в
+C7CB	г
+C7D6	н
+C7D7	о
+C7D8	п
+C7D9	р
+C7DA	с
+C7DB	т
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+DROP TABLE t1;
+#
+# End of 5.5 tests
+#
+#
+# Start of 5.6 tests
+#
+#
+# WL#3664 WEIGHT_STRING
+#
+set names big5;
+select @@collation_connection;
+@@collation_connection
+big5_chinese_ci
+select hex(weight_string('a'));
+hex(weight_string('a'))
+41
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+414243
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+4142
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+414243
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+4142432020
+select hex(weight_string('abc', 1, 2, 0xC0));
+hex(weight_string('abc', 1, 2, 0xC0))
+41
+select hex(weight_string('abc', 2, 2, 0xC0));
+hex(weight_string('abc', 2, 2, 0xC0))
+4142
+select hex(weight_string('abc', 3, 2, 0xC0));
+hex(weight_string('abc', 3, 2, 0xC0))
+414220
+select hex(weight_string('abc', 4, 2, 0xC0));
+hex(weight_string('abc', 4, 2, 0xC0))
+41422020
+select hex(weight_string('abc', 5, 2, 0xC0));
+hex(weight_string('abc', 5, 2, 0xC0))
+4142202020
+select hex(weight_string('abc',25, 2, 0xC0));
+hex(weight_string('abc',25, 2, 0xC0))
+41422020202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 3, 0xC0));
+hex(weight_string('abc', 1, 3, 0xC0))
+41
+select hex(weight_string('abc', 2, 3, 0xC0));
+hex(weight_string('abc', 2, 3, 0xC0))
+4142
+select hex(weight_string('abc', 3, 3, 0xC0));
+hex(weight_string('abc', 3, 3, 0xC0))
+414243
+select hex(weight_string('abc', 4, 3, 0xC0));
+hex(weight_string('abc', 4, 3, 0xC0))
+41424320
+select hex(weight_string('abc', 5, 3, 0xC0));
+hex(weight_string('abc', 5, 3, 0xC0))
+4142432020
+select hex(weight_string('abc',25, 3, 0xC0));
+hex(weight_string('abc',25, 3, 0xC0))
+41424320202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 4, 0xC0));
+hex(weight_string('abc', 1, 4, 0xC0))
+41
+select hex(weight_string('abc', 2, 4, 0xC0));
+hex(weight_string('abc', 2, 4, 0xC0))
+4142
+select hex(weight_string('abc', 3, 4, 0xC0));
+hex(weight_string('abc', 3, 4, 0xC0))
+414243
+select hex(weight_string('abc', 4, 4, 0xC0));
+hex(weight_string('abc', 4, 4, 0xC0))
+41424320
+select hex(weight_string('abc', 5, 4, 0xC0));
+hex(weight_string('abc', 5, 4, 0xC0))
+4142432020
+select hex(weight_string('abc',25, 4, 0xC0));
+hex(weight_string('abc',25, 4, 0xC0))
+41424320202020202020202020202020202020202020202020
+select collation(cast(0xA1A1 as char));
+collation(cast(0xA1A1 as char))
+big5_chinese_ci
+select hex(weight_string(cast(0x6141 as char)));
+hex(weight_string(cast(0x6141 as char)))
+4141
+select hex(weight_string(cast(0xA1A1 as char)));
+hex(weight_string(cast(0xA1A1 as char)))
+A140
+select hex(weight_string(cast(0xA1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1 as char) as char(1)))
+A140
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)))
+A140
+select hex(weight_string(cast(0xA1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1 as char) as char(3)))
+A1402020
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)))
+A140A14020
+select hex(weight_string(cast(0x40A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1 as char) as char(3)))
+40A14020
+select hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)))
+40A140A140
+select hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)))
+40A140A140
+select hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)))
+4040A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0))
+A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0))
+A140A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0))
+A140A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0))
+A140A14020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0))
+A140A140202020202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0))
+A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0))
+A140A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0))
+A140A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0))
+A140A140A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0))
+A140A140A14020202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0))
+A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0))
+A140A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0))
+A140A140
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0))
+A140A140A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0))
+A140A140A14020202020202020202020202020202020202020
+set collation_connection=big5_bin;
+select @@collation_connection;
+@@collation_connection
+big5_bin
+select hex(weight_string('a'));
+hex(weight_string('a'))
+61
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+616263
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+6162
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+616263
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+6162632020
+select hex(weight_string('abc', 1, 2, 0xC0));
+hex(weight_string('abc', 1, 2, 0xC0))
+61
+select hex(weight_string('abc', 2, 2, 0xC0));
+hex(weight_string('abc', 2, 2, 0xC0))
+6162
+select hex(weight_string('abc', 3, 2, 0xC0));
+hex(weight_string('abc', 3, 2, 0xC0))
+616220
+select hex(weight_string('abc', 4, 2, 0xC0));
+hex(weight_string('abc', 4, 2, 0xC0))
+61622020
+select hex(weight_string('abc', 5, 2, 0xC0));
+hex(weight_string('abc', 5, 2, 0xC0))
+6162202020
+select hex(weight_string('abc',25, 2, 0xC0));
+hex(weight_string('abc',25, 2, 0xC0))
+61622020202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 3, 0xC0));
+hex(weight_string('abc', 1, 3, 0xC0))
+61
+select hex(weight_string('abc', 2, 3, 0xC0));
+hex(weight_string('abc', 2, 3, 0xC0))
+6162
+select hex(weight_string('abc', 3, 3, 0xC0));
+hex(weight_string('abc', 3, 3, 0xC0))
+616263
+select hex(weight_string('abc', 4, 3, 0xC0));
+hex(weight_string('abc', 4, 3, 0xC0))
+61626320
+select hex(weight_string('abc', 5, 3, 0xC0));
+hex(weight_string('abc', 5, 3, 0xC0))
+6162632020
+select hex(weight_string('abc',25, 3, 0xC0));
+hex(weight_string('abc',25, 3, 0xC0))
+61626320202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 4, 0xC0));
+hex(weight_string('abc', 1, 4, 0xC0))
+61
+select hex(weight_string('abc', 2, 4, 0xC0));
+hex(weight_string('abc', 2, 4, 0xC0))
+6162
+select hex(weight_string('abc', 3, 4, 0xC0));
+hex(weight_string('abc', 3, 4, 0xC0))
+616263
+select hex(weight_string('abc', 4, 4, 0xC0));
+hex(weight_string('abc', 4, 4, 0xC0))
+61626320
+select hex(weight_string('abc', 5, 4, 0xC0));
+hex(weight_string('abc', 5, 4, 0xC0))
+6162632020
+select hex(weight_string('abc',25, 4, 0xC0));
+hex(weight_string('abc',25, 4, 0xC0))
+61626320202020202020202020202020202020202020202020
+select collation(cast(0xA1A1 as char));
+collation(cast(0xA1A1 as char))
+big5_bin
+select hex(weight_string(cast(0x6141 as char)));
+hex(weight_string(cast(0x6141 as char)))
+6141
+select hex(weight_string(cast(0xA1A1 as char)));
+hex(weight_string(cast(0xA1A1 as char)))
+A1A1
+select hex(weight_string(cast(0xA1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1 as char) as char(1)))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)))
+A1A1
+select hex(weight_string(cast(0xA1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1 as char) as char(3)))
+A1A12020
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)))
+A1A1A1A120
+select hex(weight_string(cast(0x40A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1 as char) as char(3)))
+40A1A120
+select hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)))
+40A1A1A1A1
+select hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)))
+40A1A1A1A1
+select hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)))
+4040A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0))
+A1A1A1A120
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0))
+A1A1A1A1202020202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0))
+A1A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0))
+A1A1A1A1A1A120202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0))
+A1A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0))
+A1A1A1A1A1A120202020202020202020202020202020202020
+#
+# Bugs#12635232: VALGRIND WARNINGS: IS_IPV6, IS_IPV4, INET6_ATON,
+# INET6_NTOA + MULTIBYTE CHARSET. 
+#
+SET NAMES big5;
+SELECT is_ipv4(inet_ntoa('1'));
+is_ipv4(inet_ntoa('1'))
+1
+SELECT is_ipv6(inet_ntoa('1'));
+is_ipv6(inet_ntoa('1'))
+0
+SELECT inet6_aton(inet_ntoa('1'));
+inet6_aton(inet_ntoa('1'))
+   
+SELECT inet6_ntoa(inet_ntoa('1'));
+inet6_ntoa(inet_ntoa('1'))
+NULL
+#
+# Bug#14040277 UNINITIALIZED VALUE REFERENCED IN STR_TO_IPV6
+#
+SELECT inet6_aton(soundex('a'));
+inet6_aton(soundex('a'))
+NULL
+#
+# Bug#19047425 UNINITIALISED VALUE IN STR_TO_IPV6
+#
+do is_ipv4_mapped(inet6_aton(convert(_ascii "a:" using big5)));
+#
+# End of 5.6 tests
+#

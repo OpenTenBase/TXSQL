@@ -25,13 +25,13 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 SELECT * FROM t;
 a	b
 1	1
+16	16
 2	2
 3	47
+32	128
 4	4
 5	134
 8	16
-16	16
-32	128
 COMMIT;
 SET session debug = "-d,px_no_row_split";
 # restart
@@ -40,13 +40,13 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 SELECT * FROM t;
 a	b
 1	1
+16	16
 2	2
 3	47
+32	128
 4	4
 5	134
 8	16
-16	16
-32	128
 COMMIT;
 XA RECOVER;
 formatID	gtrid_length	bqual_length	data
@@ -58,10 +58,10 @@ XA ROLLBACK '456';
 XA COMMIT '789';
 SELECT * FROM t;
 a	b
+16	16
 2	2
+32	128
 4	4
 8	8
-16	16
-32	128
 SET session debug = "-d,px_no_row_split";
 DROP TABLE t;

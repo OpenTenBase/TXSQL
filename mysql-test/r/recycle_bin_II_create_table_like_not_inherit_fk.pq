@@ -1,0 +1,39 @@
+#
+#  Prepare
+#
+set global cdb_recycle_bin_enabled = on;
+#
+# Run 
+#
+#
+# case1. fix it doesn't inherit foreign key
+#
+create table stu(
+sid int UNSIGNED primary key auto_increment,
+name varchar(20) not null) ;
+create table sc(
+scid int UNSIGNED primary key auto_increment,
+sid int UNSIGNED not null,
+score varchar(20) default '0',index (sid),  
+FOREIGN KEY (sid) REFERENCES stu(sid) ON DELETE CASCADE ON UPDATE CASCADE);
+truncate sc;
+ERROR HY000: the "truncate table with foreign key" is not supported in recycle bin.
+#
+# case2. fix it doesn't inherit data directory and index directory
+#
+CREATE TABLE `te` (
+`c1` int NOT NULL,
+PRIMARY KEY (`c1`)
+) ENGINE=InnoDB  DATA DIRECTORY=<DATA DIRECTORY>';
+insert into te values(1);
+truncate te;
+ERROR HY000: the "truncate table with DATA DIRECTORY or INDEX DIRECTORY" is not supported in recycle bin.
+select * from te;
+c1
+1
+#
+# Cleanup 
+# 
+set global cdb_recycle_bin_enabled=0;
+drop table if exists stu, sc;
+drop table if exists te;

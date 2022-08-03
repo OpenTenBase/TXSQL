@@ -1,0 +1,233 @@
+"================== con1 connected =================="
+select "MARKER_BEGIN" as marker;
+marker
+MARKER_BEGIN
+select "This is simple statement one" as payload;
+payload
+This is simple statement one
+select "This is simple statement two" as payload;
+payload
+This is simple statement two
+select "This is the first part of a multi query" as payload;
+select "And this is the second part of a multi query" as payload;
+select "With a third part to make things complete" as payload;
+$$
+payload
+And this is the second part of a multi query
+This is the first part of a multi query
+With a third part to make things complete
+payload
+payload
+select "MARKER_END" as marker;
+marker
+MARKER_END
+select "Con1 is done with payload" as status;
+status
+Con1 is done with payload
+"================== con1 done =================="
+set @con1_tid = (select thread_id from performance_schema.threads
+where processlist_user = 'user1');
+select (@con1_tid is not null) as expected;
+expected
+1
+set @marker_begin = (select event_id from performance_schema.events_statements_history_long
+where sql_text like "%MARKER_BEGIN%" and thread_id = @con1_tid);
+select (@marker_begin is not null) as expected;
+expected
+1
+set @marker_end = (select end_event_id from performance_schema.events_statements_history_long
+where sql_text like "%MARKER_END%" and thread_id = @con1_tid);
+select (@marker_end is not null) as expected;
+expected
+1
+show global status like "performance_schema%_lost";
+Variable_name	Value
+Performance_schema_accounts_lost	0
+Performance_schema_cond_classes_lost	0
+Performance_schema_cond_instances_lost	0
+Performance_schema_digest_lost	0
+Performance_schema_file_classes_lost	0
+Performance_schema_file_handles_lost	0
+Performance_schema_file_instances_lost	0
+Performance_schema_hosts_lost	0
+Performance_schema_index_stat_lost	0
+Performance_schema_locker_lost	0
+Performance_schema_memory_classes_lost	0
+Performance_schema_metadata_lock_lost	0
+Performance_schema_mutex_classes_lost	0
+Performance_schema_mutex_instances_lost	0
+Performance_schema_nested_statement_lost	0
+Performance_schema_prepared_statements_lost	0
+Performance_schema_program_lost	0
+Performance_schema_rwlock_classes_lost	0
+Performance_schema_rwlock_instances_lost	0
+Performance_schema_session_connect_attrs_lost	0
+Performance_schema_socket_classes_lost	0
+Performance_schema_socket_instances_lost	0
+Performance_schema_stage_classes_lost	0
+Performance_schema_statement_classes_lost	0
+Performance_schema_table_handles_lost	0
+Performance_schema_table_instances_lost	0
+Performance_schema_table_lock_stat_lost	0
+Performance_schema_thread_classes_lost	0
+Performance_schema_thread_instances_lost	0
+Performance_schema_users_lost	0
+select * from (
+(
+select (event_id - @marker_begin) as relative_event_id,
+(end_event_id - @marker_begin) as relative_end_event_id,
+event_name,
+sql_text as comment,
+nesting_event_type,
+(nesting_event_id - @marker_begin) as relative_nesting_event_id
+from performance_schema.events_statements_history_long
+where (thread_id = @con1_tid)
+and (@marker_begin <= event_id)
+and (end_event_id <= @marker_end)
+)
+union
+(
+select (event_id - @marker_begin) as relative_event_id,
+(end_event_id - @marker_begin) as relative_end_event_id,
+event_name,
+"(stage)" as comment,
+nesting_event_type,
+(nesting_event_id - @marker_begin) as relative_nesting_event_id
+from performance_schema.events_stages_history_long
+where (thread_id = @con1_tid)
+and (@marker_begin <= event_id)
+and (end_event_id <= @marker_end)
+)
+union
+(
+select (event_id - @marker_begin) as relative_event_id,
+(end_event_id - @marker_begin) as relative_end_event_id,
+event_name,
+operation as comment,
+nesting_event_type,
+(nesting_event_id - @marker_begin) as relative_nesting_event_id
+from performance_schema.events_waits_history_long
+where (thread_id = @con1_tid)
+and (@marker_begin <= event_id)
+and (end_event_id <= @marker_end)
+)
+) all_events
+order by relative_event_id asc;
+relative_event_id	relative_end_event_id	event_name	comment	nesting_event_type	relative_nesting_event_id
+0	15	statement/sql/select	select "MARKER_BEGIN" as marker	NULL	NULL
+1	4	stage/sql/starting	(stage)	STATEMENT	0
+2	2	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	1
+3	3	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	1
+4	4	wait/io/file/sql/query_log	write	STAGE	1
+5	5	stage/sql/checking permissions	(stage)	STATEMENT	0
+6	6	stage/sql/Opening tables	(stage)	STATEMENT	0
+7	7	stage/sql/init	(stage)	STATEMENT	0
+8	8	stage/sql/optimizing	(stage)	STATEMENT	0
+9	9	stage/sql/executing	(stage)	STATEMENT	0
+10	10	stage/sql/end	(stage)	STATEMENT	0
+11	11	stage/sql/query end	(stage)	STATEMENT	0
+12	12	stage/sql/closing tables	(stage)	STATEMENT	0
+13	13	stage/sql/freeing items	(stage)	STATEMENT	0
+14	15	stage/sql/cleaning up	(stage)	STATEMENT	0
+15	15	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	14
+16	16	idle	idle	NULL	NULL
+17	32	statement/sql/select	select "This is simple statement one" as payload	NULL	NULL
+18	21	stage/sql/starting	(stage)	STATEMENT	17
+19	19	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	18
+20	20	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	18
+21	21	wait/io/file/sql/query_log	write	STAGE	18
+22	22	stage/sql/checking permissions	(stage)	STATEMENT	17
+23	23	stage/sql/Opening tables	(stage)	STATEMENT	17
+24	24	stage/sql/init	(stage)	STATEMENT	17
+25	25	stage/sql/optimizing	(stage)	STATEMENT	17
+26	26	stage/sql/executing	(stage)	STATEMENT	17
+27	27	stage/sql/end	(stage)	STATEMENT	17
+28	28	stage/sql/query end	(stage)	STATEMENT	17
+29	29	stage/sql/closing tables	(stage)	STATEMENT	17
+30	30	stage/sql/freeing items	(stage)	STATEMENT	17
+31	32	stage/sql/cleaning up	(stage)	STATEMENT	17
+32	32	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	31
+33	33	idle	idle	NULL	NULL
+34	49	statement/sql/select	select "This is simple statement two" as payload	NULL	NULL
+35	38	stage/sql/starting	(stage)	STATEMENT	34
+36	36	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	35
+37	37	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	35
+38	38	wait/io/file/sql/query_log	write	STAGE	35
+39	39	stage/sql/checking permissions	(stage)	STATEMENT	34
+40	40	stage/sql/Opening tables	(stage)	STATEMENT	34
+41	41	stage/sql/init	(stage)	STATEMENT	34
+42	42	stage/sql/optimizing	(stage)	STATEMENT	34
+43	43	stage/sql/executing	(stage)	STATEMENT	34
+44	44	stage/sql/end	(stage)	STATEMENT	34
+45	45	stage/sql/query end	(stage)	STATEMENT	34
+46	46	stage/sql/closing tables	(stage)	STATEMENT	34
+47	47	stage/sql/freeing items	(stage)	STATEMENT	34
+48	49	stage/sql/cleaning up	(stage)	STATEMENT	34
+49	49	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	48
+50	50	idle	idle	NULL	NULL
+51	65	statement/sql/select	select "This is the first part of a multi query" as payload;
+select "And this is the second part of a multi query" as payload;
+select "With a third part to make things complete" as payload	NULL	NULL
+52	56	stage/sql/starting	(stage)	STATEMENT	51
+53	53	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	52
+54	54	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	52
+55	55	wait/io/file/sql/query_log	write	STAGE	52
+56	56	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	52
+57	57	stage/sql/checking permissions	(stage)	STATEMENT	51
+58	58	stage/sql/Opening tables	(stage)	STATEMENT	51
+59	59	stage/sql/init	(stage)	STATEMENT	51
+60	60	stage/sql/optimizing	(stage)	STATEMENT	51
+61	61	stage/sql/executing	(stage)	STATEMENT	51
+62	62	stage/sql/end	(stage)	STATEMENT	51
+63	63	stage/sql/query end	(stage)	STATEMENT	51
+64	64	stage/sql/closing tables	(stage)	STATEMENT	51
+65	65	stage/sql/freeing items	(stage)	STATEMENT	51
+66	80	statement/sql/select	select "And this is the second part of a multi query" as payload;
+select "With a third part to make things complete" as payload	NULL	NULL
+67	71	stage/sql/starting	(stage)	STATEMENT	66
+68	68	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	67
+69	69	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	67
+70	70	wait/io/file/sql/query_log	write	STAGE	67
+71	71	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	67
+72	72	stage/sql/checking permissions	(stage)	STATEMENT	66
+73	73	stage/sql/Opening tables	(stage)	STATEMENT	66
+74	74	stage/sql/init	(stage)	STATEMENT	66
+75	75	stage/sql/optimizing	(stage)	STATEMENT	66
+76	76	stage/sql/executing	(stage)	STATEMENT	66
+77	77	stage/sql/end	(stage)	STATEMENT	66
+78	78	stage/sql/query end	(stage)	STATEMENT	66
+79	79	stage/sql/closing tables	(stage)	STATEMENT	66
+80	80	stage/sql/freeing items	(stage)	STATEMENT	66
+81	96	statement/sql/select	select "With a third part to make things complete" as payload	NULL	NULL
+82	85	stage/sql/starting	(stage)	STATEMENT	81
+83	83	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	82
+84	84	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	82
+85	85	wait/io/file/sql/query_log	write	STAGE	82
+86	86	stage/sql/checking permissions	(stage)	STATEMENT	81
+87	87	stage/sql/Opening tables	(stage)	STATEMENT	81
+88	88	stage/sql/init	(stage)	STATEMENT	81
+89	89	stage/sql/optimizing	(stage)	STATEMENT	81
+90	90	stage/sql/executing	(stage)	STATEMENT	81
+91	91	stage/sql/end	(stage)	STATEMENT	81
+92	92	stage/sql/query end	(stage)	STATEMENT	81
+93	93	stage/sql/closing tables	(stage)	STATEMENT	81
+94	94	stage/sql/freeing items	(stage)	STATEMENT	81
+95	96	stage/sql/cleaning up	(stage)	STATEMENT	81
+96	96	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	95
+97	97	idle	idle	NULL	NULL
+98	113	statement/sql/select	select "MARKER_END" as marker	NULL	NULL
+99	102	stage/sql/starting	(stage)	STATEMENT	98
+100	100	wait/synch/mutex/sql/THD::LOCK_thd_data	lock	STAGE	99
+101	101	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	99
+102	102	wait/io/file/sql/query_log	write	STAGE	99
+103	103	stage/sql/checking permissions	(stage)	STATEMENT	98
+104	104	stage/sql/Opening tables	(stage)	STATEMENT	98
+105	105	stage/sql/init	(stage)	STATEMENT	98
+106	106	stage/sql/optimizing	(stage)	STATEMENT	98
+107	107	stage/sql/executing	(stage)	STATEMENT	98
+108	108	stage/sql/end	(stage)	STATEMENT	98
+109	109	stage/sql/query end	(stage)	STATEMENT	98
+110	110	stage/sql/closing tables	(stage)	STATEMENT	98
+111	111	stage/sql/freeing items	(stage)	STATEMENT	98
+112	113	stage/sql/cleaning up	(stage)	STATEMENT	98
+113	113	wait/synch/mutex/sql/THD::LOCK_thd_query	lock	STAGE	112

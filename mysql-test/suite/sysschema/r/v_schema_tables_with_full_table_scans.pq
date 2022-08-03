@@ -1,0 +1,47 @@
+DESC sys.schema_tables_with_full_table_scans;
+Field	Type	Null	Key	Default	Extra
+object_schema	varchar(64)	YES		NULL	
+object_name	varchar(64)	YES		NULL	
+rows_full_scanned	bigint unsigned	NO		NULL	
+latency	varchar(11)	YES		NULL	
+SELECT * FROM sys.schema_tables_with_full_table_scans;
+DESC sys.x$schema_tables_with_full_table_scans;
+Field	Type	Null	Key	Default	Extra
+object_schema	varchar(64)	YES		NULL	
+object_name	varchar(64)	YES		NULL	
+rows_full_scanned	bigint unsigned	NO		NULL	
+latency	bigint unsigned	NO		NULL	
+SELECT * FROM sys.x$schema_tables_with_full_table_scans;
+CREATE TABLE test.t (i BIGINT AUTO_INCREMENT PRIMARY KEY, j BIGINT) ENGINE = innodb;
+INSERT INTO test.t (j) VALUES (1), (2), (3);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+INSERT INTO test.t (j) (SELECT j*2 FROM test.t);
+CALL sys.ps_truncate_all_tables(false);
+summary
+Truncated 49 tables
+SELECT i, j, RAND() FROM test.t WHERE j = 12;
+Timeout in wait_condition.inc for SELECT COUNT_STAR = 768 FROM performance_schema.table_io_waits_summary_by_index_usage WHERE object_schema = 'test' AND object_name = 't' AND index_name IS NULL
+SELECT object_schema, object_name, rows_full_scanned FROM sys.schema_tables_with_full_table_scans;
+object_schema	object_name	rows_full_scanned
+SELECT object_schema, object_name, rows_full_scanned FROM sys.x$schema_tables_with_full_table_scans;
+object_schema	object_name	rows_full_scanned
+SELECT i, j, RAND() FROM test.t WHERE j = 12;
+Timeout in wait_condition.inc for SELECT COUNT_STAR = 1536 FROM performance_schema.table_io_waits_summary_by_index_usage WHERE object_schema = 'test' AND object_name = 't' AND index_name IS NULL
+SELECT object_schema, object_name, rows_full_scanned FROM sys.schema_tables_with_full_table_scans;
+object_schema	object_name	rows_full_scanned
+SELECT object_schema, object_name, rows_full_scanned FROM sys.x$schema_tables_with_full_table_scans;
+object_schema	object_name	rows_full_scanned
+SELECT * FROM test.t WHERE i = 10;
+i	j
+10	4
+SELECT object_schema, object_name, rows_full_scanned FROM sys.schema_tables_with_full_table_scans;
+object_schema	object_name	rows_full_scanned
+SELECT object_schema, object_name, rows_full_scanned FROM sys.x$schema_tables_with_full_table_scans;
+object_schema	object_name	rows_full_scanned
+DROP TABLE test.t;

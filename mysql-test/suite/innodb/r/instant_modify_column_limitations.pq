@@ -1,0 +1,358 @@
+#
+# Scenario 1:
+# Create a small table with row_format compressed and modify instant column should fail
+#
+CREATE TABLE t1 (a INT, b INT) ROW_FORMAT=COMPRESSED;
+INSERT INTO t1 VALUES(1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+ALTER TABLE t1 modify b bigint, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+DROP TABLE t1;
+#
+# Scenario 2:
+# Create a temporary table and adding instant column should fail
+#
+CREATE TEMPORARY TABLE tmp1(a int, b int);
+ALTER TABLE tmp1 modify b int, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY.
+DROP TABLE tmp1;
+#
+# Scenario 3:
+# not support change to a larger length
+#
+CREATE TABLE t1(id int primary key, b int);
+INSERT INTO t1 VALUES(1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+ALTER TABLE t1 modify b smallint, algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+DROP TABLE t1;
+#
+# Scenario 4:
+# not support change to a smaller length
+#
+create table t1 (id int not null auto_increment primary key,
+a binary(10),
+b varbinary(10),
+c binary(10),
+d varbinary(10),
+e bit(10),
+f int,
+g decimal(5,2)) default character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+alter table t1 modify a binary(20), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# not support change to smaller length
+alter table t1 modify a char(20), algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+alter table t1 modify b binary(8), algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# not support change to smaller length
+alter table t1 modify c varbinary(8), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# not support change to smaller length
+alter table t1 modify d varbinary(8), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# not support bit
+alter table t1 modify e binary(20), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# not support decimal
+alter table t1 modify g decimal(10,3), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+drop table t1;
+#
+# Scenario 5:
+# not support change to different types
+#
+create table t1 (id int not null auto_increment primary key,
+a binary(10),
+b varbinary(10),
+c binary(10),
+d varbinary(10),
+e bit(10),
+f int,
+g decimal(5,2)) default character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+# not support binary->varchar
+alter table t1 modify a varchar(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support varbinary->varchar
+alter table t1 modify b varchar(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support binary->char
+alter table t1 modify c char(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support varbinary->char
+alter table t1 modify d char(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+drop table t1;
+create table t1 (id int not null auto_increment primary key,
+a char(10),
+b varchar(10),
+c char(10),
+d varchar(10),
+e bit(10),
+f int,
+g decimal(5,2)) default character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+# not support char->varbinary
+alter table t1 modify a varbinary(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support varchar->varbinary
+alter table t1 modify b varbinary(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support char->binary
+alter table t1 modify c binary(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support varchar->binary
+alter table t1 modify d binary(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support int->char
+alter table t1 modify f char(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support char->int
+alter table t1 modify f char(100), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+drop table t1;
+#
+# Scenario 6:
+# not support change nullable, charset, default
+#
+create table t1 (id int not null auto_increment primary key,
+a binary(10) not null,
+b varbinary(10),
+c char(10) CHARACTER SET utf8,
+d varchar(10) CHARACTER SET latin1,
+e bit(10),
+f int,
+g decimal(5,2)) default character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+# not support change nullable
+alter table t1 modify a binary(100) null, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support change nullable
+alter table t1 modify b binary (100) not null, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support change charset
+alter table t1 modify c char(100) CHARACTER SET latin1, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support change charset
+alter table t1 modify d char(100) CHARACTER SET utf8, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+# not support signed
+alter table t1 modify f bigint unsigned, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+drop table t1;
+#
+# Scenario 6:
+# not support change one column mutiple times
+#
+create table t1 (id int not null auto_increment primary key,
+a binary(10) not null,
+b varbinary(10),
+c char(10) CHARACTER SET utf8,
+d varchar(10) CHARACTER SET latin1,
+e bit(10),
+f int,
+g decimal(5,2)) default character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+# support change first time
+alter table t1 modify a binary(100) not null, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# not support change second time
+alter table t1 modify a binary(200) not null, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+# support change first time
+alter table t1 modify b binary(20), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+2
+# not support change second time
+alter table t1 modify b varbinary(30), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+2
+# support change default
+alter table t1 modify f bigint default 100, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+3
+# support change default
+alter table t1 modify f bigint default 10, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+3
+drop table t1;
+#
+# Scenario 7:
+# not support change indexed columns
+#
+CREATE TABLE t1(a int primary key, b int, c char(10) unique);
+INSERT INTO t1 VALUES(1, 1, 'a'), (2, 2, 'b'), (3, 3, 'c'), (4, 4, 'd'), (5, 5, 'e');
+ALTER TABLE t1 modify b bigint, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+ALTER TABLE t1 modify a bigint, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+ALTER TABLE t1 modify c char(10), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+1
+select * from t1;
+a	b	c
+1	1	a
+2	2	b
+3	3	c
+4	4	d
+5	5	e
+DROP TABLE t1;
+#
+# Scenario 7:
+# only support instant modify column, other the drop, add col, add/drop index
+#
+create table t1 (id int,
+a binary(10),
+b varbinary(10),
+c int);
+insert into t1 values(1, 'a', 'b', 1);
+alter table t1 modify c bigint, add d int, algorithm=instant;
+Got one of the listed errors
+alter table t1 modify c bigint, add d int;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+insert into t1 values(2, null, null, -1, 1);
+select * from t1;
+id	a	b	c	d
+1	a         	b	1	NULL
+2	NULL	NULL	-1	1
+alter table t1 modify a binary(20), drop d, algorithm=instant;
+Got one of the listed errors
+alter table t1 modify a binary(20), drop d;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+alter table t1 modify b binary(20), add index idx(a), algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int DEFAULT NULL,
+  `a` binary(20) DEFAULT NULL,
+  `b` varbinary(10) DEFAULT NULL,
+  `c` bigint DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table t1 add column c1 int, ALGORITHM=INSTANT;
+select count(*) from information_schema.innodb_tables where instant_cols <> 0;
+count(*)
+1
+insert into t1 values(3, null, null, -1, -1);
+alter table t1 modify column c1 bigint, algorithm=instant;
+Got one of the listed errors
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+insert into t1 values(2, null, null, -1, 1);
+select * from t1;
+id	a	b	c	c1
+1	a                   	b	1	NULL
+2	NULL	NULL	-1	1
+2	NULL	NULL	-1	NULL
+3	NULL	NULL	-1	-1
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int DEFAULT NULL,
+  `a` binary(20) DEFAULT NULL,
+  `b` varbinary(10) DEFAULT NULL,
+  `c` bigint DEFAULT NULL,
+  `c1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;

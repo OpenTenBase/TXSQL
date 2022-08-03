@@ -1,0 +1,22 @@
+#
+# Bug50373 --secure-file-priv=""
+#
+CREATE TABLE t1 (c1 VARCHAR(50));
+INSERT INTO t1 VALUES ("one"),("two"),("three"),("four"),("five");
+SHOW VARIABLES LIKE 'secure_file_priv';
+Variable_name	Value
+secure_file_priv	
+c1
+five
+four
+one
+three
+two
+loaded_file
+
+five
+four
+one
+three
+two
+DROP TABLE t1;

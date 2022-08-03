@@ -1,0 +1,156 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+INSTALL PLUGIN repl_speedlimit_master soname 'repl_speedlimit_master.so';
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_master_enabled	OFF
+repl_speedlimit_master_max_token_ratio	150
+repl_speedlimit_master_mode	FIX_BANDWIDTH
+repl_speedlimit_master_run_test	0
+repl_speedlimit_master_slave_bandwidth	10240
+repl_speedlimit_master_test_send_len	100
+repl_speedlimit_master_tick_interval	20
+repl_speedlimit_master_total_bandwidth	51200
+repl_speedlimit_master_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_master_bandwidth	0
+repl_speed_limit_master_bytes_send	0
+repl_speed_limit_master_clients	0
+repl_speed_limit_master_sleep_count	0
+repl_speed_limit_master_sleep_time	0
+SET GLOBAL repl_speedlimit_master_slave_bandwidth=4096;
+SET GLOBAL repl_speedlimit_master_enabled=on;
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_master_enabled	ON
+repl_speedlimit_master_max_token_ratio	150
+repl_speedlimit_master_mode	FIX_BANDWIDTH
+repl_speedlimit_master_run_test	0
+repl_speedlimit_master_slave_bandwidth	4096
+repl_speedlimit_master_test_send_len	100
+repl_speedlimit_master_tick_interval	20
+repl_speedlimit_master_total_bandwidth	51200
+repl_speedlimit_master_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_master_bandwidth	0
+repl_speed_limit_master_bytes_send	0
+repl_speed_limit_master_clients	0
+repl_speed_limit_master_sleep_count	0
+repl_speed_limit_master_sleep_time	0
+INSTALL PLUGIN repl_speedlimit_slave SONAME 'repl_speedlimit_slave.so';
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_slave_enabled	OFF
+repl_speedlimit_slave_max_token_ratio	150
+repl_speedlimit_slave_mode	FIX_BANDWIDTH
+repl_speedlimit_slave_run_test	0
+repl_speedlimit_slave_slave_bandwidth	10240
+repl_speedlimit_slave_test_send_len	100
+repl_speedlimit_slave_tick_interval	20
+repl_speedlimit_slave_total_bandwidth	51200
+repl_speedlimit_slave_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_slave_bandwidth	0
+repl_speed_limit_slave_bytes_received	0
+repl_speed_limit_slave_clients	0
+repl_speed_limit_slave_sleep_count	0
+repl_speed_limit_slave_sleep_time	0
+SET GLOBAL repl_speedlimit_slave_slave_bandwidth=4096;
+SET GLOBAL repl_speedlimit_slave_enabled=on;
+STOP SLAVE IO_THREAD;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+START SLAVE IO_THREAD;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+SELECT SLEEP(1);
+SLEEP(1)
+0
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_slave_enabled	ON
+repl_speedlimit_slave_max_token_ratio	150
+repl_speedlimit_slave_mode	FIX_BANDWIDTH
+repl_speedlimit_slave_run_test	0
+repl_speedlimit_slave_slave_bandwidth	4096
+repl_speedlimit_slave_test_send_len	100
+repl_speedlimit_slave_tick_interval	20
+repl_speedlimit_slave_total_bandwidth	51200
+repl_speedlimit_slave_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_slave_bandwidth	0
+repl_speed_limit_slave_bytes_received	169
+repl_speed_limit_slave_clients	1
+repl_speed_limit_slave_sleep_count	1
+repl_speed_limit_slave_sleep_time	20
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_master_enabled	ON
+repl_speedlimit_master_max_token_ratio	150
+repl_speedlimit_master_mode	FIX_BANDWIDTH
+repl_speedlimit_master_run_test	0
+repl_speedlimit_master_slave_bandwidth	4096
+repl_speedlimit_master_test_send_len	100
+repl_speedlimit_master_tick_interval	20
+repl_speedlimit_master_total_bandwidth	51200
+repl_speedlimit_master_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_master_bandwidth	0
+repl_speed_limit_master_bytes_send	0
+repl_speed_limit_master_clients	1
+repl_speed_limit_master_sleep_count	0
+repl_speed_limit_master_sleep_time	0
+CREATE TABLE t1(id INT);
+INSERT INTO t1 VALUES(1);
+DROP TABLE t1;
+include/rpl_sync.inc
+SELECT SLEEP(1);
+SLEEP(1)
+0
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_slave_enabled	ON
+repl_speedlimit_slave_max_token_ratio	150
+repl_speedlimit_slave_mode	FIX_BANDWIDTH
+repl_speedlimit_slave_run_test	0
+repl_speedlimit_slave_slave_bandwidth	4096
+repl_speedlimit_slave_test_send_len	100
+repl_speedlimit_slave_tick_interval	20
+repl_speedlimit_slave_total_bandwidth	51200
+repl_speedlimit_slave_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_slave_bandwidth	0
+repl_speed_limit_slave_bytes_received	834
+repl_speed_limit_slave_clients	1
+repl_speed_limit_slave_sleep_count	1
+repl_speed_limit_slave_sleep_time	20
+UNINSTALL PLUGIN repl_speedlimit_slave;
+SHOW VARIABLES LIKE 'repl_speed%';
+Variable_name	Value
+repl_speedlimit_master_enabled	ON
+repl_speedlimit_master_max_token_ratio	150
+repl_speedlimit_master_mode	FIX_BANDWIDTH
+repl_speedlimit_master_run_test	0
+repl_speedlimit_master_slave_bandwidth	4096
+repl_speedlimit_master_test_send_len	100
+repl_speedlimit_master_tick_interval	20
+repl_speedlimit_master_total_bandwidth	51200
+repl_speedlimit_master_trace_level	0
+SHOW STATUS LIKE 'repl_speed%';
+Variable_name	Value
+repl_speed_limit_master_bandwidth	0
+repl_speed_limit_master_bytes_send	674
+repl_speed_limit_master_clients	1
+repl_speed_limit_master_sleep_count	1
+repl_speed_limit_master_sleep_time	20
+UNINSTALL PLUGIN repl_speedlimit_master;
+include/rpl_end.inc

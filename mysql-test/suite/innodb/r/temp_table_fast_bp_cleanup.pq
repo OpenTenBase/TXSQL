@@ -1,0 +1,14 @@
+SET GLOBAL DEBUG='+d,temp_tablespace_page_scan_test';
+select * from information_schema.processlist;
+SET GLOBAL DEBUG='-d,temp_tablespace_page_scan_test';
+CREATE TEMPORARY TABLE t1 (a int not null, b char (10) not null);
+insert into t1 values(4,"e"),(5,"f"),(6,"g");
+SET GLOBAL DEBUG='+d,temp_tablespace_page_scan_test';
+SET GLOBAL DEBUG='-d,temp_tablespace_page_scan_test';
+SET @innodb_strict_mode_value = @@global.innodb_strict_mode;
+SET @@global.innodb_strict_mode=OFF;
+CREATE TEMPORARY TABLE t1 (a int not null, b char (10) not null) ROW_FORMAT=COMPRESSED;
+insert into t1 values(4,"e"),(5,"f"),(6,"g");
+SET GLOBAL DEBUG='+d,temp_tablespace_page_scan_test';
+SET GLOBAL DEBUG='-d,temp_tablespace_page_scan_test';
+SET @@global.innodb_strict_mode=@innodb_strict_mode_value;

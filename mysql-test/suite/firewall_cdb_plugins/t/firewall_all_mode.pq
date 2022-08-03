@@ -1,0 +1,80 @@
+create user 'firewalltest'@'localhost';
+grant all on mysql.* to 'firewalltest'@'localhost';
+use test;
+select cdb_normalize_statement("select * from t1") into @whitelist_rule;
+select @whitelist_rule;
+@whitelist_rule
+select * from `test`.`t1`
+insert into mysql.cdb_firewall_whitelist values ('firewalltest@localhost', @whitelist_rule);
+select * from information_schema.cdb_firewall_whitelist;
+userhost	digest
+create table t1(id int);
+create table t2(id int);
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+set global firewall_cdb_mode = ON;
+select load_cdb_firewall_whitelist();
+load_cdb_firewall_whitelist()
+load cdb firewall whitelist
+select * from t1;
+id
+select * from t2;
+ERROR HY000: SQL rejected by CDB_FIREWALL
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'RECORDING');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+call mysql.sp_set_cdb_firewall_mode('root', 'localhost', 'PROTECT');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+select 1;
+1
+1
+use test;
+select * from t1;
+id
+select * from t2;
+id
+insert into t1 values(1);
+use information_schema;
+select * from cdb_firewall_whitelist;
+userhost	digest
+firewalltest@localhost	insert into `test`.`t1` values (?)
+firewalltest@localhost	select 
+firewalltest@localhost	select * from `information_schema`.`CDB_FIREWALL_WHITELIST` `cdb_firewall_whitelist`
+firewalltest@localhost	select * from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t2`
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+use test;
+select * from t1;
+id
+1
+select * from t2;
+id
+insert into t1 values(1);
+insert into t2 values(1);
+ERROR HY000: SQL rejected by CDB_FIREWALL
+use information_schema;
+select * from cdb_firewall_whitelist;
+userhost	digest
+firewalltest@localhost	insert into `test`.`t1` values (?)
+firewalltest@localhost	select 
+firewalltest@localhost	select * from `information_schema`.`CDB_FIREWALL_WHITELIST` `cdb_firewall_whitelist`
+firewalltest@localhost	select * from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t2`
+call mtr.add_suppression('Rejected by cdb firewall');
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'DETECT');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+select * from test.t1;
+id
+1
+1
+insert into test.t2 values(1);
+drop table t1;
+drop table t2;
+drop user 'firewalltest'@'localhost';
+flush_cdb_firewall_whitelist()
+flush cdb firewall whitelist

@@ -1,0 +1,43 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/sync_slave_sql_with_master.inc
+stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+SET @@debug="d,simulate_find_log_pos_error";
+reset slave;
+ERROR HY000: Target log not found in binlog index
+show warnings;
+Level	Code	Message
+Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
+Error	1373	Target log not found in binlog index
+Error	1371	Failed purging old relay logs: Failed during log reset
+SET @@debug="";
+reset slave;
+Warnings:
+Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
+change master to master_host='dummy';
+SET @@debug="d,simulate_find_log_pos_error";
+change master to master_host='dummy';
+ERROR HY000: Target log not found in binlog index
+SET @@debug="";
+reset slave;
+Warnings:
+Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
+change master to master_host='dummy';
+SET @@debug="d,simulate_find_log_pos_error";
+reset master;
+ERROR HY000: Target log not found in binlog index
+SET @@debug="";
+reset master;
+SET @@debug="d,simulate_find_log_pos_error";
+purge binary logs to 'master-bin.000001';
+ERROR HY000: Target log not found in binlog index
+SET @@debug="";
+purge binary logs to 'master-bin.000001';
+==== clean up ====
+CHANGE MASTER TO MASTER_HOST = '127.0.0.1';
+include/rpl_end.inc

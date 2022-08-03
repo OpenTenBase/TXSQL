@@ -1,0 +1,127 @@
+#
+# Bug#20977779 CANNOT IMPORT TABLES CONTAINING PREFIX INDEXES
+#
+CREATE TABLE t1 (c1 VARCHAR(32), c2 VARCHAR(32), c3 VARCHAR(32),
+PRIMARY KEY (c1, c2, c3))
+ENGINE=InnoDB;
+ALTER TABLE t1 ADD INDEX ind1(c1(5), c2, c3);
+ALTER TABLE t1 ADD INDEX ind2(c3, c1(10), c2);
+ALTER TABLE t1 ADD INDEX ind3(c2, c3, c1(20));
+INSERT INTO t1 VALUES ('Test Data -1', 'Test Data -2', 'Test Data -3');
+# Test with 2ndary index having prefix
+FLUSH TABLES test.t1 FOR EXPORT;
+UNLOCK TABLES;
+ALTER TABLE test.t1 DISCARD TABLESPACE;
+ALTER TABLE test.t1 IMPORT TABLESPACE;
+CHECK TABLE test.t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE test.t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` varchar(32) NOT NULL,
+  `c2` varchar(32) NOT NULL,
+  `c3` varchar(32) NOT NULL,
+  PRIMARY KEY (`c1`,`c2`,`c3`),
+  KEY `ind1` (`c1`(5),`c2`,`c3`),
+  KEY `ind2` (`c3`,`c1`(10),`c2`),
+  KEY `ind3` (`c2`,`c3`,`c1`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM test.t1;
+c1	c2	c3
+Test Data -1	Test Data -2	Test Data -3
+# Test with PK & 2ndary index with prefix
+ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(c1(5), c2(10), c3(20));
+FLUSH TABLES test.t1 FOR EXPORT;
+UNLOCK TABLES;
+ALTER TABLE test.t1 DISCARD TABLESPACE;
+ALTER TABLE test.t1 IMPORT TABLESPACE;
+CHECK TABLE test.t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE test.t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` varchar(32) NOT NULL,
+  `c2` varchar(32) NOT NULL,
+  `c3` varchar(32) NOT NULL,
+  PRIMARY KEY (`c1`(5),`c2`(10),`c3`(20)),
+  KEY `ind1` (`c1`(5),`c2`,`c3`),
+  KEY `ind2` (`c3`,`c1`(10),`c2`),
+  KEY `ind3` (`c2`,`c3`,`c1`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM test.t1;
+c1	c2	c3
+Test Data -1	Test Data -2	Test Data -3
+DROP TABLE t1;
+#
+# Bug#30561144 IMPORT TABLESPACE FAILS: ERROR 1808 (HY000): SCHEMA MISMATCH
+#
+CREATE TABLE t1(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY);
+ALTER TABLE t1 ADD COLUMN v VARCHAR(255) DEFAULT "default_value", ALGORITHM=INSTANT;
+# Insert some data into t1
+SELECT * from t1 limit 10;
+id	v
+1	aaaaaaaaaaaaa
+10	aaaaaaaaaaaaa
+2	aaaaaaaaaaaaa
+3	aaaaaaaaaaaaa
+4	aaaaaaaaaaaaa
+5	aaaaaaaaaaaaa
+6	aaaaaaaaaaaaa
+7	aaaaaaaaaaaaa
+8	aaaaaaaaaaaaa
+9	aaaaaaaaaaaaa
+SELECT COUNT(*) from t1;
+COUNT(*)
+1000
+# Flush the table and store CFG/IBD files to temp
+FLUSH TABLE t1 FOR EXPORT;
+UNLOCK TABLES;
+#
+# 1) Both tables contain INSTANT column, with matching default values.
+#
+CREATE TABLE t2(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY);
+ALTER TABLE t2 ADD COLUMN v VARCHAR(255) DEFAULT "default_value";
+ALTER TABLE t2 DISCARD TABLESPACE;
+# Copy CFG/IBD file from temp
+# IMPORT should succeed now
+ALTER TABLE t2 IMPORT TABLESPACE;
+SELECT * from t2 limit 10;
+id	v
+1	aaaaaaaaaaaaa
+10	aaaaaaaaaaaaa
+2	aaaaaaaaaaaaa
+3	aaaaaaaaaaaaa
+4	aaaaaaaaaaaaa
+5	aaaaaaaaaaaaa
+6	aaaaaaaaaaaaa
+7	aaaaaaaaaaaaa
+8	aaaaaaaaaaaaa
+9	aaaaaaaaaaaaa
+DROP TABLE t2;
+#
+# 2) Both tables contain INSTANT column, with conflicting default values.
+#
+CREATE TABLE t2(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY);
+ALTER TABLE t2 ADD COLUMN v VARCHAR(255) DEFAULT "different_value";
+ALTER TABLE t2 DISCARD TABLESPACE;
+# Copy CFG/IBD file from temp
+# IMPORT should fail because of the conflicting values
+ALTER TABLE t2 IMPORT TABLESPACE;
+ERROR HY000: Schema mismatch (The metadata in the data dictionary and the .cfg file contain different default values for column v!)
+# Manually remove tablespace files, since import failed drop won't delete them.
+# Cleanup
+DROP TABLE t2;
+DROP TABLE t1;
+#
+# Bug #30830441 ALTER TABLE IMPORT TABLESPACE FAILS AFTER A SERVER RESTART
+#
+CREATE TABLE t1 ( id int );
+INSERT INTO t1 values (1),(2),(3);
+FLUSH TABLES t1 FOR EXPORT;
+UNLOCK TABLES;
+# restart
+ALTER TABLE t1 DISCARD TABLESPACE;
+ALTER TABLE t1 IMPORT TABLESPACE;
+DROP TABLE t1;

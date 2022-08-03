@@ -1,0 +1,28 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Slave SQL for channel '': Request to stop slave SQL Thread received while applying a group that has non-transactional changes; waiting for completion of the group");
+include/sync_slave_sql_with_master.inc
+stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+create table t1 (a int) engine=innodb;
+reset slave;
+Warnings:
+Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
+start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+select max(a) from t1;
+max(a)
+loop_max
+drop table t1;
+include/rpl_end.inc

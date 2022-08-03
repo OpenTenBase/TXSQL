@@ -1,0 +1,48 @@
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+root@localhost
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+####Parallel scan with ICP test
+CREATE TABLE t0 (a int) ENGINE=InnoDB;
+INSERT INTO t0 VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE t1(a int) ENGINE=InnoDB;
+INSERT INTO t1 SELECT A.a + B.a* 10 + C.a * 100 FROM t0 A, t0 B, t0 C;
+CREATE TABLE t2 (
+pk int primary key,
+kp1 int,
+kp2 int,
+col1 int,
+key (kp1,kp2)
+) ENGINE=InnoDB;
+INSERT INTO t2 SELECT a,a,a,a FROM t1;
+ANALYZE TABLE t0,t1,t2;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+# --include save_and_set_px.inc
+# Try a basic case:
+EXPLAIN FORMAT=TREE SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel index range scan on t2 using kp1, with index condition: ((t2.kp1 between 1 and 10) and ((t2.kp2 % 2) = 0))  (cost=4.76 rows=10)
+
+SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+pk	kp1	kp2	col1
+10	10	10	10
+2	2	2	2
+4	4	4	4
+6	6	6	6
+8	8	8	8
+# --include set_px_to_saved.inc
+drop table t0,t1,t2;
+drop database test1;
+drop user user1;

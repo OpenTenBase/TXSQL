@@ -1,0 +1,42 @@
+# Infrastructure for Enhanced Prepare once
+show grants;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+select user();
+user()
+root@localhost
+create database test1;
+create user 'user1'@'%';
+grant all on *.* to 'user1'@'%';
+# --include save_and_set_px.inc
+# Join on two integer columns.
+CREATE TABLE t1 (col1 INTEGER);
+CREATE TABLE t2 (col1 INTEGER);
+INSERT INTO t1 VALUES (1), (3), (5), (7);
+INSERT INTO t2 VALUES (1), (2), (5), (6);
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+EXPLAIN FORMAT=tree
+SELECT t1.col1, t2.col1 FROM t1 JOIN t2 ON t1.col1 = t2.col1 ORDER BY t1.col1;
+EXPLAIN
+-> Sort: t1.col1
+    -> Stream results  (cost=2.50 rows=4)
+        -> Inner hash join (t2.col1 = t1.col1)  (cost=2.50 rows=4)
+            -> Table scan on t2  (cost=0.09 rows=4)
+            -> Hash
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
+                        -> Parallel table scan on t1  (cost=0.65 rows=4)
+
+SELECT t1.col1, t2.col1 FROM t1 JOIN t2 ON t1.col1 = t2.col1 ORDER BY t1.col1;
+col1	col1
+1	1
+5	5
+DROP TABLE t1, t2;
+# --include set_px_to_saved.inc
+drop database test1;
+drop user user1;
