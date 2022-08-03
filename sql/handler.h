@@ -3919,11 +3919,11 @@ class ha_statistics {
         block_size(0),
         table_in_mem_estimate(IN_MEMORY_ESTIMATE_UNKNOWN) {}
 
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
   void copy_from(const ha_statistics *other) {
     memcpy(this, other, sizeof(ha_statistics));
   }
-#endif /* defined(HAVE_PX) */
+#endif
 };
 
 /**

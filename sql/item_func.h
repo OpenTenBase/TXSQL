@@ -3223,7 +3223,7 @@ class user_var_entry {
   bool store(const void *ptr, size_t length, Item_result type,
              const CHARSET_INFO *cs, Derivation dv, bool unsigned_arg);
 
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
   /**
     Copy value to user variable.
 
@@ -3237,7 +3237,7 @@ class user_var_entry {
       true    failure
    */
   bool store(const user_var_entry *from);
-#endif /* defined(HAVE_PX) */
+#endif
 
   /**
     Set type of to the given value.
@@ -4170,9 +4170,8 @@ public:
 };
 
 /* Changes from TXSQL end. */
-
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 user_var_entry *get_variable(THD *thd, const Name_string &name,
                              const CHARSET_INFO *cs);
-#endif /* defined(HAVE_PX) */
+#endif
 #endif /* ITEM_FUNC_INCLUDED */

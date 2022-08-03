@@ -505,6 +505,10 @@ struct System_variables {
   bool log_profile_in_slow_log;
   uint txsql_extend_slow_log_level;
   ulonglong log_slow_verbosity;
+#if defined(HAVE_OPT_CTX)
+  /// @sa Sys_txsql_optimizer_context_max_mem_size
+  ulong txsql_optimizer_context_max_mem_size;
+#endif
 
 #if defined(HAVE_PX)
   /// @sa Sys_txsql_parallel_degree
@@ -519,8 +523,6 @@ struct System_variables {
   bool txsql_parallel_fallback_in_execution;
   /// @sa Sys_txsql_parallel_execution_enabled
   bool txsql_parallel_execution_enabled;
-  /// @sa Sys_txsql_optimizer_context_max_mem_size
-  ulong txsql_optimizer_context_max_mem_size;
   /// @sa Sys_txsql_parallel_execution_max_lob_size
   ulong txsql_parallel_execution_max_lob_size;
   /// @sa Sys_txsql_parallel_lob_enabled

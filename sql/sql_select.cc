@@ -926,9 +926,15 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   if (OPT_CTX_ENABLED(thd)) {
     opt_ctx_scope.end();
     if (OPT_CTX(thd).validate()) return true;
+#if defined(HAVE_PX)
     if (PX_ROLE_WORKER(thd) && px_validate(thd)) return true;
+#endif /* defined(HAVE_PX) */
 
-    if (unlikely(thd->opt_trace.is_started()) && PX_ROLE_USER(thd)) {
+    if (
+#if defined(HAVE_PX)
+        PX_ROLE_USER(thd) &&
+#endif /* defined(HAVE_PX) */
+        unlikely(thd->opt_trace.is_started())) {
       OPT_CTX(thd).trace_stats();
     }
   }

@@ -166,13 +166,16 @@ class sp_cache;
 struct Binlog_user_var_event;
 struct LOG_INFO;
 
+#if defined(HAVE_OPT_CTX)
+class Opt_ctx_client;
+#endif
+
 #if defined(HAVE_PX)
 struct worker_thread_arg;
 class RowIterator;
 struct worker_pool_t;
 class PX_exchange_info;
 class PX_exchange_context;
-class Opt_ctx_client;
 class PX_executor;
 class PX_coordinator;
 class PX_sender;

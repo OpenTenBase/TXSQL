@@ -343,6 +343,12 @@ SET(SQL_GIS_SOURCES
   options_parser.cc
 )
 
+IF(HAVE_OPT_CTX)
+  SET(SQL_OPT_SOURCES
+    parallel_execution/px_optimizer_context.cc
+  )
+ENDIF()
+
 IF(HAVE_PX)
 SET(SQL_PX_SOURCES
   parallel_execution/px.cc
@@ -359,7 +365,6 @@ SET(SQL_PX_SOURCES
   parallel_execution/px_workerpool.cc
   parallel_execution/my_thread_barrier.cc
   parallel_execution/px_optimizer.cc
-  parallel_execution/px_optimizer_context.cc
   parallel_execution/px_codec.cc
   parallel_execution/px_resource_mgr.cc
   parallel_execution/px_explain.cc
@@ -802,6 +807,7 @@ SET(SQL_SOURCE
   ${GEN_DIGEST_SOURCES}
   ${GEN_KEYWORD_LIST_SOURCES}
   ${CONF_SOURCES}
+  ${SQL_OPT_SOURCES}
   ${SQL_PX_SOURCES}
   ${SQL_SHARED_SOURCES}
   ${SQL_HEADERS}
