@@ -74,7 +74,7 @@ EXPLAIN
             -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select * from t1 order by col2;
-ERROR HY000: PX execute error of errno[8020].
+ERROR HY000: PX execute error of errno[8500].
 set session debug="-d,px_decode_error";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 EXPLAIN
