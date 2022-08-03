@@ -43,14 +43,6 @@ select * from t2 having col1 > 2 and col1 < 4;
 id	col1	col2
 7	3	7
 #
-# Table scan -> exchange -> limit
-#
-select * from t2 limit 3;
-id	col1	col2
-1	9	1
-2	8	2
-3	7	3
-#
 # Sort -> exchange
 #
 select * from t2 order by col1;
@@ -182,9 +174,9 @@ sum(t1.col1)	sum(t2.col1)
 8	2
 9	1
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
-group by t1.col2 having sum(t1.col1)>1 limit 1;
+group by t1.col2 having sum(t1.col1)>1 order by t1.col2 limit 1;
 sum(t1.col1)	sum(t2.col1)
-4	6
+2	8
 #
 # join -> exchange -> Aggregate -> exchange
 #
@@ -4209,16 +4201,16 @@ id
 select found_rows();
 found_rows()
 4
-Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 select * from t1 order by id limit 1;
 id
 1
 select found_rows();
 found_rows()
 1
-Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
 id
 1
@@ -4228,12 +4220,11 @@ Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future r
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 select found_rows();
 found_rows()
 4
-Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 drop table t1;
 #
 # Special ref slice for Aggregate

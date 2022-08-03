@@ -39,19 +39,18 @@ set txsql_parallel_table_record_threshold = 2;
 --echo #
 --echo # Table scan -> exchange
 --echo #
+--sorted_result
 select * from t2;
+--sorted_result
 select col1+1 from t1;
 
 --echo #
 --echo # Table scan -> filter -> exchange
 --echo #
+--sorted_result
 select * from t2 where col1 > 2;
+--sorted_result
 select * from t2 having col1 > 2 and col1 < 4;
-
---echo #
---echo # Table scan -> exchange -> limit
---echo #
-select * from t2 limit 3;
 
 --echo #
 --echo # Sort -> exchange
@@ -62,6 +61,7 @@ select * from t2 order by col1 desc;
 --echo #
 --echo # Nested loop join -> exchange
 --echo #
+--sorted_result
 select * from t1 join t2 on t1.id=t2.id;
 
 --echo #
@@ -84,6 +84,7 @@ select * from t1 join t2 on t1.id=t2.id order by t1.col1, t2.col1;
 --echo #
 --echo # Table scan -> join -> exchange -> TemptableAggregate -> exchange
 --echo #
+--sorted_result
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
   group by t1.col2;
 
@@ -96,10 +97,11 @@ select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
 --echo #
 --echo # join -> exchange -> TemptableAggregate -> exchange -> filter -> exchange
 --echo #
+--sorted_result
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
   group by t1.col2 having sum(t1.col1)>1;
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
-  group by t1.col2 having sum(t1.col1)>1 limit 1;
+  group by t1.col2 having sum(t1.col1)>1 order by t1.col2 limit 1;
 
 --echo #
 --echo # join -> exchange -> Aggregate -> exchange
@@ -110,22 +112,26 @@ select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id;
 --echo # TemptableAggregate -> exchange -> filter -> exchange
 --echo #   item->arg[0]->const_item() == true
 --echo #
+--sorted_result
 select count(*) from t1 group by col1 having count(*) > 0;
 
 --echo #
 --echo # Aggregate with group by
 --echo #
+--sorted_result
 select col2 from t1 group by col2;
 
 --echo #
 --echo # Aggregate\TemptableAggregate with function
 --echo #
 select count(*),repeat("a",count(*)) from t1;
+--sorted_result
 select col1,repeat("a",col1),count(*) from t1 group by col1;
 
 --echo #
 --echo # filter -> exchange -> Aggregate
 --echo #
+--sorted_result
 select col1,count(*) from t1 where col1 > 5 group by col1;
 
 drop table t1, t2;
@@ -145,6 +151,7 @@ INSERT INTO t1 VALUES (4, 40), (1, 10), (2, 20), (2, 20), (3, 30);
 
 CREATE TABLE t2 SELECT DISTINCT a FROM t1;
 
+--sorted_result
 SELECT (SELECT t2.a FROM t2 WHERE t2.a = t1.a) aa, b, COUNT(         b)
   FROM t1 GROUP BY aa, b;
 
@@ -171,9 +178,11 @@ create table t2 (
 );
 INSERT INTO t1 VALUES (346,098005,58,'hopelessness'),(350,098009,58,'imaginable'),(1160,158402,00,'spates');
 INSERT INTO t2 VALUES ("spates"), ("spates"), ("spates"), ("spates"),("spates"), ("spates"), ("spates"), ("spates");
+--sorted_result
 select t1.fld3 from t1 where companynr = 58 and fld3 like "%imaginable%";
 
 --echo # t1.fld3 would be a const item.
+--sorted_result
 select t1.fld3,count(*) from t1,t2 where t1.fld1=158402 and t2.name=t1.fld3 group by t2.name;
 
 drop table t1,t2;
@@ -222,6 +231,7 @@ ALTER TABLE t1 ADD PRIMARY KEY (a);
 --echo # Locking row with a=2
 connect (con1,localhost,test,,test);
 BEGIN;
+--sorted_result
 SELECT * FROM t1 WHERE a=2 FOR UPDATE ;
 
 connect (con2,localhost,test2,,test);
@@ -273,6 +283,7 @@ analyze table t1,t2,t3;
 --echo #
 --echo # Sort under join
 --echo # join -> px_merge_sort -> px_send -> sort -> scan
+--sorted_result
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1;
 explain format=tree select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
 select * from t2 join t1 on t2.a = t1.a where t2.a > 1 order by t1.a;
@@ -338,14 +349,18 @@ analyze table t1;
 --echo # merge sort must be used to ensure that the input of the final agg is in order.
 --echo #
 explain format=tree select a, sum(b) from t1 group by a;
+--sorted_result
 select a, sum(b) from t1 group by a;
 explain format=tree select a, b, sum(c) from t1 group by a, b;
+--sorted_result
 select a, b, sum(c) from t1 group by a, b;
 explain format=tree select a, b, sum(c) from t1 group by a, b order by a, b;
 select a, b, sum(c) from t1 group by a, b order by a, b;
 explain format=tree select distinct a from t1 where b>2;
+--sorted_result
 select distinct a from t1 where b>2;
 explain format=tree select distinct a, b from t1 where c>2;
+--sorted_result
 select distinct a, b from t1 where c>2;
 --echo # order by key
 explain format=tree select a from t1 order by a;
@@ -1638,6 +1653,7 @@ drop table t2,t3;
 create table t1 (id int);
 insert into t1 values (1),(2),(3),(4);
 analyze table t1;
+--sorted_result
 select * from t1;
 select found_rows();
 select * from t1 order by id limit 1;
@@ -1656,8 +1672,10 @@ INSERT INTO t2 VALUES (1,1),(2,2),(3,3);
 ANALYZE TABLE t1,t2;
 
 EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
+--sorted_result
 SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
 EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
+--sorted_result
 SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
 
 DROP TABLE t1,t2;

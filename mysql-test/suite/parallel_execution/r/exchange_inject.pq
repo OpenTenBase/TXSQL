@@ -43,14 +43,6 @@ select * from t2 having col1 > 2 and col1 < 4;
 id	col1	col2
 7	3	7
 #
-# Table scan -> exchange -> limit
-#
-select * from t2 limit 3;
-id	col1	col2
-1	9	1
-2	8	2
-3	7	3
-#
 # Sort -> exchange
 #
 select * from t2 order by col1;
@@ -182,9 +174,9 @@ sum(t1.col1)	sum(t2.col1)
 8	2
 9	1
 select sum(t1.col1),sum(t2.col1) from t1 join t2 on t1.id=t2.id
-group by t1.col2 having sum(t1.col1)>1 limit 1;
+group by t1.col2 having sum(t1.col1)>1 order by t1.col2 limit 1;
 sum(t1.col1)	sum(t2.col1)
-5	5
+2	8
 #
 # join -> exchange -> Aggregate -> exchange
 #
