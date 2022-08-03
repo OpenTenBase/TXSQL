@@ -1815,6 +1815,8 @@ WHERE aggr_col OR group_by_col GROUP BY group_by_col;
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
                                 FROM INFORMATION_SCHEMA.OPTIMIZER_TRACE;
 
+ANALYZE TABLE a;
+
 --echo # Scenario 9
 SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col AND group_by_col GROUP BY group_by_col;

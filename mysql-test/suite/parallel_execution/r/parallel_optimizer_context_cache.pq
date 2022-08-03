@@ -86,14 +86,14 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
           {
             "table_dependencies": [
               {
-                "table": "`t1`",
+                "table=***
                 "row_may_be_null": false,
                 "map_bit": 0,
                 "depends_on_map_bits": [
                 ]
               },
               {
-                "table": "`t2`",
+                "table=***
                 "row_may_be_null": true,
                 "map_bit": 1,
                 "depends_on_map_bits": [
@@ -105,13 +105,13 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
           {
             "ref_optimizer_key_uses": [
               {
-                "table": "`t1`",
+                "table=***
                 "field": "f1",
                 "equals": "'bla'",
                 "null_rejecting": true
               },
               {
-                "table": "`t2`",
+                "table=***
                 "field": "f1",
                 "equals": "'bla'",
                 "null_rejecting": true
@@ -121,16 +121,16 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
           {
             "rows_estimation": [
               {
-                "table": "`t1`",
+                "table=***
                 "rows": 1,
-                "cost": 1,
+                "cost=***
                 "table_type": "const",
                 "empty": false
               },
               {
-                "table": "`t2`",
+                "table=***
                 "rows": 1,
-                "cost": 1,
+                "cost=***
                 "table_type": "const",
                 "empty": false
               }
@@ -160,7 +160,7 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
       "optimizer_statistics": [
         {
           "db": "test",
-          "table": "t1",
+          "table=***
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -182,7 +182,7 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
         },
         {
           "db": "test",
-          "table": "t2",
+          "table=***
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -299,7 +299,7 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
           {
             "table_dependencies": [
               {
-                "table": "`t2`",
+                "table=***
                 "row_may_be_null": false,
                 "map_bit": 0,
                 "depends_on_map_bits": [
@@ -314,10 +314,10 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
           {
             "rows_estimation": [
               {
-                "table": "`t2`",
+                "table=***
                 "table_scan": {
                   "rows": 9,
-                  "cost": 0.25
+                  "cost=***
                 }
               }
             ]
@@ -327,24 +327,24 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
               {
                 "plan_prefix": [
                 ],
-                "table": "`t2`",
+                "table=***
                 "best_access_path": {
                   "considered_access_paths": [
                     {
                       "rows_to_scan": 9,
                       "access_type": "scan",
                       "resulting_rows": 9,
-                      "cost": 1.15,
+                      "cost=***
                       "chosen": true,
-                      "use_tmp_table": true
+                      "use_tmp_table=***
                     }
                   ]
                 },
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 9,
-                "cost_for_plan": 1.15,
-                "sort_cost": 9,
-                "new_cost_for_plan": 10.15,
+                "cost=***
+                "sort_cost=***
+                "new_cost=***
                 "chosen": true
               }
             ]
@@ -356,7 +356,7 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
               ],
               "attached_conditions_summary": [
                 {
-                  "table": "`t2`",
+                  "table=***
                   "attached": "(`t2`.`companynr` = (57 + 1))"
                 }
               ]
@@ -382,7 +382,7 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
               "steps": [
               ],
               "index_order_summary": {
-                "table": "`t2`",
+                "table=***
                 "index_provides_order": false,
                 "order_direction": "undefined",
                 "index": "unknown",
@@ -393,7 +393,7 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
           {
             "finalizing_table_conditions": [
               {
-                "table": "`t2`",
+                "table=***
                 "original_table_condition": "(`t2`.`companynr` = (57 + 1))",
                 "final_table_condition   ": "(`t2`.`companynr` = <cache>((57 + 1)))"
               }
@@ -402,14 +402,14 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
           {
             "refine_plan": [
               {
-                "table": "`t2`"
+                "table=***
               }
             ]
           },
           {
             "considering_tmp_tables": [
               {
-                "adding_sort_to_table": "t2"
+                "adding_sort_to_table=***
               }
             ]
           }
@@ -420,7 +420,7 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3	{
       "optimizer_statistics": [
         {
           "db": "test",
-          "table": "t2",
+          "table=***
           "table_statistics": {
             "data_file_length": 16384,
             "delete_length": 0,
@@ -523,7 +523,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
           {
             "table_dependencies": [
               {
-                "table": "`t3`",
+                "table=***
                 "row_may_be_null": false,
                 "map_bit": 0,
                 "depends_on_map_bits": [
@@ -538,11 +538,11 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
           {
             "rows_estimation": [
               {
-                "table": "`t3`",
+                "table=***
                 "range_analysis": {
                   "table_scan": {
                     "rows": 41736,
-                    "cost": 4464.7
+                    "cost=***
                   },
                   "potential_range_indexes": [
                     {
@@ -586,7 +586,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
                         "using_mrr": false,
                         "index_only": false,
                         "rows": 20868,
-                        "cost": 22955.8,
+                        "cost=***
                         "chosen": false,
                         "cause": "cost"
                       }
@@ -605,24 +605,24 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
               {
                 "plan_prefix": [
                 ],
-                "table": "`t3`",
+                "table=***
                 "best_access_path": {
                   "considered_access_paths": [
                     {
                       "rows_to_scan": 41736,
                       "access_type": "scan",
                       "resulting_rows": 41736,
-                      "cost": 4462.6,
+                      "cost=***
                       "chosen": true,
-                      "use_tmp_table": true
+                      "use_tmp_table=***
                     }
                   ]
                 },
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 41736,
-                "cost_for_plan": 4462.6,
-                "sort_cost": 41736,
-                "new_cost_for_plan": 46198.6,
+                "cost=***
+                "sort_cost=***
+                "new_cost=***
                 "chosen": true
               }
             ]
@@ -634,7 +634,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
               ],
               "attached_conditions_summary": [
                 {
-                  "table": "`t3`",
+                  "table=***
                   "attached": "((`t3`.`name` >= 'extramarital') and (`t3`.`price` <= 39654943))"
                 }
               ]
@@ -660,12 +660,12 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
               "steps": [
                 {
                   "rows_estimation": {
-                    "table": "`t3`",
+                    "table=***
                     "index": "name",
                     "range_analysis": {
                       "table_scan": {
                         "rows": 41736,
-                        "cost": 4464.7
+                        "cost=***
                       },
                       "potential_range_indexes": [
                         {
@@ -709,7 +709,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
                             "using_mrr": false,
                             "index_only": false,
                             "rows": 20868,
-                            "cost": 22955.8,
+                            "cost=***
                             "chosen": false,
                             "cause": "cost"
                           }
@@ -724,7 +724,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
                 }
               ],
               "index_order_summary": {
-                "table": "`t3`",
+                "table=***
                 "index_provides_order": true,
                 "order_direction": "asc",
                 "index": "name",
@@ -736,7 +736,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
           {
             "finalizing_table_conditions": [
               {
-                "table": "`t3`",
+                "table=***
                 "original_table_condition": "((`t3`.`name` >= 'extramarital') and (`t3`.`price` <= 39654943))",
                 "final_table_condition   ": "((`t3`.`name` >= 'extramarital') and (`t3`.`price` <= 39654943))"
               }
@@ -745,7 +745,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
           {
             "refine_plan": [
               {
-                "table": "`t3`"
+                "table=***
               }
             ]
           },
@@ -760,7 +760,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
       "optimizer_statistics": [
         {
           "db": "test",
-          "table": "t3",
+          "table=***
           "table_statistics": {
             "data_file_length": 4734976,
             "delete_length": 0,
@@ -818,367 +818,6 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
 select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 group by t3.name;
 fld3	count(*)
 spates	4181
-SELECT * FROM information_schema.optimizer_trace;
-QUERY	TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	INSUFFICIENT_PRIVILEGES
-select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 group by t3.name	{
-  "steps": [
-    {
-      "join_preparation": {
-        "select#": 1,
-        "steps": [
-          {
-            "expanded_query": "/* select#1 */ select `t2`.`fld3` AS `fld3`,count(0) AS `count(*)` from `t2` join `t3` where ((`t2`.`fld1` = 158402) and (`t3`.`name` = `t2`.`fld3`)) group by `t3`.`name`"
-          },
-          {
-            "functional_dependencies_of_GROUP_columns": {
-              "columns": [
-                "test.t3.name",
-                "test.t2.fld1",
-                "test.t2.fld3"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "join_optimization": {
-        "select#": 1,
-        "steps": [
-          {
-            "condition_processing": {
-              "condition": "WHERE",
-              "original_condition": "((`t2`.`fld1` = 158402) and (`t3`.`name` = `t2`.`fld3`))",
-              "steps": [
-                {
-                  "transformation": "equality_propagation",
-                  "resulting_condition": "((`t3`.`name` = `t2`.`fld3`) and multiple equal(158402, `t2`.`fld1`))"
-                },
-                {
-                  "transformation": "constant_propagation",
-                  "resulting_condition": "((`t3`.`name` = `t2`.`fld3`) and multiple equal(158402, `t2`.`fld1`))"
-                },
-                {
-                  "transformation": "trivial_condition_removal",
-                  "resulting_condition": "((`t3`.`name` = `t2`.`fld3`) and multiple equal(158402, `t2`.`fld1`))"
-                }
-              ]
-            }
-          },
-          {
-            "substitute_generated_columns": {
-            }
-          },
-          {
-            "table_dependencies": [
-              {
-                "table": "`t2`",
-                "row_may_be_null": false,
-                "map_bit": 0,
-                "depends_on_map_bits": [
-                ]
-              },
-              {
-                "table": "`t3`",
-                "row_may_be_null": false,
-                "map_bit": 1,
-                "depends_on_map_bits": [
-                ]
-              }
-            ]
-          },
-          {
-            "ref_optimizer_key_uses": [
-              {
-                "table": "`t2`",
-                "field": "fld1",
-                "equals": "158402",
-                "null_rejecting": true
-              },
-              {
-                "table": "`t2`",
-                "field": "fld3",
-                "equals": "`t3`.`name`",
-                "null_rejecting": true
-              },
-              {
-                "table": "`t3`",
-                "field": "name",
-                "equals": "`t2`.`fld3`",
-                "null_rejecting": true
-              }
-            ]
-          },
-          {
-            "rows_estimation": [
-              {
-                "table": "`t2`",
-                "rows": 1,
-                "cost": 1,
-                "table_type": "const",
-                "empty": false
-              },
-              {
-                "table": "`t3`",
-                "range_analysis": {
-                  "table_scan": {
-                    "rows": 41736,
-                    "cost": 4463.72
-                  },
-                  "potential_range_indexes": [
-                    {
-                      "index": "PRIMARY",
-                      "usable": false,
-                      "cause": "not_applicable"
-                    },
-                    {
-                      "index": "period",
-                      "usable": false,
-                      "cause": "not_applicable"
-                    },
-                    {
-                      "index": "name",
-                      "usable": true,
-                      "key_parts": [
-                        "name",
-                        "t2nr"
-                      ]
-                    }
-                  ],
-                  "best_covering_index_scan": {
-                    "index": "name",
-                    "cost": 4837.06,
-                    "chosen": false,
-                    "cause": "cost"
-                  },
-                  "setup_range_conditions": [
-                  ],
-                  "group_index_range": {
-                    "chosen": false,
-                    "cause": "not_single_table"
-                  },
-                  "skip_scan_range": {
-                    "chosen": false,
-                    "cause": "not_single_table"
-                  },
-                  "analyzing_range_alternatives": {
-                    "range_scan_alternatives": [
-                      {
-                        "index": "name",
-                        "ranges": [
-                          "spates <= name <= spates"
-                        ],
-                        "index_dives_for_eq_ranges": true,
-                        "rowid_ordered": true,
-                        "using_mrr": false,
-                        "index_only": true,
-                        "rows": 7596,
-                        "cost": 881.166,
-                        "chosen": true
-                      }
-                    ],
-                    "analyzing_roworder_intersect": {
-                      "usable": false,
-                      "cause": "too_few_roworder_scans"
-                    }
-                  },
-                  "chosen_range_access_summary": {
-                    "range_access_plan": {
-                      "type": "range_scan",
-                      "index": "name",
-                      "rows": 7596,
-                      "ranges": [
-                        "spates <= name <= spates"
-                      ]
-                    },
-                    "rows_for_plan": 7596,
-                    "cost_for_plan": 881.166,
-                    "chosen": true
-                  }
-                }
-              }
-            ]
-          },
-          {
-            "considered_execution_plans": [
-              {
-                "plan_prefix": [
-                  "`t2`"
-                ],
-                "table": "`t3`",
-                "best_access_path": {
-                  "considered_access_paths": [
-                    {
-                      "access_type": "ref",
-                      "index": "name",
-                      "rows": 7596,
-                      "cost": 881.156,
-                      "chosen": true
-                    },
-                    {
-                      "access_type": "range",
-                      "range_details": {
-                        "used_index": "name"
-                      },
-                      "chosen": false,
-                      "cause": "heuristic_index_cheaper"
-                    }
-                  ]
-                },
-                "condition_filtering_pct": 100,
-                "rows_for_plan": 7596,
-                "cost_for_plan": 881.156,
-                "chosen": true
-              }
-            ]
-          },
-          {
-            "attaching_conditions_to_tables": {
-              "original_condition": "((`t3`.`name` = 'spates'))",
-              "attached_conditions_computation": [
-              ],
-              "attached_conditions_summary": [
-                {
-                  "table": "`t3`",
-                  "attached": "(`t3`.`name` = 'spates')"
-                }
-              ]
-            }
-          },
-          {
-            "optimizing_distinct_group_by_order_by": {
-              "simplifying_group_by": {
-                "original_clause": "`t3`.`name`",
-                "items": [
-                  {
-                    "item": "`t3`.`name`",
-                    "equals_constant_in_where": true
-                  }
-                ],
-                "resulting_clause_is_simple": true,
-                "resulting_clause": ""
-              }
-            }
-          },
-          {
-            "finalizing_table_conditions": [
-              {
-                "table": "`t3`",
-                "original_table_condition": "(`t3`.`name` = 'spates')",
-                "final_table_condition   ": "(`t3`.`name` = 'spates')"
-              }
-            ]
-          },
-          {
-            "refine_plan": [
-              {
-                "table": "`t3`"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "optimizer_statistics": [
-        {
-          "db": "test",
-          "table": "t2",
-          "table_statistics": {
-            "data_file_length": 16384,
-            "delete_length": 0,
-            "records": 9,
-            "deleted": 0,
-            "table_in_mem_estimate": 0
-          },
-          "index_statistics": [
-            {
-              "name": "PRIMARY",
-              "in_memory_estimate": 0,
-              "records_per_key": [
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "fld1",
-              "in_memory_estimate": 0,
-              "records_per_key": [
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "fld3",
-              "in_memory_estimate": 0,
-              "records_per_key": [
-                4.5,
-                4.5
-              ],
-              "records_in_range": [
-              ]
-            }
-          ]
-        },
-        {
-          "db": "test",
-          "table": "t3",
-          "table_statistics": {
-            "data_file_length": 4734976,
-            "delete_length": 0,
-            "records": 41736,
-            "deleted": 0,
-            "table_in_mem_estimate": 0.0045045
-          },
-          "index_statistics": [
-            {
-              "name": "PRIMARY",
-              "in_memory_estimate": 0.0045045,
-              "records_per_key": [
-                1
-              ],
-              "records_in_range": [
-              ]
-            },
-            {
-              "name": "name",
-              "in_memory_estimate": 0.0045045,
-              "records_per_key": [
-                4637.33,
-                1
-              ],
-              "records_in_range": [
-                {
-                  "min_endp": "NULL-70617465732020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020",
-                  "max_endp": "NULL-70617465732020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020",
-                  "rows": 7596
-                }
-              ]
-            },
-            {
-              "name": "period",
-              "in_memory_estimate": 0.0045045,
-              "records_per_key": [
-                4173.6,
-                1
-              ],
-              "records_in_range": [
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "join_execution": {
-        "steps": [
-        ]
-      }
-    }
-  ]
-}	0	0
 SET optimizer_trace="enabled=off";
 drop table t2,t3;
 
