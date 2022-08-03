@@ -686,16 +686,21 @@ bool check_px_unsafe_cond(JOIN *join, Item *cond, uint ref_slice) {
 bool check_px_unsafe_temp_param(const Temp_table_param *param) {
   if (!param) return false;
 
-  if (!param->items_to_copy || !param->items_to_copy->size()) {
-    return false;
+  if (param->items_to_copy && param->items_to_copy->size()) {
+    Func_ptr_array *func_ptr = param->items_to_copy;
+    uint end = func_ptr->size();
+    for (uint i = 0; i < end; i++) {
+      Func_ptr *func = &func_ptr->at(i);
+      if (check_px_unsafe_func(func->func())) return true;
+    }
   }
-
-  Func_ptr_array *func_ptr = param->items_to_copy;
-  uint end = func_ptr->size();
-  for (uint i = 0; i < end; i++) {
-    Func_ptr *func = &func_ptr->at(i);
-    if (check_px_unsafe_func(func->func())) return true;
+  /*
+  if (param->grouped_expressions.size()) {
+    for (Item_copy *item_copy : param->grouped_expressions) {
+      if (check_px_unsafe_item(item_copy->get_item())) return true;
+    }
   }
+  */
   return false;
 }
 
