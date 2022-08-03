@@ -9987,7 +9987,15 @@ ER_REYCLE_BIN_INVALID_TIME
 
 reserved-error-section 5000 5999
 
-#if defined(HAVE_PX)
+#
+# End of MyRocks specific client messages
+#
+
+#
+# Start of parallel execution specific messages to be sent to client
+#
+
+start-error-number 8500
 
 ER_PX_EXECUTE_ERROR
   eng "PX execute error of errno[%d]."
@@ -10025,10 +10033,8 @@ ER_PX_OUT_OF_LOB
 ER_PX_OUT_OF_SORT_LOB
   eng "The sort buffer size exceeds the limit."ß
 
-#endif /* defined(HAVE_PX) */
-
 #
-# End of MyRocks specific client messages
+# End of parallel execution specific messages to be sent to client
 #
 
 ################################################################################

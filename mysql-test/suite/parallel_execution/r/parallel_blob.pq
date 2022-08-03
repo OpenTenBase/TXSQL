@@ -89,7 +89,7 @@ EXPLAIN
         -> Parallel table scan on testText  (cost=13.69 rows=5)
 
 SELECT /*+PARALLEL(1)*/ * FROM testText;
-ERROR HY000: PX execute error of errno[8029].
+ERROR HY000: PX execute error of errno[8509].
 EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
@@ -98,7 +98,7 @@ EXPLAIN
             -> Parallel table scan on testText  (cost=13.69 rows=5)
 
 SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
-ERROR HY000: PX execute error of errno[8029].
+ERROR HY000: PX execute error of errno[8509].
 set session txsql_parallel_lob_enabled=0;
 show variables like '%txsql_parallel_lob_enabled%';
 Variable_name	Value

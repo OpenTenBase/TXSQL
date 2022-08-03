@@ -227,8 +227,10 @@ enum dberr_t {
   /* The following are txsql failure codes */
   DB_LOCK_WAIT_HOT_ROW_UPDATE = 5000,
 #if defined(HAVE_PX)
+  /* The following are parallel execution error codes. */
+
   /* The record is over the end of PX_Ctx. */
-  DB_END_OF_PX_CTX
+  DB_END_OF_PX_CTX = 7000,
 #endif /* defined(HAVE_PX) */
 };
 #endif
