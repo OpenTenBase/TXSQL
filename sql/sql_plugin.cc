@@ -479,10 +479,10 @@ static int test_plugin_options(MEM_ROOT *, st_plugin_int *, int *, char **,
 static bool register_builtin(st_mysql_plugin *, st_plugin_int *,
                              st_plugin_int **);
 static void unlock_variables(struct System_variables *vars);
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 #else
 static void cleanup_variables(THD *thd, struct System_variables *vars);
-#endif /* defined(HAVE_PX) */
+#endif
 static void plugin_vars_free_values(sys_var *vars);
 static void plugin_var_memalloc_free(struct System_variables *vars);
 static void restore_pluginvar_names(sys_var *first);
@@ -490,11 +490,11 @@ static void restore_pluginvar_names(sys_var *first);
 #define my_intern_plugin_lock_ci(A, B) intern_plugin_lock(A, B)
 static void reap_plugins();
 
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 #else
 static plugin_ref intern_plugin_lock(LEX *lex, plugin_ref plugin);
 static void intern_plugin_unlock(LEX *lex, plugin_ref plugin);
-#endif /* defined(HAVE_PX) */
+#endif
 
 // mysql.plugin table definition.
 static const int MYSQL_PLUGIN_TABLE_FIELD_COUNT = 2;
@@ -942,10 +942,10 @@ SHOW_COMP_OPTION plugin_status(const char *name, size_t len, int type) {
   return plugin_status(plugin_name, type);
 }
 
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 #else
 static
-#endif /* defined(HAVE_PX) */
+#endif
 plugin_ref intern_plugin_lock(LEX *lex, plugin_ref rc) {
   st_plugin_int *pi = plugin_ref_to_int(rc);
   DBUG_TRACE;
@@ -1217,10 +1217,10 @@ static void reap_plugins() {
   mysql_mutex_unlock(&LOCK_plugin_delete);
 }
 
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 #else
 static
-#endif /* defined(HAVE_PX) */
+#endif
 void intern_plugin_unlock(LEX *lex, plugin_ref plugin) {
   st_plugin_int *pi;
   DBUG_TRACE;
@@ -3080,10 +3080,10 @@ static void unlock_variables(struct System_variables *vars) {
   Unlike plugin_vars_free_values() it frees all variables of all plugins,
   it's used on shutdown.
 */
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 #else
 static
-#endif /* defined(HAVE_PX) */
+#endif
 void cleanup_variables(THD *thd, struct System_variables *vars) {
   if (thd) {
     /* Block the Performance Schema from accessing THD::variables. */

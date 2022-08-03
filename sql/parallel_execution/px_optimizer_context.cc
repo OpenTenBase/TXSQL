@@ -813,9 +813,11 @@ class Px_optimizer_context_error_handler : public Internal_error_handler {
             (ulonglong)thd->variables.txsql_optimizer_context_max_mem_size,
             "ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT",
             ER_THD(thd, ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT));
+#if defined(HAVE_PX)
         mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
         txsql_parallel_stmt_memory_refused++;
         mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
+#endif /* defined(HAVE_PX) */
         my_error(ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT, MYF(0));
         return true;
       }
@@ -1231,7 +1233,9 @@ static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
   worker_thd->rand_used = coordinator_thd->rand_used;
 
   // for trx
+#if defined(HAVE_PX)
   worker_thd->px_trx = coordinator_thd->px_trx;
+#endif /* defined(HAVE_PX) */
   worker_thd->tx_isolation = coordinator_thd->tx_isolation;
   worker_thd->tx_read_only = coordinator_thd->tx_read_only;
   DBUG_EXECUTE_IF("px_force_isolation", {

@@ -191,6 +191,9 @@
 #include "sql/opt_outline_builder.h"
 #include "sql/sql_seq.h"
 #include "sql/parallel_execution/px.h" // PX_PRINT_
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h" // OPT_CTX
+#endif
 #if defined(HAVE_PX)
 #include "sql/parallel_execution/px_executor.h" // PX_executor
 #include "sql/parallel_execution/px_interface.h" // fallback_to_serial_execution
@@ -5841,7 +5844,9 @@ void THD::reset_for_next_command() {
   if (OPT_CTX_ENABLED(thd)) {
     // Switch mode by session variable (thd->variables.opt_ctx_mode). For now
     // it is implied by parallel execution.
+#if defined(HAVE_PX)
     if (PX_ROLE_USER(thd)) {
+#endif /* defined(HAVE_PX) */
       // Usually there is no nested reset_for_next_command(). However, the
       // exception is that BINLOG command, mysql_client_binlog_statement(),
       // adds for any row event a nested level of reset_for_next_command() in
@@ -5849,7 +5854,9 @@ void THD::reset_for_next_command() {
       assert(thd->lex->sql_command == SQLCOM_END ||
              OPT_CTX(thd).mode() == OPT_CTX_NATIVE);
       OPT_CTX(thd).set_ctx(OPT_CTX_RECORD);
+#if defined(HAVE_PX)
     }
+#endif /* defined(HAVE_PX) */
     OPT_CTX(thd).reset_for_next_command();
   }
 #endif
@@ -5878,7 +5885,7 @@ void THD::reset_for_next_command() {
 
 void dispatch_sql_command(THD *thd, Parser_state *parser_state,
                           bool log_statement
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
                  ,
                  bool interceptable MY_ATTRIBUTE((unused))
 #endif /* defined(HAVE_PX) */

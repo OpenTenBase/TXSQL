@@ -8813,6 +8813,20 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     "The partion key doesn't need to be part of all unique index if setting to true",
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 
+#if defined(HAVE_OPT_CTX)
+static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
+    "txsql_optimizer_context_max_mem_size",
+    "Maximum amount of memory used by the optimizer context to cache"
+    " the values of table stats, index dive during parallel optimization."
+    " If the value is too low to complete optimization, execution in"
+    " parallel will not be considered for this query. A value of"
+    " 0 means optimizer context does not have any cap on memory.",
+    HINT_UPDATEABLE SESSION_VAR(txsql_optimizer_context_max_mem_size),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(8388608),
+    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+#endif
+
 #if defined(HAVE_PX)
 static Sys_var_ulong Sys_txsql_max_parallel_worker_threads(
     "txsql_max_parallel_worker_threads",
@@ -8877,18 +8891,6 @@ static Sys_var_bool Sys_txsql_parallel_execution_enabled (
     CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
-
-static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
-    "txsql_optimizer_context_max_mem_size",
-    "Maximum amount of memory used by the optimizer context to cache"
-    " the values of table stats, index dive during parallel optimization."
-    " If the value is too low to complete optimization, execution in"
-    " parallel will not be considered for this query. A value of"
-    " 0 means optimizer context does not have any cap on memory.",
-    HINT_UPDATEABLE SESSION_VAR(txsql_optimizer_context_max_mem_size),
-    CMD_LINE(OPT_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(8388608),
-    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-    ON_UPDATE(nullptr));
 
 static Sys_var_ulonglong Sys_txsql_parallel_execution_max_lob_size(
     "txsql_parallel_execution_max_lob_size",

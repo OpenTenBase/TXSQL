@@ -39,10 +39,10 @@ class i_string;
 struct MEM_ROOT;
 struct SYS_VAR;
 struct my_option;
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 struct LEX;
 struct System_variables;
-#endif /* defined(HAVE_PX) */
+#endif
 template <class T>
 class I_List;
 
@@ -206,10 +206,10 @@ bool end_transaction(THD *thd, bool error);
 bool plugin_early_load_one(int *argc, char **argv, const char *plugin);
 
 
-#if defined(HAVE_PX)
+#if defined(HAVE_OPT_CTX)
 extern plugin_ref intern_plugin_lock(LEX *lex, plugin_ref rc);
 extern void intern_plugin_unlock(LEX *lex, plugin_ref plugin);
 
 extern void cleanup_variables(THD *thd, struct System_variables *vars);
-#endif /* defined(HAVE_PX) */
+#endif
 #endif
