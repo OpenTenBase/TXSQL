@@ -4380,6 +4380,9 @@ SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
 FROM INFORMATION_SCHEMA.OPTIMIZER_TRACE;
 OK
 1
+ANALYZE TABLE a;
+Table	Op	Msg_type	Msg_text
+test.a	analyze	status	OK
 # Scenario 9
 SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col AND group_by_col GROUP BY group_by_col;
@@ -4391,7 +4394,7 @@ group_by_col	MIN(aggr_col)	MAX(aggr_col)
 EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col AND group_by_col GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	a	NULL	range	group_by_col_key	group_by_col_key	10	NULL	5	100.00	Using where; Using index for group-by
+1	SIMPLE	a	NULL	range	group_by_col_key	group_by_col_key	10	NULL	6	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((0 <> `test`.`a`.`aggr_col`) and (0 <> `test`.`a`.`group_by_col`)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4409,7 +4412,7 @@ group_by_col	MIN(aggr_col)	MAX(aggr_col)
 EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col<>0 AND group_by_col<>0 GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	a	NULL	range	group_by_col_key	group_by_col_key	10	NULL	5	100.00	Using where; Using index for group-by
+1	SIMPLE	a	NULL	range	group_by_col_key	group_by_col_key	10	NULL	6	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((`test`.`a`.`aggr_col` <> 0) and (`test`.`a`.`group_by_col` <> 0)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK

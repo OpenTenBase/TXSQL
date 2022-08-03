@@ -36,6 +36,7 @@ INSERT INTO t2 VALUES ('bld','sheep');
 SET optimizer_trace="enabled=on";
 SET optimizer_trace_features="statistics=on";
 SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
+--replace_regex /table\S:[^\n\r]+/table=***/  /cost\S:[^\n\r]+/cost=***/ /cost\Sfor\Splan\S:[^\n\r]+/cost=***/
 SELECT * FROM information_schema.optimizer_trace;
 SET optimizer_trace="enabled=off";
 DROP TABLE t1,t2;
@@ -120,13 +121,14 @@ SET optimizer_trace="enabled=on";
 SET optimizer_trace_features="statistics=on";
 
 select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3;
+--replace_regex /table\S:[^\n\r]+/table=***/  /cost\S:[^\n\r]+/cost=***/ /cost\Sfor\Splan\S:[^\n\r]+/cost=***/
 SELECT * FROM information_schema.optimizer_trace;
 
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
+--replace_regex /table\S:[^\n\r]+/table=***/  /cost\S:[^\n\r]+/cost=***/ /cost\Sfor\Splan\S:[^\n\r]+/cost=***/
 SELECT * FROM information_schema.optimizer_trace;
 
 select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 group by t3.name;
-SELECT * FROM information_schema.optimizer_trace;
 
 SET optimizer_trace="enabled=off";
 
