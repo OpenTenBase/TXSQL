@@ -19,13 +19,14 @@ INSERT INTO t1 VALUES ('bld','blad');
 INSERT INTO t2 VALUES ('bla','sheep');
 INSERT INTO t2 VALUES ('blc','sheep');
 INSERT INTO t2 VALUES ('bld','sheep');
+flush status;
 SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
 f1	f2	f3
 bla	blah	sheep
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	4
+Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
 Txsql_parallel_stmt_memory_refused	0
@@ -39,7 +40,7 @@ ERROR HY000: Optimization context cache isn't enabled due to memory limitation.
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	4
+Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
 Txsql_parallel_stmt_memory_refused	1
@@ -81,6 +82,10 @@ Warning	1681	Specifying number of digits for floating point data types is deprec
 Warnings:
 Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
 Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+flush status;
+show variables like 'txsql_optimizer_context_max_mem_size';
+Variable_name	Value
+txsql_optimizer_context_max_mem_size	8388608
 select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3;
 fld3	companynr
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
@@ -98,10 +103,10 @@ spates	4181
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	7
+Txsql_parallel_stmt_executed	3
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	1
+Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 SET txsql_optimizer_context_max_mem_size = 1;
 show variables like 'txsql_optimizer_context_max_mem_size';
@@ -116,11 +121,12 @@ ERROR HY000: Optimization context cache isn't enabled due to memory limitation.
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	7
+Txsql_parallel_stmt_executed	3
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	4
+Txsql_parallel_stmt_memory_refused	3
 Txsql_parallel_stmt_thread_refused	0
+SET txsql_optimizer_context_max_mem_size = @saved_optimizer_context_max_mem_size;
 drop table t2,t3;
 
 # 3) test Txsql_parallel_stmt_thread_refused
@@ -136,12 +142,13 @@ f2 varchar(16)
 INSERT INTO t1 VALUES ('bla','blah');
 INSERT INTO t1 VALUES ('blc','blad');
 INSERT INTO t1 VALUES ('bld','blad');
+flush status;
 SELECT /*+PARALLEL(0)*/ * FROM t1;
 f1	f2
 bla	blah
 blc	blad
 bld	blad
-SELECT /*+PARALLEL(1)*/ * FROM t1;
+SELECT * FROM t1;
 f1	f2
 bla	blah
 blc	blad
@@ -149,11 +156,11 @@ bld	blad
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	8
-Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	4
-Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	1
 
 # 4) test Txsql_parallel_stmt_hint_executed
 
@@ -170,7 +177,7 @@ bld	blad
 # test counting the PARALLEL(table)
 select /*+PARALLEL(t1)*/ * FROM t1;
 f1	f2
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 Warnings:
 bla	blah
 blc	blad
@@ -178,11 +185,11 @@ bld	blad
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	8
-Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	1
-Txsql_parallel_stmt_memory_refused	4
-Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	1
 # test counting the hint of qb
 select /*+ PARALLEL(t1@qb1 5)*/ * from (select /*+ qb_name(qb1)*/ t1.f1 as aa, t1.f2 as bb from t1) as v where v.aa > 'a';
 aa	bb
@@ -199,11 +206,11 @@ bld	blad
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	8
-Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	3
-Txsql_parallel_stmt_memory_refused	4
-Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	1
 SET global txsql_max_parallel_worker_threads = 2;
 show variables like 'txsql_max_parallel_worker_threads';
 Variable_name	Value
@@ -216,10 +223,10 @@ bld	blad
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	9
-Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	3
-Txsql_parallel_stmt_memory_refused	4
-Txsql_parallel_stmt_thread_refused	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	1
 drop table t1;
 # --include set_px_to_saved.inc

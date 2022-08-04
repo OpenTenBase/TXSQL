@@ -21,6 +21,8 @@ INSERT INTO t2 VALUES ('bla','sheep');
 INSERT INTO t2 VALUES ('blc','sheep');
 INSERT INTO t2 VALUES ('bld','sheep');
 
+flush status;
+
 SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
 
 show status like '%txsql_parallel_stmt_%';
@@ -114,6 +116,10 @@ INSERT INTO t2 VALUES (1164,068203,00,'tucked','coeducation','masterful','');
 INSERT INTO t2 VALUES (1165,088205,00,'gems','brassy','biracial','');
 --enable_query_log
 
+flush status;
+
+show variables like 'txsql_optimizer_context_max_mem_size';
+
 select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3;
 
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
@@ -137,6 +143,8 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
 
 show status like '%txsql_parallel_stmt_%';
 
+SET txsql_optimizer_context_max_mem_size = @saved_optimizer_context_max_mem_size;
+
 drop table t2,t3;
 
 
@@ -159,8 +167,10 @@ INSERT INTO t1 VALUES ('bla','blah');
 INSERT INTO t1 VALUES ('blc','blad');
 INSERT INTO t1 VALUES ('bld','blad');
 
+flush status;
+
 SELECT /*+PARALLEL(0)*/ * FROM t1;
-SELECT /*+PARALLEL(1)*/ * FROM t1;
+SELECT * FROM t1;
 
 show status like '%txsql_parallel_stmt_%';
 
