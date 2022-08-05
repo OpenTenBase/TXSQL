@@ -1533,6 +1533,7 @@ class THD : public MDL_context_owner,
     coordinator and workers.
   */
   void collect_px_stmt_da_for_warnings();
+  void collect_px_stmt_da_for_error();
 #endif /* defined(HAVE_PX) */
 
  private:

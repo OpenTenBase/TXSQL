@@ -556,7 +556,7 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   if (thd->check_px_error()) {
     PX_PRINT_ERROR("detected error %d", thd->px_errno);
     if (!thd->is_error()) // if coordinator no error.
-      my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd->px_errno);
+      thd->collect_px_stmt_da_for_error();
     thd->need_fallback = true;
     return true;
   }
@@ -584,8 +584,6 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   if (query_result->send_result_set_metadata(
         thd, *fields, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
-
-  thd->get_stmt_da()->reset_diagnostics_area();
 
   auto exchange_detach = create_scope_guard([thd] {
     assert(!thd->px_sender);
@@ -658,6 +656,9 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
     // Pass over to the other px_simulate_worker_timeout_kill.
     return false;
   });
+
+  if (thd->check_px_error() && !thd->is_error()) // if coordinator no error.
+    thd->collect_px_stmt_da_for_error();
 
   return query_result->send_eof(thd);
 }
@@ -794,7 +795,7 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
   if (thd()->killed) goto unlock_clean_workers;
   if (thd()->check_px_error()) {
     if (!thd()->is_error()) // if coordinator no error.
-      my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd()->px_errno);
+      thd()->collect_px_stmt_da_for_error();
     goto fallback_unlock_clean_workers;
   }
   if (!check_equivalence(worker_pool)) goto fallback_unlock_clean_workers;
@@ -1038,10 +1039,7 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
 
       if (thd()->killed) return true; // been killed.
       if (thd()->need_fallback) return true; // Fallback to serial execution.
-      if (thd()->check_px_error()) {
-        // Throw error 'ER_PX_EXECUTE_ERROR' when sending data.
-        thd()->get_stmt_da()->reset_diagnostics_area();
-        my_error(ER_PX_EXECUTE_ERROR, MYF(0), thd()->px_errno);
+      if (thd()->check_px_error()) { // error and return.
         mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_error);
         txsql_parallel_stmt_error++;
         mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_error);
