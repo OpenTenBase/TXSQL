@@ -84,15 +84,5 @@ EXPLAIN
         -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
             -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
 
-###
-### tablespace was discarded
-###
-ALTER TABLE t1 DISCARD TABLESPACE;
-# Fallback for ER_TABLESPACE_DISCARDED
-EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
-EXPLAIN
--> Filter: (t1.col2 < 3)  (cost=12.00 rows=3)
-    -> Index scan on t1 using idx_col2  (cost=12.00 rows=10)
-
 # --include set_px_to_saved.inc
 DROP TABLE t1;
