@@ -788,6 +788,7 @@ INCLUDE(fprofile)
 INCLUDE(gloves)
 INCLUDE(fido2)
 INCLUDE(win_jemalloc)
+INCLUDE(jemalloc)
 
 IF(UNIX)
   OPTION(WITH_VALGRIND "Valgrind instrumentation" OFF)
@@ -806,14 +807,37 @@ IF(WITH_TCMALLOC OR WITH_TCMALLOC_DEBUG)
   ENDIF()
 ENDIF()
 
-OPTION(WITH_JEMALLOC "Use jemalloc rather than builtin malloc/free etc." OFF)
-IF(WITH_JEMALLOC)
-  FIND_MALLOC_LIBRARY(jemalloc)
-ENDIF()
+# OPTION(WITH_JEMALLOC "Use jemalloc rather than builtin malloc/free etc." OFF)
+# IF(WITH_JEMALLOC)
+#   FIND_LIBRARY(JEMALLOC_LIBRARY NAMES jemalloc)
+#   IF(NOT JEMALLOC_LIBRARY)
+#     MESSAGE(FATAL_ERROR "Could not find jemalloc library")
+#   ENDIF()
+#   STRING_APPEND(CMAKE_EXE_LINKER_FLAGS " -ljemalloc")
+#   STRING_APPEND(CMAKE_MODULE_LINKER_FLAGS " -ljemalloc")
+#   STRING_APPEND(CMAKE_SHARED_LINKER_FLAGS " -ljemalloc")
+#   STRING_APPEND(CMAKE_C_FLAGS " -fno-builtin-malloc -fno-builtin-calloc")
+#   STRING_APPEND(CMAKE_C_FLAGS " -fno-builtin-realloc -fno-builtin-free")
+#   STRING_APPEND(CMAKE_CXX_FLAGS " -fno-builtin-malloc -fno-builtin-calloc")
+#   STRING_APPEND(CMAKE_CXX_FLAGS " -fno-builtin-realloc -fno-builtin-free")
+# ENDIF()
 
-IF(WITH_JEMALLOC AND (WITH_TCMALLOC OR WITH_TCMALLOC_DEBUG))
-  MESSAGE(FATAL_ERROR "Specify only *one* of WITH_TCMALLOC and WITH_JEMALLOC")
-ENDIF()
+INCLUDE(jemalloc)
+
+# OPTION(WITH_JEMALLOC "Use jemalloc rather than builtin malloc/free etc." OFF)
+# IF(WITH_JEMALLOC)
+#   FIND_LIBRARY(JEMALLOC_LIBRARY NAMES jemalloc)
+#   IF(NOT JEMALLOC_LIBRARY)
+#     MESSAGE(FATAL_ERROR "Could not find jemalloc library")
+#   ENDIF()
+#   STRING_APPEND(CMAKE_EXE_LINKER_FLAGS " -ljemalloc")
+#   STRING_APPEND(CMAKE_MODULE_LINKER_FLAGS " -ljemalloc")
+#   STRING_APPEND(CMAKE_SHARED_LINKER_FLAGS " -ljemalloc")
+#   STRING_APPEND(CMAKE_C_FLAGS " -fno-builtin-malloc -fno-builtin-calloc")
+#   STRING_APPEND(CMAKE_C_FLAGS " -fno-builtin-realloc -fno-builtin-free")
+#   STRING_APPEND(CMAKE_CXX_FLAGS " -fno-builtin-malloc -fno-builtin-calloc")
+#   STRING_APPEND(CMAKE_CXX_FLAGS " -fno-builtin-realloc -fno-builtin-free")
+# ENDIF()
 
 OPTION(ENABLED_PROFILING "Enable profiling" ON)
 OPTION(WITHOUT_SERVER OFF)
@@ -1562,6 +1586,16 @@ ENDIF()
 # Run platform tests
 INCLUDE(configure.cmake)
 
+# Find header files from the bundled libraries
+# (jemalloc, yassl, readline, pcre, etc)
+# before the ones installed in the system
+SET(CMAKE_INCLUDE_DIRECTORIES_PROJECT_BEFORE ON)
+
+# Find header files from the bundled libraries
+# (jemalloc, yassl, readline, pcre, etc)
+# before the ones installed in the system
+SET(CMAKE_INCLUDE_DIRECTORIES_PROJECT_BEFORE ON)
+
 # Common defines and includes
 ADD_DEFINITIONS(-DHAVE_CONFIG_H)
 ADD_DEFINITIONS(-D__STDC_LIMIT_MACROS)     # Enable C99 limit macros
@@ -1969,6 +2003,8 @@ IF(WITH_AUTHENTICATION_FIDO OR WITH_AUTHENTICATION_CLIENT_PLUGINS)
       "-DWITH_AUTHENTICATION_FIDO=ON, but missing required libraries")
   ENDIF()
 ENDIF()
+
+MYSQL_CHECK_JEMALLOC()
 
 MACRO(MY_INCLUDE_SYSTEM_DIRECTORIES LIBRARY)
   IF(${WITH_${LIBRARY}} STREQUAL "bundled")

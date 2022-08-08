@@ -5134,6 +5134,8 @@ int init_common_variables() {
   } else
     mysql_bin_log.m_dependency_tracker.tracking_mode_changed();
 
+  sql_print_information("TXSQL: malloc lib is using [%s]", MALLOC_LIBRARY);
+
 #define FIX_LOG_VAR(VAR, ALT) \
   if (!VAR || !*VAR) VAR = ALT;
 
@@ -8045,6 +8047,8 @@ int mysqld_main(int argc, char **argv)
   }
 
   start_handle_manager();
+
+  sql_print_information("%s is using '%s' malloc library", my_progname, MALLOC_LIBRARY);
 
   create_compress_gtid_table_thread();
 

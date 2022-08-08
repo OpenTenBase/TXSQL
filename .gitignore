@@ -27,3 +27,11 @@ heatwaveml.*
 automl.egg-info/
 _userconf.sh
 scalability_jobs_*
+
+# TXSQL
+bld-debug
+bld-release
+profile-data
+perf.data
+perf.fdata
+build_compile_optimize.sh
