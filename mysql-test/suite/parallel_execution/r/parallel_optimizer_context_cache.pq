@@ -1076,3 +1076,43 @@ and @arg15 is null;
 sum(c1)
 NULL
 drop table t1;
+CREATE TABLE t1 (a TIME(6));
+INSERT INTO t1 VALUES ('11:22:33.123456');
+SET @a=112233.123456;
+flush status;
+SELECT /*+parallel(2)*/ * FROM t1 WHERE a=@a;
+a
+11:22:33.123456
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+drop table t1;
+create table t1
+(
+a int, b varchar(30),
+primary key(a)
+);
+insert into t1 values (1,'one');
+insert into t1 values (2,'two');
+insert into t1 values (3,'three');
+insert into t1 values (4,'four');
+set @arg00=2 ;
+flush status;
+select a, b FROM t1 outer_table where
+a = (select a from t1 where a = @arg00 and b = outer_table.b) and b='two';
+a	b
+2	two
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+drop table t1;
