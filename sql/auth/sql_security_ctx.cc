@@ -47,6 +47,9 @@
 #include "sql/mysqld.h"
 #include "sql/sql_class.h"
 #include "sql/table.h"
+#if defined(HAVE_PX)
+#include "sql/parallel_execution/px_interface.h"
+#endif /* defined(HAVE_PX) */
 
 extern bool initialized;
 
@@ -87,6 +90,9 @@ void Security_context::init() {
   m_master_access = 0;
   m_db_access = NO_ACCESS;
   m_acl_map = nullptr;
+#if defined(HAVE_PX)
+  m_saved_acl_map = nullptr;
+#endif /* defined(HAVE_PX) */
   m_password_expired = false;
   m_is_locked = false;
   m_is_skip_grants_user = false;
@@ -96,6 +102,20 @@ void Security_context::init() {
 }
 
 void Security_context::logout() {
+#if defined(HAVE_PX)
+  THD *thd = get_thd();
+  // parallel worker THD won't logout but destory now!
+  assert(!thd || !PX_ROLE_WORKER(thd));
+  /*
+    Restore Security_context::m_acl_map of worker THD
+    see Security_context::px_copy_from.
+  */
+  if (thd && PX_ROLE_WORKER(thd)) {
+    m_acl_map = m_saved_acl_map;
+    assert(!m_acl_map);
+  }
+#endif /* defined(HAVE_PX) */
+
   if (m_acl_map) {
     DBUG_PRINT("info",
                ("(logout) Security_context for %s@%s returns Acl_map to cache. "
@@ -130,6 +150,19 @@ void Security_context::set_drop_policy(
 
 void Security_context::destroy() {
   DBUG_TRACE;
+
+#if defined(HAVE_PX)
+  THD *thd = get_thd();
+  /*
+    Restore Security_context::m_acl_map of worker THD
+    see Security_context::px_copy_from.
+  */
+  if (thd && PX_ROLE_WORKER(thd)) {
+    m_acl_map = m_saved_acl_map;
+    assert(!m_acl_map);
+  }
+#endif /* defined(HAVE_PX) */
+
   execute_drop_policy();
   if (m_acl_map) {
     DBUG_PRINT(
@@ -395,6 +428,33 @@ int Security_context::activate_role(LEX_CSTRING role, LEX_CSTRING role_host,
 */
 void Security_context::checkout_access_maps(void) {
   DBUG_TRACE;
+
+#if defined(HAVE_PX)
+  /*
+    Parallel queries include a coordinator thread and a set of worker
+    threads. Worker threads share the Security_context::m_acl_map of
+    the coordinator thread. A query statement will only call
+    checkout_access_maps once at the beginning of the query, subscribe
+    to the current version of Acl_map, all workers in the parallel query
+    are guaranteed to use the Acl_map subscribed by the coordinator, so
+    the worker thread skips the call of checkout_access_maps.
+  */
+  THD *thd = get_thd();
+  if (thd && PX_ROLE_WORKER(thd)) {
+    return;
+  }
+  assert(!thd || !PX_ROLE_WORKER(thd));
+
+#ifndef DBUG_OFF
+  /*
+    The coordinator thread cannot still write Acl_map after starting
+    the worker thread.
+  */
+  if (thd && PX_ROLE_COORDINATOR(thd)) {
+    assert(!thd->px_worker_executing);
+  }
+#endif
+#endif /* defined(HAVE_PX) */
 
   /*
     If we're checkout out a map before we return it now, because we're only
@@ -1325,3 +1385,29 @@ bool Security_context::has_column_access(ulong priv, TABLE const *table,
   }
   return true;
 }
+
+#if defined(HAVE_PX)
+void Security_context::px_copy_from(Security_context *src_sctx) {
+  DBUG_TRACE;
+  THD *thd = get_thd();
+  assert(thd && m_active_roles.empty());
+
+  // Deep copy members of Security_context except active_roles and m_acl_map
+  copy_security_ctx(*src_sctx);
+
+  // copy active roles
+  for (auto role : *src_sctx->get_active_roles()) {
+    LEX_CSTRING dup_role = {
+      my_strdup(PSI_NOT_INSTRUMENTED, role.first.str, MYF(MY_WME)), role.first.length};
+    LEX_CSTRING dup_role_host = {
+      my_strdup(PSI_NOT_INSTRUMENTED, role.second.str, MYF(MY_WME)),
+      role.second.length};
+    m_active_roles.push_back(std::make_pair(dup_role, dup_role_host));
+  }
+
+  assert(!m_acl_map || !m_acl_map->reference_count());
+  // Security_context::m_acl_map for shared coordinator threads
+  m_saved_acl_map = m_acl_map;
+  m_acl_map = src_sctx->m_acl_map;
+}
+#endif /* defined(HAVE_PX) */
