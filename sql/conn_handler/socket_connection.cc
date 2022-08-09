@@ -999,6 +999,10 @@ static my_thread_handle admin_socket_thread_id;
 static my_thread_attr_t admin_socket_thread_attrib;
 static bool admin_thread_started = false;
 
+/* Changes from txsql start. */
+static bool admin_listener_cgroup_binded = false;
+/* Changes from txsql end. */
+
 static mysql_mutex_t LOCK_start_admin_thread;
 static mysql_cond_t COND_start_admin_thread;
 
@@ -1044,6 +1048,38 @@ static inline void wait_for_admin_thread_started() {
   mysql_mutex_unlock(&LOCK_start_admin_thread);
 }
 
+/* Changes from txsql start. */
+/**
+  Wait until cgroup binded.
+*/
+static inline void wait_for_cgroup_binded() {
+  /* wait for main thread to bind cgroup */
+  mysql_mutex_lock(&LOCK_start_admin_thread);
+  while (!admin_listener_cgroup_binded)
+    mysql_cond_wait(&COND_start_admin_thread, &LOCK_start_admin_thread);
+  mysql_mutex_unlock(&LOCK_start_admin_thread);
+}
+
+/**
+  Signal to admin thread that cgroup has been binded.
+*/
+static inline void mark_cgroup_binded() {
+  mysql_mutex_lock(&LOCK_start_admin_thread);
+  if (admin_tool_valid) {
+    if (mysql_admin_tool_set_group(admin_listener_os_thread_id) != 0) {
+      sql_print_error("Admin port tool init failed, errno: %d", errno);
+      mysql_mutex_unlock(&LOCK_start_admin_thread);
+      flush_error_log_messages();
+      exit(MYSQLD_ABORT_EXIT);
+    }
+  }
+
+  admin_listener_cgroup_binded = true;
+  mysql_cond_signal(&COND_start_admin_thread);
+  mysql_mutex_unlock(&LOCK_start_admin_thread);
+}
+/* Changes from txsql end. */
+
 /**
   Listen to admin interface and accept incoming connection on it.
   This function is run in a separate thread.
@@ -1059,7 +1095,9 @@ static bool handle_admin_socket(
     const std::string &network_namespace_for_listening_socket
 #endif
 ) {
+  admin_listener_os_thread_id = my_thread_os_id();
   mark_admin_thread_started();
+  wait_for_cgroup_binded();
 
 #ifdef HAVE_POLL
   static const int NUMBER_OF_POLLED_FDS = 1;
@@ -1228,6 +1266,7 @@ static inline bool spawn_admin_thread(MYSQL_SOCKET admin_socket,
   }
 
   wait_for_admin_thread_started();
+  mark_cgroup_binded();
 
   return false;
 }

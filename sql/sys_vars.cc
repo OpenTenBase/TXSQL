@@ -7640,3 +7640,17 @@ static Sys_var_bool Sys_persist_sensitive_variables_in_plaintext(
         GLOBAL_VAR(opt_persist_sensitive_variables_in_plaintext),
     CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(nullptr), ON_UPDATE(nullptr), nullptr, sys_var::PARSE_EARLY);
+
+/* Changes from txsql start. */
+// todo: change it to be tencentroot variables.
+static Sys_var_charptr Sys_admin_port_tool(
+    "admin_port_init_tool", "Path of mysql admin port tool",
+    READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool),
+    CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(0));
+
+// todo: change it to be tencentroot variables.
+static Sys_var_charptr Sys_admin_port_tool_md5(
+    "admin_port_init_tool_md5", "MD5 value of mysql admin port tool",
+    READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool_md5),
+    CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(0));
+/* Changes from txsql end. */

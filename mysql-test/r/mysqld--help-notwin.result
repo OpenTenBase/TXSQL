@@ -30,6 +30,10 @@ The following options may be given as the first argument:
  socket creation.
  --admin-port=#      Port number to use for service connection, built-in
  default (33062)
+ --admin-port-init-tool[=name] 
+ Path of mysql admin port tool
+ --admin-port-init-tool-md5[=name] 
+ MD5 value of mysql admin port tool
  --admin-ssl         Enable SSL for admin interface (automatically enabled
  with other flags).
  (Defaults to on; use --skip-admin-ssl to disable.)
@@ -1641,6 +1645,8 @@ abort-slave-event-count 0
 activate-all-roles-on-login FALSE
 admin-address (No default value)
 admin-port 33062
+admin-port-init-tool (No default value)
+admin-port-init-tool-md5 (No default value)
 admin-ssl TRUE
 admin-ssl-ca (No default value)
 admin-ssl-capath (No default value)

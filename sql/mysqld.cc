@@ -970,6 +970,19 @@ using std::max;
 using std::min;
 using std::vector;
 
+/* Changes from txsql start. */
+#include "my_md5.h"
+
+char* mysqld_admin_port_init_tool = nullptr;
+char* mysqld_admin_port_init_tool_md5 = nullptr;
+char admin_tool_path[FN_REFLEN];
+bool admin_tool_valid = false;
+
+#ifndef _WIN32
+my_thread_os_id_t admin_listener_os_thread_id;
+#endif  // !_WIN32
+/* Changes from txsql end. */
+
 #define mysqld_charset &my_charset_latin1
 #define mysqld_default_locale_name "en_US"
 
@@ -7083,6 +7096,132 @@ class Plugin_and_data_dir_option_parser final {
   bool valid_;
 };
 
+/* Changes from txsql start. */
+static void mysql_init_admin_tool()
+{
+#define MD5_BUFF_LENGTH 33
+#define MAX_ADMIN_TOOL_SIZE (32 * 1024 * 1024)
+#define MD5_HASH_SIZE 16 /* Hash size in bytes */
+  File file;
+  ulong file_length;
+  char* buf;
+  uchar digest[MD5_HASH_SIZE];
+  char md5[MD5_BUFF_LENGTH];
+
+  if (!mysqld_admin_port_init_tool) {
+    sql_print_information("Admin port init tool is not specified");
+    return;
+  }
+
+  if (!mysqld_admin_port_init_tool_md5) {
+    sql_print_information("MD5 value for admin port init tool is not specified");
+    return;
+  }
+
+  /* Convert tool path */
+  (void) my_load_path(admin_tool_path, mysqld_admin_port_init_tool, mysql_home);
+
+  /* Check sanity for init_tool by md5 value */
+  if ((file= mysql_file_open(0, admin_tool_path,
+          O_RDONLY, MYF(0))) < 0) {
+    sql_print_error("Can't open admin_port_init_tool file");
+    goto exit_func;
+  }
+
+  file_length= mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
+
+  if (file_length == MY_FILEPOS_ERROR) {
+    sql_print_error("Load admin_port_init_tool failed");
+    mysql_file_close(file, MYF(0));
+    goto exit_func;
+  }
+
+  if (file_length > MAX_ADMIN_TOOL_SIZE) {
+    sql_print_error("Admin_port_init_tool is too big");
+    mysql_file_close(file, MYF(0));
+    goto exit_func;
+  }
+
+  if (mysql_file_seek(file, 0L, MY_SEEK_SET, MYF(0)) == MY_FILEPOS_ERROR) {
+    sql_print_error("Load admin_port_init_tool failed");
+    mysql_file_close(file, MYF(0));
+    goto exit_func;
+  }
+
+  buf = (char*)malloc(sizeof(char) * file_length);
+  mysql_file_read(file, (uchar*)buf, file_length, MYF(0));
+  mysql_file_close(file, MYF(0));
+
+  compute_md5_hash((char *)digest, (const char *)buf, file_length);
+  array_to_hex(md5, digest, MD5_HASH_SIZE);
+  free(buf);
+
+  if (strncmp(md5, mysqld_admin_port_init_tool_md5, 32)) {
+    sql_print_error("Admin_port_init_tool_md5 checksum failed");
+    goto exit_func;
+  }
+
+  admin_tool_valid = true;
+  return;
+
+exit_func:
+  flush_error_log_messages();
+  exit(MYSQLD_ABORT_EXIT);
+}
+
+int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority)
+{
+  if (!admin_tool_valid) {
+    return -1;
+  }
+
+  int ret = 0;
+  int cmd_len = strlen(admin_tool_path) + 64;
+  char* cmd = (char*)malloc(sizeof(char) * cmd_len);
+  int old_pri = getpriority(PRIO_PROCESS, (pid_t)os_thread_id);
+
+  if (old_pri != priority)
+  {
+    sprintf(cmd, "%s -p %d %lld %d", admin_tool_path, priority, os_thread_id,
+        mysqld_port);
+    ret = system(cmd);
+  }
+
+  if (ret != 0) {
+    sql_print_warning("Can't set priority for thread %lld", os_thread_id);
+  }
+  else if (getpriority(PRIO_PROCESS, (pid_t)os_thread_id) != priority) {
+    sql_print_warning("Failed to set priority for thread %lld", os_thread_id);
+    ret= -1;
+  } else {
+    sql_print_information("Successfully set priority for thread %lld",
+                          os_thread_id);
+  }
+
+  free(cmd);
+
+  return ret;
+}
+
+int mysql_admin_tool_set_group(ulonglong os_thread_id)
+{
+  if (!admin_tool_valid) {
+    return -1;
+  }
+
+  int ret = 0;
+  int cmd_len = strlen(admin_tool_path) + 64;
+  char* cmd = (char*)malloc(sizeof(char) * cmd_len);
+
+  sprintf(cmd, "%s %lld %d", admin_tool_path, os_thread_id, mysqld_port);
+  ret= system(cmd);
+
+  free(cmd);
+
+  return ret;
+}
+/* Changes from txsql end. */
+
 #ifdef _WIN32
 int win_main(int argc, char **argv)
 #else
@@ -7684,6 +7823,9 @@ int mysqld_main(int argc, char **argv)
 
   /* Determine default TCP port and unix socket name */
   set_ports();
+
+  /* Before init the storage engine, init the admin tool if needed */
+  mysql_init_admin_tool();
 
   if (init_server_components()) unireg_abort(MYSQLD_ABORT_EXIT);
 
