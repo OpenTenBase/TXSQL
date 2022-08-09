@@ -1122,6 +1122,14 @@ class THD : public MDL_context_owner,
   */
   PX_sender *px_sender{nullptr};
   PX_receiver *px_receiver{nullptr};
+
+#ifndef DBUG_OFF
+  /**
+    Indicates whether the execution phase is after starting parallel
+    query worker threads.
+  */
+  bool px_worker_executing{false};
+#endif
 #endif /* defined(HAVE_PX) */
 
  private:

@@ -1255,7 +1255,13 @@ static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd) {
     coordinator_thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt;
 
   // copy source value of user() / Item_func_user
-  worker_thd->m_security_ctx = coordinator_thd->m_security_ctx;
+#if defined(HAVE_PX)
+  worker_thd->m_security_ctx->px_copy_from(coordinator_thd->m_security_ctx);
+#ifndef DBUG_OFF
+  coordinator_thd->px_worker_executing = true;
+#endif
+#endif /* defined(HAVE_PX) */
+
   worker_thd->m_main_security_ctx.set_user_ptr(
       coordinator_thd->security_context()->user().str,
       coordinator_thd->security_context()->user().length);

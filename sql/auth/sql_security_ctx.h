@@ -310,6 +310,10 @@ class Security_context {
 
   THD *get_thd();
 
+#if defined(HAVE_PX)
+  void px_copy_from(Security_context *src_sctx);
+#endif /* defined(HAVE_PX) */
+
  private:
   void init();
   void destroy();
@@ -375,6 +379,9 @@ class Security_context {
   bool m_password_expired;
   List_of_auth_id_refs m_active_roles;
   Acl_map *m_acl_map;
+#if defined(HAVE_PX)
+  Acl_map *m_saved_acl_map;
+#endif /* defined(HAVE_PX) */
   /**
     True if this account can't be logged into.
   */

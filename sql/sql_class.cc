@@ -1925,6 +1925,9 @@ void THD::cleanup_after_query() {
 #if defined(HAVE_PX)
   use_px = false;
   px_trx = nullptr;
+#ifndef DBUG_OFF
+  px_worker_executing = false;
+#endif
 #endif /* defined(HAVE_PX) */
 }
 

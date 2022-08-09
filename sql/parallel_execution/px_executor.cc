@@ -288,7 +288,7 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
   mysql_mutex_lock(&thd->LOCK_thd_data);
   for (int i = 0; i < requested_cores; ++i) {
     THD* worker_thd = new THD();
-
+    worker_thd->m_is_worker = true;
 #if defined(HAVE_OPT_CTX)
     assert(OPT_CTX_ENABLED(thd));
     OPT_CTX(worker_thd).set_ctx(OPT_CTX_REPLAY, OPT_CTX(thd).opt_ctx());
@@ -297,7 +297,6 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
 
     worker_thd->px_coordinator = thd;
     worker_thd->set_is_killable(true);
-    worker_thd->m_is_worker = true;
     coordinator->thd_list.push_back(worker_thd);
   }
   mysql_mutex_unlock(&thd->LOCK_thd_data);
