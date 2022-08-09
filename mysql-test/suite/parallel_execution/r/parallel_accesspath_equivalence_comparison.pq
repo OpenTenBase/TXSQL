@@ -2193,4 +2193,80 @@ baseline.EVENT_NAME = percents.EVENT_NAME)
 WHERE percents.ALLOC_PCT > 19;
 PSI MEMORY EVENT NAME	BASE ALLOC	POST ALLOC	DELTA	PCT_CHANGE	REASON
 drop table baseline, after_create, diffs, percents;
+#
+# test accesspath::weedout
+#
+CREATE TABLE t1 (
+col_int_key integer,
+col_varchar varchar(1),
+col_varchar_key varchar(1),
+KEY k1 (col_int_key),
+KEY k2 (col_varchar_key)
+);
+INSERT INTO t1 VALUES (1,'f','5'),(2,'H','f'),(3,'D','u');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+CREATE TABLE t2 (
+col_int_key integer,
+col_varchar varchar(1),
+col_varchar_key varchar(1),
+KEY k3 (col_int_key),
+KEY k4 (col_varchar_key)
+);
+INSERT INTO t2 VALUES (4,'w','c');
+CREATE TABLE a (
+f1 varchar(1),
+KEY k5 (f1)
+);
+CREATE VIEW v1 AS SELECT f1 from a;
+flush status;
+SELECT col_varchar_key FROM t1
+WHERE ( col_varchar_key, col_varchar_key ) NOT IN (
+SELECT alias1.col_varchar_key, alias1.col_varchar_key
+FROM (
+t1 AS alias1
+JOIN ( t1 AS alias2 JOIN t2 ON t2.col_varchar_key = alias2.col_varchar_key )
+ON ( t2.col_int_key = alias2.col_int_key AND alias2.col_varchar_key IN ( SELECT f1 FROM v1 ) ) )
+WHERE alias1.col_varchar >= 'Z' );
+col_varchar_key
+5
+f
+u
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+DROP VIEW v1;
+DROP TABLE t1, t2, a;
+#
+# test accesspath::limit_offset (send_records_override)
+#
+CREATE TABLE t1 (a VARCHAR(1));
+INSERT INTO t1 VALUES (NULL);
+INSERT INTO t1 VALUES (NULL);
+INSERT INTO t1 VALUES ('j');
+INSERT INTO t1 VALUES ('k');
+INSERT INTO t1 VALUES ('r');
+INSERT INTO t1 VALUES ('r');
+INSERT INTO t1 VALUES ('h');
+flush status;
+SELECT a FROM t1 WHERE a IN (SELECT 'r' FROM t1 UNION ALL SELECT 'j');
+a
+j
+r
+r
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+DROP TABLE t1;
 # --include set_px_to_saved.inc
