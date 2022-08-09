@@ -365,7 +365,6 @@ if [ $optimize -eq 0 ];then
     -DWITH_CURL=system                          \
     -DWITH_KMS=$kms_action                      \
     -DWITH_ENTERPRISE_ENCRYPTION=1              \
-    -DWITH_SSL_PATH=/usr/local/ssl              \
     -DWITH_ZLIB=bundled                         \
     -DWITH_BOOST="$boost_dir/boost/"            \
     -DWITH_INNOBASE_STORAGE_ENGINE=1            \
@@ -412,7 +411,6 @@ else
     -DWITH_CURL=system                          \
     -DWITH_KMS=$kms_action                      \
     -DWITH_ENTERPRISE_ENCRYPTION=1              \
-    -DWITH_SSL_PATH=/usr/local/ssl              \
     -DWITH_ZLIB=bundled                         \
     -DWITH_BOOST="$boost_dir"            \
     -DWITH_INNOBASE_STORAGE_ENGINE=1            \
