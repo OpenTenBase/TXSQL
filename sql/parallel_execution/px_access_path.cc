@@ -1204,7 +1204,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
         if (other.limit_offset().send_records_override == nullptr) {
           return false;
         }
-        return (*u.limit_offset.send_records_override == *other.limit_offset().send_records_override);
+        return true;
       }
       if (other.limit_offset().send_records_override != nullptr) {
         return false;
@@ -1289,7 +1289,7 @@ bool AccessPath::operator==(const AccessPath &other) const {
             return false;
           }
         }
-        if (other_tab != nullptr) {
+        if (other_tab != other_sj->tabs_end) {
           return false;
         }
       }
