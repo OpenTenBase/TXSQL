@@ -385,6 +385,8 @@ bool px_execute_in_worker(THD *thd) {
 
   if (thd->killed || thd->is_error()) goto err;
 
+  thd->lex->unit->set_executed();
+
   worker->loop();
   PX_PRINT_INFO("worker %d leave task loop", thd->worker_id);
 
@@ -561,6 +563,12 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   }
 
   Query_expression *unit = thd->lex->unit;
+
+  if (unit->ClearForExecution(thd)) {
+    thd->need_fallback = true;
+    return true;
+  }
+
   // see send_records_ptr in SELECT_LEX_UNIT::ExecuteIteratorQuery()
   ha_rows *send_records_ptr;
   if (unit->fake_query_block != nullptr) {
@@ -583,6 +591,8 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
   if (query_result->send_result_set_metadata(
         thd, *fields, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
+
+  unit->set_executed();
 
   auto exchange_detach = create_scope_guard([thd] {
     assert(!thd->px_sender);
