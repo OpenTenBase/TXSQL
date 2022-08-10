@@ -1333,7 +1333,19 @@ bool AccessPath::operator==(const AccessPath &other) const {
       }
       return true;
     }
-    case MATERIALIZE_INFORMATION_SCHEMA_TABLE:
+    case MATERIALIZE_INFORMATION_SCHEMA_TABLE: {
+      if (strlen(u.materialize_information_schema_table.table_list->table->alias) !=
+              strlen(other.materialize_information_schema_table().table_list->table->alias) ||
+          strcmp(u.materialize_information_schema_table.table_list->table->alias,
+              other.materialize_information_schema_table().table_list->table->alias) != 0) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_item(u.materialize_information_schema_table.condition,
+              other.materialize_information_schema_table().condition)) {
+        return false;
+      }
+      return true;
+    }
     default:
       return false; // not supported
       break;

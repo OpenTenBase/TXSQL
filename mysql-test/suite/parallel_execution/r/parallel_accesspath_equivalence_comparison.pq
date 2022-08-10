@@ -1677,13 +1677,13 @@ ERROR 42000: Result consisted of more than one row
 ((SELECT 1) UNION (SELECT 2 INTO @v));
 ERROR 42000: Result consisted of more than one row
 SELECT 1 UNION SELECT 2 INTO @v FROM t1;
-ERROR HY000: PX execute error of errno[1172].
+ERROR 42000: Result consisted of more than one row
 (SELECT 1) UNION SELECT 2 INTO @v FROM t1;
-ERROR HY000: PX execute error of errno[1172].
+ERROR 42000: Result consisted of more than one row
 (SELECT 1) UNION (SELECT 2 INTO @v FROM t1);
-ERROR HY000: PX execute error of errno[1172].
+ERROR 42000: Result consisted of more than one row
 ((SELECT 1) UNION (SELECT 2 INTO @v FROM t1));
-ERROR HY000: PX execute error of errno[1172].
+ERROR 42000: Result consisted of more than one row
 SELECT 1 UNION SELECT 1 INTO @v FROM t1;
 Warnings:
 Warning	3962	The INTO clause is deprecated inside query blocks of query expressions and will be removed in a future release. Please move the INTO clause to the end of statement instead.
@@ -2269,4 +2269,25 @@ Txsql_parallel_stmt_hint_executed	0
 Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 DROP TABLE t1;
+#
+# test accesspath::MATERIALIZE_INFORMATION_SCHEMA_TABLE
+#
+set optimizer_switch='semijoin=off';
+SET DEFAULT_STORAGE_ENGINE=INNODB;
+CREATE TABLE t SELECT 4096 c;
+flush status;
+SELECT c FROM t WHERE 1 IN
+(SELECT t.c = page_size FROM information_schema.innodb_cmpmem);
+c
+4096
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+set optimizer_switch=DEFAULT;
+DROP TABLE t;
 # --include set_px_to_saved.inc

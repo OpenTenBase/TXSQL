@@ -1218,13 +1218,13 @@ SELECT 1 UNION SELECT 2 INTO @v;
 --error ER_TOO_MANY_ROWS
 ((SELECT 1) UNION (SELECT 2 INTO @v));
 
---error ER_PX_EXECUTE_ERROR
+--error ER_TOO_MANY_ROWS
 SELECT 1 UNION SELECT 2 INTO @v FROM t1;
---error ER_PX_EXECUTE_ERROR
+--error ER_TOO_MANY_ROWS
 (SELECT 1) UNION SELECT 2 INTO @v FROM t1;
---error ER_PX_EXECUTE_ERROR
+--error ER_TOO_MANY_ROWS
 (SELECT 1) UNION (SELECT 2 INTO @v FROM t1);
---error ER_PX_EXECUTE_ERROR
+--error ER_TOO_MANY_ROWS
 ((SELECT 1) UNION (SELECT 2 INTO @v FROM t1));
 
 SELECT 1 UNION SELECT 1 INTO @v FROM t1;
@@ -1650,5 +1650,25 @@ SELECT a FROM t1 WHERE a IN (SELECT 'r' FROM t1 UNION ALL SELECT 'j');
 show status like '%txsql_parallel_stmt_%';
 
 DROP TABLE t1;
+
+--echo #
+--echo # test accesspath::MATERIALIZE_INFORMATION_SCHEMA_TABLE
+--echo #
+set optimizer_switch='semijoin=off';
+
+SET DEFAULT_STORAGE_ENGINE=INNODB;
+
+CREATE TABLE t SELECT 4096 c;
+
+flush status;
+
+SELECT c FROM t WHERE 1 IN
+(SELECT t.c = page_size FROM information_schema.innodb_cmpmem);
+
+show status like '%txsql_parallel_stmt_%';
+
+set optimizer_switch=DEFAULT;
+
+DROP TABLE t;
 
 --source suite/parallel_execution/inc/set_px_to_saved.inc
