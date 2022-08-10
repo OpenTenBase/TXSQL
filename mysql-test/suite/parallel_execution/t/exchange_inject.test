@@ -1701,4 +1701,36 @@ EXPLAIN FORMAT=TREE SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS
 SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t ORDER BY RAND(1);
 
 DROP TABLE t1,t2;
+
+--echo #
+--echo # Nested Join containing hash join
+--echo #
+CREATE TABLE t1 (pk INTEGER PRIMARY KEY);
+INSERT INTO t1 VALUES
+(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15),(16),(17),(18),(19),(20);
+ANALYZE TABLE t1;
+EXPLAIN FORMAT=tree
+  SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON NOT EXISTS (
+    SELECT * FROM t1 WHERE alias1.pk NOT IN ( 20 ) );
+
+--sorted_result
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON NOT EXISTS (
+  SELECT * FROM t1 WHERE alias1.pk NOT IN ( 20 ) );
+
+DROP TABLE t1;
+
+CREATE TABLE t1 (f1 INTEGER);
+INSERT INTO t1 VALUES ( 100 ), ( 200 );
+ANALYZE TABLE t1;
+
+EXPLAIN FORMAT=tree
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON alias2.f1 = alias1.f1
+  AND NOT EXISTS ( SELECT * FROM t1 AS alias3 WHERE alias1.f1 <= 1 );
+
+--sorted_result
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON alias2.f1 = alias1.f1
+  AND NOT EXISTS ( SELECT * FROM t1 AS alias3 WHERE alias1.f1 <= 1 );
+
+DROP TABLE t1;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc
