@@ -91,7 +91,7 @@ DROP TABLE t1;
 --echo testcase copy from main.window_functions
 CREATE TABLE t1(a INT);
 INSERT INTO t1 VALUES(1),(1),(2),(2);
---error ER_PX_EXECUTE_ERROR
+--error ER_SUBQUERY_NO_1_ROW
 SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
 DROP TABLE t1;
 

@@ -115,8 +115,8 @@ create table t1 (a int);
 insert into t1 values(1),(2),(3),(4);
 select case a when 1 then 2 when 2 then 3 else 0 end as fcase, count(*) from t1 group by fcase;
 fcase	count(*)
-2	1
 3	1
+2	1
 0	2
 analyze table t1;
 Table	Op	Msg_type	Msg_text
@@ -131,8 +131,8 @@ Note	1003	/* select#1 */ select (case `test`.`t1`.`a` when 1 then 2 when 2 then 
 select case a when 1 then "one" when 2 then "two" else "nothing" end as fcase, count(*) from t1 group by fcase;
 fcase	count(*)
 one	1
-two	1
 nothing	2
+two	1
 drop table t1;
 CREATE TABLE t (i1 INT,
 d1 DOUBLE,
@@ -202,7 +202,7 @@ testcase copy from main.window_functions
 CREATE TABLE t1(a INT);
 INSERT INTO t1 VALUES(1),(1),(2),(2);
 SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
-ERROR HY000: PX execute error of errno[1242].
+ERROR 21000: Subquery returns more than 1 row
 DROP TABLE t1;
 create table tt1(a int, b int);
 insert into tt1 (a) values(1),(2);
@@ -237,8 +237,8 @@ select dt1.a from dt dt1 where dt1.a=tt1.a
 ) as subq
 from tt1;
 subq
-1
 2
+1
 drop table tt1;
 #######################################
 # 5) test Item_view_ref::eq, testcase copy from main.group_by_fd_no_prot
