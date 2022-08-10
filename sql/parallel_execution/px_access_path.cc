@@ -1363,15 +1363,8 @@ void GetExchangeTables(px_access_path::Split_Position *split_pos) {
       case AccessPath::INDEX_SCAN:
         split_pos->m_tables->push_back(subpath->index_scan().table);
         return false;
-      case AccessPath::INDEX_RANGE_SCAN:
-        split_pos->m_tables->push_back(subpath->index_range_scan().used_key_part[0].field->table);
-        return false;
       case AccessPath::REF:
         split_pos->m_tables->push_back(subpath->ref().table);
-        return false;
-      case AccessPath::FILTER:
-        return false;
-      case AccessPath::NESTED_LOOP_JOIN:
         return false;
       case AccessPath::REF_OR_NULL:
         split_pos->m_tables->push_back(subpath->ref_or_null().table);
@@ -1384,13 +1377,14 @@ void GetExchangeTables(px_access_path::Split_Position *split_pos) {
       case AccessPath::CONST_TABLE:
         split_pos->m_tables->push_back(subpath->const_table().table);
         return false;
-      case AccessPath::STREAM:
-        split_pos->m_tables->push_back(subpath->stream().table);
-        return true;
-      case AccessPath::MATERIALIZE:
-        split_pos->m_tables->push_back(subpath->materialize().param->table);
-        return true;
-      case AccessPath::LIMIT_OFFSET:
+      case AccessPath::INDEX_RANGE_SCAN:
+        split_pos->m_tables->push_back(subpath->index_range_scan().used_key_part[0].field->table);
+        return false;
+      case AccessPath::NESTED_LOOP_JOIN:
+        return false;
+      case AccessPath::HASH_JOIN:
+        return false;
+      case AccessPath::FILTER:
         return false;
       case AccessPath::SORT:
         return false;
@@ -1402,6 +1396,14 @@ void GetExchangeTables(px_access_path::Split_Position *split_pos) {
       }
       case AccessPath::TEMPTABLE_AGGREGATE:
         split_pos->m_tables->push_back(subpath->temptable_aggregate().table);
+        return true;
+      case AccessPath::LIMIT_OFFSET:
+        return false;
+      case AccessPath::STREAM:
+        split_pos->m_tables->push_back(subpath->stream().table);
+        return true;
+      case AccessPath::MATERIALIZE:
+        split_pos->m_tables->push_back(subpath->materialize().param->table);
         return true;
       case AccessPath::WEEDOUT:
         return false;

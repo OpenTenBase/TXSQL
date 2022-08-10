@@ -4352,4 +4352,102 @@ a
 4
 5
 DROP TABLE t1,t2;
+#
+# Nested Join containing hash join
+#
+CREATE TABLE t1 (pk INTEGER PRIMARY KEY);
+INSERT INTO t1 VALUES
+(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15),(16),(17),(18),(19),(20);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN FORMAT=tree
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON NOT EXISTS (
+SELECT * FROM t1 WHERE alias1.pk NOT IN ( 20 ) );
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 4)
+        -> Nested loop left join  (cost=42.50 rows=400)
+            -> Parallel index scan on alias1 using PRIMARY  (cost=2.25 rows=20)
+            -> Hash antijoin (no condition)  (cost=2.37 rows=20)
+                -> Index scan on alias2 using PRIMARY  (cost=0.11 rows=20)
+                -> Hash
+                    -> Limit: 1 row(s)  (cost=0.11 rows=1)
+                        -> Filter: (alias1.pk <> 20)  (cost=0.11 rows=20)
+                            -> Index scan on t1 using PRIMARY  (cost=0.11 rows=20)
+
+Warnings:
+Note	1276	Field or reference 'test.alias1.pk' of SELECT #2 was resolved in SELECT #1
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON NOT EXISTS (
+SELECT * FROM t1 WHERE alias1.pk NOT IN ( 20 ) );
+pk	pk
+1	NULL
+10	NULL
+11	NULL
+12	NULL
+13	NULL
+14	NULL
+15	NULL
+16	NULL
+17	NULL
+18	NULL
+19	NULL
+2	NULL
+20	1
+20	10
+20	11
+20	12
+20	13
+20	14
+20	15
+20	16
+20	17
+20	18
+20	19
+20	2
+20	20
+20	3
+20	4
+20	5
+20	6
+20	7
+20	8
+20	9
+3	NULL
+4	NULL
+5	NULL
+6	NULL
+7	NULL
+8	NULL
+9	NULL
+DROP TABLE t1;
+CREATE TABLE t1 (f1 INTEGER);
+INSERT INTO t1 VALUES ( 100 ), ( 200 );
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN FORMAT=tree
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON alias2.f1 = alias1.f1
+AND NOT EXISTS ( SELECT * FROM t1 AS alias3 WHERE alias1.f1 <= 1 );
+EXPLAIN
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 2)
+        -> Nested loop left join  (cost=1.10 rows=4)
+            -> Parallel table scan on alias1  (cost=0.45 rows=2)
+            -> Filter: (alias2.f1 = alias1.f1)  (cost=0.68 rows=2)
+                -> Hash antijoin (no condition)  (cost=0.68 rows=2)
+                    -> Table scan on alias2  (cost=0.23 rows=2)
+                    -> Hash
+                        -> Limit: 1 row(s)  (cost=0.23 rows=1)
+                            -> Filter: (alias1.f1 <= 1)  (cost=0.23 rows=2)
+                                -> Table scan on alias3  (cost=0.23 rows=2)
+
+Warnings:
+Note	1276	Field or reference 'test.alias1.f1' of SELECT #2 was resolved in SELECT #1
+SELECT * FROM t1 AS alias1 LEFT JOIN t1 AS alias2 ON alias2.f1 = alias1.f1
+AND NOT EXISTS ( SELECT * FROM t1 AS alias3 WHERE alias1.f1 <= 1 );
+f1	f1
+100	100
+200	200
+DROP TABLE t1;
 # --include set_px_to_saved.inc
