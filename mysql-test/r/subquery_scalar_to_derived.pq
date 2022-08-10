@@ -411,7 +411,9 @@ Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `SUM(a)`,(/* select#2 */
 EXPLAIN SELECT t1.a + (@foo:=3) FROM t1
 WHERE t1.a > (SELECT COUNT(a) AS cnt FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.

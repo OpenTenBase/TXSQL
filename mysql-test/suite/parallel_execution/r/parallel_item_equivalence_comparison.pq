@@ -202,7 +202,7 @@ testcase copy from main.window_functions
 CREATE TABLE t1(a INT);
 INSERT INTO t1 VALUES(1),(1),(2),(2);
 SELECT (SELECT COUNT(a) OVER (PARTITION BY a) FROM t1) FROM t1;
-ERROR HY000: PX execute error of errno[1242].
+ERROR 21000: Subquery returns more than 1 row
 DROP TABLE t1;
 create table tt1(a int, b int);
 insert into tt1 (a) values(1),(2);

@@ -36,7 +36,7 @@ SET session debug = "-d,px_no_row_split";
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
 set session debug="+d,px_receiver_attach_error";
---error ER_PX_EXECUTE_ERROR
+--error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1 order by col2 limit 3;
 set session debug="-d,px_receiver_attach_error";
 SELECT * FROM t1 order by col2 limit 3;
@@ -46,7 +46,7 @@ SELECT * FROM t1 order by col2 limit 3;
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
 set session debug="+d,px_codec_create_error";
---error ER_PX_EXECUTE_ERROR
+--error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1 order by col2 limit 3;
 set session debug="-d,px_codec_create_error";
 SELECT * FROM t1 order by col2 limit 3;
@@ -56,7 +56,7 @@ SELECT * FROM t1 order by col2 limit 3;
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1 order by col2 limit 3;
 set session debug="+d,px_codec_init_error";
---error ER_PX_EXECUTE_ERROR
+--error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1 order by col2 limit 3;
 set session debug="-d,px_codec_init_error";
 SELECT * FROM t1 order by col2 limit 3;

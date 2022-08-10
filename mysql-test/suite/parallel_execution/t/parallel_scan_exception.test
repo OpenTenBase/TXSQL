@@ -28,7 +28,7 @@ SET session debug = "+d,px_no_row_split";
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 SET session debug = "+d,px_sender_attach_error";
---error ER_PX_EXECUTE_ERROR
+--error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_attach_error";
 SELECT * FROM t1;
@@ -38,7 +38,7 @@ SELECT * FROM t1;
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 SET session debug = "+d,px_sender_create_codec_error";
---error ER_PX_EXECUTE_ERROR
+--error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_create_codec_error";
 SELECT * FROM t1;
@@ -48,7 +48,7 @@ SELECT * FROM t1;
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 SET session debug = "+d,px_sender_init_codec_error";
---error ER_PX_EXECUTE_ERROR
+--error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_init_codec_error";
 SELECT * FROM t1;
@@ -58,7 +58,7 @@ SELECT * FROM t1;
 --echo ###
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 SET session debug = "+d,px_sender_parallel_scan_error1";
---error ER_PX_EXECUTE_ERROR
+--error ER_TABLESPACE_MISSING
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_parallel_scan_error1";
 

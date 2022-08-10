@@ -46,11 +46,11 @@ SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
 INSERT INTO testText (id,data) VALUES (4,repeat('0123456789abcdef',10000));
 ANALYZE TABLE testText;
 EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText;
---error ER_PX_EXECUTE_ERROR
+--error ER_PX_OUT_OF_LOB
 SELECT /*+PARALLEL(1)*/ * FROM testText;
 
 EXPLAIN FORMAT=TREE SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
---error ER_PX_EXECUTE_ERROR
+--error ER_PX_OUT_OF_LOB
 SELECT /*+PARALLEL(1)*/ * FROM testText order by data;
 
 set session txsql_parallel_lob_enabled=0;
