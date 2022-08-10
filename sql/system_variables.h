@@ -468,6 +468,11 @@ struct System_variables {
     @sa Sys_debug_sensitive_session_string
   */
   char *debug_sensitive_session_str;
+
+  /* Changes from txsql start. */
+  uint threadpool_high_prio_tickets;
+  ulong threadpool_high_prio_mode;
+  /* Changes from txsql end. */
 };
 
 /**

@@ -40,10 +40,10 @@ SELECT COUNT(@@GLOBAL.thread_handling);
 ####################################################################
 
 
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
+--error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.thread_handling=1;
 
---ECHO Expected error  ER_INCORRECT_GLOBAL_LOCAL_VAR
+--ECHO Expected error  ER_WRONG_VALUE_FOR_VAR
 
 SELECT COUNT(@@GLOBAL.thread_handling);
 --echo 1 Expected
@@ -104,9 +104,3 @@ SELECT COUNT(@@SESSION.thread_handling);
 
 SELECT COUNT(@@GLOBAL.thread_handling);
 --echo 1 Expected
-
---Error ER_BAD_FIELD_ERROR
-SELECT thread_handling;
---echo Expected error 'Unknown column'
-
-

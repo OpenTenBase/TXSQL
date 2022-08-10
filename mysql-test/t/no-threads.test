@@ -14,5 +14,5 @@ SHOW GLOBAL VARIABLES LIKE 'thread_handling';
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 select @@session.thread_handling;
 
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
+--error ER_WRONG_VALUE_FOR_VAR
 set GLOBAL thread_handling='one-thread';

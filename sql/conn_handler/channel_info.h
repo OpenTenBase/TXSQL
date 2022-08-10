@@ -54,7 +54,8 @@ class Channel_info {
   */
   virtual Vio *create_and_init_vio() const = 0;
 
-  Channel_info() : prior_thr_create_utime(0) {}
+  Channel_info()
+      : prior_thr_create_utime(0), from_thread_pool(false), thd(nullptr) {}
 
  public:
   virtual ~Channel_info() = default;
@@ -87,6 +88,11 @@ class Channel_info {
   }
 
   virtual bool is_admin_connection() const { return false; }
+
+  /* Changes from txsql start. */
+  bool from_thread_pool;
+  THD *thd;
+  /* Changes from txsql end. */
 };
 
 #endif  // SQL_CHANNEL_INFO_INCLUDED.

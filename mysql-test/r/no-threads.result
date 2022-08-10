@@ -10,4 +10,4 @@ thread_handling	no-threads
 select @@session.thread_handling;
 ERROR HY000: Variable 'thread_handling' is a GLOBAL variable
 set GLOBAL thread_handling='one-thread';
-ERROR HY000: Variable 'thread_handling' is a read only variable
+ERROR 42000: Variable 'thread_handling' can't be set to the value of 'one-thread'

@@ -241,6 +241,7 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
+threadpool/timer_thread	BACKGROUND
 CALL sys.ps_setup_show_enabled(TRUE, TRUE);
 performance_schema_enabled
 1
@@ -293,6 +294,7 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
+threadpool/timer_thread	BACKGROUND
 enabled_instruments	timed
 idle	YES
 memory/performance_schema/accounts	NULL

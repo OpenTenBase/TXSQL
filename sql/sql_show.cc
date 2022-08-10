@@ -646,6 +646,14 @@ bool Sql_cmd_show_replica_status::execute_inner(THD *thd) {
   return show_slave_status_cmd(thd);
 }
 
+/* Changes from txsql start. */
+extern bool show_threadpool_status(THD * thd);
+
+bool Sql_cmd_show_threadpool_status::execute_inner(THD *thd) {
+  return show_threadpool_status(thd);
+}
+/* Changes from txsql end. */
+
 /**
   Try acquire high priority share metadata lock on a table (with
   optional wait for conflicting locks to go away).
@@ -2677,13 +2685,17 @@ class thread_info {
         host(nullptr),
         db(nullptr),
         proc_info(nullptr),
-        state_info(nullptr) {}
+        state_info(nullptr),
+        to_per_thread(0),
+        to_thread_pool(0) {}
 
   my_thread_id thread_id;
   time_t start_time_in_secs;
   uint command;
   const char *user, *host, *db, *proc_info, *state_info;
   CSET_STRING query_string;
+  int to_per_thread;
+  int to_thread_pool;
 };
 
 // For sorting by thread_id.
@@ -2857,6 +2869,10 @@ class List_process_list : public Do_THD_Impl {
     /* MYSQL_TIME */
     thd_info->start_time_in_secs = inspect_thd->query_start_in_secs();
 
+    /* Thread handling switch info. */
+    thd_info->to_per_thread = inspect_thd->to_per_thread;
+    thd_info->to_thread_pool = inspect_thd->to_thread_pool;
+
     m_thread_infos->push_back(thd_info);
   }
 };
@@ -2895,6 +2911,14 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
   field->set_nullable(true);
   field_list.push_back(field = new Item_empty_string("Info", max_query_length));
   field->set_nullable(true);
+  if (verbose) {
+    field_list.push_back(field = new Item_return_int("Moved_to_per_thread", 10,
+                                                     MYSQL_TYPE_LONG));
+    field->unsigned_flag = false;
+    field_list.push_back(field = new Item_return_int("Moved_to_thread_pool", 10,
+                                                     MYSQL_TYPE_LONG));
+    field->unsigned_flag = false;
+  }
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return;
@@ -2929,6 +2953,10 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     protocol->store(thd_info->state_info, system_charset_info);
     protocol->store(thd_info->query_string.str(),
                     thd_info->query_string.charset());
+    if (verbose) {
+      protocol->store(thd_info->to_per_thread);
+      protocol->store(thd_info->to_thread_pool);
+    }
     if (protocol->end_row()) break; /* purecov: inspected */
   }
   /*

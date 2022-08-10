@@ -27,12 +27,29 @@
 
 /**
   @file include/mysql/thread_pool_priv.h
+  The thread pool requires access to some MySQL server error codes, this is
+  accessed from mysqld_error.h.
+  We need access to the struct that defines the thread pool plugin interface
+  which is accessed through scheduler.h.
   All accesses to THD variables and functions are defined in this header file.
+  A thread pool can also use DEBUG_SYNC and must thus include
+  debug_sync.h
+  To handle definitions of Information Schema plugins it is also required
+  to include sql_profile.h and table.h.
 */
 #include <mysqld_error.h> /* To get ER_ERROR_ON_READ */
 
 #include "sql/conn_handler/channel_info.h"
 #include "sql/conn_handler/connection_handler_manager.h"
+
+/* Changes from txsql start. */
+#include <set>
+#include "sql/debug_sync.h"
+#include "sql/field.h"
+#include "sql/sql_profile.h"
+#include "sql/sql_thd_internal_api.h"
+#include "sql/table.h"
+/* Changes from txsql end. */
 
 /**
   Called by the server when a new client connects.

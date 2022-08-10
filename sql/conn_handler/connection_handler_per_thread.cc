@@ -62,6 +62,10 @@
 #include "sql/sql_thd_internal_api.h"  // thd_set_thread_stack
 #include "thr_mutex.h"
 
+/* Changes from txsql start. */
+#include "sql/conn_handler/socket_connection.cc"  // Channel_info_local_socket
+/* Changes from txsql end. */
+
 // Initialize static members
 ulong Per_thread_connection_handler::blocked_pthread_count = 0;
 ulong Per_thread_connection_handler::slow_launch_threads = 0;
@@ -248,6 +252,8 @@ static void *handle_connection(void *arg) {
       Connection_handler_manager::get_instance();
   Channel_info *channel_info = static_cast<Channel_info *>(arg);
   bool pthread_reused [[maybe_unused]] = false;
+  bool from_thread_pool = channel_info->from_thread_pool;
+  THD *thd = nullptr;
 
   if (my_thread_init()) {
     connection_errors_internal++;
@@ -260,16 +266,37 @@ static void *handle_connection(void *arg) {
   }
 
   for (;;) {
-    THD *thd = init_new_thd(channel_info);
-    if (thd == nullptr) {
-      connection_errors_internal++;
-      handler_manager->inc_aborted_connects();
-      Connection_handler_manager::dec_connection_count();
-      break;  // We are out of resources, no sense in continuing.
+    if (!from_thread_pool) {
+      thd = init_new_thd(channel_info);
+      if (thd == nullptr) {
+        connection_errors_internal++;
+        handler_manager->inc_aborted_connects();
+        Connection_handler_manager::dec_connection_count();
+        break;  // We are out of resources, no sense in continuing.
+      }
+    } else {
+      /*
+        Current connection is from Thread_pool, there is no need to create a
+        new thd.
+      */
+      thd = channel_info->thd;
+      init_net_server_extension(thd);
+
+      /* Prepare for do_command. */
+      thd_set_thread_stack(thd, (char *)&thd);
+      thd->store_globals();
+      MYSQL_SOCKET_SET_STATE(thd->net.vio->mysql_socket,
+                             PSI_SOCKET_STATE_ACTIVE);
+
+      /*
+        channel_info is deleted in init_new_thd in normal new connection.
+        To keep consistency, we delete channel_info here.
+      */
+      delete channel_info;
     }
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
-    if (pthread_reused) {
+    if (from_thread_pool || pthread_reused) {
       /*
         Reusing existing pthread:
         Create new instrumentation for the new THD job,
@@ -293,13 +320,56 @@ static void *handle_connection(void *arg) {
     mysql_thread_set_psi_THD(thd);
     MYSQL_SOCKET socket = thd->get_protocol_classic()->get_vio()->mysql_socket;
     mysql_socket_set_thread_owner(socket);
-    thd_manager->add_thd(thd);
+    if (!from_thread_pool) thd_manager->add_thd(thd);
 
-    if (thd_prepare_connection(thd))
+    if (!from_thread_pool && thd_prepare_connection(thd))
       handler_manager->inc_aborted_connects();
     else {
       while (thd_connection_alive(thd)) {
+        if (from_thread_pool) {
+          /* We have succeeded switching from Thread_pool to Per_thread. */
+          from_thread_pool = false;
+          thd->to_per_thread += 1;
+        }
+
         if (do_command(thd)) break;
+
+        if (Connection_handler_manager::thread_handling ==
+            Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+          /*
+            Now that thread_handling was changed, let's see what we should do:
+            DISABLED_SWITCH_MODE: should not be here.
+            STABLE_SWITCH_MODE: doing nothing, it only cares about
+                                new connection.
+            FAST_SWITCH_MODE: move current connection to thread_pool.
+            SHARP_SWITCH_MODE: kill current connection and force users to
+                               reconnect.
+          */
+          assert(Connection_handler_manager::thread_handling_switch_mode !=
+                 Connection_handler_manager::DISABLED_SWITCH_MODE);
+          if (Connection_handler_manager::thread_handling_switch_mode ==
+              Connection_handler_manager::FAST_SWITCH_MODE) {
+            /*
+              If the thread_handling switch from
+              SCHEDULER_ONE_THREAD_PER_CONNECTION to SCHEDULER_THREAD_POOL,
+              we put this connection into thread_pool queue.
+            */
+            if (!handler_manager
+                     ->get_connection_handler(
+                         Connection_handler_manager::SCHEDULER_THREAD_POOL)
+                     ->migrate(thd)) {
+              /* Succeed swithing current connection to thread_pool. */
+              goto exit;
+            } else {
+              sql_print_error(
+                  "Failed to switch from Per_thread to Thread_pool");
+              /* Continue to use Per_thread mode. */
+            }
+          } else if (Connection_handler_manager::thread_handling_switch_mode ==
+                     Connection_handler_manager::SHARP_SWITCH_MODE) {
+            break;
+          }
+        }
       }
       end_connection(thd);
     }
@@ -341,6 +411,7 @@ static void *handle_connection(void *arg) {
     }
   }
 
+exit:
   my_thread_end();
   my_thread_exit(nullptr);
   return nullptr;
@@ -432,3 +503,35 @@ handle_error:
 uint Per_thread_connection_handler::get_max_threads() const {
   return max_connections;
 }
+
+/* Changes from txsql start. */
+/**
+  Connection migrate from thread pool to per thread.
+  Modified from  Per_thread_connection_handler::add_connection.
+  @return true when failed, or false when success.
+*/
+bool Per_thread_connection_handler::migrate(THD *thd) {
+  my_thread_handle id;
+  bool error = false;
+
+  DBUG_TRACE;
+
+  MYSQL_SOCKET connect_sock = MYSQL_INVALID_SOCKET;
+  Channel_info *channel_info =
+      new (std::nothrow) Channel_info_local_socket(connect_sock);
+  if (channel_info == NULL) return true;
+
+  thd->scheduler = NULL;
+  thd->event_scheduler.data = NULL;
+
+  channel_info->from_thread_pool = true;
+  channel_info->thd = thd;
+
+  error =
+      mysql_thread_create(key_thread_one_connection, &id, &connection_attrib,
+                          handle_connection, (void *)channel_info);
+
+  if (error) delete channel_info;
+  return error;
+}
+/* Changes from txsql end. */

@@ -152,6 +152,13 @@
 #include "storage/perfschema/terminology_use_previous.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+/* Changes from txsql start. */
+#include "sql/threadpool.h"
+#include "mysqld_error.h"
+
+#define MAX_CONNECTIONS 100000
+/* Changes from txsql end. */
+
 static constexpr const unsigned long DEFAULT_ERROR_COUNT{1024};
 static constexpr const unsigned long DEFAULT_SORT_MEMORY{256UL * 1024UL};
 static constexpr const unsigned HOST_CACHE_SIZE{128};
@@ -3996,14 +4003,52 @@ static Sys_var_ulong Sys_trans_prealloc_size(
     BLOCK_SIZE(1024), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr), DEPRECATED_VAR(""));
 
-static const char *thread_handling_names[] = {
-    "one-thread-per-connection", "no-threads", "loaded-dynamically", nullptr};
+/* Changes from txsql start. */
+static const char *thread_handling_names[] = {"one-thread-per-connection",
+                                              "no-threads",
+#ifdef HAVE_POOL_OF_THREADS
+                                              "pool-of-threads",
+#endif
+                                              nullptr};
+#ifdef HAVE_POOL_OF_THREADS
+static const char *thread_handling_switch_mode_name[] = {
+    "disabled", "stable", "fast", "sharp", nullptr};
+#endif
+
+#if defined(_WIN32) && defined(HAVE_POOL_OF_THREADS)
+/* Windows is using OS threadpool, so we're pretty sure it works well */
+#define DEFAULT_THREAD_HANDLING 2
+#else
+#define DEFAULT_THREAD_HANDLING 0
+#endif
+
+static bool check_thread_handling(sys_var *, THD *, set_var *var) {
+  if (Connection_handler_manager::thread_handling_switch_mode ==
+      Connection_handler_manager::DISABLED_SWITCH_MODE) {
+    my_error(ER_DISALLOW_THREAD_HANDLING_SWITCH, MYF(0));
+    return true;
+  }
+
+  if (var->save_result.ulonglong_value !=
+          Connection_handler_manager::SCHEDULER_THREAD_POOL &&
+      var->save_result.ulonglong_value !=
+          Connection_handler_manager::SCHEDULER_ONE_THREAD_PER_CONNECTION) {
+    my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "thread_handling",
+             thread_handling_names[var->save_result.ulonglong_value]);
+    return true;
+  }
+
+  return false;
+}
+/* Changes from txsql end. */
+
 static Sys_var_enum Sys_thread_handling(
     "thread_handling",
     "Define threads usage for handling queries, one of "
-    "one-thread-per-connection, no-threads, loaded-dynamically",
-    READ_ONLY GLOBAL_VAR(Connection_handler_manager::thread_handling),
-    CMD_LINE(REQUIRED_ARG), thread_handling_names, DEFAULT(0));
+    "one-thread-per-connection, no-threads, pool-of-threads",
+     GLOBAL_VAR(Connection_handler_manager::thread_handling),
+    CMD_LINE(REQUIRED_ARG), thread_handling_names, DEFAULT(DEFAULT_THREAD_HANDLING),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_thread_handling), ON_UPDATE(0));
 
 static Sys_var_charptr Sys_secure_file_priv(
     "secure_file_priv",
@@ -7653,4 +7698,162 @@ static Sys_var_charptr Sys_admin_port_tool_md5(
     "admin_port_init_tool_md5", "MD5 value of mysql admin port tool",
     READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool_md5),
     CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(0));
+
+#ifdef HAVE_POOL_OF_THREADS
+
+static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {
+#ifdef _WIN32
+  tp_set_max_threads(threadpool_max_threads);
+#endif
+  return false;
+}
+
+#ifdef _WIN32
+static bool fix_tp_min_threads(sys_var *, THD *, enum_var_type) noexcept {
+  tp_set_min_threads(threadpool_min_threads);
+  return false;
+}
+#endif
+
+#ifndef _WIN32
+static bool fix_threadpool_size(sys_var *, THD *, enum_var_type) noexcept {
+  tp_set_threadpool_size(threadpool_size);
+  return false;
+}
+
+static bool fix_threadpool_stall_limit(sys_var *, THD *,
+                                       enum_var_type) noexcept {
+  tp_set_threadpool_stall_limit(threadpool_stall_limit);
+  return false;
+}
+#endif
+
+static inline int my_getncpus() noexcept {
+#ifdef _SC_NPROCESSORS_ONLN
+    return sysconf(_SC_NPROCESSORS_ONLN);
+#else
+      return 2; /* The value returned by the old my_getncpus implementation */
+#endif
+}
+
+#ifdef _WIN32
+static Sys_var_uint Sys_threadpool_min_threads(
+    "thread_pool_min_threads", "Minimum number of threads in the thread pool.",
+    GLOBAL_VAR(threadpool_min_threads), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 256), DEFAULT(1), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(fix_tp_min_threads));
+#else
+static Sys_var_uint Sys_threadpool_idle_thread_timeout(
+    "thread_pool_idle_timeout",
+    "Timeout in seconds for an idle thread in the thread pool."
+    "Worker thread will be shut down after timeout",
+    GLOBAL_VAR(threadpool_idle_timeout), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(60), BLOCK_SIZE(1));
+static Sys_var_uint Sys_threadpool_oversubscribe(
+    "thread_pool_oversubscribe",
+    "How many additional active worker threads in a group are allowed.",
+    GLOBAL_VAR(threadpool_oversubscribe), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 1000), DEFAULT(3), BLOCK_SIZE(1));
+static Sys_var_uint Sys_threadpool_size(
+    "thread_pool_size",
+    "Number of thread groups in the pool. "
+    "This parameter is roughly equivalent to maximum number of concurrently "
+    "executing threads (threads in a waiting state do not count as executing).",
+    GLOBAL_VAR(threadpool_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, MAX_THREAD_GROUPS), DEFAULT(my_getncpus()), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(fix_threadpool_size));
+static Sys_var_uint Sys_threadpool_stall_limit(
+    "thread_pool_stall_limit",
+    "Maximum query execution time in milliseconds,"
+    "before an executing non-yielding thread is considered stalled."
+    "If a worker thread is stalled, additional worker thread "
+    "may be created to handle remaining clients.",
+    GLOBAL_VAR(threadpool_stall_limit), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(10, UINT_MAX), DEFAULT(500), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(fix_threadpool_stall_limit));
+static Sys_var_uint Sys_threadpool_high_prio_tickets(
+    "thread_pool_high_prio_tickets",
+    "Number of tickets to enter the high priority event queue for each "
+    "transaction.",
+    SESSION_VAR(threadpool_high_prio_tickets), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(UINT_MAX), BLOCK_SIZE(1));
+
+static Sys_var_enum Sys_threadpool_high_prio_mode(
+    "thread_pool_high_prio_mode",
+    "High priority queue mode: one of 'transactions', 'statements' or 'none'. "
+    "In the 'transactions' mode the thread pool uses both high- and "
+    "low-priority "
+    "queues depending on whether an event is generated by an already started "
+    "transaction or a connection holding a MDL, table, user, or a global read "
+    "or backup lock and whether it has any high priority tickets (see "
+    "thread_pool_high_prio_tickets). In the 'statements' mode all events (i.e. "
+    "individual statements) always go to the high priority queue, regardless "
+    "of "
+    "the current transaction and lock state and high priority tickets. "
+    "'none' is the opposite of 'statements', i.e. disables the high priority "
+    "queue "
+    "completely.",
+    SESSION_VAR(threadpool_high_prio_mode), CMD_LINE(REQUIRED_ARG),
+    threadpool_high_prio_mode_names, DEFAULT(TP_HIGH_PRIO_MODE_TRANSACTIONS));
+
+static Sys_var_bool Sys_threadpool_eager_mode(
+    "thread_pool_eager_mode",
+    "Always take on requests, and wake up and/or create even more threads when"
+    " there is pending requests, even already over subscribed(eager mode).",
+    GLOBAL_VAR(threadpool_eager_mode),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_threadpool_listen_eager_mode(
+    "thread_pool_listen_eager_mode",
+    "listener will wake more thread",
+    GLOBAL_VAR(threadpool_listen_eager_mode),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_threadpool_oversubscribeParall(
+    "thread_pool_oversubscribe_parall",
+    "If request queue is congested, always take on requests, and at most"
+    " thread_pool_oversubscribe_parall_num worker threads will be wakenup or created"
+    " regardless of the thread_pool_oversubscribe limit.",
+    GLOBAL_VAR(threadpool_oversubscribe_parall),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_uint Sys_threadpool_oversubscribeParallNum(
+    "thread_pool_oversubscribe_parall_num",
+    "The number of extra threads allowed to create in eager mode.",
+    GLOBAL_VAR(threadpool_oversubscribe_extra_threads), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 100), DEFAULT(3), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_threadpool_oversubscribeParallTimeout(
+    "thread_pool_oversubscribe_parall_timeout",
+    "If a client's request is not processed after this many milli-seconds since"
+    " it was put into thread pool's request queue, the queue is seen as congested.",
+    GLOBAL_VAR(threadpool_queue_congest_req_timeout), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 1000*10), DEFAULT(5), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_threadpool_queue_congest_threshold(
+    "thread_pool_queue_congest_threshold",
+    "If any of the threadpool's request queue has more than this many requests to"
+    " process, the queue is seen as congested.",
+    GLOBAL_VAR(threadpool_queue_congest_threshold), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 1024), DEFAULT(5), BLOCK_SIZE(1));
+#endif /* !WIN32 */
+
+static Sys_var_uint Sys_threadpool_max_threads(
+    "thread_pool_max_threads",
+    "Maximum allowed number of worker threads in the thread pool",
+    GLOBAL_VAR(threadpool_max_threads), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, MAX_CONNECTIONS), DEFAULT(MAX_CONNECTIONS), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(fix_tp_max_threads));
+
+static Sys_var_enum Sys_thread_handling_switch_mode(
+    "thread_handling_switch_mode",
+    "Define switching mode for thread_handling, one of disabled, stable, "
+    "fast, sharp",
+    GLOBAL_VAR(Connection_handler_manager::thread_handling_switch_mode),
+    CMD_LINE(REQUIRED_ARG), thread_handling_switch_mode_name,
+    DEFAULT(Connection_handler_manager::FAST_SWITCH_MODE),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+#endif /* HAVE_POOL_OF_THREADS */
 /* Changes from txsql end. */

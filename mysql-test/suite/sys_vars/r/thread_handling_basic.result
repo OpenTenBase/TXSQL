@@ -5,8 +5,8 @@ COUNT(@@GLOBAL.thread_handling)
 1 Expected
 '#---------------------BS_STVARS_051_02----------------------#'
 SET @@GLOBAL.thread_handling=1;
-ERROR HY000: Variable 'thread_handling' is a read only variable
-Expected error  ER_INCORRECT_GLOBAL_LOCAL_VAR
+ERROR 42000: Variable 'thread_handling' can't be set to the value of 'no-threads'
+Expected error  ER_WRONG_VALUE_FOR_VAR
 SELECT COUNT(@@GLOBAL.thread_handling);
 COUNT(@@GLOBAL.thread_handling)
 1
@@ -50,6 +50,3 @@ SELECT COUNT(@@GLOBAL.thread_handling);
 COUNT(@@GLOBAL.thread_handling)
 1
 1 Expected
-SELECT thread_handling;
-ERROR 42S22: Unknown column 'thread_handling' in 'field list'
-Expected error 'Unknown column'

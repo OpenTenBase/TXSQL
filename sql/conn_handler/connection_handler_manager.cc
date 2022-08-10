@@ -47,6 +47,12 @@
 #include "thr_lock.h"
 #include "thr_mutex.h"
 
+/* Changes from txsql start. */
+#include "sql/sql_class.h"
+
+ulong Connection_handler_manager::thread_handling_switch_mode = 0;
+/* Changes from txsql end. */
+
 struct Connection_handler_functions;
 
 // Initialize static members
@@ -69,23 +75,32 @@ uint Connection_handler_manager::max_threads = 0;
 */
 
 static void scheduler_wait_lock_begin() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_begin,
+  THD *thd = current_thd;
+  if (!thd) return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_begin,
                  (current_thd, THD_WAIT_TABLE_LOCK));
 }
 
 static void scheduler_wait_lock_end() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_end,
-                 (current_thd));
+  THD *thd = current_thd;
+  if (!thd) return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_end, (current_thd));
 }
 
 static void scheduler_wait_sync_begin() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_begin,
-                 (current_thd, THD_WAIT_SYNC));
+  THD *thd = current_thd;
+  if (!thd) return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_begin, (current_thd, THD_WAIT_SYNC));
 }
 
 static void scheduler_wait_sync_end() {
-  MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_end,
-                 (current_thd));
+  THD *thd = current_thd;
+  if (!thd) return;
+
+  MYSQL_CALLBACK(thd->scheduler, thd_wait_end, (current_thd));
 }
 
 bool Connection_handler_manager::valid_connection_count() {
@@ -148,32 +163,41 @@ bool Connection_handler_manager::init() {
   */
   Per_thread_connection_handler::init();
 
-  Connection_handler *connection_handler = nullptr;
-  switch (Connection_handler_manager::thread_handling) {
-    case SCHEDULER_ONE_THREAD_PER_CONNECTION:
-      connection_handler = new (std::nothrow) Per_thread_connection_handler();
-      break;
-    case SCHEDULER_NO_THREADS:
-      connection_handler = new (std::nothrow) One_thread_connection_handler();
-      break;
-    default:
-      assert(false);
-  }
+  m_instance = new (std::nothrow) Connection_handler_manager();
 
-  if (connection_handler == nullptr) {
+  if (m_instance == NULL) {
     // This is a static member function.
     Per_thread_connection_handler::destroy();
     return true;
   }
 
-  m_instance =
-      new (std::nothrow) Connection_handler_manager(connection_handler);
+  for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
+    Connection_handler *connection_handler = NULL;
+    switch (i) {
+      case SCHEDULER_ONE_THREAD_PER_CONNECTION:
+        connection_handler = new (std::nothrow) Per_thread_connection_handler();
+        break;
+      case SCHEDULER_NO_THREADS:
+        connection_handler = new (std::nothrow) One_thread_connection_handler();
+        break;
+      case SCHEDULER_THREAD_POOL:
+        connection_handler =
+            new (std::nothrow) Thread_pool_connection_handler();
+        break;
+      default:
+        break;
+    }
 
-  if (m_instance == nullptr) {
-    delete connection_handler;
-    // This is a static member function.
-    Per_thread_connection_handler::destroy();
-    return true;
+    if (connection_handler == NULL &&
+        i != SCHEDULER_PLUGIN_CONNECTION_HANDLER) {
+      delete m_instance;
+      m_instance = NULL;
+      // This is a static member function.
+      Per_thread_connection_handler::destroy();
+      return true;
+    }
+
+    m_instance->set_connection_handler(i, connection_handler);
   }
 
 #ifdef HAVE_PSI_INTERFACE
@@ -189,7 +213,10 @@ bool Connection_handler_manager::init() {
 
   mysql_cond_init(key_COND_connection_count, &COND_connection_count);
 
-  max_threads = connection_handler->get_max_threads();
+  max_threads =
+      m_instance
+          ->get_connection_handler(Connection_handler_manager::thread_handling)
+          ->get_max_threads();
 
   // Init common callback functions.
   thr_set_lock_wait_callback(scheduler_wait_lock_begin,
@@ -229,22 +256,29 @@ void Connection_handler_manager::load_connection_handler(
     Connection_handler *conn_handler) {
   // We don't support loading more than one dynamic connection handler
   assert(Connection_handler_manager::thread_handling != SCHEDULER_TYPES_COUNT);
-  m_saved_connection_handler = m_connection_handler;
+  m_saved_connection_handler =
+      m_connection_handler[Connection_handler_manager::thread_handling];
   m_saved_thread_handling = Connection_handler_manager::thread_handling;
-  m_connection_handler = conn_handler;
-  Connection_handler_manager::thread_handling = SCHEDULER_TYPES_COUNT;
-  max_threads = m_connection_handler->get_max_threads();
+  m_connection_handler[SCHEDULER_PLUGIN_CONNECTION_HANDLER] = conn_handler;
+  Connection_handler_manager::thread_handling =
+      SCHEDULER_PLUGIN_CONNECTION_HANDLER;
+  max_threads =
+      m_connection_handler[Connection_handler_manager::thread_handling]
+          ->get_max_threads();
 }
 
 bool Connection_handler_manager::unload_connection_handler() {
-  assert(m_saved_connection_handler != nullptr);
-  if (m_saved_connection_handler == nullptr) return true;
-  delete m_connection_handler;
-  m_connection_handler = m_saved_connection_handler;
+  assert(m_saved_connection_handler != NULL);
+  if (m_saved_connection_handler == NULL) return true;
+  delete m_connection_handler[SCHEDULER_PLUGIN_CONNECTION_HANDLER];
+  m_connection_handler[SCHEDULER_PLUGIN_CONNECTION_HANDLER] = NULL;
+  // m_connection_handler = m_saved_connection_handler;
   Connection_handler_manager::thread_handling = m_saved_thread_handling;
-  m_saved_connection_handler = nullptr;
+  m_saved_connection_handler = NULL;
   m_saved_thread_handling = 0;
-  max_threads = m_connection_handler->get_max_threads();
+  max_threads =
+      m_connection_handler[Connection_handler_manager::thread_handling]
+          ->get_max_threads();
   return false;
 }
 
@@ -257,7 +291,14 @@ void Connection_handler_manager::process_new_connection(
     return;
   }
 
-  if (m_connection_handler->add_connection(channel_info)) {
+  /*
+    thread_handling can not be changed when thread_handling_switch_mode
+    is disabled. If thread_handling has been changed,
+    thread_handling_switch_mode is at least stable mode, we use the new
+    thread_handling mode to handle new connection here.
+  */
+  if (m_connection_handler[Connection_handler_manager::thread_handling]
+          ->add_connection(channel_info)) {
     inc_aborted_connects();
     delete channel_info;
   }

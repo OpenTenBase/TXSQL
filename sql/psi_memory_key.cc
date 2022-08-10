@@ -144,6 +144,7 @@ PSI_memory_key key_memory_user_var_entry;
 PSI_memory_key key_memory_user_var_entry_value;
 PSI_memory_key key_memory_sp_cache;
 PSI_memory_key key_memory_write_set_extraction;
+PSI_memory_key key_memory_thread_pool_connection;
 
 #ifdef HAVE_PSI_INTERFACE
 
@@ -386,7 +387,9 @@ static PSI_memory_info all_server_memory[] = {
      "Memory allocated for in-memory maps for persisted variables"},
     {&key_memory_persisted_variables_unordered_set,
      "Persisted_variables::unordered_set", PSI_FLAG_ONLY_GLOBAL_STAT, 0,
-     "Memory allocated for in-memory sets for persisted variables"}};
+     "Memory allocated for in-memory sets for persisted variables"},
+    {&key_memory_thread_pool_connection, "thread_pool_connection", 0, 0,
+     PSI_DOCUMENT_ME}};
 
 void register_server_memory_keys() {
   const char *category = "sql";

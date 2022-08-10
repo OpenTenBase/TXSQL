@@ -458,16 +458,12 @@ static void vio_wait_until_woken(Vio *vio) {
 }
 #endif
 
-int vio_shutdown(Vio *vio) {
-  int r = 0;
+int vio_shutdown(Vio *vio, int how) {
   DBUG_TRACE;
 
-  if (vio->inactive == false) {
-    assert(vio->type == VIO_TYPE_TCPIP || vio->type == VIO_TYPE_SOCKET ||
-           vio->type == VIO_TYPE_SSL);
+  int r = vio_cancel(vio, how);
 
-    assert(mysql_socket_getfd(vio->mysql_socket) >= 0);
-    if (mysql_socket_shutdown(vio->mysql_socket, SHUT_RDWR)) r = -1;
+  if (vio->inactive == false) {
 
 #ifdef USE_PPOLL_IN_VIO
     if (vio->thread_id != 0 && vio->poll_shutdown_flag.test_and_set()) {
@@ -497,6 +493,28 @@ int vio_shutdown(Vio *vio) {
   vio->mysql_socket = MYSQL_INVALID_SOCKET;
   return r;
 }
+
+/* Changes from txsql start. */
+int vio_cancel(Vio *vio, int how) {
+  int r = 0;
+  DBUG_TRACE;
+
+  if (!vio->inactive) {
+    assert(vio->type == VIO_TYPE_TCPIP || vio->type == VIO_TYPE_SOCKET ||
+           vio->type == VIO_TYPE_SSL);
+
+    assert(mysql_socket_getfd(vio->mysql_socket) >= 0);
+    if (mysql_socket_shutdown(vio->mysql_socket, how)) r = -1;
+#ifdef _WIN32
+    /* Cancel possible IO in progress (shutdown does not
+     * do that on Windows). */
+    (void)cancel_io((HANDLE)vio->mysql_socket, vio->thread_id);
+#endif
+  }
+
+  return r;
+}
+/* Changes from txsql end. */
 
 #ifndef NDEBUG
 

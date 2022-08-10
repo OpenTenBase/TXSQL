@@ -31,6 +31,10 @@
 #include "mysql/psi/mysql_mutex.h"                // mysql_mutex_t
 #include "sql/conn_handler/connection_handler.h"  // Connection_handler
 
+/* Changes from txsql start. */
+#include "sql/threadpool.h"
+/* Changes from txsql end. */
+
 class Channel_info;
 class THD;
 
@@ -90,13 +94,15 @@ class Per_thread_connection_handler : public Connection_handler {
   */
   static void modify_thread_cache_size(const ulong thread_cache_size);
 
-  Per_thread_connection_handler() = default;
-  ~Per_thread_connection_handler() override = default;
+  Per_thread_connection_handler() {}
+  virtual ~Per_thread_connection_handler() {}
 
  protected:
   bool add_connection(Channel_info *channel_info) override;
-
   uint get_max_threads() const override;
+
+ public:
+  bool migrate(THD *thd) override;
 };
 
 /**
@@ -110,12 +116,31 @@ class One_thread_connection_handler : public Connection_handler {
 
  public:
   One_thread_connection_handler() = default;
-  ~One_thread_connection_handler() override = default;
+  virtual ~One_thread_connection_handler() {}
 
  protected:
   bool add_connection(Channel_info *channel_info) override;
-
   uint get_max_threads() const override { return 1; }
+ 
+ public:
+  bool migrate(THD *thd MY_ATTRIBUTE((unused))) override { return true; }
+};
+
+class Thread_pool_connection_handler : public Connection_handler {
+  Thread_pool_connection_handler(const Thread_pool_connection_handler &);
+  Thread_pool_connection_handler &operator=(
+      const Thread_pool_connection_handler &);
+
+public:
+  Thread_pool_connection_handler() { tp_init(); }
+  virtual ~Thread_pool_connection_handler() { tp_end(); }
+
+protected:
+  bool add_connection(Channel_info *channel_info) override;
+  uint get_max_threads() const override { return threadpool_max_threads; }
+
+public:
+  bool migrate(THD *thd) override;
 };
 
 #endif  // CONNECTION_HANDLER_IMPL_INCLUDED

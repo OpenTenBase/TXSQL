@@ -542,6 +542,8 @@ void init_sql_command_flags() {
       CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
   sql_command_flags[SQLCOM_SHOW_STATUS] =
       CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
+  sql_command_flags[SQLCOM_SHOW_THREADPOOL_STAT] =
+      CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
   sql_command_flags[SQLCOM_SHOW_DATABASES] =
       CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
   sql_command_flags[SQLCOM_SHOW_TRIGGERS] =
@@ -854,6 +856,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_KEYS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_VARIABLES] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_STATUS] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SHOW_THREADPOOL_STAT] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_ENGINE_LOGS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_ENGINE_STATUS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_ENGINE_MUTEX] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -1262,7 +1265,9 @@ bool do_command(THD *thd) {
     number of seconds has passed.
   */
   net = thd->get_protocol_classic()->get_net();
-  my_net_set_read_timeout(net, thd->variables.net_wait_timeout);
+  if (!thd->skip_wait_timeout)
+    my_net_set_read_timeout(net, thd->variables.net_wait_timeout);
+
   net_new_transaction(net);
 
   /*
@@ -2169,16 +2174,22 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       error = true;                          // End server
       break;
     case COM_BINLOG_DUMP_GTID:
+      thd->m_long_service = true;
+      thd_wait_begin(thd, 0);
       // TODO: access of protocol_classic should be removed
       error = com_binlog_dump_gtid(
           thd, (char *)thd->get_protocol_classic()->get_raw_packet(),
           thd->get_protocol_classic()->get_packet_length());
+      thd_wait_end(thd);
       break;
     case COM_BINLOG_DUMP:
+      thd->m_long_service = true;
+      thd_wait_begin(thd, 0);
       // TODO: access of protocol_classic should be removed
       error = com_binlog_dump(
           thd, (char *)thd->get_protocol_classic()->get_raw_packet(),
           thd->get_protocol_classic()->get_packet_length());
+      thd_wait_end(thd);
       break;
     case COM_REFRESH: {
       int not_used;
@@ -3288,7 +3299,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
         goto error;
       }
       /* PURGE MASTER LOGS TO 'file' */
+      thd->m_long_service = true;
+      thd_wait_begin(thd, 0);
       res = purge_source_logs_to_file(thd, lex->to_log);
+      thd_wait_end(thd);
       break;
     }
     case SQLCOM_PURGE_BEFORE: {
@@ -4572,6 +4586,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_GRANTS:
     case SQLCOM_SHOW_KEYS:
     case SQLCOM_SHOW_MASTER_STAT:
+    case SQLCOM_SHOW_THREADPOOL_STAT:
     case SQLCOM_SHOW_OPEN_TABLES:
     case SQLCOM_SHOW_PLUGINS:
     case SQLCOM_SHOW_PRIVILEGES:

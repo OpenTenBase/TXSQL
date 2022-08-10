@@ -9812,6 +9812,12 @@ ER_DA_EXPIRE_LOGS_DAYS_IGNORED
 #
 
 ################################################################################
+# Error numbers start at 4500: server-to-client message for CDB 8.0
+################################################################################
+ER_DISALLOW_THREAD_HANDLING_SWITCH
+  eng "thread_handling_switch_mode=disable, disallow to switch thread handling."
+
+################################################################################
 # Error numbers 5000 to 5999 are reserved for X Plugin. Please do not use
 # them for other error messages.
 ################################################################################

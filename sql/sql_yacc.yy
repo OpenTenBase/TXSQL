@@ -1369,6 +1369,10 @@ void warn_about_deprecated_binary(THD *thd)
 
 %token<lexer.keyword> GTID_ONLY_SYM 1199                       /* MYSQL */
 
+/* Changes from txsql start. */
+%token THREADPOOL_SYM 1250
+/* Changes from txsql end. */
+
 /*
   Precedence rules used to resolve the ambiguity when using keywords as idents
   in the case e.g.:
@@ -1907,6 +1911,7 @@ void warn_about_deprecated_binary(THD *thd)
         show_table_status_stmt
         show_tables_stmt
         show_triggers_stmt
+        show_threadpool_stmt
         show_variables_stmt
         show_warnings_stmt
         shutdown_stmt
@@ -2402,6 +2407,7 @@ simple_statement:
         | show_table_status_stmt
         | show_tables_stmt
         | show_triggers_stmt
+        | show_threadpool_stmt
         | show_variables_stmt
         | show_warnings_stmt
         | shutdown_stmt
@@ -13570,6 +13576,12 @@ show_triggers_stmt:
             $$ = NEW_PTN PT_show_triggers(@$, $2, $4, $5.wild, $5.where);
           }
         ;
+
+show_threadpool_stmt:
+          SHOW THREADPOOL_SYM STATUS_SYM
+          {
+            $$ = NEW_PTN PT_show_threadpool_status(@$);
+          }
 
 show_events_stmt:
           SHOW EVENTS_SYM opt_db opt_wild_or_where

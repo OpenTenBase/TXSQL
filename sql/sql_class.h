@@ -911,6 +911,10 @@ class Transactional_ddl_context {
 
 struct PS_PARAM;
 
+/* Changes from txsql start. */
+struct THD_event_functions;
+/* Changes from txsql end. */
+
 /**
   @class THD
   For each client connection we create a separate thread with THD serving as
@@ -1841,8 +1845,7 @@ class THD : public MDL_context_owner,
   my_off_t m_trans_end_pos;
   /**@}*/
   // NOTE: Ideally those two should be in Protocol,
-  // but currently its design doesn't allow that.
-  NET net;        // client connection descriptor
+  // but currently its design doesn't allow that. 
   String packet;  // dynamic buffer for network I/O
  public:
   void set_skip_readonly_check() { skip_readonly_check = true; }
@@ -3887,7 +3890,7 @@ class THD : public MDL_context_owner,
     return copy_db_to(const_cast<char const **>(p_db), p_db_length);
   }
 
-  thd_scheduler scheduler;
+  thd_scheduler event_scheduler;
 
   /**
     Get resource group context.
@@ -4654,6 +4657,24 @@ class THD : public MDL_context_owner,
              get_stmt_da()->mysql_errno() == ER_DA_CONN_LIMIT));
   }
 #endif
+  /* Changes from txsql start. */
+ public:
+  /** Thread scheduler callbacks for this connection per-thread and
+  one-thread scheduler callbacks are no-ops, so nullptr works for them,
+  threadpool scheduler will change this for its THDs */
+  THD_event_functions *scheduler{nullptr};
+
+  /* Do not set socket timeouts for wait_timeout (used with threadpool) */
+  bool skip_wait_timeout{false};
+
+  /** True if it's a long-time connection such as binlog dump. */
+  bool m_long_service;
+
+  int to_thread_pool;
+  int to_per_thread;
+
+  NET net;        // client connection descriptor
+  /* Changes from txsql end. */
 };
 
 /**

@@ -232,6 +232,7 @@ static bool vio_init(Vio *vio, enum enum_vio_type type, my_socket sd,
       vio->should_retry = vio_should_retry;
       vio->was_timeout = vio_was_timeout;
       vio->vioshutdown = vio_shutdown_pipe;
+      vio->viocancel = vio_cancel_pipe;
       vio->peer_addr = vio_peer_addr;
       vio->io_wait = no_io_wait;
       vio->is_connected = vio_is_connected_pipe;
@@ -252,6 +253,7 @@ static bool vio_init(Vio *vio, enum enum_vio_type type, my_socket sd,
       vio->should_retry = vio_should_retry;
       vio->was_timeout = vio_was_timeout;
       vio->vioshutdown = vio_shutdown_shared_memory;
+      vio->viocancel = vio_cancel_shared_memory;
       vio->peer_addr = vio_peer_addr;
       vio->io_wait = no_io_wait;
       vio->is_connected = vio_is_connected_shared_memory;
@@ -273,6 +275,7 @@ static bool vio_init(Vio *vio, enum enum_vio_type type, my_socket sd,
       vio->should_retry = vio_should_retry;
       vio->was_timeout = vio_was_timeout;
       vio->vioshutdown = vio_ssl_shutdown;
+      vio->viocancel = vio_cancel;
       vio->peer_addr = vio_peer_addr;
       vio->io_wait = vio_io_wait;
       vio->is_connected = vio_is_connected;
@@ -294,6 +297,7 @@ static bool vio_init(Vio *vio, enum enum_vio_type type, my_socket sd,
       vio->should_retry = vio_should_retry;
       vio->was_timeout = vio_was_timeout;
       vio->vioshutdown = vio_shutdown;
+      vio->viocancel = vio_cancel;
       vio->peer_addr = vio_peer_addr;
       vio->io_wait = vio_io_wait;
       vio->is_connected = vio_is_connected;
@@ -384,7 +388,7 @@ bool vio_reset(Vio *vio, enum enum_vio_type type, my_socket sd,
       Close socket only when it is not equal to the new one.
     */
     if (sd != mysql_socket_getfd(vio->mysql_socket)) {
-      if (vio->inactive == false) vio->vioshutdown(vio);
+      if (vio->inactive == false) vio->vioshutdown(vio, SHUT_RDWR);
     }
 #ifdef HAVE_KQUEUE
     else {
@@ -537,7 +541,7 @@ int vio_timeout(Vio *vio, uint which, int timeout_sec) {
 
 void internal_vio_delete(Vio *vio) {
   if (!vio) return; /* It must be safe to delete null pointers. */
-  if (vio->inactive == false) vio->vioshutdown(vio);
+  if (vio->inactive == false) vio->vioshutdown(vio, SHUT_RDWR);
   vio->~Vio();
   my_free(vio);
 }

@@ -596,4 +596,14 @@ class Sql_cmd_show_warnings : public Sql_cmd_show_noplan {
   }
 };
 
+/* Changes from txsql start. */
+/// Represents SHOW THREADPOOL STATUS statement.
+
+class Sql_cmd_show_threadpool_status : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_threadpool_status() : Sql_cmd_show_noplan(SQLCOM_SHOW_THREADPOOL_STAT) {}
+  bool execute_inner(THD *thd) override;
+};
+/* Changes from txsql end. */
+
 #endif /* SQL_SHOW_H */

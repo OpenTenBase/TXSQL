@@ -69,6 +69,8 @@ perl;
     s/\b221184\b/262144/;
     # Replacing port number with string
     s/^port \d+/port ####/;
+    # Replacing thread-pool-size with string
+    s/^thread-pool-size \d+/thread-pool-size ####/;
     # log-tc-size varies by platform
     s/^log-tc-size \d+/log-tc-size #####/;
     # Avoid test failures when adding new error message

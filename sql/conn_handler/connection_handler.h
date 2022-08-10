@@ -58,6 +58,11 @@ class Connection_handler {
             by this connection handler.
   */
   virtual uint get_max_threads() const = 0;
+
+  /* Changes from txsql start. */
+ public:
+  virtual bool migrate(THD *thd) = 0;
+  /* Changes from txsql end. */
 };
 
 #endif  // CONNECTION_HANDLER_INCLUDED

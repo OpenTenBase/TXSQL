@@ -158,7 +158,8 @@ MYSQL_VIO vio_new_win32shared_memory(HANDLE handle_file_map, HANDLE handle_map,
 #endif /* _WIN32 */
 
 void vio_delete(MYSQL_VIO vio);
-int vio_shutdown(MYSQL_VIO vio);
+int vio_shutdown(MYSQL_VIO vio, int how);
+int vio_cancel(MYSQL_VIO vio, int how);
 bool vio_reset(MYSQL_VIO vio, enum enum_vio_type type, my_socket sd, void *ssl,
                uint flags);
 bool vio_is_blocking(Vio *vio);
@@ -289,7 +290,8 @@ void vio_end(void);
   (vio)->viokeepalive(vio, set_keep_alive)
 #define vio_should_retry(vio) (vio)->should_retry(vio)
 #define vio_was_timeout(vio) (vio)->was_timeout(vio)
-#define vio_shutdown(vio) ((vio)->vioshutdown)(vio)
+#define vio_shutdown(vio, how) ((vio)->vioshutdown)(vio, how)
+#define vio_cancel(vio, how) ((vio)->viocancel)(vio, how)
 #define vio_peer_addr(vio, buf, prt, buflen) \
   (vio)->peer_addr(vio, buf, prt, buflen)
 #define vio_io_wait(vio, event, timeout) (vio)->io_wait(vio, event, timeout)
@@ -385,7 +387,7 @@ struct Vio {
      further communications can take place, however any related buffers,
      descriptors, handles can remain valid after a shutdown.
   */
-  int (*vioshutdown)(MYSQL_VIO) = {nullptr};
+  int (*vioshutdown)(MYSQL_VIO, int) = {nullptr};
   bool (*is_connected)(MYSQL_VIO) = {nullptr};
   bool (*has_data)(MYSQL_VIO) = {nullptr};
   int (*io_wait)(MYSQL_VIO, enum enum_vio_io_event, int) = {nullptr};
@@ -435,6 +437,12 @@ struct Vio {
   Vio(const Vio &) = delete;
   Vio &operator=(const Vio &) = delete;
   Vio &operator=(Vio &&vio);
+
+  /* Changes from txsql start. */
+  /** Partial shutdown. All the actions performed which shutdown performs,
+  but descriptor remains open and valid.  */
+  int (*viocancel)(Vio *, int) = {nullptr};
+  /* Changes from txsql end. */
 };
 
 #define SSL_handle SSL *

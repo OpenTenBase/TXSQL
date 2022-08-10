@@ -972,6 +972,7 @@ using std::vector;
 
 /* Changes from txsql start. */
 #include "my_md5.h"
+#include "sql/threadpool.h"
 
 char* mysqld_admin_port_init_tool = nullptr;
 char* mysqld_admin_port_init_tool_md5 = nullptr;
@@ -981,6 +982,16 @@ bool admin_tool_valid = false;
 #ifndef _WIN32
 my_thread_os_id_t admin_listener_os_thread_id;
 #endif  // !_WIN32
+
+#ifdef HAVE_POOL_OF_THREADS
+static int show_threadpool_idle_threads(THD *thd MY_ATTRIBUTE((unused)),
+                                        SHOW_VAR *var, char *buff) {
+  var->type = SHOW_INT;
+  var->value = buff;
+  *(int *)buff = tp_get_idle_thread_count();
+  return 0;
+}
+#endif
 /* Changes from txsql end. */
 
 #define mysqld_charset &my_charset_latin1
@@ -2227,7 +2238,7 @@ class Set_kill_conn : public Do_THD_Impl {
     } else {
       killing_thd->killed = THD::KILL_CONNECTION;
 
-      MYSQL_CALLBACK(Connection_handler_manager::event_functions,
+      MYSQL_CALLBACK(killing_thd->scheduler,
                      post_kill_notification, (killing_thd));
     }
 
@@ -4466,6 +4477,10 @@ SHOW_VAR com_status_vars[] = {
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"xa_start",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_XA_START]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_threadpool_status",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_SHOW_THREADPOOL_STAT]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
@@ -9935,6 +9950,12 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Tc_log_page_waits", (char *)&tc_log_page_waits, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
+#ifdef HAVE_POOL_OF_THREADS
+    {"Threadpool_idle_threads", (char *)&show_threadpool_idle_threads,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Threadpool_threads", (char *)&tp_stats.num_worker_threads, SHOW_INT,
+     SHOW_SCOPE_GLOBAL},
+#endif
     {"Threads_cached",
      (char *)&Per_thread_connection_handler::blocked_pthread_count,
      SHOW_LONG_NOFLUSH, SHOW_SCOPE_GLOBAL},

@@ -5186,4 +5186,19 @@ PT_column_attr_base *make_column_secondary_engine_attribute(MEM_ROOT *,
 PT_base_index_option *make_index_engine_attribute(MEM_ROOT *, LEX_CSTRING);
 PT_base_index_option *make_index_secondary_engine_attribute(MEM_ROOT *,
                                                             LEX_CSTRING);
+
+/* Changes from txsql start. */
+/// Parse tree node for SHOW THREADPOOL STATUS statement
+
+class PT_show_threadpool_status final : public PT_show_base {
+ public:
+  PT_show_threadpool_status(const POS &pos)
+      : PT_show_base(pos, SQLCOM_SHOW_THREADPOOL_STAT) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_show_threadpool_status m_sql_cmd;
+};
+/* Changes from txsql end. */
 #endif /* PARSE_TREE_NODES_INCLUDED */

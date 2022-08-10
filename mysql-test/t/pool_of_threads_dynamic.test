@@ -1,0 +1,23 @@
+# Start with thread_handling=pool-of-threads
+# and run a number of tests
+
+-- source include/have_pool_of_threads.inc
+
+connection default;
+# SET GLOBAL thread_handling = 'pool-of-threads';
+
+--ERROR ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL thread_handling = 'no-threads';
+
+SET GLOBAL thread_handling = 'one-thread-per-connection';
+
+connect(con2,localhost,root,,);
+connection con2;
+show databases;
+SET GLOBAL thread_handling = 'pool-of-threads';
+show databases;
+
+# connection default;
+# SET GLOBAL thread_handling = 'pool-of-threads';
+# MTR will restart the server with default args for us
+

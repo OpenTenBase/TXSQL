@@ -55,44 +55,8 @@ struct THD_event_functions {
   to the currently active Connection_handler.
 */
 class Connection_handler_manager {
-  // Singleton instance to Connection_handler_manager
-  static Connection_handler_manager *m_instance;
-
-  static mysql_mutex_t LOCK_connection_count;
-  static mysql_cond_t COND_connection_count;
-
-  // Pointer to current connection handler in use
-  Connection_handler *m_connection_handler;
-  // Pointer to saved connection handler
-  Connection_handler *m_saved_connection_handler;
-  // Saved scheduler_type
-  ulong m_saved_thread_handling;
-
-  // Status variables
-  ulong m_aborted_connects;
-  ulong
-      m_connection_errors_max_connection;  // Protected by LOCK_connection_count
-
-  /**
-    Constructor to instantiate an instance of this class.
-  */
-  Connection_handler_manager(Connection_handler *connection_handler)
-      : m_connection_handler(connection_handler),
-        m_saved_connection_handler(nullptr),
-        m_saved_thread_handling(0),
-        m_aborted_connects(0),
-        m_connection_errors_max_connection(0) {}
-
-  ~Connection_handler_manager() {
-    delete m_connection_handler;
-    if (m_saved_connection_handler) delete m_saved_connection_handler;
-  }
-
-  /* Make this class non-copyable */
-  Connection_handler_manager(const Connection_handler_manager &);
-  Connection_handler_manager &operator=(const Connection_handler_manager &);
-
- public:
+  /* Changes from txsql start. */
+  public:
   /**
     thread_handling enumeration.
 
@@ -109,8 +73,100 @@ class Connection_handler_manager {
   enum scheduler_types {
     SCHEDULER_ONE_THREAD_PER_CONNECTION = 0,
     SCHEDULER_NO_THREADS,
+    SCHEDULER_THREAD_POOL,
+    SCHEDULER_PLUGIN_CONNECTION_HANDLER,
     SCHEDULER_TYPES_COUNT
   };
+
+  /**
+    Thread handing switching enumeration.
+
+    DISABLED_SWITCH_MODE means thread_handling is disallowed to change.
+    STABLE_SWITCH_MODE means only new connections switching to new handling.
+    FAST_SWTICH_MODE means both new connections and new requests can be
+      switched to new handing.
+    SHARP_MODE means kill all connections alive, force users to reconnect.
+  */
+  enum thread_handling_switch_type {
+    DISABLED_SWITCH_MODE = 0,
+    STABLE_SWITCH_MODE,
+    FAST_SWITCH_MODE,
+    SHARP_SWITCH_MODE
+  };
+
+  // System variable
+  static ulong thread_handling_switch_mode;
+
+  Connection_handler *get_connection_handler(ulong type) {
+    assert(type < SCHEDULER_TYPES_COUNT);
+    assert(m_connection_handler[type] != nullptr);
+    return m_connection_handler[type];
+  }
+
+  void set_connection_handler(ulong type, Connection_handler *handler) {
+    assert(type < SCHEDULER_TYPES_COUNT);
+    assert(m_connection_handler[type] == NULL);
+    m_connection_handler[type] = handler;
+  }
+  /* Changes from txsql end. */
+
+  // Singleton instance to Connection_handler_manager
+  static Connection_handler_manager *m_instance;
+
+  static mysql_mutex_t LOCK_connection_count;
+  static mysql_cond_t COND_connection_count;
+
+  // Pointer to current connection handler in use
+  Connection_handler *m_connection_handler[SCHEDULER_TYPES_COUNT];
+  // Pointer to saved connection handler
+  Connection_handler *m_saved_connection_handler;
+  // Saved scheduler_type
+  ulong m_saved_thread_handling;
+
+  // Status variables
+  ulong m_aborted_connects;
+  ulong
+      m_connection_errors_max_connection;  // Protected by LOCK_connection_count
+
+  /**
+    Constructor to instantiate an instance of this class.
+  */
+  Connection_handler_manager(Connection_handler *connection_handler)
+      : m_saved_connection_handler(nullptr),
+        m_saved_thread_handling(0),
+        m_aborted_connects(0),
+        m_connection_errors_max_connection(0) {
+    for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
+      m_connection_handler[i] = nullptr;
+    }
+    m_connection_handler[Connection_handler_manager::thread_handling] =
+        connection_handler;
+  }
+
+  Connection_handler_manager()
+      : m_saved_connection_handler(nullptr),
+        m_saved_thread_handling(0),
+        m_aborted_connects(0),
+        m_connection_errors_max_connection(0) {
+    for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
+      m_connection_handler[i] = nullptr;
+    }
+  }
+
+  ~Connection_handler_manager() {
+    for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
+      if (m_connection_handler[i] != nullptr) {
+        delete m_connection_handler[i];
+        m_connection_handler[i] = nullptr;
+      }
+    }
+  }
+
+  /* Make this class non-copyable */
+  Connection_handler_manager(const Connection_handler_manager &);
+  Connection_handler_manager &operator=(const Connection_handler_manager &);
+
+ public:
 
   // Status variables. Must be static as they are used by the signal handler.
   static uint connection_count;            // Protected by LOCK_connection_count

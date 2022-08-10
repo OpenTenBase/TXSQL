@@ -718,6 +718,9 @@ THD::THD(bool enable_plugins)
       m_inside_system_variable_global_update(false),
       bind_parameter_values(nullptr),
       bind_parameter_values_count(0) {
+  to_thread_pool = 0;
+  to_per_thread = 0;
+  m_long_service = false;
   main_lex->reset();
   set_psi(nullptr);
   mdl_context.init(this);
@@ -1545,12 +1548,12 @@ void THD::awake(THD::killed_state state_to_set) {
         We also know that we will check thd->killed before we go for
         reading the next statement.
       */
-      shutdown_active_vio();
+      if (active_vio) vio_cancel(active_vio, SHUT_RDWR);
     }
 
     /* Send an event to the scheduler that a thread should be killed. */
     if (!slave_thread)
-      MYSQL_CALLBACK(Connection_handler_manager::event_functions,
+      MYSQL_CALLBACK(scheduler,
                      post_kill_notification, (this));
   }
 
@@ -1927,7 +1930,7 @@ void THD::shutdown_active_vio() {
   DBUG_TRACE;
   mysql_mutex_assert_owner(&LOCK_thd_data);
   if (active_vio) {
-    vio_shutdown(active_vio);
+    vio_shutdown(active_vio, SHUT_RDWR);
     active_vio = nullptr;
     m_SSL = nullptr;
   }
@@ -1937,7 +1940,7 @@ void THD::shutdown_clone_vio() {
   DBUG_TRACE;
   mysql_mutex_assert_owner(&LOCK_thd_data);
   if (clone_vio != nullptr) {
-    vio_shutdown(clone_vio);
+    vio_shutdown(clone_vio, SHUT_RDWR);
     clone_vio = nullptr;
   }
 }

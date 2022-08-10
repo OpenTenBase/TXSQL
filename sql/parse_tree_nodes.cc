@@ -4357,3 +4357,12 @@ PT_base_index_option *make_index_secondary_engine_attribute(MEM_ROOT *mem_root,
         return false;
       });
 }
+
+/* Changes from txsql start. */
+Sql_cmd *PT_show_threadpool_status::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
+/* Changes from txsql end. */

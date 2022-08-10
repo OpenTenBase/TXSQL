@@ -28,6 +28,10 @@
   Instrumentation helpers for idle waits.
 */
 
+/* Changes from txsql start. */
+#include "my_compiler.h"
+/* Changes from txsql end. */
+
 /* HAVE_PSI_*_INTERFACE */
 #include "my_psi_config.h"  // IWYU pragma: keep
 

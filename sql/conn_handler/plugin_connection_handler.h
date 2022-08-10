@@ -58,6 +58,11 @@ class Plugin_connection_handler : public Connection_handler {
   }
 
   uint get_max_threads() const override { return m_functions->max_threads; }
+
+  /* Changes from txsql start. */
+ public:
+  bool migrate(THD *thd MY_ATTRIBUTE((unused))) override { return true; }
+  /* Changes from txsql end. */
 };
 
 #endif  // PLUGIN_CONNECTION_HANDLER_INCLUDED

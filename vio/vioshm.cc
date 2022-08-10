@@ -151,7 +151,7 @@ void vio_delete_shared_memory(Vio *vio) {
 
   if (!vio) return;
 
-  if (vio->inactive == false) vio->vioshutdown(vio);
+  if (vio->inactive == false) vio->vioshutdown(vio, SHUT_RDWR);
 
   /*
     Close all handlers. UnmapViewOfFile and CloseHandle return non-zero
@@ -192,7 +192,7 @@ void vio_delete_shared_memory(Vio *vio) {
   All handles are closed and the VIO is cleaned up when vio_delete() is
   called and this completes the vio cleanup operation in its entirety.
 */
-int vio_shutdown_shared_memory(Vio *vio) {
+int vio_shutdown_shared_memory(Vio *vio, int how) {
   DBUG_TRACE;
   if (vio->inactive == false) {
     /*
@@ -207,3 +207,19 @@ int vio_shutdown_shared_memory(Vio *vio) {
 
   return 0;
 }
+
+/* Changes from txsql start. */
+int vio_cancel_shared_memory(Vio *vio, int how) {
+  DBUG_TRACE;
+  if (!vio->inactive) {
+    /*
+     Set event_conn_closed for notification of both client and
+     server that connection is closed
+    */
+    SetEvent(vio->event_conn_closed);
+    vio->inactive = true;
+  }
+
+  return 0;
+}
+/* Changes from txsql end. */
