@@ -129,14 +129,10 @@
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX Auto_optimization_scope
 #endif
 #if defined(HAVE_PX)
-#include "sql/parallel_execution/px_dfo.h"  // Dfo_mgr
 #include "sql/parallel_execution/px_executor.h"  // PX_coordinator
-#include "sql/parallel_execution/px_workerpool.h"  // worker_pool
 #include "sql/parallel_execution/px_interface.h"  // PX_ROLE_COORDINATOR
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/parallel_execution/px_access_path.h"  // MAX_EXCHANGE_NUM
-#include "sql/sql_db.h"  // mysql_change_db
-#include "sql/log.h"
 #include "my_alloc.h" // destory
 #endif /* defined(HAVE_PX) */
 #include "sql_string.h"

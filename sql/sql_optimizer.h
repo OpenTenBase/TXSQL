@@ -90,7 +90,6 @@ class mem_root_deque;
 */
 bool test_if_skip_smj_sort(TABLE *tab, ORDER_with_src &order, int keynr, bool reverse);
 #if defined(HAVE_PX)
-enum exchange_inject_position;
 class PX_plan_slice;
 struct Exchange_Info;
 
@@ -666,8 +665,6 @@ class JOIN {
   bool with_json_agg;
 
 #if defined(HAVE_PX)
-  // If true, do parallel.
-  bool exchange_inject{false};
   // Saved for cleanup.
   mem_root_deque<TABLE *> *exchange_temp_table = nullptr;
   mem_root_deque<Temp_table_param *> *exchange_temp_table_param = nullptr;
@@ -974,20 +971,6 @@ class JOIN {
                                  ORDER_with_src &tmp_table_group,
                                  bool save_sum_fields);
 
-#if defined(HAVE_PX)
-  /**
-   * @brief Create a intermediate table to be used by exchange
-   *
-   * @param[in,out] exchange_info
-   * @param[in,out] tmp_table_fields
-   * @param[in] save_sum_fields
-   * @return true on failure, false on success
-   */
-  bool create_exchange_intermediate_table(
-      Exchange_Info *exchange_info,
-      const mem_root_deque<Item *> &tmp_table_fields, bool save_sum_fields);
- private:
-#endif /* defined(HAVE_PX) */
   /**
     Optimize distinct when used on a subset of the tables.
 
@@ -1137,11 +1120,6 @@ class JOIN {
 
   bool alloc_indirection_slices();
 
-#if defined(HAVE_PX)
-  bool choose_parallel_table(QEP_TAB *parallel_tab);
-
-  bool check_expression_parallel_safe();
-#endif /* defined(HAVE_PX) */
   /**
     Convert the executor structures to a set of access paths, storing
     the result in m_root_access_path.

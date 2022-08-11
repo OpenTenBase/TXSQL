@@ -195,7 +195,6 @@
 #include "sql/parallel_execution/opt_interface.h" // OPT_CTX
 #endif
 #if defined(HAVE_PX)
-#include "sql/parallel_execution/px_executor.h" // PX_executor
 #include "sql/parallel_execution/px_interface.h" // fallback_to_serial_execution
 #endif /* defined(HAVE_PX) */
 /**

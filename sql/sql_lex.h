@@ -673,9 +673,6 @@ class Query_expression {
   Query_block *slave;
 
  private:
-#if defined(HAVE_PX)
-  PX_exchange_info *exchange_info{nullptr};
-#endif /* defined(HAVE_PX) */
   /**
     Marker for subqueries in WHERE, HAVING, ORDER BY, GROUP BY and
     SELECT item lists.
@@ -744,10 +741,6 @@ class Query_expression {
   uint8 uncacheable;
 
   explicit Query_expression(enum_parsing_context parsing_context);
-
-#if defined(HAVE_PX)
-  bool exchange_inject;
-#endif /* defined(HAVE_PX) */
 
   /// @return true for a query expression without UNION or multi-level ORDER
   bool is_simple() const { return !(is_union() || fake_query_block); }
@@ -918,12 +911,6 @@ class Query_expression {
    */
   bool force_create_iterators(THD *thd);
 
-#if defined(HAVE_PX)
-  bool create_single_thread_iterators(THD *thd);
-
-  bool init_exchange_info(THD *thd);
-#endif /* defined(HAVE_PX) */
-
   /// See optimize().
   bool unfinished_materialization() const {
     return !m_query_blocks_to_materialize.empty();
@@ -1014,9 +1001,6 @@ class Query_expression {
   */
   void destroy();
 
-#if defined(HAVE_PX)
-  bool has_user_vars() const;
-#endif /* defined(HAVE_PX) */
   void print(const THD *thd, String *str, enum_query_type query_type);
   bool accept(Select_lex_visitor *visitor);
 
@@ -4209,8 +4193,6 @@ struct LEX : public Query_tables_list {
   }
 
 #if defined(HAVE_PX)
-  /// Compatiable code, only support one exchange currently.
-  bool only_one_exchange() const { return thd->lex->m_exchange_number == 1; }
   /// Mark a LEX can not be executed parallel if
   ///  1. the LEX is not SELECT command, or
   ///  2. it's not a dynamic SQL, it's in PS/SP, or
