@@ -229,4 +229,43 @@ Txsql_parallel_stmt_hint_executed	3
 Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	1
 drop table t1;
+
+# 5) test optimization context memory limit for explain
+
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(1,1,1,1);
+insert into t1 values(2,3,4,5);
+insert into t1 values(2,2,2,2);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
+flush status;
+SET txsql_optimizer_context_max_mem_size = default;
+explain select * from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1`
+SET txsql_optimizer_context_max_mem_size = 1;
+show variables like 'txsql_optimizer_context_max_mem_size';
+Variable_name	Value
+txsql_optimizer_context_max_mem_size	1
+explain select * from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	NULL
+Warnings:
+Warning	3170	Memory capacity of 1 bytes for 'ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT' exceeded. Optimization context cache isn't enabled due to memory limitation.
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1`
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+DROP TABLE t1;
 # --include set_px_to_saved.inc
