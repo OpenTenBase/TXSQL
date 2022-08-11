@@ -88,10 +88,6 @@ class PT_hint_list;
 extern int HINT_PARSER_parse(THD *thd, Hint_scanner *scanner,
                              PT_hint_list **ret);
 
-#if defined(HAVE_PX)
-extern bool compat_for_table(TABLE *table);
-#endif /* defined(HAVE_PX) */
-
 static int lex_one_token(Lexer_yystype *yylval, THD *thd);
 
 static constexpr const int MAX_SELECT_NESTING{sizeof(nesting_map) * 8 - 1};
@@ -2228,9 +2224,6 @@ Query_expression::Query_expression(enum_parsing_context parsing_context)
       table(nullptr),
       m_query_result(nullptr),
       uncacheable(0),
-#if defined(HAVE_PX)
-      exchange_inject(false),
-#endif /* defined(HAVE_PX) */
       cleaned(UC_DIRTY),
       item_list(current_thd->mem_root),
       types(current_thd->mem_root),
@@ -2706,14 +2699,6 @@ bool Query_block::setup_base_ref_items(THD *thd) {
 
   return false;
 }
-
-#if defined(HAVE_PX)
-bool Query_expression::has_user_vars() const {
-  for (Query_block *sl = first_query_block(); sl; sl = sl->next_query_block())
-    if (sl->has_user_vars) return true;
-  return false;
-}
-#endif /* defined(HAVE_PX) */
 
 void Query_expression::print(const THD *thd, String *str,
                              enum_query_type query_type) {

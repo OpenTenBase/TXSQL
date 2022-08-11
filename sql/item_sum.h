@@ -449,10 +449,6 @@ class Item_sum : public Item_func {
     SUM_DISTINCT_FUNC,    // SUM (DISTINCT)
     AVG_FUNC,             // AVG
     AVG_DISTINCT_FUNC,    // AVG (DISTINCT)
-#if defined(HAVE_PX)
-    PX_AVG_FUNC,          // PX_AVG
-    PX_AVG_DISTINCT_FUNC, // PX_AVG(DISTINCT)
-#endif /* defined(HAVE_PX) */
     MIN_FUNC,             // MIN
     MAX_FUNC,             // MAX
     STD_FUNC,             // STD/STDDEV/STDDEV_POP
