@@ -2656,9 +2656,12 @@ void THD::collect_px_stmt_da_for_error()
   for (int i = 0; i < worker_pool->num_workers; ++i) {
     THD *worker_thd = worker_pool->thread_args[i].worker_thd;
     if (worker_thd->is_error()) {
-      my_error(worker_thd->get_stmt_da()->mysql_errno(),
-               MYF(0),
-               worker_thd->get_stmt_da()->message_text());
+      /*
+        The error message has been encapsulated by worker thd.
+        Thus, we can directly output the error with errno.
+      */
+      my_px_error(worker_thd->get_stmt_da()->mysql_errno(),
+                  worker_thd->get_stmt_da()->message_text());
       break;
     }
   }

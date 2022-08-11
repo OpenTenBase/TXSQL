@@ -41,7 +41,7 @@ EXPLAIN
 
 set session debug="+d,px_receiver_attach_error";
 SELECT * FROM t1 order by col2 limit 3;
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error:  in function PX_mq_channel::attach().
 set session debug="-d,px_receiver_attach_error";
 SELECT * FROM t1 order by col2 limit 3;
 id	col1	col2
@@ -61,7 +61,7 @@ EXPLAIN
 
 set session debug="+d,px_codec_create_error";
 SELECT * FROM t1 order by col2 limit 3;
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error: creating codec in function PX_receiver::Init().
 set session debug="-d,px_codec_create_error";
 SELECT * FROM t1 order by col2 limit 3;
 id	col1	col2
@@ -81,7 +81,7 @@ EXPLAIN
 
 set session debug="+d,px_codec_init_error";
 SELECT * FROM t1 order by col2 limit 3;
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error:  in function PX_compact_codec::init().
 set session debug="-d,px_codec_init_error";
 SELECT * FROM t1 order by col2 limit 3;
 id	col1	col2
