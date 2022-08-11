@@ -1,0 +1,24 @@
+--echo ###############################################
+--echo # test of gather worker error (Diagnostics_area)
+--echo ###############################################
+
+CREATE TABLE t (a INT) ENGINE=InnoDB;
+
+INSERT INTO t VALUES (1), (2);
+
+--error ER_GIS_INVALID_DATA
+SELECT DISTINCT SQL_BIG_RESULT ST_GeomFromGeoJSON('1', 1, ST_SRID(a)) FROM t;
+
+DROP TABLE t;
+
+CREATE TABLE t(
+  a YEAR NOT NULL,
+  b DECIMAL(29,5) UNSIGNED ZEROFILL NOT NULL
+) ENGINE=INNODB;
+
+INSERT INTO t VALUES (2000,1),(2000,1),(2000,9999);
+
+--error ER_DATA_OUT_OF_RANGE
+SELECT * FROM t ORDER BY (a-b);
+
+DROP TABLE t;

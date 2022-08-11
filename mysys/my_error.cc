@@ -249,6 +249,47 @@ void my_error(int nr, myf MyFlags, ...) {
   (*error_handler_hook)(nr, ebuff, MyFlags);
 }
 
+#if defined(HAVE_PX)
+/**
+  Print the given error message from worker thd.
+
+  @note
+    Goes through the (sole) function registered in error_handler_hook
+
+  @param nr             error number
+  @param message_text   the given error message from worker thd
+*/
+
+void my_px_error(int nr, const char *message_text) {
+  char ebuff[ERRMSGSIZE];
+  DBUG_TRACE;
+  DBUG_PRINT("my", ("nr: %d  MyFlags: %d  errno: %d", nr, MYF(0), errno));
+
+  (void)snprintf(ebuff, sizeof(ebuff), "%s", message_text);
+
+  /*
+    Since this function is an error function, it will frequently be given
+    values that are too long (and thus truncated on byte boundaries,
+    not code point or grapheme boundaries), values that are binary, etc..
+    Go through and replace every malformed UTF-8 byte with a question mark,
+    so that the result is safe to send to the client and makes sense to read
+    for the user.
+  */
+  for (char *ptr = ebuff, *end = ebuff + strlen(ebuff); ptr != end;) {
+    my_wc_t ignored;
+    int len = my_mb_wc_utf8mb4(&ignored, pointer_cast<const uchar *>(ptr),
+                               pointer_cast<const uchar *>(end));
+    if (len > 0) {
+      ptr += len;
+    } else {
+      *ptr++ = '?';
+    }
+  }
+
+  (*error_handler_hook)(nr, ebuff, MYF(0));
+}
+#endif /* defined(HAVE_PX) */
+
 /**
   Print an error message.
 

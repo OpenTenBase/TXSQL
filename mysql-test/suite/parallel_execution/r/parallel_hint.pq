@@ -141,7 +141,7 @@ EXPLAIN
 
 Warnings:
 Warning	3126	Hint PARALLEL(`t2`@``,) is ignored as conflicting/duplicated
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 explain format=tree select /*+PARALLEL(t1)*/ t1.* from t1,t2 union select /*+PARALLEL(t3)*/ * from t3;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -159,7 +159,7 @@ EXPLAIN
                         -> Parallel table scan on t3  (cost=1.25 rows=10)
 
 Warnings:
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 explain format=tree select /*+JOIN_ORDER(t5,t3) PARALLEL(t3)*/ t5.a, t3.a from t5, t3 where t5.a = t3.b;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -169,7 +169,7 @@ EXPLAIN
             -> Index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
 
 Warnings:
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 explain format=tree select /*+JOIN_ORDER(t5,t3) PARALLEL(t3)*/ t5.a, t3.a from t5, t3 where t5.a = t3.b union select /*+PARALLEL(t1)*/ t1.a,t1.b from t1;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -186,7 +186,7 @@ EXPLAIN
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 Warnings:
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 # 1.1.3 test the PARALLEL(table n)
 explain format=tree select /*+NO_BNL(t1,t2) PARALLEL(t2 2)*/ t1.a+t2.b from t1,t2 where t1.a = t2.b;
 EXPLAIN
@@ -319,7 +319,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 Note	1003	/* select#1 */ select /*+ QB_NAME(`qb1`) JOIN_ORDER(@`qb1` `t5`@`qb1`,`t3`@`qb1`) PARALLEL(`t3`@`qb1`) */ `test`.`t5`.`a` AS `a`,`test`.`t3`.`a` AS `a` from `test`.`t5` join `test`.`t3` where (`test`.`t3`.`b` = `test`.`t5`.`a`)
 explain format=tree select /*+QB_NAME(qb1) JOIN_ORDER(t5@qb1,t3@qb1) PARALLEL(t3@qb1 4)*/ t5.a, t3.a from t5, t3 where t5.a = t3.b;
 EXPLAIN
@@ -330,7 +330,7 @@ EXPLAIN
             -> Index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
 
 Warnings:
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 explain select /*+parallel(t1@qb1)*/ * from (select /*+qb_name(qb1)*/ * from t1) as v where v.a = 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Parallel scan (4 workers); Using where
@@ -471,7 +471,7 @@ EXPLAIN
     -> Single-row index lookup on t6 using PRIMARY (a=t5.a)  (cost=0.28 rows=1)
 
 Warnings:
-Warning	8024	parallel hint has no effect, not the chosen table.
+Warning	8504	parallel hint has no effect, not the chosen table.
 # --include set_px_to_saved.inc
 drop table t1;
 drop table t2;

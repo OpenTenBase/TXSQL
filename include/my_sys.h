@@ -660,6 +660,9 @@ extern int my_sync(File fd, myf my_flags);
 extern char *my_strerror(char *buf, size_t len, int errnum);
 extern const char *my_get_err_msg(int nr);
 extern void my_error(int nr, myf MyFlags, ...);
+#if defined(HAVE_PX)
+extern void my_px_error(int nr, const char *message_text);
+#endif /* defined(HAVE_PX) */
 extern void my_printf_error(uint my_err, const char *format, myf MyFlags, ...)
     MY_ATTRIBUTE((format(printf, 2, 4)));
 extern void my_printv_error(uint error, const char *format, myf MyFlags,
