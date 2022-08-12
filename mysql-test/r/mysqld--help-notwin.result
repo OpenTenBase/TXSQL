@@ -2124,7 +2124,7 @@ thread-pool-oversubscribe-parall TRUE
 thread-pool-oversubscribe-parall-num 3
 thread-pool-oversubscribe-parall-timeout 5
 thread-pool-queue-congest-threshold 5
-thread-pool-size 24
+thread-pool-size ####
 thread-pool-stall-limit 500
 thread-stack 1048576
 tls-ciphersuites (No default value)
