@@ -15,4 +15,6 @@ void RebuildCurrentRefItems(THD *thd, JOIN *join, uint curr_slice, bool is_final
 
 bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int ref_slice);
 
+bool FixSubqueryInProjection(THD *thd, JOIN *join);
+
 #endif

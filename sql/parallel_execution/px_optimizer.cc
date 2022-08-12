@@ -336,6 +336,15 @@ bool JOIN::px_generate_plan(px_access_path::Split_Position *split_position) {
       assert(false); // For test
       return true;
     }
+
+    /*
+      If there is dependent subquery in projection, Item_ref about item_sum
+      should be update to final item_sum.
+    */
+    if (FixSubqueryInProjection(thd, this)) {
+      assert(false);
+      return true;
+    }
   }
 
   // PHASE-2: Inject the exchange operators.

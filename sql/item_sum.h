@@ -505,6 +505,21 @@ class Item_sum : public Item_func {
   */
   nesting_map save_deny_window_func;
 
+#if defined(HAVE_PX)
+  /**
+    If this sum func is pushed down to worker, px_pushed_down
+    should be set to true.
+  */
+  bool px_pushed_down{false};
+
+  /**
+    A new agrgegation function will be created to calculate the final
+    result in parallel execution, if this is pushed down to worker.
+    this member is used to store the new aggregation function.
+  */
+  Item *px_final_expr{nullptr};
+#endif /* defined(HAVE_PX) */
+
  protected:
   /**
     True means that this field has been evaluated during optimization.

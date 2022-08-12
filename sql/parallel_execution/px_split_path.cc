@@ -196,6 +196,8 @@ static bool CheckForRebuildAgg(THD *thd, JOIN *join, uint *avg_count) {
   return false;
 }
 
+static void SetRefForFinalExpr(THD *thd, JOIN *join, uint base_slice, uint cur_slice);
+
 /**
   Split aggregate accesspath into local agg and final agg, it means that a new
   aggregate accesspath will be inject after the current aggregate accesspath as
@@ -266,11 +268,26 @@ static AccessPath *SplitAggAccessPath(THD *thd, JOIN *join, AccessPath *target_p
     if (new_final_agg_path == nullptr) goto err;
   }
 
+  // Create ref between local sum_funcs and final sum_funcs.
+  SetRefForFinalExpr(thd, join, REF_SLICE_SAVED_BASE, curr_slice);
+
   return new_final_agg_path;
 
 err:
   assert(false);
   return nullptr;
+}
+
+static void SetRefForFinalExpr(THD *thd, JOIN *join, uint base_slice, uint cur_slice) {
+  uint size = join->saved_base_fields->size();
+  for (uint i = 0; i < size; ++i) {
+    Item *item = join->ref_items[base_slice][i];
+    if (item->type() == Item::SUM_FUNC_ITEM) {
+      Item_sum *item_sum = down_cast<Item_sum *>(item);
+      item_sum->px_pushed_down = true;
+      item_sum->px_final_expr = join->ref_items[cur_slice][i];
+    }
+  }
 }
 
 /**
@@ -1227,4 +1244,88 @@ bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
     }
   }
   return false; 
+}
+
+static bool replace_item_in_subquery(THD *thd, Query_expression *subselect_unit);
+
+/**
+  A new set of agrgegation functions will be created to calculate the final
+  result in parallel execution. If there is a dependent subquery in projection,
+  Item_ref about aggregation function should be update to the new one.
+
+  Select_lex_unit of subselect in select list will be marked as CTX_SELECT_LIST,
+  so traverse inner_units to find dependent subselect in select list, and replace
+  sum_funcs with final sum funcs expr.
+
+  @param thd
+  @param join
+  @return true for error
+  @return false for success
+*/
+bool FixSubqueryInProjection(THD *thd, JOIN *join) {
+  if (!join->query_block->first_inner_query_expression()) {
+    return false;
+  }
+
+  for (Query_expression *inner_unit = join->query_block->first_inner_query_expression();
+       inner_unit; inner_unit = inner_unit->next_query_expression()) {
+    if (inner_unit->get_explain_marker(thd) == CTX_SELECT_LIST &&
+        replace_item_in_subquery(thd, inner_unit)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+  Traverse ref_items to replace aggregation function which is pushed down
+  with the new one.
+
+  If an aggrgation function is pushed down to worker, the property
+  px_pushed_down will be set to true and px_final_expr will be set
+  to the new agregation item. So check whether item is pushed down
+  and replace it with px_final_expr.
+
+  @param thd
+  @param subselect_unit query_block_unit of subquery in select list.
+  @return true
+  @return false
+*/
+static bool replace_item_in_subquery(THD *thd, Query_expression *subselect_unit) {
+  for (Query_block *sl = subselect_unit->first_query_block(); sl;
+       sl = sl->next_query_block()) {
+    if (sl->first_inner_query_expression()) {
+      for (Query_expression *inner_unit = sl->first_inner_query_expression();
+           inner_unit; inner_unit = inner_unit->next_query_expression()) {
+        if (inner_unit->get_explain_marker(thd) == CTX_SELECT_LIST &&
+            replace_item_in_subquery(thd, inner_unit)) {
+          return true;
+        }
+      }
+    }
+
+    if (!sl->is_dependent()) {
+      continue;
+    }
+    JOIN *sub_join = sl->join;
+    uint sub_size = sub_join->fields->size();
+    for (uint slice = 0; slice <= REF_SLICE_SAVED_BASE; ++slice) {
+      if (sub_join->ref_items[slice].is_null()) {
+        continue;
+      }
+      for (uint j = 0; j < sub_size; ++j) {
+        Item *sub_item = sub_join->ref_items[slice][j];
+        if (sub_item->type() == Item::SUM_FUNC_ITEM) {
+          Item_sum *sum_item = down_cast<Item_sum *>(sub_item);
+          if (!sum_item->px_pushed_down) continue;
+          if (!sum_item->px_final_expr) {
+            assert(false);
+            return true;
+          }
+          sub_join->ref_items[slice][j] = sum_item->px_final_expr;
+        }
+      }
+    }
+  }
+  return false;
 }
