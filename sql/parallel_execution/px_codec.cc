@@ -409,8 +409,10 @@ int PX_compact_codec::decode(uchar *data, Size len) {
     is_null_field = *(status_flag + 1);
 
     if (!is_const_item) {
-      if (decompact_field(field, is_null_field, data, ptr_offset)) {
+      if (decompact_field(field, is_null_field, data, ptr_offset) ||
+          DBUG_EVALUATE_IF("px_decode_error", true, false)) {
         PX_PRINT_ERROR("decompact field in PX_receiver fails.");
+        my_error(ER_PX_DECODE_ERROR, MYF(0));
         return 1;
       }
     }

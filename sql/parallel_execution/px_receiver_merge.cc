@@ -478,6 +478,6 @@ bool PX_receiver_merge::store_mq_record(mq_record_st *rec, uchar *data, uint32 m
   return true;
 
 err:
-  my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "(PX_receiver_merge::store_mq_record)");
+  my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", "PX_receiver_merge::store_mq_record()");
   return false;
 }

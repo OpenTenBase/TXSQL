@@ -10031,7 +10031,10 @@ ER_PX_OUT_OF_LOB
   eng "The size of lob field exceeds the limit."
 
 ER_PX_OUT_OF_SORT_LOB
-  eng "The sort buffer size exceeds the limit."ß
+  eng "The sort buffer size exceeds the limit."
+
+ER_PX_DECODE_ERROR
+  eng "Failed to decode field in PX_receiver."
 
 #
 # End of parallel execution specific messages to be sent to client
