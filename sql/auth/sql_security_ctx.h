@@ -36,6 +36,7 @@
 #include "sql/auth/partial_revokes.h"
 #include "sql/sql_const.h"
 #include "sql_string.h"
+#include "sql/auth/sql_authentication.h"
 
 /* Forward declaration. Depends on sql_auth_cache.h (which depends on this file)
  */
@@ -200,6 +201,9 @@ class Security_context {
                         const size_t priv_host_arg_length);
 
   const char *priv_host_name() const;
+
+  void update_real_client_host_ip(THD *thd, struct MPVIO_EXT *mpvio,
+                                  char *real_client_ip);
 
   /**
     Getter method for member m_master_access.

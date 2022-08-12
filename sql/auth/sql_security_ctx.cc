@@ -316,6 +316,24 @@ bool Security_context::user_matches(Security_context *them) {
          !strcmp(m_user.ptr(), them_user);
 }
 
+void
+Security_context::update_real_client_host_ip(THD *thd, struct MPVIO_EXT *mpvio,
+                                             char *real_client_ip)
+{
+  assert(thd != NULL && mpvio != NULL && real_client_ip != NULL);
+
+  assign_host(NULL, 0);
+  assign_host(real_client_ip, strlen(real_client_ip));
+  assign_ip(NULL, 0);
+  assign_ip(real_client_ip, strlen(real_client_ip));
+  set_host_or_ip_ptr();
+
+  mpvio->auth_info.host_or_ip= m_host_or_ip.ptr();
+  mpvio->auth_info.host_or_ip_length= (unsigned int) strlen(m_host_or_ip.ptr());
+  mpvio->ip= (char *) (m_ip.ptr());
+  mpvio->host= (char *) (m_host.ptr());
+}
+
 bool Security_context::check_access(ulong want_access,
                                     const std::string &db_name /* = "" */,
                                     bool match_any) {
