@@ -5,6 +5,7 @@
 
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
+--disable_ps_protocol
 
 # Build the test case schema.
 create table t1(a int, b int, c int, d int);

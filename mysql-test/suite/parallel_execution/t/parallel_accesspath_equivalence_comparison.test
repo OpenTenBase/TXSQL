@@ -11,6 +11,7 @@
 --echo #  5) additional tests that may cause exceptions
 --echo ###############################################
 
+--disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
 --echo # 1) test plan changed by optimizer_switch

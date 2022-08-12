@@ -4,6 +4,8 @@
 #                                                                   #
 #####################################################################
 
+--disable_ps_protocol
+
 --disable_query_log
 --disable_warnings
 drop table if exists t1;

@@ -21,6 +21,7 @@
 ###     2.4 enable=false, max_threads = 0   #
 #############################################
 
+--disable_ps_protocol
 
 --echo ###
 --echo ### 0. Prepare Data
