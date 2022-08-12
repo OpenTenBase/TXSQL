@@ -1161,4 +1161,32 @@ FTS_DOC_ID	MATCH(title, text) AGAINST ('database')
 1	0.0906190574169159
 2	0
 drop table wp;
+#
+# Sub-plan of Limit Access Path is parallel unsafe
+#
+SET @old_optimizer_switch = @@optimizer_switch;
+SET optimizer_switch='semijoin=off';
+CREATE TABLE t SELECT 4096 c;
+EXPLAIN FORMAT=tree
+SELECT c FROM t WHERE 1 IN
+(SELECT t.c = page_size FROM information_schema.innodb_cmpmem);
+EXPLAIN
+-> Filter: <in_optimizer>(1,<exists>(select #2))  (cost=0.35 rows=1)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 1)
+            -> Parallel table scan on t  (cost=0.35 rows=1)
+    -> Select #2 (subquery in condition; dependent)
+        -> Limit: 1 row(s)
+            -> Filter: (<cache>(1) = (t.c = innodb_cmpmem.page_size))
+                -> Table scan on innodb_cmpmem  (cost=0.00 rows=0)
+                    -> Fill information schema table innodb_cmpmem
+
+Warnings:
+Note	1276	Field or reference 'test.t.c' of SELECT #2 was resolved in SELECT #1
+SELECT c FROM t WHERE 1 IN
+(SELECT t.c = page_size FROM information_schema.innodb_cmpmem);
+c
+4096
+set optimizer_switch = @old_optimizer_switch;
+DROP TABLE t;
 # --include set_px_to_saved.inc

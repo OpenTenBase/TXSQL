@@ -337,4 +337,22 @@ SELECT FTS_DOC_ID, MATCH(title, text) AGAINST ('database') FROM wp;
 
 drop table wp;
 
+--echo #
+--echo # Sub-plan of Limit Access Path is parallel unsafe
+--echo #
+SET @old_optimizer_switch = @@optimizer_switch;
+SET optimizer_switch='semijoin=off';
+CREATE TABLE t SELECT 4096 c;
+
+EXPLAIN FORMAT=tree
+SELECT c FROM t WHERE 1 IN
+(SELECT t.c = page_size FROM information_schema.innodb_cmpmem);
+
+--sorted_result
+SELECT c FROM t WHERE 1 IN
+(SELECT t.c = page_size FROM information_schema.innodb_cmpmem);
+
+set optimizer_switch = @old_optimizer_switch;
+DROP TABLE t;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc
