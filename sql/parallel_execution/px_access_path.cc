@@ -499,15 +499,18 @@ bool px_access_path::WalkAccessPathsForCompat(
       break;
     }
     case AccessPath::LIMIT_OFFSET: {
-      WalkAccessPathsForCompat(thd, path->limit_offset().child, path, cur_join,
-                               parallel_scan, false, root_all, ref_slice,
-                               max_px_subpath, is_stream, mat_access_path,
-                               split_positions, exchange_safe);
-      // The limit operator may truncate parallel scans.
-      if (parallel_scan && is_stream) {
-        split_positions->clear();
+      if (WalkAccessPathsForCompat(
+              thd, path->limit_offset().child, path, cur_join, parallel_scan,
+              false, root_all, ref_slice, max_px_subpath, is_stream,
+              mat_access_path, split_positions, exchange_safe)) {
+        // The limit operator may truncate parallel scans.
+        if (parallel_scan && is_stream) {
+          split_positions->clear();
+        }
+        parallel_safe = !parallel_scan;
+      } else {
+        parallel_safe = false;
       }
-      parallel_safe = !parallel_scan;
       break;
     }
     case AccessPath::STREAM: {
