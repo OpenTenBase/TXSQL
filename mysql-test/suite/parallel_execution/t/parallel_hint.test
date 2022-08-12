@@ -4,6 +4,8 @@
 #                                                                   #
 #####################################################################
 
+--disable_ps_protocol
+
 # Build the test case schema.
 create table t1(a int, b int, c int, d int);
 insert into t1 values(1,2,3,4);

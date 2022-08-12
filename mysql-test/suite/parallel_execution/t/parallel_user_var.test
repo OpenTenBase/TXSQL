@@ -3,6 +3,7 @@
 # Test for parallel query with user_var #
 #########################################
 
+--disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
 --disable_warnings

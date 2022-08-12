@@ -2,6 +2,7 @@
 # Test for parallel query aggregation splitting #
 #################################################
 
+--disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
 --echo #
