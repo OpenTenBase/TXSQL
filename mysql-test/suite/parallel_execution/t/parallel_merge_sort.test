@@ -3,6 +3,7 @@
 #################################################
 --source include/have_debug.inc
 --source suite/parallel_execution/inc/save_and_set_px.inc
+--disable_ps_protocol
 
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(
@@ -25,19 +26,23 @@ ANALYZE TABLE t1;
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 select * from t1 order by col2;
 
+#
+# Verify by injecting errors all at once and revoking injection in each step.
+#
+
 set session debug="+d,px_receiver_init_error1";
 set session debug="+d,px_binary_heap_error1";
-set session debug="+d,px_load_group_record_error1";
+set session debug="+d,px_load_group_record_error1"; # KILL_QUERY
 set session debug="+d,px_store_mq_record_error";
-#set session debug="+d,px_decode_error";
+set session debug="+d,px_decode_error"; # ER_PX_DECODE_ERROR
 
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
-#--error ER_PX_EXECUTE_ERROR
-#select * from t1 order by col2;
+--error ER_STD_BAD_ALLOC_ERROR
+select * from t1 order by col2;
 
 set session debug="-d,px_receiver_init_error1";
-#--error ER_PX_EXECUTE_ERROR
-#select * from t1 order by col2;
+--error ER_STD_BAD_ALLOC_ERROR
+select * from t1 order by col2;
 
 set session debug="-d,px_binary_heap_error1";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
@@ -46,15 +51,15 @@ select * from t1 order by col2;
 
 set session debug="-d,px_load_group_record_error1";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
-#--error ER_PX_EXECUTE_ERROR
-#select * from t1 order by col2;
+--error ER_STD_BAD_ALLOC_ERROR
+select * from t1 order by col2;
 
 set session debug="-d,px_store_mq_record_error";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
-#--error ER_PX_EXECUTE_ERROR
-#select * from t1 order by col2;
+--error ER_PX_DECODE_ERROR
+select * from t1 order by col2;
 
-#set session debug="-d,px_decode_error";
+set session debug="-d,px_decode_error";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 select * from t1 order by col2;
 

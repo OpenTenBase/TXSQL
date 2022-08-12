@@ -6,6 +6,7 @@
 
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
+--disable_ps_protocol
 
 --disable_query_log
 #call mtr.add_suppression("THD::check_error_before_sending_data");
@@ -441,13 +442,13 @@ set session debug="+d,run_root_before_sending_data_error";
 connect(conn521,localhost,root,,);
 connection conn521;
 set session debug="+d,run_root_in_sending_data_error";
---error 8020
+--error ER_STD_BAD_ALLOC_ERROR
 select a, sum(b+c) from t1 where a > 1 group by a order by a;
 
 connect(conn522,localhost,root,,);
 connection conn522;
 set session debug="+d,run_root_in_sending_data_error";
---error 8020
+--error ER_STD_BAD_ALLOC_ERROR
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
 
 show status like '%txsql_parallel%';
