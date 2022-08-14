@@ -478,6 +478,8 @@ extern uint cdb_statistics_port;
 extern std::atomic<long long> outline_reload_version;
 extern std::atomic<long long> optimizer_cost_reload_version;
 extern std::atomic<long long> rewriter_plugin_reload_version;
+extern ulong txsql_max_optimizer_context_memory_exceeded;
+extern mysql_mutex_t LOCK_optimizer_context_memory_exceeded_counter;
 #endif
 /**
   Variable to check if connection related options are set

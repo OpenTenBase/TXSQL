@@ -815,16 +815,17 @@ class Px_optimizer_context_error_handler : public Internal_error_handler {
             "ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT",
             ER_THD(thd, ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT));
 
+        /* close the cache and fallback to serial explain */
+        OPT_CTX(thd).set_ctx(OPT_CTX_NATIVE);
+
         if (thd->lex->is_explain()) {
-          /* close the cache and fallback to serial explain */
-          OPT_CTX(thd).set_ctx(OPT_CTX_NATIVE);
           return true;
         }
 
 #if defined(HAVE_PX)
-        mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
-        txsql_parallel_stmt_memory_refused++;
-        mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
+        mysql_mutex_lock(&LOCK_optimizer_context_memory_exceeded_counter);
+        txsql_max_optimizer_context_memory_exceeded++;
+        mysql_mutex_unlock(&LOCK_optimizer_context_memory_exceeded_counter);
 #endif /* defined(HAVE_PX) */
         my_error(ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT, MYF(0));
         return true;

@@ -18,7 +18,9 @@ txsql_parallel_lob_enabled	ON
 SET global debug = "+d,px_no_row_split";
 EXPLAIN FORMAT=TREE SELECT * FROM t;
 EXPLAIN
--> Table scan on t  (cost=0.65 rows=4)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 1)
+        -> Parallel table scan on t  (cost=0.65 rows=4)
 
 SELECT * FROM t;
 i	j1	j2

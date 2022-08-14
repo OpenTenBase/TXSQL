@@ -43,7 +43,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 # Query A
@@ -78,7 +77,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	2
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 #
@@ -113,7 +111,6 @@ Txsql_parallel_stmt_error	1
 Txsql_parallel_stmt_executed	2
 Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	1
 Txsql_parallel_threads_currently_used	0
 #
@@ -158,7 +155,6 @@ Txsql_parallel_stmt_error	1
 Txsql_parallel_stmt_executed	4
 Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	1
 Txsql_parallel_threads_currently_used	0
 set global txsql_parallel_degree = @saved_txsql_parallel_degree;
@@ -172,7 +168,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 drop table t1;

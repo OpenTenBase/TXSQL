@@ -83,26 +83,16 @@ EXPLAIN
 
 explain format=tree select /*+PARALLEL(10)*/ * from t1;
 EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 7)
-        -> Parallel table scan on t1  (cost=0.95 rows=7)
+-> Table scan on t1  (cost=0.95 rows=7)
 
 explain format=tree select /*+PARALLEL(10)*/ a,sum(b) from t1 group by a union select a,b from t2;
 EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
-                -> Table scan on <temporary>
-                    -> Final Aggregate using temporary table
-                        -> PX Receiver (slice: 1; workers: 1)
-                            -> PX Sender (slice: 2; workers: 7)
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Parallel table scan on t1  (cost=0.95 rows=7)
-                -> PX Receiver (slice: 1; workers: 1)
-                    -> PX Sender (slice: 3; workers: 5)
-                        -> Parallel table scan on t2  (cost=0.75 rows=5)
+-> Table scan on <union temporary>  (cost=2.50 rows=0)
+    -> Union materialize with deduplication
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> Table scan on t1  (cost=0.95 rows=7)
+        -> Table scan on t2  (cost=0.75 rows=5)
 
 # 1.1.2 test the PARALLEL(table)
 explain format=tree select /*+NO_BNL(t1,t2) PARALLEL(t2)*/ t1.a, t2.a from t1,t2 where t1.a = t2.a;

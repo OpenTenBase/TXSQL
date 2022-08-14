@@ -2,51 +2,56 @@
 show variables like 'txsql_optimizer_context_max_mem_size';
 Variable_name	Value
 txsql_optimizer_context_max_mem_size	8388608
+set global txsql_max_parallel_worker_threads = 8;
 
 # 1) test optimization context memory limit of handler::stats
 
-CREATE TABLE t1 (
-f1 varchar(16) PRIMARY KEY,
-f2 varchar(16)
-);
-CREATE TABLE t2 (
-f1 varchar(16) PRIMARY KEY,
-f3 varchar(16)
-);
-INSERT INTO t1 VALUES ('bla','blah');
-INSERT INTO t1 VALUES ('blc','blad');
-INSERT INTO t1 VALUES ('bld','blad');
-INSERT INTO t2 VALUES ('bla','sheep');
-INSERT INTO t2 VALUES ('blc','sheep');
-INSERT INTO t2 VALUES ('bld','sheep');
+create table t1(a int, b int, c int, d int);
+insert into t1 values(1,2,3,4);
+insert into t1 values(1,1,1,1);
+insert into t1 values(2,3,4,5);
+insert into t1 values(2,2,2,2);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
 flush status;
-SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
-f1	f2	f3
-bla	blah	sheep
+SELECT * FROM t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
 SET txsql_optimizer_context_max_mem_size = 1;
 show variables like 'txsql_optimizer_context_max_mem_size';
 Variable_name	Value
 txsql_optimizer_context_max_mem_size	1
-SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
+SELECT * FROM t1 order by a,b;
 ERROR HY000: Optimization context cache isn't enabled due to memory limitation.
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
-Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	1
 Txsql_parallel_stmt_thread_refused	0
-DROP TABLE t1,t2;
-SET txsql_optimizer_context_max_mem_size = @saved_optimizer_context_max_mem_size;
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	1
+DROP TABLE t1;
+SET txsql_optimizer_context_max_mem_size = default;
 
 # 2) test optimization context memory limit of index dive
 
@@ -106,8 +111,10 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	3
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
 SET txsql_optimizer_context_max_mem_size = 1;
 show variables like 'txsql_optimizer_context_max_mem_size';
 Variable_name	Value
@@ -124,9 +131,11 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	3
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	3
 Txsql_parallel_stmt_thread_refused	0
-SET txsql_optimizer_context_max_mem_size = @saved_optimizer_context_max_mem_size;
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	3
+SET txsql_optimizer_context_max_mem_size = default;
 drop table t2,t3;
 
 # 3) test Txsql_parallel_stmt_thread_refused
@@ -157,10 +166,9 @@ show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
-Txsql_parallel_stmt_fallback	1
+Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
-Txsql_parallel_stmt_thread_refused	1
+Txsql_parallel_stmt_thread_refused	0
 
 # 4) test Txsql_parallel_stmt_hint_executed
 
@@ -186,10 +194,9 @@ show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
-Txsql_parallel_stmt_fallback	1
-Txsql_parallel_stmt_hint_executed	1
-Txsql_parallel_stmt_memory_refused	0
-Txsql_parallel_stmt_thread_refused	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_thread_refused	0
 # test counting the hint of qb
 select /*+ PARALLEL(t1@qb1 5)*/ * from (select /*+ qb_name(qb1)*/ t1.f1 as aa, t1.f2 as bb from t1) as v where v.aa > 'a';
 aa	bb
@@ -207,10 +214,9 @@ show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
-Txsql_parallel_stmt_fallback	1
-Txsql_parallel_stmt_hint_executed	3
-Txsql_parallel_stmt_memory_refused	0
-Txsql_parallel_stmt_thread_refused	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_thread_refused	0
 SET global txsql_max_parallel_worker_threads = 2;
 show variables like 'txsql_max_parallel_worker_threads';
 Variable_name	Value
@@ -224,14 +230,15 @@ show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
-Txsql_parallel_stmt_fallback	1
-Txsql_parallel_stmt_hint_executed	3
-Txsql_parallel_stmt_memory_refused	0
-Txsql_parallel_stmt_thread_refused	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	1
+Txsql_parallel_stmt_thread_refused	0
 drop table t1;
 
 # 5) test optimization context memory limit for explain
 
+SET global txsql_max_parallel_worker_threads = 8;
+SET txsql_optimizer_context_max_mem_size = default;
 create table t1(a int, b int, c int, d int);
 insert into t1 values(1,2,3,4);
 insert into t1 values(1,1,1,1);
@@ -265,7 +272,194 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
+
+# 6) test max parallel worker limit for explain
+
+flush status;
+SET txsql_optimizer_context_max_mem_size = default;
+show variables like 'txsql_max_parallel_worker_threads';
+Variable_name	Value
+txsql_max_parallel_worker_threads	8
+explain select * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select /*+ PARALLEL(4) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+select * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	2
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	1
+Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
+SET global txsql_max_parallel_worker_threads = 1;
+flush status;
+show variables like 'txsql_max_parallel_worker_threads';
+Variable_name	Value
+txsql_max_parallel_worker_threads	1
+explain select * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select /*+ PARALLEL(4) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+select * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	0
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
+SET global txsql_max_parallel_worker_threads = 8;
+
+# 7) test max DOP limit for explain
+
+flush status;
+SET txsql_parallel_degree=0;
+show variables like 'txsql_max_parallel_worker_threads';
+Variable_name	Value
+txsql_max_parallel_worker_threads	8
+explain select * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select /*+ PARALLEL(4) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+select * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	1
+Txsql_parallel_stmt_thread_refused	0
+SET txsql_parallel_degree=4;
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers); Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select /*+ PARALLEL(4) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+select * from t1 order by a,b;
+a	b	c	d
+1	1	1	1
+1	2	3	4
+2	2	2	2
+2	3	4	5
+3	4	5	6
+4	5	6	7
+5	6	7	8
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	3
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	2
+Txsql_parallel_stmt_thread_refused	0
+show status like '%txsql_max_optimizer_context%';
+Variable_name	Value
+Txsql_max_optimizer_context_memory_exceeded	0
 DROP TABLE t1;
 # --include set_px_to_saved.inc

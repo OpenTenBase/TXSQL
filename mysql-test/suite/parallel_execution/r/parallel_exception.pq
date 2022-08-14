@@ -84,7 +84,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_error";
@@ -99,7 +98,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_fallback";
@@ -129,7 +127,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	2
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_sleep";
@@ -161,7 +158,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	3
 Txsql_parallel_stmt_fallback	2
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_before_kill SIGNAL waiting wait_for killed';
@@ -184,7 +180,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	5
 Txsql_parallel_stmt_fallback	2
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_fallback";
@@ -216,7 +211,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	5
 Txsql_parallel_stmt_fallback	4
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_sleep";
@@ -248,7 +242,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	7
 Txsql_parallel_stmt_fallback	4
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
@@ -271,7 +264,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	9
 Txsql_parallel_stmt_fallback	4
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set global debug="+d,schedule_before_schedule_error";
@@ -304,7 +296,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	9
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_schedule_sleep";
@@ -338,7 +329,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	11
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
@@ -368,7 +358,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	11
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set global debug="+d,schedule_one_loop_sleep_worker";
@@ -422,7 +411,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	14
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
@@ -445,7 +433,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	14
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,run_root_before_sending_data_error";
@@ -481,7 +468,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	14
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,run_root_in_sending_data_sleep";
@@ -515,7 +501,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	16
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
@@ -570,7 +555,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	18
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_after_schedule_sleep";
@@ -604,7 +588,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	20
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,create_partial_threads_error";
@@ -617,7 +600,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	21
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 select a from t5 union select b from t5 union select c from t5 union select d from t5;
@@ -628,7 +610,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	22
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
@@ -639,7 +620,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	22
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
@@ -652,7 +632,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	23
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set global debug="+d,enter_worker_sleep";
@@ -672,7 +651,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 drop table t1;

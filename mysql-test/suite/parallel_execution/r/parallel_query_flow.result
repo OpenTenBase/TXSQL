@@ -847,7 +847,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	47
 Txsql_parallel_stmt_fallback	1
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 drop table t1;
@@ -979,7 +978,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	47
 Txsql_parallel_stmt_fallback	7
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 flush status;
@@ -989,7 +987,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 # --include set_px_to_saved.inc
