@@ -1166,6 +1166,9 @@ static PSI_mutex_key key_LOCK_rotate_binlog_master_key;
 static PSI_mutex_key key_LOCK_partial_revokes;
 static PSI_mutex_key key_LOCK_authentication_policy;
 static PSI_mutex_key key_LOCK_global_conn_mem_limit;
+#if defined(HAVE_OPT_CTX)
+static PSI_mutex_key key_LOCK_optimizer_context_memory_exceeded_counter;
+#endif
 #endif /* HAVE_PSI_INTERFACE */
 
 /**
@@ -1440,6 +1443,8 @@ ulong max_prepared_stmt_count;
 std::atomic<long long> outline_reload_version{-1L};
 std::atomic<long long> optimizer_cost_reload_version{-1L};
 std::atomic<long long> rewriter_plugin_reload_version{0L};
+ulong txsql_max_optimizer_context_memory_exceeded = 0;
+mysql_mutex_t LOCK_optimizer_context_memory_exceeded_counter;
 #endif
 
 /**
@@ -2936,6 +2941,9 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_partial_revokes);
   mysql_mutex_destroy(&LOCK_authentication_policy);
   mysql_mutex_destroy(&LOCK_global_conn_mem_limit);
+#if defined(HAVE_OPT_CTX)
+  mysql_mutex_destroy(&LOCK_optimizer_context_memory_exceeded_counter);
+#endif
 }
 
 /****************************************************************************
@@ -5719,6 +5727,11 @@ static int init_thread_environment() {
   mysql_mutex_init(key_LOCK_global_conn_mem_limit, &LOCK_global_conn_mem_limit,
                    MY_MUTEX_INIT_FAST);
   Statistics_manager::init_mutexes();
+#if defined(HAVE_OPT_CTX)
+  mysql_mutex_init(key_LOCK_optimizer_context_memory_exceeded_counter,
+                   &LOCK_optimizer_context_memory_exceeded_counter,
+                   MY_MUTEX_INIT_FAST);
+#endif
   return 0;
 }
 
@@ -9955,6 +9968,46 @@ static int show_open_tables(THD *, SHOW_VAR *var, char *buff) {
   *((long *)buff) = (long)table_cache_manager.cached_tables();
   return 0;
 }
+/*
+static int show_cdb_working_mode(THD *, SHOW_VAR *var, char *buff) {
+  const char* s= "READWRITE";
+  if (mysqld_cdb_working_mode_enabled()) {
+    switch (mysqld_cdb_working_mode()) {
+      case CDB_WORKMODE_READWRITE:
+        s= "READWRITE";
+        break;
+      case CDB_WORKMODE_READONLY:
+        s= "READONLY";
+        break;
+      default:
+        s= "OFFLINE";
+        break;
+    }
+  }
+
+  var->type= SHOW_CHAR;
+  var->value= buff;
+  sprintf(buff, "%s", s);
+
+  return 0;
+}
+*/
+
+#if defined(HAVE_OPT_CTX)
+int show_txsql_max_optimizer_context_memory_exceeded(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = (long)txsql_max_optimizer_context_memory_exceeded;
+  return 0;
+}
+
+void reset_txsql_max_optimizer_context_memory_exceeded()
+{
+  mysql_mutex_lock(&LOCK_optimizer_context_memory_exceeded_counter);
+  txsql_max_optimizer_context_memory_exceeded = 0;
+  mysql_mutex_unlock(&LOCK_optimizer_context_memory_exceeded_counter);
+}
+#endif
 
 static int show_prepared_stmt_count(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
@@ -10310,6 +10363,11 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
 #endif
     {"Queries", (char *)&show_queries, SHOW_FUNC, SHOW_SCOPE_ALL},
+#if defined(HAVE_OPT_CTX)
+    {"Txsql_max_optimizer_context_memory_exceeded",
+     (char *)&show_txsql_max_optimizer_context_memory_exceeded,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+#endif
 #if defined(HAVE_PX)
     {"Txsql_parallel_stmt_executed",
      (char *)&show_txsql_parallel_stmt_executed,
@@ -10328,9 +10386,6 @@ SHOW_VAR status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Txsql_parallel_stmt_hint_executed",
      (char *)&show_txsql_parallel_stmt_hint_executed,
-     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
-    {"Txsql_parallel_stmt_memory_refused",
-     (char *)&show_txsql_parallel_stmt_memory_refused,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
 #endif /* defined(HAVE_PX) */
     {"Questions", (char *)offsetof(System_status_var, questions),
@@ -12294,6 +12349,10 @@ void refresh_status() {
   */
   Connection_handler_manager::reset_max_used_connections();
 
+#if defined(HAVE_OPT_CTX)
+  reset_txsql_max_optimizer_context_memory_exceeded();
+#endif
+
 #if defined(HAVE_PX)
   /* Reset the Parallel eXecution statistical data when `flush status`. */
   reset_txsql_parallel_stmt_executed();
@@ -12301,7 +12360,6 @@ void refresh_status() {
   reset_txsql_parallel_stmt_error();
   reset_txsql_parallel_stmt_thread_refused();
   reset_txsql_parallel_stmt_hint_executed();
-  reset_txsql_parallel_stmt_memory_refused();
 #endif /* defined(HAVE_PX) */
 }
 
@@ -12479,6 +12537,10 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_statistics_tasks_pool, "LOCK_stats_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+#if defined(HAVE_OPT_CTX)
+  { &key_LOCK_optimizer_context_memory_exceeded_counter, "LOCK_optimizer_context_memory_exceeded_counter",
+     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+#endif
 #if defined(HAVE_PX)
   { &key_LOCK_Exchange_Info_Channel, "Exchange_Info_Channel_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_Running_Task_Barrier, "key_LOCK_Running_PX_Task_Barrier_mutex", 0, 0, PSI_DOCUMENT_ME}

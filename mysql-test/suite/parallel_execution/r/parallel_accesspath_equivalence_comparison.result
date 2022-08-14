@@ -332,8 +332,8 @@ WHERE tb.d IN (SELECT g FROM t4 as tc
 WHERE ta.a=tc.f
 ORDER BY tc.f));
 a	b
-2	20
 2	10
+2	20
 2	30
 4	40
 set @@optimizer_switch='materialization=off,semijoin=on';
@@ -2239,7 +2239,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 DROP VIEW v1;
 DROP TABLE t1, t2, a;
@@ -2266,7 +2265,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 DROP TABLE t1;
 #
@@ -2286,7 +2284,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 set optimizer_switch=DEFAULT;
 DROP TABLE t;
@@ -2315,7 +2312,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 drop table t1,t1p,t1c,sys_foreign;
 # --include set_px_to_saved.inc

@@ -66,11 +66,11 @@ SET DEBUG_SYNC = 'RESET';
 (select a,sum(b) from t4 group by a order by a) union (select a,b from t2 order by a);
 a	sum(b)
 100	100
-3	3
-5	5
 1	1
-4	4
+5	5
 2	2
+3	3
+4	4
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 select a,b from t4 union (select a,b from t2 order by a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
@@ -84,7 +84,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_error";
@@ -99,7 +98,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_fallback";
@@ -129,39 +127,37 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	2
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,execute_in_parallel_before_sleep";
 select a,b,c,d from t1;
 a	b	c	d
+1	1	1	1
 1	2	3	4
 2	2	2	2
 2	3	4	5
-1	1	1	1
 3	4	5	6
-5	6	7	8
 4	5	6	7
+5	6	7	8
 set session debug="+d,execute_in_parallel_before_sleep";
 (select a,b,c,d from t1) union (select a,b,sum(c),sum(d) from t2 group by a,b order by a,b);
 a	b	c	d
-1	2	3	4
-1	1	1	1
-2	3	4	5
 2	2	2	2
-4	5	6	7
+1	2	3	4
+2	3	4	5
+1	1	1	1
 3	4	5	6
+4	5	6	7
 5	6	7	8
-5	5	5	5
 4	4	4	4
 3	3	3	3
+5	5	5	5
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	3
 Txsql_parallel_stmt_fallback	2
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_before_kill SIGNAL waiting wait_for killed';
@@ -184,7 +180,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	5
 Txsql_parallel_stmt_fallback	2
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_fallback";
@@ -216,7 +211,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	5
 Txsql_parallel_stmt_fallback	4
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_sleep";
@@ -232,11 +226,11 @@ a	b	c	d
 set session debug="+d,schedule_before_sleep";
 (select a,b,c,d from t1 order by d) union (select a,b,sum(c),sum(d) from t2 group by a,b);
 a	b	c	d
-1	2	3	4
 1	1	1	1
-2	3	4	5
-2	2	2	2
+1	2	3	4
 3	4	5	6
+2	2	2	2
+2	3	4	5
 4	5	6	7
 5	6	7	8
 3	3	3	3
@@ -248,7 +242,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	7
 Txsql_parallel_stmt_fallback	4
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
@@ -271,7 +264,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	9
 Txsql_parallel_stmt_fallback	4
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set global debug="+d,schedule_before_schedule_error";
@@ -304,7 +296,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	9
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_before_schedule_sleep";
@@ -320,17 +311,17 @@ a	b	c	d
 set session debug="+d,schedule_before_schedule_sleep";
 (select a,b,c,d from t1 order by a,b,c,d) union all (select d,c,b,a from t2 order by d,c);
 a	b	c	d
-2	2	2	2
-1	1	1	1
-1	2	3	4
 2	3	4	5
+1	2	3	4
+1	1	1	1
+2	2	2	2
 3	4	5	6
 4	5	6	7
 5	6	7	8
-1	1	1	1
 2	2	2	2
-4	4	4	4
+1	1	1	1
 3	3	3	3
+4	4	4	4
 5	5	5	5
 show status like '%txsql_parallel%';
 Variable_name	Value
@@ -338,7 +329,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	11
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
@@ -368,7 +358,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	11
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set global debug="+d,schedule_one_loop_sleep_worker";
@@ -386,43 +375,42 @@ set global debug="+d,schedule_one_loop_sleep_worker";
 (select a,b,c+d from t1 order by a,b) union (select a,b+c,c+d from t2);
 a	b	c+d
 1	2	7
-3	4	11
 2	2	4
-1	1	2
-4	5	13
 2	3	9
+1	1	2
+3	4	11
 5	6	15
+4	5	13
 1	2	2
 3	6	6
-4	8	8
 2	4	4
+4	8	8
 5	10	10
 set global debug="-d,schedule_one_loop_sleep_worker";
 set session debug="+d,schedule_one_loop_sleep";
 (select * from t1) union (select * from t2) union (select * from t3);
 a	b	c	d
 1	2	3	4
+1	1	1	1
 2	3	4	5
 2	2	2	2
-1	1	1	1
 3	4	5	6
 4	5	6	7
 5	6	7	8
-5	5	5	5
 3	3	3	3
 4	4	4	4
-6	6	6	6
+5	5	5	5
 7	7	7	7
-9	9	9	9
+6	6	6	6
 10	10	10	10
 8	8	8	8
+9	9	9	9
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	14
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
@@ -445,7 +433,6 @@ Txsql_parallel_stmt_error	4
 Txsql_parallel_stmt_executed	14
 Txsql_parallel_stmt_fallback	6
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,run_root_before_sending_data_error";
@@ -471,17 +458,16 @@ a	b
 18	8
 set session debug="+d,run_root_in_sending_data_error";
 select a, sum(b+c) from t1 where a > 1 group by a order by a;
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error:  in function px_run_root.
 set session debug="+d,run_root_in_sending_data_error";
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error:  in function px_run_root.
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	14
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,run_root_in_sending_data_sleep";
@@ -497,17 +483,17 @@ a+b	c+d
 set session debug="+d,run_root_in_sending_data_sleep";
 (select a+b,c+d from t1 order by a+b,c+d) union all (select d+c,b+a from t2 order by d+c);
 a+b	c+d
+5	9
+4	4
 3	7
 2	2
 7	11
 9	13
-4	4
-5	9
 11	15
-4	4
 2	2
-8	8
 6	6
+4	4
+8	8
 10	10
 show status like '%txsql_parallel%';
 Variable_name	Value
@@ -515,7 +501,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	16
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
@@ -531,14 +516,14 @@ a	b	c	d
 3	4	5	6
 4	5	6	7
 5	6	7	8
+5	5	5	5
 3	3	3	3
 4	4	4	4
-5	5	5	5
 6	6	6	6
-9	9	9	9
 8	8	8	8
-10	10	10	10
 7	7	7	7
+9	9	9	9
+10	10	10	10
 100	100	100	100
 SET DEBUG_SYNC = 'RESET';
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
@@ -547,21 +532,21 @@ SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	c	d
-1	1	1	1
+2	2	2	2
+5	5	5	5
+6	6	6	6
 3	3	3	3
 4	4	4	4
-5	5	5	5
-2	2	2	2
-6	6	6	6
 7	7	7	7
+1	1	1	1
 8	8	8	8
-10	10	10	10
 9	9	9	9
+10	10	10	10
 100	100	100	100
 1	2	3	4
 2	3	4	5
-3	4	5	6
 4	5	6	7
+3	4	5	6
 5	6	7	8
 SET DEBUG_SYNC = 'RESET';
 show status like '%txsql_parallel%';
@@ -570,7 +555,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	18
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,schedule_after_schedule_sleep";
@@ -587,15 +571,15 @@ set session debug="+d,schedule_after_schedule_sleep";
 (select a+b,c+d from t1 order by a,b,c,d) union all (select d+c,b+a from t2 order by d,c);
 a+b	c+d
 3	7
-7	11
 4	4
 2	2
 5	9
-9	13
+7	11
 11	15
+9	13
 2	2
-8	8
 4	4
+8	8
 6	6
 10	10
 show status like '%txsql_parallel%';
@@ -604,7 +588,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	20
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set session debug="+d,create_partial_threads_error";
@@ -617,7 +600,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	21
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 select a from t5 union select b from t5 union select c from t5 union select d from t5;
@@ -628,7 +610,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	22
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
@@ -639,7 +620,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	22
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
@@ -652,7 +632,6 @@ Txsql_parallel_stmt_error	6
 Txsql_parallel_stmt_executed	23
 Txsql_parallel_stmt_fallback	8
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set global debug="+d,enter_worker_sleep";
@@ -672,7 +651,6 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	0
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 drop table t1;

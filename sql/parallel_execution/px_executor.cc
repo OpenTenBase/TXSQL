@@ -23,6 +23,7 @@
 #include "sql/parallel_execution/px_resource_mgr.h" // PX_resource_manager
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/parallel_execution/px_explain.h"  // WalkAccessPathsForExplain
+#include "sql/parallel_execution/px_optimizer.h"  // get_parallel_degree_hint
 #include "sql/mysqld_thd_manager.h"
 #include "sql/psi_memory_key.h"
 
@@ -321,6 +322,11 @@ bool px_execute_in_coordinator(THD *thd, int64_t requested_cores) {
     mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_executed);
     txsql_parallel_stmt_executed++;
     mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_executed);
+    if(get_parallel_degree_hint(thd, /*should_effect=*/true) != UINT_MAX32){
+      mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
+      txsql_parallel_stmt_hint_executed++;
+      mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
+    }
   }
 
   goto finish;

@@ -1088,8 +1088,7 @@ Variable_name	Value
 Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
-Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_hint_executed	1
 Txsql_parallel_stmt_thread_refused	0
 drop table t1;
 create table t1
@@ -1113,6 +1112,5 @@ Txsql_parallel_stmt_error	0
 Txsql_parallel_stmt_executed	1
 Txsql_parallel_stmt_fallback	0
 Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 drop table t1;

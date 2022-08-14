@@ -98,7 +98,6 @@ extern ulong txsql_parallel_stmt_fallback;
 extern ulong txsql_parallel_stmt_error;
 extern ulong txsql_parallel_stmt_thread_refused;
 extern ulong txsql_parallel_stmt_hint_executed;
-extern ulong txsql_parallel_stmt_memory_refused;
 
 extern mysql_mutex_t LOCK_allocate_resource;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_executed;
@@ -106,7 +105,6 @@ extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_fallback;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_error;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_thread_refused;
 extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_hint_executed;
-extern mysql_mutex_t LOCK_inc_txsql_parallel_stmt_memory_refused;
 
 extern uint rehash_for_px(mem_root_deque<Item *> *key);
 

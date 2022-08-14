@@ -3,43 +3,46 @@
 
 show variables like 'txsql_optimizer_context_max_mem_size';
 
+set global txsql_max_parallel_worker_threads = 8;
+
 --echo
 --echo # 1) test optimization context memory limit of handler::stats
 --echo
-CREATE TABLE t1 (
-  f1 varchar(16) PRIMARY KEY,
-  f2 varchar(16)
-);
-CREATE TABLE t2 (
-  f1 varchar(16) PRIMARY KEY,
-  f3 varchar(16)
-);
+create table t1(a int, b int, c int, d int);
 
-INSERT INTO t1 VALUES ('bla','blah');
-INSERT INTO t1 VALUES ('blc','blad');
-INSERT INTO t1 VALUES ('bld','blad');
-INSERT INTO t2 VALUES ('bla','sheep');
-INSERT INTO t2 VALUES ('blc','sheep');
-INSERT INTO t2 VALUES ('bld','sheep');
+insert into t1 values(1,2,3,4);
+insert into t1 values(1,1,1,1);
+insert into t1 values(2,3,4,5);
+insert into t1 values(2,2,2,2);
+insert into t1 values(3,4,5,6);
+insert into t1 values(4,5,6,7);
+insert into t1 values(5,6,7,8);
 
 flush status;
 
-SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
+connect(conn2,localhost,root,,);
+connection conn2;
+
+SELECT * FROM t1 order by a,b;
 
 show status like '%txsql_parallel_stmt_%';
+
+show status like '%txsql_max_optimizer_context%';
 
 SET txsql_optimizer_context_max_mem_size = 1;
 
 show variables like 'txsql_optimizer_context_max_mem_size';
 
 --error ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
-SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla';
+SELECT * FROM t1 order by a,b;
 
 show status like '%txsql_parallel_stmt_%';
 
-DROP TABLE t1,t2;
+show status like '%txsql_max_optimizer_context%';
 
-SET txsql_optimizer_context_max_mem_size = @saved_optimizer_context_max_mem_size;
+DROP TABLE t1;
+
+SET txsql_optimizer_context_max_mem_size = default;
 
 --echo
 --echo # 2) test optimization context memory limit of index dive
@@ -129,6 +132,8 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
 
 show status like '%txsql_parallel_stmt_%';
 
+show status like '%txsql_max_optimizer_context%';
+
 SET txsql_optimizer_context_max_mem_size = 1;
 
 show variables like 'txsql_optimizer_context_max_mem_size';
@@ -144,7 +149,9 @@ select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 grou
 
 show status like '%txsql_parallel_stmt_%';
 
-SET txsql_optimizer_context_max_mem_size = @saved_optimizer_context_max_mem_size;
+show status like '%txsql_max_optimizer_context%';
+
+SET txsql_optimizer_context_max_mem_size = default;
 
 drop table t2,t3;
 
@@ -221,6 +228,12 @@ connection default;
 --echo # 5) test optimization context memory limit for explain
 --echo
 
+SET global txsql_max_parallel_worker_threads = 8;
+
+SET txsql_optimizer_context_max_mem_size = default;
+
+connection conn1;
+
 create table t1(a int, b int, c int, d int);
 insert into t1 values(1,2,3,4);
 insert into t1 values(1,1,1,1);
@@ -243,6 +256,96 @@ show variables like 'txsql_optimizer_context_max_mem_size';
 explain select * from t1;
 
 show status like '%txsql_parallel_stmt_%';
+
+show status like '%txsql_max_optimizer_context%';
+
+--echo
+--echo # 6) test max parallel worker limit for explain
+--echo
+
+flush status;
+
+SET txsql_optimizer_context_max_mem_size = default;
+
+show variables like 'txsql_max_parallel_worker_threads';
+
+explain select * from t1 order by a,b;
+
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+show status like '%txsql_parallel_stmt_%';
+
+show status like '%txsql_max_optimizer_context%';
+
+# test Txsql_parallel_stmt_hint_executed counter
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+select * from t1 order by a,b;
+
+show status like '%txsql_parallel_stmt_%';
+
+show status like '%txsql_max_optimizer_context%';
+
+SET global txsql_max_parallel_worker_threads = 1;
+
+connection default;
+
+flush status;
+
+show variables like 'txsql_max_parallel_worker_threads';
+
+explain select * from t1 order by a,b;
+
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+# test Txsql_parallel_stmt_hint_executed counter
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+select * from t1 order by a,b;
+
+show status like '%txsql_parallel_stmt_%';
+
+show status like '%txsql_max_optimizer_context%';
+
+SET global txsql_max_parallel_worker_threads = 8;
+
+--echo
+--echo # 7) test max DOP limit for explain
+--echo
+
+connection conn1;
+
+flush status;
+
+SET txsql_parallel_degree=0;
+
+show variables like 'txsql_max_parallel_worker_threads';
+
+explain select * from t1 order by a,b;
+
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+# test Txsql_parallel_stmt_hint_executed counter
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+select * from t1 order by a,b;
+
+show status like '%txsql_parallel_stmt_%';
+
+SET txsql_parallel_degree=4;
+
+explain select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+# test Txsql_parallel_stmt_hint_executed counter
+select /*+PARALLEL(4)*/ * from t1 order by a,b;
+
+select * from t1 order by a,b;
+
+show status like '%txsql_parallel_stmt_%';
+
+show status like '%txsql_max_optimizer_context%';
+
+connection default;
 
 DROP TABLE t1;
 

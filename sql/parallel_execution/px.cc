@@ -36,7 +36,6 @@ static PSI_mutex_key key_LOCK_inc_txsql_parallel_stmt_fallback;
 static PSI_mutex_key key_LOCK_inc_txsql_parallel_stmt_error;
 static PSI_mutex_key key_LOCK_inc_px_threads_refused;
 static PSI_mutex_key key_LOCK_inc_px_hint_stmt_executed;
-static PSI_mutex_key key_LOCK_inc_px_memory_refused;
 
 /**
   The lock which used by parallel execution.
@@ -47,7 +46,6 @@ mysql_mutex_t LOCK_inc_txsql_parallel_stmt_fallback;
 mysql_mutex_t LOCK_inc_txsql_parallel_stmt_error;
 mysql_mutex_t LOCK_inc_txsql_parallel_stmt_thread_refused;
 mysql_mutex_t LOCK_inc_txsql_parallel_stmt_hint_executed;
-mysql_mutex_t LOCK_inc_txsql_parallel_stmt_memory_refused;
 
 /**
   Current statements of parallel execution.
@@ -58,7 +56,6 @@ ulong txsql_parallel_stmt_fallback = 0;
 ulong txsql_parallel_stmt_error = 0;
 ulong txsql_parallel_stmt_thread_refused = 0;
 ulong txsql_parallel_stmt_hint_executed = 0;
-ulong txsql_parallel_stmt_memory_refused = 0;
 
 /// The maximum number of parallel workers to use for parallel execution.
 unsigned long txsql_max_parallel_worker_threads;
@@ -96,8 +93,6 @@ bool px_init(void) {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_inc_px_hint_stmt_executed, &LOCK_inc_txsql_parallel_stmt_hint_executed,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_inc_px_memory_refused, &LOCK_inc_txsql_parallel_stmt_memory_refused,
-                   MY_MUTEX_INIT_FAST);
 
   if (PX_resource_manager::init_instance()) {
     LogErr(ERROR_LEVEL, ER_PX_THREAD_HANDLING_OOM);
@@ -124,7 +119,6 @@ void px_destroy(void) {
   mysql_mutex_destroy(&LOCK_inc_txsql_parallel_stmt_error);
   mysql_mutex_destroy(&LOCK_inc_txsql_parallel_stmt_thread_refused);
   mysql_mutex_destroy(&LOCK_inc_txsql_parallel_stmt_hint_executed);
-  mysql_mutex_destroy(&LOCK_inc_txsql_parallel_stmt_memory_refused);
 }
 
 #ifdef HAVE_PSI_INTERFACE
@@ -142,8 +136,6 @@ static PSI_mutex_info all_px_mutexes[] = {
     {&key_LOCK_inc_px_threads_refused, "LOCK_inc_txsql_parallel_stmt_thread_refused",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
     {&key_LOCK_inc_px_hint_stmt_executed, "LOCK_inc_txsql_parallel_stmt_hint_executed",
-     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-    {&key_LOCK_inc_px_memory_refused, "LOCK_inc_txsql_parallel_stmt_memory_refused",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
     {&key_px_worker_lock, "cond_with_lock_t::LOCK_worker", 0, 0, PSI_DOCUMENT_ME}
 };
@@ -304,13 +296,6 @@ int show_txsql_parallel_stmt_hint_executed(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
-int show_txsql_parallel_stmt_memory_refused(THD *, SHOW_VAR *var, char *buff) {
-  var->type = SHOW_LONG;
-  var->value = buff;
-  *((long *)buff) = (long)txsql_parallel_stmt_memory_refused;
-  return 0;
-}
-
 void reset_txsql_parallel_stmt_executed()
 {
   mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_executed);
@@ -344,11 +329,4 @@ void reset_txsql_parallel_stmt_hint_executed()
   mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
   txsql_parallel_stmt_hint_executed = 0;
   mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
-}
-
-void reset_txsql_parallel_stmt_memory_refused()
-{
-  mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
-  txsql_parallel_stmt_memory_refused = 0;
-  mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_memory_refused);
 }
