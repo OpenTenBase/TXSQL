@@ -717,6 +717,7 @@ MySQL clients support the protocol:
 #include "my_time.h"
 #include "my_timer.h"  // my_timer_initialize
 #include "myisam.h"
+#include "mysql/components/services/bits/psi_bits.h"
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/log_shared.h"
 #include "mysql/components/services/mysql_runtime_error_service.h"
@@ -731,7 +732,6 @@ MySQL clients support the protocol:
 #include "mysql/psi/mysql_stage.h"
 #include "mysql/psi/mysql_statement.h"
 #include "mysql/psi/mysql_thread.h"
-#include "mysql/components/services/bits/psi_bits.h"
 #include "mysql/psi/psi_cond.h"
 #include "mysql/psi/psi_data_lock.h"
 #include "mysql/psi/psi_error.h"
@@ -797,21 +797,22 @@ MySQL clients support the protocol:
 #include "sql/mdl_context_backup.h"  // mdl_context_backup_manager
 #include "sql/my_decimal.h"
 #include "sql/mysqld_daemon.h"
-#include "sql/mysqld_thd_manager.h"     // Global_THD_manager
-#include "sql/opt_costconstantcache.h"  // delete_optimizer_cost_module
-#include "sql/range_optimizer/range_optimizer.h"  // range_optimizer_init
-#include "sql/options_mysqld.h"                   // OPT_THREAD_CACHE_SIZE
-#include "sql/partitioning/partition_handler.h"   // partitioning_init
-#include "sql/persisted_variable.h"               // Persisted_variables_cache
+#include "sql/mysqld_thd_manager.h"              // Global_THD_manager
+#include "sql/opt_costconstantcache.h"           // delete_optimizer_cost_module
+#include "sql/options_mysqld.h"                  // OPT_THREAD_CACHE_SIZE
+#include "sql/partitioning/partition_handler.h"  // partitioning_init
+#include "sql/persisted_variable.h"              // Persisted_variables_cache
 #include "sql/plugin_table.h"
 #include "sql/protocol.h"
 #include "sql/psi_memory_key.h"  // key_memory_MYSQL_RELAY_LOG_index
 #include "sql/query_options.h"
+#include "sql/range_optimizer/range_optimizer.h"    // range_optimizer_init
 #include "sql/replication.h"                        // thd_enter_cond
 #include "sql/resourcegroups/resource_group_mgr.h"  // init, post_init
 #ifdef _WIN32
 #include "sql/restart_monitor_win.h"
 #endif
+#include "my_openssl_fips.h"  // OPENSSL_ERROR_LENGTH, set_fips_mode
 #include "sql/rpl_async_conn_failover_configuration_propagation.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
@@ -822,11 +823,11 @@ MySQL clients support the protocol:
 #include "sql/rpl_injector.h"  // injector
 #include "sql/rpl_io_monitor.h"
 #include "sql/rpl_log_encryption.h"
-#include "sql/rpl_source.h"  // max_binlog_dump_events
 #include "sql/rpl_mi.h"
 #include "sql/rpl_msr.h"      // Multisource_info
-#include "sql/rpl_rli.h"      // Relay_log_info
 #include "sql/rpl_replica.h"  // replica_load_tmpdir
+#include "sql/rpl_rli.h"      // Relay_log_info
+#include "sql/rpl_source.h"   // max_binlog_dump_events
 #include "sql/rpl_trx_tracking.h"
 #include "sql/sd_notify.h"  // sd_notify_connect
 #include "sql/session_tracker.h"
@@ -876,7 +877,6 @@ MySQL clients support the protocol:
 #include "thr_mutex.h"
 #include "typelib.h"
 #include "violite.h"
-#include "my_openssl_fips.h"  // OPENSSL_ERROR_LENGTH, set_fips_mode
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_server.h"
@@ -974,8 +974,8 @@ using std::vector;
 #include "my_md5.h"
 #include "sql/threadpool.h"
 
-char* mysqld_admin_port_init_tool = nullptr;
-char* mysqld_admin_port_init_tool_md5 = nullptr;
+char *mysqld_admin_port_init_tool = nullptr;
+char *mysqld_admin_port_init_tool_md5 = nullptr;
 char admin_tool_path[FN_REFLEN];
 bool admin_tool_valid = false;
 
@@ -1741,6 +1741,12 @@ static char **remaining_argv;
 */
 int orig_argc;
 char **orig_argv;
+
+/* TXSQL GLOBAL VARIABLES */
+/* Changes from txsql begin. */
+unsigned long cdb_kill_idle_trans_timeout = 0;
+/* Changes from txsql end. */
+
 namespace {
 FILE *nstdout = nullptr;
 char my_progpath[FN_REFLEN];
@@ -2238,8 +2244,8 @@ class Set_kill_conn : public Do_THD_Impl {
     } else {
       killing_thd->killed = THD::KILL_CONNECTION;
 
-      MYSQL_CALLBACK(killing_thd->scheduler,
-                     post_kill_notification, (killing_thd));
+      MYSQL_CALLBACK(killing_thd->scheduler, post_kill_notification,
+                     (killing_thd));
     }
 
     if (killing_thd->is_killable && killing_thd->kill_immunizer == nullptr) {
@@ -7112,14 +7118,13 @@ class Plugin_and_data_dir_option_parser final {
 };
 
 /* Changes from txsql start. */
-static void mysql_init_admin_tool()
-{
+static void mysql_init_admin_tool() {
 #define MD5_BUFF_LENGTH 33
 #define MAX_ADMIN_TOOL_SIZE (32 * 1024 * 1024)
 #define MD5_HASH_SIZE 16 /* Hash size in bytes */
   File file;
   ulong file_length;
-  char* buf;
+  char *buf;
   uchar digest[MD5_HASH_SIZE];
   char md5[MD5_BUFF_LENGTH];
 
@@ -7129,21 +7134,21 @@ static void mysql_init_admin_tool()
   }
 
   if (!mysqld_admin_port_init_tool_md5) {
-    sql_print_information("MD5 value for admin port init tool is not specified");
+    sql_print_information(
+        "MD5 value for admin port init tool is not specified");
     return;
   }
 
   /* Convert tool path */
-  (void) my_load_path(admin_tool_path, mysqld_admin_port_init_tool, mysql_home);
+  (void)my_load_path(admin_tool_path, mysqld_admin_port_init_tool, mysql_home);
 
   /* Check sanity for init_tool by md5 value */
-  if ((file= mysql_file_open(0, admin_tool_path,
-          O_RDONLY, MYF(0))) < 0) {
+  if ((file = mysql_file_open(0, admin_tool_path, O_RDONLY, MYF(0))) < 0) {
     sql_print_error("Can't open admin_port_init_tool file");
     goto exit_func;
   }
 
-  file_length= mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
+  file_length = mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
 
   if (file_length == MY_FILEPOS_ERROR) {
     sql_print_error("Load admin_port_init_tool failed");
@@ -7163,8 +7168,8 @@ static void mysql_init_admin_tool()
     goto exit_func;
   }
 
-  buf = (char*)malloc(sizeof(char) * file_length);
-  mysql_file_read(file, (uchar*)buf, file_length, MYF(0));
+  buf = (char *)malloc(sizeof(char) * file_length);
+  mysql_file_read(file, (uchar *)buf, file_length, MYF(0));
   mysql_file_close(file, MYF(0));
 
   compute_md5_hash((char *)digest, (const char *)buf, file_length);
@@ -7184,30 +7189,27 @@ exit_func:
   exit(MYSQLD_ABORT_EXIT);
 }
 
-int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority)
-{
+int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority) {
   if (!admin_tool_valid) {
     return -1;
   }
 
   int ret = 0;
   int cmd_len = strlen(admin_tool_path) + 64;
-  char* cmd = (char*)malloc(sizeof(char) * cmd_len);
+  char *cmd = (char *)malloc(sizeof(char) * cmd_len);
   int old_pri = getpriority(PRIO_PROCESS, (pid_t)os_thread_id);
 
-  if (old_pri != priority)
-  {
+  if (old_pri != priority) {
     sprintf(cmd, "%s -p %d %lld %d", admin_tool_path, priority, os_thread_id,
-        mysqld_port);
+            mysqld_port);
     ret = system(cmd);
   }
 
   if (ret != 0) {
     sql_print_warning("Can't set priority for thread %lld", os_thread_id);
-  }
-  else if (getpriority(PRIO_PROCESS, (pid_t)os_thread_id) != priority) {
+  } else if (getpriority(PRIO_PROCESS, (pid_t)os_thread_id) != priority) {
     sql_print_warning("Failed to set priority for thread %lld", os_thread_id);
-    ret= -1;
+    ret = -1;
   } else {
     sql_print_information("Successfully set priority for thread %lld",
                           os_thread_id);
@@ -7218,18 +7220,17 @@ int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority)
   return ret;
 }
 
-int mysql_admin_tool_set_group(ulonglong os_thread_id)
-{
+int mysql_admin_tool_set_group(ulonglong os_thread_id) {
   if (!admin_tool_valid) {
     return -1;
   }
 
   int ret = 0;
   int cmd_len = strlen(admin_tool_path) + 64;
-  char* cmd = (char*)malloc(sizeof(char) * cmd_len);
+  char *cmd = (char *)malloc(sizeof(char) * cmd_len);
 
   sprintf(cmd, "%s %lld %d", admin_tool_path, os_thread_id, mysqld_port);
-  ret= system(cmd);
+  ret = system(cmd);
 
   free(cmd);
 
@@ -8205,7 +8206,8 @@ int mysqld_main(int argc, char **argv)
 
   start_handle_manager();
 
-  sql_print_information("%s is using '%s' malloc library", my_progname, MALLOC_LIBRARY);
+  sql_print_information("%s is using '%s' malloc library", my_progname,
+                        MALLOC_LIBRARY);
 
   create_compress_gtid_table_thread();
 

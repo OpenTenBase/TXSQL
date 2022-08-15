@@ -68,10 +68,10 @@
 #include "sql/sql_const.h"  // UUID_LENGTH
 
 /* Changes from txsql start. */
-#include "my_thread_os_id.h" //my_thread_os_id_t
+#include "my_thread_os_id.h"  //my_thread_os_id_t
 
-extern char* mysqld_admin_port_init_tool;
-extern char* mysqld_admin_port_init_tool_md5;
+extern char *mysqld_admin_port_init_tool;
+extern char *mysqld_admin_port_init_tool_md5;
 extern int mysql_admin_tool_set_group(ulonglong os_thread_id);
 extern int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority);
 extern my_thread_os_id_t admin_listener_os_thread_id;
@@ -850,4 +850,8 @@ extern Deployed_components *g_deployed_components;
 extern bool opt_persist_sensitive_variables_in_plaintext;
 
 void persisted_variables_refresh_keyring_support();
+
+/* Changes from txsql begin. */
+extern unsigned long cdb_kill_idle_trans_timeout;
+/* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

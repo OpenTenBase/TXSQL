@@ -182,6 +182,9 @@ extern "C" void thd_set_waiting_for_disk_space(void *opaque_thd,
 
 extern char empty_c_string[1];
 
+/* Changes from txsql begin. */
+extern unsigned long cdb_kill_idle_trans_timeout;
+/* Changes from txsql end. */
 /*
   We preallocate data for several storage engine plugins.
   so: innodb + bdb + ndb + binlog + myisam + myisammrg + archive +
@@ -1376,8 +1379,7 @@ class THD : public MDL_context_owner,
     /// Asserts that current_thd has locked this plan, if it does not own it.
     void assert_plan_is_locked_if_other() const
 #ifdef NDEBUG
-    {
-    }
+        {}
 #else
         ;
 #endif
@@ -1387,7 +1389,8 @@ class THD : public MDL_context_owner,
           sql_command(SQLCOM_END),
           lex(nullptr),
           modification_plan(nullptr),
-          is_ps(false) {}
+          is_ps(false) {
+    }
 
     /**
       Set query plan.
@@ -1845,7 +1848,7 @@ class THD : public MDL_context_owner,
   my_off_t m_trans_end_pos;
   /**@}*/
   // NOTE: Ideally those two should be in Protocol,
-  // but currently its design doesn't allow that. 
+  // but currently its design doesn't allow that.
   String packet;  // dynamic buffer for network I/O
  public:
   void set_skip_readonly_check() { skip_readonly_check = true; }
@@ -4673,7 +4676,16 @@ class THD : public MDL_context_owner,
   int to_thread_pool;
   int to_per_thread;
 
-  NET net;        // client connection descriptor
+  NET net;  // client connection descriptor
+
+  inline ulong get_wait_timeout(void) const {
+    if (in_active_multi_stmt_transaction() && cdb_kill_idle_trans_timeout > 0 &&
+        cdb_kill_idle_trans_timeout < variables.net_wait_timeout)
+      return cdb_kill_idle_trans_timeout;
+
+    return variables.net_wait_timeout;
+  }
+
   /* Changes from txsql end. */
 };
 
