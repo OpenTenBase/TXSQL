@@ -153,8 +153,8 @@
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 /* Changes from txsql start. */
-#include "sql/threadpool.h"
 #include "mysqld_error.h"
+#include "sql/threadpool.h"
 
 #define MAX_CONNECTIONS 100000
 /* Changes from txsql end. */
@@ -4046,9 +4046,10 @@ static Sys_var_enum Sys_thread_handling(
     "thread_handling",
     "Define threads usage for handling queries, one of "
     "one-thread-per-connection, no-threads, pool-of-threads",
-     GLOBAL_VAR(Connection_handler_manager::thread_handling),
-    CMD_LINE(REQUIRED_ARG), thread_handling_names, DEFAULT(DEFAULT_THREAD_HANDLING),
-    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_thread_handling), ON_UPDATE(0));
+    GLOBAL_VAR(Connection_handler_manager::thread_handling),
+    CMD_LINE(REQUIRED_ARG), thread_handling_names,
+    DEFAULT(DEFAULT_THREAD_HANDLING), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_thread_handling), ON_UPDATE(0));
 
 static Sys_var_charptr Sys_secure_file_priv(
     "secure_file_priv",
@@ -7690,14 +7691,14 @@ static Sys_var_bool Sys_persist_sensitive_variables_in_plaintext(
 // todo: change it to be tencentroot variables.
 static Sys_var_charptr Sys_admin_port_tool(
     "admin_port_init_tool", "Path of mysql admin port tool",
-    READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool),
-    CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(0));
+    READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(0));
 
 // todo: change it to be tencentroot variables.
 static Sys_var_charptr Sys_admin_port_tool_md5(
     "admin_port_init_tool_md5", "MD5 value of mysql admin port tool",
-    READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool_md5),
-    CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(0));
+    READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool_md5), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(0));
 
 #ifdef HAVE_POOL_OF_THREADS
 
@@ -7730,9 +7731,9 @@ static bool fix_threadpool_stall_limit(sys_var *, THD *,
 
 static inline int my_getncpus() noexcept {
 #ifdef _SC_NPROCESSORS_ONLN
-    return sysconf(_SC_NPROCESSORS_ONLN);
+  return sysconf(_SC_NPROCESSORS_ONLN);
 #else
-      return 2; /* The value returned by the old my_getncpus implementation */
+  return 2; /* The value returned by the old my_getncpus implementation */
 #endif
 }
 
@@ -7801,22 +7802,20 @@ static Sys_var_bool Sys_threadpool_eager_mode(
     "thread_pool_eager_mode",
     "Always take on requests, and wake up and/or create even more threads when"
     " there is pending requests, even already over subscribed(eager mode).",
-    GLOBAL_VAR(threadpool_eager_mode),
-    CMD_LINE(OPT_ARG), DEFAULT(false));
+    GLOBAL_VAR(threadpool_eager_mode), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static Sys_var_bool Sys_threadpool_listen_eager_mode(
-    "thread_pool_listen_eager_mode",
-    "listener will wake more thread",
-    GLOBAL_VAR(threadpool_listen_eager_mode),
-    CMD_LINE(OPT_ARG), DEFAULT(true));
+    "thread_pool_listen_eager_mode", "listener will wake more thread",
+    GLOBAL_VAR(threadpool_listen_eager_mode), CMD_LINE(OPT_ARG), DEFAULT(true));
 
 static Sys_var_bool Sys_threadpool_oversubscribeParall(
     "thread_pool_oversubscribe_parall",
     "If request queue is congested, always take on requests, and at most"
-    " thread_pool_oversubscribe_parall_num worker threads will be wakenup or created"
+    " thread_pool_oversubscribe_parall_num worker threads will be wakenup or "
+    "created"
     " regardless of the thread_pool_oversubscribe limit.",
-    GLOBAL_VAR(threadpool_oversubscribe_parall),
-    CMD_LINE(OPT_ARG), DEFAULT(true));
+    GLOBAL_VAR(threadpool_oversubscribe_parall), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
 
 static Sys_var_uint Sys_threadpool_oversubscribeParallNum(
     "thread_pool_oversubscribe_parall_num",
@@ -7827,13 +7826,15 @@ static Sys_var_uint Sys_threadpool_oversubscribeParallNum(
 static Sys_var_uint Sys_threadpool_oversubscribeParallTimeout(
     "thread_pool_oversubscribe_parall_timeout",
     "If a client's request is not processed after this many milli-seconds since"
-    " it was put into thread pool's request queue, the queue is seen as congested.",
+    " it was put into thread pool's request queue, the queue is seen as "
+    "congested.",
     GLOBAL_VAR(threadpool_queue_congest_req_timeout), CMD_LINE(REQUIRED_ARG),
-    VALID_RANGE(0, 1000*10), DEFAULT(5), BLOCK_SIZE(1));
+    VALID_RANGE(0, 1000 * 10), DEFAULT(5), BLOCK_SIZE(1));
 
 static Sys_var_uint Sys_threadpool_queue_congest_threshold(
     "thread_pool_queue_congest_threshold",
-    "If any of the threadpool's request queue has more than this many requests to"
+    "If any of the threadpool's request queue has more than this many requests "
+    "to"
     " process, the queue is seen as congested.",
     GLOBAL_VAR(threadpool_queue_congest_threshold), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1, 1024), DEFAULT(5), BLOCK_SIZE(1));
@@ -7853,7 +7854,15 @@ static Sys_var_enum Sys_thread_handling_switch_mode(
     "fast, sharp",
     GLOBAL_VAR(Connection_handler_manager::thread_handling_switch_mode),
     CMD_LINE(REQUIRED_ARG), thread_handling_switch_mode_name,
-    DEFAULT(Connection_handler_manager::FAST_SWITCH_MODE),
-    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+    DEFAULT(Connection_handler_manager::FAST_SWITCH_MODE), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
 #endif /* HAVE_POOL_OF_THREADS */
+
+static Sys_var_ulong Sys_cdb_kill_idle_trans_timeout(
+    "cdb_kill_idle_trans_timeout",
+    "The number of seconds the server waits for next command on an "
+    "active transaction before closing it",
+    GLOBAL_VAR(cdb_kill_idle_trans_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 /* Changes from txsql end. */
