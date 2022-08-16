@@ -1672,4 +1672,31 @@ set optimizer_switch=DEFAULT;
 
 DROP TABLE t;
 
+CREATE TABLE t1 (
+ c1 INT PRIMARY KEY, c2 INT DEFAULT 1, ct TEXT,
+ INDEX(c2))
+ENGINE=InnoDB;
+
+INSERT INTO t1 SET c1=1;
+
+CREATE TABLE t1p LIKE t1;
+
+CREATE TABLE t1c (c1 INT PRIMARY KEY, c2 INT, c3 INT, INDEX(c2), INDEX(c3),
+CONSTRAINT t1c2 FOREIGN KEY (c2) REFERENCES t1(c2),
+CONSTRAINT t1c3 FOREIGN KEY (c3) REFERENCES t1p(c2))
+ENGINE=InnoDB;
+
+CREATE TABLE sys_foreign SELECT i.*
+FROM INFORMATION_SCHEMA.INNODB_FOREIGN i
+WHERE FOR_NAME LIKE 'test/t%';
+
+flush status;
+
+SELECT i.FOR_COL_NAME, i.REF_COL_NAME, i.POS FROM INFORMATION_SCHEMA.INNODB_FOREIGN_COLS i
+INNER JOIN sys_foreign sf ON i.ID = sf.ID;
+
+show status like '%txsql_parallel_stmt_%';
+
+drop table t1,t1p,t1c,sys_foreign;
+
 --source suite/parallel_execution/inc/set_px_to_saved.inc
