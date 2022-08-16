@@ -997,6 +997,7 @@ static void recover_relay_log(Master_info *mi) {
     // Set Receiver Thread's positions as per the recovered Applier Thread.
     mi->set_master_log_pos(std::max<ulonglong>(
         BIN_LOG_HEADER_SIZE, rli->get_group_master_log_pos()));
+    mi->set_complete_trx_log_pos(mi->get_master_log_pos());
     mi->set_master_log_name(rli->get_group_master_log_name());
 
     LogErr(WARNING_LEVEL, ER_RPL_RECOVERY_FILE_MASTER_POS_INFO,
@@ -3365,7 +3366,7 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
   protocol->store((uint32)mi->port);
   protocol->store((uint32)mi->connect_retry);
   protocol->store(mi->get_master_log_name_info(), &my_charset_bin);
-  protocol->store((ulonglong)mi->get_master_log_pos_info());
+  protocol->store((ulonglong)mi->get_complete_trx_log_pos());
   protocol->store(mi->rli->get_group_relay_log_name() +
                       dirname_length(mi->rli->get_group_relay_log_name()),
                   &my_charset_bin);
@@ -7261,6 +7262,74 @@ extern "C" void *handle_slave_sql(void *arg) {
   return nullptr;  // Avoid compiler warnings
 }
 
+/* Changes from txsql start. */
+/**
+  Determine whether a transaction is started.
+  @param mi The Master_info object representing this connection.
+  @param buf Pointer to the event data.
+  @param event_type Type of event.
+  @param event_len Length of event data.
+
+  @retval true               if current query contains the keyword to start a
+                             transaction
+  @retval false              if current quert does not contain the keyword to
+                             start a transaction
+*/
+static bool starts_transaction(Master_info *mi, const char *buf,
+                               Log_event_type &event_type, ulong &event_len) {
+  bool ret = false;
+  if (binary_log::QUERY_EVENT == event_type) {
+    Format_description_log_event *fd_event = mi->get_mi_description_event();
+    const char *query = nullptr;
+    size_t q_len = 0;
+    q_len = Query_log_event::get_query(buf, event_len, fd_event, &query);
+
+    if (!strncmp(query, "BEGIN", q_len) ||
+        !strncmp(query, STRING_WITH_LEN("XA START"))) {
+      ret = true;
+    }
+  }
+
+  return ret;
+}
+
+/**
+  Determine whether a transaction is committed.
+  @param mi The Master_info object representing this connection.
+  @param buf Pointer to the event data.
+  @param event_type Type of event.
+  @param event_len Length of event data.
+
+  @retval true               if current query contains the keyword to commit a
+                             transaction
+  @retval false              if current quert does not contain the keyword to
+                             commit/rollback a transaction
+*/
+static bool ends_transaction(Master_info *mi, const char *buf,
+                             Log_event_type &event_type, ulong &event_len) {
+  bool ret = false;
+  if (binary_log::QUERY_EVENT == event_type) {
+    Format_description_log_event *fd_event = mi->get_mi_description_event();
+    const char *query = nullptr;
+    size_t q_len = 0;
+    q_len = Query_log_event::get_query(buf, event_len, fd_event, &query);
+
+    if (!strncmp(query, "COMMIT", q_len) ||
+        !strncmp(query, STRING_WITH_LEN("XA COMMIT")) ||
+        !strncmp(query, STRING_WITH_LEN("XA ROLLBACK")) ||
+        (!native_strncasecmp(query, STRING_WITH_LEN("ROLLBACK")) &&
+         native_strncasecmp(query, STRING_WITH_LEN("ROLLBACK TO ")))) {
+      ret = true;
+    }
+  } else if (binary_log::XID_EVENT == event_type ||
+             binary_log::XA_PREPARE_LOG_EVENT == event_type) {
+    ret = true;
+  }
+
+  return ret;
+}
+/* Changes from txsql end. */
+
 /**
   Used by the slave IO thread when it receives a rotate event from the
   master.
@@ -7302,6 +7371,7 @@ static int process_io_rotate(Master_info *mi, Rotate_log_event *rev) {
   memcpy(const_cast<char *>(mi->get_master_log_name()), rev->new_log_ident,
          rev->ident_len + 1);
   mi->set_master_log_pos(rev->pos);
+  mi->set_complete_trx_log_pos(mi->get_master_log_pos());
   DBUG_PRINT("info",
              ("new (master_log_name, master_log_pos): ('%s', %lu)",
               mi->get_master_log_name(), (ulong)mi->get_master_log_pos()));
@@ -7382,6 +7452,7 @@ int heartbeat_queue_event(bool is_valid, Master_info *&mi,
     DBUG_EXECUTE_IF("reached_heart_beat_queue_event",
                     { rpl_replica_debug_point(DBUG_RPL_S_HEARTBEAT_EV); };);
     mi->set_master_log_pos(position);
+    mi->set_complete_trx_log_pos(mi->get_master_log_pos());
 
     /*
        Put this heartbeat event in the relay log as a Rotate Event.
@@ -7553,6 +7624,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
         */
         mysql_mutex_lock(&mi->data_lock);
         mi->set_master_log_pos(mi->get_master_log_pos() + event_len);
+        mi->set_complete_trx_log_pos(mi->get_master_log_pos());
         lock_count = 2;
         goto end;
       });
@@ -7933,6 +8005,41 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
     into the Relay log so that it can be accessed when applying the event
   */
   s_id &= opt_server_id_mask;
+
+  /*
+    The complete_trx_log_pos is used to record complete transaction, it is
+    updated only when a transaction is commit. For the XA transaction, we
+    limit the first phase to be an one-time update.
+  */
+
+  if (starts_transaction(mi, buf, event_type, event_len)) {
+    mi->is_in_transaction = true;
+  } else if (ends_transaction(mi, buf, event_type, event_len)) {
+    DBUG_EXECUTE_IF("before_transaction_commit", {
+      const char act[] =
+          "now SIGNAL in_transaction "
+          "WAIT_FOR finish_check";
+      assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    };);
+    mi->is_in_transaction = false;
+  }
+
+  /*
+    Make sure to record log pos and set is_in_transaction to false when
+    receiving gitd-event, otherwise cases like
+    rpl_gtid.rpl_partial_gtid_trx_followed_by_trx_at_startup will fail.
+  */
+  if (binary_log::GTID_LOG_EVENT == event_type ||
+      binary_log::ANONYMOUS_GTID_LOG_EVENT == event_type) {
+    /*
+      GTID_LOG_EVENT and ANONYMOUS_GTID_LOG_EVENT stand for the begining of
+      a transaction. This part is mainly for DDL.
+    */
+    mi->set_complete_trx_log_pos(mi->get_master_log_pos());
+    mi->is_in_transaction = false;
+  } else if (!mi->is_in_transaction) {
+    mi->set_complete_trx_log_pos(mi->get_master_log_pos() + inc_pos);
+  }
 
   if ((s_id == ::server_id && !mi->rli->replicate_same_server_id) ||
       /*
@@ -9478,11 +9585,13 @@ static int change_receive_options(THD *thd, LEX_MASTER_INFO *lex_mi,
     var_master_log_name = const_cast<char *>(mi->get_master_log_name());
     var_master_log_name[0] = '\0';
     mi->set_master_log_pos(BIN_LOG_HEADER_SIZE);
+    mi->set_complete_trx_log_pos(mi->get_master_log_pos());
   }
 
   if (lex_mi->log_file_name) mi->set_master_log_name(lex_mi->log_file_name);
   if (lex_mi->pos) {
     mi->set_master_log_pos(lex_mi->pos);
+    mi->set_complete_trx_log_pos(mi->get_master_log_pos());
   }
 
   if (lex_mi->log_file_name && !lex_mi->pos)
@@ -10603,6 +10712,7 @@ int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
       */
       mi->set_master_log_pos(max<ulonglong>(
           BIN_LOG_HEADER_SIZE, mi->rli->get_group_master_log_pos()));
+      mi->set_complete_trx_log_pos(mi->get_master_log_pos());
       mi->set_master_log_name(mi->rli->get_group_master_log_name());
     }
   }

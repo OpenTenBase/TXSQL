@@ -808,6 +808,24 @@ class Master_info : public Rpl_info {
     receiver position related information might be outdated.
   */
   bool m_is_receiver_position_info_invalid;
+
+  /* Changes from txsql start. */
+  public:
+  bool is_in_transaction;   /* in a transaction */
+
+  inline void set_complete_trx_log_pos(ulonglong log_pos) {
+    complete_trx_log_pos = log_pos;
+  }
+
+  inline ulonglong get_complete_trx_log_pos() {
+    return complete_trx_log_pos;
+  }
+
+  void init_complete_trx_log_pos();
+
+  protected:
+  my_off_t complete_trx_log_pos;
+  /* Changes from txsql end. */
 };
 
 #endif /* RPL_MI_H */

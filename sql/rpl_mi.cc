@@ -418,6 +418,7 @@ int Master_info::mi_init_info() {
 
   if (check_return == REPOSITORY_DOES_NOT_EXIST) {
     init_master_log_pos();
+    init_complete_trx_log_pos();
   } else {
     if (read_info(handler)) goto err;
   }
@@ -606,6 +607,7 @@ bool Master_info::read_info(Rpl_info_handler *from) {
   ssl = (bool)temp_ssl;
   ssl_verify_server_cert = (bool)temp_ssl_verify_server_cert;
   master_log_pos = (my_off_t)temp_master_log_pos;
+  complete_trx_log_pos = master_log_pos;
   auto_position = temp_auto_position;
   get_public_key = (bool)temp_get_public_key;
 
@@ -814,3 +816,12 @@ void Master_info::set_gtid_only_mode(bool gtid_only_mode) {
 }
 
 bool Master_info::is_gtid_only_mode() const { return m_gtid_only_mode; }
+
+/* Changes from txsql start. */
+void Master_info::init_complete_trx_log_pos() {
+  DBUG_TRACE;
+
+  is_in_transaction = false;
+  complete_trx_log_pos = BIN_LOG_HEADER_SIZE;
+}
+/* Changes from txsql end. */

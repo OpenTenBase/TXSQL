@@ -1,0 +1,118 @@
+# ==== Purpose ====
+#
+# The read_master_log_pos will not update until an entire transaction has
+# been written to relaylog.
+--source include/master-slave.inc
+--source include/have_debug_sync.inc
+
+# Create a table in master
+connection master;
+CREATE TABLE t1 (a INT);
+call mtr.add_suppression("Statement is unsafe because it is being used inside a XA transaction");
+--source include/sync_slave_io_with_master.inc
+
+# Save master_log_pos before transaction
+connection slave;
+--let $master_log_pos= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+--let $debug_point= before_transaction_commit
+--source include/add_debug_point.inc
+--source include/stop_slave_io.inc
+
+# Checking normal transaction
+connection master;
+BEGIN;
+INSERT INTO t1 VALUES(1);
+UPDATE t1 SET a= 2;
+DELETE FROM t1;
+COMMIT;
+
+# Check master_log_pos in transaction
+connection slave;
+--source include/start_slave_io.inc
+SET DEBUG_SYNC='now WAIT_FOR in_transaction';
+--let $master_log_pos1= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+if ($master_log_pos== $master_log_pos1)
+{
+  --echo Success!
+}
+SET DEBUG_SYNC= 'now SIGNAL finish_check';
+
+connection master;
+--source include/sync_slave_io_with_master.inc
+
+# Check master_log_pos after transaction
+connection slave;
+--let $master_log_pos2= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+if ($master_log_pos1< $master_log_pos2)
+{
+  --echo Success!
+}
+--source include/stop_slave_io.inc
+
+# Checking 1st phase of XA transaction
+connection master;
+--disable_warnings
+XA START 'xa';
+INSERT INTO t1 VALUES(1);
+UPDATE t1 SET a= 2;
+DELETE FROM t1;
+XA END 'xa';
+XA PREPARE 'xa';
+
+# Check master_log_pos in 1st phase of XA transaction
+connection slave;
+--source include/start_slave_io.inc
+SET DEBUG_SYNC='now WAIT_FOR in_transaction';
+--let $master_log_pos3= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+if ($master_log_pos2== $master_log_pos3)
+{
+  --echo Success!
+}
+SET DEBUG_SYNC= 'now SIGNAL finish_check';
+
+connection master;
+--source include/sync_slave_io_with_master.inc
+
+# Check master_log_pos after 1st of XA transaction
+connection slave;
+--let $master_log_pos4= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+if ($master_log_pos3< $master_log_pos4)
+{
+  --echo Success!
+}
+--source include/stop_slave_io.inc
+
+# Checking 2nd phase of XA transaction
+connection master;
+XA COMMIT 'xa';
+
+# Check master_log_pos in 2nd phase of XA transaction
+connection slave;
+--source include/start_slave_io.inc
+SET DEBUG_SYNC='now WAIT_FOR in_transaction';
+--let $master_log_pos5= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+if ($master_log_pos4== $master_log_pos5)
+{
+  --echo Success!
+}
+SET DEBUG_SYNC= 'now SIGNAL finish_check';
+
+connection master;
+--source include/sync_slave_io_with_master.inc
+
+# Check master_log_pos after 2nd phase of XA transaction
+connection slave;
+--let $master_log_pos6= query_get_value(SHOW SLAVE STATUS, Read_Master_Log_Pos, 1)
+if ($master_log_pos5< $master_log_pos6)
+{
+  --echo Success!
+}
+
+# Reset master
+connection master;
+DROP TABLE t1;
+--enable_warnings
+--source include/sync_slave_sql_with_master.inc
+--let $debug_point= before_transaction_commit
+--source include/remove_debug_point.inc
+--source include/rpl_end.inc
