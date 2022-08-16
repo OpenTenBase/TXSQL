@@ -332,8 +332,8 @@ WHERE tb.d IN (SELECT g FROM t4 as tc
 WHERE ta.a=tc.f
 ORDER BY tc.f));
 a	b
-2	10
 2	20
+2	10
 2	30
 4	40
 set @@optimizer_switch='materialization=off,semijoin=on';
@@ -2290,4 +2290,32 @@ Txsql_parallel_stmt_memory_refused	0
 Txsql_parallel_stmt_thread_refused	0
 set optimizer_switch=DEFAULT;
 DROP TABLE t;
+CREATE TABLE t1 (
+c1 INT PRIMARY KEY, c2 INT DEFAULT 1, ct TEXT,
+INDEX(c2))
+ENGINE=InnoDB;
+INSERT INTO t1 SET c1=1;
+CREATE TABLE t1p LIKE t1;
+CREATE TABLE t1c (c1 INT PRIMARY KEY, c2 INT, c3 INT, INDEX(c2), INDEX(c3),
+CONSTRAINT t1c2 FOREIGN KEY (c2) REFERENCES t1(c2),
+CONSTRAINT t1c3 FOREIGN KEY (c3) REFERENCES t1p(c2))
+ENGINE=InnoDB;
+CREATE TABLE sys_foreign SELECT i.*
+FROM INFORMATION_SCHEMA.INNODB_FOREIGN i
+WHERE FOR_NAME LIKE 'test/t%';
+flush status;
+SELECT i.FOR_COL_NAME, i.REF_COL_NAME, i.POS FROM INFORMATION_SCHEMA.INNODB_FOREIGN_COLS i
+INNER JOIN sys_foreign sf ON i.ID = sf.ID;
+FOR_COL_NAME	REF_COL_NAME	POS
+c2	c2	1
+c3	c2	1
+show status like '%txsql_parallel_stmt_%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_memory_refused	0
+Txsql_parallel_stmt_thread_refused	0
+drop table t1,t1p,t1c,sys_foreign;
 # --include set_px_to_saved.inc

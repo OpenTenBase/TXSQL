@@ -1679,7 +1679,8 @@ bool CheckPlanEquivalence(int level, AccessPath *coordinator_path,
       worker_path, worker_join, are_equivalent,
       sub_tree_of_exchange);
 
-  if (!are_equivalent) {
+  if (!are_equivalent ||
+      bothPlan.worker_path_children.size() != bothPlan.coordinator_path_children.size()) {
     return false;
   }
 
