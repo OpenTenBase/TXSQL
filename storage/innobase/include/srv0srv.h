@@ -65,6 +65,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <future>
 
+/* Changes from txsql start. */
+extern int srv_cdb_page_cleaner_priority;
+/* Changes from txsql end. */
+
 /* Global counters used inside InnoDB. */
 struct srv_stats_t {
   typedef ib_counter_t<ulint, 64> ulint_ctr_64_t;

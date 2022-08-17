@@ -23107,6 +23107,14 @@ char **thd_innodb_interpreter(THD *thd) {
 }
 #endif /* UNIV_DEBUG */
 
+/* Changes from txsql start. */
+static MYSQL_SYSVAR_INT(cdb_page_cleaner_priority,
+                        srv_cdb_page_cleaner_priority,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                        "Thread priority for the page cleaner thread", NULL,
+                        NULL, 0, 0, 39, 0);
+/* Changes from txsql end. */
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -23327,6 +23335,7 @@ static SYS_VAR *innobase_system_variables[] = {
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
     MYSQL_SYSVAR(segment_reserve_factor),
+    MYSQL_SYSVAR(cdb_page_cleaner_priority),
     nullptr};
 
 mysql_declare_plugin(innobase){

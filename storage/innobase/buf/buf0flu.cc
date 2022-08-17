@@ -76,6 +76,13 @@ this program; if not, write to the Free Software Foundation, Inc.,
 static const int buf_flush_page_cleaner_priority = -20;
 #endif /* UNIV_LINUX */
 
+/* Changes from txsql start. */
+#ifdef UNIV_LINUX
+#include "my_thread_os_id.h"
+#include "mysqld.h"
+#endif /* UNIV_LINUX */
+/* Changes from txsql end. */
+
 /** Number of pages flushed through non flush_list flushes. */
 static ulint buf_lru_flush_page_count = 0;
 
@@ -3201,6 +3208,15 @@ static void buf_flush_page_coordinator_thread() {
                                " page cleaner thread priority can be changed."
                                " See the man page of setpriority().";
   }
+
+  /* Set the thread priority by admin_tool. */
+  /* Keep the configured offset for compatibility with earlier deployments. */
+  if ((srv_cdb_page_cleaner_priority - 20) != 0 &&
+      mysql_admin_tool_set_priority(my_thread_os_id(),
+                                    srv_cdb_page_cleaner_priority - 20) == 0) {
+    ib::info(ER_CDB_FAILED_TO_SET_CLEANER_COORDINATOR_PRIORITY,
+             srv_cdb_page_cleaner_priority - 20);
+  }
 #endif /* UNIV_LINUX */
 
   /* We start from 1 because the coordinator thread is part of the
@@ -3589,6 +3605,15 @@ static void buf_flush_page_cleaner_thread() {
   if (buf_flush_page_cleaner_set_priority(buf_flush_page_cleaner_priority)) {
     ib::info(ER_IB_MSG_129)
         << "page_cleaner worker priority: " << buf_flush_page_cleaner_priority;
+  }
+
+  /* Set the thread priority by admin_tool. */
+  /* Keep the configured offset for compatibility with earlier deployments. */
+  if ((srv_cdb_page_cleaner_priority - 20) != 0 &&
+      mysql_admin_tool_set_priority(my_thread_os_id(),
+                                    srv_cdb_page_cleaner_priority - 20) == 0) {
+    ib::info(ER_CDB_FAILED_TO_SET_CLEANER_WORKER_PRIORITY,
+             srv_cdb_page_cleaner_priority - 20);
   }
 #endif /* UNIV_LINUX */
 
