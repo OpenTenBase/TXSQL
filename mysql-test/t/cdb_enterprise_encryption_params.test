@@ -1,0 +1,384 @@
+#This test will try invalid or bondary input parameters for encrypt function
+#initialize
+INSTALL PLUGIN cdb_enterprise_encryption SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION modify_public_params RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION create_asymmetric_priv_key RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION create_asymmetric_pub_key RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_derive RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION create_digest RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_encrypt RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_decrypt RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_sign RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_verify RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION count_key_records RETURNS INTEGER SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION remove_key_records RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+
+#test cases for input parameters
+
+#error inputs test for MODIFY_PUBLIC_PARAMS, only DH and DSA need public parameters
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(@not_exist);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(null);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('rsa');
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(123456);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('dh', 'error_input');
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('abc', 1024);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(@not_exist, 1024);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(@not_exist, null);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(null, 1024);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('dh', null);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('dsa', null);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('dh', @not_exist);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('rsa', @not_exist);
+
+#error inputs test for create_asymmetric_priv_key, only DH and DSA need public parameters
+#has two arguments.First valid input is "rsa"/"dsa"/"dh"
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(@not_exist);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('rsa');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(123456);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('dh', 'error_input');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('abc', 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(@not_exist, 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(@not_exist, null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(null, 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('dh', null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('dsa', null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('rsa', null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('rsa', @not_exist);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('abc', 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('abc', 1024*1024*1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('rsa', 1024*1024*1024);
+
+#error inputs for CREATE_ASYMMETRIC_PUB_KEY
+#has two arguments.First valid input is "rsa"/"dsa"/"dh"
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY(@not_exist);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY(null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('rsa');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY(123456);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('dh', 'error_input');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('abc', 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY(@not_exist, 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY(@not_exist, null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY(null, 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('dh', null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('dsa', null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('rsa', null);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('rsa', @not_exist);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('abc', 1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('abc', 1024*1024*1024);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('rsa', 1024*1024*1024);
+
+#error inputs for ASYMMETRIC_DERIVE
+#has two arguments.
+--error 1123
+SELECT ASYMMETRIC_DERIVE(@not_exist);
+--error 1123
+SELECT ASYMMETRIC_DERIVE('one input');
+--error 1123
+SELECT ASYMMETRIC_DERIVE('frist', 'second', 'third');
+--error 1123
+SELECT ASYMMETRIC_DERIVE(null);
+--error 1123
+SELECT ASYMMETRIC_DERIVE(@not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_DERIVE('first', @not_exist);
+--error 1123
+SELECT ASYMMETRIC_DERIVE(@not_exist, 'second');
+--error 1123
+SELECT ASYMMETRIC_DERIVE(null, null);
+--error 1123
+SELECT ASYMMETRIC_DERIVE('first', null);
+--error 1123
+SELECT ASYMMETRIC_DERIVE(null, 'second');
+
+
+#error inputs for CREATE_DIGEST
+#has two arguments.First valid input is "md5"/"sha1"/"sha224"/"sha256"//"sha384"//"sha512"
+SET @clr_msg = 'This is my clear message to sign';
+--error 1123
+SELECT CREATE_DIGEST(@not_exist);
+--error 1123
+SELECT CREATE_DIGEST(null);
+--error 1123
+SELECT CREATE_DIGEST('md5');
+--error 1123
+SELECT CREATE_DIGEST(123456);
+#null or empty input check
+SELECT CREATE_DIGEST('md5', @not_exist);
+SELECT CREATE_DIGEST('md5', null);
+SELECT CREATE_DIGEST('md5', '');
+--error 1123
+SELECT CREATE_DIGEST('md5', 123);
+--error 1123
+SELECT CREATE_DIGEST('abc', 1024);
+--error 1123
+SELECT CREATE_DIGEST(@not_exist, null);
+--error 1123
+SELECT CREATE_DIGEST('', null);
+--error 1123
+SELECT CREATE_DIGEST(null, 1024);
+--error 1123
+SELECT CREATE_DIGEST('error_alg', @clr_msg);
+--error 1123
+SELECT CREATE_DIGEST(@clr_msg);
+
+#error inputs for ASYMMETRIC_ENCRYPT
+#has two arguments.
+SET @ori_msg = 'My secret message';
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(123456);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(null);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(@not_exist);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT('');
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(@not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(null, null);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT('', '');
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(@ori_msg, 123456);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(@ori_msg, 'error_input');
+
+#prepare for with rigth private key
+SET @bits = 1024;
+SET @priv_rsa = CREATE_ASYMMETRIC_PRIV_KEY('rsa', @bits);
+#every time the priv_rsa created is different from other, so the result ASYMMETRIC_ENCRYPT('', @priv_rsa);
+#is different from other test. Using select SQl runs mtr with --repeat option will fail.
+#SELECT @priv_rsa;
+set @encrypt = ASYMMETRIC_ENCRYPT('', @priv_rsa);
+set @encrypt = ASYMMETRIC_ENCRYPT(null, @priv_rsa);
+set @encrypt = ASYMMETRIC_ENCRYPT(@not_exist, @priv_rsa);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(123, @priv_rsa);
+
+#===error inputs for ASYMMETRIC_DECRYPT===
+#has two arguments.
+SET @ori_msg = 'My secret message';
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(123456);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(null);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@not_exist);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT('');
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(null, null);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT('', '');
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ori_msg, 123456);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ori_msg, 'error_input');
+
+#normal priv rsa key
+SET @ori_msg = 'My secret message';
+SET @priv_rsa = CREATE_ASYMMETRIC_PRIV_KEY('rsa', @bits);
+SET @ecpt_msg1 = ASYMMETRIC_ENCRYPT(@ori_msg, @priv_rsa);
+--error 1123
+SET @back_msg1 = ASYMMETRIC_DECRYPT(@ecpt_msg1, '');
+#success
+SET @back_msg1 = ASYMMETRIC_DECRYPT('', @priv_rsa);
+#success
+SET @back_msg1 = ASYMMETRIC_DECRYPT(null, @priv_rsa);
+#success
+SET @back_msg1 = ASYMMETRIC_DECRYPT(@not_exist, @priv_rsa);
+#success
+SET @back_msg1 = ASYMMETRIC_DECRYPT('abc', @priv_rsa);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ecpt_msg1);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ecpt_msg1, 123456);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ecpt_msg1, 'error_input');
+
+#===error inputs for ASYMMETRIC_SIGN===
+#3 arguemnets
+--error 1123
+SELECT ASYMMETRIC_SIGN('abc');
+--error 1123
+SELECT ASYMMETRIC_SIGN(123);
+--error 1123
+SELECT ASYMMETRIC_SIGN(@not_exist);
+--error 1123
+SELECT ASYMMETRIC_SIGN(null);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', '');
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', null);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', '1');
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', 1);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', @not_exist);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', '', '');
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', null, null);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', @not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_SIGN('error', '', '');
+--error 1123
+SELECT ASYMMETRIC_SIGN('error', null, null);
+--error 1123
+SELECT ASYMMETRIC_SIGN('error', @not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_SIGN('error', '', '');
+--error 1123
+SELECT ASYMMETRIC_SIGN('error', 'asdf', 'asdf');
+
+#===error inputs for ASYMMETRIC_VERIFY===
+#4 arguments
+--error 1123
+SELECT ASYMMETRIC_VERIFY('rsa', '', '', '');
+--error 1123
+SELECT ASYMMETRIC_VERIFY('rsa', @not_exist, @not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('rsa', null, null, null);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('asdf', '', '', '');
+--error 1123
+SELECT ASYMMETRIC_VERIFY('asdf', @not_exist, @not_exist, @not_exist);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('asdf', null, null, null);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('error_input', 1, 1, 1);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('dsa', 'asdf', 'asdf', 'asdf');
+--error 1123
+SELECT ASYMMETRIC_VERIFY('dsa', @not_exist, null, 'error_input');
+--error 1123
+SELECT ASYMMETRIC_VERIFY('dsa', 123, 123, 'error_input');
+--error 1123
+SELECT ASYMMETRIC_VERIFY('asdf', null, 123, 'error_input');
+
+#===error inputs for COUNT_KEY_RECORDS===
+#1 arguement
+--error 1123
+SELECT COUNT_KEY_RECORDS(null);
+--error 1123
+SELECT COUNT_KEY_RECORDS('');
+--error 1123
+SELECT COUNT_KEY_RECORDS(@not_exist);
+--error 1123
+SELECT COUNT_KEY_RECORDS('error_input');
+--error 1123
+SELECT COUNT_KEY_RECORDS(123456);
+--error 1123
+SELECT COUNT_KEY_RECORDS('rsa', 'error_input');
+
+#error inputs for REMOVE_KEY_RECORDS
+--error 1123
+SELECT REMOVE_KEY_RECORDS('rsa');
+--error 1123
+SELECT REMOVE_KEY_RECORDS('asd');
+--error 1123
+SELECT REMOVE_KEY_RECORDS(@not_exist);
+--error 1123
+SELECT REMOVE_KEY_RECORDS(null);
+--error 1123
+SELECT REMOVE_KEY_RECORDS('');
+--error 1123
+SELECT REMOVE_KEY_RECORDS(123456);
+--error 1123
+SELECT REMOVE_KEY_RECORDS(null, null);
+--error 1123
+SELECT REMOVE_KEY_RECORDS('', '');
+--error 1123
+SELECT REMOVE_KEY_RECORDS(@not_exist, @not_exis);
+--error 1123
+SELECT REMOVE_KEY_RECORDS(@not_exist, '');
+--error 1123
+SELECT REMOVE_KEY_RECORDS('asdf', null);
+--error 1123
+SELECT REMOVE_KEY_RECORDS('asdf', '');
+--error 1123
+SELECT REMOVE_KEY_RECORDS('asdf', @not_exist);
+#success
+SELECT REMOVE_KEY_RECORDS('asdf', 1123);
+--error 1123
+SELECT REMOVE_KEY_RECORDS(null, 1);
+--error 1123
+SELECT REMOVE_KEY_RECORDS(@not_exist, 1);
+#success
+SELECT REMOVE_KEY_RECORDS('', 1);
+--error 1123
+SELECT REMOVE_KEY_RECORDS('rsa', @not_exist);
+--error 1123
+SELECT REMOVE_KEY_RECORDS('rsa', 'error_input');
+--error 1123
+SELECT REMOVE_KEY_RECORDS('rsa', null);
+#success
+SELECT REMOVE_KEY_RECORDS('rsa', 1024*1024*1024);
+
+
+#--echo "sleep for a while"
+#--sleep 10
+
+#deinitialize
+DROP FUNCTION IF EXISTS modify_public_params;
+DROP FUNCTION IF EXISTS create_asymmetric_priv_key;
+DROP FUNCTION IF EXISTS create_asymmetric_pub_key;
+DROP FUNCTION IF EXISTS asymmetric_derive;
+DROP FUNCTION IF EXISTS create_digest;
+DROP FUNCTION IF EXISTS asymmetric_encrypt;
+DROP FUNCTION IF EXISTS asymmetric_decrypt;
+DROP FUNCTION IF EXISTS asymmetric_sign;
+DROP FUNCTION IF EXISTS asymmetric_verify;
+DROP FUNCTION IF EXISTS count_key_records;
+DROP FUNCTION IF EXISTS remove_key_records;
+UNINSTALL PLUGIN cdb_enterprise_encryption;
