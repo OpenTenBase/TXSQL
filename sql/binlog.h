@@ -274,10 +274,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
             const char *new_name, uint32 new_index_number);
   bool init_and_set_log_file_name(const char *log_name, const char *new_name,
                                   uint32 new_index_number);
+
+ public:
   int generate_new_name(char *new_name, const char *log_name,
                         uint32 new_index_number = 0);
 
- public:
   const char *generate_name(const char *log_name, const char *suffix,
                             char *buff);
   bool is_open() const { return atomic_log_state != LOG_CLOSED; }
@@ -947,6 +948,38 @@ class MYSQL_BIN_LOG : public TC_LOG {
     True while rotating binlog, which is caused by logging Incident_log_event.
   */
   bool is_rotating_caused_by_incident;
+
+  /* Changes from TXSQL start.*/
+ private:
+  ulong m_cur_bin_suffix;
+  ulong m_cur_tmp_suffix;
+
+  /* this should be called when reset */
+  inline void reset_suffix() {
+    m_cur_bin_suffix = 0;
+    m_cur_tmp_suffix = 0;
+    DBUG_PRINT("info", ("suffix reset already"));
+  }
+
+ public:
+  /**
+    This should be called only log creatation or rotate success and exist on
+    disk
+    TODO: this should be private method, but for unitest
+  */
+  inline void update_bin_suffix_idx() {
+    m_cur_bin_suffix = m_cur_tmp_suffix;
+    DBUG_PRINT("info", ("m_cur_tmp_suffix updated=%lu", m_cur_bin_suffix));
+  }
+  /* TODO: this should be private method, but for unitest */
+  /**
+    To fetch binlog suffix integer index, used when doing binlog rotate to avoid
+    scan whole dir return 0 means log_file_name not set already, will scan
+    return ulong to specify the current binlog idx
+  */
+  ulong get_binlog_suffix_idx() const;
+
+  /* Changes from TXSQL end. */
 };
 
 struct LOAD_FILE_INFO {

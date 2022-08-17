@@ -1,0 +1,113 @@
+# ==== Purpose ====
+#
+# functional test for open_binlog call using when
+# 
+# flush log reset master/slave called
+#
+# ==== Related ====
+#
+# TXSQL feature 67 binlog rotate perf optimization
+
+-- source include/have_binlog_format_row.inc
+
+--connect(conn1,localhost,root,,test)
+
+##
+let $engine= myisam;
+create database test_rotate_db;
+use test_rotate_db;
+--echo #currrent engine=$engine
+# Create a new table
+replace_column 2 0;
+show binary logs;
+--eval CREATE TABLE t1_$engine (c1 INT) ENGINE=$engine
+--eval insert into t1_$engine values(0),(1)
+
+# do batch flush and show
+let $loop_times= 100;
+while ($loop_times) {
+  replace_column 2 0;
+  show master status;
+  flush logs;
+  replace_column 2 0;
+  show master status;
+  flush logs;
+  replace_column 2 0;
+  show master status;
+  if ($loop_times < 5)
+  {
+    if ($loop_times == 4) {
+      replace_column 2 0;
+      show binary logs;
+    }
+    reset master;
+  }
+  if ($loop_times >= 5) 
+  {
+    flush logs;
+  }
+
+  #
+  dec $loop_times;
+  --echo # left times= $loop_times
+}
+--echo # [engine=$engine] after first loop_times=$loop_times, show master logs results
+replace_column 2 0;
+show master logs;
+
+# do batch flush and show with restart mysql
+let $loop_times= 10;
+while ($loop_times) {
+  replace_column 2 0;
+  show master status;
+  flush logs;
+  replace_column 2 0;
+  show master status;
+  flush logs;
+  replace_column 2 0;
+  show master logs;
+  --echo #begin to restart mysqld current loop_times=$loop_times
+  --source include/restart_mysqld.inc
+  #
+  dec $loop_times;
+  --echo # left restart times= $loop_times
+}
+--echo # [engine=$engine] after second loop_times=$loop_times, show master logs results
+
+
+# try to change the log-bin configs and restart
+--echo # ====================================now try to change the log-bin config for mysqld========================
+--let $restart_parameters= "restart: --log-bin=new_log_bin"
+--echo #begin to restart mysqld
+--source include/restart_mysqld.inc
+--let $restart_parameters= ""
+
+let $loop_times= 10;
+while ($loop_times) {
+  replace_column 2 0;
+  show binary logs;
+  flush logs;
+  replace_column 2 0;
+  show master status;
+  flush logs;
+  replace_column 2 0;
+  show master status;
+  if ($loop_times < 5)
+  {
+    reset master;
+  }
+  if ($loop_times >= 5) 
+  {
+    flush logs;
+  }
+
+  #
+  dec $loop_times;
+  --echo # left times= $loop_times
+}
+--echo # [engine=$engine] after third loop_times=$loop_times, show master logs results
+replace_column 2 0;
+show binary logs;
+
+##cleanup
+drop database test_rotate_db;
