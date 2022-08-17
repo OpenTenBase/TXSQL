@@ -11916,6 +11916,20 @@ ER_IB_MSG_CLEAR_INSTANT_DROP_COLUMN_METADATA
 #
 
 ################################################################################
+# Error numbers start at 40000: server-to-error-log message for CDB 8.0
+################################################################################
+start-error-number 40000
+ER_CDB_FAILED_TO_SET_CLEANER_COORDINATOR_PRIORITY
+  eng "CDB: page_cleaner coordinator priority: %d"
+
+ER_CDB_FAILED_TO_SET_CLEANER_WORKER_PRIORITY
+  eng "CDB: page_cleaner worker priority: %d"
+
+#
+# End of server-to-error-log message for CDB 8.0.
+#
+
+################################################################################
 # Error numbers 50000 to 51999 are reserved. Please do not use them for
 # other error messages.
 ################################################################################

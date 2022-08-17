@@ -94,6 +94,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #endif /* !UNIV_HOTBACKUP */
 #include "ut0mem.h"
 
+/* Changes from txsql start. */
+int srv_cdb_page_cleaner_priority = 0;
+/* Changes from txsql end. */
+
 #ifdef UNIV_HOTBACKUP
 #include "page0size.h"
 #else
