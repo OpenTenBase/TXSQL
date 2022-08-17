@@ -10,7 +10,7 @@
 --echo #  4) thd.variables
 --echo #  5) additional tests that may cause exceptions
 --echo ###############################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
@@ -230,11 +230,13 @@ analyze table t2;
 analyze table t3;
 analyze table t4;
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 set @@optimizer_switch='materialization=off,semijoin=on';
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 --echo # Subquery with GROUP BY and HAVING
@@ -249,11 +251,13 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
                                   HAVING ta.a=tc.f));
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 set @@optimizer_switch='materialization=off,semijoin=on';
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 --echo # Subquery with ORDER BY and LIMIT
@@ -270,11 +274,13 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
                                   ORDER BY tc.f));
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 set @@optimizer_switch='materialization=off,semijoin=on';
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 --echo # Reference to the transformed-away query block (dependency was wrong)
@@ -309,11 +315,13 @@ WHERE t.a NOT IN (SELECT a FROM t1 AS ta
                                                     WHERE t.b=tc.e)));
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 set @@optimizer_switch='materialization=off,semijoin=on';
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 --echo # EXISTS with reference to the parent query block
@@ -327,6 +335,7 @@ WHERE ta.a IN (SELECT c FROM t2 AS tb
                              WHERE ta.b=tc.e));
 
 eval EXPLAIN $query;
+--sorted_result
 eval $query;
 
 set @@optimizer_switch='materialization=off,semijoin=on';
@@ -1513,6 +1522,7 @@ CREATE TABLE t2 (
 
 INSERT INTO t2 VALUES (1,7,'f');
 
+--sorted_result
 SELECT t1.i1
 FROM t1
 WHERE t1.i1 NOT IN
@@ -1617,6 +1627,7 @@ CREATE VIEW v1 AS SELECT f1 from a;
 
 flush status;
 
+--sorted_result
 SELECT col_varchar_key FROM t1
 WHERE ( col_varchar_key, col_varchar_key ) NOT IN (
   SELECT alias1.col_varchar_key, alias1.col_varchar_key
@@ -1645,7 +1656,7 @@ INSERT INTO t1 VALUES ('r');
 INSERT INTO t1 VALUES ('h');
 
 flush status;
-
+--sorted_result
 SELECT a FROM t1 WHERE a IN (SELECT 'r' FROM t1 UNION ALL SELECT 'j');
 
 show status like '%txsql_parallel_stmt_%';

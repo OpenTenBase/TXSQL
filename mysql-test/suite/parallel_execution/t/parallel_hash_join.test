@@ -1,5 +1,5 @@
 --echo # Infrastructure for Enhanced Prepare once
-
+--source include/have_pq.inc
 --disable_ps_protocol
 
 show grants;

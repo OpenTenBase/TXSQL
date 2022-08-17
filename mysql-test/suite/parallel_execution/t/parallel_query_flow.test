@@ -1,6 +1,7 @@
 --echo # Infrastructure for test parallel execution frame
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
+--source include/have_pq.inc
 --disable_ps_protocol
 
 --disable_query_log
@@ -59,16 +60,21 @@ connect(conn2,localhost,user1,,);
 # 2. index scan
 # 3. range index scan
 # 4. ref scan
+--sorted_result
 select * from t2;
 explain format=tree select * from t2;
 select * from t2 where a = 3;
 explain format=tree select * from t2 where a = 3;
+--sorted_result
 select * from t3;
 explain format=tree select * from t3;
+--sorted_result
 select * from t3 where a between 1 and 9; # bug not insert ex
 explain format=tree select * from t3 where a between 1 and 9; # bug not insert ex
+--sorted_result
 select * from t3 where b > 2 and b < 10; # bug not insert ex
 explain format=tree select * from t3 where b > 2 and b < 10; # bug not insert ex
+--sorted_result
 select * from t3 where a < 10 and b > 2; # bug not insert ex
 explain format=tree select * from t3 where a < 10 and b > 2; # bug not insert ex
 
@@ -121,6 +127,7 @@ select sum(a), variance(b), avg(c) from t1;
 explain format=tree select sum(a), variance(b), avg(c) from t1;
 select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
 explain format=tree select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
+--sorted_result
 select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
 explain format=tree select a, sum(b), variance(b) from t1 where t1.a > 1 group by a;
 
@@ -128,22 +135,31 @@ explain format=tree select a, sum(b), variance(b) from t1 where t1.a > 1 group b
 # 1. basic case
 # 2. complex expressions inside aggregation function, like a+1,avg(b+1)
 # 3. more complex expressions like variance(b),case when
+--sorted_result
 select a,sum(b) from t1 group by a;
 explain format=tree select a,sum(b) from t1 group by a;
+--sorted_result
 select a,max(b) from t1 group by a;
 explain format=tree select a,max(b) from t1 group by a;
+--sorted_result
 select a,b,sum(c) from t1 group by a,b;
 explain format=tree select a,b,sum(c) from t1 group by a,b;
+--sorted_result
 select a,b,sum(c),avg(d) from t1 group by a,b;
 explain format=tree select a,b,sum(c),avg(d) from t1 group by a,b;
+--sorted_result
 select a,b,avg(c),avg(d) from t1 group by a,b;
 explain format=tree select a,b,avg(c),avg(d) from t1 group by a,b;
+--sorted_result
 select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
 explain format=tree select a+1,b,avg(c),avg(d) from t1 group by a+1,b;
+--sorted_result
 select a,b,sum(c+1),sum(d+10) from t1 group by a,b; 
-explain format=tree select a,b,sum(c+1),sum(d+10) from t1 group by a,b; 
+explain format=tree select a,b,sum(c+1),sum(d+10) from t1 group by a,b;
+--sorted_result
 select a,b,sum(c+1),avg(d+100) from t1 group by a,b; 
 explain format=tree select a,b,sum(c+1),avg(d+100) from t1 group by a,b; 
+--sorted_result
 select a,b,1+sum(c),avg(d) from t1 group by a,b;
 explain format=tree select a,b,1+sum(c),avg(d) from t1 group by a,b;
 
@@ -168,12 +184,15 @@ explain format=tree select a+1,b,avg(c) from t1 group by a+1,b order by a+1,b;
 # 1. basic case
 # 2. complex expressions inside aggregation function, like a+1,avg(b+1)
 # 3. more complex expressions like variance(b),case when
+--sorted_result
 select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
 explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a;
+--sorted_result
 select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
 explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,min(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a;
 select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
 explain format=tree select /*+NO_BNL(t1,t2)*/t1.a,sum(t1.b),avg(t1.c) from t1 join t2 where t1.a = t2.a group by t1.a order by t2.a;
+--sorted_result
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
 explain format=tree select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1;
 select /*+NO_BNL(t1,t2)*/t1.a+1,max(t1.b) from t1 join t2 where t1.a = t2.a group by t1.a+1 order by t1.a+1;

@@ -1,3 +1,4 @@
+--source include/have_pq.inc
 --disable_ps_protocol
 
 create table t2 (a int unique);
@@ -13,6 +14,7 @@ connection conn1;
 
 --source suite/parallel_execution/inc/save_and_set_px.inc
 EXPLAIN select * from t2 force index(a);
+--sorted_result
 select * from t2 force index(a);
 --source suite/parallel_execution/inc/set_px_to_saved.inc
 

@@ -1,7 +1,7 @@
 ######################################
 # Test for parallel query sort split #
 ######################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
@@ -372,6 +372,7 @@ select price from t order by price;
 --echo #
 --echo # Table scan -> Sort -> PX_send -> PX_receiver_merge -> Aggregate
 --echo #
+--sorted_result
 select price, count(distinct name) from t group by price;
 
 --echo #

@@ -1,4 +1,4 @@
---echo # Infrastructure for Enhanced Prepare once
+--source include/have_pq.inc
 --disable_ps_protocol
 
 show grants;
@@ -18,8 +18,10 @@ insert into t1 values(0, 0), (300, 300);
 insert into t2 values(0, 10), (1, 20), (2, 30);
 commit;
 set autocommit=0;
+--sorted_result
 select * from t2;
 update t2 set a=100 where b=(SELECT x from t1 where id = b FOR UPDATE);
+--sorted_result
 select * from t2;
 commit;
 

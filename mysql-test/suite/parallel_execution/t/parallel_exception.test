@@ -4,6 +4,7 @@
 # 2. Set up DEBUG_SYNC_C point to be killed.
 # 3. Test cleanup by add sleep to extend worker execution time.
 
+--source include/have_pq.inc
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
 --disable_ps_protocol
@@ -76,6 +77,7 @@ flush status;
 #==============** 1.0 execute_in_parallel_before_kill.
 connect(conn101,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 --send select a,sum(b) from t1 group by a order by a;
 
@@ -88,10 +90,12 @@ SET DEBUG_SYNC= 'now SIGNAL killed';
 connection conn101;
 --error ER_QUERY_INTERRUPTED
 --reap;
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 
 connect(conn102,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 --send select a,sum(b) from t4 group by a union select a,b from t2 order by a;
 
@@ -104,10 +108,12 @@ SET DEBUG_SYNC= 'now SIGNAL killed';
 connection conn102;
 --error ER_QUERY_INTERRUPTED
 --reap;
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 
 connect(conn103,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 --send (select a,sum(b) from t4 group by a order by a) union (select a,b from t2 order by a);
 
@@ -120,13 +126,16 @@ SET DEBUG_SYNC= 'now SIGNAL killed';
 connection conn103;
 --error ER_QUERY_INTERRUPTED
 --reap;
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 
 connection conn1;
+--sorted_result
 (select a,sum(b) from t4 group by a order by a) union (select a,b from t2 order by a);
 
 connect(conn104,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 --send select a,b from t4 union (select a,b from t2 order by a);
 
@@ -139,6 +148,7 @@ SET DEBUG_SYNC= 'now SIGNAL killed';
 connection conn104;
 --error ER_QUERY_INTERRUPTED
 --reap;
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 
 show status like '%txsql_parallel%';
@@ -175,11 +185,13 @@ show status like '%txsql_parallel%';
 connect(conn131,localhost,root,,);
 connection conn131;
 set session debug="+d,execute_in_parallel_before_sleep";
+--sorted_result
 select a,b,c,d from t1;
 
 connect(conn132,localhost,root,,);
 connection conn132;
 set session debug="+d,execute_in_parallel_before_sleep";
+--sorted_result
 (select a,b,c,d from t1) union (select a,b,sum(c),sum(d) from t2 group by a,b order by a,b);
 
 show status like '%txsql_parallel%';
@@ -243,6 +255,7 @@ select a,b,c,d from t1 order by d;
 connect(conn232,localhost,root,,);
 connection conn232;
 set session debug="+d,schedule_before_sleep";
+--sorted_result
 (select a,b,c,d from t1 order by d) union (select a,b,sum(c),sum(d) from t2 group by a,b);
 
 show status like '%txsql_parallel%';
@@ -311,6 +324,7 @@ select a,b,c,d from t1 order by a,b,c,d;
 connect(conn332,localhost,root,,);
 connection conn332;
 set session debug="+d,schedule_before_schedule_sleep";
+--sorted_result
 (select a,b,c,d from t1 order by a,b,c,d) union all (select d,c,b,a from t2 order by d,c);
 
 show status like '%txsql_parallel%';
@@ -381,6 +395,7 @@ connection conn1;
 set global debug="+d,schedule_one_loop_sleep_worker";
 connect(conn432,localhost,root,,);
 connection conn432;
+--sorted_result
 (select a,b,c+d from t1 order by a,b) union (select a,b+c,c+d from t2);
 connection conn1;
 set global debug="-d,schedule_one_loop_sleep_worker";
@@ -388,6 +403,7 @@ set global debug="-d,schedule_one_loop_sleep_worker";
 connect(conn433,localhost,root,,);
 connection conn433;
 set session debug="+d,schedule_one_loop_sleep";
+--sorted_result
 (select * from t1) union (select * from t2) union (select * from t3);
 
 show status like '%txsql_parallel%';
@@ -462,6 +478,7 @@ select a+b,c+d from t1 order by a+b,c+d;
 connect(conn532,localhost,root,,);
 connection conn532;
 set session debug="+d,run_root_in_sending_data_sleep";
+--sorted_result
 (select a+b,c+d from t1 order by a+b,c+d) union all (select d+c,b+a from t2 order by d+c);
 
 show status like '%txsql_parallel%';
@@ -471,6 +488,7 @@ show status like '%txsql_parallel%';
 connect(conn601,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
+SET session debug = "+d,px_no_row_split";
 --send (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t4 order by a);
 
 connection conn1;
@@ -481,11 +499,13 @@ SET DEBUG_SYNC= 'now SIGNAL killed';
 
 connection conn601;
 --reap;
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 
 connect(conn602,localhost,root,,);
 --let $id= `SELECT CONNECTION_ID()`
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
+SET session debug = "+d,px_no_row_split";
 --send (select * from t3) union (select * from t4 order by a) union (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a);
 
 connection conn1;
@@ -496,6 +516,7 @@ SET DEBUG_SYNC= 'now SIGNAL killed';
 
 connection conn602;
 --reap;
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 
 show status like '%txsql_parallel%';
@@ -510,6 +531,7 @@ select a+b,c+d from t1 order by a,b,c,d;
 connect(conn632,localhost,root,,);
 connection conn632;
 set session debug="+d,schedule_after_schedule_sleep";
+--sorted_result
 (select a+b,c+d from t1 order by a,b,c,d) union all (select d+c,b+a from t2 order by d,c);
 
 show status like '%txsql_parallel%';
@@ -553,9 +575,9 @@ show status like '%txsql_parallel%';
 #===============** 7.2 whenever kill by max_execution_time
 connect(conn703,localhost,root,,);
 connection conn703;
---error ER_QUERY_TIMEOUT
-select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
-show status like '%txsql_parallel%';
+#--error ER_QUERY_TIMEOUT
+#select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
+#show status like '%txsql_parallel%';
 # The worker thread may have already exited before be killed
 SET GLOBAL debug = '+d,px_simulate_worker_timeout_kill';
 connect(conn704,localhost,root,,);

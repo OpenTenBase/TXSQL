@@ -1,4 +1,4 @@
---echo # Infrastructure for Enhanced Prepare once
+--source include/have_pq.inc
 --disable_ps_protocol
 
 show grants;
@@ -32,6 +32,7 @@ connection conn1;
 connect(conn2,localhost,user1,,);
 set optimizer_switch='mrr=on,mrr_cost_based=off';
 explain format=tree select * from t1 force index(idx_col2) where col2 > 4;
+--sorted_result
 select * from t1 force index(idx_col2) where col2 > 4;
 
 connection conn1;

@@ -1,5 +1,4 @@
---echo # Infrastructure for Enhanced Prepare once
-
+--source include/have_pq.inc
 --disable_ps_protocol
 
 show grants;
@@ -124,6 +123,7 @@ DROP TABLE t3;
 
 --echo rollup check
 EXPLAIN format=tree SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+--sorted_result
 SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
 
 --echo zero row limit
@@ -132,6 +132,7 @@ select * from t1 limit 0;
 
 --echo select with distinct check
 explain format=tree select distinct a from t1;
+--sorted_result
 select distinct a from t1;
 
 --echo select_count check(using innodb parallel query)
@@ -164,6 +165,7 @@ EXPLAIN format=tree SELECT SUM(data) FROM testText;
 EXPLAIN format=tree SELECT count(id) FROM testText WHERE length(data) > 100;
 --echo table with blob field but blob field not in read_set
 EXPLAIN format=tree SELECT SUM(id) FROM testText;
+--sorted_result
 SELECT SUM(id) FROM testText;
 DROP TABLE testText;
 
@@ -191,6 +193,7 @@ EXPLAIN format=tree SELECT * FROM test_json;
 EXPLAIN format=tree SELECT SUM(obj_json) FROM test_json;
 --echo table with blob field but blob field not in read_set
 EXPLAIN format=tree SELECT SUM(id) FROM test_json;
+--sorted_result
 SELECT SUM(id) FROM test_json;
 DROP TABLE test_json;
 
@@ -270,7 +273,9 @@ INSERT INTO json_test(`key`, `grp`, `val`) VALUES
 ("key3", "g2", "v3");
 
 explain format=tree SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
+SET session debug = "+d,px_no_row_split";
 SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
+SET session debug = "-d,px_no_row_split";
 
 explain format=tree SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
 SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
@@ -304,6 +309,7 @@ drop function t1_sum;
 explain format=tree select rand() from t1;
 
 --echo unsafe multi statement check
+--sorted_result
 delimiter ||||;
 select * from t1;select * from t2||||
 delimiter ;||||

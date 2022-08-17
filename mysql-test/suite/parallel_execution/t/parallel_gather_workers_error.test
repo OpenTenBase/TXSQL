@@ -1,6 +1,8 @@
 --echo ###############################################
 --echo # test of gather worker error (Diagnostics_area)
 --echo ###############################################
+--source include/have_pq.inc
+--disable_ps_protocol
 
 CREATE TABLE t (a INT) ENGINE=InnoDB;
 

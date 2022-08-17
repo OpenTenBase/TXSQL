@@ -1,7 +1,8 @@
 ############################################################
 # Test for parallel execution with subselect in projection #
 ############################################################
-
+--source include/have_pq.inc
+--disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 --source include/turn_off_only_full_group_by.inc
 

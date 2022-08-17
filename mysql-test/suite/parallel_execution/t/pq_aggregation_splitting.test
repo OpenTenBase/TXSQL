@@ -1,7 +1,7 @@
 #################################################
 # Test for parallel query aggregation splitting #
 #################################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
@@ -52,12 +52,15 @@ select avg(col2)*avg(col2)/count(col1)*2 from t;
 --echo #
 --echo # test aggregation function with group by(no index)
 --echo #
+--sorted_result
 select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
+--sorted_result
 select count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3;
 
 --echo #
 --echo # test aggregation function with group by(with index)
 --echo #
+--sorted_result
 select sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
 select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2;
 
@@ -69,6 +72,7 @@ select col1, col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) f
 --echo #
 --echo # test aggregation function with having
 --echo #
+--sorted_result
 select col3,count(col2),avg(col2),min(col2),max(col2),count(*),sum(col1) from t group by col1,col3 having sum(col1)>4;
 select col2,sum(col1),avg(col1),count(col1),min(col1),max(col1) from t group by col2 having sum(col1)>1;
 
@@ -104,6 +108,7 @@ INSERT INTO t1 VALUES (5, 5, 1, 6);
 --echo #
 --echo # test aggregation function with const item in group list
 --echo #
+--sorted_result
 select t1.col1, col2, sum(t1col3) from t1, t where t1.col1 = 5 group by col1, col2;
 
 --echo #
@@ -156,10 +161,12 @@ select sum(col1) s from t1 group by t1col2 order by s;
 --echo #
 --replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree select * from (select sum(col1) as a from t1 group by t1col2) as t;
+--sorted_result
 select * from (select sum(col1) as a from t1 group by t1col2) as t;
 
 --replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree select * from (select sum(t1col2) as a from t1 group by col1) as t;
+--sorted_result
 select * from (select sum(t1col2) as a from t1 group by col1) as t;
 
 DROP TABLE t;

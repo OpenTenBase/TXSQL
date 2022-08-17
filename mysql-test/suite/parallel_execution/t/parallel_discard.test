@@ -1,5 +1,7 @@
 
 --source suite/parallel_execution/inc/have_txsql.inc
+--source include/have_pq.inc
+--disable_ps_protocol
 
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(

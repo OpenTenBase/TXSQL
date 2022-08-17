@@ -2,7 +2,7 @@
 # test plan:
 # 1. test the basic function which contains union/union all.
 # 2. test the framework details which contains error thrown out and kill query.
-
+--source include/have_pq.inc
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
 --disable_ps_protocol

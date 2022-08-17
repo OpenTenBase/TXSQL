@@ -32,6 +32,7 @@ set session debug="+d,px_receiver_init_error1";
 set session debug="+d,px_binary_heap_error1";
 set session debug="+d,px_load_group_record_error1";
 set session debug="+d,px_store_mq_record_error";
+set session debug="+d,px_decode_error";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
@@ -39,7 +40,11 @@ EXPLAIN
         -> Sort: t1.col2  (cost=1.25 rows=10)
             -> Parallel table scan on t1  (cost=1.25 rows=10)
 
+select * from t1 order by col2;
+ERROR HY000: Memory allocation error: creating codec in function PX_receiver::Init().
 set session debug="-d,px_receiver_init_error1";
+select * from t1 order by col2;
+ERROR HY000: Memory allocation error:  in function PX_receiver_merge::alloc().
 set session debug="-d,px_binary_heap_error1";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 EXPLAIN
@@ -58,6 +63,8 @@ EXPLAIN
         -> Sort: t1.col2  (cost=1.25 rows=10)
             -> Parallel table scan on t1  (cost=1.25 rows=10)
 
+select * from t1 order by col2;
+ERROR HY000: Memory allocation error:  in function PX_receiver_merge::store_mq_record().
 set session debug="-d,px_store_mq_record_error";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 EXPLAIN
@@ -66,6 +73,9 @@ EXPLAIN
         -> Sort: t1.col2  (cost=1.25 rows=10)
             -> Parallel table scan on t1  (cost=1.25 rows=10)
 
+select * from t1 order by col2;
+ERROR HY000: Failed to decode field in PX_receiver.
+set session debug="-d,px_decode_error";
 EXPLAIN FORMAT=TREE select * from t1 order by col2;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)

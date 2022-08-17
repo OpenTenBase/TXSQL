@@ -1,4 +1,5 @@
 --source include/have_debug.inc
+--source include/have_pq.inc
 --disable_ps_protocol
 
 show grants;

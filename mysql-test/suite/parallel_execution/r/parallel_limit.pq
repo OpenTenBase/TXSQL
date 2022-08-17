@@ -1,4 +1,3 @@
-# Infrastructure for Enhanced Prepare once
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
@@ -139,11 +138,11 @@ EXPLAIN
 
 (select * from t1 order by a limit 2) union (select * from t2);
 a	b	c	d
-1	2	3	4
 1	1	1	1
-4	4	4	4
-3	3	3	3
+1	2	3	4
 2	2	2	2
+3	3	3	3
+4	4	4	4
 5	5	5	5
 limit after union
 explain format=tree (select * from t1) union (select * from t2) limit 2;

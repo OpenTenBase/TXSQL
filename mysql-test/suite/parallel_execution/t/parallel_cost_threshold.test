@@ -3,7 +3,7 @@
 # Test for new txsql_parallel_cost_threshold.                       #
 #                                                                   #
 #####################################################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 

@@ -1,7 +1,7 @@
 ######################################
 # Test for parallel query sort split #
 ######################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
@@ -71,6 +71,7 @@ set session debug="+d,px_error_before_receive_data";
 --error ER_QUERY_INTERRUPTED
 SELECT * FROM t1;
 set session debug="-d,px_error_before_receive_data";
+--sorted_result
 SELECT * FROM t1;
 
 --echo ###
@@ -81,6 +82,7 @@ set session debug="+d,px_error_after_receive_data";
 --error ER_QUERY_INTERRUPTED
 SELECT * FROM t1;
 set session debug="-d,px_error_after_receive_data";
+--sorted_result
 SELECT * FROM t1;
 
 SET session debug = "-d,px_no_row_split";

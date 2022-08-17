@@ -1,3 +1,4 @@
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
@@ -125,7 +126,7 @@ flush status;
 show variables like 'txsql_optimizer_context_max_mem_size';
 
 select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3;
-
+--sorted_result
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
 
 select t2.fld3,count(*) from t2,t3 where t2.fld1=158402 and t3.name=t2.fld3 group by t3.name;

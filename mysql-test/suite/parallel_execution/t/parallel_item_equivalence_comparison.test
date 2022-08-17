@@ -1,4 +1,7 @@
 
+--source include/have_pq.inc
+--disable_ps_protocol
+
 --echo #######################################
 --echo # pq item equivalence comparison test
 --echo #######################################
@@ -25,15 +28,18 @@ drop table t1;
 CREATE TABLE t(a INT, b VARCHAR(2));
 INSERT INTO t VALUES (1,'a'), (2,'qw'), (1,'t'), (3,'t');
 SELECT crc32(SUM(a)) FROM t;
+--sorted_result
 SELECT crc32(AVG(a)) FROM t GROUP BY b;
 drop table t;
 
 --echo testcase copy from main.case
 create table t1 (a int);
 insert into t1 values(1),(2),(3),(4);
+--sorted_result
 select case a when 1 then 2 when 2 then 3 else 0 end as fcase, count(*) from t1 group by fcase;
 analyze table t1;
 explain select case a when 1 then 2 when 2 then 3 else 0 end as fcase, count(*) from t1 group by fcase;
+--sorted_result
 select case a when 1 then "one" when 2 then "two" else "nothing" end as fcase, count(*) from t1 group by fcase;
 drop table t1;
 
@@ -134,10 +140,12 @@ unique key(b,d)
 );
 insert into t1 (a,b) values(1,10),(1,20),(2,30),(2,40);
 
+SET session debug = "+d,px_no_row_split";
 --replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
-
+--sorted_result
 select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
+SET session debug = "-d,px_no_row_split";
 
 drop table t1;
 
@@ -149,7 +157,7 @@ INSERT INTO t0 VALUES(1, 10), (2, 20);
 
 --replace_regex /cost=\d+.\d+/cost=***/  /rows=\d+/rows=***/
 explain format=tree SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
-
+--sorted_result
 SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
 
 drop table t0;
