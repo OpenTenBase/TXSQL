@@ -1,0 +1,195 @@
+INSTALL PLUGIN cdb_enterprise_encryption SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION modify_public_params RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION create_asymmetric_priv_key RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION create_asymmetric_pub_key RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_derive RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION create_digest RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_encrypt RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_decrypt RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_sign RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION asymmetric_verify RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION count_key_records RETURNS INTEGER SONAME'cdb_enterprise_encryption.so';
+CREATE FUNCTION remove_key_records RETURNS STRING SONAME'cdb_enterprise_encryption.so';
+
+SET @bits = 1024;
+
+#error inputs test for MODIFY_PUBLIC_PARAMS, only DH and DSA need public parameters
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('rsa');
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS(123456);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('dh', 'error_input');
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('abc', 1024);
+
+#normal tests for install and uninstall plugin
+UNINSTALL PLUGIN cdb_enterprise_encryption;
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('DH', @bits);
+--error 1123
+SELECT MODIFY_PUBLIC_PARAMS('Dsa', @bits);
+INSTALL PLUGIN cdb_enterprise_encryption SONAME'cdb_enterprise_encryption.so';
+
+#normal function tests for MODIFY_PUBLIC_PARAMS
+SELECT MODIFY_PUBLIC_PARAMS('DH', @bits);
+SELECT MODIFY_PUBLIC_PARAMS('Dsa', @bits);
+
+#error inputs test for CREATE_ASYMMETRIC_PRIV_KEY
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('error_input');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY(123456);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('rsa', 'error_input');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PRIV_KEY('abc', 1024);
+
+#normal function tests for CREATE_ASYMMETRIC_PRIV_KEY
+SET @priv_rsa = CREATE_ASYMMETRIC_PRIV_KEY('rsa', @bits);
+SET @priv_dsa = CREATE_ASYMMETRIC_PRIV_KEY('DSA', @bits);
+SET @priv_dh1 = CREATE_ASYMMETRIC_PRIV_KEY('Dh', @bits);
+SET @priv_dh2 = CREATE_ASYMMETRIC_PRIV_KEY('dh', @bits);
+
+#error inputs for CREATE_ASYMMETRIC_PUB_KEY
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('error_input', @priv_rsa);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('rsa', 123456);
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('dsa', @priv_dsa, 'error_input');
+--error 1123
+SELECT CREATE_ASYMMETRIC_PUB_KEY('rsa', 'error_input');
+
+#normal function tests for CREATE_ASYMMETRIC_PUB_KEY
+SET @pub_rsa = CREATE_ASYMMETRIC_PUB_KEY('RSA', @priv_rsa);
+SET @pub_dsa = CREATE_ASYMMETRIC_PUB_KEY('Dsa', @priv_dsa);
+SET @pub_dh1 = CREATE_ASYMMETRIC_PUB_KEY('DH', @priv_dh1);
+SET @pub_dh2 = CREATE_ASYMMETRIC_PUB_KEY('dh', @priv_dh2);
+
+#error inputs for ASYMMETRIC_DERIVE
+--error 1123
+SELECT ASYMMETRIC_DERIVE(123456, @pub_dh1);
+--error 1123
+SELECT ASYMMETRIC_DERIVE(@priv_dh2, @pub_dh1, 'error_input');
+--error 1123
+SELECT ASYMMETRIC_DERIVE('error_input', @pub_dh1);
+--error 1123
+SELECT ASYMMETRIC_DERIVE(@priv_dh2, 'error_input');
+
+#normal function tests for ASYMMETRIC_DERIVE
+SET @sym_key1 = ASYMMETRIC_DERIVE(@priv_dh1, @pub_dh2);
+SET @sym_key2 = ASYMMETRIC_DERIVE(@priv_dh2, @pub_dh1);
+SELECT STRCMP(@sym_key1, @sym_key2);
+
+#error inputs for ASYMMETRIC_ENCRYPT
+SET @ori_msg = 'My secret message';
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(123456);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(@ori_msg, 123456);
+--error 1123
+SELECT ASYMMETRIC_ENCRYPT(@ori_msg, 'error_input');
+
+#normal function tests for ASYMMETRIC_ENCRYPT
+SET @ecpt_msg1 = ASYMMETRIC_ENCRYPT(@ori_msg, @priv_rsa);
+SET @ecpt_msg2 = ASYMMETRIC_ENCRYPT(@ori_msg, @pub_rsa);
+
+#error inputs for ASYMMETRIC_DECRYPT
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ecpt_msg1);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ecpt_msg1, 123456);
+--error 1123
+SELECT ASYMMETRIC_DECRYPT(@ecpt_msg1, 'error_input');
+
+#normal function tests for ASYMMETRIC_DECRYPT
+SET @back_msg1 = ASYMMETRIC_DECRYPT(@ecpt_msg1, @pub_rsa);
+SET @back_msg2 = ASYMMETRIC_DECRYPT(@ecpt_msg2, @priv_rsa);
+SELECT STRCMP(@ori_msg, @back_msg1);
+SELECT STRCMP(@ori_msg, @back_msg2);
+
+#error inputs for CREATE_DIGEST
+SET @clr_msg = 'This is my clear message to sign';
+--error 1123
+SELECT CREATE_DIGEST(@clr_msg);
+--error 1123
+SELECT CREATE_DIGEST('error_input', @clr_msg);
+
+#normal function tests for CREATE_DIGEST
+SET @hash1 = CREATE_DIGEST('Md5', @clr_msg);
+SET @hash1 = CREATE_DIGEST('SHA1', @clr_msg);
+SET @hash2 = CREATE_DIGEST('SHA224', @clr_msg);
+SET @hash3 = CREATE_DIGEST('Sha256', @clr_msg);
+SET @hash4 = CREATE_DIGEST('Sha384', @clr_msg);
+SET @hash5 = CREATE_DIGEST('sha512', @clr_msg);
+
+#error inputs for ASYMMETRIC_SIGN
+--error 1123
+SELECT ASYMMETRIC_SIGN('error_input', @hash1, @priv_rsa);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', @hash1);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', @hash1, 123456);
+--error 1123
+SELECT ASYMMETRIC_SIGN('rsa', @hash1, 'error_input');
+
+#normal function tests for ASYMMETRIC_SIGN
+#rsa keys have to long enough to support a long digest, otherwise may cause a NULL output
+SET @sig1 = ASYMMETRIC_SIGN('rsa', @hash5, @priv_rsa);
+SET @sig2 = ASYMMETRIC_SIGN('Dsa', @hash5, @priv_dsa);
+
+#error inputs for ASYMMETRIC_VERIFY
+--error 1123
+SELECT ASYMMETRIC_VERIFY('rsa', @hash1, @sig1);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('error_input', @hash1, @sig1, @pub_rsa);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('dsa', @hash1, @sig1, 123456);
+--error 1123
+SELECT ASYMMETRIC_VERIFY('dsa', @hash1, @sig1, 'error_input');
+
+#normal function tests for ASYMMETRIC_VERIFY
+SET @rst1 = ASYMMETRIC_VERIFY('RSA', @hash5, @sig1, @pub_rsa);
+SET @rst2 = ASYMMETRIC_VERIFY('dsa', @hash5, @sig2, @pub_dsa);
+SELECT @rst1, @rst2;
+
+#error inputs for COUNT_KEY_RECORDS
+--error 1123
+SELECT COUNT_KEY_RECORDS('rsa', 'error_input');
+--error 1123
+SELECT COUNT_KEY_RECORDS('error_input');
+--error 1123
+SELECT COUNT_KEY_RECORDS(123456);
+
+#normal function tests for COUNT_KEY_RECORDS
+SELECT COUNT_KEY_RECORDS('RSA');
+SELECT COUNT_KEY_RECORDS('dh');
+SELECT COUNT_KEY_RECORDS('Dsa');
+
+#error inputs for REMOVE_KEY_RECORDS
+--error 1123
+SELECT REMOVE_KEY_RECORDS('rsa', 'error_input');
+--error 1123
+SELECT REMOVE_KEY_RECORDS('rsa');
+--error 1123
+SELECT REMOVE_KEY_RECORDS(123456);
+
+#normal function tests for REMOVE_KEY_RECORDS
+#and remove all keys for --repeat test option
+SELECT REMOVE_KEY_RECORDS('RSA', 1);
+SELECT REMOVE_KEY_RECORDS('dh', 2);
+SELECT REMOVE_KEY_RECORDS('Dsa', 1);
+
+DROP FUNCTION IF EXISTS modify_public_params;
+DROP FUNCTION IF EXISTS create_asymmetric_priv_key;
+DROP FUNCTION IF EXISTS create_asymmetric_pub_key;
+DROP FUNCTION IF EXISTS asymmetric_derive;
+DROP FUNCTION IF EXISTS create_digest;
+DROP FUNCTION IF EXISTS asymmetric_encrypt;
+DROP FUNCTION IF EXISTS asymmetric_decrypt;
+DROP FUNCTION IF EXISTS asymmetric_sign;
+DROP FUNCTION IF EXISTS asymmetric_verify;
+DROP FUNCTION IF EXISTS count_key_records;
+DROP FUNCTION IF EXISTS remove_key_records;
+UNINSTALL PLUGIN cdb_enterprise_encryption;
