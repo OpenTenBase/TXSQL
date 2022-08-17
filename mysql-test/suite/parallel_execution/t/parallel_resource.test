@@ -3,6 +3,7 @@
 # 1. Test the resource allocation.
 # 2. Multiple query execute concurrently.
 
+--source include/have_pq.inc
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
 --disable_ps_protocol
@@ -71,6 +72,7 @@ set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for killed";
 connect(conn4,localhost,root,,);
 let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%parallel_before%';
 --source include/wait_condition.inc
+--sorted_result
 select a,avg(b) from t1 group by a union select a,b from t2;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -98,6 +100,7 @@ set debug_sync="execute_in_parallel_before_kill SIGNAL waiting wait_for timeout"
 connect(conn6,localhost,root,,);
 let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%parallel_before%';
 --source include/wait_condition.inc
+--sorted_result
 select a,avg(b) from t1 group by a union select a,sum(c) from t2 group by a;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 --replace_result $id <id>

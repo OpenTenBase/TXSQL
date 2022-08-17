@@ -1,5 +1,4 @@
---echo # Infrastructure for Enhanced Prepare once
-
+--source include/have_pq.inc
 --disable_ps_protocol
 
 show grants;
@@ -41,6 +40,7 @@ select 1 from t1;
 
 --echo limit after table scan
 explain format=tree select * from t1 limit 10;
+--sorted_result
 select * from t1 limit 10;
 
 --echo limit after index scan
@@ -73,6 +73,7 @@ insert into t2 values(5,5,5,5);
 
 --echo limit in one branch of union
 explain format=tree (select * from t1 order by a limit 2) union (select * from t2);
+--sorted_result
 (select * from t1 order by a limit 2) union (select * from t2);
 
 --echo limit after union

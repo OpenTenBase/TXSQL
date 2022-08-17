@@ -12,6 +12,8 @@
 --echo # 9) test ror scan of index dive cache
 --echo # 10) test copying user vars
 
+--source include/have_pq.inc
+--disable_ps_protocol
 --source include/have_optimizer_trace.inc
 
 --echo
@@ -124,6 +126,7 @@ select t2.fld3,companynr from t2 where companynr = 57+1 order by fld3;
 --replace_regex /table\S:[^\n\r]+/table=***/  /cost\S:[^\n\r]+/cost=***/ /cost\Sfor\Splan\S:[^\n\r]+/cost=***/
 SELECT * FROM information_schema.optimizer_trace;
 
+--sorted_result
 select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 group by name;
 --replace_regex /table\S:[^\n\r]+/table=***/  /cost\S:[^\n\r]+/cost=***/ /cost\Sfor\Splan\S:[^\n\r]+/cost=***/
 SELECT * FROM information_schema.optimizer_trace;

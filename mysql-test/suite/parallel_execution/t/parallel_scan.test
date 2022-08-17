@@ -1,5 +1,6 @@
 --source include/have_debug.inc
 --disable_ps_protocol
+--source include/have_pq.inc
 
 show grants;
 connect(conn1,localhost,root,,);
@@ -34,11 +35,13 @@ connect(conn2,localhost,user1,,);
 ###Case 01: TABLE SCAN###
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
 EXPLAIN SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t1;
 
 ###Case 02: INDEX SCAN###
 EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 EXPLAIN SELECT id, col2 from t1 FORCE INDEX(idx_col2);
+--sorted_result
 SELECT id, col2 from t1 FORCE INDEX(idx_col2);
 
 EXPLAIN FORMAT=TREE SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
@@ -50,41 +53,49 @@ SELECT id, col2 from t1 FORCE INDEX(idx_col2) ORDER BY col2 DESC;
 --echo ###test range = (-inf, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 
 --echo ###test range = (-inf, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 
 --echo ###test range = (start, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 
 --echo ###test range = [start, +inf)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 
 --echo ###test range = (start, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 
 --echo ###test range = [start, end)
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 
 --echo ###test range = (start, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 
 --echo ###test range = [start, end]
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
+--sorted_result
 SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 
 --echo ###test range = (-inf, end1] || [start2, +inf)
@@ -119,6 +130,7 @@ ANALYZE TABLE t1;
 
 EXPLAIN SELECT * FROM t1 WHERE c1_idx = 'y';
 EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y';
+--sorted_result
 SELECT * FROM t1 WHERE c1_idx = 'y';
 
 EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC;

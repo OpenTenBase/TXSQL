@@ -4,6 +4,8 @@
 --echo # 1) test copying outline version
 --echo # 2) test copying optimizer cost version
 --echo # 3) test copying rewriter plugin version
+--source include/have_pq.inc
+--disable_ps_protocol
 
 --source include/have_optimizer_trace.inc
 
@@ -61,6 +63,7 @@ SET @@global.cdb_opt_outline_enabled = @cdb_opt_outline_saved;
 --echo
 connection conn_user1;
 # SET DEBUG_SYNC= 'before_worker_optimize SIGNAL in_sync WAIT_FOR continue';
+--sorted_result
 SELECT * FROM t1 LEFT JOIN t2 on t1.f1=t2.f1;
 
 # Clean up tables

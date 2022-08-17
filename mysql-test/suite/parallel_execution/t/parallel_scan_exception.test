@@ -1,7 +1,7 @@
 ######################################
 # Test for exception parallel scan   #
 ######################################
-
+--source include/have_pq.inc
 --source include/have_debug.inc
 --disable_ps_protocol
 
@@ -33,6 +33,7 @@ SET session debug = "+d,px_sender_attach_error";
 --error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_attach_error";
+--sorted_result
 SELECT * FROM t1;
 
 --echo ###
@@ -43,6 +44,7 @@ SET session debug = "+d,px_sender_create_codec_error";
 --error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_create_codec_error";
+--sorted_result
 SELECT * FROM t1;
 
 --echo ###
@@ -53,6 +55,7 @@ SET session debug = "+d,px_sender_init_codec_error";
 --error ER_STD_BAD_ALLOC_ERROR
 SELECT * FROM t1;
 SET session debug = "-d,px_sender_init_codec_error";
+--sorted_result
 SELECT * FROM t1;
 
 --echo ###

@@ -23,10 +23,10 @@ set global debug="+d,enter_worker_sleep";
 (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t2 order by a);;
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-10	root	localhost	test	COMMAND	TIME	STATE	INFO
-11	 	 	 	COMMAND	TIME	STATE	INFO
-12	 	 	 	COMMAND	TIME	STATE	INFO
-13	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 a	b	c	d
 1	1	1	1
 1	2	3	4
@@ -37,7 +37,7 @@ set global debug="+d,execute_in_parallel_before_sleep";
 (select a+b,c+d from t1 order by a+b,c+d) union all (select d+c,b+a from t2 order by d+c);;
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-14	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 a+b	c+d
 2	2
 3	7
@@ -48,10 +48,10 @@ set global debug="+d,run_root_in_sending_data_sleep";
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);;
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-18	root	localhost	test	COMMAND	TIME	STATE	INFO
-19	 	 	 	COMMAND	TIME	STATE	INFO
-20	 	 	 	COMMAND	TIME	STATE	INFO
-21	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 a	b
 1	1
 2	2
@@ -61,10 +61,10 @@ set global debug="+d,schedule_before_sleep";
 (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t2 order by a);;
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-22	root	localhost	test	COMMAND	TIME	STATE	INFO
-23	 	 	 	COMMAND	TIME	STATE	INFO
-24	 	 	 	COMMAND	TIME	STATE	INFO
-25	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 a	b	c	d
 1	1	1	1
 1	2	3	4
@@ -75,10 +75,10 @@ set global debug="+d,schedule_before_schedule_sleep";
 (select a+b,c+d from t1) union (select d+c,b+a from t2 order by d+c);;
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-26	root	localhost	test	COMMAND	TIME	STATE	INFO
-27	 	 	 	COMMAND	TIME	STATE	INFO
-28	 	 	 	COMMAND	TIME	STATE	INFO
-29	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 a+b	c+d
 2	2
 3	7
@@ -89,10 +89,10 @@ set global debug="+d,schedule_one_loop_sleep";
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);;
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-30	root	localhost	test	COMMAND	TIME	STATE	INFO
-31	 	 	 	COMMAND	TIME	STATE	INFO
-32	 	 	 	COMMAND	TIME	STATE	INFO
-33	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 a	b
 1	1
 2	2
@@ -151,7 +151,7 @@ set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	8<id>8	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	sum(c)
 1	1	2.0000
@@ -187,138 +187,138 @@ select * from t4 union select * from t4;;
 root see all.
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-10	root	localhost	test	COMMAND	TIME	STATE	INFO
-14	root	localhost	test	COMMAND	TIME	STATE	INFO
-18	root	localhost	test	COMMAND	TIME	STATE	INFO
-22	root	localhost	test	COMMAND	TIME	STATE	INFO
-26	root	localhost	test	COMMAND	TIME	STATE	INFO
-30	root	localhost	test	COMMAND	TIME	STATE	INFO
-34	root	localhost	test	COMMAND	TIME	STATE	INFO
-37	root	localhost	test	COMMAND	TIME	STATE	INFO
-41	root	localhost	test	COMMAND	TIME	STATE	INFO
-45	root	localhost	test	COMMAND	TIME	STATE	INFO
-49	root	localhost	test	COMMAND	TIME	STATE	INFO
-5	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
-53	root	localhost	test	COMMAND	TIME	STATE	INFO
-57	root	localhost	test	COMMAND	TIME	STATE	INFO
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-60	user102	localhost	test	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-66	user104	localhost	test	COMMAND	TIME	STATE	INFO
-8	root	localhost	test	COMMAND	TIME	STATE	INFO
-9	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	user102	localhost	test	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	user104	localhost	test	COMMAND	TIME	STATE	INFO
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-64	 	 	 	COMMAND	TIME	STATE	INFO
-65	 	 	 	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-68	 	 	 	COMMAND	TIME	STATE	INFO
-69	 	 	 	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
 user with root see all
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-10	root	localhost	test	COMMAND	TIME	STATE	INFO
-14	root	localhost	test	COMMAND	TIME	STATE	INFO
-18	root	localhost	test	COMMAND	TIME	STATE	INFO
-22	root	localhost	test	COMMAND	TIME	STATE	INFO
-26	root	localhost	test	COMMAND	TIME	STATE	INFO
-30	root	localhost	test	COMMAND	TIME	STATE	INFO
-34	root	localhost	test	COMMAND	TIME	STATE	INFO
-37	root	localhost	test	COMMAND	TIME	STATE	INFO
-41	root	localhost	test	COMMAND	TIME	STATE	INFO
-45	root	localhost	test	COMMAND	TIME	STATE	INFO
-49	root	localhost	test	COMMAND	TIME	STATE	INFO
-5	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
-53	root	localhost	test	COMMAND	TIME	STATE	INFO
-57	root	localhost	test	COMMAND	TIME	STATE	INFO
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-60	user102	localhost	test	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-66	user104	localhost	test	COMMAND	TIME	STATE	INFO
-8	root	localhost	test	COMMAND	TIME	STATE	INFO
-9	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	user102	localhost	test	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	user104	localhost	test	COMMAND	TIME	STATE	INFO
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-64	 	 	 	COMMAND	TIME	STATE	INFO
-65	 	 	 	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-68	 	 	 	COMMAND	TIME	STATE	INFO
-69	 	 	 	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
 user with no root see only himself
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-66	user104	localhost	test	COMMAND	TIME	STATE	INFO
+#	user104	localhost	test	COMMAND	TIME	STATE	INFO
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
 tencent root see everything.
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-10	root	localhost	test	COMMAND	TIME	STATE	INFO
-14	root	localhost	test	COMMAND	TIME	STATE	INFO
-18	root	localhost	test	COMMAND	TIME	STATE	INFO
-22	root	localhost	test	COMMAND	TIME	STATE	INFO
-26	root	localhost	test	COMMAND	TIME	STATE	INFO
-30	root	localhost	test	COMMAND	TIME	STATE	INFO
-34	root	localhost	test	COMMAND	TIME	STATE	INFO
-37	root	localhost	test	COMMAND	TIME	STATE	INFO
-41	root	localhost	test	COMMAND	TIME	STATE	INFO
-45	root	localhost	test	COMMAND	TIME	STATE	INFO
-49	root	localhost	test	COMMAND	TIME	STATE	INFO
-5	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
-53	root	localhost	test	COMMAND	TIME	STATE	INFO
-57	root	localhost	test	COMMAND	TIME	STATE	INFO
-58	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-60	user102	localhost	test	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-66	user104	localhost	test	COMMAND	TIME	STATE	INFO
-67	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
-8	root	localhost	test	COMMAND	TIME	STATE	INFO
-9	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
+#	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	user102	localhost	test	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	user104	localhost	test	COMMAND	TIME	STATE	INFO
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-58	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
-61	 	 	 	COMMAND	TIME	STATE	INFO
-62	 	 	 	COMMAND	TIME	STATE	INFO
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-64	 	 	 	COMMAND	TIME	STATE	INFO
-65	 	 	 	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-68	 	 	 	COMMAND	TIME	STATE	INFO
-69	 	 	 	COMMAND	TIME	STATE	INFO
+#	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
 root can not see tencent root.
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-10	root	localhost	test	COMMAND	TIME	STATE	INFO
-14	root	localhost	test	COMMAND	TIME	STATE	INFO
-18	root	localhost	test	COMMAND	TIME	STATE	INFO
-22	root	localhost	test	COMMAND	TIME	STATE	INFO
-26	root	localhost	test	COMMAND	TIME	STATE	INFO
-30	root	localhost	test	COMMAND	TIME	STATE	INFO
-34	root	localhost	test	COMMAND	TIME	STATE	INFO
-37	root	localhost	test	COMMAND	TIME	STATE	INFO
-41	root	localhost	test	COMMAND	TIME	STATE	INFO
-45	root	localhost	test	COMMAND	TIME	STATE	INFO
-49	root	localhost	test	COMMAND	TIME	STATE	INFO
-5	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
-53	root	localhost	test	COMMAND	TIME	STATE	INFO
-57	root	localhost	test	COMMAND	TIME	STATE	INFO
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-60	user102	localhost	test	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-66	user104	localhost	test	COMMAND	TIME	STATE	INFO
-8	root	localhost	test	COMMAND	TIME	STATE	INFO
-9	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	event_scheduler	localhost	NULL	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	user102	localhost	test	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	user104	localhost	test	COMMAND	TIME	STATE	INFO
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-59	user101	localhost	test	COMMAND	TIME	STATE	INFO
-64	 	 	 	COMMAND	TIME	STATE	INFO
-65	 	 	 	COMMAND	TIME	STATE	INFO
-63	user103	localhost	test	COMMAND	TIME	STATE	INFO
-68	 	 	 	COMMAND	TIME	STATE	INFO
-69	 	 	 	COMMAND	TIME	STATE	INFO
+#	user101	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	user103	localhost	test	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
+#	 	 	 	COMMAND	TIME	STATE	INFO
 set global debug="-d,enter_worker_sleep";
 # --include set_px_to_saved.inc
 drop table t1;

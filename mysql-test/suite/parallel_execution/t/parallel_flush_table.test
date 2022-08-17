@@ -1,3 +1,6 @@
+--source include/have_pq.inc
+--disable_ps_protocol
+
 --echo ### 
 --echo ### Test parallel query while flush tables
 --echo ###
@@ -13,6 +16,7 @@ connection default;
 
 create table t1 (a int);
 insert into t1 values(1),(2),(3);
+--sorted_result
 select * from t1;
 
 --echo # sending lock table t1 read ...
@@ -30,10 +34,12 @@ let $wait_condition=
   where state = "Waiting for table flush"
   and info = "flush table t1";
 --source include/wait_condition.inc
+--sorted_result
 select * from t1;
 
 --echo #--> connection con2
 connection con2;
+SET session debug = "+d,px_no_row_split";
 send select * from t1;
 
 --echo # --> connection default
@@ -43,8 +49,15 @@ let $wait_condition=
   select count(*) = 1 from information_schema.processlist
   where state = "Waiting for table flush"
   and info = "select * from t1";
---source include/wait_condition.inc                        
+--source include/wait_condition.inc
+--sorted_result                        
 select * from t1;                                
 unlock tables;
+
+connection con2;
+--reap
+SET session debug = "-d,px_no_row_split";
+
+connection default;
 
 drop table t1;

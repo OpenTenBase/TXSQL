@@ -20,7 +20,7 @@
 ###     2.3 enable=false, max_threads > 0   #
 ###     2.4 enable=false, max_threads = 0   #
 #############################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 
 --echo ###

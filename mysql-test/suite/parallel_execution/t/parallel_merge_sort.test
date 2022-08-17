@@ -1,6 +1,7 @@
 #################################################
 # Test for parallel query merge sort exceptions #
 #################################################
+--source include/have_pq.inc
 --source include/have_debug.inc
 --source suite/parallel_execution/inc/save_and_set_px.inc
 --disable_ps_protocol

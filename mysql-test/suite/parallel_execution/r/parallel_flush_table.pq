@@ -22,6 +22,7 @@ a
 2
 3
 #--> connection con2
+SET session debug = "+d,px_no_row_split";
 select * from t1;
 # --> connection default
 # con2 cannot do select while flushing
@@ -31,4 +32,9 @@ a
 2
 3
 unlock tables;
+a
+1
+2
+3
+SET session debug = "-d,px_no_row_split";
 drop table t1;

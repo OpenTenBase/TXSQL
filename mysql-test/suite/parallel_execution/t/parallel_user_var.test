@@ -2,7 +2,7 @@
 #########################################
 # Test for parallel query with user_var #
 #########################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 --source suite/parallel_execution/inc/save_and_set_px.inc
 
@@ -26,6 +26,7 @@ ANALYZE TABLE t1;
 set @arg00=1 ;
 
 explain format=tree select @arg00, b from t1 where a > 1 ;
+--sorted_result
 select @arg00, b from t1 where a > 1 ;
 
 ###### parameter in the inner part

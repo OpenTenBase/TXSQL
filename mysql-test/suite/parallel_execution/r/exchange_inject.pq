@@ -4201,16 +4201,16 @@ id
 select found_rows();
 found_rows()
 4
-Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 select * from t1 order by id limit 1;
 id
 1
 select found_rows();
 found_rows()
 1
-Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
 id
 1
@@ -4223,8 +4223,8 @@ Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future r
 select found_rows();
 found_rows()
 4
-Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 drop table t1;
 #
 # Special ref slice for Aggregate

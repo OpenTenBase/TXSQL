@@ -1,4 +1,3 @@
-# Infrastructure for Enhanced Prepare once
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
@@ -512,9 +511,11 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 3)
             -> Parallel table scan on json_test  (cost=0.55 rows=3)
 
+SET session debug = "+d,px_no_row_split";
 SELECT JSON_ARRAYAGG(`key`) AS `keys` FROM json_test;
 keys
-["key1", "key3", "key2"]
+["key1", "key2", "key3"]
+SET session debug = "-d,px_no_row_split";
 explain format=tree SELECT JSON_OBJECTAGG(`key`, val) AS `key_val` FROM json_test;
 EXPLAIN
 -> Aggregate: json_objectagg(json_test.`key`,json_test.val)

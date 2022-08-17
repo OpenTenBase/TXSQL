@@ -2,7 +2,8 @@
 --echo ### Test For #Issue1200, THD::tx_isolation will be reset to
 --echo ### THD::variables.transaction_isolation when fallback to serial
 --echo ###
-
+--source include/have_pq.inc
+--disable_ps_protocol
 
 CREATE TABLE t(a INT PRIMARY KEY, b INT)ENGINE=InnoDB;
 INSERT INTO t VALUES(2,2),(4,4),(8,8),(16,16),(32,32);
@@ -38,6 +39,7 @@ call mtr.add_suppression("Found 3 prepared XA transactions");
 
 SET session debug = "+d,px_no_row_split";
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+--sorted_result
 SELECT * FROM t;
 COMMIT;
 SET session debug = "-d,px_no_row_split";
@@ -47,6 +49,7 @@ SET session debug = "-d,px_no_row_split";
 
 SET session debug = "+d,px_no_row_split";
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+--sorted_result
 SELECT * FROM t;
 COMMIT;
 --sorted_result
@@ -54,6 +57,7 @@ XA RECOVER;
 XA ROLLBACK '123';
 XA ROLLBACK '456';
 XA COMMIT '789';
+--sorted_result
 SELECT * FROM t;
 SET session debug = "-d,px_no_row_split";
 

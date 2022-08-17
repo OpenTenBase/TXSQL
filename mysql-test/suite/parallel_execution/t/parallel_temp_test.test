@@ -2,6 +2,8 @@
 --echo #######################################
 --echo # PQ temporary test file, which will be deleted in the future
 --echo #######################################
+--source include/have_pq.inc
+--disable_ps_protocol
 
 --skip Test requires 'obsolete core tests'
 

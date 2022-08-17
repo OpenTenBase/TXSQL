@@ -1,5 +1,6 @@
 --source include/have_debug.inc
 --disable_ps_protocol
+--source include/have_pq.inc
 
 show grants;
 connect(conn1,localhost,root,,);
@@ -34,6 +35,7 @@ connect(conn2,localhost,user1,,);
 
 --echo # Try a basic case:
 EXPLAIN FORMAT=TREE SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
+--sorted_result
 SELECT * FROM t2 WHERE kp1 BETWEEN 1 AND 10 AND mod(kp2,2)=0;
 
 connection conn1;

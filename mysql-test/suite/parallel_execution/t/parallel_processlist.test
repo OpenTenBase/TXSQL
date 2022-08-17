@@ -1,6 +1,7 @@
 --echo # Infrastructure for test parallel execution frame
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
+--source include/have_pq.inc
 --disable_ps_protocol
 
 --disable_query_log
@@ -44,7 +45,7 @@ connection conn2;
 
 connection conn1;
 sleep 1;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show parallel processlist;
 
@@ -65,7 +66,7 @@ connection conn3;
 
 connection conn1;
 sleep 1;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show parallel processlist;
 
@@ -86,7 +87,7 @@ connection conn4;
 
 connection conn1;
 sleep 1;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show parallel processlist;
 
@@ -107,7 +108,7 @@ connection conn5;
 
 connection conn1;
 sleep 1;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show parallel processlist;
 
@@ -128,7 +129,7 @@ connection conn6;
 
 connection conn1;
 sleep 1;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show parallel processlist;
 
@@ -149,7 +150,7 @@ connection conn7;
 
 connection conn1;
 sleep 1;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show parallel processlist;
 
@@ -297,42 +298,42 @@ connect(con_tencentroot2,localhost,tencentroot,,);
 --echo root see all.
 connection conn_default;
 sleep 5;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show processlist;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 show parallel processlist;
 
 --echo user with root see all
 connection conn102;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show processlist;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 show parallel processlist;
 
 --echo user with no root see only himself
 connection conn104;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show processlist;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 show parallel processlist;
 
 --echo tencent root see everything.
 connection con_tencentroot2;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show processlist;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 show parallel processlist;
 
 --echo root can not see tencent root.
 connection conn102;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show processlist;
---replace_column 5 COMMAND 6 TIME 7 STATE 8 INFO
+--replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 show parallel processlist;
 
 set global debug="-d,enter_worker_sleep";

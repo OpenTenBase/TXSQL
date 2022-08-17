@@ -1,3 +1,6 @@
+--source include/have_pq.inc
+--disable_ps_protocol
+
 create table pt2(j json);
 prepare ps2 from 'insert into pt2 values (?)';
 

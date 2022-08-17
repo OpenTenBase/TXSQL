@@ -175,10 +175,10 @@ ANY(SELECT 1 FROM t2)
 NULL
 NULL
 NULL
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
 Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
 DROP TABLE t1, t2;
 #######################################
 # 4) test MaterializePathParameters::eq with temptable, testcase copy from main.key
@@ -256,17 +256,19 @@ unique key(b,d)
 insert into t1 (a,b) values(1,10),(1,20),(2,30),(2,40);
 Warnings:
 Warning	1364	Field 'c' doesn't have a default value
+SET session debug = "+d,px_no_row_split";
 explain format=tree select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
 EXPLAIN
 -> Aggregate: sum(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
-        -> PX Sender (slice: 1; workers: 4)
+        -> PX Sender (slice: 1; workers: 1)
             -> Aggregate: sum(t1.b)
                 -> Parallel table scan on t1  (cost=*** rows=***)
 
 select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
 any_value(a)	sum(b)
 1	100
+SET session debug = "-d,px_no_row_split";
 drop table t1;
 #######################################
 # 6) test Item_values_column::eq, testcase copy from main.table_value_constructor

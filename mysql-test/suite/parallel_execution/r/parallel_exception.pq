@@ -42,41 +42,49 @@ create table t5(a int, b int, c int, d int);
 set txsql_parallel_table_record_threshold = 2;
 set global debug = '+d, disable_debug_sync_check';
 flush status;
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 select a,sum(b) from t1 group by a order by a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 select a,sum(b) from t4 group by a union select a,b from t2 order by a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 (select a,sum(b) from t4 group by a order by a) union (select a,b from t2 order by a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 (select a,sum(b) from t4 group by a order by a) union (select a,b from t2 order by a);
 a	sum(b)
-100	100
 1	1
-4	4
-3	3
+100	100
 2	2
+3	3
+4	4
 5	5
+SET session debug = "+d,px_no_row_split";
 set debug_sync='execute_in_parallel_before_kill SIGNAL waiting wait_for killed';
 select a,b from t4 union (select a,b from t2 order by a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 ERROR 70100: Query execution was interrupted
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 show status like '%txsql_parallel%';
 Variable_name	Value
@@ -142,16 +150,16 @@ a	b	c	d
 set session debug="+d,execute_in_parallel_before_sleep";
 (select a,b,c,d from t1) union (select a,b,sum(c),sum(d) from t2 group by a,b order by a,b);
 a	b	c	d
-1	2	3	4
-2	3	4	5
 1	1	1	1
+1	2	3	4
 2	2	2	2
-3	4	5	6
-4	5	6	7
-5	6	7	8
-4	4	4	4
+2	3	4	5
 3	3	3	3
+3	4	5	6
+4	4	4	4
+4	5	6	7
 5	5	5	5
+5	6	7	8
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	4
@@ -226,16 +234,16 @@ a	b	c	d
 set session debug="+d,schedule_before_sleep";
 (select a,b,c,d from t1 order by d) union (select a,b,sum(c),sum(d) from t2 group by a,b);
 a	b	c	d
-1	2	3	4
-2	3	4	5
 1	1	1	1
-3	4	5	6
+1	2	3	4
 2	2	2	2
-4	5	6	7
-5	6	7	8
-4	4	4	4
+2	3	4	5
 3	3	3	3
+3	4	5	6
+4	4	4	4
+4	5	6	7
 5	5	5	5
+5	6	7	8
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	4
@@ -312,17 +320,17 @@ set session debug="+d,schedule_before_schedule_sleep";
 (select a,b,c,d from t1 order by a,b,c,d) union all (select d,c,b,a from t2 order by d,c);
 a	b	c	d
 1	1	1	1
+1	1	1	1
 1	2	3	4
 2	2	2	2
-2	3	4	5
-3	4	5	6
-4	5	6	7
-5	6	7	8
-3	3	3	3
-1	1	1	1
 2	2	2	2
+2	3	4	5
+3	3	3	3
+3	4	5	6
 4	4	4	4
+4	5	6	7
 5	5	5	5
+5	6	7	8
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	4
@@ -374,36 +382,36 @@ set global debug="-d,schedule_one_loop_sleep_worker";
 set global debug="+d,schedule_one_loop_sleep_worker";
 (select a,b,c+d from t1 order by a,b) union (select a,b+c,c+d from t2);
 a	b	c+d
-1	2	7
 1	1	2
-2	3	9
-2	2	4
-3	4	11
-5	6	15
-4	5	13
-2	4	4
-4	8	8
 1	2	2
+1	2	7
+2	2	4
+2	3	9
+2	4	4
+3	4	11
 3	6	6
+4	5	13
+4	8	8
 5	10	10
+5	6	15
 set global debug="-d,schedule_one_loop_sleep_worker";
 set session debug="+d,schedule_one_loop_sleep";
 (select * from t1) union (select * from t2) union (select * from t3);
 a	b	c	d
-1	2	3	4
 1	1	1	1
-2	3	4	5
+1	2	3	4
+10	10	10	10
 2	2	2	2
-3	4	5	6
-4	5	6	7
-5	6	7	8
+2	3	4	5
 3	3	3	3
+3	4	5	6
 4	4	4	4
+4	5	6	7
 5	5	5	5
-8	8	8	8
+5	6	7	8
 6	6	6	6
 7	7	7	7
-10	10	10	10
+8	8	8	8
 9	9	9	9
 show status like '%txsql_parallel%';
 Variable_name	Value
@@ -458,10 +466,10 @@ a	b
 18	8
 set session debug="+d,run_root_in_sending_data_error";
 select a, sum(b+c) from t1 where a > 1 group by a order by a;
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error:  in function px_run_root.
 set session debug="+d,run_root_in_sending_data_error";
 (select a,b from t2) union (select a, sum(b+c) from t1 where a > 1 group by a order by a);
-ERROR HY000: PX execute error of errno[3044].
+ERROR HY000: Memory allocation error:  in function px_run_root.
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	6
@@ -483,18 +491,18 @@ a+b	c+d
 set session debug="+d,run_root_in_sending_data_sleep";
 (select a+b,c+d from t1 order by a+b,c+d) union all (select d+c,b+a from t2 order by d+c);
 a+b	c+d
-2	2
-5	9
-4	4
-3	7
-9	13
-11	15
-7	11
-2	2
-4	4
-6	6
-8	8
 10	10
+11	15
+2	2
+2	2
+3	7
+4	4
+4	4
+5	9
+6	6
+7	11
+8	8
+9	13
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	6
@@ -504,6 +512,7 @@ Txsql_parallel_stmt_hint_executed	0
 Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
+SET session debug = "+d,px_no_row_split";
 (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a) union (select * from t3) union (select * from t4 order by a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
@@ -513,32 +522,34 @@ a	b	c	d
 1	1	1	1
 2	3	4	5
 2	2	2	2
-4	5	6	7
 3	4	5	6
+4	5	6	7
 5	6	7	8
 3	3	3	3
 4	4	4	4
 5	5	5	5
-8	8	8	8
-7	7	7	7
-9	9	9	9
 6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
 10	10	10	10
 100	100	100	100
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 set debug_sync='schedule_after_schedule_kill SIGNAL waiting wait_for killed';
+SET session debug = "+d,px_no_row_split";
 (select * from t3) union (select * from t4 order by a) union (select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a order by t1.a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id>;
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	c	d
 1	1	1	1
-3	3	3	3
 2	2	2	2
-5	5	5	5
+3	3	3	3
 4	4	4	4
-7	7	7	7
+5	5	5	5
 6	6	6	6
+7	7	7	7
 8	8	8	8
 9	9	9	9
 10	10	10	10
@@ -548,6 +559,7 @@ a	b	c	d
 3	4	5	6
 4	5	6	7
 5	6	7	8
+SET session debug = "-d,px_no_row_split";
 SET DEBUG_SYNC = 'RESET';
 show status like '%txsql_parallel%';
 Variable_name	Value
@@ -570,18 +582,18 @@ a+b	c+d
 set session debug="+d,schedule_after_schedule_sleep";
 (select a+b,c+d from t1 order by a,b,c,d) union all (select d+c,b+a from t2 order by d,c);
 a+b	c+d
-3	7
+10	10
+11	15
 2	2
+2	2
+3	7
+4	4
 4	4
 5	9
-7	11
-11	15
-9	13
-2	2
-4	4
 6	6
+7	11
 8	8
-10	10
+9	13
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	6
@@ -604,16 +616,6 @@ Txsql_parallel_stmt_thread_refused	0
 Txsql_parallel_threads_currently_used	0
 select a from t5 union select b from t5 union select c from t5 union select d from t5;
 a
-show status like '%txsql_parallel%';
-Variable_name	Value
-Txsql_parallel_stmt_error	6
-Txsql_parallel_stmt_executed	22
-Txsql_parallel_stmt_fallback	8
-Txsql_parallel_stmt_hint_executed	0
-Txsql_parallel_stmt_thread_refused	0
-Txsql_parallel_threads_currently_used	0
-select /*+max_execution_time(2)*/ a,sum(b),sum(c) from t1 group by a;
-ERROR HY000: Query execution was interrupted, maximum statement execution time exceeded
 show status like '%txsql_parallel%';
 Variable_name	Value
 Txsql_parallel_stmt_error	6

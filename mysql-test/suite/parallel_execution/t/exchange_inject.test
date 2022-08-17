@@ -3,7 +3,7 @@
 # Test for exchange injection.                                      #
 #                                                                   #
 #####################################################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 
 --disable_query_log

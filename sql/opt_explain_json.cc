@@ -1352,11 +1352,15 @@ bool join_ctx::format_nested_loop(Opt_trace_context *json) {
   List_iterator<joinable_ctx> it(join_tabs);
   uint join_tab_num = join_tabs.elements;
 #if defined(HAVE_PX)
+  uint fake_tab_num = 0;
   // traverse join_tabs to count fake tabs.
   List_iterator<joinable_ctx> tab_it(join_tabs);
   joinable_ctx *tab_ctx;
   while ((tab_ctx = tab_it++)) {
-    if (tab_ctx->type == CTX_FAKE_QEP_TAB) join_tab_num--;
+    if (tab_ctx->type == CTX_FAKE_QEP_TAB) {
+      fake_tab_num++;
+      join_tab_num--;
+    }
   }
 #endif /* defined(HAVE_PX) */
   assert(join_tabs.elements > 0);
@@ -1376,7 +1380,7 @@ bool join_ctx::format_nested_loop(Opt_trace_context *json) {
 #if defined(HAVE_PX)
     if ((it++)->format(json)) return true;
 
-    if (join_tabs.elements > join_tab_num) {
+    if (join_tabs.elements > join_tab_num && fake_tab_num) {
       Opt_trace_array loops(json, K_EXCHANGE);
       joinable_ctx *tab;
       while ((tab = it++)) {

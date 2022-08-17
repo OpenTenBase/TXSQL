@@ -3,7 +3,7 @@
 # Test for PARALLEL() hint.                                         #
 #                                                                   #
 #####################################################################
-
+--source include/have_pq.inc
 --disable_ps_protocol
 
 # Build the test case schema.
