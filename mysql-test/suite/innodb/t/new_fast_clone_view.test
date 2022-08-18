@@ -1,0 +1,92 @@
+
+--source include/have_debug.inc
+
+SHOW VARIABLES LIKE '%fast_clone%';
+SET GLOBAL TRANSACTION_ISOLATION="REPEATABLE-READ";
+
+CREATE TABLE t1 (c1 INT PRIMARY KEY, c2 INT) ENGINE=INNODB;
+
+INSERT INTO t1 VALUE (1, 1);
+INSERT INTO t1 VALUE (2, 2);
+INSERT INTO t1 VALUE (3, 3);
+INSERT INTO t1 VALUE (4, 4);
+INSERT INTO t1 VALUE (5, 5);
+INSERT INTO t1 VALUE (6, 6);
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+connect (con3,localhost,root,,);
+connect (con4,localhost,root,,);
+connect (con5,localhost,root,,);
+connect (con6,localhost,root,,);
+
+
+connection con1;
+SET SESSION DEBUG = '+d, sleep_when_taking_snapshot';
+BEGIN;
+--send SELECT * FROM t1 WHERE c1=1;
+
+connection con2;
+SET SESSION DEBUG = '+d, sleep_when_taking_snapshot';
+BEGIN;
+--send SELECT * FROM t1 WHERE c1=2;
+
+connection con3;
+SET SESSION DEBUG = '+d, sleep_when_taking_snapshot';
+BEGIN;
+--send SELECT * FROM t1 WHERE c1=3;
+
+connection con1;
+reap;
+connection con2;
+reap;
+connection con3;
+reap;
+
+connection con4;
+SET SESSION DEBUG = '+d, sleep_when_taking_snapshot';
+BEGIN;
+--send SELECT * FROM t1 WHERE c1=4;
+
+connection con5;
+SET SESSION DEBUG = '+d, sleep_when_taking_snapshot';
+BEGIN;
+--send SELECT * FROM t1 WHERE c1=5;
+
+connection con6;
+SET SESSION DEBUG = '+d, sleep_when_taking_snapshot';
+BEGIN;
+--send SELECT * FROM t1 WHERE c1=6;
+
+connection default;
+SET GLOBAL DEBUG = '+d, test_reach_time';
+UPDATE t1 SET c2 = c1 + 10 WHERE c1 = 1;
+UPDATE t1 SET c2 = c1 + 10 WHERE c1 = 2;
+
+connection con4;
+reap;
+connection con5;
+reap;
+connection con6;
+reap;
+
+connection default;
+UPDATE t1 SET c2 = c2 * 100 WHERE c1 = 3;
+
+connection con1;
+COMMIT;
+connection con2;
+COMMIT;
+connection con3;
+COMMIT;
+connection con4;
+COMMIT;
+connection con5;
+COMMIT;
+connection con6;
+COMMIT;
+
+connection default;
+SET GLOBAL DEBUG = '';
+DROP TABLE t1;
+

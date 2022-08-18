@@ -235,10 +235,6 @@ uint32_t get_state() const {
   inline void take_snapshot(trx_t *trx);
   inline void take_snapshot_copy_free(trx_t *trx, bool force_copy);
 
-  bool try_use_cached_view();
-
-  void try_install_cached_view() const;
-
   void convert_to_copy();
 
   /**
@@ -303,6 +299,7 @@ uint32_t get_state() const {
 
   /** Clone from another read view */
   void clone_from(const ReadView *other);
+  void clone_copy_free_view_from(const ReadView *other);
 
   /** Take a snapshot of current transaction state
   @param[in] trx  transaction object
@@ -345,12 +342,14 @@ uint32_t get_state() const {
   }
 
   friend class MVCC;
-  friend class CopyFreeOldestViewGetter;
+  friend class OldestViewGetter;
+  friend class OldestViewGetterForCopyFree;
 
  private:
   // Disable copying
   ReadView(const ReadView &);
   ReadView &operator=(const ReadView &);
+  static int64_t get_ts() { return m_s_ts.fetch_add(1); }
 
  private:
    /**
@@ -401,6 +400,13 @@ uint32_t get_state() const {
 #endif /* UNIV_DEBUG */
   std::atomic<uint64_t> m_view_ts;
   trx_t *m_trx;
+
+  /** logical timestamp when creating snapshot start */
+  int64_t m_creation_start;
+  /** logical timestamp when creating snapshot end */
+  int64_t m_creation_end;
+  /** logical timestamp generator */
+  static std::atomic<int64_t> m_s_ts;
 };
 
 #endif
