@@ -1643,7 +1643,13 @@ void srv_export_innodb_status(void) {
 
   export_vars.innodb_os_log_pending_fsyncs = log_pending_flushes();
 
-  export_vars.innodb_os_log_pending_writes = srv_stats.os_log_pending_writes;
+  /* 
+    Since ib_counter_t is a fuzzy counter, it's possible that
+    os_log_pending_writes is slightly off than real value.
+    We don't want to print negative numbers in case of underflow.
+  */
+  export_vars.innodb_os_log_pending_writes =
+      srv_stats.os_log_pending_writes < 0 ? 0 : srv_stats.os_log_pending_writes;
 
   export_vars.innodb_log_write_requests = srv_stats.log_write_requests;
 
@@ -1663,14 +1669,22 @@ void srv_export_innodb_status(void) {
 
   export_vars.innodb_row_lock_waits = srv_stats.n_lock_wait_count;
 
+  /*
+    Since ib_counter_t is a fuzzy counter, it's possible that
+    os_log_pending_writes is slightly off than real value.
+    We don't want to print negative numbers in case of underflow.
+  */
   export_vars.innodb_row_lock_current_waits =
-      srv_stats.n_lock_wait_current_count;
+      (srv_stats.n_lock_wait_current_count < 0
+           ? 0
+           : srv_stats.n_lock_wait_current_count);
 
   export_vars.innodb_row_lock_time = srv_stats.n_lock_wait_time / 1000;
 
   if (srv_stats.n_lock_wait_count > 0) {
-    export_vars.innodb_row_lock_time_avg = (ulint)(
-        srv_stats.n_lock_wait_time / 1000 / srv_stats.n_lock_wait_count);
+    export_vars.innodb_row_lock_time_avg =
+        (ulint)(srv_stats.n_lock_wait_time / 1000 /
+                srv_stats.n_lock_wait_count);
 
   } else {
     export_vars.innodb_row_lock_time_avg = 0;
