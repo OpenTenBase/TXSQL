@@ -179,6 +179,10 @@ RW transaction can commit or rollback (or free views). AC-NL-RO transactions
 will mark their views as closed but not actually free their views.
 */
 
+
+std::atomic<int64_t> ReadView::m_s_ts{1};
+
+
 void CopyFreeSnapshot::init() {
   m_clock.store(VALID_BASE_TS);
   m_min_view_ts = VALID_BASE_TS;
@@ -402,11 +406,7 @@ uint64_t CopyFreeSnapshot::get_remain_trx_count() {
   return trx_sys->rw_trx_hash.size();
 }
 
-// if true, use a cached read view to avoid do lf_hash iterate in some cases.
-static bool USE_CACHED_READ_VIEW = true;
-
-/**
-ReadView constructor */
+/** ReadView constructor */
 ReadView::ReadView()
     : m_low_limit_id(),
       m_up_limit_id(),
@@ -418,7 +418,7 @@ ReadView::ReadView()
   m_state = READ_VIEW_STATE_CLOSED;
   ut_d(m_view_low_limit_no = 0);
   m_trx = nullptr;
-  m_view_ts.store(0);
+  m_view_ts.store(CopyFreeSnapshot::DISABLE);
 }
 
 /**
@@ -540,7 +540,7 @@ static bool copy_active_trx(rw_trx_hash_element_t *elem, CopyIdListArg *arg) {
     // active trx
     arg->ids.push_back(elem->id);
     return false;
-  } 
+  }
   if (del_ts == CopyFreeSnapshot::DELETING) {
     while ((del_ts = elem->del_ts.load()) == CopyFreeSnapshot::DELETING) {
       PAUSE();
@@ -588,33 +588,6 @@ inline bool view_is_uptodate(const ReadView *view) {
          view->get_hash_erase_version() == trx_sys->get_hash_erase_version();
 }
 
-
-
-bool ReadView::try_use_cached_view() {
-  bool can_use_cached = false;
-  trx_sys->mvcc->cached_view_slock();
-  if (view_is_uptodate(trx_sys->mvcc->cached_view())) {
-    this->clone_from(trx_sys->mvcc->cached_view());
-    can_use_cached = true;
-  }
-  trx_sys->mvcc->cached_view_sunlock();
-  return can_use_cached;
-}
-
-void ReadView::try_install_cached_view() const {
-  if (!view_is_uptodate(this)) {
-    // optimized check, without m_cached_view_lock
-    return;
-  }
-  if (trx_sys->mvcc->cached_view_try_xlock()) {
-    if (view_is_uptodate(this)) {
-      // this view is not stale
-      trx_sys->mvcc->cached_view()->clone_from(this);
-    }
-    trx_sys->mvcc->cached_view_xunlock();
-  }
-}
-
 void ReadView::snapshot(trx_t *trx, bool force_copy) {
   m_trx = trx;
   if (trx == nullptr) {
@@ -638,28 +611,18 @@ void ReadView::snapshot(trx_t *trx, bool force_copy) {
   }
 
   mutex_enter(&trx->view_mutex);
-  if (USE_CACHED_READ_VIEW) {
-    if (try_use_cached_view()) {
-      m_creator_trx_id = trx->id;
-      m_state = READ_VIEW_STATE_OPEN;
-      mutex_exit(&trx->view_mutex);
-      return;
-    }
-  }
-
-  m_ids.clear();
+  m_creation_start = ReadView::get_ts();
   if (srv_txsql_enable_copy_free_snapshot) {
     this->take_snapshot_copy_free(trx, force_copy);
   } else {
     this->take_snapshot(trx);
   }
+  DBUG_EXECUTE_IF("sleep_when_taking_snapshot",
+      std::this_thread::sleep_for(std::chrono::microseconds(2ll * 1000 * 1000)););
   m_creator_trx_id = trx->id;
   m_state = READ_VIEW_STATE_OPEN;
+  m_creation_end = ReadView::get_ts();
   mutex_exit(&trx->view_mutex);
-
-  if (USE_CACHED_READ_VIEW) {
-    try_install_cached_view();
-  }
 
   if (trx->mysql_thd != nullptr) {
     m_attach_trx_id = thd_get_attach_trx_id(trx->mysql_thd);
@@ -718,6 +681,14 @@ void ReadView::clone_from(const ReadView *other) {
   ut_d(m_view_low_limit_no = other->m_view_low_limit_no);
 }
 
+void ReadView::clone_copy_free_view_from(const ReadView *other) {
+  m_low_limit_id.store(other->m_low_limit_id.load());
+  m_low_limit_no = other->m_low_limit_no;
+  m_up_limit_id = other->up_limit_id();
+  m_view_ts.store(other->m_view_ts);
+  ut_d(m_view_low_limit_no = other->m_view_low_limit_no);
+}
+
 void MVCC::view_open(ReadView *view, trx_t *trx, uint64_t gts) {
   ut_ad(!srv_read_only_mode);
   ut_ad(!trx->view_assigned);
@@ -748,118 +719,221 @@ ulint MVCC::size() const {
   return view_counter.size();
 }
 
-void MVCC::clone_oldest_view(ReadView *view, bool fast MY_ATTRIBUTE((unused))) {
-  // since there can be both copy-free snapshots and copy-style snapshots
-  // we use the fast way to get a correct oldest view
-  return clone_oldest_view_old(view, true);
-}
+void MVCC::clone_oldest_view(ReadView *view, bool fast) {
+  /*
+   After Copy Free Snapshot, we use clone_oldest_view_new to handle
+   two situations(srv_txsql_enable_copy_free_snapshot is ON or OFF)
+   instead of code like this:
 
-class CopyFreeOldestViewGetter {
-public:
-  CopyFreeOldestViewGetter(ReadView *v) : m_view(v) {}
-  bool operator()(trx_t *trx) {
-    mutex_enter(&trx->view_mutex);
-    if (trx->read_view->get_state() == READ_VIEW_STATE_OPEN) {
-      m_view->m_up_limit_id = std::min(m_view->m_up_limit_id, trx->read_view->m_up_limit_id);
-      m_view->m_low_limit_no = std::min(m_view->m_low_limit_no, trx->read_view->m_low_limit_no);
-      m_view->m_low_limit_id = std::min(m_view->m_low_limit_id.load(), trx->read_view->m_low_limit_id.load());
-      m_view->m_view_ts = std::min(m_view->m_view_ts.load(), trx->read_view->m_view_ts.load());
-    }
-    mutex_exit(&trx->view_mutex);
-    return false;
-  }
+   if (srv_txsql_enable_copy_free_snapshot) {
+     clone_oldest_view_new(view);
+   } else {
+     clone_oldest_view_old(view);
+   }
+   */
 
-  ReadView *m_view;
-};
-
-void MVCC::clone_oldest_view_new(ReadView *view) {
-
-  view->snapshot(nullptr, false);
-
-  CopyFreeOldestViewGetter getter(view);
-  trx_sys->mysql_trx_list.foreach(getter);
-
-  /** Update view to block purging transaction till GTID is persisted */
-  auto &gtid_persistor = clone_sys->get_gtid_persistor();
-  auto gtid_oldest_trxno = gtid_persistor.get_oldest_trx_no();
-  view->reduce_low_limit(gtid_oldest_trxno); 
-}
-
-// TODO(lanzaoxu): check clone oldest view.
-// /** Clones the oldest view and stores it in view. No need to
-// call view_close(). The caller owns the view that is passed in.
-// It will also move the closed views from the m_views list to the
-// m_free list. This function is called by Purge to determine whether it should
-// purge the delete marked record or not.
-// @param view             Preallocated view, owned by the caller */
-// void MVCC::clone_oldest_view(ReadView *view, bool fast) {
-//   view->snapshot(nullptr);
-
-//   trx_sys_mutex_enter();
-//   for (trx_t *trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list); trx != nullptr;
-//        trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
-//     mutex_enter(&trx->view_mutex);
-//     if (trx->read_view->get_state() == READ_VIEW_STATE_OPEN) {
-//       if (fast) {
-//         view->m_up_limit_id = std::min(view->m_up_limit_id, trx->read_view->m_up_limit_id);
-//         view->m_low_limit_no = std::min(view->m_low_limit_no, trx->read_view->m_low_limit_no);
-//       } else {
-//         view->merge(trx->read_view);
-//       }
-//     }
-//     mutex_exit(&trx->view_mutex);
-//   }
-//   trx_sys_mutex_exit();
-//   ut_d(view->m_view_low_limit_no = view->m_low_limit_no);
-
-//   /** Update view to block purging transaction till GTID is persisted */
-//   auto &gtid_persistor = clone_sys->get_gtid_persistor();
-//   auto gtid_oldest_trxno = gtid_persistor.get_oldest_trx_no();
-//   view->reduce_low_limit(gtid_oldest_trxno); 
-//   if (fast) {
-//     view->m_low_limit_id = view->m_up_limit_id;
-//     view->m_ids.clear();
-//   }
-// }
-
-class OldestViewGetter {
-public:
-  OldestViewGetter(ReadView *v, bool fast) : m_view(v), m_fast(fast) {}
-  bool operator()(trx_t *trx) {
-    mutex_enter(&trx->view_mutex);
-    if (trx->read_view->get_state() == READ_VIEW_STATE_OPEN) {
-      if (m_fast) {
-        m_view->set_up_limit_id(std::min(m_view->up_limit_id(), trx->read_view->up_limit_id()));
-        m_view->set_low_limit_no(std::min(m_view->low_limit_no(), trx->read_view->low_limit_no()));
-      } else {
-        m_view->merge(trx->read_view);
-      }
-    }
-    mutex_exit(&trx->view_mutex);
-    return false;
-  }
-private:
-  ReadView *m_view;
-  bool m_fast;
-};
-
-void MVCC::clone_oldest_view_old(ReadView *view, bool fast) {
-
-  view->snapshot(nullptr, false);
-
-  OldestViewGetter getter(view, fast);
-  trx_sys->mysql_trx_list.foreach(getter);
-  ut_d(view->m_view_low_limit_no = view->m_low_limit_no);
+  clone_oldest_view_new(view, fast);
 
   /** Update view to block purging transaction till GTID is persisted */
   auto &gtid_persistor = clone_sys->get_gtid_persistor();
   auto gtid_oldest_trxno = gtid_persistor.get_oldest_trx_no();
   view->reduce_low_limit(gtid_oldest_trxno);
+}
 
-  if (fast) {
-    view->m_low_limit_id = view->m_up_limit_id;
-    view->m_ids.clear();
+struct ViewCreation
+{
+  int64_t m_start;
+  int64_t m_end;
+  ViewCreation *m_prev;
+  ViewCreation *m_next;
+
+  ViewCreation()
+    : m_start(0),
+      m_end(0),
+      m_prev(nullptr),
+      m_next(nullptr) {}
+};
+
+class OldestViewGetterForCopyFree {
+public:
+  OldestViewGetterForCopyFree(ReadView *cv, ReadView *cfv, bool fast)
+    : m_copy_view(cv),
+      m_copy_free_view(cfv),
+      m_fast(fast) {
+    assert(cv && cfv);
+    m_list.m_prev = &m_list;
+    m_list.m_next = &m_list;
+    has_copy_free_view = false;
+    total_tested_view_count = 0;
+    total_merged_view_count = 0;
+    m_list_length_cur = 0;
+    m_list_length_max = 0;
   }
+
+  ~OldestViewGetterForCopyFree() {
+    ViewCreation *iter = m_list.m_next;
+    while (iter != &m_list) {
+      ViewCreation *n = iter->m_next;
+      delete iter;
+      iter = n;
+    }
+  }
+
+  void merge_view_against_list(ReadView *trx_view) {
+    if (m_fast) {
+      ViewCreation *iter = m_list.m_next;
+      bool need_merge = true;
+      while (iter != &m_list) {
+        if (trx_view->m_creation_start > iter->m_end) {
+          // this trx_view is newer than some min read view in list,
+          // do not merge it
+          need_merge = false;
+          break;
+        } else if (iter->m_start > trx_view->m_creation_end) {
+          // this trx_view is older than some min read view in list,
+          // remove the read view from list
+          iter->m_next->m_prev = iter->m_prev;
+          iter->m_prev->m_next = iter->m_next;
+          ViewCreation *next = iter->m_next;
+          delete iter;
+          iter = next;
+          m_list_length_cur--;
+        } else {
+          // trx_view and iter are overlap
+          iter = iter->m_next;
+        }
+      } // end while
+      if (need_merge) {
+        m_copy_view->merge(trx_view);
+        ViewCreation *vc = new ViewCreation;
+        vc->m_start = trx_view->m_creation_start;
+        vc->m_end = trx_view->m_creation_end;
+        vc->m_prev = &m_list;
+        vc->m_next = m_list.m_next;
+        m_list.m_next->m_prev = vc;
+        m_list.m_next = vc;
+        total_merged_view_count++;
+        m_list_length_cur++;
+        if (m_list_length_cur > m_list_length_max) {
+          m_list_length_max = m_list_length_cur;
+        }
+      }
+    } else {
+      // not fast, just merge every read view
+      m_copy_view->merge(trx_view);
+    }
+  }
+
+  bool operator()(trx_t *trx) {
+    ReadView tmp_view;
+    mutex_enter(&trx->view_mutex);
+    ReadView *trx_view = trx->read_view;
+    if (trx_view->get_state() == READ_VIEW_STATE_OPEN) {
+      total_tested_view_count++;
+      bool recheck = false;
+      do {
+        recheck = false;
+        if (trx_view->get_view_ts() == CopyFreeSnapshot::DISABLE) {
+          merge_view_against_list(trx_view);
+        } else {
+          tmp_view.clone_copy_free_view_from(trx_view);
+          if (CopyFreeSnapshot::is_valid_timestamp(tmp_view.get_view_ts())) {
+            merge_copy_free_view(&tmp_view, m_copy_free_view);
+            has_copy_free_view = true;
+          } else { // the view is just converted
+            recheck = true;
+          }
+        }
+      } while (recheck);
+    } // end if view state == OPEN
+    mutex_exit(&trx->view_mutex);
+    return false;
+  }
+
+  bool reach_time(int interval) {
+    static volatile std::atomic<int> last_time{0};
+    const auto current_time = std::chrono::steady_clock::now();
+    const auto current_time_in_sec =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            current_time.time_since_epoch())
+            .count();
+    int old_time = last_time.load();
+    if ((interval + last_time) < current_time_in_sec
+        && last_time.compare_exchange_weak(old_time, current_time_in_sec)) {
+      return true;
+    }
+    DBUG_EXECUTE_IF("test_reach_time", return true;);
+    return false;
+  }
+
+  ReadView *finish() {
+    if (has_copy_free_view) {
+      m_copy_free_view->convert_to_copy();
+      m_copy_view->merge(m_copy_free_view);
+    }
+    DBUG_EXECUTE_IF("test_reach_time", total_merged_view_count=65; total_tested_view_count=66;);
+    if (m_fast
+        && total_merged_view_count > 64
+        && (total_merged_view_count * 10 > total_tested_view_count)) {
+      if (reach_time(60 * 5)) { // 5 minutes
+        sql_print_information("clone_oldest_view too many read views merged, merged=%ld, "
+            "total=%ld, list length max=%ld, has_copy_free_view=%d",
+            total_merged_view_count, total_tested_view_count,
+            m_list_length_max, has_copy_free_view);
+      }
+    }
+    DBUG_PRINT("clone_oldest_view",
+               ("too many read views merged, fast_flag=%d, merged=%ld, "
+                "total=%ld, list_length_max=%ld, has_copy_free_view=%d",
+                m_fast, total_merged_view_count, total_tested_view_count,
+                m_list_length_max, has_copy_free_view));
+    ut_d(m_copy_view->m_view_low_limit_no = m_copy_view->m_low_limit_no);
+    return m_copy_view;
+  }
+
+  void merge_copy_free_view(ReadView *from, ReadView *to) {
+    to->m_up_limit_id = std::min(to->m_up_limit_id, from->m_up_limit_id);
+    to->m_low_limit_no = std::min(to->m_low_limit_no, from->m_low_limit_no);
+    to->m_low_limit_id = std::min(to->m_low_limit_id.load(), from->m_low_limit_id.load());
+    /** Why copy free snapshot is so easy to merge ?
+     *  Because it eliminates the scanning of rw_trx_hash which makes
+     *  all read views are totally ordered in terms of m_ids(limit_id/no not included) */
+    to->m_view_ts = std::min(to->m_view_ts.load(), from->m_view_ts.load());
+  }
+
+private:
+  bool has_copy_free_view;
+  ReadView *m_copy_view;
+  ReadView *m_copy_free_view;
+  /** a double linked list.
+   since we get min read views in a partial order set in a streaming way,
+   we use this list as currently min read view set */
+  ViewCreation m_list;
+  bool m_fast;
+
+  /** some monitor information */
+  int64_t total_tested_view_count;
+  int64_t total_merged_view_count;
+  int64_t m_list_length_cur;
+  int64_t m_list_length_max;
+};
+
+void MVCC::clone_oldest_view_new(ReadView *view, bool fast) {
+
+  ReadView *copy_view = new ReadView;
+  ReadView *copy_free_view = new ReadView;
+
+  copy_view->snapshot(nullptr, true);
+  copy_free_view->snapshot(nullptr, false);
+
+  OldestViewGetterForCopyFree getter(copy_view, copy_free_view, fast);
+  trx_sys->mysql_trx_list.foreach(getter);
+
+  const ReadView *res = getter.finish();
+  view->clone_from(res);
+
+  delete copy_view;
+  delete copy_free_view;
 }
 
 /**
