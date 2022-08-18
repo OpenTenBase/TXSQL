@@ -6511,7 +6511,7 @@ normal_return:
 
     prebuilt->px_range_tuple = row_rec_to_index_entry_low(
         rec, index,
-        rec_get_offsets(rec, index, nullptr, ULINT_UNDEFINED, UT_LOCATION_HERE, &prebuilt->heap),
+        rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, UT_LOCATION_HERE, &heap),
         prebuilt->px_range_heap);
   }
 #endif /* defined(HAVE_PX) */
