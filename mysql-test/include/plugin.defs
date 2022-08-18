@@ -171,4 +171,6 @@ component_test_sensitive_system_variables  	plugin_output_directory no TEST_SENS
 
 # Changes from txsql start.
 cdb_enterprise_encryption   plugin_output_directory  no  CDB_ENTERPRISE_ENCRYPTION
-# Changes from txsql end.
+repl_speedlimit_master                  plugin_output_directory  no SPEED_LIMIT_MASTER_PLUGIN
+repl_speedlimit_slave                   plugin_output_directory no SPEED_LIMIT_SLAVE_PLUGIN
+# Changes from TXSQL end.
