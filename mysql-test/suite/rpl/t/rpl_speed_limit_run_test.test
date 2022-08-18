@@ -1,0 +1,52 @@
+--source include/have_speed_limit_plugin.inc
+--source include/have_binlog_format_row.inc
+
+eval INSTALL PLUGIN repl_speedlimit_master SONAME '$SPEED_LIMIT_MASTER_PLUGIN';
+
+SHOW VARIABLES LIKE 'repl_speedlimit_master%';
+SHOW STATUS LIKE 'repl_speedlimit_master%';
+
+SET GLOBAL repl_speedlimit_master_slave_bandwidth=1024;
+SET GLOBAL repl_speedlimit_master_enabled=on;
+
+SHOW VARIABLES LIKE 'repl_speedlimit_master%';
+SHOW STATUS LIKE 'repl_speed_limit_master%';
+
+# Test send length < bandwidth
+SET GLOBAL repl_speedlimit_master_test_send_len=1024;
+SET GLOBAL repl_speedlimit_master_run_test=2;
+
+# Test send length = bandwidth
+SET GLOBAL repl_speedlimit_master_test_send_len=1024*1024;
+SET GLOBAL repl_speedlimit_master_run_test=4;
+
+# Test send length > bandwidth
+SET GLOBAL repl_speedlimit_master_test_send_len=2048*1024;
+SET GLOBAL repl_speedlimit_master_run_test=6;
+
+UNINSTALL PLUGIN repl_speedlimit_master;
+
+eval INSTALL PLUGIN repl_speedlimit_slave SONAME '$SPEED_LIMIT_SLAVE_PLUGIN';
+
+SHOW VARIABLES LIKE 'repl_speedlimit_slave%';
+SHOW STATUS LIKE 'repl_speed_limit_slave%';
+
+SET GLOBAL repl_speedlimit_slave_slave_bandwidth=1024;
+SET GLOBAL repl_speedlimit_slave_enabled=on;
+
+SHOW VARIABLES LIKE 'repl_speedlimit_slave%';
+SHOW STATUS LIKE 'repl_speed_limit_slave%';
+
+# Test send length < bandwidth
+SET GLOBAL repl_speedlimit_slave_test_send_len=1024;
+SET GLOBAL repl_speedlimit_slave_run_test=2;
+
+# Test send length = bandwidth
+SET GLOBAL repl_speedlimit_slave_test_send_len=1024*1024;
+SET GLOBAL repl_speedlimit_slave_run_test=4;
+
+# Test send length > bandwidth
+SET GLOBAL repl_speedlimit_slave_test_send_len=2048*1024;
+SET GLOBAL repl_speedlimit_slave_run_test=6;
+
+UNINSTALL PLUGIN repl_speedlimit_slave;
