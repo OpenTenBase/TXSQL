@@ -3076,7 +3076,7 @@ class List_process_list : public Do_THD_Impl {
 
     /* COMMAND */
 #if defined(HAVE_PX)
-    if (!inspect_thd->m_is_worker) {
+    if (inspect_thd->m_is_worker) {
       thd_info->proc_info = inspect_thd->is_running_task ? "Task" : "Wait";
     } else {
 #endif /* defined(HAVE_PX) */
