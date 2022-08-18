@@ -2985,7 +2985,7 @@ explain select * from t1,t2	{
 }	0	0
 select @@optimizer_trace_features;
 @@optimizer_trace_features
-greedy_search=on,range_optimizer=on,dynamic_range=on,repeated_subselect=on
+greedy_search=on,range_optimizer=on,dynamic_range=on,repeated_subselect=on,statistics=off
 set @@optimizer_trace_features="greedy_search=off";
 explain select * from t1,t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
