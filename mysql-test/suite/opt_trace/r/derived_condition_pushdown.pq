@@ -425,7 +425,6 @@ trace
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

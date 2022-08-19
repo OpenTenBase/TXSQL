@@ -46,7 +46,15 @@ struct AccessPath;
 class JOIN;
 class PX_executor;
 
-#define PX_ENABLED(thd) (txsql_max_parallel_worker_threads > 0 && txsql_parallel_execution_enabled)
+#define PX_MAX_THREADS(thd) \
+    ((thd)->max_parallel_worker_threads_snapshot == -1 ? \
+     txsql_max_parallel_worker_threads : (thd)->max_parallel_worker_threads_snapshot)
+
+#define PX_CURR_ENABLED(thd) \
+    ((thd)->parallel_execution_enabled_snapshot == -1 ? \
+     txsql_parallel_execution_enabled : (thd)->parallel_execution_enabled_snapshot)
+
+#define PX_ENABLED(thd) ( PX_MAX_THREADS(thd) > 0 && PX_CURR_ENABLED(thd) > 0)
 #define PX_EXECUTOR(thd) (thd)->px_executor
 
 #define PX_ROOT_ITERATOR(unit) (unit)->root_iterator()

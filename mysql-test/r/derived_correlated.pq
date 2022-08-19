@@ -181,8 +181,8 @@ select
 as subq
 from t1;
 subq
-1
 2
+1
 # In window functions
 explain select
 (select dt.b from
@@ -2854,7 +2854,6 @@ trace
         ]
       }
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

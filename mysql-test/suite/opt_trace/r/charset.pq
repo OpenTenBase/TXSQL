@@ -101,7 +101,6 @@ select @query, @trace;
       } /* join_explain */
       } /* join_optimization */
       } /* join_preparation */
-    "...",
     {
     {
     {
@@ -205,7 +204,6 @@ select @query, @trace;
       } /* join_explain */
       } /* join_optimization */
       } /* join_preparation */
-    "...",
     {
     {
     {
@@ -429,7 +427,6 @@ select @query, @trace;
       } /* join_execution */
       } /* join_optimization */
       } /* join_preparation */
-    "...",
     {
     {
     {
