@@ -629,7 +629,6 @@ SELECT pool_id FROM information_schema.INNODB_BUFFER_PAGE LIMIT 1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1179,7 +1178,6 @@ ORDER BY cc	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

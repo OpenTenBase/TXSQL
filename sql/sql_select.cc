@@ -878,9 +878,7 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
 #if defined(HAVE_OPT_CTX)
   Auto_optimization_scope opt_ctx_scope(thd);
 
-  if (OPT_CTX_ENABLED(thd)) {
-    opt_ctx_scope.begin();
-  }
+  opt_ctx_scope.begin();
 #endif
 
   if (unit->optimize(thd, /*materialize_destination=*/nullptr,
@@ -919,8 +917,9 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   lex->set_exec_completed();
 
 #if defined(HAVE_OPT_CTX)
+  // OPT_CTX needs to be marked out of the optimization state anyway.
+  opt_ctx_scope.end();
   if (OPT_CTX_ENABLED(thd)) {
-    opt_ctx_scope.end();
     if (OPT_CTX(thd).validate()) return true;
 #if defined(HAVE_PX)
     if (PX_ROLE_WORKER(thd) && px_validate(thd)) return true;

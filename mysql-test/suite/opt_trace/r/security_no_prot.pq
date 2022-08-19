@@ -72,10 +72,10 @@ f1()
 36
 select QUERY, length(TRACE), INSUFFICIENT_PRIVILEGES from information_schema.OPTIMIZER_TRACE;
 QUERY	length(TRACE)	INSUFFICIENT_PRIVILEGES
-select f1()	424	0
+select f1()	413	0
 set b@0 NULL	20	0
-select 48 into b from dual	418	0
-select a into b from t1 limit 1	2264	0
+select 48 into b from dual	407	0
+select a into b from t1 limit 1	2253	0
 insert into t1 values(current_user())	20	0
 freturn 3 36	20	0
 set optimizer_trace_offset=0,optimizer_trace_limit=100;
@@ -92,7 +92,7 @@ insert into t2 values(current_user());
 select QUERY, length(TRACE), INSUFFICIENT_PRIVILEGES from information_schema.OPTIMIZER_TRACE;
 QUERY	length(TRACE)	INSUFFICIENT_PRIVILEGES
 insert into t2 values(current_user())	20	0
-insert into t3 select * from t3	3091	0
+insert into t3 select * from t3	3080	0
 
 # Show that really all global privileges are needed: let root
 # revoke just one from user1. Because user1 does not have all global
@@ -254,10 +254,10 @@ f1()
 36
 select QUERY, length(TRACE), INSUFFICIENT_PRIVILEGES from information_schema.OPTIMIZER_TRACE;
 QUERY	length(TRACE)	INSUFFICIENT_PRIVILEGES
-select f1()	424	0
+select f1()	413	0
 set b@0 NULL	20	0
-select 48 into b from dual	418	0
-select a into b from t1 limit 1	2264	0
+select 48 into b from dual	407	0
+select a into b from t1 limit 1	2253	0
 insert into t1 values(current_user())	20	0
 freturn 3 36	20	0
 set optimizer_trace_offset=0,optimizer_trace_limit=100;
@@ -619,9 +619,9 @@ f1()
 # Can see body of routine (as definer), but not statements using t1
 select QUERY, length(TRACE), INSUFFICIENT_PRIVILEGES from information_schema.OPTIMIZER_TRACE;
 QUERY	length(TRACE)	INSUFFICIENT_PRIVILEGES
-select f1()	424	0
+select f1()	413	0
 set b@0 NULL	20	0
-select 48 into b from dual	418	0
+select 48 into b from dual	407	0
 	0	1
 	0	1
 freturn 3 36	20	0
@@ -712,10 +712,10 @@ f1()
 36
 select QUERY, length(TRACE), INSUFFICIENT_PRIVILEGES from information_schema.OPTIMIZER_TRACE;
 QUERY	length(TRACE)	INSUFFICIENT_PRIVILEGES
-select f1()	424	0
+select f1()	413	0
 set b@0 NULL	20	0
-select 48 into b from dual	229	0
-select a into b from t1 limit 1	2052	0
+select 48 into b from dual	218	0
+select a into b from t1 limit 1	2041	0
 insert into t1 values(current_user())	20	0
 freturn 3 36	20	0
 # Trace exposed body of routine, and content of t1, which we
@@ -749,7 +749,7 @@ insert into t2 values(current_user());
 select QUERY, length(TRACE), INSUFFICIENT_PRIVILEGES from information_schema.OPTIMIZER_TRACE;
 QUERY	length(TRACE)	INSUFFICIENT_PRIVILEGES
 insert into t2 values(current_user())	20	0
-insert into t3 select * from t3	2852	0
+insert into t3 select * from t3	2841	0
 # Trace exposed body of trigger, and content of t2/t3, which we
 # could see anyway:
 show create trigger trg2;

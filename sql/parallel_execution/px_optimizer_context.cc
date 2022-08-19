@@ -257,7 +257,7 @@ inline bool ignore_table(TABLE *table) {
 }
 
 Opt_ctx_client::Opt_ctx_client(PSI_memory_key psi_memory_key, THD *thd)
-    : m_thd(thd), m_nested_level(0), m_optimizing(), m_opt_ctx(),
+    : m_thd(thd), m_nested_level(0), m_optimizing(false), m_opt_ctx(),
       m_mode(OPT_CTX_NATIVE) {
   for (int i = 0; i < OPT_CALL_TYPE_LEN; i++) m_calls[i] = 0;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
@@ -302,6 +302,10 @@ void Opt_ctx_client::begin_optimization() {
   OPT_CTX_TRACE_CLIENT("begin_optimization");
   if (m_nested_level > 0) return;
 
+  if (!OPT_CTX_ENABLED(m_thd)) {
+    return;
+  }
+
   m_optimizing = true;
 
   assert(m_nested_level == 0);
@@ -320,6 +324,10 @@ void Opt_ctx_client::end_optimization() {
   if (m_nested_level > 0) return;
 
   m_optimizing = false;
+
+  if (!OPT_CTX_ENABLED(m_thd)) {
+    return;
+  }
 
   assert(m_nested_level == 0);
   if (m_mode == OPT_CTX_RECORD) {

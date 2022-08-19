@@ -39,7 +39,6 @@ select f1("c")	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -76,7 +75,6 @@ select 1 into res from dual	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -105,7 +103,6 @@ select 2 into res from dual	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -160,7 +157,6 @@ select f1("c")	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -421,7 +417,6 @@ TRACE
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -688,7 +683,6 @@ TRACE
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1172,7 +1166,6 @@ TRACE
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1442,7 +1435,6 @@ TRACE
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1547,7 +1539,6 @@ select 1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2072,7 +2063,6 @@ do (select 42)	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2324,7 +2314,6 @@ select concat(concat(_latin1'->',f1),_latin1'<-') from t1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2732,7 +2721,6 @@ table3.col_varchar_10_utf8_key	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3575,7 +3563,6 @@ from t0 where a in
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -3959,7 +3946,6 @@ select 497, tmp.ID, NULL from (select 497 as ID, MAX(t3.DATA) as DATA      from 
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -4920,7 +4906,6 @@ link_alias_148._field_156	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5280,7 +5265,6 @@ GROUP BY field2 ORDER BY alias1.col_int_key,alias2.pk	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5447,7 +5431,6 @@ select * from t1,t2 where t1.a+t2.c=cos(10) and t2.b=2	{
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5634,7 +5617,6 @@ select * from t1,mysqltest2.t2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

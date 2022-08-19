@@ -962,7 +962,6 @@ EXPLAIN SELECT /*+ INDEX_MERGE(t1 f2, f3, f4) */ * FROM t1 WHERE (f2 = 5 OR f3  
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -1324,7 +1323,6 @@ EXPLAIN SELECT /*+ INDEX_MERGE(t1 f2, f3, f4) */ * FROM t1 WHERE (f2 = 5 OR f3  
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

@@ -252,7 +252,6 @@ SELECT * FROM t1 ORDER BY f1 ASC, f0 LIMIT 100	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -445,7 +444,6 @@ SELECT * FROM t1 ORDER BY f1 ASC, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -513,7 +511,6 @@ SELECT * FROM t1 ORDER BY f1 ASC, f0 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -674,7 +671,6 @@ SELECT * FROM t1 ORDER BY f2 DESC, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -742,7 +738,6 @@ SELECT * FROM t1 ORDER BY f2 DESC, f0 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -925,7 +920,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 20	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -993,7 +987,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1166,7 +1159,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 10 OFFSET 10	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1361,7 +1353,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 0 OFFSET 10	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1523,7 +1514,6 @@ SELECT CONCAT("hello ", f2) AS foo FROM t1 ORDER BY foo LIMIT 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1682,7 +1672,6 @@ SELECT * from t1 ORDER BY rand(2) LIMIT 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1872,7 +1861,6 @@ SELECT * FROM t1 ORDER BY f1 ASC, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1940,7 +1928,6 @@ SELECT * FROM t1 ORDER BY f1 ASC, f0 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2101,7 +2088,6 @@ SELECT * FROM t1 ORDER BY f2 DESC, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2169,7 +2155,6 @@ SELECT * FROM t1 ORDER BY f2 DESC, f0 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2352,7 +2337,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 20	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2420,7 +2404,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2593,7 +2576,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 10 OFFSET 10	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2788,7 +2770,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 0 OFFSET 10	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2993,7 +2974,6 @@ ORDER BY f1, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3164,7 +3144,6 @@ ORDER BY f1, f0 LIMIT 0	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3387,7 +3366,6 @@ ORDER BY f2, f0 LIMIT 20	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3590,7 +3568,6 @@ ORDER BY f2, f0 LIMIT 0	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3803,7 +3780,6 @@ ORDER BY f2, f0 LIMIT 10 OFFSET 10	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -4006,7 +3982,6 @@ ORDER BY f2, f0 LIMIT 0 OFFSET 10	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -4324,7 +4299,6 @@ ORDER BY tmp.f1, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -4635,7 +4609,6 @@ ORDER BY tmp.f1, f0 LIMIT 30 OFFSET 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -4955,7 +4928,6 @@ ORDER BY tmp.f1, f0 LIMIT 30 OFFSET 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5015,7 +4987,6 @@ SELECT FOUND_ROWS()	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5335,7 +5306,6 @@ ORDER BY tmp.f1, f0 LIMIT 30 OFFSET 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5395,7 +5365,6 @@ SELECT FOUND_ROWS()	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5654,7 +5623,6 @@ SELECT * FROM v1	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -5993,7 +5961,6 @@ SELECT * FROM v1 ORDER BY f2, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -6724,7 +6691,6 @@ LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -7020,7 +6986,6 @@ GROUP BY 1 ORDER BY 2,1 LIMIT 5	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -7111,7 +7076,6 @@ GROUP BY 1 ORDER BY 2,1 LIMIT 0	{
         }
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -7319,7 +7283,6 @@ SELECT * FROM t1 WHERE f1>10 ORDER BY f2, f0 LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -8526,7 +8489,6 @@ ORDER BY d1.f2 DESC LIMIT 30	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -8859,7 +8821,6 @@ SELECT * FROM t1 WHERE f1 = (SELECT f1 FROM t1 ORDER BY 1 LIMIT 1)	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -12644,7 +12605,6 @@ SELECT * FROM t1 WHERE f1 = (SELECT f1 FROM t1 ORDER BY 1 LIMIT 2)	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -12852,7 +12812,6 @@ SELECT j, JSON_TYPE(j) AS tp FROM t ORDER BY j, id limit 2 offset 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -13033,7 +12992,6 @@ SELECT j, JSON_TYPE(j) AS tp FROM t ORDER BY j DESC, id limit 2 offset 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -13216,7 +13174,6 @@ limit 2 offset 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

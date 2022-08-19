@@ -1925,6 +1925,8 @@ void THD::cleanup_after_query() {
 #if defined(HAVE_PX)
   use_px = false;
   px_trx = nullptr;
+  max_parallel_worker_threads_snapshot = -1;
+  parallel_execution_enabled_snapshot = -1;
 #ifndef DBUG_OFF
   px_worker_executing = false;
 #endif

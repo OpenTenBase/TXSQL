@@ -35,7 +35,6 @@ select 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -71,7 +70,6 @@ select 2	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

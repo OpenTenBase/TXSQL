@@ -162,7 +162,6 @@ SELECT (SELECT a FROM t1 WHERE t1.a=t2.a), a FROM t2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -358,7 +357,6 @@ SELECT (SELECT a FROM t1 WHERE t1.a=t2.a), a FROM t2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -518,7 +516,6 @@ t1.a= (SELECT a FROM t2 LIMIT 1)	{
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -638,7 +635,6 @@ WHERE NOT EXISTS
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -763,7 +759,6 @@ SELECT 1 FROM DUAL WHERE NOT EXISTS (SELECT DISTINCT(a) FROM t2 GROUP BY a ORDER
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1214,7 +1209,6 @@ field4,field5,field6	{
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1821,7 +1815,6 @@ table2.`col_int_nokey` <> any ( select 5 from t2 ) ) and table1.`pk` in
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3273,7 +3266,6 @@ TRACE
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

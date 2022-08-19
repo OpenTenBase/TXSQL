@@ -536,8 +536,8 @@ FROM DUAL
 WHERE (c2 = 2));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	c1_c2_idx	c1_c2_idx	9	NULL	6	100.00	Parallel scan (4 workers); Using where; Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
 Note	1276	Field or reference 'test.t1.c2' of SELECT #2 was resolved in SELECT #1

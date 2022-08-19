@@ -346,7 +346,6 @@ EXPLAIN SELECT * FROM t1 WHERE f1 + 1 > 7	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -546,7 +545,6 @@ EXPLAIN SELECT * FROM t1 ORDER BY f1 + 1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -741,7 +739,6 @@ EXPLAIN SELECT f1 + 1, MAX(GC) FROM t1 GROUP BY f1 + 1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

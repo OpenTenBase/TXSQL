@@ -306,7 +306,6 @@ WHERE sq2_alias1.col_varchar_nokey <= alias1.col_varchar_key
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -673,7 +672,6 @@ FROM t1
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2287,7 +2285,6 @@ ON table2 .col_int_key = table1 .col_int_key
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2692,7 +2689,6 @@ SELECT 1 FROM t1 WHERE 1 LIKE
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -3063,7 +3059,6 @@ EXPLAIN SELECT c1, c2 FROM t1 ORDER BY c1 DESC LIMIT 1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

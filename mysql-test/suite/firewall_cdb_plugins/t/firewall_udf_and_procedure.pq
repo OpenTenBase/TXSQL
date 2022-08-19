@@ -61,7 +61,7 @@ Variable_name	Value
 Firewall_access_denied	1
 show status like 'Firewall_access_granted';
 Variable_name	Value
-Firewall_access_granted	2
+Firewall_access_granted	4
 show status like 'Firewall_access_suspicious';
 Variable_name	Value
 Firewall_access_suspicious	1

@@ -16922,7 +16922,6 @@ join_optimization": {
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

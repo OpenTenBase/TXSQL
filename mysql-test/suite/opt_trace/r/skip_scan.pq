@@ -668,7 +668,6 @@ EXPLAIN SELECT b, c, d FROM t WHERE a = 5 AND c > 4 AND d < 3	{
         ]
       }
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -1187,7 +1186,6 @@ EXPLAIN SELECT b FROM t WHERE d < 2	{
         ]
       }
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

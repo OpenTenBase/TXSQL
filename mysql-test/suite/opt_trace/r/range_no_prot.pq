@@ -273,7 +273,6 @@ EXPLAIN SELECT * FROM t1 WHERE key2 < 5 OR key2 > 1020	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -445,7 +444,6 @@ EXPLAIN SELECT * FROM t1 WHERE key2 < 5 OR key2 > 1020	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -743,7 +741,6 @@ EXPLAIN SELECT * FROM t1 WHERE key1 < 3 OR key2 > 1020	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -992,7 +989,6 @@ EXPLAIN SELECT key2, MIN(key2_1) FROM t2 GROUP BY key2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -1235,7 +1231,6 @@ EXPLAIN SELECT DISTINCT key2 FROM t2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -1576,7 +1571,6 @@ GROUP BY key2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -1842,7 +1836,6 @@ EXPLAIN SELECT * FROM t2 WHERE key2 = 1 AND (key2_1 = 1 OR key3 = 5)	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -2179,7 +2172,6 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -2365,7 +2357,6 @@ EXPLAIN SELECT * FROM t2 WHERE key2_1 < 79 OR key2 = 2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -2625,7 +2616,6 @@ EXPLAIN SELECT * FROM t2 WHERE key1a = 5 and key1b < 10	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -2878,7 +2868,6 @@ EXPLAIN SELECT * FROM t2 WHERE (key1a = 5 and key1b < 10 and key1b > 2) or
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -3127,7 +3116,6 @@ EXPLAIN SELECT * FROM t2 WHERE (key1b < 10 and key1b > 7) and
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -3396,7 +3384,6 @@ EXPLAIN SELECT * FROM t1 WHERE (key1 > 1 OR key2  > 2)	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -3714,7 +3701,6 @@ WHERE t1.key1=t2.key1a AND t1.key2 > 1020	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -4030,7 +4016,6 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -4252,7 +4237,6 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'f\no'	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -4602,7 +4586,6 @@ EXPLAIN SELECT 1 FROM
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -4922,7 +4905,6 @@ EXPLAIN SELECT 1 FROM
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -5290,7 +5272,6 @@ EXPLAIN SELECT * FROM t1 WHERE i1 > '2' ORDER BY i1, i2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -5618,7 +5599,6 @@ EXPLAIN SELECT DISTINCT i1 FROM t1 WHERE i1 >= '1' ORDER BY i1 DESC	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -6261,7 +6241,6 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND pk < 3	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -6943,7 +6922,6 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = '1' ORDER BY i1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -7178,7 +7156,6 @@ trace
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -7398,7 +7375,6 @@ trace
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

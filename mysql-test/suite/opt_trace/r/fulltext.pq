@@ -147,7 +147,6 @@ SELECT * FROM t1 WHERE MATCH(a,b) AGAINST ("coverage")	{
         ]
       }
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

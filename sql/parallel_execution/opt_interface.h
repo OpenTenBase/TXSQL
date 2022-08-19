@@ -15,6 +15,7 @@
 #include "mysql/components/services/bits/psi_memory_bits.h" // PSI_memory_key
 
 #include "sql/key.h"        // rec_per_key_t
+#include "sql/sql_lex.h"    // pass_px_check
 #include "sql/sql_class.h"  // THD, because it is used by OPT_CTX_ macros.
 #include "sql/parallel_execution/px_interface.h" // txsql_parallel_execution_enabled
 
@@ -219,9 +220,9 @@ extern unsigned long txsql_max_parallel_worker_threads;
  */
 #if defined(HAVE_PX)
 #define OPT_CTX_ENABLED(thd) \
-  (txsql_max_parallel_worker_threads > 0 && \
-   txsql_parallel_execution_enabled && \
+  (PX_ENABLED(thd) && \
    (thd)->system_thread == NON_SYSTEM_THREAD && \
+   (thd)->lex->pass_px_check && \
    (thd)->opt_ctx_client)
 #else
 #define OPT_CTX_ENABLED(thd) false

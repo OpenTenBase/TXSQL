@@ -519,10 +519,6 @@ struct System_variables {
   double txsql_parallel_cost_threshold;
   /// @sa Sys_txsql_parallel_exchange_buffer_size
   ulong txsql_parallel_exchange_buffer_size;
-  /// @sa Sys_txsql_parallel_fallback_in_execution
-  bool txsql_parallel_fallback_in_execution;
-  /// @sa Sys_txsql_parallel_execution_enabled
-  bool txsql_parallel_execution_enabled;
   /// @sa Sys_txsql_parallel_execution_max_lob_size
   ulong txsql_parallel_execution_max_lob_size;
   /// @sa Sys_txsql_parallel_lob_enabled

@@ -157,54 +157,6 @@ SELECT * FROM t1 LEFT JOIN t2 USING(f1) WHERE f1='bla'	{
       }
     },
     {
-      "optimizer_statistics": [
-        {
-          "db": "test",
-          "table=***
-          "table_statistics": {
-            "data_file_length": 16384,
-            "delete_length": 0,
-            "records": 3,
-            "deleted": 0,
-            "table_in_mem_estimate": 1
-          },
-          "index_statistics": [
-            {
-              "name": "PRIMARY",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                1
-              ],
-              "records_in_range": [
-              ]
-            }
-          ]
-        },
-        {
-          "db": "test",
-          "table=***
-          "table_statistics": {
-            "data_file_length": 16384,
-            "delete_length": 0,
-            "records": 3,
-            "deleted": 0,
-            "table_in_mem_estimate": 1
-          },
-          "index_statistics": [
-            {
-              "name": "PRIMARY",
-              "in_memory_estimate": 1,
-              "records_per_key": [
-                1
-              ],
-              "records_in_range": [
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       "join_execution": {
         "select#": 1,
         "steps": [
