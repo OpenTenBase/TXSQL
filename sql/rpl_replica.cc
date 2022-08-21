@@ -1354,6 +1354,7 @@ bool reset_info(Master_info *mi) {
   MUTEX_LOCK(rli_lock, &mi->rli->data_lock);
 
   mi->init_master_log_pos();
+  mi->init_complete_trx_log_pos();
   mi->master_uuid[0] = 0;
 
   if (mi->reset && opt_mi_repository_id == INFO_REPOSITORY_TABLE &&
@@ -3366,7 +3367,7 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
   protocol->store((uint32)mi->port);
   protocol->store((uint32)mi->connect_retry);
   protocol->store(mi->get_master_log_name_info(), &my_charset_bin);
-  protocol->store((ulonglong)mi->get_complete_trx_log_pos());
+  protocol->store((ulonglong)mi->get_complete_trx_log_pos_info());
   protocol->store(mi->rli->get_group_relay_log_name() +
                       dirname_length(mi->rli->get_group_relay_log_name()),
                   &my_charset_bin);
@@ -7854,6 +7855,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       inc_pos = 0;
       mysql_mutex_lock(&mi->data_lock);
       mi->set_master_log_pos(mi->get_master_log_pos() + event_len);
+      mi->set_complete_trx_log_pos(mi->get_master_log_pos());
       mysql_mutex_unlock(&mi->data_lock);
 
       if (write_rotate_to_master_pos_into_relay_log(
