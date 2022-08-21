@@ -200,6 +200,7 @@ Master_info::Master_info(
       reset(false),
       m_gtid_only_mode(false),
       m_is_receiver_position_info_invalid(false) {
+  is_in_transaction = false;
   host[0] = 0;
   user[0] = 0;
   bind_addr[0] = 0;

@@ -817,8 +817,13 @@ class Master_info : public Rpl_info {
     complete_trx_log_pos = log_pos;
   }
 
-  inline ulonglong get_complete_trx_log_pos() {
+  inline ulonglong get_complete_trx_log_pos() const {
     return complete_trx_log_pos;
+  }
+
+  inline ulonglong get_complete_trx_log_pos_info() const {
+    if (m_is_receiver_position_info_invalid) return 0;
+    return get_complete_trx_log_pos();
   }
 
   void init_complete_trx_log_pos();
