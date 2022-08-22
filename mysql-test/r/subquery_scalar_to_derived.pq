@@ -34,9 +34,7 @@ WHERE t1.a > (SELECT COUNT(a) AS cnt FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `derived_1_2` where (`test`.`t1`.`a` > `derived_1_2`.`cnt`)
 # Equivalent manually recrafted query: same plan as previous
@@ -54,9 +52,7 @@ WHERE t1.a > derived.cnt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `derived` where (`test`.`t1`.`a` > `derived`.`cnt`)
 # Implicitly grouped scalar subquery in WHERE clause of joined
@@ -77,9 +73,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Using where; Using join buffer (hash join)
 1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	4	75.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t1`.`a` AS `a` from `test`.`t0` join `test`.`t1` join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `derived_1_2` where ((`test`.`t1`.`a` > `derived_1_2`.`cnt`) and (`test`.`t0`.`a` <> `test`.`t1`.`a`))
 # Query 2: Not simplified to inner join
@@ -119,9 +113,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Using where; Using join buffer (hash join)
 1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	4	75.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t1`.`a` AS `a` from `test`.`t0` join `test`.`t1` join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `derived` where ((`test`.`t1`.`a` > `derived`.`cnt`) and (`test`.`t0`.`a` <> `test`.`t1`.`a`))
 # With deeper nested subquery (subquery inside an OR)
@@ -136,9 +128,7 @@ WHERE t1.a > (SELECT COUNT(a) AS cnt FROM t2) OR t1.a = 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` left join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `derived_1_2` on(true) where ((`test`.`t1`.`a` > `derived_1_2`.`cnt`) or (`test`.`t1`.`a` = 2))
 # More than one subquery in the WHERE condition:
@@ -156,9 +146,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where; Using join buffer (hash join)
 3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `derived_1_2` join (/* select#3 */ select (max(`test`.`t2`.`a`) * 4) AS `mx` from `test`.`t2`) `derived_1_3` where ((`test`.`t1`.`a` > `derived_1_2`.`cnt`) and (`test`.`t1`.`a` < `derived_1_3`.`mx`))
 # Equivalent manually recrafted query: same plan as previous
@@ -178,9 +166,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where; Using join buffer (hash join)
 3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(`test`.`t2`.`a`) AS `cnt` from `test`.`t2`) `lj1` join (/* select#3 */ select (max(`test`.`t2`.`a`) * 4) AS `mx` from `test`.`t2`) `lj2` where ((`test`.`t1`.`a` > `lj1`.`cnt`) and (`test`.`t1`.`a` < `lj2`.`mx`))
 # If we have an implicit grouping we we know that cardinality
@@ -196,9 +182,7 @@ WHERE t1.a > (SELECT COUNT(a) AS cnt FROM t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Using where; Using join buffer (hash join)
-2	DERIVED	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(`test`.`t3`.`a`) AS `cnt` from `test`.`t3`) `derived_1_2` where (`test`.`t1`.`a` > `derived_1_2`.`cnt`)
 # If not, detect if we see more than one row in subquery
@@ -450,9 +434,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using join buffer (hash join)
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_1_2` join `test`.`t2` where ((`test`.`t1`.`a` + `test`.`t2`.`a`) = `derived_1_2`.`COUNT(*)`)
 SELECT t1.a, t2.a, t3.a
@@ -476,9 +458,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using join buffer (hash join)
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using join buffer (hash join)
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where; Using join buffer (hash join)
-3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`a` AS `a`,`test`.`t3`.`a` AS `a` from `test`.`t1` join (/* select#2 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_1_2` join `test`.`t2` join (/* select#3 */ select min(`test`.`t1`.`a`) AS `MIN(a)` from `test`.`t1`) `derived_1_3` join `test`.`t3` where (((`test`.`t1`.`a` + `derived_1_3`.`MIN(a)`) = `test`.`t3`.`b`) and ((`test`.`t1`.`a` + `test`.`t2`.`a`) = `derived_1_2`.`COUNT(*)`))
@@ -507,9 +487,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
 3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`a` AS `a`,`test`.`t3`.`a` AS `a` from `test`.`t1` left join (/* select#3 */ select min(`test`.`t1`.`a`) AS `MIN(a)` from `test`.`t1`) `derived_1_3` on(true) left join (`test`.`t2` join (/* select#2 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_1_2` join `test`.`t3`) on((((`test`.`t1`.`a` + `derived_1_3`.`MIN(a)`) = `test`.`t3`.`b`) and (`test`.`t2`.`a` = `derived_1_2`.`COUNT(*)`))) where true
 SET optimizer_switch='subquery_to_derived=default';
@@ -557,9 +535,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
-3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`a` AS `a`,`test`.`t3`.`a` AS `a` from `test`.`t1` left join (/* select#2 */ select min(`test`.`t1`.`a`) AS `MIN(a)` from `test`.`t1`) `derived_1` on(true) left join (`test`.`t2` join (/* select#3 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_2` join `test`.`t3`) on((((`test`.`t1`.`a` + `derived_1`.`MIN(a)`) = `test`.`t3`.`b`) and (`test`.`t2`.`a` = `derived_2`.`COUNT(*)`))) where true
@@ -582,9 +558,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using join buffer (hash join)
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using join buffer (hash join)
-3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`a` AS `a`,`test`.`t3`.`a` AS `a` from `test`.`t1` join (/* select#3 */ select min(`test`.`t1`.`a`) AS `MIN(a)` from `test`.`t1`) `derived_1_3` join `test`.`t2` join (/* select#2 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_1_2` straight_join `test`.`t3` where (((`test`.`t1`.`a` + `derived_1_3`.`MIN(a)`) = `test`.`t3`.`b`) and (`test`.`t2`.`a` = `derived_1_2`.`COUNT(*)`))
@@ -599,9 +573,7 @@ explain SELECT a + (SELECT -SUM(a) FROM t1) AS cnt FROM t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (`test`.`t2`.`a` + `derived_1_2`.`-SUM(a)`) AS `cnt` from `test`.`t2` left join (/* select#2 */ select -(sum(`test`.`t1`.`a`)) AS `-SUM(a)` from `test`.`t1`) `derived_1_2` on(true) where true
 # Equivalent manually recrafted query: same plan as previous
@@ -619,9 +591,7 @@ ON TRUE;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (`test`.`t2`.`a` + `derived`.`cnt`) AS `a + derived.cnt` from `test`.`t2` left join (/* select#2 */ select -(sum(`test`.`t1`.`a`)) AS `cnt` from `test`.`t1`) `derived` on(true) where true
 #
@@ -643,14 +613,10 @@ SELECT a + (SELECT SUM(a) FROM t1) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-2	DERIVED	<sender2>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver2>)
-2	DERIVED	<receiver2>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender2>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 3	UNION	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 3	UNION	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-4	DERIVED	<sender3>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver3>)
-4	DERIVED	<receiver3>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender3>)
+4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (`test`.`t1`.`a` + `derived_1_2`.`SUM(a)`) AS `a + (SELECT SUM(a) FROM t1)` from `test`.`t1` left join (/* select#2 */ select sum(`test`.`t1`.`a`) AS `SUM(a)` from `test`.`t1`) `derived_1_2` on(true) where true union all /* select#3 */ select (`test`.`t1`.`a` + `derived_3_4`.`SUM(a)`) AS `a + (SELECT SUM(a) FROM t1)` from `test`.`t1` left join (/* select#4 */ select sum(`test`.`t1`.`a`) AS `SUM(a)` from `test`.`t1`) `derived_3_4` on(true) where true
 #
@@ -666,9 +632,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
 2	DERIVED	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	DERIVED	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-5	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-5	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-5	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+5	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (`test`.`t2`.`a` + `derived_1_2`.`SUM(a) + (SELECT COUNT(a) FROM t1)`) AS `cnt` from `test`.`t2` left join (/* select#2 */ select (`derived_2_4`.`tmp_aggr_1` + `derived_2_5`.`COUNT(a)`) AS `SUM(a) + (SELECT COUNT(a) FROM t1)` from (/* select#4 */ select sum(`test`.`t1`.`a`) AS `tmp_aggr_1` from `test`.`t1`) `derived_2_4` left join (/* select#5 */ select count(`test`.`t1`.`a`) AS `COUNT(a)` from `test`.`t1`) `derived_2_5` on(true) where true) `derived_1_2` on(true) where true
@@ -694,9 +658,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-4	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-4	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (`test`.`t2`.`a` + (`derived_2_0`.`tmp_aggr_1` + `derived_2_1`.`count_a`)) AS `cnt` from `test`.`t2` left join ((/* select#3 */ select straight_join sum(`test`.`t1`.`a`) AS `tmp_aggr_1` from `test`.`t1`) `derived_2_0` left join (/* select#4 */ select count(`test`.`t1`.`a`) AS `count_a` from `test`.`t1`) `derived_2_1` on(true)) on(true) where true
@@ -827,9 +789,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	DERIVED	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `derived_1_2`.`aggs` AS `bignest` from `test`.`t3` left join (/* select#2 */ select `derived_2_3`.`COUNT(*)` AS `aggs` from `test`.`t1` left join (/* select#3 */ select count(0) AS `COUNT(*)` from `test`.`t2`) `derived_2_3` on(true) where true) `derived_1_2` on(true) where true
 DROP TABLE t1, t2, t3;
@@ -860,9 +820,7 @@ WHERE false;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
-4	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-4	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 3	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
 Warnings:
 Note	1003	/* select#1 */ select `derived_1_4`.`COUNT(*)` AS `tot`,((ifnull(`derived_1_3`.`MAX(b)`,0) + 1) + 5) AS `mx` from (/* select#3 */ select max(`test`.`t1`.`b`) AS `MAX(b)` from `test`.`t1` where false) `derived_1_3` left join (/* select#4 */ select count(0) AS `COUNT(*)` from `test`.`t1` where (`test`.`t1`.`a` = 11725)) `derived_1_4` on(true) where true
@@ -884,9 +842,7 @@ WHERE false;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
-4	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-4	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 3	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
 Warnings:
 Note	1003	/* select#1 */ select (((`derived_1_4`.`COUNT(*)` + ifnull(`derived_1_3`.`MAX(b)`,0)) + 1) + 5) AS `mx` from (/* select#3 */ select max(`test`.`t1`.`b`) AS `MAX(b)` from `test`.`t1` where false) `derived_1_3` left join (/* select#4 */ select count(0) AS `COUNT(*)` from `test`.`t1` where (`test`.`t1`.`a` = 11725)) `derived_1_4` on(true) where true
@@ -909,9 +865,7 @@ GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select distinct (((`derived_1_2`.`COUNT(*)` + ifnull(max(`test`.`t1`.`b`),0)) + 1) + 5) AS `mx` from `test`.`t1` left join (/* select#2 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_1_2` on(true) where (`test`.`t1`.`a` > 5) group by `test`.`t1`.`a`
 # outer query has LIMIT: verify it is retained
@@ -930,9 +884,7 @@ GROUP BY a LIMIT 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using temporary
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (((`derived_1_2`.`COUNT(*)` + ifnull(max(`test`.`t1`.`b`),0)) + 1) + 5) AS `mx` from `test`.`t1` left join (/* select#2 */ select count(0) AS `COUNT(*)` from `test`.`t1`) `derived_1_2` on(true) where true group by `test`.`t1`.`a` limit 1
 # The subquery under under consideration for transformation contains a
@@ -1355,9 +1307,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived6>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 6	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	NULL
-5	DERIVED	t3	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-5	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-5	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+5	DERIVED	t3	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 4	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select (`derived_1_4`.`tmp_aggr_1` + `derived_1_6`.`SUM(t2.c)`) AS `SUM(t1.a) + (SELECT SUM(t2.c)
@@ -1434,9 +1384,7 @@ HAVING j > (SELECT MIN(t2.i) FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	NULL
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` left join (/* select#2 */ select min(`test`.`t2`.`i`) AS `MIN(t2.i)` from `test`.`t2`) `derived_1_2` on(true) where true having (`test`.`t1`.`j` > `derived_1_2`.`MIN(t2.i)`)
 HAVING and GROUP BY, also ok
@@ -1452,9 +1400,7 @@ HAVING SUM(j) > (SELECT SUM(t2.i) FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using temporary
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`j` AS `j` from `test`.`t1` left join (/* select#2 */ select sum(`test`.`t2`.`i`) AS `SUM(t2.i)` from `test`.`t2`) `derived_1_2` on(true) where true group by `test`.`t1`.`i`,`test`.`t1`.`j` having (sum(`test`.`t1`.`j`) > `derived_1_2`.`SUM(t2.i)`)
 HAVING, GROUP BY and ROLLUP
@@ -1473,9 +1419,7 @@ HAVING SUM(j) > (SELECT SUM(t2.i) FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using temporary; Using filesort
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`j` AS `j` from `test`.`t1` left join (/* select#2 */ select sum(`test`.`t2`.`i`) AS `SUM(t2.i)` from `test`.`t2`) `derived_1_2` on(true) where true group by `test`.`t1`.`i`,`test`.`t1`.`j` with rollup having (sum(`test`.`t1`.`j`) > `derived_1_2`.`SUM(t2.i)`)
 DROP TABLE t1, t2;
@@ -1577,10 +1521,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	nation	NULL	eq_ref	PRIMARY	PRIMARY	4	test.supplier.s_nationkey	1	33.33	Using where
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	partsupp	NULL	ALL	PRIMARY	NULL	NULL	NULL	7	14.29	Using where; Using join buffer (hash join)
-2	DERIVED	supplier	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
+2	DERIVED	supplier	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	NULL
 2	DERIVED	nation	NULL	eq_ref	PRIMARY	PRIMARY	4	test.supplier.s_nationkey	1	33.33	Using where
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 2	DERIVED	partsupp	NULL	ALL	NULL	NULL	NULL	NULL	7	14.29	Using where; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`partsupp`.`ps_partkey` AS `ps_partkey`,sum((`test`.`partsupp`.`ps_supplycost` * `test`.`partsupp`.`ps_availqty`)) AS `value` from `test`.`partsupp` join `test`.`supplier` join `test`.`nation` left join (/* select#2 */ select (sum((`test`.`partsupp`.`ps_supplycost` * `test`.`partsupp`.`ps_availqty`)) * 0.1) AS `SUM(ps_supplycost * ps_availqty) * 0.1` from `test`.`partsupp` join `test`.`supplier` join `test`.`nation` where ((`test`.`nation`.`n_name` = 'germany') and (`test`.`partsupp`.`ps_suppkey` = `test`.`supplier`.`s_suppkey`) and (`test`.`supplier`.`s_nationkey` = `test`.`nation`.`n_nationkey`))) `derived_1_2` on(true) where ((`test`.`nation`.`n_name` = 'germany') and (`test`.`partsupp`.`ps_suppkey` = `test`.`supplier`.`s_suppkey`) and (`test`.`supplier`.`s_nationkey` = `test`.`nation`.`n_nationkey`)) group by `test`.`partsupp`.`ps_partkey` having (sum((`test`.`partsupp`.`ps_supplycost` * `test`.`partsupp`.`ps_availqty`)) > `derived_1_2`.`SUM(ps_supplycost * ps_availqty) * 0.1`) order by `value` desc
@@ -2922,9 +2864,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	MATERIALIZED	table1	NULL	index	col_int_key	col_int_key	5	NULL	4	100.00	Using where; Using index; Using join buffer (hash join)
 3	MATERIALIZED	table2	NULL	ref	col_int_key	col_int_key	5	test.table1.col_int_key	1	100.00	Using index
 4	DERIVED	t1	NULL	index	NULL	col_int_key	5	NULL	4	100.00	Using index
-2	DERIVED	t1	NULL	index	NULL	col_int_key	5	NULL	4	100.00	Parallel scan (4 workers); Using index
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	index	NULL	col_int_key	5	NULL	4	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`where_subselect_20070`.`field1` AS `field1`,`test`.`where_subselect_20070`.`( SELECT COUNT( col_int_key )
 FROM t1
@@ -3302,9 +3242,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	n	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
 1	PRIMARY	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
 1	PRIMARY	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
-4	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
-4	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-4	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+4	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`n`.`col_int` AS `col_int` from `test`.`n` join `test`.`n` join (/* select#4 */ select max(`test`.`n`.`col_int`) AS `MAX(col_int)` from `test`.`n`) `derived_1_4` join `test`.`n` where (`test`.`n`.`col_int` < `derived_1_4`.`MAX(col_int)`)
 DROP TABLE n;
@@ -3510,9 +3448,7 @@ WHERE (EXISTS ((SELECT i FROM n)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived8>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-8	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-8	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-8	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+8	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 5	DERIVED	table1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 5	DERIVED	table2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 5	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	FirstMatch(table2); Using join buffer (hash join)
@@ -3551,9 +3487,7 @@ EXISTS ((SELECT i FROM n WHERE i = 7)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived8>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived14>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-14	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-14	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-14	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+14	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 8	DERIVED	table1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 8	DERIVED	table2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 8	DERIVED	table3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
@@ -3597,9 +3531,7 @@ WHERE n1.i > n2.i)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived6>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived10>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-10	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-10	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-10	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+10	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 6	DERIVED	table1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 6	DERIVED	table2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 6	DERIVED	table3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
@@ -3643,9 +3575,7 @@ EXISTS ((SELECT i FROM n WHERE i = 7)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived8>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived14>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-14	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-14	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-14	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+14	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 8	DERIVED	table1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 8	DERIVED	table2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 8	DERIVED	table3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
@@ -3690,9 +3620,7 @@ NOT EXISTS ((SELECT i FROM n WHERE i = 3)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived10>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived18>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-18	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-18	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-18	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+18	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 10	DERIVED	table1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 10	DERIVED	table2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 10	DERIVED	table3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
@@ -3764,9 +3692,7 @@ WHERE (1 <> (SELECT COUNT(*) FROM cc1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived6>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-6	DERIVED	cc1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-6	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-6	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+6	DERIVED	cc1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 4	DERIVED	table1	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
 4	DERIVED	cc1	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index; Using join buffer (hash join)
 4	DERIVED	table3	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index; Using join buffer (hash join)
@@ -3875,9 +3801,7 @@ EXPLAIN
                     -> Inner hash join (no condition)  (cost=0.80 rows=2)
                         -> Table scan on cc  (cost=0.45 rows=2)
                         -> Hash
-                            -> PX Receiver (slice: 0; workers: 1)
-                                -> PX Sender (slice: 1; workers: 1)
-                                    -> Parallel table scan on a  (cost=0.35 rows=1)
+                            -> Table scan on a  (cost=0.35 rows=1)
 
 DROP TABLE a, bb, cc;
 #
@@ -3998,9 +3922,7 @@ EXPLAIN
                                 -> Inner hash join (no condition)  (cost=42.50 rows=360)
                                     -> Table scan on subquery1_t2  (cost=0.10 rows=20)
                                     -> Hash
-                                        -> PX Receiver (slice: 0; workers: 1)
-                                            -> PX Sender (slice: 1; workers: 4)
-                                                -> Parallel index scan on subquery1_t1 using idx_cc_col_varchar_key  (cost=2.25 rows=20)
+                                        -> Index scan on subquery1_t1 using idx_cc_col_varchar_key  (cost=2.25 rows=20)
                             -> Filter: (cc.col_varchar = subquery1_t2.col_varchar_key)  (cost=0.25 rows=0)
                                 -> Index lookup on cc using idx_cc_col_int_key (col_int_key=subquery1_t2.col_int)  (cost=0.25 rows=1)
 
@@ -4060,9 +3982,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived7>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	<derived6>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 7	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
-6	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
-6	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-6	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+6	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 5	DERIVED	table_a	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 5	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
 5	DERIVED	table_c	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
@@ -4097,9 +4017,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived7>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	<derived6>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 7	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
-6	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
-6	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-6	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+6	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 5	DERIVED	table_a	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 5	DERIVED	n	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
 5	DERIVED	table_c	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
@@ -4168,9 +4086,7 @@ table1.col_varchar_key <> table2.col_varchar;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived8>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-8	DERIVED	subquery1_t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-8	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-8	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+8	DERIVED	subquery1_t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 8	DERIVED	subquery1_t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 5	DERIVED	table2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 5	DERIVED	<derived7>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using join buffer (hash join)
@@ -4330,11 +4246,9 @@ LIMIT 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived6>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	<derived8>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-8	DERIVED	subquery1_t1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers)
+8	DERIVED	subquery1_t1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	NULL
 8	DERIVED	cc	NULL	ALL	idx_cc_col_varchar_key	NULL	NULL	NULL	20	55.55	Using where
 8	DERIVED	child_subquery1_t2	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Using index; FirstMatch(subquery1_t1)
-8	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-8	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
 6	DERIVED	table2	NULL	range	idx_b_col_int_key,idx_b_col_varchar_key	idx_b_col_varchar_key	7	NULL	1	100.00	Using index condition
 6	DERIVED	table3	NULL	ref	idx_cc_col_varchar_key	idx_cc_col_varchar_key	7	test.table2.col_varchar_key	1	10.00	Using where
 6	DERIVED	table1	NULL	ref	idx_cc_col_varchar_key	idx_cc_col_varchar_key	7	test.table2.col_varchar_key	1	33.33	Using where
@@ -4379,9 +4293,7 @@ EXPLAIN SELECT * FROM v1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	NULL
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`derived_2_3`.`count(0)` AS `c` from `test`.`t1` left join (/* select#3 */ select count(0) AS `count(0)` from `test`.`t2`) `derived_2_3` on(true) where true
 The select does not reference the scalar subquery
@@ -4400,9 +4312,7 @@ EXPLAIN SELECT a FROM v1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	NULL
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` left join (/* select#3 */ select count(0) AS `count(0)` from `test`.`t2`) `derived_2_3` on(true) where true
 set sql_mode='';
@@ -4421,9 +4331,7 @@ EXPLAIN SELECT a,c FROM v1 GROUP BY b HAVING c > 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
-3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`derived_2_3`.`count(0)` AS `c` from `test`.`t1` left join (/* select#3 */ select count(0) AS `count(0)` from `test`.`t2`) `derived_2_3` on(true) where true group by `test`.`t1`.`b` having (`derived_2_3`.`count(0)` > 0)
 set sql_mode=default;
@@ -4443,9 +4351,7 @@ EXPLAIN SELECT a FROM v1 WHERE c > 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Using join buffer (hash join)
-3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers)
-3	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-3	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+3	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` join (/* select#3 */ select count(0) AS `count(0)` from `test`.`t2` having (count(0) > 0)) `derived_2_3`
 DROP VIEW v1;
