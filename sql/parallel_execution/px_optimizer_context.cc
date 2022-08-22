@@ -890,25 +890,22 @@ void Stats_cache::print_index_dive_map(int error, const TABLE *table,
   }
 
   String range_min;
+  // TODO: see 'ranges' of range_scan_alternatives tab
   range_min.set_charset(system_charset_info);
-  if (dive_args.min_end_key && *dive_args.min_end_key) {
-    range_min.append(STRING_WITH_LEN("NULL"));
-  }
-  range_min.append(STRING_WITH_LEN("-"));
-  for (uint i = 1; i < dive_args.min_key_length; i++) {
+  range_min.append(STRING_WITH_LEN("<"));
+  for (uint i = 0; i < dive_args.min_key_length; i++) {
     range_min.append(_dig_vec_lower[*(dive_args.min_end_key + i) >> 4]);
     range_min.append(_dig_vec_lower[*(dive_args.min_end_key + i) & 0x0F]);
   }
+  range_min.append(STRING_WITH_LEN(">"));
 
   String range_max;
-  if (dive_args.max_end_key && *dive_args.max_end_key) {
-    range_max.append(STRING_WITH_LEN("NULL"));
-  }
-  range_max.append(STRING_WITH_LEN("-"));
-  for (uint i = 1; i < dive_args.max_key_length; i++) {
+  range_max.append(STRING_WITH_LEN("<"));
+  for (uint i = 0; i < dive_args.max_key_length; i++) {
     range_max.append(_dig_vec_lower[*(dive_args.max_end_key + i) >> 4]);
     range_max.append(_dig_vec_lower[*(dive_args.max_end_key + i) & 0x0F]);
   }
+  range_max.append(STRING_WITH_LEN(">"));
   OPT_CTX_WARN("optimization context debug: %s find %u:%s(%u)-%s(%u)",
                  error ? "cannot" : "", keyno,
                  range_min.c_ptr(), dive_args.min_key_length,
@@ -918,26 +915,23 @@ void Stats_cache::print_index_dive_map(int error, const TABLE *table,
     const index_dive_args *args = &(member.first);
 
     String min_str;
+    // TODO: see 'ranges' of range_scan_alternatives tab
     min_str.set_charset(system_charset_info);
-    if (args->min_end_key && *(args->min_end_key)) {
-      min_str.append(STRING_WITH_LEN("NULL"));
-    }
-    min_str.append(STRING_WITH_LEN("-"));
-    for (uint i = 1; i < args->min_key_length; i++) {
+    min_str.append(STRING_WITH_LEN("<"));
+    for (uint i = 0; i < args->min_key_length; i++) {
       min_str.append(_dig_vec_lower[*(args->min_end_key + i) >> 4]);
       min_str.append(_dig_vec_lower[*(args->min_end_key + i) & 0x0F]);
     }
+    min_str.append(STRING_WITH_LEN(">"));
 
     String max_str;
     max_str.set_charset(system_charset_info);
-    if (args->max_end_key && *(args->max_end_key)) {
-      max_str.append(STRING_WITH_LEN("NULL"));
-    }
-    max_str.append(STRING_WITH_LEN("-"));
-    for (uint i = 1; i < args->max_key_length; i++) {
+    max_str.append(STRING_WITH_LEN("<"));
+    for (uint i = 0; i < args->max_key_length; i++) {
       max_str.append(_dig_vec_lower[*(args->max_end_key + i) >> 4]);
       max_str.append(_dig_vec_lower[*(args->max_end_key + i) & 0x0F]);
     }
+    max_str.append(STRING_WITH_LEN(">"));
     OPT_CTX_WARN("optimization context debug: %u:%s(%u)-%s(%u)",
                    args->keyno, min_str.c_ptr(), args->min_key_length,
                    max_str.c_ptr(), args->max_key_length);
@@ -1119,31 +1113,7 @@ void Stats_cache::trace_stats(THD *thd) {
                      key_it.first.key->name)) continue;
 
           Opt_trace_object trace_dive(trace, "records_in_range");
-
-          String min_str;
-          min_str.set_charset(system_charset_info);
-          if (args->min_end_key && *(args->min_end_key)) {
-            min_str.append(STRING_WITH_LEN("NULL"));
-          }
-          min_str.append(STRING_WITH_LEN("-"));
-          for (uint i = 1; i < args->min_key_length; i++) {
-            min_str.append(_dig_vec_lower[*(args->min_end_key + i) >> 4]);
-            min_str.append(_dig_vec_lower[*(args->min_end_key + i) & 0x0F]);
-          }
-          trace_dive.add_utf8("min_endp", min_str.c_ptr());
-
-          String max_str;
-          max_str.set_charset(system_charset_info);
-          if (args->max_end_key && *(args->max_end_key)) {
-            max_str.append(STRING_WITH_LEN("NULL"));
-          }
-          max_str.append(STRING_WITH_LEN("-"));
-          for (uint i = 1; i < args->max_key_length; i++) {
-            max_str.append(_dig_vec_lower[*(args->max_end_key + i) >> 4]);
-            max_str.append(_dig_vec_lower[*(args->max_end_key + i) & 0x0F]);
-          }
-          trace_dive.add_utf8("max_endp", max_str.c_ptr());
-
+          trace_dive.add_utf8("ranges", "see 'ranges' of range_scan_alternatives tab");
           trace_dive.add("rows", member.second);
         }
       }

@@ -3073,9 +3073,7 @@ EXPLAIN
         "used_columns": [
           "i"
         ] /* used_columns */
-      } /* table */,
-      "parallel_information": [
-      ] /* parallel_information */
+      } /* table */
     } /* insert_from */
   } /* query_block */
 }
@@ -3309,9 +3307,7 @@ EXPLAIN
         "used_columns": [
           "i"
         ] /* used_columns */
-      } /* table */,
-      "parallel_information": [
-      ] /* parallel_information */
+      } /* table */
     } /* insert_from */
   } /* query_block */
 }

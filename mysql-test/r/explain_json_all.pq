@@ -1798,9 +1798,7 @@ EXPLAIN
         "used_columns": [
           "i"
         ] /* used_columns */
-      } /* table */,
-      "parallel_information": [
-      ] /* parallel_information */
+      } /* table */
     } /* insert_from */,
     "insert_update_subqueries": [
       {
