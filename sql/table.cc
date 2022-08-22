@@ -6537,8 +6537,12 @@ int TABLE_LIST::fetch_number_of_rows() {
         std::max(select_lex->master_unit()->query_result()->estimated_rowcount,
                  // Recursive reference is never a const table
                  (ha_rows)PLACEHOLDER_TABLE_ROW_ESTIMATE);
-  } else
-    error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+  } else {
+    uint flag = HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK;
+    DBUG_EXECUTE_IF("fetch_number_of_rows_info_const",
+        { flag |= HA_STATUS_CONST; });
+    error = table->file->info(flag);
+  }
   return error;
 }
 

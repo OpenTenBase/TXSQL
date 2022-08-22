@@ -1,0 +1,130 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+--echo #
+--echo # Verify error return: undefined tree size
+--echo #                      e.x. index rebuild
+--echo #
+
+create table t1 (a int primary key auto_increment, b int);
+set session debug='+d,dict_stats_skip_stat_modified_counter';
+insert t1 values (1, 1);
+analyze table t1;
+
+--echo # old stats
+select n_rows, clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name, stat_value, sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+
+insert t1 values (2, 2);
+
+set session debug = '+d,dict_stats_simulate_undefined_size';
+analyze table t1;
+
+--echo # Expect old stats because of simulated strong failure
+select n_rows, clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name, stat_value, sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+
+set session debug = '-d,dict_stats_simulate_undefined_size';
+set session debug = '-d,dict_stats_skip_stat_modified_counter';
+drop table t1;
+
+--echo #
+--echo # Verify error return: tree change
+--echo #
+
+create table t1 (a int);
+
+set session debug='+d,dict_stats_skip_modified_counter';
+insert t1 values (1);
+analyze table t1;
+
+--echo #Prepare until 16384 rows to get a tree with more than one level ...
+--disable_query_log
+let $i = 14;
+while ($i) {
+  --eval insert t1 select * from t1;
+  dec $i;
+}
+--enable_query_log
+
+--echo # old stats
+select n_rows, clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name, stat_value, sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+
+set session debug='+d,dict_stats_simulate_tree_change';
+
+analyze table t1;
+
+--echo #Expected new stats because the simulated failure is considered temporary.
+select n_rows, clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name, stat_value, sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+
+set session debug='-d,dict_stats_simulate_tree_change';
+set session debug='-d,dict_stats_skip_modified_counter';
+drop table t1;
+
+--echo #
+--echo # Zero n_diff during analyze may disable REF access paths.
+--echo #
+
+connect (other, localhost, root, ,);
+
+create table t1(a int primary key auto_increment, b int);
+create table t2(a int primary key auto_increment, b int, c int, key(b));
+
+--echo # Prepare data ...
+--disable_query_log
+insert t1 values (1, 1), (2, 2);
+let $i = 16;
+while ($i)
+{
+  --eval insert t2 values ($i, $i, $i)
+  dec $i;
+}
+--enable_query_log
+analyze table t1;
+analyze table t2;
+
+--echo # Simulate HA_STATUS_CONST in fetch_number_of_rows(), because
+--echo # ha_innobase::open() is only invoked on table cache miss.
+set session debug = '+d,fetch_number_of_rows_info_const';
+
+--echo #With correct n_diff, ref access is used for t2.
+
+# Favor index statistics over index dive.
+set eq_range_index_dive_limit = 1;
+explain select * from t2 where b = 1;
+set eq_range_index_dive_limit = DEFAULT;
+
+explain select * from t1 join t2 using (b);
+
+connection other;
+--echo # Let ANALYZE pause in the middle of dict_stats_analyze_index_low()
+set debug_sync = 'dict_stats_analyze_index_empty_sk wait_for continue_analyze execute 1';
+--send analyze table t2;
+
+connection default;
+
+--echo # With temporary zero n_diff, table scan is used for t2.
+--echo # With correct n_diff, ref access is used for t2.
+
+# Favor index statistics over index dive.
+set eq_range_index_dive_limit = 1;
+explain select * from t2 where b = 1;
+set eq_range_index_dive_limit = DEFAULT;
+
+explain select * from t1 join t2 using (b);
+
+set debug_sync = "now signal continue_analyze";
+
+connection other;
+--reap
+
+connection default;
+disconnect other;
+
+set session debug = '-d,fetch_number_of_rows_info_const';
+
+drop table t1, t2;
+set debug_sync = 'RESET';
+

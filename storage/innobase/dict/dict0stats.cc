@@ -616,6 +616,85 @@ static void dict_stats_snapshot_free(
   dict_stats_table_clone_free(t);
 }
 
+/** This function creates a scratch dict_index_t object and initializes the
+ following index members:
+ dict_index_t::type (copied)
+ dict_index_t::cached (copied)
+ dict_index_t::n_uniq (copied)
+ dict_index_t::stat_n_diff_key_vals[] (allocated but uninitialized)
+ dict_index_t::stat_n_sample_sized[] (allocated but uninitialized)
+ dict_index_t::stat_n_non_null_key_vals[] (allocated but uninitialized)
+ dict_index_t::magic_n
+
+ The scratch index allows the following operations:
+ dict_stats_create_scratch_index()
+ dict_stats_empty_index()
+ dict_stats_index_set_n_diff()
+ dict_stats_copy_index()
+ dict_stats_free_scratch_index()
+ */
+static dict_index_t *dict_stats_create_scratch_index(
+    const dict_index_t *index) /*!< in: template index */
+{
+  size_t heap_size = 0;
+
+  ulint n_uniq = dict_index_get_n_unique(index);
+
+  heap_size += sizeof(dict_index_t);
+  heap_size += n_uniq * sizeof(index->stat_n_diff_key_vals[0]);
+  heap_size += n_uniq * sizeof(index->stat_n_sample_sizes[0]);
+  heap_size += n_uniq * sizeof(index->stat_n_non_null_key_vals[0]);
+
+  mem_heap_t *heap;
+
+  heap = mem_heap_create(heap_size);
+
+  dict_index_t *idx;
+  idx = (dict_index_t *)mem_heap_alloc(heap, sizeof(*idx));
+  idx->heap = heap;
+  idx->type = index->type;
+  idx->cached = index->cached;
+  idx->n_uniq = n_uniq;
+
+  idx->stat_n_diff_key_vals = (ib_uint64_t *)mem_heap_alloc(
+      heap, n_uniq * sizeof(idx->stat_n_diff_key_vals[0]));
+  idx->stat_n_sample_sizes = (ib_uint64_t *)mem_heap_alloc(
+      heap, n_uniq * sizeof(idx->stat_n_sample_sizes[0]));
+  idx->stat_n_non_null_key_vals = (ib_uint64_t *)mem_heap_alloc(
+      heap, n_uniq * sizeof(idx->stat_n_non_null_key_vals[0]));
+  ut_d(idx->magic_n = DICT_INDEX_MAGIC_N);
+
+  return idx;
+}
+
+/** Free the resources occupied by an object returned by
+ dict_stats_create_scratch_index(). */
+static void dict_stats_free_scratch_index(
+    dict_index_t *idx) /*!< in: scratchpad index to free */
+{
+  ut_d(idx->magic_n = DICT_INDEX_MAGIC_N);
+  mem_heap_free(idx->heap);
+}
+
+static void dict_stats_copy_index(
+    dict_index_t *dst_idx, /*!< in/out: destination index */
+    const dict_index_t *src_idx) /*!< in: source index */
+{
+  ulint n_copy_el = dst_idx->n_uniq;
+  ut_a(dst_idx->n_uniq == src_idx->n_uniq);
+
+  memmove(dst_idx->stat_n_diff_key_vals, src_idx->stat_n_diff_key_vals,
+      n_copy_el * sizeof(dst_idx->stat_n_diff_key_vals[0]));
+  memmove(dst_idx->stat_n_sample_sizes, src_idx->stat_n_sample_sizes,
+      n_copy_el * sizeof(dst_idx->stat_n_sample_sizes[0]));
+  memmove(dst_idx->stat_n_non_null_key_vals,
+          src_idx->stat_n_non_null_key_vals,
+          n_copy_el * sizeof(dst_idx->stat_n_non_null_key_vals[0]));
+
+  dst_idx->stat_index_size = src_idx->stat_index_size;
+  dst_idx->stat_n_leaf_pages = src_idx->stat_n_leaf_pages;
+}
+
 /** Calculates new estimates for index statistics. This function is
  relatively quick and is used to calculate transient statistics that
  are not saved on disk. This was the only way to calculate statistics
@@ -1601,7 +1680,21 @@ void dict_stats_index_set_n_diff(const n_diff_data_t *n_diff_data,
 
 /** Calculates new statistics for a given index and saves them to the index
  members stat_n_diff_key_vals[], stat_n_sample_sizes[], stat_index_size and
- stat_n_leaf_pages. This function could be slow. */
+ stat_n_leaf_pages. This function could be slow.
+
+ A private scratch is used during analyze. Statistics for the given index will
+ be overwritten by the scratch at the end of this fun. This is not an
+ atomic operation, but a tradeoff to prevent leaking empty state, because
+ latching is heavy and we should avoide it.
+
+ Overwritting only takes place on a successful analyze; otherwise, the function
+ leaves statistics in old state and may request immediate retry. The old state
+ is guaranteed to be initialized by a preceding dict_stats_init().
+
+ Allowing only successful updates also prevents abnormal stats when the tree
+ has changed beyond recognition or BUG#98132 Analyze table leads to empty
+ statistics during online rebuild DDL.
+ */
 static void dict_stats_analyze_index(
     dict_index_t *index) /*!< in/out: index to analyze */
 {
@@ -1614,6 +1707,7 @@ static void dict_stats_analyze_index(
   ib_uint64_t total_pages;
   mtr_t mtr;
   ulint size;
+  dict_index_t *scratch;
   DBUG_TRACE;
 
   DBUG_PRINT("info", ("index: %s, online status: %d", index->name(),
@@ -1626,7 +1720,14 @@ static void dict_stats_analyze_index(
 
   DEBUG_PRINTF("  %s(index=%s)\n", __func__, index->name());
 
-  dict_stats_empty_index(index);
+  scratch = dict_stats_create_scratch_index(index);
+  dict_stats_empty_index(scratch);
+
+#ifdef UNIV_DEBUG
+  if (!(index->type & DICT_CLUSTERED)) {
+    DEBUG_SYNC_C("dict_stats_analyze_index_empty_sk");
+  }
+#endif /* UNIV_DEBUG */
 
   mtr_start(&mtr);
 
@@ -1634,8 +1735,11 @@ static void dict_stats_analyze_index(
 
   size = btr_get_size(index, BTR_TOTAL_SIZE, &mtr);
 
+  DBUG_EXECUTE_IF("dict_stats_simulate_undefined_size",
+      { size = ULINT_UNDEFINED; });
+
   if (size != ULINT_UNDEFINED) {
-    index->stat_index_size = size;
+    scratch->stat_index_size = size;
     size = btr_get_size(index, BTR_N_LEAF_PAGES, &mtr);
   }
 
@@ -1644,14 +1748,19 @@ static void dict_stats_analyze_index(
 
   switch (size) {
     case ULINT_UNDEFINED:
+      dict_stats_free_scratch_index(scratch);
       dict_stats_assert_initialized_index(index);
+      /* Consider ULINT_UNDEFINED as a strong failure, assuming it
+       to be handled by the outer workflow. For example, Online ALTER
+       rebuilds stats at the end of
+       ha_innobase::commit_inplace_alter_table_impl(). */
       return;
     case 0:
       /* The root node of the tree is a leaf */
       size = 1;
   }
 
-  index->stat_n_leaf_pages = size;
+  scratch->stat_n_leaf_pages = size;
 
   mtr_start(&mtr);
 
@@ -1671,7 +1780,7 @@ static void dict_stats_analyze_index(
   since it will be faster and will give better results. */
 
   if (root_level == 0 ||
-      N_SAMPLE_PAGES(index) * n_uniq > index->stat_n_leaf_pages) {
+      (N_SAMPLE_PAGES(index) * n_uniq > index->stat_n_leaf_pages)) {
     if (root_level == 0) {
       DEBUG_PRINTF(
           "  %s(): just one page,"
@@ -1688,15 +1797,17 @@ static void dict_stats_analyze_index(
     into the index */
 
     dict_stats_analyze_index_level(
-        index, 0 /* leaf level */, index->stat_n_diff_key_vals, &total_recs,
+        index, 0 /* leaf level */, scratch->stat_n_diff_key_vals, &total_recs,
         &total_pages, NULL /* boundaries not needed */, &mtr);
 
     for (ulint i = 0; i < n_uniq; i++) {
-      index->stat_n_sample_sizes[i] = total_pages;
+      scratch->stat_n_sample_sizes[i] = total_pages;
     }
 
     mtr_commit(&mtr);
 
+    dict_stats_copy_index(index, scratch);
+    dict_stats_free_scratch_index(scratch);
     dict_stats_assert_initialized_index(index);
     return;
   }
@@ -1874,11 +1985,13 @@ static void dict_stats_analyze_index(
   /* n_prefix == 0 means that the above loop did not end up prematurely
   due to tree being changed and so n_diff_data[] is set up. */
   if (n_prefix == 0) {
-    dict_stats_index_set_n_diff(n_diff_data, index);
+    dict_stats_index_set_n_diff(n_diff_data, scratch);
+    dict_stats_copy_index(index, scratch);
   }
 
   UT_DELETE_ARRAY(n_diff_data);
 
+  dict_stats_free_scratch_index(scratch);
   dict_stats_assert_initialized_index(index);
 }
 
@@ -1929,9 +2042,8 @@ static dberr_t dict_stats_update_persistent(
       continue;
     }
 
-    dict_stats_empty_index(index);
-
     if (dict_stats_should_ignore_index(index)) {
+      dict_stats_empty_index(index);
       continue;
     }
 
