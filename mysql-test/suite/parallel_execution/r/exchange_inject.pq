@@ -4201,16 +4201,16 @@ id
 select found_rows();
 found_rows()
 4
-Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+Warnings:
 select * from t1 order by id limit 1;
 id
 1
 select found_rows();
 found_rows()
 1
-Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+Warnings:
 select SQL_CALC_FOUND_ROWS * from t1 order by id limit 1;
 id
 1
@@ -4223,8 +4223,8 @@ Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future r
 select found_rows();
 found_rows()
 4
-Warnings:
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
+Warnings:
 drop table t1;
 #
 # Special ref slice for Aggregate
@@ -4449,5 +4449,46 @@ AND NOT EXISTS ( SELECT * FROM t1 AS alias3 WHERE alias1.f1 <= 1 );
 f1	f1
 100	100
 200	200
+DROP TABLE t1;
+#
+# Derived table materialized before execution
+#
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES (1),(2),(3),(4);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SET optimizer_switch='subquery_to_derived=on';
+EXPLAIN FORMAT=tree
+SELECT a + (SELECT SUM(a) FROM t1) FROM t1 UNION ALL SELECT a + (SELECT SUM(a) FROM t1) FROM t1;
+EXPLAIN
+-> Append
+    -> Stream results
+        -> Left hash join (no condition)
+            -> Table scan on t1  (cost=0.65 rows=4)
+            -> Hash
+                -> Table scan on derived_1_2  (cost=0.65 rows=1)
+                    -> Materialize
+                        -> Aggregate: sum(t1.a)
+                            -> Table scan on t1  (cost=0.65 rows=4)
+    -> Stream results
+        -> Left hash join (no condition)
+            -> Table scan on t1  (cost=0.65 rows=4)
+            -> Hash
+                -> Table scan on derived_3_4  (cost=0.65 rows=1)
+                    -> Materialize
+                        -> Aggregate: sum(t1.a)
+                            -> Table scan on t1  (cost=0.65 rows=4)
+
+SELECT a + (SELECT SUM(a) FROM t1) FROM t1 UNION ALL SELECT a + (SELECT SUM(a) FROM t1) FROM t1;
+a + (SELECT SUM(a) FROM t1)
+11
+11
+12
+12
+13
+13
+14
+14
 DROP TABLE t1;
 # --include set_px_to_saved.inc

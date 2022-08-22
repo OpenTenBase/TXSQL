@@ -258,9 +258,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	PRIMARY	<derived3>	NULL	ref	<auto_key0>	<auto_key0>	5	derived_1_2.SUM(a)	2	100.00	Using where; Using index
 3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using temporary
-2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (3 workers)
-2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` left join (/* select#2 */ select sum(`test`.`t1`.`a`) AS `SUM(a)` from `test`.`t1`) `derived_1_2` on(true) left join (/* select#3 */ select distinct `test`.`t1`.`b` AS `Name_exp_1` from `test`.`t1`) `derived_1_3` on((`derived_1_2`.`SUM(a)` = `derived_1_3`.`Name_exp_1`)) where ((`derived_1_3`.`Name_exp_1` is not null) or (`test`.`t1`.`a` > 3))
 # Scalar subquery as right expr
