@@ -853,5 +853,6 @@ void persisted_variables_refresh_keyring_support();
 
 /* Changes from txsql begin. */
 extern unsigned long cdb_kill_idle_trans_timeout;
+extern bool cdb_skip_event_scheduler;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

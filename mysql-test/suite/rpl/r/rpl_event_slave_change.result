@@ -1,0 +1,99 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create database  testdb;
+use testdb;
+create table t1(
+a int,
+b varchar(20)
+);
+insert into t1 values(1000,'test');
+create event t1_event  on schedule  at now()  do insert into t1 values(1,'event_now_test11');
+create event t2_event  on schedule  at now() disable do insert into t1 values(2,'event_now_test22');
+create event t3_event  on schedule  at now() DISABLE ON SLAVE do insert into t1 values(3,'event_now_test33');
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+EVENT_NAME	STATUS
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+EVENT_NAME	STATUS
+t2_event	DISABLED
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+EVENT_NAME	STATUS
+t3_event	SLAVESIDE_DISABLED
+select event_schema,event_name,interval_value,interval_field,status,on_completion,event_comment,originator from information_schema.events order by event_name;
+EVENT_SCHEMA	EVENT_NAME	INTERVAL_VALUE	INTERVAL_FIELD	STATUS	ON_COMPLETION	EVENT_COMMENT	ORIGINATOR
+testdb	t2_event	NULL	NULL	DISABLED	NOT PRESERVE		1
+testdb	t3_event	NULL	NULL	SLAVESIDE_DISABLED	NOT PRESERVE		1
+show variables like '%event_scheduler';
+Variable_name	Value
+cdb_skip_event_scheduler	OFF
+event_scheduler	ON
+include/rpl_sync.inc
+use testdb;
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+EVENT_NAME	STATUS
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+EVENT_NAME	STATUS
+t2_event	DISABLED
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+EVENT_NAME	STATUS
+t3_event	SLAVESIDE_DISABLED
+alter event t2_event  DISABLE ON SLAVE;
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+EVENT_NAME	STATUS
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+EVENT_NAME	STATUS
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+EVENT_NAME	STATUS
+t2_event	SLAVESIDE_DISABLED
+t3_event	SLAVESIDE_DISABLED
+include/rpl_sync.inc
+select event_name,status from information_schema.events where status='ENABLED' order by event_name;
+EVENT_NAME	STATUS
+select event_name,status from information_schema.events where status='DISABLED' order by event_name;
+EVENT_NAME	STATUS
+select event_name,status from information_schema.events where status='SLAVESIDE_DISABLED' order by event_name;
+EVENT_NAME	STATUS
+t2_event	SLAVESIDE_DISABLED
+t3_event	SLAVESIDE_DISABLED
+set global event_scheduler = on;
+select sleep(1);
+sleep(1)
+0
+select * from t1 order by a;
+a	b
+1	event_now_test11
+1000	test
+create event t4_event  on schedule  at now()  do insert into t1 values(4,'event_now_test44');
+select sleep(1);
+sleep(1)
+0
+select * from t1 order by a;
+a	b
+1	event_now_test11
+4	event_now_test44
+1000	test
+set global cdb_skip_event_scheduler = on;
+create event t5_event  on schedule  at now()  do insert into t1 values(5,'event_now_test55');
+select sleep(1);
+sleep(1)
+0
+select * from t1 order by a;
+a	b
+1	event_now_test11
+4	event_now_test44
+1000	test
+include/rpl_sync.inc
+select * from testdb.t1 order by a;
+a	b
+1	event_now_test11
+4	event_now_test44
+1000	test
+show variables like '%event_scheduler';
+Variable_name	Value
+event_scheduler	ON
+set global cdb_skip_event_scheduler = off;
+drop database testdb;
+include/rpl_sync.inc
+include/rpl_end.inc

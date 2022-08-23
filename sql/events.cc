@@ -961,7 +961,8 @@ bool Events::init(bool opt_noacl_or_bootstrap) {
   }
 
   if (event_queue->init_queue() || load_events_from_db(thd, event_queue) ||
-      (opt_event_scheduler == EVENTS_ON && scheduler->start(&err_no))) {
+      (opt_event_scheduler == EVENTS_ON && !cdb_skip_event_scheduler &&
+       scheduler->start(&err_no))) {
     LogErr(ERROR_LEVEL, ER_EVENT_SCHEDULER_ERROR_LOADING_FROM_DB);
     res = true; /* fatal error: request unireg_abort */
     goto end;

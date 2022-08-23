@@ -1,0 +1,1 @@
+--cdb_skip_event_scheduler=on --event_scheduler=on

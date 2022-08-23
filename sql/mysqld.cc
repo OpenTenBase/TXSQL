@@ -12515,3 +12515,5 @@ bool check_and_update_partial_revokes_sysvar(THD *thd) {
   }
   return false;
 }
+
+bool cdb_skip_event_scheduler = false;
