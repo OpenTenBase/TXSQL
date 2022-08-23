@@ -2351,6 +2351,10 @@ class Set_kill_conn : public Do_THD_Impl {
                      (killing_thd));
     }
 
+#if defined(HAVE_PX)
+    if (PX_ROLE_WORKER(killing_thd)) {/* do nothing. */
+    } else
+#endif /* defined(HAVE_PX) */
     if (killing_thd->is_killable && killing_thd->kill_immunizer == nullptr) {
       mysql_mutex_lock(&killing_thd->LOCK_current_cond);
       if (killing_thd->current_cond.load()) {
