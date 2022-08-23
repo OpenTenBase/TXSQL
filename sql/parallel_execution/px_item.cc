@@ -552,6 +552,9 @@ static bool check_px_unsafe_subselect(Item *item) {
   assert(item);
 
   if (item->type() == Item::SUBSELECT_ITEM) {
+    // Temporarily disable SUBSELECT_ITEM pushdown parallelism.
+    return true;
+
     Item_subselect *subselect = down_cast<Item_subselect *>(item);
     Query_expression *unit = subselect->unit;
     // Subselect may not have been optimized here, see Item_subselect::exec().
