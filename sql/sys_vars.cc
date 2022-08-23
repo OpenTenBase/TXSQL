@@ -2158,7 +2158,8 @@ static bool event_scheduler_update(sys_var *, THD *, enum_var_type) {
     rare and it's difficult to avoid it without opening up possibilities
     for deadlocks. See bug#51160.
   */
-  bool ret = opt_event_scheduler_value == Events::EVENTS_ON
+  bool ret = ((opt_event_scheduler_value == Events::EVENTS_ON) &&
+              !cdb_skip_event_scheduler)
                  ? Events::start(&err_no)
                  : Events::stop();
   mysql_mutex_lock(&LOCK_global_system_variables);
