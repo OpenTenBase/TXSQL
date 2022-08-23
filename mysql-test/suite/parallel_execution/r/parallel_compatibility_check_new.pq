@@ -667,8 +667,10 @@ EXPLAIN
 -> Aggregate: sum(exists(select #2))
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(exists(select #2))
-                -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
+            -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
+-> Select #2 (subquery in projection; run only once)
+    -> Limit: 1 row(s)  (cost=1.25 rows=1)
+        -> Index scan on t1 using idx  (cost=1.25 rows=10)
 
 SELECT SUM(EXISTS(SELECT 1 FROM t1)) FROM t1;
 SUM(EXISTS(SELECT 1 FROM t1))
@@ -697,9 +699,9 @@ id	col1	col2
 9	9	9
 explain format=tree select * from t1 order by (select col1 from t2 where col1 = t1.col1);
 EXPLAIN
--> PX Receiver (merge sort; slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 4)
-        -> Sort: (select #2)  (cost=1.25 rows=10)
+-> Sort: (select #2)  (cost=1.25 rows=10)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on t1  (cost=1.25 rows=10)
 -> Select #2 (subquery in projection; dependent)
     -> Filter: (t2.col1 = t1.col1)  (cost=0.35 rows=1)
