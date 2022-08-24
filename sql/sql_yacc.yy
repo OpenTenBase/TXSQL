@@ -1370,7 +1370,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> GTID_ONLY_SYM 1199                       /* MYSQL */
 
 /* Changes from txsql start. */
-%token THREADPOOL_SYM 1250
+%token<lexer.keyword> THREADPOOL_SYM 1250
+%token<lexer.keyword> DETAIL 1252
 /* Changes from txsql end. */
 
 /*
@@ -13763,9 +13764,9 @@ show_status_stmt:
         ;
 
 show_processlist_stmt:
-          SHOW opt_full PROCESSLIST_SYM
+          SHOW opt_detail PROCESSLIST_SYM
           {
-            $$ = NEW_PTN PT_show_processlist(@$, $2);
+            $$ = NEW_PTN PT_show_processlist(@$, Lex->verbose, Lex->detail);
           }
         ;
 
@@ -13935,6 +13936,12 @@ opt_db:
 opt_full:
           /* empty */ { $$= 0; }
         | FULL        { $$= 1; }
+        ;
+
+opt_detail:
+          /* empty */ { Lex->verbose=0; Lex->detail=0; }
+        | FULL        { Lex->verbose=1; Lex->detail=0; }
+        | DETAIL      { Lex->verbose=0; Lex->detail=1; }
         ;
 
 opt_extended:
@@ -15259,6 +15266,7 @@ ident_keywords_unambiguous:
         | DEFINITION_SYM
         | DELAY_KEY_WRITE_SYM
         | DESCRIPTION_SYM
+        | DETAIL
         | DIAGNOSTICS_SYM
         | DIRECTORY_SYM
         | DISABLE_SYM

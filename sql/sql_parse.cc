@@ -1663,6 +1663,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   */
   if (thd->killed == THD::KILL_QUERY) thd->killed = THD::NOT_KILLED;
   thd->set_time();
+  update_thread_stats(CPU_TIME_START);
   if (is_time_t_valid_for_timestamp(thd->query_start_in_secs()) == false) {
     /*
       If the time has gone past end of epoch we need to shutdown the server. But
@@ -2298,7 +2299,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       mysqld_list_processes(
           thd, global_access ? NullS : thd->security_context()->priv_user().str,
-          false, false);
+          false, false, false);
 
       DBUG_EXECUTE_IF("force_db_name_to_null", thd->reset_db(db_saved););
       break;
@@ -2382,6 +2383,7 @@ done:
                        0);
 
   const std::string &cn = Command_names::str_global(command);
+  update_thread_stats(CPU_TIME_END);
   mysql_audit_notify(
       thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
       thd->get_stmt_da()->is_error() ? thd->get_stmt_da()->mysql_errno() : 0,

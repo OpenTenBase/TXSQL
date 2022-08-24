@@ -1032,4 +1032,40 @@ size_t mysql_encryption_file_read(IO_CACHE *cache, uchar *buffer, size_t count,
 */
 size_t mysql_encryption_file_write(IO_CACHE *cache, const uchar *buffer,
                                    size_t count, myf flags);
+
+/* Changes from TXSQL start. */
+/* define IO type */
+#define SYNC_READ_START      1
+#define SYNC_READ_END        2
+#define SYNC_WRITE_START     3
+#define SYNC_WRITE_END       4
+#define ASYNC_READ           5
+#define ASYNC_WRITE          6
+
+/* define LOG type */
+#define REDO_TYPE            7
+#define UNDO_TYPE            8
+#define ROLLBACK_TYPE        9
+#define BINARY_TYPE          10
+
+/* define CPU type */
+#define CPU_TIME_START       11
+#define CPU_TIME_END         12
+
+/* define MEMORY type */
+#define SERVER_MEMORY_ALLOC  13
+#define SERVER_MEMORY_FREE   14
+#define INNODB_MEMORY_ALLOC  15
+#define INNODB_MEMORY_FREE   16
+#define PFS_MEMORY_ALLOC     17
+#define PFS_MEMORY_FREE      18
+
+/* define LOCK type */
+#define LOCK_START           19
+#define LOCK_END             20
+
+extern void (*update_thread_stats_in_mysys_ptr)(int type, ulonglong size);
+extern void update_thread_stats_in_mysys(int type, ulonglong size);
+/* Changes from TXSQL end. */
+
 #endif /* _my_sys_h */

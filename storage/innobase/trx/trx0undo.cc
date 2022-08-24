@@ -1147,8 +1147,12 @@ void trx_undo_truncate_end_func(IF_DEBUG(const trx_t *trx, ) trx_undo_t *undo,
 
     int trunc_offset = trx_undo_page_truncate_offset(undo, undo_page, limit);
 
+    ulint old =
+        mach_read_from_2(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_FREE);
     /* If offset is within the page, truncate part of the page and quit.*/
     if (trunc_offset > 0) {
+      update_thread_stats(ROLLBACK_TYPE,
+                          (ulint)undo_page + old - (ulint)trunc_offset);
       mlog_write_ulint(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_FREE,
                        trunc_offset, MLOG_2BYTES, &mtr);
       break;
@@ -1162,7 +1166,7 @@ void trx_undo_truncate_end_func(IF_DEBUG(const trx_t *trx, ) trx_undo_t *undo,
     /* Free the last page and move on to the next. */
     ut_ad(undo->last_page_no != undo->hdr_page_no);
     trx_undo_free_last_page_func(IF_DEBUG(trx, ) undo, &mtr);
-
+    update_thread_stats(ROLLBACK_TYPE, old - TRX_UNDO_PAGE_HDR);
     mtr.commit();
   }
 

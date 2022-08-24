@@ -3383,7 +3383,9 @@ bool os_file_delete_if_exists_func(const char *name, bool *exist) {
     *exist = true;
   }
 
+	update_thread_stats(SYNC_WRITE_START);
   int ret = unlink(name);
+	update_thread_stats(SYNC_WRITE_END);
 
   if (ret != 0 && errno == ENOENT) {
     if (exist != nullptr) {
@@ -3403,14 +3405,13 @@ bool os_file_delete_if_exists_func(const char *name, bool *exist) {
 @param[in]      name            file path as a null-terminated string
 @return true if success */
 bool os_file_delete_func(const char *name) {
+  update_thread_stats(SYNC_WRITE_START);
   int ret = unlink(name);
-
+  update_thread_stats(SYNC_WRITE_END);
   if (ret != 0) {
     os_file_handle_error_no_exit(name, "delete", false);
-
     return (false);
   }
-
   return (true);
 }
 
@@ -5631,11 +5632,13 @@ bool os_file_truncate(const char *pathname, pfs_os_file_t file,
     return (true);
   }
 
+  update_thread_stats(SYNC_WRITE_START);
 #ifdef _WIN32
   return (os_file_truncate_win32(pathname, file, size));
 #else  /* _WIN32 */
   return (os_file_truncate_posix(pathname, file, size));
 #endif /* _WIN32 */
+  update_thread_stats(SYNC_WRITE_END, size_bytes - size);
 }
 
 /** Set read/write position of a file handle to specific offset.
@@ -5685,8 +5688,11 @@ dberr_t os_file_read_func(IORequest &type, const char *file_name,
                           ulint n) {
   ut_ad(type.is_read());
 
-  return (
-      os_file_read_page(type, file_name, file, buf, offset, n, nullptr, true));
+  update_thread_stats(SYNC_READ_START);
+  dberr_t ret = 
+      os_file_read_page(type, file_name, file, buf, offset, n, nullptr, true);
+  update_thread_stats(SYNC_READ_END, n);
+  return ret;
 }
 
 /** NOTE! Use the corresponding macro os_file_read_first_page(),
@@ -5701,9 +5707,11 @@ Requests a synchronous read operation of page 0 of IBD file
 dberr_t os_file_read_first_page_func(IORequest &type, const char *file_name,
                                      os_file_t file, void *buf, ulint n) {
   ut_ad(type.is_read());
+  update_thread_stats(SYNC_READ_START);
 
   dberr_t err = os_file_read_page(type, file_name, file, buf, 0,
                                   UNIV_ZIP_SIZE_MIN, nullptr, true);
+  update_thread_stats(SYNC_READ_END, UNIV_ZIP_SIZE_MIN);
 
   if (err == DB_SUCCESS) {
     uint32_t flags = fsp_header_get_flags(static_cast<byte *>(buf));
@@ -5715,8 +5723,10 @@ dberr_t os_file_read_first_page_func(IORequest &type, const char *file_name,
     estimation, if the consistent flag is got from recovered DD. */
     const size_t read_size = page_size.physical() * (n >> UNIV_PAGE_SIZE_SHIFT);
     ut_ad(read_size > 0);
+    update_thread_stats(SYNC_READ_START);
     err = os_file_read_page(type, file_name, file, buf, 0, read_size, nullptr,
                             true);
+    update_thread_stats(SYNC_READ_END, page_size.physical());
   }
   return (err);
 }
@@ -5851,8 +5861,12 @@ dberr_t os_file_read_no_error_handling_func(IORequest &type,
                                             os_offset_t offset, ulint n,
                                             ulint *o) {
   ut_ad(type.is_read());
+  update_thread_stats(SYNC_READ_START);
+  dberr_t ret =
+      os_file_read_page(type, file_name, file, buf, offset, n, o, false);
+  update_thread_stats(SYNC_READ_END, n);
 
-  return (os_file_read_page(type, file_name, file, buf, offset, n, o, false));
+  return ret;
 }
 
 /** NOTE! Use the corresponding macro os_file_write(), not directly this
@@ -5878,9 +5892,13 @@ dberr_t os_file_write_func(IORequest &type, const char *name, os_file_t file,
   }
 
   const byte *ptr = reinterpret_cast<const byte *>(buf);
+  update_thread_stats(SYNC_WRITE_START);
 
-  return os_file_write_page(type, name, file, ptr, offset, n,
-                            type.get_encrypted_block());
+  dberr_t ret = os_file_write_page(type, name, file, ptr, offset, n,
+                                   type.get_encrypted_block());
+  update_thread_stats(SYNC_WRITE_END, n);
+
+  return ret;
 }
 
 bool os_file_status(const char *path, bool *exists, os_file_type_t *type) {
@@ -7154,6 +7172,8 @@ dberr_t os_aio_func(IORequest &type, AIO_mode aio_mode, const char *name,
   }
 
 try_again:
+  /*use async i/o, record the size of async i/o*/
+  update_thread_stats(type.is_read() ? ASYNC_READ : ASYNC_WRITE, n);
 
   auto array = AIO::select_slot_array(type, read_only, aio_mode);
 

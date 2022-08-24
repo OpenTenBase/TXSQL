@@ -41,6 +41,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <atomic>
 
+#include "sql/mysqld.h"
 /** OS mutex for tracking lock/unlock for debugging */
 template <template <typename> class Policy = NoPolicy>
 struct OSTrackMutex {
@@ -609,6 +610,12 @@ struct PolicyMutex {
     pfs_exit();
 #endif /* UNIV_PFS_MUTEX */
 
+    if (cdb_enable_lock_statistics) {
+      update_lock_stats(LOCK_END, m_filename, m_line, m_impl.policy().get_id());
+      m_filename = NULL;
+      m_line = 0;
+    }
+
     policy().release(m_impl);
 
     m_impl.exit();
@@ -630,6 +637,12 @@ struct PolicyMutex {
 
     locker = pfs_begin_lock(&state, name, line);
 #endif /* UNIV_PFS_MUTEX */
+
+    if (cdb_enable_lock_statistics) {
+      update_lock_stats(LOCK_START, name, line, m_impl.policy().get_id());
+      m_filename = name;
+      m_line = line;
+    }
 
     policy().enter(m_impl, name, line);
 
@@ -785,6 +798,10 @@ struct PolicyMutex {
  private:
   /** The mutex implementation */
   MutexImpl m_impl;
+
+  const char* m_filename;
+
+  ulint m_line;
 
 #ifdef UNIV_PFS_MUTEX
   /** The performance schema instrumentation hook. */

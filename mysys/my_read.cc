@@ -75,6 +75,7 @@ size_t my_read(File fd, uchar *Buffer, size_t Count, myf MyFlags) {
 
   for (;;) {
     errno = 0; /* Linux, Windows don't reset this on EOF/success */
+    update_thread_stats_in_mysys(SYNC_READ_START, 0);
     int64_t readbytes =
 #ifdef _WIN32
         // Using my_win_pread() with offset -1 which will cause
@@ -86,6 +87,7 @@ size_t my_read(File fd, uchar *Buffer, size_t Count, myf MyFlags) {
 #else
         (mock_read ? mock_read(fd, Buffer, Count) : read(fd, Buffer, Count));
 #endif
+    update_thread_stats_in_mysys(SYNC_READ_END, readbytes);
     DBUG_EXECUTE_IF("simulate_file_read_error", {
       errno = ENOSPC;
       readbytes = -1;

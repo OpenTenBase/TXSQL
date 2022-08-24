@@ -47,12 +47,14 @@ int my_delete(const char *name, myf MyFlags) {
   DBUG_TRACE;
   DBUG_PRINT("my", ("name %s MyFlags %d", name, MyFlags));
 
+  update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
   if ((err = unlink(name)) == -1) {
     set_my_errno(errno);
     if (MyFlags & (MY_FAE | MY_WME)) {
       MyOsError(my_errno(), EE_DELETE, MYF(0), name);
     }
   }
+  update_thread_stats_in_mysys(SYNC_WRITE_END, 0);
   return err;
 }
 

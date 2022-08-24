@@ -53,6 +53,12 @@ struct my_memory_header {
 };
 typedef struct my_memory_header my_memory_header;
 
+void (*update_thread_stats_in_mysys_ptr)(int type, unsigned long long size) = nullptr;
+void update_thread_stats_in_mysys(int type, unsigned long long size) {
+  if (update_thread_stats_in_mysys_ptr)
+    update_thread_stats_in_mysys_ptr(type, size);
+}
+
 extern "C" void *my_malloc(PSI_memory_key key, size_t size, int flags) {
   my_memory_header *mh;
   size_t raw_size;
@@ -70,6 +76,7 @@ extern "C" void *my_malloc(PSI_memory_key key, size_t size, int flags) {
     mh->m_magic = MAGIC;
     mh->m_size = size;
     mh->m_key = PSI_MEMORY_CALL(memory_alloc)(key, size, &mh->m_owner);
+    update_thread_stats_in_mysys(13, size); /* SERVER_MEMORY_ALLOC = 13 */
     user_ptr = HEADER_TO_USER(mh);
     MEM_MALLOCLIKE_BLOCK(user_ptr, size, 0, (flags & MY_ZEROFILL));
     return user_ptr;
@@ -85,6 +92,7 @@ extern "C" void my_free(void *ptr) {
   mh = USER_TO_HEADER(ptr);
   assert(mh->m_magic == MAGIC);
   PSI_MEMORY_CALL(memory_free)(mh->m_key, mh->m_size, mh->m_owner);
+  update_thread_stats_in_mysys(14, mh->m_size); /* SERVER_MEMORY_FREE = 14 */
   /* Catch double free */
   mh->m_magic = 0xDEAD;
   MEM_FREELIKE_BLOCK(ptr, 0);
