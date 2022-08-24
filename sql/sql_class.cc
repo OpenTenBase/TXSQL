@@ -721,7 +721,6 @@ THD::THD(bool enable_plugins)
       m_is_local_or_admin_conn(false) {
   to_thread_pool = 0;
   to_per_thread = 0;
-  m_long_service = false;
   main_lex->reset();
   set_psi(nullptr);
   mdl_context.init(this);

@@ -3,9 +3,9 @@ Id	User	Host	db	Command	Time	State	Info	Moved_to_per_thread	Moved_to_thread_pool
 #	event_scheduler	localhost	NULL	#	#	#	#	#	#
 #	root	localhost	test	#	#	#	#	#	#
 show threadpool status;
-groupid	connection_count	thread_count	havelistener	active_thread_count	waiting_thread_count	waiting_threads_size	queue_size	high_prio_queue_size	get_high_prio_queue_num	get_normal_queue_num	create_thread_num	wake_thread_num	oversubscribed_num	mysql_cond_timedwait_num	check_stall_nolistener	check_stall_stall	oversubscribed_paral_num	max_req_latency_us	conns_timeout_killed	connections_moved_in	connections_moved_out	connections_moved_from_per_thread	connections_moved_to_per_thread	events_consumed	average_wait_usecs_in_queue
-#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0	0
-#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0	0
-#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0	0
-#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0	0
-#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0	0
+groupid	connection_count	thread_count	havelistener	active_thread_count	waiting_thread_count	waiting_threads_size	queue_size	high_prio_queue_size	get_high_prio_queue_num	get_normal_queue_num	create_thread_num	wake_thread_num	oversubscribed_num	mysql_cond_timedwait_num	check_stall_nolistener	check_stall_stall	max_req_latency_us	conns_timeout_killed	connections_moved_in	connections_moved_out	connections_moved_from_per_thread	connections_moved_to_per_thread	events_consumed	average_wait_usecs_in_queue
+#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0
+#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0
+#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0
+#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0
+#	0	0	0	#	#	#	#	#	#	#	#	#	#	#	#	#	#	#	0	0	0	0	0	0

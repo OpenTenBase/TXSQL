@@ -43,13 +43,6 @@ extern uint threadpool_oversubscribe; /* Maximum active threads in group */
 /* Possible values for thread_pool_high_prio_mode */
 extern const char *threadpool_high_prio_mode_names[];
 
-extern bool threadpool_eager_mode;
-extern bool threadpool_listen_eager_mode;
-extern bool threadpool_oversubscribe_parall;
-extern uint threadpool_oversubscribe_extra_threads;
-extern uint threadpool_queue_congest_req_timeout;
-extern uint threadpool_queue_congest_threshold;
-
 /* Common thread pool routines, suitable for different implementations */
 extern void threadpool_remove_connection(THD *thd);
 extern int threadpool_process_request(THD *thd);
@@ -71,6 +64,8 @@ extern void tp_end(void) noexcept;
 
 extern THD_event_functions tp_event_functions;
 
+extern void tp_change_active_thread(THD *thd, int command, bool inc);
+
 /* Used in SHOW for threadpool_idle_thread_count */
 extern int tp_get_idle_thread_count() noexcept;
 
@@ -89,5 +84,9 @@ extern void tp_set_min_threads(uint val);
 extern void tp_set_max_threads(uint val);
 extern void tp_set_threadpool_size(uint val) noexcept;
 extern void tp_set_threadpool_stall_limit(uint val) noexcept;
+
+#ifdef __linux__
+extern bool threadpool_workaround_epoll_bug;
+#endif
 
 #endif /* THREADPOOL_INCLUDED */
