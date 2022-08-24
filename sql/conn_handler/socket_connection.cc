@@ -184,6 +184,11 @@ class Channel_info_local_socket : public Channel_info {
     mysql_socket_shutdown(m_connect_sock, SHUT_RDWR);
     mysql_socket_close(m_connect_sock);
   }
+
+  /* Changes from txsql start. */
+  bool is_admin_connection() const override { return false; }
+  bool is_local_or_admin_connection() const override { return true; }
+  /* Changes from txsql end. */
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -258,6 +263,9 @@ class Channel_info_tcpip_socket : public Channel_info {
   }
 
   bool is_admin_connection() const override { return m_is_admin_conn; }
+  /* Changes from txsql start. */
+  bool is_local_or_admin_connection() const override { return m_is_admin_conn; }
+  /* Changes from txsql end. */
 
 #ifdef HAVE_SETNS
   /**

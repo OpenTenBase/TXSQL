@@ -8,7 +8,7 @@
 --let $PORT_OFFSET = 1
 --expr $ADMIN_PORT = $MASTER_MYPORT + $PORT_OFFSET
 
---let $restart_parameters=restart:--thread-handling=pool-of-threads --thread-pool-size=2 --thread-pool-max-threads=2 --admin-address=127.0.0.1 --admin-port=$ADMIN_PORT --loose-skip-mysqlx
+--let $restart_parameters=restart:--thread-handling=pool-of-threads --thread-pool-size=2 --thread-pool-max-threads=2 --admin-address=127.0.0.1 --admin-port=$ADMIN_PORT --loose-skip-mysqlx --tencent-root-cnf=tmy.conf
 --replace_result $ADMIN_PORT ADMIN_PORT
 --source include/restart_mysqld.inc
 
@@ -21,21 +21,28 @@ call mtr.add_suppression(".*Failed to set up SSL.*");
 
 # First set two connections running, and check that extra connection
 # on normal port fails due to --thread-pool-max_threads=2
+# Connection default is count as per_thread
 connection default;
 let $default_id = `select connection_id()`;
 send SELECT sleep(50000);
 --sleep 2.5
 
-connect(con2,localhost,root,,);
+connect(con2,127.0.0.1,root,,);
 connection con2;
 let $con2_id = `select connection_id()`;
+send SELECT sleep(50000);
+--sleep  2.5
+
+connect(con3,127.0.0.1,root,,);
+connection con3;
+let $con3_id = `select connection_id()`;
 send SELECT sleep(50000);
 --sleep  2.5
 
 --disable_abort_on_error
 --disable_result_log
 --disable_query_log
-connect(con3,localhost,root,,);
+connect(con4,127.0.0.1,root,,);
 --enable_query_log
 --enable_result_log
 --enable_abort_on_error
@@ -61,11 +68,11 @@ KILL QUERY @id;
 let @ignore = `select @id := $con2_id`;
 KILL QUERY @id;
 
-connect(extracon2,127.0.0.1,root,,test,$ADMIN_PORT,);
+connect(extracon2,127.0.0.1,tencentroot,,test,$ADMIN_PORT,);
 connection extracon2;
 SELECT 'Connection on extra port 2 ok';
 
-connect(extracon3,127.0.0.1,root,,test,$ADMIN_PORT,);
+connect(extracon3,127.0.0.1,tencentroot,,test,$ADMIN_PORT,);
 connection extracon3;
 SELECT 'Connection on extra port 3 ok';
 

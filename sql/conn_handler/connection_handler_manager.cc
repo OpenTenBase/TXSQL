@@ -163,16 +163,27 @@ bool Connection_handler_manager::init() {
   */
   Per_thread_connection_handler::init();
 
-  m_instance = new (std::nothrow) Connection_handler_manager();
+  Connection_handler *extra_connection_handler =
+      new (std::nothrow) Per_thread_connection_handler();
 
-  if (m_instance == NULL) {
+  if (extra_connection_handler == nullptr) {
+    // This is a static member function.
+    Per_thread_connection_handler::destroy();
+    return true;
+  }
+
+  m_instance =
+      new (std::nothrow) Connection_handler_manager(extra_connection_handler);
+
+  if (m_instance == nullptr) {
+    delete extra_connection_handler;
     // This is a static member function.
     Per_thread_connection_handler::destroy();
     return true;
   }
 
   for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
-    Connection_handler *connection_handler = NULL;
+    Connection_handler *connection_handler = nullptr;
     switch (i) {
       case SCHEDULER_ONE_THREAD_PER_CONNECTION:
         connection_handler = new (std::nothrow) Per_thread_connection_handler();
@@ -188,10 +199,14 @@ bool Connection_handler_manager::init() {
         break;
     }
 
-    if (connection_handler == NULL &&
+    if (connection_handler == nullptr &&
         i != SCHEDULER_PLUGIN_CONNECTION_HANDLER) {
+      /*
+        extra_connection_handler will be cleaned in the deconstructor
+        of Connection_handler_manager.
+      */
       delete m_instance;
-      m_instance = NULL;
+      m_instance = nullptr;
       // This is a static member function.
       Per_thread_connection_handler::destroy();
       return true;
@@ -268,13 +283,13 @@ void Connection_handler_manager::load_connection_handler(
 }
 
 bool Connection_handler_manager::unload_connection_handler() {
-  assert(m_saved_connection_handler != NULL);
-  if (m_saved_connection_handler == NULL) return true;
+  assert(m_saved_connection_handler != nullptr);
+  if (m_saved_connection_handler == nullptr) return true;
   delete m_connection_handler[SCHEDULER_PLUGIN_CONNECTION_HANDLER];
-  m_connection_handler[SCHEDULER_PLUGIN_CONNECTION_HANDLER] = NULL;
+  m_connection_handler[SCHEDULER_PLUGIN_CONNECTION_HANDLER] = nullptr;
   // m_connection_handler = m_saved_connection_handler;
   Connection_handler_manager::thread_handling = m_saved_thread_handling;
-  m_saved_connection_handler = NULL;
+  m_saved_connection_handler = nullptr;
   m_saved_thread_handling = 0;
   max_threads =
       m_connection_handler[Connection_handler_manager::thread_handling]
@@ -297,8 +312,12 @@ void Connection_handler_manager::process_new_connection(
     thread_handling_switch_mode is at least stable mode, we use the new
     thread_handling mode to handle new connection here.
   */
-  if (m_connection_handler[Connection_handler_manager::thread_handling]
-          ->add_connection(channel_info)) {
+  Connection_handler *handler =
+      channel_info->is_local_or_admin_connection()
+          ? m_extra_connection_handler
+          : m_connection_handler[Connection_handler_manager::thread_handling];
+
+  if (handler->add_connection(channel_info)) {
     inc_aborted_connects();
     delete channel_info;
   }
@@ -313,10 +332,6 @@ THD *create_thd(Channel_info *channel_info) {
 }
 
 void destroy_channel_info(Channel_info *channel_info) { delete channel_info; }
-
-void dec_connection_count() {
-  Connection_handler_manager::dec_connection_count();
-}
 
 void increment_aborted_connects() {
   Connection_handler_manager::get_instance()->inc_aborted_connects();

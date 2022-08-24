@@ -7646,6 +7646,11 @@ int mysqld_main(int argc, char **argv)
   */
   set_my_abort(my_server_abort);
 
+  if (Connection_handler_manager::init()) {
+    LogErr(ERROR_LEVEL, ER_CONNECTION_HANDLING_OOM);
+    return 1;
+  }
+
   size_t guardize = 0;
 #ifndef _WIN32
   int retval = pthread_attr_getguardsize(&connection_attrib, &guardize);
@@ -11108,10 +11113,6 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
 
   if (opt_short_log_format) opt_specialflag |= SPECIAL_SHORT_LOG_FORMAT;
 
-  if (Connection_handler_manager::init()) {
-    LogErr(ERROR_LEVEL, ER_CONNECTION_HANDLING_OOM);
-    return 1;
-  }
   if (Global_THD_manager::create_instance()) {
     LogErr(ERROR_LEVEL, ER_THREAD_HANDLING_OOM);
     return 1;

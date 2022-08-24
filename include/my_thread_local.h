@@ -63,6 +63,12 @@ my_thread_id my_thread_var_id();
 
 void set_my_thread_var_id(my_thread_id id);
 
+/* Changes from txsql start. */
+struct st_my_thread_var *mysys_thread_var();
+
+int set_mysys_thread_var(struct st_my_thread_var *mysys_var);
+/* Changes from txsql end. */
+
 #endif
 
 #endif  // MY_THREAD_LOCAL_INCLUDED

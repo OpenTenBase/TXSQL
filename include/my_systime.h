@@ -252,4 +252,28 @@ inline void my_micro_time_to_timeval(std::uint64_t micro_time, timeval *tm) {
 
 void get_date(char *to, int flag, time_t date);
 
+/**
+ Changes from txsql start.
+*/
+void set_timespec_nsec_coarse(struct timespec *abstime, Timeout_type nsec);
+void set_timespec_coarse(struct timespec *abstime, Timeout_type sec);
+
+inline unsigned long long int my_getsystime_coarse() {
+#ifdef HAVE_CLOCK_GETTIME
+  // Performance regression testing showed this to be preferable
+  struct timespec tp;
+  clock_gettime(CLOCK_REALTIME_COARSE, &tp);
+  return (static_cast<unsigned long long int>(tp.tv_sec) * 10000000 +
+          static_cast<unsigned long long int>(tp.tv_nsec) / 100);
+#else
+  return std::chrono::duration_cast<
+             std::chrono::duration<std::int64_t, std::ratio<1, 10000000>>>(
+             UTC_clock::now().time_since_epoch())
+      .count();
+#endif /* HAVE_CLOCK_GETTIME */
+}
+/**
+ Changes from txsql end.
+*/
+
 #endif  // MY_SYSTIME_INCLUDED

@@ -40,6 +40,7 @@
 #include "sql/sql_thd_internal_api.h"  // thd_set_thread_stack
 
 bool One_thread_connection_handler::add_connection(Channel_info *channel_info) {
+
   if (my_thread_init()) {
     connection_errors_internal++;
     channel_info->send_error_and_close_channel(ER_OUT_OF_RESOURCES, 0, false);

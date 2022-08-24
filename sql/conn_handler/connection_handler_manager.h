@@ -105,9 +105,13 @@ class Connection_handler_manager {
 
   void set_connection_handler(ulong type, Connection_handler *handler) {
     assert(type < SCHEDULER_TYPES_COUNT);
-    assert(m_connection_handler[type] == NULL);
+    assert(m_connection_handler[type] == nullptr);
     m_connection_handler[type] = handler;
   }
+
+  // Pointer to admin port connection handler
+  Connection_handler *m_extra_connection_handler;
+
   /* Changes from txsql end. */
 
   // Singleton instance to Connection_handler_manager
@@ -116,8 +120,9 @@ class Connection_handler_manager {
   static mysql_mutex_t LOCK_connection_count;
   static mysql_cond_t COND_connection_count;
 
-  // Pointer to current connection handler in use
+  // Pointer to current connection handler groups
   Connection_handler *m_connection_handler[SCHEDULER_TYPES_COUNT];
+
   // Pointer to saved connection handler
   Connection_handler *m_saved_connection_handler;
   // Saved scheduler_type
@@ -125,26 +130,16 @@ class Connection_handler_manager {
 
   // Status variables
   ulong m_aborted_connects;
-  ulong
-      m_connection_errors_max_connection;  // Protected by LOCK_connection_count
+
+  // Protected by LOCK_connection_count
+  ulong m_connection_errors_max_connection;
 
   /**
     Constructor to instantiate an instance of this class.
   */
-  Connection_handler_manager(Connection_handler *connection_handler)
-      : m_saved_connection_handler(nullptr),
-        m_saved_thread_handling(0),
-        m_aborted_connects(0),
-        m_connection_errors_max_connection(0) {
-    for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
-      m_connection_handler[i] = nullptr;
-    }
-    m_connection_handler[Connection_handler_manager::thread_handling] =
-        connection_handler;
-  }
-
-  Connection_handler_manager()
-      : m_saved_connection_handler(nullptr),
+  Connection_handler_manager(Connection_handler *extra_connection_handler)
+      : m_extra_connection_handler(extra_connection_handler),
+        m_saved_connection_handler(nullptr),
         m_saved_thread_handling(0),
         m_aborted_connects(0),
         m_connection_errors_max_connection(0) {
@@ -154,6 +149,7 @@ class Connection_handler_manager {
   }
 
   ~Connection_handler_manager() {
+    delete m_extra_connection_handler;
     for (int i = 0; i < SCHEDULER_TYPES_COUNT; i++) {
       if (m_connection_handler[i] != nullptr) {
         delete m_connection_handler[i];

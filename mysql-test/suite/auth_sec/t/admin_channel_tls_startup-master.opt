@@ -2,3 +2,4 @@
 --admin-ssl-ca=$MYSQL_TEST_DIR/std_data/ca-cert-verify.pem
 --admin-ssl-cert=$MYSQL_TEST_DIR/std_data/server-cert-verify-pass.pem
 --admin-ssl-key=$MYSQL_TEST_DIR/std_data/server-key-verify-pass.pem
+--cdb_admin_port_allow_for_normal_user=off

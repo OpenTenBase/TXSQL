@@ -92,6 +92,8 @@ class Channel_info {
   /* Changes from txsql start. */
   bool from_thread_pool;
   THD *thd;
+
+  virtual bool is_local_or_admin_connection() const { return false; }
   /* Changes from txsql end. */
 };
 

@@ -61,6 +61,9 @@ const char *threadpool_high_prio_mode_names[] = {"transactions", "statements",
 /** Indicates that threadpool was initialized*/
 static bool threadpool_started = false;
 
+/** Max wait times before timer_thread exit. */
+#define MAX_WAIT_TIMES 10
+
 /*
   Define PSI Keys for performance schema.
   We have a mutex per group, worker threads, condition per worker thread,
@@ -212,12 +215,13 @@ struct alignas(128) thread_group_t {
   ulonglong connections_moved_to_per_thread;
 
   /**
-    Events consumed by this group.
+    Events consumed by this group, reset when 'show threadpool status'.
   */
   ulonglong events_consumed;
 
   /**
-    Total waiting time of events after enqueue.
+    Total waiting time of events after enqueue, reset when
+    'show threadpool status'.
   */
   ulonglong total_usecs_in_queue;
 
@@ -244,6 +248,7 @@ struct pool_timer_t {
   std::atomic<uint64> next_timeout_check;
   int tick_interval;
   bool shutdown;
+  bool exit;
 };
 
 static pool_timer_t pool_timer;
@@ -568,7 +573,7 @@ class Thd_timeout_checker : public Do_THD_Impl {
 */
 
 static void timeout_check(pool_timer_t *timer) {
-  DBUG_ENTER("timeout_check");
+  DBUG_TRACE;
 
   /* Reset next timeout check, it will be recalculated in the loop below */
   timer->next_timeout_check.store(ULLONG_MAX, std::memory_order_relaxed);
@@ -598,7 +603,7 @@ static void timeout_check(pool_timer_t *timer) {
 
 static void *timer_thread(void *param) noexcept {
   my_thread_init();
-  DBUG_ENTER("timer_thread");
+  DBUG_TRACE;
 
   pool_timer_t *timer = (pool_timer_t *)param;
   timer->next_timeout_check.store(ULLONG_MAX, std::memory_order_relaxed);
@@ -634,6 +639,7 @@ static void *timer_thread(void *param) noexcept {
 
   mysql_mutex_destroy(&timer->mutex);
   my_thread_end();
+  timer->exit = true;
   return NULL;
 }
 
@@ -757,6 +763,17 @@ static void stop_timer(pool_timer_t *timer) noexcept {
   timer->shutdown = true;
   mysql_cond_signal(&timer->cond);
   mysql_mutex_unlock(&timer->mutex);
+
+#ifndef NDEBUG
+  /* Wait until timer thread has stopped. */
+  int wait_times = 0;
+  while (timer->exit == false && wait_times < MAX_WAIT_TIMES) {
+    wait_times++;
+    /* Wait 1/5 of timer->tick_interval each time. */
+    usleep(timer->tick_interval * 1000ULL / 5);
+  }
+#endif
+
   return;
 }
 
@@ -1366,7 +1383,7 @@ static void wait_begin(thread_group_t *thread_group, THD *thd) noexcept {
       Group might stall while this thread waits, thus wake up a worker
       to prevent stall.
     */
-    wake_thread(thread_group);
+    wake_or_create_thread(thread_group, false);
   }
 
   mysql_mutex_unlock(&thread_group->mutex);
@@ -1798,7 +1815,7 @@ static void *worker_main(void *param) {
   for (;;) {
     connection_t *connection;
     struct timespec ts;
-    set_timespec(&ts, threadpool_idle_timeout);
+    set_timespec_coarse(&ts, threadpool_idle_timeout);
     connection = get_event(&this_thread, thread_group, &ts);
     if (!connection) break;
     this_thread.event_count++;
@@ -1836,6 +1853,7 @@ bool tp_init() {
 #endif
 
   pool_timer.tick_interval = threadpool_stall_limit;
+  pool_timer.exit = false;
   start_timer(&pool_timer);
   return false;
 }
@@ -2082,6 +2100,8 @@ bool show_threadpool_status(THD *thd) {
                         ? 0
                         : group->total_usecs_in_queue / group->events_consumed);
 
+    group->events_consumed = 0;
+    group->total_usecs_in_queue = 0;
     mysql_mutex_unlock(&group->mutex);
 
     if (protocol->end_row()) {

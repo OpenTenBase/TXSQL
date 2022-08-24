@@ -30,6 +30,8 @@
 #include "sql/sql_parse.h"
 #include "sql/threadpool.h"
 #include "violite.h"
+#include "sql/log.h"
+#include "my_thread_local.h"
 
 /* Threadpool parameters */
 
@@ -89,7 +91,7 @@ class Worker_thread_context {
   PSI_thread *const psi_thread;
 #endif
 #ifndef NDEBUG
-  const my_thread_id thread_id;
+  st_my_thread_var* mysys_var;
 #endif
  public:
   Worker_thread_context() noexcept
@@ -99,7 +101,7 @@ class Worker_thread_context {
 #endif
 #ifndef NDEBUG
         ,
-        thread_id(my_thread_var_id())
+        mysys_var(mysys_thread_var())
 #endif
   {
   }
@@ -109,9 +111,10 @@ class Worker_thread_context {
     PSI_THREAD_CALL(set_thread)(psi_thread);
 #endif
 #ifndef NDEBUG
-    set_my_thread_var_id(thread_id);
+    set_mysys_thread_var(mysys_var);
 #endif
     THR_MALLOC = nullptr;
+    current_thd = nullptr;
   }
 };
 
@@ -119,9 +122,6 @@ class Worker_thread_context {
   Attach/associate the connection with the OS thread,
 */
 static bool thread_attach(THD *thd) {
-#ifndef NDEBUG
-  set_my_thread_var_id(thd->thread_id());
-#endif
   thd->thread_stack = (char *)&thd;
   thd->store_globals();
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -155,6 +155,10 @@ static void threadpool_init_net_server_extension(THD *thd) {
 int threadpool_add_connection(THD *thd) {
   int retval = 1;
   Worker_thread_context worker_context;
+
+#ifndef NDEBUG
+  set_mysys_thread_var(0);
+#endif
 
   my_thread_init();
 
@@ -208,20 +212,18 @@ void threadpool_remove_connection(THD *thd) {
 
   thd->release_resources();
 
-#ifdef HAVE_PSI_THREAD_INTERFACE
-  PSI_THREAD_CALL(delete_thread)(thd->get_psi());
-#endif
-
   Global_THD_manager::get_instance()->remove_thd(thd);
   Connection_handler_manager::dec_connection_count();
   delete thd;
+  thd = nullptr;
+  my_thread_end();
 }
 
 void threadpool_remove_psi(THD *thd) {
   Worker_thread_context worker_context;
-#ifdef HAVE_PSI_THREAD_INTERFACE
-  PSI_THREAD_CALL(delete_thread)(thd->get_psi());
-#endif
+
+  thread_attach(thd);
+  my_thread_end();
 }
 
 void threadpool_remove_connection_except_psi(THD *thd) {
@@ -248,6 +250,10 @@ void threadpool_remove_connection_except_psi(THD *thd) {
 */
 bool threadpool_process_request_prepare(THD *thd) {
   Worker_thread_context worker_context;
+
+#ifndef NDEBUG
+  set_mysys_thread_var(nullptr);
+#endif
   my_thread_init();
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
