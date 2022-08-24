@@ -21,6 +21,7 @@
 #include "sql/conn_handler/channel_info.h"
 #include "sql/conn_handler/connection_handler_manager.h"
 #include "sql/debug_sync.h"
+#include "sql/log.h"
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"
 #include "sql/protocol_classic.h"
@@ -41,24 +42,6 @@ uint threadpool_size;
 uint threadpool_stall_limit;
 uint threadpool_max_threads;
 uint threadpool_oversubscribe;
-
-/**
-  Whether to ignore the thread limit by threadpool_oversubscribe(in
-  too_many_xxx() functions.)
-  when deciding whether to take a job, or wakeup or create more threads.
-  Specifically, when this is 1,
-  a. a worker thread always takes a connection to work on when available.
-  b. if canActiveMoreThreads() and a connection is put to a thread group's
-  queue(in queue_put()), wake up a sleeping thread or create a new one if none
-  sleeping. c. a listener always wakes up enough worker threads or create(if
-  none sleeping) one new worker thread.
-*/
-bool threadpool_eager_mode = 0;
-bool threadpool_listen_eager_mode = 1;
-bool threadpool_oversubscribe_parall = 1;
-uint threadpool_queue_congest_req_timeout = 5;
-uint threadpool_queue_congest_threshold = 5;
-uint threadpool_oversubscribe_extra_threads = 3;
 
 /* Stats */
 TP_STATISTICS tp_stats;
@@ -91,7 +74,7 @@ class Worker_thread_context {
   PSI_thread *const psi_thread;
 #endif
 #ifndef NDEBUG
-  st_my_thread_var* mysys_var;
+  st_my_thread_var *mysys_var;
 #endif
  public:
   Worker_thread_context() noexcept
@@ -164,6 +147,7 @@ int threadpool_add_connection(THD *thd) {
 
   /* Create new PSI thread for use with the THD. */
 #ifdef HAVE_PSI_THREAD_INTERFACE
+  /* Create new PSI thread for use with the THD. */
   thd->set_psi(PSI_THREAD_CALL(new_thread)(key_thread_one_connection,
                                            0 /* no sequence number */, thd,
                                            thd->thread_id()));

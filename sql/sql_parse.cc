@@ -178,6 +178,13 @@
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "violite.h"
+/**
+  Changes from txsql start.
+*/
+#include "sql/threadpool.h"
+/**
+  Changes from txsql end.
+*/
 
 #ifdef WITH_LOCK_ORDER
 #include "sql/debug_lock_order.h"
@@ -2174,22 +2181,20 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       error = true;                          // End server
       break;
     case COM_BINLOG_DUMP_GTID:
-      thd->m_long_service = true;
-      thd_wait_begin(thd, 0);
       // TODO: access of protocol_classic should be removed
+      tp_change_active_thread(thd, command, false/*inc*/);
       error = com_binlog_dump_gtid(
           thd, (char *)thd->get_protocol_classic()->get_raw_packet(),
           thd->get_protocol_classic()->get_packet_length());
-      thd_wait_end(thd);
+      tp_change_active_thread(thd, command, true/*inc*/);
       break;
     case COM_BINLOG_DUMP:
-      thd->m_long_service = true;
-      thd_wait_begin(thd, 0);
       // TODO: access of protocol_classic should be removed
+      tp_change_active_thread(thd, command, false/*inc*/);
       error = com_binlog_dump(
           thd, (char *)thd->get_protocol_classic()->get_raw_packet(),
           thd->get_protocol_classic()->get_packet_length());
-      thd_wait_end(thd);
+      tp_change_active_thread(thd, command, true/*inc*/);
       break;
     case COM_REFRESH: {
       int not_used;
@@ -3299,10 +3304,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
         goto error;
       }
       /* PURGE MASTER LOGS TO 'file' */
-      thd->m_long_service = true;
-      thd_wait_begin(thd, 0);
+      tp_change_active_thread(thd, lex->sql_command, false/*inc*/);
       res = purge_source_logs_to_file(thd, lex->to_log);
-      thd_wait_end(thd);
+      tp_change_active_thread(thd, lex->sql_command, true/*inc*/);
+
       break;
     }
     case SQLCOM_PURGE_BEFORE: {
@@ -3328,7 +3333,11 @@ int mysql_execute_command(THD *thd, bool first_level) {
       it->quick_fix_field();
       time_t purge_time = static_cast<time_t>(it->val_int());
       if (thd->is_error()) goto error;
+
+      tp_change_active_thread(thd, lex->sql_command, false/*inc*/);
       res = purge_source_logs_before_date(thd, purge_time);
+      tp_change_active_thread(thd, lex->sql_command, true/*inc*/);
+
       break;
     }
     case SQLCOM_CHANGE_MASTER: {

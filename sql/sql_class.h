@@ -4673,9 +4673,6 @@ class THD : public MDL_context_owner,
   /* Do not set socket timeouts for wait_timeout (used with threadpool) */
   bool skip_wait_timeout{false};
 
-  /** True if it's a long-time connection such as binlog dump. */
-  bool m_long_service;
-
   int to_thread_pool;
   int to_per_thread;
 
