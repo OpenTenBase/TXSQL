@@ -46,6 +46,7 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <sql/mysqld.h>
 
 #include "dur_prop.h"  // durability_properties
 #include "lex_string.h"
@@ -916,6 +917,58 @@ struct PS_PARAM;
 
 /* Changes from txsql start. */
 struct THD_event_functions;
+struct lock_info_t {
+  timespec start_time;
+  ulonglong lock_time;
+
+  lock_info_t() {
+    lock_time = 0;
+    start_time.tv_sec = start_time.tv_nsec = 0;
+  }
+};
+
+struct lock_id_t {
+  char name[64];
+  ulong line;
+  ulong id;
+
+  lock_id_t(ulong lock_line, ulong lock_id) {
+    line = lock_line;
+    id = lock_id;
+  }
+
+  inline void set_filename(const char *lock_name) {
+    if (cdb_ignore_filename_length == 0) {
+      /* Get real file name. */
+      int pos = strlen(lock_name) - 1;
+      int count = 0;
+
+      for (; pos >= 0; pos--) {
+        if (lock_name[pos] == '/') count++;
+
+        if (count == 2) break;
+      }
+      /* Bytes before real name should be ignored. */
+      cdb_ignore_filename_length = pos + 1;
+    }
+    strcpy(name, lock_name + cdb_ignore_filename_length);
+  }
+
+  /**
+    It is not 100% accurate to use the line number and the lock id to uniquely
+    distinguish. When two files have the same line number and the same lock
+    are added, their lock time will be mixed together. Since the probability
+    of this situation is very low, for performance considerations, so do this.
+  */
+  inline bool operator==(const lock_id_t &rhs) const {
+    return (line == rhs.line && id == rhs.id);
+  }
+};
+
+struct hash_key {
+  inline size_t operator()(const lock_id_t &id) const { return (id.line); }
+};
+
 /* Changes from txsql end. */
 
 /**
@@ -3055,6 +3108,16 @@ class THD : public MDL_context_owner,
 
   ulonglong found_rows() const { return previous_found_rows; }
 
+  inline void set_start_time(clockid_t clk_id, timespec* start_time) {
+    clock_gettime(clk_id, start_time);
+  }
+
+  inline ulonglong diff_with_start_time(clockid_t clk_id, timespec* start_time) {
+    struct timespec end_time;
+    clock_gettime(clk_id, &end_time);
+    return(diff_timespec(&end_time, start_time));
+  }
+
   /*
     Call when it is clear that the query is ended and we have collected the
     right value for current_found_rows. Calling this method makes a snapshot of
@@ -4686,6 +4749,11 @@ class THD : public MDL_context_owner,
     return variables.net_wait_timeout;
   }
 
+  struct timespec start_io_time;
+  struct timespec start_cpu_time;
+
+  /* Thread LOCK stats */
+  std::unordered_map<lock_id_t, lock_info_t, hash_key> lock_status;
   /* Changes from txsql end. */
 };
 

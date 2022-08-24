@@ -393,6 +393,13 @@ int unregister_pfs_resource_group_service();
 */
 void shutdown_performance_schema();
 
+/* Changes from TXSQL start. */
+/*
+  Record pfs memory status to thread.
+*/
+extern void (*update_thread_stats_in_pfs_ptr)(int type, ulonglong size);
+extern void update_thread_stats_in_pfs(int type, ulonglong size);
+/* Changes from TXSQL end. */
 #endif /* HAVE_PSI_INTERFACE */
 
 #endif /* PFS_SERVER_H */

@@ -43,7 +43,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "storage/innobase/include/detail/ut/allocator_traits.h"
 #include "storage/innobase/include/detail/ut/helper.h"
 #include "storage/innobase/include/detail/ut/pfs.h"
-
+#include "sql/mysqld.h"
 namespace ut {
 namespace detail {
 
@@ -602,6 +602,7 @@ struct Aligned_alloc_pfs : public allocator_traits<true> {
     // through PFS (PSI) so do it.
     pfs_metadata::pfs_owning_thread_t owner;
     key = PSI_MEMORY_CALL(memory_alloc)(key, datalen, &owner);
+    update_thread_stats(INNODB_MEMORY_ALLOC, datalen);
     // To be able to do the opposite action of tracing when we are releasing the
     // memory, we need right about the same data we passed to the tracing
     // memory_alloc function. Let's encode this it into our allocator so we
@@ -632,6 +633,7 @@ struct Aligned_alloc_pfs : public allocator_traits<true> {
     // With the deduced PFS data, now trace the memory release action.
     PSI_MEMORY_CALL(memory_free)
     (key, datalen, owner);
+    update_thread_stats(INNODB_MEMORY_FREE, datalen);
 #endif
 
     // Here we make use of the offset which has been encoded by

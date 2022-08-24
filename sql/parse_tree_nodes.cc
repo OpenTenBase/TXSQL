@@ -2440,7 +2440,8 @@ Sql_cmd *PT_show_processlist::make_cmd(THD *thd) {
 
   m_sql_cmd.set_use_pfs(use_pfs);
   if (use_pfs) {
-    if (build_processlist_query(m_pos, thd, m_sql_cmd.verbose()))
+    if (build_processlist_query(m_pos, thd, m_sql_cmd.verbose(),
+                                m_sql_cmd.detail()))
       return nullptr;
   }
 

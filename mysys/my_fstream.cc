@@ -72,7 +72,11 @@ int64_t fseek_(FILE *stream, int64_t offset, int whence) {
 size_t my_fread(FILE *stream, uchar *Buffer, size_t Count, myf MyFlags) {
   size_t readbytes;
   DBUG_TRACE;
-  if ((readbytes = fread(Buffer, sizeof(char), Count, stream)) != Count) {
+
+  update_thread_stats_in_mysys(SYNC_READ_START, 0);
+  readbytes = fread(Buffer, sizeof(char), Count, stream);
+  update_thread_stats_in_mysys(SYNC_READ_END, readbytes);
+  if (readbytes != Count) {
     if (MyFlags & (MY_WME | MY_FAE | MY_FNABP)) {
       if (ferror(stream)) {
         MyOsError(my_errno(), EE_READ, MYF(0), my_filename(my_fileno(stream)));
@@ -108,9 +112,11 @@ size_t my_fwrite(FILE *stream, const uchar *Buffer, size_t Count, myf MyFlags) {
 
   seekptr = my_ftell(stream);
   for (;;) {
+    update_thread_stats_in_mysys(SYNC_WRITE_START, 0);
     errno = 0;
     size_t written =
         fwrite(pointer_cast<const char *>(Buffer), sizeof(char), Count, stream);
+    update_thread_stats_in_mysys(SYNC_WRITE_END, written);
     if (written != Count) {
       set_my_errno(errno);
 

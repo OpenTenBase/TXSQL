@@ -29,6 +29,7 @@ class THD;
 
 extern bool pfs_processlist_enabled;
 
-bool build_processlist_query(const POS &pos, THD *thd, bool verbose);
+bool build_processlist_query(const POS &pos, THD *thd,
+		                         bool verbose, bool detail);
 
 #endif /* SQL_SHOW_PROCESSLIST_H */

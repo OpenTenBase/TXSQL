@@ -858,6 +858,9 @@ MySQL clients support the protocol:
 #include "sql/ssl_acceptor_context_operator.h"
 #include "sql/ssl_acceptor_context_status.h"
 #include "sql/ssl_init_callback.h"
+
+#include "storage/innobase/include/srv0srv.h"
+
 #include "sql/sys_vars.h"         // fixup_enforce_gtid_consistency_...
 #include "sql/sys_vars_shared.h"  // intern_find_sys_var
 #include "sql/table_cache.h"      // table_cache_manager
@@ -1745,6 +1748,19 @@ char **orig_argv;
 /* TXSQL GLOBAL VARIABLES */
 /* Changes from txsql begin. */
 unsigned long cdb_kill_idle_trans_timeout = 0;
+
+bool cdb_enable_resource_statistics = true;
+bool cdb_enable_lock_statistics = false;
+ulong cdb_ignore_filename_length = 0;
+
+/**
+  Total memory used in server layer and innodb layer.
+*/
+typedef ib_counter_t<std::atomic<int64>, 128, default_indexer_t, int64>
+    atomic_int64_t;
+atomic_int64_t total_server_memory_used;
+atomic_int64_t total_innodb_memory_used;
+atomic_int64_t total_pfs_memory_used;
 /* Changes from txsql end. */
 
 namespace {
@@ -4481,6 +4497,143 @@ SHOW_VAR com_status_vars[] = {
                       com_stat[(uint)SQLCOM_SHOW_THREADPOOL_STAT]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
+
+/* Changes from TXSQL start. */
+/**
+  The thread statistics are summarized as follows:
+  1. sync/async io stats
+  2. redo/undo/binary log stats
+  3. cpu time stats
+*/
+inline void update_thread_stats(int type, ulonglong size) {
+  if (!cdb_enable_resource_statistics)
+    return;
+
+  THD *thd= current_thd;
+  if (thd)
+  {
+    switch (type) {
+      case SYNC_READ_START:
+        thd->status_var.sync_read_counts += 1;
+        thd->status_var.sync_read_running = true;;
+        thd->set_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        break;
+      case SYNC_READ_END:
+        thd->status_var.sync_read_time +=
+          thd->diff_with_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        thd->status_var.sync_read_running = false;
+        thd->status_var.sync_read_bytes += size;
+        break;
+      case SYNC_WRITE_START:
+        thd->status_var.sync_write_counts += 1;
+        thd->status_var.sync_write_running = true;;
+        thd->set_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        break;
+      case SYNC_WRITE_END:
+        thd->status_var.sync_write_time
+          += thd->diff_with_start_time(CLOCK_REALTIME, &thd->start_io_time);
+        thd->status_var.sync_write_running = false;
+        thd->status_var.sync_write_bytes += size;
+        break;
+      case ASYNC_READ:
+        thd->status_var.async_read_counts += 1;
+        thd->status_var.async_read_bytes += size;
+        break;
+      case ASYNC_WRITE:
+        thd->status_var.async_write_counts += 1;
+        thd->status_var.async_write_bytes += size;
+        break;
+      case REDO_TYPE:
+        thd->status_var.redo_log_size += size;
+        break;
+      case UNDO_TYPE:
+        thd->status_var.undo_log_size += size;
+        break;
+      case ROLLBACK_TYPE:
+        if (thd->status_var.undo_log_size >= size)
+          thd->status_var.undo_log_size -= size;
+        break;
+      case BINARY_TYPE:
+        thd->status_var.binary_log_size += size;
+        break;
+      case CPU_TIME_START:
+        thd->set_start_time(CLOCK_THREAD_CPUTIME_ID, &thd->start_cpu_time);
+        break;
+      case CPU_TIME_END:
+        thd->status_var.cpu_time +=
+          thd->diff_with_start_time(CLOCK_THREAD_CPUTIME_ID, &thd->start_cpu_time);
+        break;
+      case SERVER_MEMORY_ALLOC:
+        thd->status_var.server_memory_used += size;
+        total_server_memory_used.atomic_add(thd_get_thread_id(thd), size);
+        break;
+      case SERVER_MEMORY_FREE:
+        if (thd->status_var.server_memory_used >= size)
+          thd->status_var.server_memory_used -= size;
+        total_server_memory_used.atomic_sub(thd_get_thread_id(thd), size);
+        break;
+      case INNODB_MEMORY_ALLOC:
+        thd->status_var.innodb_memory_used += size;
+        total_innodb_memory_used.atomic_add(thd_get_thread_id(thd), size);
+        break;
+      case INNODB_MEMORY_FREE:
+        if (thd->status_var.innodb_memory_used >= size)
+          thd->status_var.innodb_memory_used -= size;
+        total_innodb_memory_used.atomic_sub(thd_get_thread_id(thd), size);
+        break;
+      case PFS_MEMORY_ALLOC:
+        thd->status_var.pfs_memory_used+= size;
+        total_pfs_memory_used.atomic_add(thd_get_thread_id(thd), size);
+        break;
+      case PFS_MEMORY_FREE:
+        if (thd->status_var.pfs_memory_used >= size)
+          thd->status_var.pfs_memory_used -= size;
+        total_pfs_memory_used.atomic_sub(thd_get_thread_id(thd), size);
+        break;
+    }
+  }
+  else
+  {
+    /* No specific thread. */
+    if (type == SERVER_MEMORY_ALLOC)
+      total_server_memory_used.atomic_add(size);
+    else if (type == SERVER_MEMORY_FREE)
+      total_server_memory_used.atomic_sub(size);
+    else if (type == INNODB_MEMORY_ALLOC)
+      total_innodb_memory_used.atomic_add(size);
+    else if (type == INNODB_MEMORY_FREE)
+      total_innodb_memory_used.atomic_sub(size);
+    else if (type == PFS_MEMORY_ALLOC)
+      total_pfs_memory_used.atomic_add(size);
+    else if (type == PFS_MEMORY_FREE)
+      total_pfs_memory_used.atomic_sub(size);
+  }
+}
+
+/* Update thread lock status*/
+void update_lock_stats(int type, const char *filename, ulong line, ulong id) {
+  THD *thd = current_thd;
+  if (thd == NULL || filename == NULL) return;
+
+  lock_id_t curr_lock(line, id);
+  if (thd->lock_status.find(curr_lock) == thd->lock_status.end()) {
+    if (type == LOCK_END) return;
+
+    curr_lock.set_filename(filename);
+    lock_info_t new_lock_info;
+    thd->lock_status.insert(
+        std::pair<lock_id_t, lock_info_t>(curr_lock, new_lock_info));
+  }
+  lock_info_t &lock_info = thd->lock_status[curr_lock];
+
+  if (type == LOCK_START) {
+    thd->set_start_time(CLOCK_REALTIME, &lock_info.start_time);
+  } else if (type == LOCK_END) {
+    lock_info.lock_time +=
+        thd->diff_with_start_time(CLOCK_REALTIME, &lock_info.start_time);
+  }
+}
+/* Changes from TXSQL end. */
 
 LEX_CSTRING sql_statement_names[(uint)SQLCOM_END + 1];
 
@@ -7246,6 +7399,8 @@ int mysqld_main(int argc, char **argv)
     to be able to read defaults files and parse options.
   */
   my_progname = argv[0];
+  update_thread_stats_in_mysys_ptr = update_thread_stats;
+  update_thread_stats_in_pfs_ptr = update_thread_stats;
   calculate_mysql_home_from_my_progname();
 
 #ifndef _WIN32
@@ -9508,6 +9663,27 @@ static int show_table_definitions(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+longlong show_total_server_memory_used(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *(longlong*)buff = total_server_memory_used.atomic_total();
+  return 0;
+}
+
+longlong show_total_innodb_memory_used(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type= SHOW_LONGLONG;
+  var->value= buff;
+  *(longlong*)buff = total_innodb_memory_used.atomic_total();
+  return 0;
+}
+
+longlong show_total_pfs_memory_used(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type= SHOW_LONGLONG;
+  var->value= buff;
+  *(longlong*)buff = total_pfs_memory_used.atomic_total();
+  return 0;
+}
+
 /*
    Functions relying on SSL
    Note: In the show_ssl_* functions, we need to check if we have a
@@ -9977,6 +10153,14 @@ SHOW_VAR status_vars[] = {
      (char *)&Ssl_mysql_main_status::show_ssl_ctx_sess_timeout, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Tls_library_version", (char *)&show_tls_library_version, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+
+    /* Memory used */
+    {"Total_server_memory_used", (char *)&show_total_server_memory_used,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Total_innodb_memory_used", (char *)&show_total_innodb_memory_used,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Total_pfs_memory_used", (char *)&show_total_pfs_memory_used, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 

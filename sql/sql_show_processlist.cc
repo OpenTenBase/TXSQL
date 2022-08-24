@@ -114,7 +114,7 @@ static bool add_expression(const POS &pos, THD *thd,
   return false;
 }
 
-bool build_processlist_query(const POS &pos, THD *thd, bool verbose) {
+bool build_processlist_query(const POS &pos, THD *thd, bool verbose, bool detail) {
   LEX_STRING info_len;
   /*
     Default Info field length is 100. Verbose field length is limited to the

@@ -854,5 +854,20 @@ void persisted_variables_refresh_keyring_support();
 /* Changes from txsql begin. */
 extern unsigned long cdb_kill_idle_trans_timeout;
 extern bool cdb_skip_event_scheduler;
+
+extern bool cdb_enable_resource_statistics;
+extern bool cdb_enable_lock_statistics;
+extern ulong cdb_ignore_filename_length;
+
+/**
+  The thread statistics are summarized as follows:
+  1. sync/async io stats
+  2. redo/undo/binary log stats
+  3. cpu time stats
+*/
+extern void update_thread_stats(int type, ulonglong size = 0);
+
+/* Update thread lock status*/
+extern void update_lock_stats(int type, const char *name, ulong line, ulong id);
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

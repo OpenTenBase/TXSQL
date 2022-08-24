@@ -7834,4 +7834,23 @@ static Sys_var_ulong Sys_cdb_kill_idle_trans_timeout(
     GLOBAL_VAR(cdb_kill_idle_trans_timeout), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_cdb_skip_event_scheduler(
+    "cdb_skip_event_scheduler",
+    "Enable the event scheduler."
+    "Possible values are ON,OFF",
+    GLOBAL_VAR(cdb_skip_event_scheduler), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(event_scheduler_update));
+
+static Sys_var_bool Sys_cdb_enable_resource_statistics(
+    "cdb_enable_resource_statistics", "enable_resource_statistics.",
+    GLOBAL_VAR(cdb_enable_resource_statistics), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
+
+static Sys_var_bool Sys_cdb_enable_lock_statistics(
+    "cdb_enable_lock_statistics", "Enable lock statistics",
+    GLOBAL_VAR(cdb_enable_lock_statistics), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
 /* Changes from txsql end. */

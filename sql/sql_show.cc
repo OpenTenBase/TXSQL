@@ -146,6 +146,9 @@ bool iterate_all_dynamic_privileges(THD *thd,
 using std::max;
 using std::min;
 
+#define BUF_SIZE 512
+#define LOCK_SIZE 10240
+
 /**
   @class CSET_STRING
   @brief Character set armed LEX_CSTRING
@@ -588,7 +591,7 @@ bool Sql_cmd_show_processlist::execute_inner(THD *thd) {
                           thd->security_context()->check_access(PROCESS_ACL)
                               ? NullS
                               : thd->security_context()->priv_user().str,
-                          m_verbose, true);
+                          m_verbose, true, m_detail);
     return false;
   }
 }
@@ -751,6 +754,23 @@ bool Sql_cmd_show_table_base::check_parameters(THD *thd) {
   return false;
 }
 
+/**
+ Set status variables except memory_used.
+ memory_used needs to be persistent.
+
+ @param current         status_var to set
+ @param old             status_var source
+
+*/
+
+void set_status_vars(System_status_var &current, System_status_var &old) {
+  old.server_memory_used = current.server_memory_used;
+  old.innodb_memory_used = current.innodb_memory_used;
+  old.pfs_memory_used = current.pfs_memory_used;
+
+  current = old;
+}
+
 bool Sql_cmd_show_status::execute(THD *thd) {
   System_status_var old_status_var = thd->status_var;
   thd->initial_status_var = &old_status_var;
@@ -763,7 +783,7 @@ bool Sql_cmd_show_status::execute(THD *thd) {
   // Restore status variables, as we don't want 'show status' to cause changes
   mysql_mutex_lock(&LOCK_status);
   add_diff_to_status(&global_status_var, &thd->status_var, &old_status_var);
-  thd->status_var = old_status_var;
+	set_status_vars(thd->status_var, old_status_var);
   thd->initial_status_var = nullptr;
   mysql_mutex_unlock(&LOCK_status);
 
@@ -2682,12 +2702,31 @@ class thread_info {
         start_time_in_secs(0),
         command(0),
         user(nullptr),
-        host(nullptr),
-        db(nullptr),
-        proc_info(nullptr),
+        host(NULL),
+        db(NULL),
+        proc_info(NULL),
         state_info(nullptr),
         to_per_thread(0),
-        to_thread_pool(0) {}
+        to_thread_pool(0),
+        sync_read_counts(0),
+        sync_read_bytes(0),
+        sync_read_time(0),
+        sync_read_running(false),
+        sync_write_counts(0),
+        sync_write_bytes(0),
+        sync_write_time(0),
+        sync_write_running(false),
+        async_read_counts(0),
+        async_read_bytes(0),
+        async_write_counts(0),
+        async_write_bytes(0),
+        redo_log_size(0),
+        undo_log_size(0),
+        binary_log_size(0),
+        cpu_time(0),
+        server_memory_used(0),
+        innodb_memory_used(0),
+        pfs_memory_used(0) {}
 
   my_thread_id thread_id;
   time_t start_time_in_secs;
@@ -2696,6 +2735,26 @@ class thread_info {
   CSET_STRING query_string;
   int to_per_thread;
   int to_thread_pool;
+  ulonglong sync_read_counts;
+  ulonglong sync_read_bytes;
+  ulonglong sync_read_time;
+  bool sync_read_running;
+  ulonglong sync_write_counts;
+  ulonglong sync_write_bytes;
+  ulonglong sync_write_time;
+  bool sync_write_running;
+  ulonglong async_read_counts;
+  ulonglong async_read_bytes;
+  ulonglong async_write_counts;
+  ulonglong async_write_bytes;
+  ulonglong redo_log_size;
+  ulonglong undo_log_size;
+  ulonglong binary_log_size;
+  ulonglong cpu_time;
+  ulonglong server_memory_used;
+  ulonglong innodb_memory_used;
+  ulonglong pfs_memory_used;
+  std::string lock_status;
 };
 
 // For sorting by thread_id.
@@ -2720,6 +2779,18 @@ static const char *thread_state_info(THD *invoking_thd, THD *inspected_thd) {
     if (inspected_thd->current_cond.load()) return "Waiting on cond";
     return nullptr;
   }
+}
+
+struct lock_item_t {
+  ulonglong time;
+  ulong line;
+  std::string name;
+  lock_item_t(ulonglong lock_time, ulong lock_line, std::string lock_name)
+      : time(lock_time), line(lock_line), name(lock_name) {}
+};
+
+bool cmp(const lock_item_t &a, const lock_item_t &b) {
+  return (a.time > b.time);
 }
 
 /**
@@ -2771,6 +2842,52 @@ class List_process_list : public Do_THD_Impl {
       }
 
       thd_info = new (m_client_thd->mem_root) thread_info;
+      /* IO stats */
+      thd_info->sync_read_counts = inspect_thd->status_var.sync_read_counts;
+      thd_info->sync_read_bytes = inspect_thd->status_var.sync_read_bytes;
+      thd_info->sync_read_time = inspect_thd->status_var.sync_read_time;
+      thd_info->sync_read_running = inspect_thd->status_var.sync_read_running;
+      thd_info->sync_write_counts = inspect_thd->status_var.sync_write_counts;
+      thd_info->sync_write_bytes = inspect_thd->status_var.sync_write_bytes;
+      thd_info->sync_write_time = inspect_thd->status_var.sync_write_time;
+      thd_info->sync_write_running = inspect_thd->status_var.sync_write_running;
+      thd_info->async_read_counts = inspect_thd->status_var.async_read_counts;
+      thd_info->async_read_bytes = inspect_thd->status_var.async_read_bytes;
+      thd_info->async_write_counts = inspect_thd->status_var.async_write_counts;
+      thd_info->async_write_bytes = inspect_thd->status_var.async_write_bytes;
+
+      /* LOG stats */
+      thd_info->redo_log_size = inspect_thd->status_var.redo_log_size;
+      thd_info->undo_log_size = inspect_thd->status_var.undo_log_size;
+      thd_info->binary_log_size = inspect_thd->status_var.binary_log_size;
+
+      /* CPU stats */
+      thd_info->cpu_time = inspect_thd->status_var.cpu_time;
+
+      /* MEMORY stats */
+      thd_info->server_memory_used = inspect_thd->status_var.server_memory_used;
+      thd_info->innodb_memory_used = inspect_thd->status_var.innodb_memory_used;
+      thd_info->pfs_memory_used = inspect_thd->status_var.pfs_memory_used;
+
+      /* LOCK stats */
+      std::unordered_map<lock_id_t, lock_info_t, hash_key>::iterator it1;
+      std::vector<lock_item_t> sort_lock;
+      for (it1 = inspect_thd->lock_status.begin();
+           it1 != inspect_thd->lock_status.end(); it1++) {
+        lock_item_t item(it1->second.lock_time / 1000000, it1->first.line,
+                         it1->first.name);
+        sort_lock.push_back(item);
+      }
+      sort(sort_lock.begin(), sort_lock.end(), cmp);
+
+      char buf[BUF_SIZE] = "";
+      std::vector<lock_item_t>::iterator it2;
+      for (ulong i = 0; i < sort_lock.size(); i++) {
+        snprintf(buf, BUF_SIZE, "%s:%lu, lock_time=%llu\n",
+                 sort_lock[i].name.c_str(), sort_lock[i].line,
+                 sort_lock[i].time);
+        thd_info->lock_status += buf;
+      }
 
       /* ID */
       thd_info->thread_id = inspect_thd->thread_id();
@@ -2889,13 +3006,14 @@ class List_process_list : public Do_THD_Impl {
 */
 
 void mysqld_list_processes(THD *thd, const char *user, bool verbose,
-                           bool has_cursor) {
+                           bool has_cursor, bool detail) {
   Item *field;
   mem_root_deque<Item *> field_list(thd->mem_root);
   Thread_info_array thread_infos(thd->mem_root);
   size_t max_query_length =
       (verbose ? thd->variables.max_allowed_packet : PROCESS_LIST_WIDTH);
   Protocol *protocol = thd->get_protocol();
+  char buf[BUF_SIZE] = "";
   DBUG_TRACE;
 
   field_list.push_back(
@@ -2918,6 +3036,35 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     field_list.push_back(field = new Item_return_int("Moved_to_thread_pool", 10,
                                                      MYSQL_TYPE_LONG));
     field->unsigned_flag = false;
+  } else if (detail) {
+    field_list.push_back(field = new Item_empty_string("Sync_read", BUF_SIZE));
+    field_list.push_back(field = new Item_empty_string("Sync_write", BUF_SIZE));
+    field_list.push_back(field = new Item_empty_string("Async_read", BUF_SIZE));
+    field_list.push_back(field =
+                             new Item_empty_string("Async_write", BUF_SIZE));
+    field_list.push_back(
+        field = new Item_return_int(
+            "Redo_log_size", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG));
+    field_list.push_back(
+        field = new Item_return_int(
+            "Undo_log_size", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field = new Item_return_int(
+                             "Binary_log_size", MY_INT64_NUM_DECIMAL_DIGITS,
+                             MYSQL_TYPE_LONGLONG));
+    field_list.push_back(
+        field = new Item_return_int("Cpu_time(ms)", MY_INT64_NUM_DECIMAL_DIGITS,
+                                    MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field = new Item_return_int(
+                             "Server_memory_used", MY_INT64_NUM_DECIMAL_DIGITS,
+                             MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field = new Item_return_int(
+                             "Innodb_memory_used", MY_INT64_NUM_DECIMAL_DIGITS,
+                             MYSQL_TYPE_LONGLONG));
+    field_list.push_back(field = new Item_return_int(
+                             "Pfs_memory_used", MY_INT64_NUM_DECIMAL_DIGITS,
+                             MYSQL_TYPE_LONGLONG));
+    field_list.push_back(
+        field = new Item_empty_string("Lock_status(ms)", LOCK_SIZE));
   }
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
@@ -2956,7 +3103,41 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     if (verbose) {
       protocol->store(thd_info->to_per_thread);
       protocol->store(thd_info->to_thread_pool);
+    } else if (detail) {
+      snprintf(buf, BUF_SIZE,
+               "Sync_read_counts=%llu, Sync_read_bytes=%llu, "
+               "Sync_read_time(ms)=%llu, Sync_read_running=%s",
+               thd_info->sync_read_counts, thd_info->sync_read_bytes,
+               thd_info->sync_read_time / 1000000,
+               thd_info->sync_read_running ? "YES" : "NO");
+      protocol->store(buf, system_charset_info);
+
+      snprintf(buf, BUF_SIZE,
+               "Sync_write_counts=%llu, Sync_write_bytes=%llu, "
+               "Sync_write_time(ms)=%llu, Sync_write_running=%s",
+               thd_info->sync_write_counts, thd_info->sync_write_bytes,
+               thd_info->sync_write_time / 1000000,
+               thd_info->sync_write_running ? "YES" : "NO");
+      protocol->store(buf, system_charset_info);
+
+      snprintf(buf, BUF_SIZE, "Async_read_counts=%llu, Async_read_bytes=%llu",
+               thd_info->async_read_counts, thd_info->async_read_bytes);
+      protocol->store(buf, system_charset_info);
+
+      snprintf(buf, BUF_SIZE, "Async_write_counts=%llu, Async_write_bytes=%llu",
+               thd_info->async_write_counts, thd_info->async_write_bytes);
+      protocol->store(buf, system_charset_info);
+
+      protocol->store(thd_info->redo_log_size);
+      protocol->store(thd_info->undo_log_size);
+      protocol->store(thd_info->binary_log_size);
+      protocol->store(thd_info->cpu_time / 1000000);
+      protocol->store(thd_info->server_memory_used);
+      protocol->store(thd_info->innodb_memory_used);
+      protocol->store(thd_info->pfs_memory_used);
+      protocol->store(thd_info->lock_status.c_str(), system_charset_info);
     }
+
     if (protocol->end_row()) break; /* purecov: inspected */
   }
   /*
