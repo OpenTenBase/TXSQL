@@ -4491,4 +4491,60 @@ a + (SELECT SUM(a) FROM t1)
 14
 14
 DROP TABLE t1;
+#
+# Rows_examined
+#
+SET @old_slow_query_log= @@global.slow_query_log;
+SET @old_log_output= @@global.log_output;
+SET @old_long_query_time= @@long_query_time;
+SET GLOBAL log_output= "TABLE";
+SET GLOBAL slow_query_log= ON;
+SET SESSION long_query_time= 0;
+CREATE TABLE t17059925 (a INT, KEY a(a));
+CREATE TABLE t2 (b INT);
+CREATE TABLE t3 (c INT);
+INSERT INTO t17059925 VALUES (1);
+INSERT INTO t2 VALUES (4), (5), (6);
+INSERT INTO t3 VALUES (7), (8), (9);
+CREATE TABLE t1 (b INT);
+INSERT INTO t1 VALUES (4), (5), (6);
+TRUNCATE table mysql.slow_log;
+SELECT * FROM t1;
+b
+4
+5
+6
+SELECT sleep(0.5) FROM t17059925 UNION SELECT * FROM t17059925 WHERE a= 10 AND a= 20 UNION SELECT * FROM t2;
+sleep(0.5)
+0
+4
+5
+6
+SELECT sql_text, rows_examined FROM mysql.slow_log;
+sql_text	rows_examined
+SELECT * FROM t1	3
+SELECT sleep(0.5) FROM t17059925 UNION SELECT * FROM t17059925 WHERE a= 10 AND a= 20 UNION SELECT * FROM t2	8
+TRUNCATE table mysql.slow_log	0
+SET DEBUG="+d,examined_rows_count_delay";
+TRUNCATE table mysql.slow_log;
+SELECT * FROM t1;
+b
+4
+5
+6
+SELECT sleep(0.5) FROM t17059925 UNION SELECT * FROM t17059925 WHERE a= 10 AND a= 20 UNION SELECT * FROM t2;
+sleep(0.5)
+0
+4
+5
+6
+SELECT sql_text, rows_examined FROM mysql.slow_log;
+sql_text	rows_examined
+SELECT * FROM t1	3
+SELECT sleep(0.5) FROM t17059925 UNION SELECT * FROM t17059925 WHERE a= 10 AND a= 20 UNION SELECT * FROM t2	8
+TRUNCATE table mysql.slow_log	0
+SET @@long_query_time= @old_long_query_time;
+SET @@global.log_output= @old_log_output;
+SET @@global.slow_query_log= @old_slow_query_log;
+DROP TABLE t1,t2,t3,t17059925;
 # --include set_px_to_saved.inc

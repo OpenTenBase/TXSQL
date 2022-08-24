@@ -99,6 +99,16 @@ static void *execute_task_in_worker(void *arg)
 
 static bool check_plan_equivalence(THD *thd, AccessPath *plan, JOIN *join);
 
+static void count_rows_examined(THD *thd) {
+  if (PX_ROLE_COORDINATOR(thd)) {
+    assert(thd->worker_pool);
+    for (int i = 0; i < thd->worker_pool->num_workers; ++i) {
+      THD *worker_thd = thd->worker_pool->thread_args[i].worker_thd;
+      thd->inc_examined_row_count(worker_thd->get_examined_row_count());
+    }
+  }
+}
+
 #ifndef DBUG_OFF
 static void debug_print_iterator(const char *prefix, RowIterator *iterator,
                                  Dfo_mgr *dfo_mgr = nullptr, int indent = 0);
@@ -509,6 +519,7 @@ bool px_run_task(THD *thd, RowIterator *sub_iterator) {
 
   Query_expression *unit = thd->lex->unit;
   auto reset_join_counter = create_scope_guard([thd, unit] {
+    DBUG_EXECUTE_IF("examined_rows_count_delay", { sleep(5); });
     for (Query_block *sl = unit->first_query_block(); sl; sl = sl->next_query_block()) {
       JOIN *join = sl->join;
       thd->inc_examined_row_count(join->examined_rows);
@@ -624,15 +635,7 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
       if (unit->fake_query_block != nullptr) {
         thd->inc_examined_row_count(unit->fake_query_block->join->examined_rows);
       }
-      if (PX_ROLE_COORDINATOR(thd)) {
-        assert(thd->worker_pool);
-        for (int i = 0; i < thd->worker_pool->num_workers; ++i) {
-          THD *worker_thd = thd->worker_pool->thread_args[i].worker_thd;
-          thd->inc_examined_row_count(worker_thd->get_examined_row_count());
-        }
-      }
     });
-
     PFSBatchMode pfs_batch_mode(sub_iterator);
 
     for (;;) {
@@ -658,9 +661,6 @@ bool px_run_root(THD *thd, RowIterator *sub_iterator) {
       if (query_result->send_data(thd, *fields))
         return true;
     }
-
-    // NOTE: join_cleanup must be done before we send EOF, so that we get the
-    // row counts right.
   }
 
   thd->current_found_rows = *send_records_ptr;
@@ -1048,6 +1048,12 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
       if (parent->is_root_dfo()) run_root_dfo_task();
 
       if (wait_workers_finish_task(worker_pool, &child_desc)) return true;
+
+      // Count Rows_examined for coordinator after all workers have finished
+      // tasks.
+      if (parent->is_root_dfo()) {
+        count_rows_examined(thd());
+      }
 
       DEBUG_SYNC_C("schedule_one_loop_kill");
       DBUG_EXECUTE_IF("schedule_one_loop_sleep", sleep(2););
