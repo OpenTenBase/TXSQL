@@ -1997,6 +1997,14 @@ static inline dberr_t innobase_srv_conc_enter_innodb(row_prebuilt_t *prebuilt) {
   dberr_t err = DB_SUCCESS;
   trx_t *trx = prebuilt->trx;
 
+#if defined(HAVE_PX)
+  /* The parallel query thread has its own resource limit policy and does
+  not participate in the innodb resource limit. */
+  if (thd_is_parallel_user(trx->mysql_thd)) {
+    return DB_SUCCESS;
+  }
+#endif /* defined(HAVE_PX) */
+
   if (srv_thread_concurrency) {
     if (trx->n_tickets_to_enter_innodb > 0) {
       /* If trx has 'free tickets' to enter the engine left,
@@ -2032,6 +2040,14 @@ static inline void innobase_srv_conc_exit_innodb(row_prebuilt_t *prebuilt) {
   }
 
   trx_t *trx = prebuilt->trx;
+#if defined(HAVE_PX)
+  /* The parallel query thread has its own resource limit policy and does
+  not participate in the innodb resource limit. */
+  if (thd_is_parallel_user(trx->mysql_thd)) {
+    return;
+  }
+#endif /* defined(HAVE_PX) */
+
 #ifdef UNIV_DEBUG
   btrsea_sync_check check(trx->has_search_latch);
 
@@ -2049,6 +2065,14 @@ static inline void innobase_srv_conc_exit_innodb(row_prebuilt_t *prebuilt) {
 static inline void innobase_srv_conc_force_exit_innodb(
     trx_t *trx) /*!< in: transaction handle */
 {
+#if defined(HAVE_PX)
+  /* The parallel query thread has its own resource limit policy and does
+  not participate in the innodb resource limit. */
+  if (thd_is_parallel_user(trx->mysql_thd)) {
+    return;
+  }
+#endif /* defined(HAVE_PX) */
+
 #ifdef UNIV_DEBUG
   btrsea_sync_check check(trx->has_search_latch);
 
