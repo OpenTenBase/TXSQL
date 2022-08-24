@@ -4661,6 +4661,9 @@ class THD : public MDL_context_owner,
   }
 #endif
   /* Changes from txsql start. */
+ private:
+  bool m_is_local_or_admin_conn;
+
  public:
   /** Thread scheduler callbacks for this connection per-thread and
   one-thread scheduler callbacks are no-ops, so nullptr works for them,

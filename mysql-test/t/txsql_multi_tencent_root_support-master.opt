@@ -1,0 +1,4 @@
+--tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf
+--admin-port=13009
+--admin-address=127.0.0.1
+--cdb_admin_port_allow_for_normal_user=off

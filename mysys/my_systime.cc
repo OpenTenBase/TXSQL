@@ -147,3 +147,30 @@ void get_date(char *to, int flag, time_t date) {
                        start_time->tm_min, start_time->tm_sec);
   }
 }
+
+void set_timespec_nsec_coarse(struct timespec *abstime, Timeout_type nsec) {
+  assert(nsec != std::numeric_limits<Timeout_type>::max());
+  if (nsec == TIMEOUT_INF) {
+    *abstime = TIMESPEC_POSINF;
+    return;
+  }
+  unsigned long long int now = my_getsystime_coarse() + (nsec / 100);
+  unsigned long long int tv_sec = now / 10000000ULL;
+#if SIZEOF_TIME_T < SIZEOF_LONG_LONG
+  /* Ensure that the number of seconds don't overflow. */
+  tv_sec = std::min(tv_sec, static_cast<unsigned long long int>(
+                                std::numeric_limits<time_t>::max()));
+#endif
+  abstime->tv_sec = static_cast<time_t>(tv_sec);
+  abstime->tv_nsec = (now % 10000000ULL) * 100 + (nsec % 100);
+}
+
+void set_timespec_coarse(struct timespec *abstime, Timeout_type sec) {
+  assert(sec != std::numeric_limits<Timeout_type>::max());
+  if (sec == TIMEOUT_INF) {
+    *abstime = TIMESPEC_POSINF;
+    return;
+  }
+
+  set_timespec_nsec_coarse(abstime, sec * 1000000000ULL);
+}

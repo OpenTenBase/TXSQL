@@ -97,9 +97,9 @@ struct st_my_thread_var {
   struct CODE_STATE *dbug;
 };
 
-static struct st_my_thread_var *mysys_thread_var() { return THR_mysys; }
+struct st_my_thread_var *mysys_thread_var() { return THR_mysys; }
 
-static int set_mysys_thread_var(struct st_my_thread_var *mysys_var) {
+int set_mysys_thread_var(struct st_my_thread_var *mysys_var) {
   THR_mysys = mysys_var;
   return 0;
 }

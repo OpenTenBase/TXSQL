@@ -9,17 +9,17 @@ CALL mtr.add_suppression("Failed to set up SSL because of the following SSL libr
 # Check that if the admin interface is bound to an IPv4-mapped IPv6-address,
 # the server accepts client connections from both IPv4 and IPv6 worlds.
 
---let $restart_parameters=restart: --skip-name-resolve --admin-address=::ffff:127.0.0.1 --admin_port=$MASTER_ADMINPORT
+--let $restart_parameters=restart: --skip-name-resolve --admin-address=::ffff:127.0.0.1 --admin_port=$MASTER_ADMINPORT --tencent-root-cnf=tmy.conf
 --replace_result $MASTER_ADMINPORT ADMIN_PORT
 --source include/restart_mysqld.inc
 
 --source include/add_extra_root_users.inc
 
 --echo # Checking ::ffff:127.0.0.1 ...
---exec $MYSQLADMIN --no-defaults -h ::ffff:127.0.0.1 -P $MASTER_ADMINPORT -u root ping
+--exec $MYSQLADMIN --no-defaults -h ::ffff:127.0.0.1 -P $MASTER_ADMINPORT -u tencentroot ping
 
 --echo # Checking 127.0.0.1 ...
---exec $MYSQLADMIN --no-defaults -h 127.0.0.1 -P $MASTER_ADMINPORT -u root ping
+--exec $MYSQLADMIN --no-defaults -h 127.0.0.1 -P $MASTER_ADMINPORT -u tencentroot ping
 
 --source include/remove_extra_root_users.inc
 

@@ -1,4 +1,5 @@
 #
+--source include/not_threadpool.inc
 --source include/resource_group_init.inc
 
 --echo #

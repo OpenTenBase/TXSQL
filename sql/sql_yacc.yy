@@ -15574,6 +15574,7 @@ ident_keywords_unambiguous:
         | TEMPTABLE_SYM
         | TEXT_SYM
         | THAN_SYM
+        | THREADPOOL_SYM
         | THREAD_PRIORITY_SYM
         | TIES_SYM
         | TIMESTAMP_ADD

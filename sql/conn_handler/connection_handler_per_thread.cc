@@ -48,6 +48,7 @@
 #include "mysql_com.h"
 #include "mysqld_error.h"  // ER_*
 #include "pfs_thread_provider.h"
+#include "sql/auth/sql_authentication.h"
 #include "sql/conn_handler/channel_info.h"  // Channel_info
 #include "sql/conn_handler/connection_handler_impl.h"
 #include "sql/conn_handler/connection_handler_manager.h"  // Connection_handler_manager
@@ -139,9 +140,9 @@ void Per_thread_connection_handler::destroy() {
 /**
   Block the current pthread for reuse by new connections.
 
-  @retval NULL   Too many pthreads blocked already or shutdown in progress.
-  @retval !NULL  Pointer to Channel_info object representing the new connection
-                 to be served by this pthread.
+  @retval nullptr   Too many pthreads blocked already or shutdown in progress.
+  @retval !nullptr  Pointer to Channel_info object representing the new
+  connection to be served by this pthread.
 */
 
 Channel_info *Per_thread_connection_handler::block_until_new_connection() {
@@ -190,8 +191,8 @@ Channel_info *Per_thread_connection_handler::block_until_new_connection() {
   @param channel_info  Channel_info object representing the new connection.
                        Will be destroyed by this function.
 
-  @retval NULL   Initialization failed.
-  @retval !NULL  Pointer to new THD object for the new connection.
+  @retval nullptr   Initialization failed.
+  @retval !nullptr  Pointer to new THD object for the new connection.
 */
 
 static THD *init_new_thd(Channel_info *channel_info) {
@@ -285,6 +286,7 @@ static void *handle_connection(void *arg) {
       /* Prepare for do_command. */
       thd_set_thread_stack(thd, (char *)&thd);
       thd->store_globals();
+      thd->skip_wait_timeout = false;
       MYSQL_SOCKET_SET_STATE(thd->net.vio->mysql_socket,
                              PSI_SOCKET_STATE_ACTIVE);
 
@@ -400,6 +402,7 @@ static void *handle_connection(void *arg) {
 
     channel_info = Per_thread_connection_handler::block_until_new_connection();
     if (channel_info == nullptr) break;
+
     pthread_reused = true;
     if (connection_events_loop_aborted()) {
       // Close the channel and exit as server is undergoing shutdown.
@@ -517,12 +520,12 @@ bool Per_thread_connection_handler::migrate(THD *thd) {
   DBUG_TRACE;
 
   MYSQL_SOCKET connect_sock = MYSQL_INVALID_SOCKET;
-  Channel_info *channel_info =
-      new (std::nothrow) Channel_info_local_socket(connect_sock);
-  if (channel_info == NULL) return true;
+  Channel_info *channel_info = new (std::nothrow)
+      Channel_info_tcpip_socket(connect_sock, thd->is_admin_connection());
+  if (channel_info == nullptr) return true;
 
-  thd->scheduler = NULL;
-  thd->event_scheduler.data = NULL;
+  thd->scheduler = nullptr;
+  thd->event_scheduler.data = nullptr;
 
   channel_info->from_thread_pool = true;
   channel_info->thd = thd;

@@ -650,7 +650,7 @@ THD::THD(bool enable_plugins)
       m_current_stage_key(0),
       current_mutex(nullptr),
       current_cond(nullptr),
-      m_is_admin_conn(false),
+      m_is_admin_conn(false), 
       in_sub_stmt(0),
       fill_status_recursion_level(0),
       fill_variables_recursion_level(0),
@@ -717,7 +717,8 @@ THD::THD(bool enable_plugins)
       m_is_plugin_fake_ddl(false),
       m_inside_system_variable_global_update(false),
       bind_parameter_values(nullptr),
-      bind_parameter_values_count(0) {
+      bind_parameter_values_count(0),
+      m_is_local_or_admin_conn(false) {
   to_thread_pool = 0;
   to_per_thread = 0;
   m_long_service = false;
