@@ -132,6 +132,7 @@ void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
 void set_semisync_ack_error(void *thd);
 bool thd_is_parallel_worker(void * thd);
+bool thd_is_parallel_user(void * thd);
 void *thd_get_coordinator_trx(void * thd);
 #include <mysql/components/services/bits/plugin_audit_connection_types.h>
 typedef enum {

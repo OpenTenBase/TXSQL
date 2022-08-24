@@ -53,6 +53,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0mysql.h"
 #include "srv0srv.h"
 #include "trx0trx.h"
+#if defined(HAVE_PX)
+#include "include/mysql/plugin.h"
+#endif /* defined(HAVE_PX) */
 
 /** Number of times a thread is allowed to enter InnoDB within the same
 SQL query after it has once got the ticket. */
@@ -114,6 +117,12 @@ static dberr_t srv_conc_enter_innodb_with_atomics(
 {
   ulint n_sleeps = 0;
   bool notified_mysql = false;
+
+#if defined(HAVE_PX)
+  /* The parallel query thread has its own resource limit policy and does
+  not participate in the innodb resource limit. */
+  ut_a(!thd_is_parallel_user(trx->mysql_thd));
+#endif /* defined(HAVE_PX) */
 
   ut_a(!trx->declared_to_be_inside_innodb);
 
@@ -209,6 +218,12 @@ static dberr_t srv_conc_enter_innodb_with_atomics(
 static void srv_conc_exit_innodb_with_atomics(
     trx_t *trx) /*!< in/out: transaction */
 {
+#if defined(HAVE_PX)
+  /* The parallel query thread has its own resource limit policy and does
+  not participate in the innodb resource limit. */
+  ut_a(!thd_is_parallel_user(trx->mysql_thd));
+#endif /* defined(HAVE_PX) */
+
   trx->n_tickets_to_enter_innodb = 0;
   trx->declared_to_be_inside_innodb = false;
   srv_conc.n_active.fetch_sub(1, std::memory_order_release);
@@ -233,6 +248,12 @@ dberr_t srv_conc_enter_innodb(row_prebuilt_t *prebuilt) {
 void srv_conc_force_enter_innodb(trx_t *trx) /*!< in: transaction object
                                              associated with the thread */
 {
+#if defined(HAVE_PX)
+  /* The parallel query thread has its own resource limit policy and does
+  not participate in the innodb resource limit. */
+  ut_a(!thd_is_parallel_user(trx->mysql_thd));
+#endif /* defined(HAVE_PX) */
+
 #ifdef UNIV_DEBUG
   {
     btrsea_sync_check check(trx->has_search_latch);

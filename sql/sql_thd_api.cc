@@ -740,6 +740,13 @@ bool thd_is_parallel_worker(MYSQL_THD thd) {
   return false;
 }
 
+bool thd_is_parallel_user(MYSQL_THD thd) {
+  if (thd && (thd->use_px || thd_is_parallel_worker(thd))) {
+    return true;
+  }
+  return false;
+}
+
 void *thd_get_coordinator_trx(MYSQL_THD thd) {
   if (thd && PX_ROLE_WORKER(thd)) {
     assert(thd->px_trx);

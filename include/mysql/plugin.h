@@ -909,6 +909,8 @@ void set_semisync_ack_error(MYSQL_THD thd);
 
 bool thd_is_parallel_worker(MYSQL_THD thd);
 
+bool thd_is_parallel_user(MYSQL_THD thd);
+
 void *thd_get_coordinator_trx(MYSQL_THD thd);
 
 #ifdef __cplusplus
