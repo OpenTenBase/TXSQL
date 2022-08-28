@@ -2541,7 +2541,8 @@ inline Log_event::enum_skip_reason Log_event::continue_group(
          assigning OVER_MAX_DBS_IN_EVENT_MTS to mts_accessed_dbs
          of the group terminator (e.g COMMIT query) event.
 */
-bool Log_event::contains_partition_info(bool end_group_sets_max_dbs) {
+bool Log_event::contains_partition_info(bool end_group_sets_max_dbs,
+                                        bool table_mode) {
   bool res;
 
   switch (get_type_code()) {
@@ -2556,7 +2557,8 @@ bool Log_event::contains_partition_info(bool end_group_sets_max_dbs) {
       Query_log_event *qev = static_cast<Query_log_event *>(this);
       if ((ends_group() && end_group_sets_max_dbs) ||
           (qev->is_query_prefix_match(STRING_WITH_LEN("XA COMMIT")) ||
-           qev->is_query_prefix_match(STRING_WITH_LEN("XA ROLLBACK")))) {
+           qev->is_query_prefix_match(STRING_WITH_LEN("XA ROLLBACK"))) ||
+          (table_mode && (!starts_group() && !ends_group()))) {
         res = true;
         qev->mts_accessed_dbs = OVER_MAX_DBS_IN_EVENT_MTS;
       } else
@@ -2769,7 +2771,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
   }
 
   ptr_group = gaq->get_job_group(rli->gaq->assigned_group_index);
-  if (!is_mts_db_partitioned(rli)) {
+  if (!is_mts_db_partitioned(rli) && !is_mts_table_partitioned(rli)) {
     /* Get least occupied worker */
     ret_worker = rli->current_mts_submode->get_least_occupied_worker(
         rli, &rli->workers, this);
@@ -2783,7 +2785,8 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       return nullptr;
     }
     ptr_group->worker_id = ret_worker->id;
-  } else if (contains_partition_info(rli->mts_end_group_sets_max_dbs)) {
+  } else if (contains_partition_info(rli->mts_end_group_sets_max_dbs, 
+                                     is_mts_table_partitioned(rli))) {
     int i = 0;
     Mts_db_names mts_dbs;
 
@@ -2861,11 +2864,21 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
         Note, the empty string is allocated in a large buffer
         to satisfy hashcmp() implementation.
       */
-      const char all_db[NAME_LEN] = {0};
-      if (!(ret_worker = map_db_to_worker(
-                mts_dbs.num == OVER_MAX_DBS_IN_EVENT_MTS ? all_db
-                                                         : mts_dbs.name[i],
-                rli, &mts_assigned_partitions[i],
+      char mapkey[NAME_LEN * 2 + 1] = { 0 };
+
+      Log_event_type event_type = get_type_code();
+      if ((event_type == binary_log::TABLE_MAP_EVENT) &&
+          is_mts_table_partitioned(rli) &&
+          (mts_dbs.num != OVER_MAX_DBS_IN_EVENT_MTS)) {
+        Table_map_log_event *ev = (Table_map_log_event *)this;
+        strcpy(mapkey, mts_dbs.name[i]);
+        strcat(mapkey, ev->get_table_name());
+      } else if (is_mts_db_partitioned(rli) &&
+                 (mts_dbs.num != OVER_MAX_DBS_IN_EVENT_MTS)) {
+        strcpy(mapkey, mts_dbs.name[i]);
+      }
+
+      if (!(ret_worker = map_db_to_worker(mapkey, rli, &mts_assigned_partitions[i],
                 /*
                   todo: optimize it. Although pure
                   rows- event load in insensitive to the flag value
@@ -2880,9 +2893,6 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       // all temporary tables are transferred from Coordinator in over-max case
       assert(mts_dbs.num != OVER_MAX_DBS_IN_EVENT_MTS ||
              !thd->temporary_tables);
-      assert(!strcmp(
-          mts_assigned_partitions[i]->db,
-          mts_dbs.num != OVER_MAX_DBS_IN_EVENT_MTS ? mts_dbs.name[i] : all_db));
       assert(ret_worker == mts_assigned_partitions[i]->worker);
       assert(mts_assigned_partitions[i]->usage >= 0);
     }
@@ -2990,6 +3000,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       ptr_group = gaq->get_job_group(rli->gaq->assigned_group_index);
 
     assert(ret_worker != nullptr);
+    ret_worker->trx_delivered++;
 
     // coordinator has ended buffering this group, update monitoring info
     if (rli->is_processing_trx()) {
@@ -3170,7 +3181,8 @@ int Log_event::apply_event(Relay_log_info *rli) {
           a separator between two masters' binlogs therefore requiring
           Workers to sync.
         */
-        if (rli->curr_group_da.size() > 0 && is_mts_db_partitioned(rli) &&
+        if (rli->curr_group_da.size() > 0 &&
+            (is_mts_db_partitioned(rli) || is_mts_table_partitioned(rli)) &&
             get_type_code() != binary_log::INCIDENT_EVENT) {
           char llbuff[22];
           /*
@@ -3289,7 +3301,8 @@ int Log_event::apply_event(Relay_log_info *rli) {
          */
          (rli->curr_group_seen_begin && rli->curr_group_seen_gtid &&
           ends_group()) ||
-         is_mts_db_partitioned(rli) || rli->last_assigned_worker ||
+         is_mts_db_partitioned(rli) || is_mts_table_partitioned(rli) ||
+         rli->last_assigned_worker ||
          /*
            Begin_load_query can be logged w/o db info and within
            Begin/Commit. That's a pattern forcing sequential
@@ -5698,7 +5711,7 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli) {
 
   if ((server_id != ::server_id || rli->replicate_same_server_id) &&
       !is_relay_log_event() && !in_group) {
-    if (!is_mts_db_partitioned(rli) &&
+    if (!is_mts_db_partitioned(rli) && !is_mts_table_partitioned(rli) &&
         (server_id != ::server_id || rli->replicate_same_server_id)) {
       // force the coordinator to start a new binlog segment.
       static_cast<Mts_submode_logical_clock *>(rli->current_mts_submode)
@@ -12217,6 +12230,9 @@ int Write_rows_log_event::do_exec_row(const Relay_log_info *const rli) {
     assert(0);
     my_error(ER_UNKNOWN_ERROR, MYF(0));
   }
+
+  DBUG_EXECUTE_IF("error_on_write_rows_log_event_apply",
+                  { return (HA_ERR_LOCK_DEADLOCK); });
 
   return error;
 }

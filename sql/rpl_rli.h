@@ -2144,6 +2144,14 @@ inline bool is_mts_worker(const THD *thd) {
 bool is_mts_db_partitioned(Relay_log_info *rli);
 
 /**
+ Auxiliary function to check if we have a table partitioned MTS
+*/
+inline bool is_mts_table_partitioned(const Relay_log_info *rli)
+{
+  return (rli->current_mts_submode->get_type() == MTS_PARALLEL_TYPE_TABLE_NAME);
+}
+
+/**
   Checks whether the supplied event encodes a (2pc-aware) DDL
   that has been already committed.
 

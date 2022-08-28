@@ -247,7 +247,7 @@ bool Mts_submode_database::set_multi_threaded_applier_context(
       // This transaction payload event is already marked to run in
       // isolation or the event being handled does not contain partition
       // information
-      if (max_mts_dbs_in_event || !inner->contains_partition_info(true)) {
+      if (max_mts_dbs_in_event || !inner->contains_partition_info(true, is_mts_table_partitioned(&rli))) {
         delete inner;
         continue;
       }

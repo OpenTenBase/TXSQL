@@ -1,0 +1,2 @@
+--slave_parallel_type=table
+--slave_parallel_workers=2
