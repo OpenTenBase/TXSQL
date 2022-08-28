@@ -500,6 +500,8 @@ int init_replica() {
         mi->rli->checkpoint_group = opt_mta_checkpoint_group;
         if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
+        else if (mts_parallel_option == MTS_PARALLEL_TYPE_TABLE_NAME)
+          mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_TABLE_NAME;
         else
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
 
@@ -1124,9 +1126,12 @@ static inline int fill_mts_gaps_and_recover(Master_info *mi) {
   rli->set_until_option(until_mg);
   rli->until_condition = Relay_log_info::UNTIL_SQL_AFTER_MTS_GAPS;
   until_mg->init();
-  rli->channel_mts_submode = (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
-                                 ? MTS_PARALLEL_TYPE_DB_NAME
-                                 : MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+    rli->channel_mts_submode= MTS_PARALLEL_TYPE_DB_NAME;
+  else if (mts_parallel_option == MTS_PARALLEL_TYPE_TABLE_NAME)
+    rli->channel_mts_submode= MTS_PARALLEL_TYPE_TABLE_NAME;
+  else
+    rli->channel_mts_submode= MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
   LogErr(INFORMATION_LEVEL, ER_RPL_MTS_RECOVERY_STARTING_COORDINATOR);
   recovery_error = start_slave_thread(
       key_thread_replica_sql, handle_slave_sql, &rli->run_lock, &rli->run_lock,
@@ -6298,11 +6303,14 @@ bool mta_checkpoint_routine(Relay_log_info *rli, bool force) {
           rli->rli_checkpoint_seqno == rli->checkpoint_group));
 
   do {
-    if (!is_mts_db_partitioned(rli)) mysql_mutex_lock(&rli->mts_gaq_LOCK);
+    if (!is_mts_db_partitioned(rli) && !is_mts_table_partitioned(rli))
+      mysql_mutex_lock(&rli->mts_gaq_LOCK);
+
 
     cnt = rli->gaq->move_queue_head(&rli->workers);
 
-    if (!is_mts_db_partitioned(rli)) mysql_mutex_unlock(&rli->mts_gaq_LOCK);
+    if (!is_mts_db_partitioned(rli) && !is_mts_table_partitioned(rli))
+      mysql_mutex_unlock(&rli->mts_gaq_LOCK);
 #ifndef NDEBUG
     if (DBUG_EVALUATE_IF("check_replica_debug_group", 1, 0) &&
         cnt != opt_mta_checkpoint_period)
@@ -6323,7 +6331,10 @@ bool mta_checkpoint_routine(Relay_log_info *rli, bool force) {
      The workers have completed  cnt jobs from the gaq. This means that we
      should increment C->jobs_done by cnt.
    */
-  if (!is_mts_worker(rli->info_thd) && !is_mts_db_partitioned(rli)) {
+
+  if (!is_mts_worker(rli->info_thd) &&
+      !is_mts_db_partitioned(rli) &&
+      !is_mts_table_partitioned(rli)) {
     DBUG_PRINT("info", ("jobs_done this itr=%ld", cnt));
     static_cast<Mts_submode_logical_clock *>(rli->current_mts_submode)
         ->jobs_done += cnt;
@@ -6831,10 +6842,12 @@ extern "C" void *handle_slave_sql(void *arg) {
 #endif
     mysql_thread_set_psi_THD(thd);
 
-    if (rli->channel_mts_submode != MTS_PARALLEL_TYPE_DB_NAME)
-      rli->current_mts_submode = new Mts_submode_logical_clock();
+    if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
+      rli->current_mts_submode= new Mts_submode_database();
+    else if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_TABLE_NAME)
+      rli->current_mts_submode= new Mts_submode_table();
     else
-      rli->current_mts_submode = new Mts_submode_database();
+      rli->current_mts_submode= new Mts_submode_logical_clock();
 
     // Only use replica preserve commit order if more than 1 worker exists
     if (opt_replica_preserve_commit_order && !rli->is_parallel_exec() &&
@@ -8943,6 +8956,8 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
           }
           if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
+          else if (mts_parallel_option == MTS_PARALLEL_TYPE_TABLE_NAME)
+            mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_TABLE_NAME;
           else
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
 
@@ -11144,9 +11159,10 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
   }
 
   if (opt_replica_preserve_commit_order && replica_parallel_workers > 0) {
-    if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
+    if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME
+        || channel_mts_submode == MTS_PARALLEL_TYPE_TABLE_NAME) {
       my_error(ER_DONT_SUPPORT_REPLICA_PRESERVE_COMMIT_ORDER, MYF(0),
-               "when replica_parallel_type is DATABASE");
+               "when replica_parallel_type is DATABASE or TABLE");
       return ER_DONT_SUPPORT_REPLICA_PRESERVE_COMMIT_ORDER;
     }
   }

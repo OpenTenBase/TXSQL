@@ -279,6 +279,9 @@ Slave_worker::Slave_worker(Relay_log_info *rli,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_cond_slave_parallel_worker, &jobs_cond);
   mysql_cond_init(key_cond_mta_gaq, &logical_clock_cond);
+
+  last_exec_gtid= new Gtid;
+  last_exec_gtid->clear();
 }
 
 Slave_worker::~Slave_worker() {
@@ -299,6 +302,7 @@ Slave_worker::~Slave_worker() {
 #endif
     assert(set_rli_description_event_failed);
   }
+  delete last_exec_gtid;
 }
 
 /**
@@ -375,15 +379,23 @@ int Slave_worker::init_worker(Relay_log_info *rli, ulong i) {
   overrun_level = jobs.capacity - underrun_level;
 
   /* create mts submode for each of the the workers. */
-  current_mts_submode = (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
-                            ? (Mts_submode *)new Mts_submode_database()
-                            : (Mts_submode *)new Mts_submode_logical_clock();
+  if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
+    current_mts_submode = (Mts_submode*) new Mts_submode_database();
+  else if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_TABLE_NAME)
+    current_mts_submode = (Mts_submode*) new Mts_submode_table();
+  else
+    current_mts_submode = (Mts_submode*) new Mts_submode_logical_clock();
 
   // workers and coordinator must be of the same type
   assert(rli->current_mts_submode->get_type() ==
          current_mts_submode->get_type());
 
   reset_commit_order_deadlock();
+
+  trx_delivered = 0;
+  trx_executed = 0;
+  trx_executed_before = 0;
+
   return 0;
 }
 
@@ -910,7 +922,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
 
   assert(!rli->last_assigned_worker ||
          rli->last_assigned_worker == last_worker);
-  assert(is_mts_db_partitioned(rli));
+  assert(is_mts_db_partitioned(rli) || is_mts_table_partitioned(rli));
 
   if (!rli->inited_hash_workers) return nullptr;
 
@@ -1190,7 +1202,8 @@ void Slave_worker::slave_worker_ends_group(Log_event *ev, int error) {
   /*
     Cleanup relating to the last executed group regardless of error.
   */
-  if (current_mts_submode->get_type() == MTS_PARALLEL_TYPE_DB_NAME) {
+  if (current_mts_submode->get_type() == MTS_PARALLEL_TYPE_DB_NAME ||
+      current_mts_submode->get_type() == MTS_PARALLEL_TYPE_TABLE_NAME) {
 #ifndef NDEBUG
     {
       std::stringstream ss;
@@ -1668,7 +1681,9 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   ev->worker = this;
 
 #ifndef NDEBUG
-  if (!is_mts_db_partitioned(rli) && may_have_timestamp(ev) &&
+  if (!is_mts_db_partitioned(rli) &&
+      !is_mts_table_partitioned(rli) &&
+      may_have_timestamp(ev) &&
       !curr_group_seen_sequence_number) {
     curr_group_seen_sequence_number = true;
 
@@ -1700,8 +1715,10 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 #endif
 
   // Address partitioning only in database mode
-  if (!is_gtid_event(ev) && is_mts_db_partitioned(rli)) {
-    if (ev->contains_partition_info(end_group_sets_max_dbs)) {
+  if (!is_gtid_event(ev) &&
+      (is_mts_db_partitioned(rli) || is_mts_table_partitioned(rli))) {
+    if (ev->contains_partition_info(end_group_sets_max_dbs,
+                                    is_mts_table_partitioned(rli))) {
       uint num_dbs = ev->mts_number_dbs();
 
       if (num_dbs == OVER_MAX_DBS_IN_EVENT_MTS) num_dbs = 1;
@@ -1890,6 +1907,13 @@ bool Slave_worker::retry_transaction(uint start_relay_number,
       silent = true;
     };);
 
+    DBUG_EXECUTE_IF("error_on_write_rows_log_event_apply", {
+      if (c_rli->retried_trans == 1) {
+        DBUG_SET("-d,error_on_write_rows_log_event_apply");
+      }
+      silent = true;
+    };);
+
     if (!silent) {
       trans_retries++;
       if (current_thd->rli_slave->is_processing_trx()) {
@@ -1987,7 +2011,8 @@ bool Slave_worker::read_and_apply_events(uint start_relay_number,
         rli->current_mts_submode->set_multi_threaded_applier_context(*rli, *ev);
 
         // we re-assign partitions only on retries
-        if (is_mts_db_partitioned(rli) && ev->contains_partition_info(true))
+        if ((is_mts_db_partitioned(rli) || is_mts_table_partitioned(rli)) &&
+            ev->contains_partition_info(true, is_mts_table_partitioned(rli)))
           assign_partition_db(ev);
 
         ret = slave_worker_exec_event(ev);
@@ -2061,9 +2086,17 @@ void Slave_worker::assign_partition_db(Log_event *ev) {
   if (mts_dbs.num == OVER_MAX_DBS_IN_EVENT_MTS)
     ev->mts_assigned_partitions[0] = find_entry_from_db_map("", c_rli);
   else
-    for (i = 0; i < mts_dbs.num; i++)
+    for (i = 0; i < mts_dbs.num; i++) {
+      std::string search_key(mts_dbs.name[i]);
+      if (ev->get_type_code() == binary_log::TABLE_MAP_EVENT &&
+          is_mts_table_partitioned(c_rli)) {
+        Table_map_log_event *table_map_ev =
+            dynamic_cast<Table_map_log_event *>(ev);
+        search_key.append(table_map_ev->get_table_name());
+      }
       ev->mts_assigned_partitions[i] =
-          find_entry_from_db_map(mts_dbs.name[i], c_rli);
+          find_entry_from_db_map(search_key.c_str(), c_rli);
+    }
 }
 
 /**
@@ -2438,7 +2471,13 @@ int slave_worker_exec_job_group(Slave_worker *worker, Relay_log_info *rli) {
     */
     worker_curr_ev.set_current_event(ev);
 
-    if (is_gtid_event(ev)) seen_gtid = true;
+    if (is_gtid_event(ev))
+    {
+      seen_gtid = true;
+      Gtid_log_event* gtid_ev= (Gtid_log_event*)ev;
+      if (gtid_ev->get_sidno(true) > 0 && gtid_ev->get_gno() > 0)
+        worker->get_last_gtid()->set(gtid_ev->get_sidno(true), gtid_ev->get_gno());
+    }
     if (!seen_begin && ev->starts_group()) {
       seen_begin = true;  // The current group is started with B-event
       worker->end_group_sets_max_dbs = true;
@@ -2476,12 +2515,14 @@ int slave_worker_exec_job_group(Slave_worker *worker, Relay_log_info *rli) {
     */
     assert(seen_begin || is_gtid_event(ev) ||
            ev->get_type_code() == binary_log::QUERY_EVENT ||
-           is_mts_db_partitioned(rli) || worker->id == 0 || seen_gtid);
+           is_mts_db_partitioned(rli) || is_mts_table_partitioned(rli) ||
+           worker->id == 0 || seen_gtid);
 
-    if (ev->ends_group() || (!seen_begin && !is_gtid_event(ev) &&
-                             (ev->get_type_code() == binary_log::QUERY_EVENT ||
-                              /* break through by LC only in GTID off */
-                              (!seen_gtid && !is_mts_db_partitioned(rli)))))
+    if (ev->ends_group() ||
+        (!seen_begin && !is_gtid_event(ev) &&
+         (ev->get_type_code() == binary_log::QUERY_EVENT ||
+          /* break through by LC only in GTID off */
+          (!seen_gtid && !is_mts_db_partitioned(rli) && !is_mts_table_partitioned(rli) ))))
       break;
 
     remove_item_from_jobs(job_item, worker, rli);
@@ -2495,6 +2536,7 @@ int slave_worker_exec_job_group(Slave_worker *worker, Relay_log_info *rli) {
                       ev->mts_group_idx, worker->last_group_done_index));
   /* The group is applied successfully, so error should be 0 */
   worker->slave_worker_ends_group(ev, 0);
+  worker->trx_executed++;
 
   /*
     Check if the finished group started with a Gtid_log_event to update the

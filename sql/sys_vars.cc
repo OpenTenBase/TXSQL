@@ -4207,7 +4207,7 @@ static Sys_var_set Slave_rows_search_algorithms(
     DEPRECATED_VAR(""));
 
 static const char *mts_parallel_type_names[] = {"DATABASE", "LOGICAL_CLOCK",
-                                                nullptr};
+                                                "TABLE", nullptr};
 static Sys_var_enum Sys_replica_parallel_type(
     "replica_parallel_type",
     "The method used by the replication applier to parallelize "

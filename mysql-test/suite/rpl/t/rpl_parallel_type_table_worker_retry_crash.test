@@ -1,0 +1,57 @@
+# ==== Implementation ====
+#
+# 1. On the source, create a table.
+# 2. On the source, insert some records into the table.
+# 3. On the replica, activate a debug symbol that will force failure while
+#    applying Write_rows_event 2 times.
+# 4. On the replica, remove the debug point and sync with the source.
+# 5. Clean up.
+#
+
+--source include/have_debug_sync.inc
+--source include/have_binlog_format_row.inc
+--source include/only_mts_replica_parallel_workers.inc
+--let $option_name = slave_transaction_retries
+--let $option_operator = >
+--let $option_value = 2
+--source include/only_with_option.inc
+--source include/master-slave.inc
+
+call mtr.add_suppression('Slave SQL for channel');
+# 1. On the source, create a table.
+CREATE TABLE `t1` (
+  id int,
+  c1 int
+) ENGINE=InnoDB;
+
+--source include/sync_slave_sql_with_master.inc
+--source include/stop_slave.inc
+
+# 2. On the source, insert some records into the table.
+--source include/rpl_connection_master.inc
+BEGIN;
+INSERT INTO t1 VALUES (1,1);
+INSERT INTO t1 VALUES (2,2);
+INSERT INTO t1 VALUES (3,3);
+INSERT INTO t1 VALUES (4,4);
+COMMIT;
+
+# 3. On the replica, activate a debug symbol that will force failure while
+#    applying Rows_query_event 3 times.
+--source include/rpl_connection_slave.inc
+--let $debug_point = error_on_write_rows_log_event_apply
+--source include/add_debug_point.inc
+--source include/start_slave.inc
+
+# 4. On the replica, remove the debug point and sync with the source.
+sleep 2;
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+--let $debug_point = error_on_write_rows_log_event_apply
+--source include/remove_debug_point.inc
+
+# 5. Clean up.
+--source include/rpl_connection_master.inc
+DROP TABLE t1;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc

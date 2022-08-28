@@ -1,0 +1,1 @@
+--replica_parallel_workers=16 --replica_parallel_type=TABLE --replica_preserve_commit_order=OFF

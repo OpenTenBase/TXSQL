@@ -583,6 +583,11 @@ class Slave_worker : public Relay_log_info {
   ulonglong checkpoint_relay_log_pos;
   char checkpoint_master_log_name[FN_REFLEN];
   ulonglong checkpoint_master_log_pos;
+
+  ulonglong trx_delivered;       // total transactions devilived
+  ulonglong trx_executed;        // total transactions has executed
+  ulonglong trx_executed_before; // total transactions executed after last select
+
   MY_BITMAP group_executed;  // bitmap describes groups executed after last CP
   MY_BITMAP group_shifted;   // temporary bitmap to compute group_executed
   ulong
@@ -795,7 +800,7 @@ class Slave_worker : public Relay_log_info {
 
     return 0;
   }
-
+  inline Gtid* get_last_gtid() { return last_exec_gtid; }
   inline void reset_gaq_index() { gaq_index = c_rli->gaq->capacity; }
   inline void set_gaq_index(ulong val) {
     if (gaq_index == c_rli->gaq->capacity) gaq_index = val;
@@ -912,6 +917,7 @@ class Slave_worker : public Relay_log_info {
       MY_ATTRIBUTE((format(printf, 4, 0)));
 
  private:
+  Gtid *last_exec_gtid;     // last executed gtid;
   ulong gaq_index;  // GAQ index of the current assignment
   ulonglong
       master_log_pos;  // event's cached log_pos for possible error report
