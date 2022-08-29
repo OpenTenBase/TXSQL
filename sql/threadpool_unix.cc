@@ -619,6 +619,9 @@ class Thd_timeout_checker : public Do_THD_Impl {
   virtual ~Thd_timeout_checker() {}
 
   virtual void operator()(THD *thd) noexcept override {
+#if defined(HAVE_PX)
+    if (PX_ROLE_WORKER(thd)) return;
+#endif /* defined(HAVE_PX) */
     if (thd_get_net_read_write(thd) != 1) return;
 
     connection_t *connection = (connection_t *)thd->event_scheduler.data;

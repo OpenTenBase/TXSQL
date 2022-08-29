@@ -7363,7 +7363,6 @@ class Kill_non_super_conn : public Do_THD_Impl {
 
   void operator()(THD *thd_to_kill) override {
     mysql_mutex_lock(&thd_to_kill->LOCK_thd_data);
-
     /* Kill only if non-privileged thread and non slave thread.
        If an account has not yet been assigned to the security context of the
        thread we cannot tell if the account is super user or not. In this case
@@ -7377,6 +7376,10 @@ class Kill_non_super_conn : public Do_THD_Impl {
     */
     const bool has_higher_privilege =
         m_is_client_regular_user && thd_to_kill->is_system_user();
+#if defined(HAVE_PX)
+    if (PX_ROLE_WORKER(thd_to_kill)) {
+    } else
+#endif /* defined(HAVE_PX) */
     if (!thd_to_kill->is_connection_admin() &&
         thd_to_kill->killed != THD::KILL_CONNECTION &&
         !thd_to_kill->slave_thread && !has_higher_privilege)
