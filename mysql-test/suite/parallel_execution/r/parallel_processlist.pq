@@ -151,7 +151,7 @@ set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id> + 1;
 Warnings:
-Warning	8<id>8	Killing worker is not allowed, please kill query/connection <id>
+Warning	8508	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	sum(c)
 1	1	2.0000

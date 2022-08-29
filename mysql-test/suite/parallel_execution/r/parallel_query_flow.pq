@@ -855,8 +855,8 @@ insert into t1 values ("2006-01-01", "12:01:01", "2006-01-01 12:01:01");
 insert into t1 values ("2006-01-02", "12:01:02", "2006-01-02 12:01:02");
 select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
 f1
-Warnings:
 Warning	1292	Incorrect datetime value: 'zzz'
+Warnings:
 explain format=tree select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -878,26 +878,26 @@ INSERT INTO t1 VALUES (''),('');
 SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
 COUNT(*)
 18
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
+Warning	1292	Truncated incorrect time value: ''
 Warnings:
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
-Warning	1292	Truncated incorrect time value: ''
 EXPLAIN FORMAT=TREE SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
 EXPLAIN
 -> Table scan on <temporary>
@@ -931,10 +931,10 @@ insert into t1 values (-1), (-2);
 select min(a) from t1 group by inet_ntoa(a);
 min(a)
 -2
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
+Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
 Warnings:
-Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
-Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
-Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
 explain format=tree select min(a) from t1 group by inet_ntoa(a);
 EXPLAIN
 -> Table scan on <temporary>
@@ -952,8 +952,8 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 insert into t1 values (0x01,0x01);
 select * from t1 where a=b;
 a	b
-Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: '\x01'
+Warnings:
 explain format=tree select * from t1 where a=b;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
@@ -963,8 +963,8 @@ EXPLAIN
 
 select * from t1 where a=b and b=0x01;
 a	b
-Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: '\x01'
+Warnings:
 explain format=tree select * from t1 where a=b and b=0x01;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)

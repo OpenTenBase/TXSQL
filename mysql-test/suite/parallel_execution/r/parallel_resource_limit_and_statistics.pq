@@ -185,11 +185,11 @@ bld	blad
 # test counting the PARALLEL(table)
 select /*+PARALLEL(t1)*/ * FROM t1;
 f1	f2
+Warning	8504	parallel hint has no effect, not the chosen table.
+Warnings:
 bla	blah
 blc	blad
 bld	blad
-Warnings:
-Warning	8504	parallel hint has no effect, not the chosen table.
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0
@@ -205,11 +205,11 @@ blc	blad
 bld	blad
 select /*+ PARALLEL(t1@qb1 5) PARALLEL(12)*/ * from (select /*+ qb_name(qb1)*/ t1.f1 as aa, t1.f2 as bb from t1) as v where v.aa > 'a';
 aa	bb
+Warning	3126	Hint PARALLEL(12) is ignored as conflicting/duplicated
+Warnings:
 bla	blah
 blc	blad
 bld	blad
-Warnings:
-Warning	3126	Hint PARALLEL(12) is ignored as conflicting/duplicated
 show status like '%txsql_parallel_stmt_%';
 Variable_name	Value
 Txsql_parallel_stmt_error	0

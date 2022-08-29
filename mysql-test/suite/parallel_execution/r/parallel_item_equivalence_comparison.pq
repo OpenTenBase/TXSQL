@@ -175,10 +175,10 @@ ANY(SELECT 1 FROM t2)
 NULL
 NULL
 NULL
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
 Warnings:
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
 DROP TABLE t1, t2;
 #######################################
 # 4) test MaterializePathParameters::eq with temptable, testcase copy from main.key
