@@ -60,6 +60,7 @@
 #include "sql/opt_explain.h"  // Modification_plan
 #include "sql/opt_explain_format.h"
 #include "sql/opt_trace.h"  // Opt_trace_object
+#include "sql/protocol.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
 #include "sql/query_result.h"
@@ -228,6 +229,10 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
   const bool safe_update = thd->variables.option_bits & OPTION_SAFE_UPDATES;
 
+  mem_root_deque<Item *> *returning_fields = query_block->returning_fields;
+  const bool has_returning =
+      (query_block->has_returning() && !thd->is_system_thread());
+
   TABLE_LIST *const delete_table_ref = table_list->updatable_base_table();
   TABLE *const table = delete_table_ref->table;
 
@@ -314,7 +319,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
       - We will not be binlogging this statement in row-based, and
       - there should be no delete triggers associated with the table.
   */
-  if (!using_limit && const_cond_result && !no_rows &&
+  if (!has_returning && !using_limit && const_cond_result && !no_rows &&
       !(specialflag & SPECIAL_NO_NEW_FUNC) &&
       ((!thd->is_current_stmt_binlog_format_row() ||  // not ROW binlog-format
         thd->is_current_stmt_binlog_disabled()) &&    // no binlog for this
@@ -560,7 +565,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     THD_STAGE_INFO(thd, stage_updating);
 
-    if (has_after_triggers) {
+    if (has_after_triggers || has_returning) {
       /*
         The table has AFTER DELETE triggers that might access to subject table
         and therefore might need delete to be done immediately. So we turn-off
@@ -582,9 +587,19 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     assert(limit > 0);
 
+    Query_result *qres = nullptr;
+    if (has_returning) {
+      qres = query_block->returning_result();
+      assert(qres);
+      if (qres->send_result_set_metadata(
+              thd, *returning_fields,
+              Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+        goto cleanup;
+    }
+
     // The loop that reads rows and delete those that qualify
 
-    while (!(error = iterator->Read()) && !thd->killed) {
+    while (!(error = iterator->Read()) && !thd->killed && !thd->is_error()) {
       assert(!thd->is_error());
       thd->inc_examined_row_count(1);
 
@@ -610,10 +625,22 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         break;
       }
 
+      if (error == 0 && has_returning) {
+        assert(qres);
+        if (qres->send_data(thd, *returning_fields)) {
+          error = 1;
+          break;
+        }
+      }
+
       if (!--limit && using_limit) {
         error = -1;
         break;
       }
+    }
+
+    if (has_returning) {
+      qres->send_eof(thd);
     }
 
     killed_status = thd->killed;
@@ -674,7 +701,9 @@ cleanup:
   assert(transactional_table || deleted_rows == 0 ||
          thd->get_transaction()->cannot_safely_rollback(Transaction_ctx::STMT));
   if (error < 0) {
-    my_ok(thd, deleted_rows);
+    if (!has_returning) {
+      my_ok(thd, deleted_rows);
+    }
     DBUG_PRINT("info", ("%ld records deleted", (long)deleted_rows));
   }
   return error > 0;
@@ -701,6 +730,10 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
   Opt_trace_array trace_steps(trace, "steps");
 
   apply_semijoin = multitable;
+
+  mem_root_deque<Item *> *returning_fields = select->returning_fields;
+  const bool has_returning =
+      (select->has_returning() && !thd->is_system_thread());
 
   if (select->setup_tables(thd, table_list, false))
     return true; /* purecov: inspected */
@@ -811,6 +844,20 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
   assert(lex->sql_command == SQLCOM_DELETE || !select->has_limit());
 
   lex->allow_sum_func = 0;
+
+  if (has_returning) {
+    if (select->returning_result() == nullptr) {
+      Query_result_send *qrs = new (thd->mem_root) Query_result_send;
+      if (qrs == nullptr) return true;
+      select->set_returning_result(qrs);
+    }
+    if (select->setup_wild_in_returning(thd)) return true;
+    if (setup_fields(thd, /*want_privilege=*/SELECT_ACL,
+                     /*allow_sum_func=*/false, /*split_sum_funcs=*/false,
+                     /*column_update=*/false, /*typed_items=*/nullptr,
+                     returning_fields, Ref_item_array()))
+      return true;
+  }
 
   if (select->setup_conds(thd)) return true;
 

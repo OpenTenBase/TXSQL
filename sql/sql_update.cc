@@ -418,6 +418,10 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
 
   assert(!(table->all_partitions_pruned_away || m_empty_query));
 
+  mem_root_deque<Item *> *returning_fields = query_block->returning_fields;
+  const bool has_returning =
+      (query_block->has_returning() && !thd->is_system_thread());
+
   Item *conds = nullptr;
   ORDER *order = query_block->order_list.first;
   if (!no_rows && query_block->get_optimizable_conditions(thd, &conds, nullptr))
@@ -843,7 +847,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     /// read_removal is only used by NDB storage engine
     bool read_removal = false;
 
-    if (has_after_triggers) {
+    if (has_after_triggers || has_returning) {
       /*
         The table has AFTER UPDATE triggers that might access to subject
         table and therefore might need update to be done immediately.
@@ -865,6 +869,15 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     if (will_batch) table->cleanup_partial_update(); /* purecov: inspected */
 
     uint dup_key_found;
+
+    Query_result *qres = query_block->returning_result();
+    assert((!qres && !has_returning) || (qres && has_returning));
+    if (has_returning) {
+      qres->prepare(thd, *returning_fields,
+                    query_block->master_query_expression());
+      qres->send_result_set_metadata(
+          thd, *returning_fields, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+    }
 
     while (true) {
       error = iterator->Read();
@@ -1011,6 +1024,12 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
         break;
       }
 
+      if (error == 0 && has_returning &&
+          qres->send_data(thd, *returning_fields)) {
+        error = 1;
+        break;
+      }
+
       if (!--limit && using_limit) {
         /*
           We have reached end-of-file in most common situations where no
@@ -1112,6 +1131,8 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
       if (!records_are_comparable(table)) found_rows = updated_rows;
     }
 
+    if (has_returning) qres->send_eof(thd);
+
   }  // End of scope for Modification_plan
 
   if (!transactional_table && updated_rows > 0)
@@ -1158,11 +1179,13 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     snprintf(buff, sizeof(buff), ER_THD(thd, ER_UPDATE_INFO), (long)found_rows,
              (long)updated_rows,
              (long)thd->get_stmt_da()->current_statement_cond_count());
-    my_ok(thd,
-          thd->get_protocol()->has_client_capability(CLIENT_FOUND_ROWS)
-              ? found_rows
-              : updated_rows,
-          id, buff);
+    if (!has_returning) {
+      my_ok(thd,
+            thd->get_protocol()->has_client_capability(CLIENT_FOUND_ROWS)
+                ? found_rows
+                : updated_rows,
+            id, buff);
+    }
     DBUG_PRINT("info", ("%ld records updated", (long)updated_rows));
   }
   thd->check_for_truncated_fields = CHECK_FIELD_IGNORE;
@@ -1487,12 +1510,23 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
   if (!select->top_join_list.empty())
     propagate_nullability(&select->top_join_list, false);
 
+  mem_root_deque<Item *> *returning_fields = select->returning_fields;
+  const bool has_returning =
+      (select->has_returning() && !thd->is_system_thread());
+
   if (select->setup_tables(thd, table_list, false))
     return true; /* purecov: inspected */
 
   thd->want_privilege = SELECT_ACL;
   enum enum_mark_columns mark_used_columns_saved = thd->mark_used_columns;
   thd->mark_used_columns = MARK_COLUMNS_READ;
+
+  if (has_returning) {
+    Query_result_send *qrs = new (thd->mem_root) Query_result_send;
+    if (qrs == nullptr) return true;
+    select->set_returning_result(qrs);
+  }
+
   if (select->derived_table_count || select->table_func_count) {
     /*
       A view's CHECK OPTION is incompatible with semi-join.
@@ -1593,6 +1627,16 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
                    /*column_update=*/true, /*typed_items=*/nullptr,
                    &select->fields, Ref_item_array()))
     return true;
+
+  if (has_returning) {
+    if (select->setup_wild_in_returning(thd)) return true;
+
+    if (setup_fields(thd, /*want_privilege=*/SELECT_ACL,
+                     /*allow_sum_func=*/false, /*split_sum_funcs=*/false,
+                     /*column_update=*/false, /*typed_items=*/nullptr,
+                     returning_fields, Ref_item_array()))
+      return true;
+  }
 
   if (make_base_table_fields(thd, &select->fields))
     return true; /* purecov: inspected */

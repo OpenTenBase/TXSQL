@@ -2100,6 +2100,7 @@ Query_expression::Query_expression(enum_parsing_context parsing_context)
     case CTX_WHERE:
     case CTX_DERIVED:
     case CTX_NONE:  // A subquery in a non-select
+    case CTX_RETURNING_CLAUSE:
       explain_marker = parsing_context;
       break;
     default:
@@ -2121,7 +2122,8 @@ Query_block::Query_block(MEM_ROOT *mem_root, Item *where, Item *having)
       top_join_list(mem_root),
       join_list(&top_join_list),
       m_where_cond(where),
-      m_having_cond(having) {}
+      m_having_cond(having),
+      returning_fields(nullptr) {}
 
 /**
   Set the name resolution context for the specified query block.
