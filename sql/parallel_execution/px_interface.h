@@ -54,7 +54,10 @@ class PX_executor;
     ((thd)->parallel_execution_enabled_snapshot == -1 ? \
      txsql_parallel_execution_enabled : (thd)->parallel_execution_enabled_snapshot)
 
-#define PX_ENABLED(thd) ( PX_MAX_THREADS(thd) > 0 && PX_CURR_ENABLED(thd) > 0)
+#define PX_ENABLED(thd) \
+    (PX_ROLE_USER(thd) ? \
+     ( PX_MAX_THREADS(thd) > 0 && PX_CURR_ENABLED(thd) > 0) : \
+     ( PX_MAX_THREADS(thd->px_coordinator) > 0 && PX_CURR_ENABLED(thd->px_coordinator) > 0))
 #define PX_EXECUTOR(thd) (thd)->px_executor
 
 #define PX_ROOT_ITERATOR(unit) (unit)->root_iterator()
