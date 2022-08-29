@@ -3089,7 +3089,18 @@ void cleanup_variables(THD *thd, struct System_variables *vars) {
     /* Block the Performance Schema from accessing THD::variables. */
     mysql_mutex_lock(&thd->LOCK_thd_data);
 
+#if defined(HAVE_PX)
+    /*
+      in parallel execution, the dynamic_variables_ptr and dynamic_variables_allocs
+      of worker thd may not be initialized (omitted alloc_and_copy_thd_dynamic_variables).
+      The deinit of dynamic_variables_allocs will be done by the coordinator.
+    */
+    if (!thd || PX_ROLE_USER(thd)) {
+      plugin_var_memalloc_free(&thd->variables);
+    }
+#else
     plugin_var_memalloc_free(&thd->variables);
+#endif /* defined(HAVE_PX) */
     /* Remove references to session_sysvar_res_mgr memory before freeing it. */
     thd->variables.track_sysvars_ptr = nullptr;
     thd->session_sysvar_res_mgr.deinit();
@@ -3098,11 +3109,7 @@ void cleanup_variables(THD *thd, struct System_variables *vars) {
   assert(vars->temp_table_plugin == nullptr);
 
 #if defined(HAVE_PX)
-  /*
-    in parallel execution, the dynamic_variables_ptr of worker thd
-    may not be initialized (omitted alloc_and_copy_thd_dynamic_variables).
-    The deinit of dynamic_variables_ptr will be done by the coordinator.
-  */
+  /* The deinit of dynamic_variables_ptr will be done by the coordinator. */
   if (!thd || PX_ROLE_USER(thd)) {
     my_free(vars->dynamic_variables_ptr);
     vars->dynamic_variables_ptr = nullptr;
