@@ -1574,6 +1574,7 @@ void warn_about_deprecated_binary(THD *thd)
         fields_or_vars
         opt_field_or_var_spec
         row_value_explicit
+        opt_returning_clause
 
 %type <var_type>
         option_type opt_var_type opt_rvalue_system_variable_type opt_set_var_ident_type
@@ -13091,6 +13092,7 @@ insert_stmt:
           insert_from_constructor      /* #7 */
           opt_values_reference         /* #8 */
           opt_insert_update_list       /* #9 */
+          opt_returning_clause         /* #10 */
           {
             DBUG_EXECUTE_IF("bug29614521_simulate_oom",
                              DBUG_SET("+d,simulate_out_of_memory"););
@@ -13098,7 +13100,7 @@ insert_stmt:
                                   $7.column_list, $7.row_value_list,
                                   NULL,
                                   $8.table_alias, $8.column_list,
-                                  $9.column_list, $9.value_list);
+                                  $9.column_list, $9.value_list, $10);
             DBUG_EXECUTE_IF("bug29614521_simulate_oom",
                             DBUG_SET("-d,bug29614521_simulate_oom"););
           }
@@ -13112,6 +13114,7 @@ insert_stmt:
           update_list                  /* #8 */
           opt_values_reference         /* #9 */
           opt_insert_update_list       /* #10 */
+          opt_returning_clause         /* #11 */
           {
             PT_insert_values_list *one_row= NEW_PTN PT_insert_values_list(YYMEM_ROOT);
             if (one_row == NULL || one_row->push_back(&$8.value_list->value))
@@ -13120,7 +13123,7 @@ insert_stmt:
                                   $8.column_list, one_row,
                                   NULL,
                                   $9.table_alias, $9.column_list,
-                                  $10.column_list, $10.value_list);
+                                  $10.column_list, $10.value_list, $11);
           }
         | INSERT_SYM                   /* #1 */
           insert_lock_option           /* #2 */
@@ -13130,12 +13133,13 @@ insert_stmt:
           opt_use_partition            /* #6 */
           insert_query_expression      /* #7 */
           opt_insert_update_list       /* #8 */
+          opt_returning_clause         /* #9 */
           {
             $$= NEW_PTN PT_insert(false, $1, $2, $3, $5, $6,
                                   $7.column_list, NULL,
                                   $7.insert_query_expression,
                                   NULL_CSTR, NULL,
-                                  $8.column_list, $8.value_list);
+                                  $8.column_list, $8.value_list, $9);
           }
         ;
 
@@ -13146,12 +13150,13 @@ replace_stmt:
           table_ident                   /* #4 */
           opt_use_partition             /* #5 */
           insert_from_constructor       /* #6 */
+          opt_returning_clause          /* #7 */
           {
             $$= NEW_PTN PT_insert(true, $1, $2, false, $4, $5,
                                   $6.column_list, $6.row_value_list,
                                   NULL,
                                   NULL_CSTR, NULL,
-                                  NULL, NULL);
+                                  NULL, NULL, $7);
           }
         | REPLACE_SYM                   /* #1 */
           replace_lock_option           /* #2 */
@@ -13160,6 +13165,7 @@ replace_stmt:
           opt_use_partition             /* #5 */
           SET_SYM                       /* #6 */
           update_list                   /* #7 */
+          opt_returning_clause          /* #8 */
           {
             PT_insert_values_list *one_row= NEW_PTN PT_insert_values_list(YYMEM_ROOT);
             if (one_row == NULL || one_row->push_back(&$7.value_list->value))
@@ -13168,7 +13174,7 @@ replace_stmt:
                                   $7.column_list, one_row,
                                   NULL,
                                   NULL_CSTR, NULL,
-                                  NULL, NULL);
+                                  NULL, NULL, $8);
           }
         | REPLACE_SYM                   /* #1 */
           replace_lock_option           /* #2 */
@@ -13176,12 +13182,13 @@ replace_stmt:
           table_ident                   /* #4 */
           opt_use_partition             /* #5 */
           insert_query_expression       /* #6 */
+          opt_returning_clause          /* #7 */
           {
             $$= NEW_PTN PT_insert(true, $1, $2, false, $4, $5,
                                   $6.column_list, NULL,
                                   $6.insert_query_expression,
                                   NULL_CSTR, NULL,
-                                  NULL, NULL);
+                                  NULL, NULL, $7);
           }
         ;
 
@@ -13413,9 +13420,10 @@ update_stmt:
           opt_where_clause      /* #7 */
           opt_order_clause      /* #8 */
           opt_simple_limit      /* #9 */
+          opt_returning_clause  /* #11 */
           {
             $$= NEW_PTN PT_update($1, $2, $3, $4, $5, $7.column_list, $7.value_list,
-                                  $8, $9, $10);
+                                  $8, $9, $10, $11);
           }
         ;
 
@@ -13469,8 +13477,9 @@ delete_stmt:
           opt_where_clause
           opt_order_clause
           opt_simple_limit
+          opt_returning_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
           }
         | opt_with_clause
           DELETE_SYM
@@ -15490,7 +15499,7 @@ ident_keywords_unambiguous:
         | RESUME_SYM
         | RETAIN_SYM
         | RETURNED_SQLSTATE_SYM
-        | RETURNING_SYM
+        /* | RETURNING_SYM */
         | RETURNS_SYM
         | REUSE_SYM
         | REVERSE_SYM
@@ -18183,6 +18192,17 @@ json_attribute:
             }
             $$ = to_lex_cstring($1);
           }
+
+opt_returning_clause:
+         /* EMPTY */
+         {
+            $$ = nullptr;
+         }
+        | RETURNING_SYM select_item_list
+         {
+            $$ = NEW_PTN PT_returning_clause($2);
+         }
+        ;
 
 /**
   @} (end of group Parser)

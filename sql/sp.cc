@@ -2476,6 +2476,24 @@ uint sp_get_flags_for_command(LEX *lex) {
     case SQLCOM_ALTER_TABLESPACE:
       flags = sp_head::HAS_COMMIT_OR_ROLLBACK;
       break;
+    case SQLCOM_INSERT:
+    case SQLCOM_REPLACE:
+    case SQLCOM_REPLACE_SELECT:
+    case SQLCOM_INSERT_SELECT:
+    case SQLCOM_DELETE_MULTI:
+    case SQLCOM_DELETE: {
+      /*
+        DELETE normally doesn't return resultset, but there are 2 exceptions:
+         - DELETE ... RETURNING
+         - EXPLAIN DELETE ...
+      */
+      if (!lex->query_block->has_returning() && !lex->is_explain()) {
+        flags = 0;
+      } else {
+        flags = sp_head::MULTI_RESULTS;
+      }
+      break;
+    }
     default:
       flags = lex->is_explain() ? sp_head::MULTI_RESULTS : 0;
       break;

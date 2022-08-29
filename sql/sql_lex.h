@@ -2207,6 +2207,7 @@ class Query_block {
   bool resolve_rollup(THD *thd);
 
   bool setup_wild(THD *thd);
+  bool setup_wild_low(THD *thd, mem_root_deque<Item *> &field_list);
   bool setup_order_final(THD *thd);
   bool setup_group(THD *thd);
   void fix_after_pullout(Query_block *parent_query_block,
@@ -2357,6 +2358,20 @@ class Query_block {
 
   static const char
       *type_str[static_cast<int>(enum_explain_type::EXPLAIN_total)];
+
+  /* Changes from txsql start. */
+ public:
+  mem_root_deque<Item *> *returning_fields{nullptr};
+  Query_result *m_returning_result{nullptr};
+  bool setup_wild_in_returning(THD *thd);
+  void set_returning_result(Query_result *result) {
+    m_returning_result = result;
+  }
+  Query_result *returning_result() const { return m_returning_result; }
+  bool has_returning() const {
+    return returning_fields && !returning_fields->empty();
+  }
+  /* Changes from txsql end. */
 };
 
 inline bool Query_expression::is_union() const {

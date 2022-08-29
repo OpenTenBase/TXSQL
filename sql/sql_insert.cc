@@ -501,6 +501,9 @@ bool Sql_cmd_insert_values::execute_inner(THD *thd) {
 
   TABLE_LIST *const table_list = lex->insert_table;
   TABLE *const insert_table = lex->insert_table_leaf->table;
+  const bool has_returning =
+      (query_block->has_returning() && !thd->is_system_thread());
+  Query_result *qres = nullptr;
 
   if (duplicates == DUP_UPDATE || duplicates == DUP_REPLACE)
     prepare_for_positional_update(insert_table, table_list);
@@ -587,6 +590,16 @@ bool Sql_cmd_insert_values::execute_inner(THD *thd) {
       (*next_field)->reset_warnings();
     }
 
+    qres = query_block->returning_result();
+    assert((!qres && !has_returning) || (qres && has_returning));
+    if (has_returning) {
+      qres->prepare(thd, *query_block->returning_fields,
+                    query_block->master_query_expression());
+      qres->send_result_set_metadata(
+          thd, *query_block->returning_fields,
+          Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+    }
+
     for (const List_item *values : insert_many_values) {
       Autoinc_field_has_explicit_non_null_value_reset_guard after_each_row(
           insert_table);
@@ -637,7 +650,7 @@ bool Sql_cmd_insert_values::execute_inner(THD *thd) {
         continue;
       }
 
-      if (write_record(thd, insert_table, &info, &update)) {
+      if (write_record(thd, insert_table, &info, &update, qres)) {
         has_error = true;
         break;
       }
@@ -749,12 +762,16 @@ bool Sql_cmd_insert_values::execute_inner(THD *thd) {
   if (insert_many_values.size() == 1 &&
       (!(thd->variables.option_bits & OPTION_WARNINGS) ||
        !thd->num_truncated_fields)) {
-    my_ok(thd,
-          info.stats.copied + info.stats.deleted +
-              (thd->get_protocol()->has_client_capability(CLIENT_FOUND_ROWS)
-                   ? info.stats.touched
-                   : info.stats.updated),
-          id);
+    if (has_returning) {
+      qres->send_eof(thd);
+    } else {
+      my_ok(thd,
+            info.stats.copied + info.stats.deleted +
+                (thd->get_protocol()->has_client_capability(CLIENT_FOUND_ROWS)
+                     ? info.stats.touched
+                     : info.stats.updated),
+            id);
+    }
   } else {
     char buff[160];
     ha_rows updated =
@@ -770,7 +787,11 @@ bool Sql_cmd_insert_values::execute_inner(THD *thd) {
       snprintf(buff, sizeof(buff), ER_THD(thd, ER_INSERT_INFO),
                (long)info.stats.records, (long)(info.stats.deleted + updated),
                (long)thd->get_stmt_da()->current_statement_cond_count());
-    my_ok(thd, info.stats.copied + info.stats.deleted + updated, id, buff);
+    if (has_returning) {
+      qres->send_eof(thd);
+    } else {
+      my_ok(thd, info.stats.copied + info.stats.deleted + updated, id, buff);
+    }
   }
 
   /*
@@ -1022,6 +1043,10 @@ bool Sql_cmd_insert_base::prepare_inner(THD *thd) {
 
   const bool insert_into_view = table_list->is_view();
 
+  const bool has_returning =
+      (select->has_returning() && !thd->is_system_thread());
+  mem_root_deque<Item *> *returning_fields = select->returning_fields;
+
   /*
     Save the state of the current name resolution context.
     Should be done only when select_insert is true, but compiler does not
@@ -1125,6 +1150,27 @@ bool Sql_cmd_insert_base::prepare_inner(THD *thd) {
            first_query_block_table->is_derived()) &&
           select->where_cond() == nullptr && select->group_list.elements == 0 &&
           select->having_cond() == nullptr && !select->has_limit()));
+
+  if (has_returning) {
+    ulong saved_want_privilege;
+    bool returning_res = false;
+    if (select->returning_result() == nullptr) {
+      Query_result_send *qrs = new (thd->mem_root) Query_result_send;
+      if (qrs == nullptr) return true;
+      select->set_returning_result(qrs);
+    }
+    saved_want_privilege = thd->want_privilege;
+    thd->want_privilege = SELECT_ACL;
+    if (select->setup_wild_in_returning(thd)) returning_res = true;
+    if (returning_res ||
+        setup_fields(thd, /*want_privilege=*/SELECT_ACL,
+                     /*allow_sum_func=*/false, /*split_sum_funcs=*/false,
+                     /*column_update=*/false, /*typed_items=*/nullptr,
+                     returning_fields, Ref_item_array()))
+      returning_res = true;
+    thd->want_privilege = saved_want_privilege;
+    if (returning_res) return true;
+  }
 
   // Prepare the lists of columns and values in the statement.
 
@@ -1795,7 +1841,8 @@ static bool last_uniq_key(TABLE *table, uint keynr) {
   @returns false if success, true if error
 */
 
-bool write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update) {
+bool write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update,
+                  Query_result *qres) {
   int error, trg_error = 0;
   char *key = nullptr;
   MY_BITMAP *save_read_set, *save_write_set;
@@ -2058,7 +2105,7 @@ bool write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update) {
         trg_error = (table->triggers &&
                      table->triggers->process_triggers(thd, TRG_EVENT_UPDATE,
                                                        TRG_ACTION_AFTER, true));
-        goto ok_or_after_trg_err;
+        goto ok;
       } else /* DUP_REPLACE */
       {
         TABLE_LIST *view = table->pos_in_table_list->belong_to_view;
@@ -2187,6 +2234,10 @@ after_trg_n_copied_inc:
   trg_error =
       (table->triggers && table->triggers->process_triggers(
                               thd, TRG_EVENT_INSERT, TRG_ACTION_AFTER, true));
+ok:
+  if (qres && qres->send_data(thd, *thd->lex->query_block->returning_fields)) {
+    trg_error = 1;
+  }
 
 ok_or_after_trg_err:
   if (key) my_safe_afree(key, table->s->max_unique_length, MAX_KEY_LENGTH);
@@ -2329,11 +2380,26 @@ bool Query_result_insert::start_execution(THD *thd) {
     (*next_field)->reset_tmp_null();
   }
 
-  if (thd->locked_tables_mode <= LTM_LOCK_TABLES && !thd->lex->is_explain()) {
-    assert(!bulk_insert_started);
-    // TODO: Is there no better estimation than 0 == Unknown number of rows?
-    table->file->ha_start_bulk_insert((ha_rows)0);
-    bulk_insert_started = true;
+  if (!thd->lex->is_explain()) {
+    if (thd->locked_tables_mode <= LTM_LOCK_TABLES) {
+      assert(!bulk_insert_started);
+      // TODO: Is there no better estimation than 0 == Unknown number of rows?
+      table->file->ha_start_bulk_insert((ha_rows)0);
+      bulk_insert_started = true;
+    }
+
+    Query_block *const query_block = thd->lex->query_block;
+    const bool has_returning =
+        (query_block->has_returning() && !thd->is_system_thread());
+    Query_result *qres = query_block->returning_result();
+    assert((!qres && !has_returning) || (qres && has_returning));
+    if (has_returning) {
+      qres->prepare(thd, *query_block->returning_fields,
+                    query_block->master_query_expression());
+      qres->send_result_set_metadata(
+          thd, *query_block->returning_fields,
+          Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+    }
   }
   info.reset_counters();
 
@@ -2360,6 +2426,10 @@ bool Query_result_insert::send_data(THD *thd,
                                     const mem_root_deque<Item *> &values) {
   DBUG_TRACE;
   bool error = false;
+
+  Query_block *const query_block = thd->lex->query_block;
+  const bool has_returning =
+      (query_block->has_returning() && !thd->is_system_thread());
 
   Autoinc_field_has_explicit_non_null_value_reset_guard after_each_row(table);
   thd->check_for_truncated_fields = CHECK_FIELD_WARN;
@@ -2398,7 +2468,9 @@ bool Query_result_insert::send_data(THD *thd,
     return thd->is_error();
   }
 
-  error = write_record(thd, table, &info, &update);
+  Query_result *qres = query_block->returning_result();
+  assert((!qres && !has_returning) || (qres && has_returning));
+  error = write_record(thd, table, &info, &update, qres);
 
   DEBUG_SYNC(thd, "create_select_after_write_rows_event");
 
@@ -2459,6 +2531,12 @@ bool Query_result_insert::send_eof(THD *thd) {
               table->file->has_transactions(), table->file->table_type()));
 
   int error = 0;
+
+  Query_block *const query_block = thd->lex->query_block;
+  const bool has_returning =
+      (query_block->has_returning() && !thd->is_system_thread());
+  Query_result *qres = query_block->returning_result();
+  assert((!qres && !has_returning) || (qres && has_returning));
 
   if (bulk_insert_started) {
     error = table->file->ha_end_bulk_insert();
@@ -2535,7 +2613,11 @@ bool Query_result_insert::send_eof(THD *thd) {
                   ? thd->first_successful_insert_id_in_prev_stmt
                   : (info.stats.copied ? autoinc_value_of_last_inserted_row
                                        : 0));
-  my_ok(thd, row_count, id, buff);
+  if (has_returning) {
+    qres->send_eof(thd);
+  } else {
+    my_ok(thd, row_count, id, buff);
+  }
 
   /*
     If we have inserted into a VIEW, and the base table has

@@ -10770,7 +10770,8 @@ Item_field *FindEqualField(Item_field *item_field, table_map reachable_tables,
 }
 
 bool Item_asterisk::itemize(Parse_context *pc, Item **res) {
-  assert(pc->select->parsing_place == CTX_SELECT_LIST);
+  assert(pc->select->parsing_place == CTX_SELECT_LIST ||
+         pc->select->parsing_place == CTX_RETURNING_CLAUSE);
 
   if (skip_itemize(res)) {
     return false;

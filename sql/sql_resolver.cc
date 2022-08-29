@@ -1570,15 +1570,16 @@ bool Query_block::resolve_subquery(THD *thd) {
   @returns false if OK, true if error
 */
 
-bool Query_block::setup_wild(THD *thd) {
+bool Query_block::setup_wild_low(THD *thd, mem_root_deque<Item *> &field_list) {
   DBUG_TRACE;
 
   assert(with_wild > 0);
+  assert(&fields == &field_list || returning_fields == &field_list);
 
   // PS/SP uses arena so that changes are made permanently.
   Prepared_stmt_arena_holder ps_arena_holder(thd);
 
-  for (auto it = fields.begin(); with_wild > 0 && it != fields.end(); ++it) {
+  for (auto it = field_list.begin(); with_wild > 0 && it != field_list.end(); ++it) {
     Item *item = *it;
     if (item->hidden) continue;
     Item_field *item_field;
@@ -1607,7 +1608,8 @@ bool Query_block::setup_wild(THD *thd) {
       } else {
         assert(item_field->context == &this->context);
         if (insert_fields(thd, this, item_field->db_name,
-                          item_field->table_name, &fields, &it, any_privileges))
+                          item_field->table_name, &field_list, &it,
+                          any_privileges))
           return true;
       }
 
@@ -7746,6 +7748,16 @@ bool Query_block::transform_scalar_subqueries_to_join_with_derived(THD *thd) {
 
   return false;
 }
+
+/* Changes from txsql start. */
+bool Query_block::setup_wild(THD *thd) { return setup_wild_low(thd, fields); }
+
+bool Query_block::setup_wild_in_returning(THD *thd) {
+  assert(returning_fields != nullptr);
+  if (with_wild > 0) return setup_wild_low(thd, *returning_fields);
+  return false;
+}
+/* Changes from txsql end. */
 
 /**
   @} (end of group Query_Resolver)

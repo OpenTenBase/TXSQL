@@ -889,6 +889,10 @@ Sql_cmd *PT_delete::make_cmd(THD *thd) {
     lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_LIMIT);
   }
 
+  if (opt_returning_clause && opt_returning_clause->contextualize(&pc)) {
+    return nullptr;
+  }
+
   if (is_multitable() && multi_delete_link_tables(&pc, &delete_tables))
     return nullptr;
 
@@ -948,6 +952,9 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
   }
 
   if (opt_hints != nullptr && opt_hints->contextualize(&pc)) return nullptr;
+
+  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
+    return nullptr;
 
   return new (thd->mem_root) Sql_cmd_update(is_multitable, &value_list->value);
 }
@@ -1121,6 +1128,9 @@ Sql_cmd *PT_insert::make_cmd(THD *thd) {
     sql_cmd->update_field_list = opt_on_duplicate_column_list->value;
     sql_cmd->update_value_list = opt_on_duplicate_value_list->value;
   }
+
+  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
+    return nullptr;
 
   return sql_cmd;
 }
@@ -4366,4 +4376,15 @@ Sql_cmd *PT_show_threadpool_status::make_cmd(THD *thd) {
 
   return &m_sql_cmd;
 }
+
+bool PT_returning_clause::contextualize(Parse_context *pc) {
+  enum enum_parsing_context save_context = pc->select->parsing_place;
+  // set parsing_place for returning
+  pc->select->parsing_place = CTX_RETURNING_CLAUSE;
+  if (super::contextualize(pc)) return true;
+  pc->select->parsing_place = save_context;
+  pc->select->returning_fields = &this->value;
+  return false;
+}
+
 /* Changes from txsql end. */

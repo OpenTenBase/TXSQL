@@ -1,0 +1,71 @@
+# test returning clause for rpl
+-- source include/master-slave.inc
+
+# returning is logged when binlog_format is mixed or statement
+--source include/have_binlog_format_mixed_or_statement.inc
+
+connection master;
+
+create table t1(id1 int, c1 int);
+create table t2(id2 int, c2 int);
+
+## insert returning
+echo insert returning;
+insert into t1 values (1,1),(2,2),(3,3) returning id1, c1;
+insert into t2 select * from t1 returning id2, c2;
+--source include/show_binlog_events.inc
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+
+select * from t1;
+select * from t2;
+--source include/show_binlog_events.inc
+
+## delete returning
+echo delete returning;
+connection master;
+
+delete from t1 where id1=1 returning c1;
+select * from t1;
+--source include/show_binlog_events.inc
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select * from t1;
+--source include/show_binlog_events.inc
+
+## update returning
+echo update returning;
+connection master;
+update t2 set id2=id2+1 returning c2;
+select * from t2;
+--source include/show_binlog_events.inc
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select * from t2;
+--source include/show_binlog_events.inc
+
+# returning error test
+connection master;
+delete from t1;
+delete from t2;
+insert into t1 values (1,1),(2,2),(3,3);
+insert into t2 values (3,3);
+--error ER_SUBQUERY_NO_1_ROW
+replace into t2(id2,c2) values(1,1),(2,2) returning (select id1 from t1);
+--error ER_OPERAND_COLUMNS
+delete from t2 returning (select * from t1);
+--error ER_UPDATE_TABLE_USED
+delete from t1 returning (select id1 from t1);
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+--source include/show_binlog_events.inc
+
+## cleanup
+connection master;
+drop table t1, t2;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
+

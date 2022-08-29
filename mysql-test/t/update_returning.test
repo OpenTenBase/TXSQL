@@ -1,0 +1,142 @@
+CREATE TABLE t1(a INT PRIMARY KEY, b INT, c varchar(100));
+
+INSERT INTO t1 VALUES (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+
+UPDATE t1 SET b = b + 1 WHERE a = 2 RETURNING a;
+UPDATE t1 SET b = b + 1 WHERE a = 2 RETURNING a, b;
+UPDATE t1 SET b = b + 1 WHERE a = 2 RETURNING a, b, c;
+UPDATE t1 SET b = b + 1 WHERE a = 2 RETURNING a+1, b, c;
+UPDATE t1 SET b = b + 1 WHERE a = 2 RETURNING *;
+UPDATE t1 SET b = b + 1 RETURNING *;
+UPDATE t1 SET b = b + 1 WHERE a = 2 and c = 'bcd' RETURNING *;
+
+DELETE FROM t1 WHERE a = 2 RETURNING b+1,c;
+DELETE FROM t1 WHERE a = 1 RETURNING *;
+DELETE FROM t1 WHERE a = 3 and b = 4 RETURNING *;
+DELETE FROM t1 RETURNING *;
+
+DROP TABLE t1;
+
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT, c INT);
+INSERT INTO t1 VALUES(1,2,3),(3,4, 7),(5,6, 11);
+SELECT * FROM t1;
+
+CREATE TABLE t2 (a INT PRIMARY KEY, b INT, c INT as (a+b));
+INSERT INTO t2(a,b) VALUES(1,2),(3,4),(5,6);
+SELECT * FROM t2;
+
+UPDATE t1 SET b=3 WHERE a=1 RETURNING c;
+SELECT * FROM t1;
+UPDATE t1 SET b=2 WHERE a=1 RETURNING *;
+SELECT * FROM t1;
+UPDATE t1 SET b=b*2 RETURNING b, c+b as d;
+SELECT * FROM t1;
+UPDATE t1 SET b=b+2 RETURNING *, c+b as d;
+SELECT * FROM t1;
+--error ER_BAD_TABLE_ERROR
+UPDATE t1 SET c=c+1 WHERE 1 RETURNING a,t.*,a,b,c;
+# use subquery in RETURNING clause. we can't use t1 here otherwise we get
+# ER_UPDATE_TABLE_USED error.
+UPDATE t1 SET b=b*2 RETURNING a, c+b as d, (SELECT count(*) FROM t2) as x;
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+SELECT a,t2.*,b FROM t2;
+--error ER_PARSE_ERROR
+SELECT a,*,b FROM t2;
+UPDATE t2 SET b=b+2 WHERE a=5 and b>2 RETURNING c,b,a;
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+--error ER_PARSE_ERROR
+UPDATE t2 SET b=b*c RETURNING t2.a, *, b, c+b as d;
+SELECT * FROM t2;
+UPDATE t2 SET b=b*c RETURNING t2.a, t2.*, b, c+b as d;
+SELECT * FROM t2;
+UPDATE t2 SET b=b*2 RETURNING a, b, c+b as d, t2.*, (SELECT t1.b + t1.c FROM t1 WHERE t1.a=t2.a) as x;
+SELECT * FROM t1;
+SELECT * FROM t2;
+UPDATE t2 SET b=b/2 limit 2 RETURNING sqrt(a+sqrt(a)) as s,t2.*, (SELECT count(*) FROM t1) as x;
+SELECT * FROM t1;
+SELECT * FROM t2;
+UPDATE t1 SET c=c+1 WHERE 1 or (a=6 and b>4) RETURNING a;
+SELECT * FROM t1;
+SELECT * FROM t2;
+explain UPDATE t2 SET b=b*2 RETURNING a, b, c+b as d, t2.*, (SELECT t1.b + t1.c FROM t1 WHERE t1.a=t2.a) as x;
+
+
+# DELETE RETURNING
+SELECT * FROM t1;
+DELETE FROM t1 WHERE a=1 RETURNING *;
+SELECT * FROM t1;
+
+DELETE FROM t1 WHERE a=3 RETURNING a+b, b-c as m;
+SELECT * FROM t1;
+SELECT * FROM t2;
+DELETE FROM t1 WHERE a=6 and b>4 RETURNING sqrt(a+sqrt(b)) as s, t1.*, (SELECT count(*) FROM t2) as x;
+SELECT * FROM t1;
+SELECT * FROM t2;
+DELETE FROM t2 limit 2 RETURNING *,a-b;
+--error ER_BAD_TABLE_ERROR
+DELETE FROM t1 limit 1 RETURNING a,t.*,a,b,c;
+SELECT * FROM t1;
+SELECT * FROM t2;
+DELETE FROM t1 WHERE 1 or (a=6 and b>4) RETURNING a;
+SELECT * FROM t1;
+
+explain format=json DELETE FROM t1 WHERE a=6 and b>4 RETURNING sqrt(a+sqrt(b)) as s, t1.*, (SELECT count(*) FROM t2) as x;
+
+DROP TABLE t1;
+DROP TABLE t2;
+
+# test for checking error message
+
+CREATE TABLE t1(id1 INT PRIMARY KEY, val1 VARCHAR(1));
+CREATE TABLE t2(id2 INT PRIMARY KEY, val2 VARCHAR(1));
+
+INSERT INTO t1 VALUES(1, 'a'), (2, 'b'), (3, 'c');
+INSERT INTO t2 SELECT * FROM t1;
+
+#DELETE FROM table ... RETURNING <not existing col>
+DELETE FROM t1 WHERE id1=100000 RETURNING val1;
+--error ER_BAD_FIELD_ERROR
+DELETE FROM t1 RETURNING val2;
+SELECT * FROM t1;
+
+#DELETE FROM table ... RETURNING <expr with aggr function>
+## Aggregate functions can't be used in returning caluse
+## Aggregate functions can be used in subquery
+DELETE FROM t1 WHERE id1=1 RETURNING (SELECT MAX(id2) FROM t2);
+--error ER_PARSE_ERROR
+DELETE FROM t1 WHERE RETURNING MAX(id1);
+
+#DELETE FROM table ... RETURNING subquery with more than 1 row
+DELETE FROM t1;
+INSERT INTO t1 VALUES(1, 'a'), (2, 'b'), (3, 'c');
+--error ER_SUBQUERY_NO_1_ROW
+DELETE FROM t1 WHERE id1=1 RETURNING (SELECT id2 FROM t2);
+
+#DELETE FROM table ... RETURNING operand should contain 1 colunm(s)
+DELETE FROM t2 LIMIT 2;
+--error ER_OPERAND_COLUMNS
+DELETE FROM t1 WHERE id1=2 RETURNING (SELECT * FROM t2);
+
+#DELETE FROM table ... RETURNING < SELECT <colname> FROM <DELETE FROME>
+--error ER_UPDATE_TABLE_USED
+DELETE FROM t1 RETURNING (SELECT id1 FROM t1);
+
+# test update view
+DELETE FROM t1;
+INSERT INTO t1 VALUES (1,'a'),(2,'b'),(3,'c');
+CREATE VIEW v1 AS SELECT * FROM t1;
+UPDATE v1 SET val1='d' RETURNING id1;
+SELECT * FROM v1;
+DROP VIEW v1;
+
+CREATE VIEW v2(a,c) AS SELECT id1, COUNT(val1) FROM t1 GROUP BY id1;
+-- error ER_NON_UPDATABLE_TABLE
+UPDATE v2 set val1='e' RETURNING * ;
+DROP VIEW v2;
+
+DROP TABLE t1;
+DROP TABLE t2;

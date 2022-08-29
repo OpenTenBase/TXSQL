@@ -90,6 +90,7 @@ class Window;
 class sp_head;
 class sp_name;
 struct CHARSET_INFO;
+class PT_returning_clause;
 
 /**
   @defgroup ptn  Parse tree nodes
@@ -1721,6 +1722,7 @@ class PT_delete final : public Parse_tree_root {
   PT_order *opt_order_clause;
   Item *opt_delete_limit_clause;
   SQL_I_List<TABLE_LIST> delete_tables;
+  PT_item_list *opt_returning_clause;
 
  public:
   // single-table DELETE node constructor:
@@ -1728,7 +1730,8 @@ class PT_delete final : public Parse_tree_root {
             int opt_delete_options_arg, Table_ident *table_ident_arg,
             const LEX_CSTRING &opt_table_alias_arg,
             List<String> *opt_use_partition_arg, Item *opt_where_clause_arg,
-            PT_order *opt_order_clause_arg, Item *opt_delete_limit_clause_arg)
+            PT_order *opt_order_clause_arg, Item *opt_delete_limit_clause_arg,
+            PT_item_list *opt_returning_clause_arg)
       : m_with_clause(with_clause_arg),
         opt_hints(opt_hints_arg),
         opt_delete_options(opt_delete_options_arg),
@@ -1737,7 +1740,8 @@ class PT_delete final : public Parse_tree_root {
         opt_use_partition(opt_use_partition_arg),
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(opt_order_clause_arg),
-        opt_delete_limit_clause(opt_delete_limit_clause_arg) {
+        opt_delete_limit_clause(opt_delete_limit_clause_arg),
+        opt_returning_clause(opt_returning_clause_arg) {
     table_list.init_empty_const();
     join_table_list.init_empty_const();
   }
@@ -1758,7 +1762,8 @@ class PT_delete final : public Parse_tree_root {
         join_table_list(join_table_list_arg),
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(nullptr),
-        opt_delete_limit_clause(nullptr) {}
+        opt_delete_limit_clause(nullptr),
+        opt_returning_clause(nullptr) {}
 
   Sql_cmd *make_cmd(THD *thd) override;
 
@@ -1787,6 +1792,7 @@ class PT_update : public Parse_tree_root {
   Item *opt_where_clause;
   PT_order *opt_order_clause;
   Item *opt_limit_clause;
+  PT_item_list *opt_returning_clause;
 
  public:
   PT_update(PT_with_clause *with_clause_arg, PT_hint_list *opt_hints_arg,
@@ -1794,7 +1800,7 @@ class PT_update : public Parse_tree_root {
             const Mem_root_array_YY<PT_table_reference *> &join_table_list_arg,
             PT_item_list *column_list_arg, PT_item_list *value_list_arg,
             Item *opt_where_clause_arg, PT_order *opt_order_clause_arg,
-            Item *opt_limit_clause_arg)
+            Item *opt_limit_clause_arg, PT_item_list *opt_returning_clause_arg)
       : m_with_clause(with_clause_arg),
         opt_hints(opt_hints_arg),
         opt_low_priority(opt_low_priority_arg),
@@ -1804,7 +1810,8 @@ class PT_update : public Parse_tree_root {
         value_list(value_list_arg),
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(opt_order_clause_arg),
-        opt_limit_clause(opt_limit_clause_arg) {}
+        opt_limit_clause(opt_limit_clause_arg),
+        opt_returning_clause(opt_returning_clause_arg) {}
 
   Sql_cmd *make_cmd(THD *thd) override;
 };
@@ -1849,6 +1856,7 @@ class PT_insert final : public Parse_tree_root {
   Create_col_name_list *const opt_values_column_list;
   PT_item_list *const opt_on_duplicate_column_list;
   PT_item_list *const opt_on_duplicate_value_list;
+  PT_item_list *opt_returning_clause;
 
  public:
   PT_insert(bool is_replace_arg, PT_hint_list *opt_hints_arg,
@@ -1860,7 +1868,8 @@ class PT_insert final : public Parse_tree_root {
             const LEX_CSTRING &opt_values_table_alias_arg,
             Create_col_name_list *opt_values_column_list_arg,
             PT_item_list *opt_on_duplicate_column_list_arg,
-            PT_item_list *opt_on_duplicate_value_list_arg)
+            PT_item_list *opt_on_duplicate_value_list_arg,
+            PT_item_list *opt_returning_clause_arg)
       : is_replace(is_replace_arg),
         opt_hints(opt_hints_arg),
         lock_option(lock_option_arg),
@@ -1873,7 +1882,8 @@ class PT_insert final : public Parse_tree_root {
         opt_values_table_alias(opt_values_table_alias_arg.str),
         opt_values_column_list(opt_values_column_list_arg),
         opt_on_duplicate_column_list(opt_on_duplicate_column_list_arg),
-        opt_on_duplicate_value_list(opt_on_duplicate_value_list_arg) {
+        opt_on_duplicate_value_list(opt_on_duplicate_value_list_arg),
+        opt_returning_clause(opt_returning_clause_arg) {
     // REPLACE statement can't have IGNORE flag:
     assert(!is_replace || !ignore);
     // REPLACE statement can't have ON DUPLICATE KEY UPDATE clause:
@@ -5200,5 +5210,17 @@ class PT_show_threadpool_status final : public PT_show_base {
  private:
   Sql_cmd_show_threadpool_status m_sql_cmd;
 };
+
+class PT_returning_clause : public PT_item_list {
+  typedef PT_item_list super;
+
+ public:
+  PT_returning_clause(PT_item_list *items) {
+    this->value = std::move(items->value);
+  }
+
+  bool contextualize(Parse_context *pc) override;
+};
+
 /* Changes from txsql end. */
 #endif /* PARSE_TREE_NODES_INCLUDED */
