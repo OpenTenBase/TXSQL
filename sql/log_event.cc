@@ -9509,6 +9509,46 @@ int Rows_log_event::do_scan_and_update(Relay_log_info const *rli) {
               break;  // we found a match
           }
 
+          if (entry) {
+            /**
+            We found an entry, but this may not be first matched entry
+            in binlog. Assume there are two entries, they have the same
+            before image, so they are in the same slot in hash table, and
+            the second one is the head of linked list. Thus the second one
+            is applied first, which can make slave stop with error
+            HA_ERR_KEY_NOT_FOUND. This can happen in the following case:
+            CREATE TABLE `t1` (
+  `            id` int(11) DEFAULT NULL,
+               `test` varchar(255) DEFAULT 'hallo',
+               UNIQUE KEY `id` (`id`)
+            ) ENGINE = InnoDB DEFAULT CHARSET = utf8;
+            INSERT INTO `t1` VALUES (1,'foo'),(2,'test'),(3,'lorem');
+            INSERT INTO `t1` VALUES (1, 'test'), (1, 'foo'), (1, 'bar')
+                on duplicate key update test=values(test);
+            Entry (1, 'bar') and entry (1, 'test') has the same BI, if
+            (1, 'bar') is applied first, the record in table is (1, 'bar'),
+            there is no record matches with other entries. So we should apply
+            all the matched entries in order.
+            */
+            HASH_ROW_ENTRY *last_match = entry;
+            m_hash.next(&entry);
+            while (entry) {
+              m_curr_row = entry->positions->bi_start;
+              m_curr_row_end = entry->positions->bi_ends;
+              prepare_record(table, &this->m_local_cols, false);
+              if ((error = unpack_current_row(rli, &m_cols, false)))
+                goto close_table;
+              // bi_start can be used to determine the order in binlog
+              if ((entry->positions->bi_start <
+                   last_match->positions->bi_start) &&
+                  !record_compare(table, &this->m_local_cols)) {
+                last_match = entry;
+              }
+              m_hash.next(&entry);
+            }
+            entry = last_match;
+          }
+
           /**
              We found the entry we needed, just apply the changes.
            */
