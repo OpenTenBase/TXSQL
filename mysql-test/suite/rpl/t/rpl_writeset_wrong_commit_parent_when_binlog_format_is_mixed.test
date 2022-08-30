@@ -1,0 +1,87 @@
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+connection master;
+
+set @saved_writeset_extraction = @@global.transaction_write_set_extraction;
+set @saved_dependency_tracking = @@global.binlog_transaction_dependency_tracking;
+
+set global transaction_write_set_extraction=xxhash64;
+set transaction_write_set_extraction=xxhash64;
+set global binlog_transaction_dependency_tracking=writeset;
+
+set binlog_format = mixed;
+
+connection master;
+
+show variables like '%binlog_format%';
+
+create table t1(id int auto_increment primary key, c1 int);
+create table t2(c1 int);
+create table t3(c1 int);
+insert into t2 values(1);
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+stop replica;
+
+# disable replica_preserve_commit_order to avoid deadlock
+set @saved_replica_preserve_commit_order=@@global.replica_preserve_commit_order;
+set @saved_replica_parallel_type=@@global.replica_parallel_type;
+set @saved_replica_parallel_workers=@@global.replica_parallel_workers;
+
+set global replica_preserve_commit_order=OFF;
+set global replica_parallel_type=logical_clock;
+set global replica_parallel_workers=2;
+
+connection master;
+
+# trx1
+begin;
+update t2 set c1=2 where c1=1;
+commit;
+
+# trx2
+begin;
+insert into t3 values(1);
+update t2 set c1=3 where c1=2;
+insert into t1(c1) select * from t2;
+commit;
+
+# trx3
+begin;
+update t2 set c1=9 where c1=3;
+insert into t1(c1) select * from t2;
+commit;
+
+connection slave;
+# lock t3 to block trx2
+lock table t3 read;
+start replica;
+connection master;
+sleep 2;
+connection slave;
+unlock tables;
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+connection master;
+select * from t2;
+
+connection slave;
+select * from t2;
+stop replica;
+set global replica_preserve_commit_order=@saved_replica_preserve_commit_order;
+set global replica_parallel_type=@saved_replica_parallel_type;
+set global replica_parallel_workers=@saved_replica_parallel_workers;
+start replica;
+
+connection master;
+set global binlog_transaction_dependency_tracking = @saved_dependency_tracking;
+set global transaction_write_set_extraction = @saved_writeset_extraction;
+
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+--source include/rpl_end.inc
