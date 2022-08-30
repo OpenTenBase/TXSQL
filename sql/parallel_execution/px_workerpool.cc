@@ -88,7 +88,6 @@ worker_pool_t* create_worker_threads(int num_threads, const THD_array &list)
 {
   int i, j, ret = 0;
   worker_pool_t *worker_pool;
-  pthread_attr_t attr;
 
   worker_pool = (worker_pool_t*) malloc (sizeof (worker_pool_t));
   if (worker_pool == nullptr) 
@@ -134,10 +133,6 @@ worker_pool_t* create_worker_threads(int num_threads, const THD_array &list)
   px_condition_init(&worker_pool->sem_tasks_done);
   px_condition_init(&worker_pool->sem_query_done);
 
-  pthread_attr_init (&attr);
-  pthread_attr_setscope (&attr, PTHREAD_SCOPE_SYSTEM);
-  pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
-
   worker_pool->finished = 0;
   worker_pool->num_query_done = 0;
   worker_pool->num_workers_done = 0;
@@ -160,8 +155,8 @@ worker_pool_t* create_worker_threads(int num_threads, const THD_array &list)
     worker_pool->thread_args[i].is_equivalent_plan = false;
     worker_pool->thread_args[i].px_exchange_context = &worker_pool->px_exchange_context;
     worker_pool->thread_args[i].worker_thd = list[i];
-    ret = pthread_create (&worker_pool->threads[i], &attr, thread_func_in_worker,
-                          &worker_pool->thread_args[i]);
+    ret = pthread_create (&worker_pool->threads[i], &connection_attrib,
+                          thread_func_in_worker, &worker_pool->thread_args[i]);
     /**
       Currently, once a worker thread is successfully created, it immediately
       go to `rebuild_query_execution()`, `pthread_create` may return error,
