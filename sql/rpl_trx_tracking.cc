@@ -239,7 +239,9 @@ void Writeset_trx_dependency_tracker::get_dependency(THD *thd,
       // must not use foreign keys
       !write_set_ctx->get_has_related_foreign_keys() &&
       // it did not broke past the capacity already
-      !write_set_ctx->was_write_set_limit_reached();
+      !write_set_ctx->was_write_set_limit_reached() &&
+      // the binlog_format should be row
+      (thd->variables.binlog_format == BINLOG_FORMAT_ROW);
   bool exceeds_capacity = false;
 
   if (can_use_writesets) {
