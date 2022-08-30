@@ -31,6 +31,7 @@ sleep 1;
 delete from t1 where id=5;
 sleep 3;
 explain format=tree select * from t1;
+--sorted_result
 select * from t1;
 
 disable_query_log;

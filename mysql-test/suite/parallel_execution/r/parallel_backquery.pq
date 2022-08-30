@@ -32,9 +32,7 @@ id	c1
 4	4
 ## select * from t1 as of timestamp 'time1'
 EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 4)
-        -> Parallel table scan on t1  (cost=0.65 rows=4)
+-> Table scan on t1  (cost=0.65 rows=4)
 
 id	c1
 1	1
@@ -44,9 +42,7 @@ id	c1
 5	5
 ## date_sub
 EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 4)
-        -> Parallel table scan on t1  (cost=0.65 rows=4)
+-> Table scan on t1  (cost=0.65 rows=4)
 
 id	c1
 1	1

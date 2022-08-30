@@ -860,6 +860,11 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
+  // backquery has not supported yet!
+  if (thd && thd->has_backquery()) {
+    return false;
+  }
+
   // By definition, zero txsql_parallel_degree disables parallel execution
   // except that has been specified in hint. It should be noted that the
   // specified or default value cannot exceed the global resource limit.
