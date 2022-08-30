@@ -2315,7 +2315,8 @@ done:
   if (!g_sqlAsyn ||
       !g_thdBottomHalf ||
       thd->is_local_or_admin_port() || clone_cmd != nullptr ||
-      Connection_handler_manager::thread_handling != Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+      Connection_handler_manager::thread_handling != Connection_handler_manager::SCHEDULER_THREAD_POOL ||
+      thd->variables.txsql_disable_sqlasyn) {
     /* Always update binlog pos to latest value, because we may change g_sqlAsyn
     on fly, and if we enable the option, but the binlog pos is a stale value,
     then the statement will always wait for ack from slave no matter if it changed

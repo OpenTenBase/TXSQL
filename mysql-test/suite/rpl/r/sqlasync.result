@@ -97,8 +97,17 @@ sqlasync_delay_commit	#
 sqlasync_group_slave_push_to_queue_fail	#
 sqlasync_group_slave_relay_fsync	#
 sqlasync_uncommitted_timeout_trxs	#
+set global sqlasyntimeout = 60;
+set global sqlasynwarntimeout = 120;
+include/stop_slave.inc
+set global txsql_disable_sqlasyn=1;
+ERROR HY000: Variable 'txsql_disable_sqlasyn' is a SESSION variable and can't be used with SET GLOBAL
+set txsql_disable_sqlasyn=1;
+insert into t1 values (10,12,12);
+include/start_slave.inc
 set global sqlasyntimeout = 30;
 set global sqlasynwarntimeout = 3;
+set txsql_disable_sqlasyn=0;
 set global sqlasyn = 0;
 set global sqlasync_after_sync = 0;
 drop database sb1;

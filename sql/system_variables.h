@@ -424,6 +424,11 @@ struct System_variables {
     allow proxy to read write tdsql internal table
   */
   bool tdsql_allow_access_internal_table;
+
+  /**
+    session variable of set sqlasyn = 0
+  */
+  bool txsql_disable_sqlasyn;
 };
 
 /**

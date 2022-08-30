@@ -7400,3 +7400,10 @@ static Sys_var_int32 Sys_freeze_wait_timeout_sec(
     "second without being notified, automatically wake up and report an error.",
     GLOBAL_VAR(g_freeze_wait_timeout_sec), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, INT32_MAX), DEFAULT(60), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_tdsql_current_session_sqlasyn (
+    "txsql_disable_sqlasyn",
+    "A session only variable to disable strong synchroniaztion if set",
+    SESSION_ONLY(txsql_disable_sqlasyn),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
