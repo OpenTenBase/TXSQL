@@ -1,0 +1,25 @@
+source include/master-slave.inc;
+
+connection master;
+CREATE TABLE t1 AS SELECT ST_POINTFROMGEOHASH("0123", 4326);
+CREATE TABLE t2 AS SELECT ST_POINTFROMGEOHASH("0123", 4326) union select null;
+create table t3 SELECT JSON_ARRAY(1, "abc", NULL, TRUE, CURTIME());
+create table t4 select now();
+show create table t1;
+show create table t2;
+show create table t3;
+show create table t4;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+show create table t1;
+show create table t2;
+show create table t3;
+show create table t4;
+
+connection master;
+drop table t1, t2, t3, t4;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

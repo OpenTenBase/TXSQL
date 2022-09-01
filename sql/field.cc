@@ -10435,6 +10435,16 @@ Create_field *generate_create_field(THD *thd, Item *item, TABLE *tmp_table) {
       if (is_temporal_type_with_date(tmp_table_field->type()) &&
           thd->is_strict_mode() && !item->is_nullable())
         tmp_table_field->set_flag(NO_DEFAULT_VALUE_FLAG);
+
+      if (item->type() == Item::FUNC_ITEM && item->is_nullable() == false &&
+          tmp_table_field->real_type() == MYSQL_TYPE_GEOMETRY) {
+        /*
+          If item is a function and it can not be null and the type of field is
+          GEOMETRY, we should set NO_DEFAULT_VALUE_FLAG flag, otherwise the
+          default value will be set to an empty string, which is invalid.
+        */
+        tmp_table_field->set_flag(NO_DEFAULT_VALUE_FLAG);
+      }
     }
   }
 
