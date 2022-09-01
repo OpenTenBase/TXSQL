@@ -394,6 +394,10 @@ txsql_parallel_table_record_threshold
 txsql_parallel_table_record_threshold
 txsql_pread_count_enabled
 txsql_pread_count_enabled
+txsql_row_count
+txsql_row_count
+txsql_use_db
+txsql_use_db
 use_secondary_engine
 xa_detach_on_prepare
 xa_detach_on_prepare
