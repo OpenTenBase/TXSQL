@@ -47,12 +47,14 @@ class JOIN;
 class PX_executor;
 
 #define PX_MAX_THREADS(thd) \
-    ((thd)->max_parallel_worker_threads_snapshot == -1 ? \
-     txsql_max_parallel_worker_threads : (thd)->max_parallel_worker_threads_snapshot)
+    ((thd)->max_parallel_worker_threads_snapshot = \
+     ((thd)->max_parallel_worker_threads_snapshot == UINT_MAX32 ? \
+      txsql_max_parallel_worker_threads : (thd)->max_parallel_worker_threads_snapshot))
 
 #define PX_CURR_ENABLED(thd) \
-    ((thd)->parallel_execution_enabled_snapshot == -1 ? \
-     txsql_parallel_execution_enabled : (thd)->parallel_execution_enabled_snapshot)
+    (((thd)->parallel_execution_enabled_snapshot = \
+     (thd)->parallel_execution_enabled_snapshot == -1 ? \
+      txsql_parallel_execution_enabled : (thd)->parallel_execution_enabled_snapshot))
 
 #define PX_ENABLED(thd) \
     (PX_ROLE_USER(thd) ? \
