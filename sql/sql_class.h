@@ -1179,7 +1179,7 @@ class THD : public MDL_context_owner,
   /* Whether task is running. */
   bool is_running_task{false};
   /* Shadow copy of txsql_max_parallel_worker_threads. */
-  int max_parallel_worker_threads_snapshot{-1};
+  ulong max_parallel_worker_threads_snapshot{UINT_MAX32};
   /* Shadow copy of txsql_parallel_execution_enabled. */
   int parallel_execution_enabled_snapshot{-1};
 #endif /* defined(HAVE_PX) */

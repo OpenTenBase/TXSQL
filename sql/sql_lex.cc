@@ -868,13 +868,15 @@ bool LEX::check_px_execution() const {
   // By definition, zero txsql_parallel_degree disables parallel execution
   // except that has been specified in hint. It should be noted that the
   // specified or default value cannot exceed the global resource limit.
-  if (get_parallel_degree_hint(thd, false) != UINT_MAX32) {
-    if(get_parallel_degree_hint(thd, false) > txsql_max_parallel_worker_threads) {
+  if(PX_ROLE_USER(thd)){
+    if (get_parallel_degree_hint(thd, false) != UINT_MAX32) {
+      if(get_parallel_degree_hint(thd, false) > PX_MAX_THREADS(thd)) {
+        return false;
+      }
+    } else if (!thd->variables.txsql_parallel_degree ||
+        thd->variables.txsql_parallel_degree > PX_MAX_THREADS(thd)) {
       return false;
     }
-  } else if (!thd->variables.txsql_parallel_degree ||
-      thd->variables.txsql_parallel_degree > txsql_max_parallel_worker_threads) {
-    return false;
   }
 
   if (thd->is_attachable_transaction_active() ||
