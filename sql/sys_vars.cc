@@ -8814,6 +8814,14 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 
 #if defined(HAVE_OPT_CTX)
+static bool fix_optimizer_context_max_mem_size(sys_var *, THD *thd,
+                                               enum_var_type type) {
+  if (type == OPT_SESSION || type == OPT_DEFAULT) {
+    OPT_CTX(thd).set_mem_max_capacity(thd, true);
+  }
+  return false;
+}
+
 static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
     "txsql_optimizer_context_max_mem_size",
     "Maximum amount of memory used by the optimizer context to cache"
@@ -8824,7 +8832,16 @@ static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
     HINT_UPDATEABLE SESSION_VAR(txsql_optimizer_context_max_mem_size),
     CMD_LINE(OPT_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(8388608),
     BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-    ON_UPDATE(nullptr));
+    ON_UPDATE(fix_optimizer_context_max_mem_size));
+
+static Sys_var_ulong Sys_txsql_optimizer_context_prealloc_size(
+    "txsql_optimizer_context_prealloc_size",
+    "Default buffer size of the optimizer context",
+    TENCENT_VAR GLOBAL_VAR(txsql_optimizer_context_prealloc_size),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(OPTIMIZER_CONTEXT_ALLOC_PREALLOC_SIZE, ULONG_MAX),
+    DEFAULT(4096), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 #endif
 
 #if defined(HAVE_PX)

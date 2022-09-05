@@ -34,7 +34,9 @@ enum enum_opt_ctx_mode {
   /// This is a trivial difference than the native behavior.
   OPT_CTX_RECORD,
   /// As a warmup cache. Any statistic call must be served by the cache.
-  OPT_CTX_REPLAY
+  OPT_CTX_REPLAY,
+  /// Mem root capacity exceeded.
+  OPT_CTX_ERROR
 };
 
 /// Statistic call types. The number of calls serves as a loose validation
@@ -129,6 +131,9 @@ class Opt_ctx_client {
   /// Set the default db.
   void set_db(const LEX_CSTRING &new_db);
 
+  /// Reset max capacity of mem root
+  void set_mem_max_capacity(THD *thd, bool force_clear = false);
+
   /// To intercept handler::info().
   int info(TABLE *table, uint flag);
   /// To intercept handler::records_in_range().
@@ -191,7 +196,8 @@ class Opt_ctx_client {
    */
   bool m_optimizing;
 
-  /// The optimization context that the client is currently connected to.
+  /// The optimization context that the client is currently connected to in
+  /// non-native mode. For native mode, it is a cache object for reuse.
   std::shared_ptr<Opt_ctx> m_opt_ctx;
 #ifndef DBUG_OFF
   /// DBUG interactive session state of either the attached THD or connected
@@ -210,6 +216,7 @@ class Opt_ctx_client {
 
 // Avoid dependency on px_interface.h
 extern unsigned long txsql_max_parallel_worker_threads;
+extern ulong txsql_optimizer_context_prealloc_size;
 
 /**
   Tell if optimization context is enabled as well as applicable.

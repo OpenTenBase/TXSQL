@@ -79,6 +79,9 @@ inline const char *to_str(enum enum_opt_repo_type type) {
   }
 }
 
+// Default buffer size of the optimizer context
+ulong txsql_optimizer_context_prealloc_size;
+
 static bool post_init_worker_thd(THD *coordinator_thd, THD *worker_thd);
 
 /**
@@ -98,8 +101,8 @@ class Opt_ctx {
    Opt_ctx(PSI_memory_key psi_memory_key);
    ~Opt_ctx();
 
-  void reset();
-  void cleanup();
+  void reset(bool force_clear = false);
+  void cleanup(bool force_clear = false);
 
   /// Statistics cache.
   Stats_cache *stats_cache() { return &m_opt_stats; }
@@ -116,6 +119,8 @@ class Opt_ctx {
   void set_calls(enum enum_opt_call_type type, int calls);
   /// Set given THD as a source of optimization context.
   void set_env(THD *thd);
+  /// Reset max capacity of mem root
+  void set_mem_max_capacity(THD *thd, bool force_clear = false);
 #ifndef DBUG_OFF
   void set_source_session(Opt_dbug_session *session);
   Opt_dbug_session *source_session();
@@ -177,7 +182,7 @@ extern "C" void sql_alloc_error_handler(void);
 
 Opt_ctx::Opt_ctx(PSI_memory_key psi_memory_key)
     : m_thd(), m_query_string(NULL_CSTR), m_db(NULL_CSTR),
-      m_stats_cache_alloc(psi_memory_key, 16384 /* 16 kB */),
+      m_stats_cache_alloc(psi_memory_key, txsql_optimizer_context_prealloc_size),
       m_opt_stats(&m_stats_cache_alloc) {
   assert(current_thd);
   m_stats_cache_alloc.set_max_capacity(current_thd->variables.txsql_optimizer_context_max_mem_size);
@@ -189,8 +194,8 @@ Opt_ctx::Opt_ctx(PSI_memory_key psi_memory_key)
 
 Opt_ctx::~Opt_ctx() {}
 
-void Opt_ctx::reset() {
-  cleanup();
+void Opt_ctx::reset(bool force_clear) {
+  cleanup(force_clear);
   m_thd = nullptr;
   m_query_string = NULL_CSTR;
   m_db = NULL_CSTR;
@@ -198,9 +203,27 @@ void Opt_ctx::reset() {
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) m_versions[i] = -1L;
 }
 
-void Opt_ctx::cleanup() {
+void Opt_ctx::cleanup(bool force_clear) {
   m_opt_stats.clear();
-  m_stats_cache_alloc.Clear();
+  /*
+    If we've allocated a lot of memory (compared to the user's desired
+    preallocation size; note that we don't actually preallocate anymore), free
+    it so that one big query won't cause us to hold on to a lot of RAM forever.
+    If not, keep the last block so that the next query will hopefully be able to
+    run without allocating memory from the OS.
+
+    The factor 5 is pretty much arbitrary, but ends up allowing three
+    allocations (1 + 1.5 + 1.5²) under the current allocation policy.
+  */
+  size_t max_capacity = m_stats_cache_alloc.get_max_capacity();
+  size_t allocated_size = m_stats_cache_alloc.allocated_size();
+  if (!force_clear &&
+      (max_capacity == 0 || allocated_size < max_capacity) &&
+      allocated_size < 5 * txsql_optimizer_context_prealloc_size) {
+    m_stats_cache_alloc.Clear();
+  } else {
+    m_stats_cache_alloc.Clear();
+  }
 }
 
 void Opt_ctx::set_query(LEX_CSTRING query_arg) {
@@ -222,6 +245,12 @@ void Opt_ctx::set_rule_version(enum enum_opt_repo_type type,
 
 void Opt_ctx::set_env(THD *thd) {
   m_thd = thd;
+}
+
+void Opt_ctx::set_mem_max_capacity(THD *thd, bool force_clear) {
+  if (force_clear)
+    reset(true);
+  m_stats_cache_alloc.set_max_capacity(thd->variables.txsql_optimizer_context_max_mem_size);
 }
 
 #ifndef DBUG_OFF
@@ -281,8 +310,22 @@ void Opt_ctx_client::cleanup_after_query() {
   OPT_CTX_TRACE_CLIENT("cleanup");
   if (m_nested_level > 0) return;
 
-  // Release the context and, if necessary, destroy it.
-  m_opt_ctx.reset();
+  // Release the context, or reset for reuse.
+  switch (m_mode) {
+    case OPT_CTX_REPLAY:
+      m_opt_ctx.reset();
+      break;
+    case OPT_CTX_RECORD:
+      assert(m_opt_ctx.use_count() == 1);
+      m_opt_ctx->reset();
+      break;
+    case OPT_CTX_ERROR:
+      m_opt_ctx->reset();
+      break;
+    default:
+      break;
+  }
+
   m_mode = OPT_CTX_NATIVE;
 }
 
@@ -407,33 +450,47 @@ inline const char *to_str(enum enum_opt_ctx_mode mode) {
 
 void Opt_ctx_client::set_ctx(enum enum_opt_ctx_mode mode,
                              std::shared_ptr<Opt_ctx> ctx) {
+  // Replayer expects a reference context.
   assert(mode != OPT_CTX_REPLAY || ctx);
   OPT_CTX_TRACE_CLIENT("set_ctx %p %s", ctx.get(), to_str(mode));
 
   if (m_nested_level > 0) return;
 
-  if (mode != OPT_CTX_NATIVE && !ctx) {
-    ctx.reset(new (std::nothrow) Opt_ctx(key_memory_optimizer_context));
-  }
-  // Switch to non-native mode only if having connected to an optimization
-  // context.
-  if (ctx) {
-    m_opt_ctx = ctx;
-    m_mode = mode;
-#ifndef DBUG_OFF
-    // The replayer inherits DBUG session state through the context.
-    if (m_mode == OPT_CTX_RECORD) {
-      m_opt_ctx->set_source_session(m_dbug_session);
-    } else if (m_mode == OPT_CTX_REPLAY) {
-      m_dbug_session = m_opt_ctx->source_session();
+  if (mode != OPT_CTX_NATIVE && mode != OPT_CTX_ERROR) {
+    if (!ctx && !m_opt_ctx) {
+      ctx.reset(new (std::nothrow) Opt_ctx(key_memory_optimizer_context));
     }
-#endif
+    // Connect if one is explicitly provided or successfully created.
+    if (ctx) m_opt_ctx = ctx;
+    // Switch to non-native mode only if having connected to an optimization
+    // context.
+    if (m_opt_ctx) {
+      m_mode = mode;
+    }
   } else {
-    m_mode = OPT_CTX_NATIVE;
-#ifndef DBUG_OFF
-    m_dbug_session = &m_thd->opt_dbug_session;
-#endif
+    m_mode = mode;
   }
+
+#ifndef DBUG_OFF
+  // Replayer inherits DBUG session state through the context.
+  switch (m_mode) {
+    case OPT_CTX_REPLAY:
+      m_dbug_session = m_opt_ctx->source_session();
+      break;
+    case OPT_CTX_RECORD:
+    case OPT_CTX_NATIVE:
+    case OPT_CTX_ERROR:
+      m_dbug_session = &m_thd->opt_dbug_session;
+      m_opt_ctx->set_source_session(m_dbug_session);
+      break;
+    default:
+      assert(0);
+      break;
+  }
+  assert(m_dbug_session);
+#endif
+
+  assert(m_mode == OPT_CTX_NATIVE || m_opt_ctx);
 }
 
 bool Opt_ctx_client::init_query() {
@@ -512,6 +569,13 @@ void Opt_ctx_client::set_db(const LEX_CSTRING &new_db) {
   if (m_nested_level == 0 && m_mode == OPT_CTX_RECORD) {
     m_opt_ctx->set_db(new_db);
   }
+}
+
+void Opt_ctx_client::set_mem_max_capacity(THD *thd, bool force_clear) {
+  OPT_CTX_TRACE_CLIENT("set_mem_max_capacity %lu with%s clear",
+      thd->variables.txsql_optimizer_context_max_mem_size,
+      force_clear ? "":"out");
+  m_opt_ctx->set_mem_max_capacity(thd, force_clear);
 }
 
 int Opt_ctx_client::info(TABLE *table, uint flag) {
@@ -824,7 +888,7 @@ class Px_optimizer_context_error_handler : public Internal_error_handler {
             ER_THD(thd, ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT));
 
         /* close the cache and fallback to serial explain */
-        OPT_CTX(thd).set_ctx(OPT_CTX_NATIVE);
+        OPT_CTX(thd).set_ctx(OPT_CTX_ERROR);
 
         if (thd->lex->is_explain()) {
           return true;
@@ -858,6 +922,7 @@ bool Stats_cache::set_index_dive(const TABLE *table,
   index_dive_args *dive_args = new (m_mem_root) index_dive_args;
   bool error = current_thd->is_error();
   if (error) {
+    current_thd->pop_internal_handler();
     return error;
   }
 
