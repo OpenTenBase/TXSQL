@@ -1,0 +1,27 @@
+--echo #
+--echo # Bug#30594501 QUERY STALLS IN "QUERY END" STATUS FOR LONG TIME
+--echo #
+
+--source include/have_debug.inc
+
+--connect(con1, localhost, root,,)
+--connect(con2, localhost, root,,)
+
+select @@table_open_cache_instances;
+
+create table t1(a int);
+insert into t1 values (1);
+
+--echo # Connection con1
+connection con1;
+select * from t1;
+disconnect con1;
+
+--echo # Connection con2
+connection con2;
+prepare s from 'select * from `t1`';
+disconnect con2;
+
+--echo # Connection default
+connection default;
+drop table t1;

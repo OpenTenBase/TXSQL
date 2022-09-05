@@ -1,0 +1,5 @@
+--slave-preserve-commit-order=ON
+--slave-parallel-type=logical_clock
+--slave-parallel-workers=4
+--innodb-lock-wait-timeout=1
+--slave-transaction-retries=3

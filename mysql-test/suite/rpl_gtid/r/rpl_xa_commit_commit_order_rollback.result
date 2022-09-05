@@ -1,0 +1,39 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Slave SQL for channel ''");
+create table t1(id int not null primary key, c1 int) engine=innodb;
+insert into t1 values(1,1),(2,2),(3,3);
+include/sync_slave_sql_with_master.inc
+stop slave;
+xa start 'testxa1';
+update t1 set c1=22 where id=2;
+xa end 'testxa1';
+xa prepare 'testxa1';
+SET debug = '+d,set_commit_parent_100';
+insert into t1 values(4,4);
+SET debug = '-d,set_commit_parent_100';
+SET debug = '+d,set_commit_parent_100';
+xa commit 'testxa1';
+SET debug = '-d,set_commit_parent_100';
+begin;
+insert into t1 values(4,4);
+start slave;
+include/wait_for_slave_sql_error.inc [errno=3030]
+rollback;
+xa recover;
+formatID	gtrid_length	bqual_length	data
+1	7	0	testxa1
+start slave;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+id	c1
+1	1
+2	22
+3	3
+4	4
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

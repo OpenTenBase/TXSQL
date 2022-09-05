@@ -79,6 +79,7 @@
 #include "thr_mutex.h"
 #include "tztime.h"
 #include "my_murmur3.h"
+#include "sql/rpl_slave_commit_order_manager.h"
 
 const char *XID_STATE::xa_state_names[] = {"NON-EXISTING", "ACTIVE", "IDLE",
                                            "PREPARED", "ROLLBACK ONLY"};
@@ -742,6 +743,7 @@ bool Sql_cmd_xa_commit::process_external_xa_commit(THD *thd,
   if (!find_trn_for_recover_and_check_its_state(thd, external_xid, xid_state))
     return true;
 
+  MDL_savepoint local_mdl_save = thd->mdl_context.mdl_savepoint();
   if (acquire_mandatory_metadata_locks(thd, external_xid)) {
     /*
       We can't rollback an XA transaction on lock failure due to
@@ -769,6 +771,18 @@ bool Sql_cmd_xa_commit::process_external_xa_commit(THD *thd,
     xid_state->set_binlogged();
   else
     xid_state->unset_binlogged();
+
+  if (is_mts_worker(thd) &&
+      thd->rli_slave->get_commit_order_manager() != nullptr) {
+    Slave_worker *worker = dynamic_cast<Slave_worker *>(thd->rli_slave);
+    Commit_order_manager *mngr = worker->get_commit_order_manager();
+    if (mngr->wait_for_its_turn(worker, true)) {
+      gtid_state_commit_or_rollback(thd, true, false);
+      thd->mdl_context.rollback_to_savepoint(local_mdl_save);
+      xid_state->unset_binlogged();
+      return true;
+    }
+  }
 
   res = ha_commit_or_rollback_by_xid(thd, external_xid, !res) || res;
 
@@ -998,6 +1012,7 @@ bool Sql_cmd_xa_rollback::process_external_xa_rollback(THD *thd,
   if (!find_trn_for_recover_and_check_its_state(thd, external_xid, xid_state))
     return true;
 
+  MDL_savepoint local_mdl_save = thd->mdl_context.mdl_savepoint();
   if (acquire_mandatory_metadata_locks(thd, external_xid)) {
     /*
       We can't rollback an XA transaction on lock failure due to
@@ -1017,6 +1032,18 @@ bool Sql_cmd_xa_rollback::process_external_xa_rollback(THD *thd,
     xid_state->set_binlogged();
   else
     xid_state->unset_binlogged();
+
+  if (is_mts_worker(thd) &&
+      thd->rli_slave->get_commit_order_manager() != nullptr) {
+    Slave_worker *worker = dynamic_cast<Slave_worker *>(thd->rli_slave);
+    Commit_order_manager *mngr = worker->get_commit_order_manager();
+    if (mngr->wait_for_its_turn(worker, true)) {
+      gtid_state_commit_or_rollback(thd, true, false);
+      thd->mdl_context.rollback_to_savepoint(local_mdl_save);
+      xid_state->unset_binlogged();
+      return true;
+    }
+  }
 
   res = ha_commit_or_rollback_by_xid(thd, external_xid, false) || res;
 

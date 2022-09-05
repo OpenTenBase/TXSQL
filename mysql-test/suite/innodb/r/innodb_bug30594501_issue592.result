@@ -1,0 +1,16 @@
+#
+# Bug#30594501 QUERY STALLS IN "QUERY END" STATUS FOR LONG TIME
+#
+select @@table_open_cache_instances;
+@@table_open_cache_instances
+1
+create table t1(a int);
+insert into t1 values (1);
+# Connection con1
+select * from t1;
+a
+1
+# Connection con2
+prepare s from 'select * from `t1`';
+# Connection default
+drop table t1;

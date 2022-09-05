@@ -1,0 +1,64 @@
+--source include/have_binlog_format_row.inc
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+call mtr.add_suppression("Slave SQL for channel ''");
+
+connect (con1_master,127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect (con2_master,127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect (con3_slave,127.0.0.1,root,,test,$SLAVE_MYPORT,);
+
+connection master;
+create table t1(id int not null primary key, c1 int) engine=innodb;
+insert into t1 values(1,1),(2,2),(3,3);
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+stop slave;
+
+connection con1_master;
+# trx1
+xa start 'testxa1';
+update t1 set c1=22 where id=2;
+xa end 'testxa1';
+xa prepare 'testxa1';
+
+connection con2_master;
+SET debug = '+d,set_commit_parent_100';
+# trx2
+insert into t1 values(4,4);
+SET debug = '-d,set_commit_parent_100';
+
+connection con1_master;
+SET debug = '+d,set_commit_parent_100';
+# trx3
+xa rollback 'testxa1';
+SET debug = '-d,set_commit_parent_100';
+
+connection con3_slave;
+begin;
+insert into t1 values(4,4);
+
+connection slave;
+start slave;
+let $slave_sql_errno= 3030;
+source include/wait_for_slave_sql_error.inc;
+connection con3_slave;
+rollback;
+xa recover;
+start slave;
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select * from t1;
+
+connection master;
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+disconnect con1_master;
+disconnect con2_master;
+disconnect con3_slave;
+
+--source include/rpl_end.inc
