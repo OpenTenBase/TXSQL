@@ -125,6 +125,10 @@ constexpr const size_t MIN_SORT_MEMORY{32 * 1024};
 
 constexpr const size_t STRING_BUFFER_USUAL_SIZE{80};
 
+#if defined(HAVE_OPT_CTX)
+#define OPTIMIZER_CONTEXT_ALLOC_PREALLOC_SIZE 512
+#endif /* defined(HAVE_OPT_CTX) */
+
 /** Memory allocated when parsing a statement */
 constexpr const size_t MEM_ROOT_BLOCK_SIZE{8192};
 
