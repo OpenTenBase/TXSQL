@@ -28,6 +28,8 @@ cdb_kill_idle_trans_timeout
 cdb_kill_idle_trans_timeout
 cdb_lock_connect_detect_enabled
 cdb_lock_connect_detect_enabled
+cdb_opt_outline_enabled
+cdb_opt_outline_enabled
 cdb_query_memory_log_enabled
 cdb_query_memory_log_enabled
 character_set_client_handshake

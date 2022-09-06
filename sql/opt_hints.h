@@ -343,6 +343,55 @@ class Opt_hints {
 };
 
 /**
+  User define optimizer hints banding to lex.
+ */
+class Opt_ud_optimizer_hints 
+{
+public:
+  int m_size;
+  uint m_position;
+  char m_ptr[256];
+};
+
+/**
+  User define index hints banding to lex.
+ */
+class Opt_ud_index_hints 
+{
+public:
+  uint get_position() const { return m_position; }
+  void set_position(uint position) { m_position = position; }
+  std::string get_db_name() const { return m_db_name; }
+  void set_db_name(const std::string &db_name) { m_db_name = db_name; }
+  std::string get_alias_name() const { return m_alias_name; }
+  void set_alias_name(const std::string &db_name) { m_alias_name = db_name; }
+  std::string get_index_name() const { return m_index_name; }
+  void set_index_name(const std::string &index_name) { m_index_name = index_name; }
+  int get_hint_type() const { return m_index_type; }
+  void set_index_type(int index_type) { m_index_type = index_type; }
+  int get_clause_type() const { return m_clause_type; }
+  void set_clause_type(int clause_type) { m_clause_type = clause_type; }
+  void format() { format(m_db_name); format(m_alias_name); format(m_index_name); }
+  bool check_valid() { 
+    return (m_index_type >= 0 && m_index_type <= 2 && 
+            m_clause_type >= 0 && m_clause_type <= 2); 
+  }
+private:
+  inline void format(std::string &field) {
+    if (field.empty()) return;
+    field.erase(0,field.find_first_not_of(" "));
+    field.erase(field.find_last_not_of(" ") + 1);
+  }
+private:
+  uint m_position;
+  std::string m_db_name;
+  std::string m_alias_name;
+  std::string m_index_name;
+  int m_index_type;
+  int m_clause_type;
+};
+
+/**
   Global level hints.
 */
 

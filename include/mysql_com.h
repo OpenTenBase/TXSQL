@@ -998,6 +998,11 @@ typedef struct NET {
 #define MYSQL_SHUTDOWN_KILLABLE_LOCK_TABLE (unsigned char)(1 << 2)
 #define MYSQL_SHUTDOWN_KILLABLE_UPDATE (unsigned char)(1 << 3)
 
+#define CDB_ADDED_OUTLINE_INFO 1
+#define CDB_RESET_ONE_OUTLINE 2
+#define CDB_RESET_ALL_OUTLINE 3
+#define CDB_FLUSH_OUTLINE 4
+
 /**
   We want levels to be in growing order of hardness (because we use number
   comparisons).

@@ -4407,6 +4407,13 @@ Sql_cmd *PT_show_threadpool_status::make_cmd(THD *thd) {
   return &m_sql_cmd;
 }
 
+Sql_cmd *PT_show_outline_info::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
+
 bool PT_returning_clause::contextualize(Parse_context *pc) {
   enum enum_parsing_context save_context = pc->select->parsing_place;
   // set parsing_place for returning

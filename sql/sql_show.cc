@@ -136,6 +136,7 @@
 #include "sql/thd_raii.h"                  // Prepared_stmt_arena_holder
 #include "sql/trigger.h"                   // Trigger
 #include "sql/tztime.h"                    // my_tz_SYSTEM
+#include "sql/opt_outline_loader.h"
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_lock.h"
@@ -663,6 +664,65 @@ extern bool show_threadpool_status(THD * thd);
 bool Sql_cmd_show_threadpool_status::execute_inner(THD *thd) {
   return show_threadpool_status(thd);
 }
+
+bool Sql_cmd_show_outline_info_status::execute_inner(THD *thd) {
+  return mysqld_list_outline_rules(thd);
+}
+
+bool mysqld_list_outline_rules(THD *thd)
+{
+  Protocol *protocol= thd->get_protocol();
+  DBUG_TRACE;
+
+  mem_root_deque<Item *>  field_list(thd->mem_root);
+  field_list.push_back(new Item_empty_string("origin", MAX_OUTLINE_TEXT_LEN));
+  field_list.push_back(new Item_empty_string("outline", MAX_OUTLINE_TEXT_LEN));
+  field_list.push_back(new Item_int(NAME_STRING("hit"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
+ 
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return true;
+  
+  std::vector<outline::Outline_pattern> ret;
+  cdb_outline_loader.get_outline_info_for_display(ret);
+
+  for (size_t i= 0; i< ret.size(); i++)
+  {
+    protocol->start_row();
+    protocol->store(ret[i].m_origin_query.c_str(), system_charset_info);
+    protocol->store(ret[i].m_outline_query.c_str(), system_charset_info);
+    protocol->store_longlong(ret[i].m_hit_times, true);
+
+    if (protocol->end_row())
+      break; /* purecov: inspected */
+  }
+
+  my_eof(thd);
+  return false;
+}
+
+int fill_cdb_outline_info(THD *thd, TABLE_LIST *tables, Item *__attribute__((unused)))
+{
+  DBUG_TRACE;
+
+  std::vector<outline::Outline_pattern> ret;
+  cdb_outline_loader.get_outline_info_for_display(ret);
+  
+  TABLE *table= tables->table;
+  for (size_t i= 0; i < ret.size(); i++)
+  {
+    table->field[0]->store(ret[i].m_origin_query.c_str(), ret[i].m_origin_query.length(), 
+                           system_charset_info);
+    table->field[1]->store(ret[i].m_outline_query.c_str(), ret[i].m_outline_query.length(), 
+                           system_charset_info);
+    table->field[2]->store(ret[i].m_hit_times, true);
+    if (schema_table_store_record(thd, table))
+      return 1;
+  }
+
+  return 0;
+}
+
 /* Changes from txsql end. */
 
 /**
@@ -5430,6 +5490,14 @@ ST_FIELD_INFO tmp_table_columns_fields_info[] = {
      MYSQL_TYPE_STRING, 0, 0, "Generation expression", 0},
     {nullptr, 0, MYSQL_TYPE_STRING, 0, 0, nullptr, 0}};
 
+
+ST_FIELD_INFO cdb_outline_fields_info[] = {
+    {"ORIGIN", MAX_OUTLINE_TEXT_LEN, MYSQL_TYPE_STRING, 0, 0, "ORIGIN", 0},
+    {"OUTLINE", MAX_OUTLINE_TEXT_LEN, MYSQL_TYPE_STRING, 0, 0, "OUTLINE", 0},
+    {"HIT", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "HIT", 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}
+};
+
 ST_FIELD_INFO slave_state_fields_info[] =
 {
   {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "", 0},
@@ -5538,6 +5606,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
     {"CDB_SQL_FILTER_INFO", cdb_sql_filter_fields_info,
      fill_cdb_sql_filter_info, make_old_format, nullptr, false},
     {"TXSQL_DEADLOCK_HISTORY", deadlock_fields_info, fill_deadlock_fields_info,
+     make_old_format, nullptr, false},
+    {"CDB_OUTLINE_INFO", cdb_outline_fields_info, fill_cdb_outline_info, 
      make_old_format, nullptr, false},
     {"CDB_SQL_STATISTICS", sql_statistics_fields_info,
      fill_sql_statistics_fields_info, make_old_format, nullptr, false},

@@ -4,7 +4,7 @@ use test;
 select cdb_normalize_statement("select * from t1") into @whitelist_rule;
 select @whitelist_rule;
 @whitelist_rule
-select `*` from `test`.`t1`
+select * from `test`.`t1`
 insert into mysql.cdb_firewall_whitelist values ('firewalltest@localhost', @whitelist_rule);
 select * from information_schema.cdb_firewall_whitelist;
 userhost	digest
@@ -22,7 +22,7 @@ load_cdb_firewall_whitelist()
 load cdb firewall whitelist
 select * from information_schema.cdb_firewall_whitelist;
 userhost	digest
-firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t1`
 set global firewall_cdb_mode = ON;
 select * from t1;
 id
@@ -30,18 +30,18 @@ select * from t2;
 id
 select * from information_schema.cdb_firewall_whitelist;
 userhost	digest
-firewalltest@localhost	select `*` from `test`.`t2`
-firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t2`
+firewalltest@localhost	select * from `test`.`t1`
 select * from mysql.cdb_firewall_whitelist;
 USERHOST	DIGEST
-firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t1`
 select flush_cdb_firewall_whitelist();
 flush_cdb_firewall_whitelist()
 flush cdb firewall whitelist
 select * from mysql.cdb_firewall_whitelist;
 USERHOST	DIGEST
-firewalltest@localhost	select `*` from `test`.`t1`
-firewalltest@localhost	select `*` from `test`.`t2`
+firewalltest@localhost	select * from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t2`
 call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
 set_cdb_firewall_userhost_mode(userhost, mode)
 set cdb firewall userhost mode
@@ -93,12 +93,12 @@ flush_cdb_firewall_whitelist()
 flush cdb firewall whitelist
 select * from information_schema.cdb_firewall_whitelist;
 userhost	digest
-firewalltest@localhost	select `*` from `test`.`t2`
-firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t2`
+firewalltest@localhost	select * from `test`.`t1`
 select * from mysql.cdb_firewall_whitelist;
 USERHOST	DIGEST
-firewalltest@localhost	select `*` from `test`.`t1`
-firewalltest@localhost	select `*` from `test`.`t2`
+firewalltest@localhost	select * from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t2`
 call mysql.sp_reload_cdb_firewall_user_rules("firewalltest", "localhost");
 reload_cdb_firewall_user_rules(userhost)
 reload cdb firewall rules for user firewalltest@localhost
@@ -108,10 +108,10 @@ select * from mysql.cdb_firewall_whitelist;
 USERHOST	DIGEST
 select cdb_normalize_statement("select * from t1");
 cdb_normalize_statement("select * from t1")
-select `*` from `test`.`t1`
+select * from `test`.`t1`
 select cdb_normalize_statement("select * from t1 where id = 1");
 cdb_normalize_statement("select * from t1 where id = 1")
-select `*` from `test`.`t1` where (`id` = ?)
+select * from `test`.`t1` where (`id` = ?)
 drop table t1;
 drop table t2;
 drop user 'firewalltest'@'localhost';

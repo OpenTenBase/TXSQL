@@ -388,6 +388,21 @@ static const TABLE_FIELD_TYPE
          {STRING_WITH_LEN("utf8mb3")}}};
 
 static const TABLE_FIELD_TYPE
+    mysql_outline_table_fields[MYSQL_OUTLINE_FIELD_COUNT] = {
+        {{STRING_WITH_LEN("Id")},
+         {STRING_WITH_LEN("int(11)")},
+         {NULL, 0}},
+        {{STRING_WITH_LEN("Digest")},
+         {STRING_WITH_LEN("char(64)")},
+         {NULL, 0}},
+        {{STRING_WITH_LEN("Digest_text")}, 
+         {STRING_WITH_LEN("text")}, 
+         {NULL, 0}},
+        {{STRING_WITH_LEN("Outline_text")}, 
+         {STRING_WITH_LEN("text")}, 
+         {NULL, 0}}};
+
+static const TABLE_FIELD_TYPE
     mysql_tables_priv_table_fields[MYSQL_TABLES_PRIV_FIELD_COUNT] = {
         {{STRING_WITH_LEN("Host")},
          {STRING_WITH_LEN("char(255)")},

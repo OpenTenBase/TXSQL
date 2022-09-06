@@ -3535,6 +3535,19 @@ class PT_show_privileges final : public PT_show_base {
   Sql_cmd_show_privileges m_sql_cmd;
 };
 
+/// Parse tree node for SHOW OUTLINE INFO statement
+
+class PT_show_outline_info final : public PT_show_base {
+public:
+  PT_show_outline_info(const POS &pos)
+      : PT_show_base(pos, SQLCOM_SHOW_OUTLINE_INFO) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_show_outline_info_status m_sql_cmd;
+};
+
 /// Parse tree node for SHOW FUNCTION CODE statement.
 
 class PT_show_procedure_code final : public PT_show_routine_code {

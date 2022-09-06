@@ -190,6 +190,8 @@
 #include "bp_sync.h"
 #include <netdb.h>
 #include "sql/opt_statistics.h"
+#include "sql/opt_outline_loader.h"
+#include "sql/opt_outline_builder.h"
 /**
   Changes from txsql end.
 */
@@ -811,7 +813,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CDB_SQL_FILTERS]= CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_CREATE_DB] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_OUTLINE_INFO] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_STAT] = CF_STATUS_COMMAND;
@@ -949,6 +951,7 @@ void init_sql_command_flags() {
 
   sql_command_flags[SQLCOM_FLUSH] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_RESET] = CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_SET_OUTLINE] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_SERVER] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_ALTER_SERVER] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_SERVER] = CF_AUTO_COMMIT_TRANS;
@@ -1143,6 +1146,7 @@ void init_sql_command_flags() {
       CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_RENAME_TABLE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_RESET] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SET_OUTLINE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_PURGE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_PURGE_BEFORE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_BINLOGS] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -1162,7 +1166,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_PRIVILEGES] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_HELP] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_CREATE_USER] |= CF_ALLOW_PROTOCOL_PLUGIN;
-  sql_command_flags[SQLCOM_DROP_USER] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SHOW_OUTLINE_INFO] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_RENAME_USER] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_REVOKE_ALL] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_CHECKSUM] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -4441,6 +4445,29 @@ int mysql_execute_command(THD *thd, bool first_level) {
       }
       break;
     }
+    case SQLCOM_SET_OUTLINE: {
+      bool ho_err = false;
+      // check the access privilege.
+      if (check_access(thd, INSERT_ACL|UPDATE_ACL|DELETE_ACL, "mysql", NULL, NULL, 1, 1) && 
+            check_global_access(thd, SUPER_ACL))
+        break;
+      // handle the outline info.
+      if (CDB_ADDED_OUTLINE_INFO == lex->handle_outline_type) {
+        ho_err = cdb_outline_builder.build_outline_info(lex->outline_info_str.str);
+      } else if (CDB_RESET_ONE_OUTLINE == lex->handle_outline_type ||
+                 CDB_RESET_ALL_OUTLINE == lex->handle_outline_type) {
+        bool reset_all_outline = CDB_RESET_ALL_OUTLINE == lex->handle_outline_type;
+        ho_err = cdb_outline_builder.reset_outline_info(reset_all_outline);
+      } else if (CDB_FLUSH_OUTLINE == lex->handle_outline_type) { 
+        ho_err = cdb_outline_builder.load_outline_info_rules(thd);
+      } else {/*do nothing.*/ }
+
+      if (ho_err)
+        my_error(ER_CDB_OUTLINE_SET_ERROR, MYF(0), cdb_outline_builder.get_error_message());
+      else 
+        my_ok(thd);
+      break;
+    }
     case SQLCOM_RESET:
       /*
         RESET commands are never written to the binary log, so we have to
@@ -5151,6 +5178,13 @@ int mysql_execute_command(THD *thd, bool first_level) {
       mysqld_list_cdb_sql_filters(thd);
       break;
     }
+    case SQLCOM_SHOW_OUTLINE_INFO:
+    {
+      if (check_global_access(thd, SUPER_ACL))
+        break;
+      res = mysqld_list_outline_rules(thd);
+      break;
+    }
     default:
       assert(0); /* Impossible */
       my_ok(thd);
@@ -5543,6 +5577,9 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
   thd->m_parser_state = nullptr;
 
   enable_digest_if_any_feature_needs_it(parser_state);
+
+  if (thd->variables.cdb_opt_outline_enabled)
+    parser_state->m_input.m_compute_digest = true;
   
   // we produce digest if it's not explicitly turned off
   // by setting maximum digest length to zero
@@ -5560,6 +5597,9 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
 
     found_semicolon = parser_state->m_lip.found_semicolon;
   }
+
+  if (thd->variables.cdb_opt_outline_enabled && !err) 
+    err = banding_outline_to_origin_query(thd);
 
   DEBUG_SYNC_C("sql_parse_before_rewrite");
 

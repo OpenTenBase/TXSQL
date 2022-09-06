@@ -81,6 +81,9 @@ Database: information_schema
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
+| CDB_OUTLINE_INFO                      |
+| CDB_PLAN_CACHE_STAT                   |
+| CDB_SLAVE_THREAD_STATUS               |
 | CDB_SQL_FILTER_INFO                   |
 | CDB_SLAVE_THREAD_STATUS               |
 | CDB_SQL_STATISTICS                    |
@@ -171,6 +174,9 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
+| CDB_OUTLINE_INFO                      |
+| CDB_PLAN_CACHE_STAT                   |
+| CDB_SLAVE_THREAD_STATUS               |
 | CDB_SQL_FILTER_INFO                   |
 | CDB_SLAVE_THREAD_STATUS               |
 | CDB_SQL_STATISTICS                    |

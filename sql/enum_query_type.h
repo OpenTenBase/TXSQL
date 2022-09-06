@@ -96,8 +96,12 @@ enum enum_query_type {
     Items we insert, since they are inserted during resolving and not
     optimization. Used when getting the canonical representation of a view.
    */
-  QT_HIDE_ROLLUP_FUNCTIONS = (1 << 14)
+  QT_HIDE_ROLLUP_FUNCTIONS = (1 << 14),
 
+  /** 
+    Don't print the Hints.
+   */
+  QT_IGNORE_ALL_HINTS = (1 << 15)
 };
 
 #endif  // ENUM_QUERY_TYPE_INCLUDED
