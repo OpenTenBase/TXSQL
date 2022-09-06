@@ -4363,6 +4363,8 @@ class Item_asterisk : public Item_field {
     assert(false);  // should never happen: see setup_wild()
     return true;
   }
+  void print(const THD *thd, String *str, enum_query_type query_type)
+    const override;
   bool is_asterisk() const override { return true; }
 };
 

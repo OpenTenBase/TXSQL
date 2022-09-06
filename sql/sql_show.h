@@ -76,6 +76,8 @@ bool mysqld_show_create_db(THD *thd, char *dbname, HA_CREATE_INFO *create);
 void mysqld_list_processes(THD *thd, const char *user, bool verbose,
                            bool has_cursor, bool detail);
 void mysqld_list_cdb_sql_filters(THD *thd);
+bool mysqld_list_outline_rules(THD *thd);
+
 bool mysqld_show_privileges(THD *thd);
 void calc_sum_of_all_status(System_status_var *to);
 void append_definer(const THD *thd, String *buffer,
@@ -462,6 +464,15 @@ class Sql_cmd_show_plugins : public Sql_cmd_show {
 class Sql_cmd_show_privileges : public Sql_cmd_show_noplan {
  public:
   Sql_cmd_show_privileges() : Sql_cmd_show_noplan(SQLCOM_SHOW_PRIVILEGES) {}
+  bool execute_inner(THD *thd) override;
+};
+
+
+/// Represents SHOW OUTLINE INFO statement.
+
+class Sql_cmd_show_outline_info_status : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_outline_info_status() : Sql_cmd_show_noplan(SQLCOM_SHOW_OUTLINE_INFO) {}
   bool execute_inner(THD *thd) override;
 };
 

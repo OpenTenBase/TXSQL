@@ -1,0 +1,408 @@
+--echo # Infrastructure for Optimizer Outline
+
+show grants;
+connect(conn_tencent,localhost,tencentroot,,);
+set global cdb_opt_outline_enabled = off;
+select user();
+
+drop database if exists test;
+create database test;
+use test;
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+drop table if exists t4;
+drop table if exists t5;
+create table t1(a int, b int, c int, unique key idx1(a));
+create table t2(a int, b int, c int, unique key idx2(a));
+create table t3(a int, b int, c int, unique key idx3(a));
+create table t4(a int, b int, c int, unique key idx4(a));
+create table t5(a int, b int, c int, unique key idx5(a));
+
+insert into t1 values(1,2,3);
+insert into t1 values(2,3,4);
+insert into t1 values(3,2,3);
+insert into t1 values(4,3,4);
+insert into t1 values(5,2,3);
+insert into t1 values(6,3,4);
+insert into t2 values(1,2,3);
+insert into t2 values(2,3,4);
+insert into t2 values(3,2,3);
+insert into t2 values(4,3,4);
+insert into t3 values(1,2,3);
+insert into t3 values(2,3,4);
+insert into t3 values(5,2,3);
+insert into t3 values(3,3,4);
+insert into t4 values(1,2,3);
+insert into t4 values(2,3,4);
+insert into t4 values(6,2,3);
+insert into t4 values(5,3,4);
+insert into t5 values(1,2,3);
+insert into t5 values(2,3,4);
+insert into t5 values(6,2,3);
+insert into t5 values(7,3,4);
+
+create user 'user1'@'%';
+grant all on test.* to 'user1'@'%';
+grant all on mysql.* to 'user1'@'%';
+
+create user 'user2'@'%';
+grant all on test.* to 'user1'@'%';
+
+# 1.  handle with outline table: add, delete and update.
+# 1.1 add outline, hit the outline rule.
+connect(conn_user1,localhost,root,,);
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1 use index(idx1), t2 where t1.a = t2.a";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+connection conn_tencent;
+set global cdb_opt_outline_enabled = on;
+connect(conn_user2,localhost,user1,,);
+connection conn_user2;
+--sorted_result
+select * from t1, t2 where t1.a = t2.a;
+explain select * from t1, t2 where t1.a = t2.a;
+explain select * from t1 use index(idx1), t2 where t1.a = t2.a;
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+select * from t1, t2 where t1.a = t2.a;
+outline reset "select * from t1, t2 where t1.a = t2.a";
+explain select * from t1, t2 where t1.a = t2.a;
+connect(conn_user1_2,localhost,user2,,);
+--error 1227
+outline "select * from t1" set outline_info "OUTLINE:select * from t1 use index(idx1)";
+--error 1227
+outline reset all;
+
+connection conn_tencent;
+truncate table mysql.outline;
+outline flush;
+set global cdb_opt_outline_enabled = off;
+
+
+# 1.2 add outline, add optimizer hints.
+connect(conn_user3,localhost,root,,);
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OPT:1#max_execution_time(100)";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OPT:1#SET_VAR(sort_buffer_size = 16M)#";
+outline "select * from t1 left join t2 on t1.c = t2.c" set outline_info "OPT:1#SET_VAR(foreign_key_checks=OFF)#";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+set session cdb_opt_outline_enabled = on;
+explain format=tree select * from t1, t2 where t1.a = t2.a;
+explain format=json select * from t1, t2 where t1.a = t2.a;
+explain select * from t1, t2 where t1.a = t2.a;
+--sorted_result
+select * from t1, t2 where t1.a = t2.a;
+explain format=tree select * from t1 left join t2 on t1.c = t2.c;
+explain format=json select * from t1 left join t2 on t1.c = t2.c;
+explain select * from t1 left join t2 on t1.c = t2.c;
+--sorted_result
+select * from t1 left join t2 on t1.c = t2.c;
+
+connection conn_tencent;
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1 use index(idx1), t2 where t1.a = t2.a";
+outline "select * from t1 where t1.a in (select b from t2)" set outline_info "OPT:2#qb_name(qb2)";
+outline "select * from t1 where t1.a in (select b from t2)" set outline_info "OPT:1#SEMIJOIN(@qb2 MATERIALIZATION, DUPSWEEDOUT)";
+outline "select * from t1 where t1.a in (select b from t2)" set outline_info "OPT:1#max_execution_time(100)";
+--sorted_result
+select * from  mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+outline "select * from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#BKA(t1)";
+outline "select * from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#NO_BKA(t2)";
+outline "select t1.a from t1 inner join t2 inner join t3" set outline_info "OPT:1#NO_BKA(t1, t2)#";
+outline "select t1.a from t1 inner join t2 inner join t4" set outline_info "OPT:1#NO_BNL()#";
+outline "select * from (select * from t1) as t1_alias" set outline_info "OPT:1#NO_MERGE(t1_alias)#";
+
+outline "select count(*) from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#HASH_JOIN(t1,t2)#";
+outline "select t1.a, avg(t1.b) from t1 join t2 on t1.a = t2.a group by t1.a" set outline_info "OPT:1#NO_HASH_JOIN(t1,t2)#";
+outline "select a from t1 where t1.a in (select t1.b from t1 join t2 on t1.a = t2.a)" set outline_info "OPT:2#QB_NAME(qb2)#";
+outline "select a from t1 where t1.a in (select t1.b from t1 join t2 on t1.a = t2.a)" set outline_info "OPT:1#HASH_JOIN(t1@qb2,t2@qb2)#";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+
+set global cdb_opt_outline_enabled = on;
+connection conn_user3;
+explain format=tree select * from t1, t2 where t1.a = t2.a;
+explain format=json select * from t1, t2 where t1.a = t2.a;
+explain select * from t1, t2 where t1.a = t2.a;
+--sorted_result
+select * from t1, t2 where t1.a = t2.a;
+explain format=tree select * from t1 where t1.a in (select b from t2);
+explain format=json select * from t1 where t1.a in (select b from t2);
+explain select * from t1 where t1.a in (select b from t2);
+--sorted_result
+select * from t1 where t1.a in (select b from t2);
+explain format=tree select * from t1 join t2 on t1.a = t2.a;
+explain format=json select * from t1 join t2 on t1.a = t2.a;
+explain select * from t1 join t2 on t1.a = t2.a;
+--sorted_result
+select * from t1 join t2 on t1.a = t2.a;
+explain format=tree select t1.a from t1 inner join t2 inner join t3;
+explain format=json select t1.a from t1 inner join t2 inner join t3;
+explain select t1.a from t1 inner join t2 inner join t3;
+--sorted_result
+select t1.a from t1 inner join t2 inner join t3;
+explain format=tree select t1.a from t1 inner join t2 inner join t4;
+explain format=json select t1.a from t1 inner join t2 inner join t4;
+explain select t1.a from t1 inner join t2 inner join t4;
+--sorted_result
+select t1.a from t1 inner join t2 inner join t4;
+explain format=tree select * from (select * from t1) as t1_alias;
+explain format=json select * from (select * from t1) as t1_alias;
+explain select * from (select * from t1) as t1_alias;
+--sorted_result
+select * from (select * from t1) as t1_alias;
+explain format=tree select count(*) from t1 join t2 on t1.a = t2.a;
+explain format=json select count(*) from t1 join t2 on t1.a = t2.a;
+explain select count(*) from t1 join t2 on t1.a = t2.a;
+--sorted_result
+select count(*) from t1 join t2 on t1.a = t2.a;
+explain format=tree select t1.a, avg(t1.b) from t1 join t2 on t1.a = t2.a group by t1.a;
+explain format=json select t1.a, avg(t1.b) from t1 join t2 on t1.a = t2.a group by t1.a;
+explain select t1.a, avg(t1.b) from t1 join t2 on t1.a = t2.a group by t1.a;
+--sorted_result
+select t1.a, avg(t1.b) from t1 join t2 on t1.a = t2.a group by t1.a;
+explain format=tree select a from t1 where t1.a in (select t1.b from t1 join t2 on t1.a = t2.a);
+explain format=json select a from t1 where t1.a in (select t1.b from t1 join t2 on t1.a = t2.a);
+explain select a from t1 where t1.a in (select t1.b from t1 join t2 on t1.a = t2.a);
+--sorted_result
+select a from t1 where t1.a in (select t1.b from t1 join t2 on t1.a = t2.a);
+--sorted_result
+select * from t1, t3, t4, t2 where t1.a = t4.a and t2.a = t3.a and t1.a = t2.a;
+
+connection conn_tencent;
+truncate table mysql.outline;
+outline flush;
+set global cdb_opt_outline_enabled = off;
+
+# 1.3 add outline, add index hints.
+connect(conn_user5,localhost,root,,);
+set session cdb_opt_outline_enabled = on;
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "INDEX:1#test#t1#idx1#1#0";
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "INDEX:1#test#t2#idx2#1#0";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1, t2 use index(idx2) where t1.a = t2.a";
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "OUTLINE:select * from t1 left join t2 use index(idx2) on t1.a = t2.a";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#t1#idx1#1#0";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+--error 1032
+outline reset "select * from t1 left join t2 on t1.a = t2.b";
+
+#add the index when has the same index hint.
+outline "select * from t1 where t1.a in (select t1.a from t1,t2 where t1.a = t2.a)" set outline_info "INDEX:2#test#t1#idx1#1#0";
+outline "select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:1#test#t1#idx1#1#0";
+outline "select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:2#test#t1#idx1#1#0";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:2#test#t1#idx1#1#0";
+outline "select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:1#test#t1#idx1#1#0";
+outline "select * from t1 left join t2 on t1.a = t2.a right join t3 on t1.a = t3.a" set outline_info "INDEX:1#test#t3#idx3#1#0";
+outline "select * from t1,t2,t3 left join t4 on t3.a = t4.a, t5 left join (select t1.a from t1 left join t2 on t1.a = t2.a) as v on t5.a = v.a" set outline_info "INDEX:2#test#t1#idx1#1#0";
+outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a))" set outline_info "INDEX:1#test#t1#idx1#1#0";
+outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a))" set outline_info "INDEX:2#test#t1#idx1#2#0";
+outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a))" set outline_info "INDEX:3#test#t1#idx1#1#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a))" set outline_info "INDEX:3#test#t1#idx1#1#0";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+connection conn_tencent;
+truncate table mysql.outline;
+outline flush;
+connection conn_user5;
+#format test.
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "  INDEX:1#test#t1#idx1#1#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX+1#test#t1#idx1#1#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#t1#idx1#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#idx1#1#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#test#idx1#3#0";
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#t1#idx1#idx2#1#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#t2#idx2#4#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX:1#test#t2#idx2#999#0";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX   :1#test#t1#idx1#1#0";
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "INDEX   :1#test# t2  # idx2 # 1#0";
+outline "select * from t3, t2 where t3.a = t2.a" set outline_info "INDEX   :1#test# t3  # idx3 # 2 #0";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+
+explain format=tree select * from t1,t2 where t1.a = t2.a;
+explain format=json select * from t1,t2 where t1.a = t2.a;
+explain select * from t1, t2 where t1.a = t2.a;
+--sorted_result
+select * from t1, t2 where t1.a = t2.a;
+explain format=tree select * from t1 left join t2 on t1.a = t2.a;
+explain format=json select * from t1 left join t2 on t1.a = t2.a;
+explain select * from t1 left join t2 on t1.a = t2.a;
+--sorted_result
+select * from t1 left join t2 on t1.a = t2.a;
+explain format=tree select * from t1 where t1.a in (select t1.a from t1,t2 where t1.a = t2.a);
+explain format=json select * from t1 where t1.a in (select t1.a from t1,t2 where t1.a = t2.a);
+explain select * from t1 where t1.a in (select t1.a from t1,t2 where t1.a = t2.a);
+--sorted_result
+select * from t1 where t1.a in (select t1.a from t1,t2 where t1.a = t2.a);
+explain format=tree select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+explain format=json select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+explain select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+--sorted_result
+select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+explain format=tree select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+explain format=json select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+explain select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+--sorted_result
+select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a);
+explain format=tree select * from t1 left join t2 on t1.a = t2.a right join t3 on t1.a = t3.a;
+explain format=json select * from t1 left join t2 on t1.a = t2.a right join t3 on t1.a = t3.a;
+explain select * from t1 left join t2 on t1.a = t2.a right join t3 on t1.a = t3.a;
+--sorted_result
+select * from t1 left join t2 on t1.a = t2.a right join t3 on t1.a = t3.a;
+explain format=tree select * from t1,t2,t3 left join t4 on t3.a = t4.a, t5 left join (select t1.a from t1 left join t2 on t1.a = t2.a) as v on t5.a = v.a;
+explain format=json select * from t1,t2,t3 left join t4 on t3.a = t4.a, t5 left join (select t1.a from t1 left join t2 on t1.a = t2.a) as v on t5.a = v.a;
+explain select * from t1,t2,t3 left join t4 on t3.a = t4.a, t5 left join (select t1.a from t1 left join t2 on t1.a = t2.a) as v on t5.a = v.a;
+--sorted_result
+select * from t1,t2,t3 left join t4 on t3.a = t4.a, t5 left join (select t1.a from t1 left join t2 on t1.a = t2.a) as v on t5.a = v.a;
+explain format=tree select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a));
+explain format=json select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a));
+explain select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a));
+--sorted_result
+select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a));
+explain format=tree select * from t1 left join t2 on t1.a = t2.a;
+explain format=json select * from t1 left join t2 on t1.a = t2.a;
+explain select * from t1 left join t2 on t1.a = t2.a;
+--sorted_result
+select * from t1 left join t2 on t1.a = t2.a;
+explain format=tree select * from t3, t2 where t3.a = t2.a;
+explain format=json select * from t3, t2 where t3.a = t2.a;
+explain select * from t3, t2 where t3.a = t2.a;
+--sorted_result
+select * from t3, t2 where t3.a = t2.a;
+
+connection conn_tencent;
+truncate table mysql.outline;
+outline flush;
+
+# 1.4 forbid write mysql.outline
+connection conn_tencent;
+set global cdb_forbid_mysql_write = on;
+connect(conn_user4,localhost,root,,);
+--error 1044
+delete from mysql.outline;
+--error 1044
+insert into mysql.outline values(1,"****", "fafafa", "*****");
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select /*+max_execution_time(1000)*/* from t1, t2 where t1.a = t2.a";
+--sorted_result
+select * from mysql.outline;
+--sorted_result
+show cdb_outline_info;
+--sorted_result
+select * from information_schema.cdb_outline_info;
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select a from t1" set outline_info "OUTLINE:select b from t1";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1, t2 use index(idx2) where t1.a = t2.b";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select * from t1 left join t2 on t1.a = t2.a))" set outline_info "OUTLINE:select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select * from t1 left join t2 USE index(idx2) on t1.c = t2.a))";
+--error ER_CDB_OUTLINE_SET_ERROR
+outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "";
+outline reset all;
+
+# 1.5 concurrence test.
+# manually test the case with sysbench.
+
+# 1.6 outline in prepare stmt
+outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1 use index(idx1), t2 where t1.a = t2.a";
+outline "select count(*) from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#HASH_JOIN(t1,t2)#";
+outline "select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:1#test#t1#idx1#1#0";
+outline "select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:1#test#t1#idx1#1#0";
+outline "select count(*) from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#HASH_JOIN(t1,t2)#";
+outline "select t1.a, avg(t1.b) from t1 join t2 on t1.a = t2.a group by t1.a" set outline_info "OPT:1#NO_HASH_JOIN(t1,t2)#";
+outline "select a from t1 where t1.a in (select t2.b from t2 where t2.a = ?)" set outline_info "INDEX:1#test#t1#idx1#1#0#";
+--sorted_result
+show cdb_outline_info;
+
+set session cdb_opt_outline_enabled = on;
+prepare stmt1 from "select * from t1, t2 where t1.a = t2.a";
+prepare stmt2 from "select count(*) from t1 join t2 on t1.a = t2.a";
+prepare stmt3 from "select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)";
+prepare stmt4 from "select * from t1 left join t4 on t1.a=t4.a where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)";
+prepare stmt5 from "select a from t1 where t1.a in (select t2.b from t2 where t2.a = ?)";
+set @t2a = 10000;
+execute stmt5 using @t2a;
+DEALLOCATE prepare stmt5;
+prepare stmt6 from "select a from t1 where t1.a in (select t2.b from t2 where t2.a = ?)";
+set @t2a1 = 10;
+execute stmt6 using @t2a1;
+DEALLOCATE prepare stmt6;
+--sorted_result
+show cdb_outline_info;
+
+# 1.7 end the test.
+connection conn_tencent;
+set global cdb_forbid_mysql_write = off;
+set global cdb_opt_outline_enabled = off;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop user 'user1'@'%';
+drop user 'user2'@'%';

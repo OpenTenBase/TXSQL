@@ -72,6 +72,8 @@
 #include "sql/system_variables.h"
 #include "sql/table_function.h"
 #include "sql/window.h"
+#include "sql/opt_hints.h"
+#include "sql/log.h"
 #include "sql_update.h"  // Sql_cmd_update
 #include "template_utils.h"
 
@@ -481,6 +483,7 @@ void LEX::reset() {
   reparse_common_table_expr_at = 0;
   reparse_derived_table_condition = false;
   opt_hints_global = nullptr;
+  opt_udo_hint = nullptr;
   binlog_need_explicit_defaults_ts = false;
   m_extended_show = false;
   option_type = OPT_DEFAULT;
@@ -495,6 +498,11 @@ void LEX::reset() {
   grant_if_exists = false;
   ignore_unknown_user = false;
   reset_rewrite_required();
+  outline_origin_sql_str.str = 0;
+  outline_origin_sql_str.length = 0;
+  outline_info_str.str = 0;
+  outline_info_str.length = 0;
+  handle_outline_type = 0;
 }
 
 /**
@@ -2858,6 +2866,9 @@ void TABLE_LIST::print(const THD *thd, String *str,
     if (is_derived() && !common_table_expr())
       print_derived_column_names(thd, str, m_derived_column_names);
 
+    if ((query_type & QT_IGNORE_ALL_HINTS) != 0)
+      return;
+
     if (index_hints) {
       List_iterator<Index_hint> it(*index_hints);
       Index_hint *hint;
@@ -3054,7 +3065,13 @@ void Query_block::print_insert(const THD *thd, String *str,
 
 void Query_block::print_hints(const THD *thd, String *str,
                               enum_query_type query_type) {
-  if (thd->lex->opt_hints_global) {
+  if ((query_type & QT_IGNORE_ALL_HINTS) != 0)
+    return;
+
+  Opt_ud_optimizer_hints *udo_hint = thd->lex->opt_udo_hint;
+  Opt_hints_global *opt_hints_global = thd->lex->opt_hints_global;
+
+  if (opt_hints_global || udo_hint || opt_hints_qb) {
     char buff[NAME_LEN];
     String hint_str(buff, sizeof(buff), system_charset_info);
     hint_str.length(0);
@@ -3064,10 +3081,19 @@ void Query_block::print_hints(const THD *thd, String *str,
         (select_number == 2 && parent_lex->sql_command == SQLCOM_SHOW_CREATE)) {
       if (opt_hints_qb && !(query_type & QT_IGNORE_QB_NAME))
         opt_hints_qb->append_qb_hint(thd, &hint_str);
-      if (!(query_type & QT_ONLY_QB_NAME))
-        thd->lex->opt_hints_global->print(thd, &hint_str, query_type);
-    } else if (opt_hints_qb)
-      opt_hints_qb->append_qb_hint(thd, &hint_str);
+      if (opt_hints_global && !(query_type & QT_ONLY_QB_NAME))
+        opt_hints_global->print(thd, &hint_str, query_type);
+
+      if (udo_hint && udo_hint->m_position == 1)
+        hint_str.append(udo_hint->m_ptr, udo_hint->m_size);
+
+    } else {
+      if (opt_hints_qb) 
+        opt_hints_qb->append_qb_hint(thd, &hint_str);
+    
+      if (udo_hint && udo_hint->m_position == select_number) 
+        hint_str.append(udo_hint->m_ptr, udo_hint->m_size);
+    }
 
     if (hint_str.length() > 0) {
       str->append(STRING_WITH_LEN("/*+ "));
@@ -3527,6 +3553,68 @@ void Query_tables_list::reset_query_tables_list(bool init) {
 
 void Query_tables_list::destroy_query_tables_list() { sroutines.reset(); }
 
+bool Query_tables_list::add_ud_index_hints(Opt_ud_index_hints& udi_hint)
+{
+  TABLE_LIST *table = query_tables;
+  
+  if (!table) return true; // handle error.
+
+  THD *thd = mysql_parser_current_session();
+  for (;;) {
+
+    TABLE_LIST *first_table = table;
+    
+    if (!strcmp(udi_hint.get_db_name().c_str(), first_table->db) && 
+      !my_strcasecmp(table_alias_charset, udi_hint.get_alias_name().c_str(), first_table->alias)) 
+    {
+      Index_hint *index_hint = new (thd->mem_root) Index_hint(udi_hint.get_index_name().c_str(),
+                                              udi_hint.get_index_name().length());
+                                              
+      int clause = udi_hint.get_clause_type();
+      index_hint->type = (index_hint_type)udi_hint.get_hint_type();
+      index_hint->clause = clause == 0 ? INDEX_HINT_MASK_JOIN :
+                           (clause == 1 ? INDEX_HINT_MASK_GROUP :
+                            (clause == 2 ? INDEX_HINT_MASK_ORDER : 
+                             INDEX_HINT_MASK_ALL));
+
+      if (!first_table->index_hints)
+        first_table->index_hints = new (thd->mem_root) List<Index_hint>();
+        
+      List_iterator<Index_hint> it(*first_table->index_hints);
+      Index_hint *hint;
+
+      while ((hint = it++)) {
+        /* the index hint user add is same as the existed one! */
+        if (udi_hint.get_position() == first_table->query_block->select_number && 
+            hint->key_name.length == index_hint->key_name.length &&
+            !strncmp(hint->key_name.str, index_hint->key_name.str, hint->key_name.length)) {
+          return true;
+        }
+
+      }
+
+      /* 
+         add the index hint to the right table, same table name may be exists in many
+         select lex of the sql. ie..
+         
+         select t1.a from t1 where t1.a in (select t1.a from t1 left join t2 on t1.a = t2.a);
+
+        `t1` exists in both 1st select_lex and 2nd select_lex. 
+       */
+      if (udi_hint.get_position() == first_table->query_block->select_number)
+        first_table->index_hints->push_back(index_hint);
+
+    }
+
+    if (query_tables_last == &table->next_global ||
+        !(table = table->next_global))
+      break;
+
+  }
+
+  return false;
+}
+
 /*
   Initialize LEX object.
 
@@ -3549,6 +3637,7 @@ LEX::LEX()
       result(nullptr),
       thd(nullptr),
       opt_hints_global(nullptr),
+      opt_udo_hint(nullptr),
       // Quite unlikely to overflow initial allocation, so no instrumentation.
       plugins(PSI_NOT_INSTRUMENTED),
       insert_update_values_map(nullptr),

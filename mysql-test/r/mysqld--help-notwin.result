@@ -317,6 +317,24 @@ The following options may be given as the first argument:
  record_buffer, so it can reduce the negative impact on
  performance when prefetching a large number of records on
  an index. 0 means turn off the limit.
+ --cdb-opt-outline-enabled 
+ outline switch
+ --cdb-optimize-large-trans-binlog 
+ Optimize large transaction binlog format from row to
+ statement.
+ --cdb-optimize-large-trans-binlog-aver-affected-rows-threshold=# 
+ Optimize large transaction binlog format from row to
+ statement, and it's one of thresholds of sql tatistics.
+ --cdb-optimize-large-trans-binlog-last-affected-rows-threshold=# 
+ Optimize large transaction binlog format from row to
+ statement, and it's one of thresholds of sql tatistics.
+ --cdb-plan-cache    Plan cache switch. When cdb_plan_cache turns on, some SQL
+ execution plan will be saved and optimize once. Currently
+ it works on some limited prepare statement. 
+ --cdb-plan-cache-stats 
+ Statistics of plan cache hit info. When
+ cdb_plan_cache_stats turns on, THD level statistics can
+ be showed.
  --cdb-pt-filter     Swither of filter pt operation. If turning off, all the
  events include pt special event will be send to secondary
  backup instance.
@@ -1805,6 +1823,30 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-disable-gtid-in-undo 
+ Do not record GTID in undo log header which cause
+ performance degradation. If set to ON, clone statement is
+ not allowed.
+ --txsql-found-rows  Sets the total size of the transactional cache
+ --txsql-load-data-local-strict-mode 
+ Whether to emit errors (or warnings) in strict mode when
+ executing LOAD DATA LOCAL INFILE statement
+ --txsql-parallel-ddl-merge-sort-k-value[=#] 
+ K-ways merge sort when using parallel ddl.
+ --txsql-range-estimation-by-histogram 
+ Enable range estimation by histogram instead of index
+ dive. If histogram for the first index column is missing,
+ fall back to index dive. Use guesstimates for other
+ columns without histograms.
+ --txsql-root-user-mode=name 
+ What kind of root user mode used.
+ --txsql-row-count   Sets the total size of the transactional cache
+ --txsql-slave-wait-group-done[=#] 
+ when run cmd: stop slave, the slave's coordernate thread
+ just received unfinish's trx,it will check whether has
+ new binlog events(for txsql_slave_wait_group_done
+ seconds)
+ --txsql-use-db      Sets current database by session variable
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
@@ -1918,6 +1960,12 @@ cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
 cdb-kill-user-extra (No default value)
 cdb-max-prefetch-rows 0
+cdb-opt-outline-enabled FALSE
+cdb-optimize-large-trans-binlog FALSE
+cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
+cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
+cdb-plan-cache FALSE
+cdb-plan-cache-stats FALSE
 cdb-pt-filter TRUE
 cdb-pt-table-checksum FALSE
 cdb-pt-white-list-user 
@@ -2177,7 +2225,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 227
+performance-schema-max-statement-classes 230
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2332,6 +2380,8 @@ transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
 txsql-disable-gtid-in-undo FALSE
 txsql-found-rows 0
+txsql-load-data-local-strict-mode FALSE
+txsql-parallel-ddl-merge-sort-k-value 2
 txsql-range-estimation-by-histogram FALSE
 txsql-root-user-mode TENCENT_ROOT
 txsql-row-count 0

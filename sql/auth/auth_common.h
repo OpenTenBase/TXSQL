@@ -319,6 +319,14 @@ enum mysql_columns_priv_table_field {
   MYSQL_COLUMNS_PRIV_FIELD_COUNT
 };
 
+enum mysql_outline_table_field {
+  MYSQL_OUTLINE_FIELD_ID = 0,
+  MYSQL_OUTLINE_FIELD_DIGEST,
+  MYSQL_OUTLINE_FIELD_DIGEST_TEXT,
+  MYSQL_OUTLINE_FIELD_OUTLINE_TEXT,
+  MYSQL_OUTLINE_FIELD_COUNT
+};
+
 enum mysql_tables_priv_table_field {
   MYSQL_TABLES_PRIV_FIELD_HOST = 0,
   MYSQL_TABLES_PRIV_FIELD_DB,

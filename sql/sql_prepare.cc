@@ -179,11 +179,11 @@ When one supplies long data for a placeholder:
 #include "sql_string.h"
 #include "violite.h"
 #include "sql/opt_statistics.h"
+#include "sql/opt_outline_builder.h"
 
 namespace resourcegroups {
 class Resource_group;
 }  // namespace resourcegroups
-
 using std::max;
 using std::min;
 
@@ -1319,6 +1319,7 @@ bool Prepared_statement::prepare_query() {
     case SQLCOM_CHANGE_MASTER:
     case SQLCOM_CHANGE_REPLICATION_FILTER:
     case SQLCOM_RESET:
+    case SQLCOM_SET_OUTLINE:
     case SQLCOM_FLUSH:
     case SQLCOM_SLAVE_START:
     case SQLCOM_SLAVE_STOP:
@@ -2522,6 +2523,9 @@ bool Prepared_statement::prepare(const char *query_str, size_t query_length,
   if (get_max_digest_length() != 0)
     parser_state.m_input.m_compute_digest = true;
 
+  if (thd->variables.cdb_opt_outline_enabled)
+    parser_state.m_input.m_compute_digest = true;
+
   thd->m_parser_state = &parser_state;
   invoke_pre_parse_rewrite_plugins(thd);
   thd->m_parser_state = nullptr;
@@ -2536,6 +2540,12 @@ bool Prepared_statement::prepare(const char *query_str, size_t query_length,
     invoke_post_parse_rewrite_plugins(thd, true);
     error = init_param_array(this);
   }
+
+  if (thd->variables.cdb_opt_outline_enabled && !error) {
+    error = banding_outline_to_origin_query(thd, true);
+    if (!error) error = init_param_array(this);
+  }
+
   error |= thd->is_error();
 
   // Bind Sql command object with this prepared statement

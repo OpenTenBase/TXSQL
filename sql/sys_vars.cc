@@ -136,6 +136,7 @@
 #include "sql/transaction.h"  // trans_commit_stmt
 #include "sql/transaction_info.h"
 #include "sql/xa.h"
+#include "sql/opt_outline_builder.h"
 #include "template_utils.h"  // pointer_cast
 #include "thr_lock.h"
 #include "cdb_sql_filter.h"
@@ -7740,7 +7741,7 @@ static Sys_var_bool Sys_cdb_compressed_histogram_enabled(
 static Sys_var_uint Sys_txsql_parallel_ddl_merge_sort_k_value(
     "txsql_parallel_ddl_merge_sort_k_value",
     "K-ways merge sort when using parallel ddl.",
-    TENCENT_VAR GLOBAL_VAR(txsql_parallel_ddl_merge_sort_k_value),
+    GLOBAL_VAR(txsql_parallel_ddl_merge_sort_k_value),
     CMD_LINE(OPT_ARG), VALID_RANGE(2, 64), DEFAULT(2), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 
@@ -8169,5 +8170,11 @@ static Sys_var_bool Sys_cdb_instant_modify_column_enabled(
     "Enable instant modify column. Default is FALSE",
     GLOBAL_VAR(cdb_instant_modify_column_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_opt_outline_enabled(
+    "cdb_opt_outline_enabled", "outline switch",
+    NON_PERSIST SESSION_VAR(cdb_opt_outline_enabled), CMD_LINE(OPT_ARG), DEFAULT(false), 
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, 
     ON_CHECK(NULL), ON_UPDATE(NULL));
 /* Changes from txsql end. */

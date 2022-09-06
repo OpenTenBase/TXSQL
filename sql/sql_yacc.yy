@@ -1381,6 +1381,9 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> SM4_SYM 1265
 %token<lexer.keyword> TABLESAMPLE_SYM 1266
 %token<lexer.keyword> BERNOULLI_SYM 1267
+%token<lexer.keyword> OUTLINE_SYM 1269                     /* MYSQL */
+%token<lexer.keyword> OUTLINE_INFO_SYM 1270                /* MYSQL */
+%token<lexer.keyword> CDB_OUTLINE_INFO_SYM 1271            /* MYSQL */
 /* Changes from txsql end. */
 
 /*
@@ -1445,6 +1448,7 @@ void warn_about_deprecated_binary(THD *thd)
         TEXT_STRING_validated
         filter_wild_db_table_string
         opt_constraint_name
+        outline_origin_sql outline_info
         ts_datafile lg_undofile /*lg_redofile*/ opt_logfile_group_name opt_ts_datafile_name
         opt_describe_column
         opt_datadir_ssl default_encryption
@@ -1923,6 +1927,7 @@ void warn_about_deprecated_binary(THD *thd)
         show_tables_stmt
         show_triggers_stmt
         show_threadpool_stmt
+        show_outline_info
         show_variables_stmt
         show_warnings_stmt
         shutdown_stmt
@@ -2440,6 +2445,7 @@ simple_statement:
         | savepoint                     { $$= nullptr; }
         | select_stmt
         | set                           { $$= nullptr; CONTEXTUALIZE($1); }
+        | set_outline                   { $$= nullptr; }
         | set_resource_group_stmt
         | set_role_stmt
         | show_binary_logs_stmt
@@ -2485,6 +2491,7 @@ simple_statement:
         | show_tables_stmt
         | show_triggers_stmt
         | show_threadpool_stmt
+        | show_outline_info
         | show_variables_stmt
         | show_warnings_stmt
         | shutdown_stmt
@@ -13983,6 +13990,13 @@ show_threadpool_stmt:
             $$ = NEW_PTN PT_show_threadpool_status(@$);
           }
 
+show_outline_info:
+          SHOW CDB_OUTLINE_INFO_SYM
+          {
+            $$ = NEW_PTN PT_show_outline_info(@$);
+          }
+        ;
+
 show_events_stmt:
           SHOW EVENTS_SYM opt_db opt_wild_or_where
           {
@@ -14357,6 +14371,18 @@ opt_show_cmd_type:
         | FULL                 { $$= Show_cmd_type::FULL_SHOW; }
         | EXTENDED_SYM         { $$= Show_cmd_type::EXTENDED_SHOW; }
         | EXTENDED_SYM FULL    { $$= Show_cmd_type::EXTENDED_FULL_SHOW; }
+        ;
+
+outline_origin_sql:
+          /* empty */ { $$.str= 0; $$.length= 0; }
+        | IDENT_sys { $$= $1; } 
+        | TEXT_STRING_sys { $$= $1; }
+        ;
+
+outline_info:
+          /* empty */ { $$.str= 0; $$.length= 0; }
+        | IDENT_sys { $$= $1; } 
+        | TEXT_STRING_sys { $$= $1; }
         ;
 
 from_or_in:
@@ -15561,6 +15587,8 @@ ident_keywords_ambiguous_2_labels:
         | UNICODE_SYM
         | UNINSTALL_SYM
         | XA_SYM
+        | OUTLINE_SYM
+        | OUTLINE_INFO_SYM
         ;
 
 /*
@@ -15633,6 +15661,7 @@ ident_keywords_unambiguous:
         | BUCKETS_SYM
         | CASCADED
         | CATALOG_NAME_SYM
+        | CDB_OUTLINE_INFO_SYM
         | CHAIN_SYM
         | CHALLENGE_RESPONSE_SYM
         | CHANGED
@@ -16093,6 +16122,34 @@ set:
           }
         ;
 
+/*
+  SET_OUTLINE statement set the outline info for the origin sql.
+ */
+set_outline:
+          OUTLINE_SYM outline_origin_sql SET_SYM OUTLINE_INFO_SYM outline_info
+          {
+            Lex->outline_origin_sql_str= $2;
+            Lex->outline_info_str = $5;
+            Lex->sql_command= SQLCOM_SET_OUTLINE; 
+            Lex->handle_outline_type = CDB_ADDED_OUTLINE_INFO;
+          }
+        | OUTLINE_SYM RESET_SYM outline_origin_sql
+          {
+            Lex->outline_origin_sql_str = $3;
+            Lex->sql_command= SQLCOM_SET_OUTLINE; 
+            Lex->handle_outline_type=CDB_RESET_ONE_OUTLINE;
+          }
+        | OUTLINE_SYM RESET_SYM ALL
+          {
+            Lex->sql_command= SQLCOM_SET_OUTLINE; 
+            Lex->handle_outline_type=CDB_RESET_ALL_OUTLINE;
+          }
+        | OUTLINE_SYM FLUSH_SYM 
+          {
+            Lex->sql_command= SQLCOM_SET_OUTLINE;
+            Lex->handle_outline_type=CDB_FLUSH_OUTLINE;
+          }
+        ;
 
 // Start of option value list
 start_option_value_list:

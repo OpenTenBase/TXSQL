@@ -4,7 +4,7 @@ use test;
 select cdb_normalize_statement("select * from t1") into @whitelist_rule;
 select @whitelist_rule;
 @whitelist_rule
-select `*` from `test`.`t1`
+select * from `test`.`t1`
 insert into mysql.cdb_firewall_whitelist values ('firewalltest@localhost', @whitelist_rule);
 select * from information_schema.cdb_firewall_whitelist;
 userhost	digest
@@ -39,11 +39,11 @@ insert into t1 values(1);
 use information_schema;
 select * from cdb_firewall_whitelist;
 userhost	digest
+firewalltest@localhost	select * from `information_schema`.`CDB_FIREWALL_WHITELIST` `cdb_firewall_whitelist`
 firewalltest@localhost	insert into `test`.`t1` values (?)
-firewalltest@localhost	select `*` from `test`.`t2`
-firewalltest@localhost	select `*` from `information_schema`.`CDB_FIREWALL_WHITELIST` `cdb_firewall_whitelist`
+firewalltest@localhost	select * from `test`.`t2`
 firewalltest@localhost	select 
-firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t1`
 call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
 set_cdb_firewall_userhost_mode(userhost, mode)
 set cdb firewall userhost mode
@@ -59,11 +59,11 @@ ERROR HY000: SQL rejected by CDB_FIREWALL
 use information_schema;
 select * from cdb_firewall_whitelist;
 userhost	digest
+firewalltest@localhost	select * from `information_schema`.`CDB_FIREWALL_WHITELIST` `cdb_firewall_whitelist`
 firewalltest@localhost	insert into `test`.`t1` values (?)
-firewalltest@localhost	select `*` from `test`.`t2`
-firewalltest@localhost	select `*` from `information_schema`.`CDB_FIREWALL_WHITELIST` `cdb_firewall_whitelist`
+firewalltest@localhost	select * from `test`.`t2`
 firewalltest@localhost	select 
-firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select * from `test`.`t1`
 call mtr.add_suppression('Rejected by cdb firewall');
 call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'DETECT');
 set_cdb_firewall_userhost_mode(userhost, mode)

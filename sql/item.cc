@@ -722,9 +722,7 @@ void Item::print_item_w_name(const THD *thd, String *str,
 */
 void Item::print_for_order(const THD *thd, String *str,
                            enum_query_type query_type, bool used_alias) const {
-  if ((query_type & QT_NORMALIZED_FORMAT) != 0)
-    str->append("?");
-  else if (used_alias) {
+  if (used_alias) {
     assert(item_name.is_set());
     // In the clause, user has referenced expression using an alias; we use it
     append_identifier(thd, str, item_name.ptr(), item_name.length());
@@ -10788,6 +10786,42 @@ bool Item_asterisk::itemize(Parse_context *pc, Item **res) {
   }
   pc->select->with_wild++;
   return false;
+}
+
+void Item_asterisk::print(const THD *thd, String *str, enum_query_type query_type) const
+{
+  char d_name_buff[MAX_ALIAS_NAME], t_name_buff[MAX_ALIAS_NAME];
+  const char *d_name = m_orig_db_name, *t_name = m_orig_table_name;
+  //downcase the db_name and table_name.
+  if (lower_case_table_names == 1 || (lower_case_table_names == 2 && !alias_name_used())) {
+      // mode '2' does not apply to aliases:
+    if (m_orig_table_name && m_orig_table_name[0]) {
+      my_stpcpy(t_name_buff, m_orig_table_name);
+      my_casedn_str(files_charset_info, t_name_buff);
+      t_name = t_name_buff;
+    }
+    if (m_orig_db_name && m_orig_db_name[0]) {
+      my_stpcpy(d_name_buff, m_orig_db_name);
+      my_casedn_str(files_charset_info, d_name_buff);
+      d_name = d_name_buff;
+    }
+  }
+  if (!m_orig_table_name || !field_name || !field_name[0]) {
+    str->append("*", strlen("*"), system_charset_info);
+    return;
+  }
+  if (m_orig_db_name && m_orig_db_name[0] && !(query_type & QT_NO_DB) && !alias_name_used()) {
+    const size_t d_name_len = strlen(d_name);
+    if (!((query_type & QT_NO_DEFAULT_DB) && db_is_default_db(d_name, d_name_len, thd))) {
+      append_identifier(thd, str, d_name, d_name_len);
+      str->append('.');
+    }
+  }
+  if (m_orig_table_name[0] && !(query_type & QT_NO_TABLE)) {
+    append_identifier(thd, str, t_name, strlen(t_name));
+    str->append('.');
+  }
+  str->append("*", strlen("*"), system_charset_info);
 }
 
 bool ItemsAreEqual(const Item *a, const Item *b, bool binary_cmp) {

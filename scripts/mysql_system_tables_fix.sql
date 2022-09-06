@@ -1572,4 +1572,21 @@ ALTER TABLE mysql.columns_priv DROP PRIMARY KEY,
 ALTER TABLE mysql.procs_priv DROP PRIMARY KEY,
                              ADD PRIMARY KEY (`Host`,`User`,`Db`,`Routine_name`,`Routine_type`);
 
+-- 
+-- outline
+--
+
+SET @cmd = "CREATE TABLE IF NOT EXISTS outline (
+  Id int(11) NOT NULL AUTO_INCREMENT,
+  Digest varchar(64) NOT NULL,
+  Digest_text text NOT NULL,
+  Outline_text text NOT NULL,
+  PRIMARY KEY(Id),
+  UNIQUE KEY ui1(Digest)
+) ENGINE=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin comment='Statement Outline' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
+SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 SET @@session.sql_mode = @old_sql_mode;

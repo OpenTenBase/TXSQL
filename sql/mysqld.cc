@@ -882,6 +882,9 @@ MySQL clients support the protocol:
 #include "violite.h"
 #include "sql/deadlock_history.h"
 
+#include "sql/opt_outline_loader.h"
+#include "sql/opt_outline_builder.h"
+
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_server.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
@@ -970,6 +973,7 @@ MySQL clients support the protocol:
 #include "sql/server_component/persistent_dynamic_loader_imp.h"
 #include "sql/srv_session.h"
 #include "sql/opt_statistics.h"
+#include "sql/sql_executor.h"
 
 #include "sql/opt_statistics.h"
 #include "my_md5.h"
@@ -2013,6 +2017,7 @@ static int fix_paths(void);
 static int test_if_case_insensitive(const char *dir_name);
 static void end_ssl();
 static void delete_dictionary_tablespace();
+static bool init_outline_builder_to_memory();
 
 extern "C" void *signal_hand(void *arg);
 static bool pid_file_created = false;
@@ -2042,6 +2047,8 @@ static void server_components_initialized() {
   mysql_cond_broadcast(&COND_server_started);
   mysql_mutex_unlock(&LOCK_server_started);
 }
+
+static bool outline_inited = false;
 
 SERVICE_TYPE(mysql_runtime_error) * error_service;
 SERVICE_TYPE(mysql_psi_system_v1) * system_service;
@@ -2826,6 +2833,8 @@ static void clean_up(bool print_message) {
   persisted_variables_cache.cleanup();
 
   udf_deinit_globals();
+
+  cdb_outline_loader.exit_outline_loader();
   cdb_sql_filter_manager.clean_up();
 
   deadlock_history_deinit();
@@ -4337,6 +4346,8 @@ SHOW_VAR com_status_vars[] = {
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"reset", (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_RESET]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"set_outline", (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SET_OUTLINE]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"resignal",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_RESIGNAL]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
@@ -4536,6 +4547,10 @@ SHOW_VAR com_status_vars[] = {
     {"show_cdb_sql_filters",
      (char*) offsetof(System_status_var,
                       com_stat[(uint) SQLCOM_SHOW_CDB_SQL_FILTERS]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_cdb_outline_info", 
+     (char*) offsetof(System_status_var, 
+                      com_stat[(uint) SQLCOM_SHOW_OUTLINE_INFO]),       
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"shutdown",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHUTDOWN]),
@@ -7134,6 +7149,8 @@ static int init_server_components() {
 
   init_max_user_conn();
 
+  cdb_outline_loader.init_outline_loader();
+
 #if defined(MYSQL_ICU_DATADIR)
   init_icu_data_directory();
 #endif  // MYSQL_ICU_DATADIR
@@ -8557,6 +8574,9 @@ int mysqld_main(int argc, char **argv)
 #endif
 
   server_components_initialized();
+
+  if (!opt_initialize && init_outline_builder_to_memory())
+    sql_print_error("load outline rules failed when init.");
 
   /*
     Set opt_super_readonly here because if opt_super_readonly is set
@@ -11978,6 +11998,62 @@ static void delete_dictionary_tablespace() {
 
   // Drop file which tracks progress of upgrade.
   dd::upgrade_57::Upgrade_status().remove();
+}
+
+static bool init_outline_builder_to_memory() 
+{
+  THD *thd;
+  bool return_val = false;
+  DBUG_TRACE;
+
+  if (outline_inited)
+    return return_val;
+
+  outline_inited = true;
+
+  if (!(thd = new THD)) {
+    delete thd;
+    return true; /* purecov: inspected */
+  }
+  thd->thread_stack = (char *)&thd;
+  thd->store_globals();
+  thd->set_db({"mysql", strlen("mysql")});
+
+  int error = 0;
+  outline::Outline_pattern op;
+  std::string digest_hash;
+  unique_ptr_destroy_only<RowIterator> iterator;
+  TABLE_LIST table_list("mysql", "outline", TL_READ, MDL_SHARED_READ_ONLY);
+  if (open_and_lock_tables(thd, &table_list, MYSQL_LOCK_IGNORE_TIMEOUT))
+    goto end;
+  cdb_outline_loader.clear_all_outline_info();
+  iterator = init_table_iterator(thd, table_list.table, nullptr, nullptr,
+                                 nullptr,
+                                 /*ignore_not_found_rows=*/false,
+                                 /*count_examined_rows=*/false);
+  if (iterator == nullptr) goto end;
+  table_list.table->use_all_columns();
+  while (!(error = iterator->Read())) {
+    MEM_ROOT mem;
+    digest_hash.assign(get_field(&mem, table_list.table->field[1]),
+                strlen(get_field(&mem, table_list.table->field[1])));
+    op.m_origin_query.assign(get_field(&mem, table_list.table->field[2]),
+                      strlen(get_field(&mem, table_list.table->field[2])));
+    op.m_outline_query.assign(get_field(&mem, table_list.table->field[3]),
+                       strlen(get_field(&mem, table_list.table->field[3])));
+    if (cdb_outline_builder.construct_param_positions(thd, op)) 
+       break;
+    if (cdb_outline_loader.load_outline_info(digest_hash, op))
+       break;
+  }                           
+  iterator.reset();
+  // table_list.table->m_needs_reopen = true;
+
+end:
+  commit_and_close_mysql_tables(thd);
+  thd->release_resources();
+  delete thd;
+  return return_val;
 }
 
 /**

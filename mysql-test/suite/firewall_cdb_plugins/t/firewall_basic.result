@@ -4,7 +4,7 @@ use test;
 select cdb_normalize_statement("select * from t1") into @whitelist_rule;
 select @whitelist_rule;
 @whitelist_rule
-select `*` from `test`.`t1`
+select * from `test`.`t1`
 insert into mysql.cdb_firewall_whitelist values ('firewalltest@localhost', @whitelist_rule);
 select * from information_schema.cdb_firewall_whitelist;
 userhost	digest

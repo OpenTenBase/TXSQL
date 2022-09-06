@@ -2597,6 +2597,7 @@ class Query_tables_list {
     *(table->prev_global = query_tables_last) = table;
     query_tables_last = &table->next_global;
   }
+  bool add_ud_index_hints(Opt_ud_index_hints& udi_hint);
   bool requires_prelocking() { return query_tables_own_last; }
   void mark_as_requiring_prelocking(TABLE_LIST **tables_own_last) {
     query_tables_own_last = tables_own_last;
@@ -3769,6 +3770,8 @@ struct LEX : public Query_tables_list {
 
   /* Optimizer hints */
   Opt_hints_global *opt_hints_global;
+  /* User define optimizer hints when banding outline. */
+  Opt_ud_optimizer_hints *opt_udo_hint;
 
   /* maintain a list of used plugins for this LEX */
   typedef Prealloced_array<plugin_ref, INITIAL_LEX_PLUGIN_LIST_SIZE>
@@ -3818,6 +3821,10 @@ struct LEX : public Query_tables_list {
     in a re-parsed CTE definition.
   */
   List<Item_param> param_list;
+
+  LEX_STRING outline_origin_sql_str;
+  LEX_STRING outline_info_str;
+  int handle_outline_type;
 
   bool locate_var_assignment(const Name_string &name);
 
