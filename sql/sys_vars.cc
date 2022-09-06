@@ -7860,4 +7860,10 @@ static Sys_var_bool Sys_cdb_lock_connect_detect_enabled(
     GLOBAL_VAR(cdb_lock_connect_check_enabled), CMD_LINE(OPT_ARG),
     DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_character_set_client_handshake(
+    "character_set_client_handshake",
+    "Don't ignore client side character set value sent during handshake.",
+    READ_ONLY GLOBAL_VAR(opt_character_set_client_handshake),
+    NO_CMD_LINE, DEFAULT(opt_character_set_client_handshake));
 /* Changes from txsql end. */
