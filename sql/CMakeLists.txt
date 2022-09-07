@@ -1108,6 +1108,11 @@ ENDIF()
 MYSQL_ADD_EXECUTABLE(mysqld
   ${MYSQLD_SOURCE} DESTINATION ${INSTALL_SBINDIR} COMPONENT Server
   )
+  
+IF(DO_BOLT)
+  SET(ENV{perfdata_path} "${CMAKE_CURRENT_SOURCE_DIR}/../perf.fdata")
+  target_link_options(mysqld PRIVATE -Wl,-q -fuse-bolt=$ENV{perfdata_path})
+ENDIF()
 
 # We depend on protobuf because of the mysqlx plugin and replication.
 IF(UNIX_INSTALL_RPATH_ORIGIN_PRIV_LIBDIR)
@@ -1178,13 +1183,13 @@ IF(UNIX_INSTALL_RPATH_ORIGIN_PRIV_LIBDIR OR LINUX_INSTALL_RPATH_ORIGIN)
   ENDIF()
 ENDIF()
 
-# Remove profiling data collected during build.
-IF(FPROFILE_GENERATE)
-  ADD_CUSTOM_COMMAND(TARGET mysqld POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E remove_directory ${FPROFILE_DIR}
-    COMMENT "Removing profile data in ${FPROFILE_DIR}"
-    )
-ENDIF()
+# # Remove profiling data collected during build.
+# IF(FPROFILE_GENERATE)
+#   ADD_CUSTOM_COMMAND(TARGET mysqld POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E remove_directory ${FPROFILE_DIR}
+#     COMMENT "Removing profile data in ${FPROFILE_DIR}"
+#     )
+# ENDIF()
 
 IF(MSVC)
   # Set module definition file.

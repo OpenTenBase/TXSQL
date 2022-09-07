@@ -1,4 +1,9 @@
 #!/usr/bin/perl
+=pod
+  Usage:
+    1. ./txsql_package.pl
+    2. ./txsql_package.pl optimize
+=cut
 
 ### 修改这里的参数配置作为输入参数
 ### 请把her.cnf 和 my.cnf copy 到当前目录
@@ -25,7 +30,25 @@ if (-d "bld-release") {
 }
 
 ### call build.sh
-system("./build.sh -t release") and die("failed to build check compile");
+if ($ARGV[0] eq "optimize") {
+  print "Using compilation optimize.\n";
+  ### set GCC_BASE to path of compiler, 
+  ### eg: set 'GCC_BASE=/data1/software/tx-gcc' when gcc's path is '/data1/software/tx-gcc/bin/gcc'.
+  my $gccbase=$ENV{'GCC_BASE'};
+  if (!$gccbase) {
+    print "Environment variable 'GCC_BASE' should be set when using compilation optimization with 'optimize'.\n";
+    print "eg: 'export GCC_BASE=/data1/software/tx-gcc'";
+    exit 2;
+  } 
+  print "ENV GCC_BASE=$gccbase\n";
+
+  system("./build.sh -t release --stage3") and die("failed to build check compile.");
+} else {
+  system("./build.sh -t release") and die("failed to build check compile");
+}
+
+
+
 
 ### call make package, this may call
 chdir "bld-release";
@@ -51,6 +74,11 @@ system("tar xvf $tar_name -C $dest_dir_name") and die("failed to unpack package_
 system("mv $dest_dir_name/$to_rename_dir $dest_dir_name/mysql") and die("failed to rename in $dest_dir_name");
 system("cp ../tmy.conf $dest_dir_name") and die("failed to put in tmy.conf");
 system("cp ../her.cnf $dest_dir_name") and die("failed to put in her.cnf");
+if ( $ARGV[0] eq "optimize" ) {
+  my $gccbase=$ENV{'GCC_BASE'};
+  print "cp $gccbase/lib64/libstdc++.so.6 $dest_dir_name/mysql/lib/private/\n";
+  system("cp $gccbase/lib64/libstdc++.so.6 $dest_dir_name/mysql/lib/private/") and die("failed to put libstdc++.so.6");
+}
 system("tar -zcvf $dest_dir_name.tar.gz $dest_dir_name") and die("failed to package $dest_dir_name");
 system("mv $dest_dir_name.tar.gz ..") and die("failed to mv $dest_dir_name");
 

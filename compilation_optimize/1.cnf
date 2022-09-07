@@ -1,0 +1,253 @@
+[mysqld]
+port    = 30002
+socket    = /tmp/30002_txsql.sock
+pid-file    = lz_pwd/mysql_root/1/data/Tencent64.pid
+datadir     = lz_pwd/mysql_root/1/data
+slow_query_log_file = lz_pwd/mysql_root/1/data/slow_query.log
+tmpdir              = lz_pwd/mysql_root/1/tmp
+slave_load_tmpdir   = lz_pwd/mysql_root/1/tmp
+
+secure_file_priv = lz_pwd/mysql_root/1/data
+
+log-bin = lz_pwd/mysql_root/1/data/mysql-bqin
+relay-log = lz_pwd/mysql_root/1/data/relay-bin
+innodb_log_group_home_dir = lz_pwd/mysql_root/1/log
+
+tencent-root-cnf = ../tmy.conf
+default_authentication_plugin=mysql_native_password
+
+server-id = 95000
+binlog_order_commits=1
+gtid_mode=ON
+enforce-gtid-consistency
+
+innodb_flush_log_at_trx_commit=2
+sync_binlog=0
+
+
+core-file
+#async_commit_workers=2
+#binlog_async_commit_enabled=ON
+#innodb_flush_redo_using_fdatasync=ON
+
+#cdb_plan_cache=ON
+
+innodb_doublewrite=ON
+
+skip-external-locking
+skip-name-resolve
+bind-address = 127.0.0.1
+
+
+#for master-slave
+server-id = 90915
+
+log-slave-updates
+##################### _stable ##################
+binlog_format=row
+wait_timeout=3600
+thread_stack=512K
+thread_cache_size=512
+table_open_cache=2000
+table_definition_cache=768
+sort_buffer_size=512K
+slow_query_log=1
+read_rnd_buffer_size=512K
+read_buffer_size=256K
+#query_cache_size=0M
+performance_schema=OFF
+open_files_limit=102400
+net_buffer_length=8K
+myisam_sort_buffer_size=8M
+max_connect_errors=999999999
+max_binlog_size=268435456
+max_allowed_packet=1G
+log_bin_trust_function_creators=1
+key_buffer_size=16M
+interactive_timeout=3600
+innodb_write_io_threads=12
+innodb_strict_mode=1
+innodb_read_io_threads=12
+innodb_purge_threads=4
+innodb_open_files=10240
+innodb_log_buffer_size=64M
+innodb_lock_wait_timeout=7200
+innodb_io_capacity=50000
+innodb_io_capacity_max=100000
+innodb_lru_scan_depth=1024
+innodb_flush_method=O_DIRECT
+innodb_file_per_table=1
+#innodb_file_format_max=Barracuda
+#innodb_file_format=Barracuda
+##################### _calculate ##################
+#2. 计算部分
+## 计算层
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 赋值层
+
+innodb_buffer_pool_size = 4G
+
+innodb_buffer_pool_chunk_size = 64M
+
+innodb_adaptive_hash_index_parts=16
+innodb_buffer_pool_instances = 8
+innodb_page_cleaners=8
+
+#innodb_log_file_size =  512M
+
+max_connections=4000
+max_prepared_stmt_count=2000000
+default_authentication_plugin=mysql_native_password
+
+tmp_table_size= 1G
+
+max_heap_table_size = 1G
+##################### _variable ##################
+
+relay_log_info_repository=table
+master_info_repository=table
+log_timestamps=system
+binlog_row_image=minimal
+#plugin-load-add=audit_cdb=audit_cdb.so
+
+
+
+
+
+
+#threadpool_workaround_epoll_bug=1
+thread_handling=2
+thread_pool_size=8
+thread_pool_oversubscribe=3
+table_open_cache_instances=8
+slave_net_timeout=120
+rpl_stop_slave_timeout=120
+innodb_print_all_deadlocks=on
+innodb_flush_neighbors=0
+
+#innodb_large_prefix=ON
+
+local_infile=OFF
+innodb_autoinc_lock_mode=2
+
+transaction_isolation=READ-COMMITTED
+#eq_range_index_dive_limit=200
+#binlog_cache_size=2097152
+#back_log=3000
+tencent_reserved_connection = 64
+
+slave_pending_jobs_size_max=1G
+innodb_temp_data_file_path=ibtmp1:12M:autoextend:max:1024G
+
+
+##################### _cdb ##################
+
+
+
+#cdb_slave_lock_optimization=OFF
+#cdb_enable_offset_pushdown=OFF
+
+
+# 20200331 这一个包tmy.cnf tencent_root_limit 配的3000 需要单独处理
+
+
+extra_max_connections=500
+
+
+
+
+cdb_convert_memory_to_innodb=ON
+
+
+
+cdb_audit_truncat_sql_len=1048576
+cdb_kill_user_extra = root@%
+cdb_forbid_mysql_write = TRUE
+
+
+
+#cdb_forbid_alter_discard=ON
+
+#################### _instinfo ##################
+
+
+
+
+#plugin-load=semisync_master.so
+#rpl_semi_sync_master_wait_forever=0
+#rpl_semi_sync_master_wait_point=AFTER_COMMIT
+#plugin-load-add=semisync_slave.so
+#myisam_conversion_innodb=WARN
+#tencent_myisam_conversion_innodb=TRY
+#
+#
+#
+#
+#cdb_working_mode_default=READWRITE
+
+
+
+#    slave_parallel_workers=16
+#    slave_parallel_type=LOGICAL_CLOCK
+#    relay_log_recovery=ON
+
+#################### _devclass ##################
+
+
+
+    innodb_log_file_size = 1000M
+        innodb_log_files_in_group = 4
+
+
+
+#{_REPLICATE_DO_TABLE_}
+#{_REPLICATE_WILD_TABLE_}
+
+skip_ssl
+
+
+
+read_only = 0
+cdb_skip_event_scheduler = OFF
+cdb_working_mode_enabled = 0
+[mysqldump]
+quick
+max_allowed_packet = 16M
+
+[mysql]
+no-auto-rehash
+# Remove the next comment character if you are not familiar with SQL
+#safe-updates
+
+[myisamchk]
+key_buffer_size = 20M
+sort_buffer_size = 20M
+read_buffer = 2M
+write_buffer = 2M
+
+[mysqlhotcopy]
+interactive-timeout
+
+[mysqld_safe]
+core-file-size=unlimited
+
