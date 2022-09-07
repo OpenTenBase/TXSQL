@@ -6272,6 +6272,31 @@ void TABLE::mark_check_constraint_columns(bool is_update) {
   if (bitmap_updated) file->column_bitmaps_signal();
 }
 
+void TABLE_LIST::reinit_before_use(THD *thd) {
+  /*
+    Reset old pointers to TABLEs: they are not valid since the tables
+    were closed in the end of previous prepare or execute call.
+  */
+  table = 0;
+
+  mdl_request.ticket = NULL;
+
+  /*
+    Is this table part of a SECURITY DEFINER VIEW?
+  */
+  if (!prelocking_placeholder && view && view_suid && view_sctx) {
+    /*
+      The suid view needs to "login" again at this stage before privilege
+      precheck is done. The THD::m_view_ctx list is used to keep track of the
+      new authorized security context life time. When the THD is reset or
+      destroyed the security context is safely logged out and and any Acl_maps
+      returned to the Acl cache.
+    */
+    prepare_view_security_context(thd);
+    thd->m_view_ctx_list.push_back(view_sctx);
+  }
+}
+
 uint TABLE_LIST::query_block_id() const {
   if (!derived) return 0;
   return derived->first_query_block()->select_number;

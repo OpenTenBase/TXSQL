@@ -1,0 +1,563 @@
+#
+# Test of create table of Myisam
+#
+
+--source include/have_binlog_format_row.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2,t3,t4;
+DROP DATABASE IF EXISTS mysqltest;
+CREATE DATABASE mysqltest;
+--enable_warnings
+
+--echo #connect user=tencentroot
+connect (con_tencentroot, localhost, tencentroot,'', mysqltest);
+--echo #connect user=root
+connect (con_root, localhost, root,'', mysqltest);
+
+connection con_tencentroot;
+SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
+SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
+
+--echo "# Test 1.1 create table test unit "
+
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=OFF;
+
+
+--echo "myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+DROP TABLE IF EXISTS t1,t2;
+
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=ON;
+
+--echo "myisam_conversion_innodb=ON & connection con_root"
+connection con_root;
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+
+--error ER_TOO_LONG_KEY
+CREATE TABLE t3 (
+        col1 varchar(4768) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2;
+
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=WARN;
+
+--echo "myisam_conversion_innodb=WARN & connection con_root"
+connection con_root;
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+--error ER_TOO_LONG_KEY
+CREATE TABLE t3 (
+        col1 varchar(4768) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2;
+
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=TRY;
+
+--echo "myisam_conversion_innodb=TRY & connection con_root"
+connection con_root;
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(768) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t3;
+
+CREATE TABLE t4 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM ROW_FORMAT=FIXED;
+
+SHOW CREATE TABLE t4;
+
+DROP TABLE IF EXISTS t1,t2,t3,t4;
+
+--echo "# Test 1.2 alter table test unit "
+
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=OFF;
+
+--echo "myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+DROP TABLE IF EXISTS t1,t2;
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencent_root"
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=ON;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t3;
+
+--echo "myisam_conversion_innodb=ON & connection con_root"
+connection con_root;
+ALTER TABLE t1 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+#--error ER_TOO_LONG_KEY
+ALTER TABLE t3 ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2,t3;
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencent_root"
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=WARN;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+SHOW CREATE TABLE t3;
+
+--echo "connection con_root & myisam_conversion_innodb=WARN"
+connection con_root;
+ALTER TABLE t1 ENGINE=MyISAM;
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+#--error ER_TOO_LONG_KEY
+ALTER TABLE t3 ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2,t3;
+
+--echo "myisam_conversion_innodb=TRY & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=TRY;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+SHOW CREATE TABLE t3;
+
+CREATE TABLE t4 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM ROW_FORMAT=FIXED;
+SHOW CREATE TABLE t4;
+
+--echo "myisam_conversion_innodb=TRY & connection con_root"
+connection con_root;
+ALTER TABLE t1 ENGINE=MyISAM;
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+ALTER TABLE t3 ENGINE=MyISAM;
+SHOW CREATE TABLE t3;
+
+--disable_warnings
+ALTER TABLE t4 ENGINE=MyISAM;
+--enable_warnings
+SHOW CREATE TABLE t4;
+
+DROP TABLE IF EXISTS t1,t2,t3,t4;
+
+--echo "# Test 1.3 tencent root create table test unit "
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+DROP TABLE IF EXISTS t1,t2;
+
+
+--echo "tencent_myisam_conversion_innodb=ON & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=ON;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+--error ER_TOO_LONG_KEY
+CREATE TABLE t3 (
+        col1 varchar(4768) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2;
+
+--echo "tencent_myisam_conversion_innodb=WARN & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=WARN;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+--error ER_TOO_LONG_KEY
+CREATE TABLE t3 (
+        col1 varchar(4768) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2;
+
+
+--echo "tencent_myisam_conversion_innodb=TRY & connection con_tencentroot"
+
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=TRY;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t3;
+
+CREATE TABLE t4 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM ROW_FORMAT=FIXED;
+
+SHOW CREATE TABLE t4;
+
+DROP TABLE IF EXISTS t1,t2,t3,t4;
+
+--echo "# Test 1.4 tencent root alter table test unit "
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+DROP TABLE IF EXISTS t1,t2;
+
+
+--echo "---------- alter table tencent_myisam_conversion_innodb=WARN -----------------"
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t3;
+
+--echo "tencent_myisam_conversion_innodb=ON & connection con_tencentroot"
+SET GLOBAL tencent_myisam_conversion_innodb=ON;
+ALTER TABLE t1 ENGINE=MyISAM;
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+ALTER TABLE t3 ENGINE=MyISAM;
+show create table t3;
+
+DROP TABLE IF EXISTS t1,t2,t3;
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+
+SHOW CREATE TABLE t3;
+
+--echo "tencent_myisam_conversion_innodb=WARN & connection con_tencentroot"
+SET GLOBAL tencent_myisam_conversion_innodb=WARN;
+ALTER TABLE t1 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+#--error ER_TOO_LONG_KEY
+ALTER TABLE t3 ENGINE=MyISAM;
+
+DROP TABLE IF EXISTS t1,t2,t3;
+
+--echo "----------alter table tencent_myisam_conversion_innodb=TRY-----------------"
+
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM;
+SHOW CREATE TABLE t2;
+
+CREATE TABLE t3 (
+        col1 varchar(250) NOT NULL PRIMARY KEY
+)ENGINE=MyISAM;
+SHOW CREATE TABLE t3;
+
+CREATE TABLE t4 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+)ENGINE=MyISAM ROW_FORMAT=FIXED;
+SHOW CREATE TABLE t4;
+
+--echo "tencent_myisam_conversion_innodb=TRY & connection con_tencentroot"
+
+SET GLOBAL tencent_myisam_conversion_innodb=TRY;
+ALTER TABLE t1 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t2 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t2;
+
+ALTER TABLE t3 ENGINE=MyISAM;
+
+SHOW CREATE TABLE t3;
+
+--disable_warnings
+ALTER TABLE t4 ENGINE=MyISAM;
+--enable_warnings
+
+SHOW CREATE TABLE t4;
+
+DROP TABLE IF EXISTS t1,t2,t3,t4;
+
+--echo "Cleanup"
+
+connection con_tencentroot;
+SET GLOBAL myisam_conversion_innodb=@save_myisam_conversion_innodb;
+SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_innodb;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2,t3,t4;
+DROP DATABASE IF EXISTS mysqltest;
+--enable_warnings
+
+disconnect con_tencentroot;
+disconnect con_root;

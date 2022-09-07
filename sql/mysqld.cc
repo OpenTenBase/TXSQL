@@ -1221,6 +1221,10 @@ uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
 bool opt_persist_sensitive_variables_in_plaintext{true};
+ulong opt_myisam_conversion_innodb;
+ulong opt_tencent_myisam_conversion_innodb;
+const char *myisam_conversion_innodb_names[]=
+{ "OFF", "WARN", "ON", "TRY", NullS };
 
 #if defined(_WIN32)
 /*
@@ -12702,3 +12706,4 @@ bool check_and_update_partial_revokes_sysvar(THD *thd) {
 
 bool cdb_skip_event_scheduler = false;
 bool cdb_lock_connect_check_enabled = true;
+bool cdb_convert_memory_to_innodb = false;

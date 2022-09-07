@@ -42,6 +42,7 @@
 #include "sql/error_handler.h"     // Strict_error_handler
 // mysql_exchange_partition
 #include "sql/log.h"
+#include "sql_base.h"
 #include "sql/mysqld.h"              // lower_case_table_names
 #include "sql/parse_tree_helpers.h"  // is_identifier
 #include "sql/sql_class.h"           // THD
@@ -225,6 +226,11 @@ bool Sql_cmd_alter_table::execute(THD *thd) {
   Query_block *query_block = lex->query_block;
   /* first table of first Query_block */
   TABLE_LIST *first_table = query_block->get_table_list();
+
+  bool converted= false;
+
+retry_assign_storage_engine:
+
   /*
     Code in mysql_alter_table() may modify its HA_CREATE_INFO argument,
     so we have to use a copy of this structure to make execution
@@ -234,6 +240,14 @@ bool Sql_cmd_alter_table::execute(THD *thd) {
   */
   HA_CREATE_INFO create_info(*lex->create_info);
   Alter_info alter_info(*m_alter_info, thd->mem_root);
+
+  mysql_convert_table_myisam_to_innodb(thd,
+                                       "alter table",
+                                       first_table->db,
+                                       first_table->table_name,
+                                       converted,
+                                       create_info.db_type);
+
   ulong priv = 0;
   ulong priv_needed = ALTER_ACL;
   bool result;
@@ -349,6 +363,23 @@ bool Sql_cmd_alter_table::execute(THD *thd) {
   result = mysql_alter_table(thd, alter_info.new_db_name.str,
                              alter_info.new_table_name.str, &create_info,
                              first_table, &alter_info);
+
+  if(result && converted)
+  {
+    Open_table_context ot_ctx(thd, 0);
+    //set table=null
+    close_tables_for_reopen(thd, &first_table, ot_ctx.start_of_statement_svp());
+    close_thread_tables(thd);
+    //clear error and warnings
+    thd->clear_error();
+    thd->get_stmt_da()->reset_diagnostics_area();
+    mysql_reset_mdl_request_for_try(thd);
+
+    if (thd->get_internal_handler())
+      thd->pop_internal_handler();
+
+    goto retry_assign_storage_engine;
+  }
 
   if (!thd->lex->is_ignore() && thd->is_strict_mode())
     thd->pop_internal_handler();

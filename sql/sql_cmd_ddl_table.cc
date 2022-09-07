@@ -136,6 +136,7 @@ bool Sql_cmd_create_table::execute(THD *thd) {
   TABLE_LIST *const create_table = lex->query_tables;
   partition_info *part_info = lex->part_info;
 
+  bool converted= false;
   /*
     Code below (especially in mysql_create_table() and Query_result_create
     methods) may modify HA_CREATE_INFO structure in LEX, so we have to
@@ -179,6 +180,11 @@ bool Sql_cmd_create_table::execute(THD *thd) {
     create_info.db_type = create_info.options & HA_LEX_CREATE_TMP_TABLE
                               ? ha_default_temp_handlerton(thd)
                               : ha_default_handlerton(thd);
+
+retry_assign_storage_engine:
+  mysql_convert_table_myisam_to_innodb(thd, "create table", create_table->db,
+                                       create_table->table_name, converted,
+                                       create_info.db_type);
 
   assert(create_info.db_type != nullptr);
   if ((m_alter_info->flags & Alter_info::ANY_ENGINE_ATTRIBUTE) != 0 &&
@@ -430,7 +436,8 @@ bool Sql_cmd_create_table::execute(THD *thd) {
                                     &create_info);
     } else {
       /* Regular CREATE TABLE */
-      res = mysql_create_table(thd, create_table, &create_info, &alter_info);
+      res = mysql_create_table(thd, create_table, &create_info, &alter_info,
+                               converted);
     }
     /* Pop Strict_error_handler */
     if (!lex->is_ignore() && thd->is_strict_mode()) thd->pop_internal_handler();
@@ -443,6 +450,10 @@ bool Sql_cmd_create_table::execute(THD *thd) {
         thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
             ->mark_as_changed(thd, {});
       my_ok(thd);
+    } else {
+      if (converted) {
+        goto retry_assign_storage_engine;
+      }
     }
   }
   // The following code is required to make CREATE TABLE re-execution safe.

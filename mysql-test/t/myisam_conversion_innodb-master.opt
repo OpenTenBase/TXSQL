@@ -1,0 +1,2 @@
+--default-storage-engine=InnoDB
+--tencent-root-cnf=tmy.conf

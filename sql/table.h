@@ -3185,6 +3185,7 @@ struct TABLE_LIST {
 
   Security_context *find_view_security_context(THD *thd);
   bool prepare_view_security_context(THD *thd);
+  void reinit_before_use(THD *thd);
 
   /**
     Compiles the tagged hints list and fills up TABLE::keys_in_use_for_query,
