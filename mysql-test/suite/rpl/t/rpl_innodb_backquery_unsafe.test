@@ -1,0 +1,64 @@
+#################################
+#  Backquery is unsafe for SBR  #
+#################################
+
+disable_ps_protocol;
+source include/have_binlog_format_mixed_or_row.inc;
+source include/master-slave.inc;
+
+connection master;
+
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable = ON;
+
+create table t1(id int primary key, c1 varchar(20)) engine=innodb;
+insert into t1 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+sleep 2;
+
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 2;
+update t1 set c1='abcdefg' where id=4;
+select * from t1;
+echo select * from t1 as of timestamp 'time1';
+disable_query_log;
+eval select * from t1 as of timestamp '$time1';
+enable_query_log;
+
+create table t2 select * from t1;
+select * from t2;
+echo create table t3 select * from t1 as of timestamp 'time1';
+disable_query_log;
+eval create table t3 select * from t1 as of timestamp '$time1';
+enable_query_log;
+select * from t3;
+
+create table t4 like t1;
+create table t5 like t1;
+
+insert into t4 select * from t1;
+select * from t4;
+
+echo insert into t5 select * from t1 as of timestamp 'time1';
+disable_query_log;
+eval insert into t5 select * from t1 as of timestamp '$time1';
+enable_query_log;
+select * from t5;
+
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+select * from t2;
+select * from t3;
+select * from t4;
+select * from t5;
+
+# cleanup
+connection master;
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+drop table if exists t4;
+drop table if exists t5;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

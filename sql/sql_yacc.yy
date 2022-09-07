@@ -10098,12 +10098,24 @@ select_option:
 locking_clause_list:
           locking_clause_list locking_clause
           {
+            if (YYTHD->has_backquery()) {
+              my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+                       "Using locking clause in combination with backquery");
+              MYSQL_YYABORT;
+            }
+
             $$= $1;
             if ($$->push_back($2))
               MYSQL_YYABORT; // OOM
           }
         | locking_clause
           {
+            if (YYTHD->has_backquery()) {
+              my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+                       "Using locking clause in combination with backquery");
+              MYSQL_YYABORT;
+            }
+
             $$= NEW_PTN PT_locking_clause_list(YYTHD->mem_root);
             if ($$ == nullptr || $$->push_back($1))
               MYSQL_YYABORT; // OOM
@@ -12042,7 +12054,13 @@ single_table_parens:
 single_table:
           table_ident opt_use_partition opt_table_alias opt_key_definition
           {
-            $$= NEW_PTN PT_table_factor_table_ident($1, $2, $3, $4);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, $3, $4, nullptr);
+          }
+        | table_ident opt_use_partition AS OF_SYM TIMESTAMP_SYM expr
+          {
+            YYTHD->backquery_flag = true;
+            ITEMIZE($6, &$6);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, nullptr, $6);
           }
         ;
 

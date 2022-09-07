@@ -280,6 +280,23 @@ struct trx_rseg_t {
         << ", curr_size=" << curr_size << "]";
     return (out);
   }
+
+ public:
+  /** Page number of the last not yet pre purged log header in the history
+   list; FIL_NULL if all list pre purged */
+  page_no_t pre_last_page_no{};
+  /** Byte offset of the last not yet pre purged log header */
+  size_t pre_last_offset{};
+  /** Transaction number of the last not yet pre purged log */
+  trx_id_t pre_last_trx_no;
+  /** true if the last not yet pre purged log needs purging */
+  bool pre_last_del_marks{};
+  inline void reset_process_of_pre_purge() {
+    this->pre_last_page_no = this->last_page_no;
+    this->pre_last_offset = this->last_offset;
+    this->pre_last_trx_no = this->last_trx_no;
+    this->pre_last_del_marks = this->last_del_marks;
+  }
 };
 
 inline std::ostream &operator<<(std::ostream &out, const trx_rseg_t &rseg) {

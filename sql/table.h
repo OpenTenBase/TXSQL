@@ -3843,6 +3843,13 @@ struct TABLE_LIST {
   MY_BITMAP write_set_saved;
   my_bitmap_map read_set_small[bitmap_buffer_size(64) / sizeof(my_bitmap_map)];
   my_bitmap_map write_set_small[bitmap_buffer_size(64) / sizeof(my_bitmap_map)];
+
+/* Changes from txsql start. */
+ public:
+  time_t backquery_timestamp{0};
+  bool is_backquery() { return (backquery_timestamp != 0); }
+  void process_index_for_backquery(const THD *thd, TABLE *tbl);
+/* Changes from txsql end. */
 };
 
 /*

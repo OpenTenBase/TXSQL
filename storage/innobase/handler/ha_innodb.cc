@@ -804,6 +804,7 @@ static PSI_rwlock_info all_innodb_rwlocks[] = {
     PSI_RWLOCK_KEY(index_online_log, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(dict_table_stats, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(hash_table_locks, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(backquery_enable_lock, 0, PSI_DOCUMENT_ME),
 };
 #endif /* UNIV_PFS_RWLOCK */
 
@@ -877,7 +878,8 @@ static PSI_thread_info all_innodb_threads[] = {
     PSI_THREAD_KEY(parallel_rseg_init_thread, "ib_par_rseg", 0, 0,
                    PSI_DOCUMENT_ME),
     PSI_THREAD_KEY(meb::redo_log_archive_consumer_thread, "ib_meb_rl",
-                   PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME)};
+                   PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME),
+    PSI_THREAD_KEY(srv_backquery_thread, "ib_bq_gen", 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef UNIV_PFS_IO
@@ -1299,6 +1301,13 @@ static SHOW_VAR innodb_status_variables[] = {
     {"ahi_drop_lookups", (char *)&export_vars.innodb_ahi_drop_lookups,
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
 #endif /* UNIV_DEBUG */
+    {"backquery_history_views",
+     (char *)&export_vars.innodb_backquery_history_views, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"backquery_up_time", (char *)&show_backquery_time_status, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"backquery_low_time", (char *)&show_backquery_time_status, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
 /** Handling the shared INNOBASE_SHARE structure that is needed to provide table
@@ -5091,6 +5100,8 @@ static void innobase_post_ddl(THD *thd) {
   }
 }
 
+static void innobase_end_backquery(THD *thd);
+
 /** Initialize the InnoDB storage engine plugin.
 @param[in,out]  p       InnoDB handlerton
 @return error code
@@ -5227,6 +5238,8 @@ static int innodb_init(void *p) {
   innobase_hton->page_track.get_num_page_ids =
       innobase_page_track_get_num_page_ids;
   innobase_hton->page_track.get_status = innobase_page_track_get_status;
+
+  innobase_hton->end_backquery = innobase_end_backquery;
 
   static_assert(DATA_MYSQL_TRUE_VARCHAR == (ulint)MYSQL_TYPE_VARCHAR);
 
@@ -19510,7 +19523,7 @@ THR_LOCK_DATA **ha_innobase::store_lock(
     /* Use consistent read for checksum table */
 
     if (sql_command == SQLCOM_CHECKSUM ||
-        (trx->skip_gap_locks() &&
+        ((trx->skip_gap_locks() || thd_has_backquery(thd)) &&
          (lock_type == TL_READ || lock_type == TL_READ_NO_INSERT) &&
          (sql_command == SQLCOM_INSERT_SELECT ||
           sql_command == SQLCOM_REPLACE_SELECT ||
@@ -23114,6 +23127,56 @@ static MYSQL_SYSVAR_INT(cdb_page_cleaner_priority,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                         "Thread priority for the page cleaner thread", NULL,
                         NULL, 0, 0, 39, 0);
+
+static int srv_backquery_enable_check(THD *thd, SYS_VAR *var, void *save,
+                                      struct st_mysql_value *value) {
+  int error = check_func_bool(thd, var, save, value);
+  if (error != 0) {
+    return (error);
+  }
+  bool target = *static_cast<bool *>(save);
+  if (target) {
+    backquery_manager->enable();
+  } else if (!backquery_manager->disable()) {
+    error = 1;
+  }
+  return error;
+}
+
+static void srv_backquery_enable_update(
+    THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
+    void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
+  /* empty function */
+  return;
+}
+
+static MYSQL_SYSVAR_BOOL(backquery_enable, srv_backquery_enable,
+                         PLUGIN_VAR_RQCMDARG, "Enable or disable backquery",
+                         srv_backquery_enable_check,
+                         srv_backquery_enable_update, false);
+
+static MYSQL_SYSVAR_LONG(backquery_window, srv_backquery_window,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Available time range of backquery", nullptr, nullptr,
+                         86400, 1, 2592000, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    backquery_history_limit, srv_backquery_history_limit, PLUGIN_VAR_RQCMDARG,
+    "The max length of undo history list supported by backquery", nullptr,
+    nullptr, 8000000, 1, INT_MAX64, 0);
+
+static MYSQL_SYSVAR_LONG(
+    backquery_trackpoint_create_interval,
+    srv_backquery_trackpoint_create_interval, PLUGIN_VAR_RQCMDARG,
+    "The time interval at which the system creates trackpoints", nullptr,
+    nullptr, 1, 1, 86400, 0);
+
+static MYSQL_SYSVAR_LONG(
+    backquery_trackpoint_clean_interval,
+    srv_backquery_trackpoint_clean_interval, PLUGIN_VAR_RQCMDARG,
+    "The time interval at which the system cleans trackpoints", nullptr,
+    nullptr, 1, 1, 86400, 0);
+
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23337,6 +23400,11 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(parallel_read_threads),
     MYSQL_SYSVAR(segment_reserve_factor),
     MYSQL_SYSVAR(cdb_page_cleaner_priority),
+    MYSQL_SYSVAR(backquery_enable),
+    MYSQL_SYSVAR(backquery_window),
+    MYSQL_SYSVAR(backquery_history_limit),
+    MYSQL_SYSVAR(backquery_trackpoint_create_interval),
+    MYSQL_SYSVAR(backquery_trackpoint_clean_interval),
     nullptr};
 
 mysql_declare_plugin(innobase){
@@ -24167,3 +24235,35 @@ static bool innobase_check_reserved_file_name(handlerton *, const char *name) {
   return (true);
 }
 #endif /* !UNIV_HOTBACKUP */
+
+/* Changes from txsql start. */
+bool ha_innobase::prepare_backquery(THD *thd, time_t t) {
+  ReadView *v;
+  void *temp_ptr;
+  time_t real_ts;
+  bool ret = false;
+  thd_get_backquery_info(thd, m_prebuilt->table->id, real_ts, temp_ptr);
+  if (!temp_ptr) {
+    /* This table has not been prepared for backquery. */
+    backquery_manager->get_view_for_query(t, v, real_ts);
+    if (v) {
+      /* Success. */
+      thd_set_backquery_info(thd, m_prebuilt->table->id, real_ts, v, false);
+    } else {
+      ret = true;
+    }
+  }
+  return ret;
+}
+
+static void innobase_end_backquery(THD *thd) {
+  std::vector<std::pair<time_t, void *>> info;
+  thd_get_all_backquery_info(thd, info);
+  for (auto it = info.begin(); it != info.end(); it++) {
+    if (it->first != 0 && it->second) {
+      backquery_manager->release_view_for_query(it->first);
+    }
+  }
+  thd_set_backquery_info(thd, 0, 0, nullptr, true);
+}
+/* Changes from txsql end. */

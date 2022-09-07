@@ -248,7 +248,8 @@ static trx_rseg_t *trx_rseg_mem_initialize(ulint id, space_id_t space_id,
 static trx_rseg_t *trx_rseg_physical_initialize(trx_rseg_t *rseg,
                                                 purge_pq_t *purge_queue,
                                                 trx_id_t gtid_trx_no,
-                                                mtr_t *mtr) {
+                                                mtr_t *mtr,
+                                                purge_pq_t *pre_purge_queue) {
   auto rseg_header =
       trx_rsegf_get_new(rseg->space_id, rseg->page_no, rseg->page_size, mtr);
 
@@ -296,6 +297,13 @@ static trx_rseg_t *trx_rseg_physical_initialize(trx_rseg_t *rseg,
     rseg->last_del_marks =
         mtr_read_ulint(undo_log_hdr + TRX_UNDO_DEL_MARKS, MLOG_2BYTES, mtr);
 
+    /* When a trx_rseg_t is created in memory, we reset the process of pre
+     * purge. */
+    rseg->pre_last_page_no = rseg->last_page_no;
+    rseg->pre_last_offset = rseg->last_offset;
+    rseg->pre_last_trx_no = rseg->last_trx_no;
+    rseg->pre_last_del_marks = rseg->last_del_marks;
+
     TrxUndoRsegs elem(rseg->last_trx_no);
     elem.insert(rseg);
 
@@ -309,11 +317,15 @@ static trx_rseg_t *trx_rseg_physical_initialize(trx_rseg_t *rseg,
             (srv_is_upgrade_mode != undo::is_reserved(rseg->space_id)));
 
       mutex_enter(&purge_sys->pq_mutex);
-      purge_queue->push(std::move(elem));
+      purge_queue->push(elem);
+      if (pre_purge_queue) {
+        pre_purge_queue->push(elem);
+      }
       mutex_exit(&purge_sys->pq_mutex);
     }
   } else {
     rseg->last_page_no = FIL_NULL;
+    rseg->pre_last_page_no = FIL_NULL;
   }
 
   return (rseg);
@@ -340,9 +352,10 @@ page_no_t trx_rseg_get_page_no(space_id_t space_id, ulint rseg_id) {
 /** Thread to initialize rollback segments in parallel.
 @param[in]      arg             purge queue
 @param[in]      gtid_trx_no     GTID to be set in the rollback segment */
-void trx_rseg_init_thread(void *arg, trx_id_t gtid_trx_no) {
+void trx_rseg_init_thread(void *arg, trx_id_t gtid_trx_no, void *pre_purge_arg) {
   trx_rseg_t *rseg = nullptr;
   purge_pq_t *purge_queue = (purge_pq_t *)arg;
+  purge_pq_t *pre_purge_queue = static_cast<purge_pq_t *>(pre_purge_arg);
   while (true) {
     mutex_enter(&purge_sys->pq_mutex);
     if (purge_sys->rsegs_queue.empty()) {
@@ -356,7 +369,8 @@ void trx_rseg_init_thread(void *arg, trx_id_t gtid_trx_no) {
     mutex_exit(&purge_sys->pq_mutex);
 
     mtr_start(&mtr);
-    trx_rseg_physical_initialize(rseg, purge_queue, gtid_trx_no, &mtr);
+    trx_rseg_physical_initialize(rseg, purge_queue, gtid_trx_no, &mtr,
+                                 pre_purge_queue);
     mtr_commit(&mtr);
   }
   active_rseg_init_threads.fetch_sub(1);
@@ -365,7 +379,7 @@ void trx_rseg_init_thread(void *arg, trx_id_t gtid_trx_no) {
 trx_rseg_t *trx_rseg_mem_create(ulint id, space_id_t space_id,
                                 page_no_t page_no, const page_size_t &page_size,
                                 trx_id_t gtid_trx_no, purge_pq_t *purge_queue,
-                                mtr_t *mtr) {
+                                mtr_t *mtr, purge_pq_t *pre_purge_queue) {
   auto rseg = static_cast<trx_rseg_t *>(
       ut::zalloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, sizeof(trx_rseg_t)));
 
@@ -431,6 +445,13 @@ trx_rseg_t *trx_rseg_mem_create(ulint id, space_id_t space_id,
     rseg->last_del_marks =
         mtr_read_ulint(undo_log_hdr + TRX_UNDO_DEL_MARKS, MLOG_2BYTES, mtr);
 
+    /* When a trx_rseg_t is created in memory, we reset the process of pre
+     * purge. */
+    rseg->pre_last_page_no = rseg->last_page_no;
+    rseg->pre_last_offset = rseg->last_offset;
+    rseg->pre_last_trx_no = rseg->last_trx_no;
+    rseg->pre_last_del_marks = rseg->last_del_marks;
+
     TrxUndoRsegs elem(rseg->last_trx_no);
     elem.insert(rseg);
 
@@ -444,9 +465,13 @@ trx_rseg_t *trx_rseg_mem_create(ulint id, space_id_t space_id,
             (srv_is_upgrade_mode != undo::is_reserved(space_id)));
 
       purge_queue->push(elem);
+      if (pre_purge_queue) {
+        pre_purge_queue->push(elem);
+      }
     }
   } else {
     rseg->last_page_no = FIL_NULL;
+    rseg->pre_last_page_no = FIL_NULL;
   }
 
   return rseg;
@@ -560,7 +585,8 @@ void trx_rsegs_init_end() {
   purge_sys->rsegs_queue.clear();
 }
 
-void trx_rsegs_parallel_init(purge_pq_t *purge_queue) /*!< in: rseg queue */
+void trx_rsegs_parallel_init(purge_pq_t *purge_queue,
+                             purge_pq_t *pre_purge_queue) /*!< in: rseg queue */
 {
   purge_sys->rsegs_queue.clear();
   std::vector<IB_thread> threads;
@@ -585,9 +611,9 @@ void trx_rsegs_parallel_init(purge_pq_t *purge_queue) /*!< in: rseg queue */
   }
 
   for (uint32_t i = 0; i < srv_rseg_init_threads; i++) {
-    auto thread =
-        os_thread_create(parallel_rseg_init_thread_key, 0, trx_rseg_init_thread,
-                         (void *)purge_queue, gtid_trx_no);
+    auto thread = os_thread_create(parallel_rseg_init_thread_key, 0,
+                                   trx_rseg_init_thread, (void *)purge_queue,
+                                   gtid_trx_no, (void *)pre_purge_queue);
     threads.emplace_back(thread);
     thread.start();
   }
@@ -611,7 +637,7 @@ that reference undo tablespaces and have active undo logs, then quit.
 They require an upgrade of undo tablespaces and that cannot happen with
 active undo logs.
 @param[in]      purge_queue     queue of rsegs to purge */
-void trx_rsegs_init(purge_pq_t *purge_queue) {
+void trx_rsegs_init(purge_pq_t *purge_queue, purge_pq_t *pre_purge_queue) {
   trx_sys->rseg_history_len.store(0);
 
   ulint slot;
@@ -645,7 +671,8 @@ void trx_rsegs_init(purge_pq_t *purge_queue) {
         Note that all tablespaces with rollback segments
         use univ_page_size. (system, temp & undo) */
         rseg = trx_rseg_mem_create(slot, space_id, page_no, univ_page_size,
-                                   gtid_trx_no, purge_queue, &mtr);
+                                   gtid_trx_no, purge_queue, &mtr,
+                                   pre_purge_queue);
 
         ut_a(rseg->id == slot);
 
@@ -680,7 +707,7 @@ void trx_rsegs_init(purge_pq_t *purge_queue) {
       use univ_page_size. */
       rseg =
           trx_rseg_mem_create(slot, undo_space->id(), page_no, univ_page_size,
-                              gtid_trx_no, purge_queue, &mtr);
+                              gtid_trx_no, purge_queue, &mtr, pre_purge_queue);
 
       ut_a(rseg->id == slot);
 
@@ -890,7 +917,8 @@ bool trx_rseg_add_rollback_segments(space_id_t space_id, ulong target_rsegs,
     }
 
     rseg = trx_rseg_mem_create(rseg_id, space_id, page_no, univ_page_size, 0,
-                               purge_sys->purge_queue, &mtr);
+                               purge_sys->purge_queue, &mtr,
+                               purge_sys->pre_purge_queue);
 
     mtr.commit();
 
@@ -1224,3 +1252,43 @@ bool trx_rseg_t::validate_curr_size(bool take_mutex) {
   return (total_size == curr_size);
 }
 #endif /* UNIV_DEBUG */
+
+static void set_rsegs_for_pre_purge(Rsegs &rsegs) {
+  rsegs.s_lock();
+  for (auto rseg : rsegs) {
+    rseg->latch();
+    rseg->reset_process_of_pre_purge();
+    rseg->unlatch();
+  }
+  rsegs.s_unlock();
+}
+
+void set_process_for_pre_purge() {
+  /* Set process of pre_purge in all rollback segments. */
+  set_rsegs_for_pre_purge(trx_sys->rsegs);
+  undo::spaces->s_lock();
+  for (auto undo_ts : undo::spaces->m_spaces) {
+    set_rsegs_for_pre_purge(*undo_ts->rsegs());
+  }
+  undo::spaces->s_unlock();
+  set_rsegs_for_pre_purge(trx_sys->tmp_rsegs);
+  /* Copy all elements from purge_sys->purge_queue. */
+  mutex_enter(&purge_sys->pq_mutex);
+  purge_pq_t temp_queue(*purge_sys->purge_queue);
+  purge_sys->pre_purge_queue->swap(temp_queue);
+  ut_ad(purge_sys->pre_purge_queue->size() == purge_sys->purge_queue->size());
+  mutex_exit(&purge_sys->pq_mutex);
+  /*
+    Set process of pre_purge the same as purge.
+    These operations are protected by backquery_enable_lock.
+  */
+  purge_sys->pre_rseg = purge_sys->rseg;
+  purge_sys->pre_next_stored = purge_sys->next_stored;
+  purge_sys->pre_rseg_iter->copy(*purge_sys->rseg_iter);
+  purge_sys->pre_iter = purge_sys->iter;
+  purge_sys->pre_limit = purge_sys->limit;
+  purge_sys->pre_offset = purge_sys->offset;
+  purge_sys->pre_page_no = purge_sys->page_no;
+  purge_sys->pre_hdr_page_no = purge_sys->hdr_page_no;
+  purge_sys->pre_hdr_offset = purge_sys->hdr_offset;
+}

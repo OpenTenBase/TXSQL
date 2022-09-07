@@ -145,6 +145,9 @@ class ReadView {
     ulint m_reserved;
 
     friend class ReadView;
+
+    /* Clone from other ids_t */
+    void clone_from(const ids_t &other);
   };
 
  public:
@@ -316,6 +319,22 @@ class ReadView {
   /** List of read views in trx_sys */
   byte pad1[64 - sizeof(node_t)];
   node_t m_view_list;
+
+  /**
+   Changes from txsql start.
+  */
+ public:
+  /** Clone from another read view */
+  void clone_from(const ReadView *other);
+
+  /** Take a merge of two read view */
+  void merge(const ReadView *other);
+
+  /** Take a snapshot of current transaction state */
+  void snapshot_for_backquery();
+  /**
+   Changes from txsql end.
+  */
 };
 
 #endif

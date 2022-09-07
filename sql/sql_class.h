@@ -4754,6 +4754,40 @@ class THD : public MDL_context_owner,
 
   /* Thread LOCK stats */
   std::unordered_map<lock_id_t, lock_info_t, hash_key> lock_status;
+ public:
+  /** If true, current statement is marked as backquery. */
+  bool backquery_flag;
+  /**
+    Hash map for backquery at parsing stage.
+    Key: full name of a table(db.table)
+    Value: backquery timestamp
+  */
+  std::unordered_map<std::string, time_t> m_backquery_timestamps;
+  /**
+    Hash map for backquery after parsing.
+    Key: table id
+    Value: pair<timestamp, readview>
+  */
+  std::unordered_map<uint64_t, std::pair<time_t, void *>> m_backquery_info;
+  /**
+    Check if current statement has backquery table.
+    @return true current statement has at least one backquery table.
+    @return false current statement has no backquery table.
+  */
+  bool has_backquery() { return backquery_flag; }
+  /**
+    Add a backquery table to m_backquery_timestamps.
+    @param key full name of a table(db.table)
+    @param t   timestamp
+   */
+  void add_backquery_table(const std::string &key, time_t t);
+  /**
+    Get the backquery timestamp of a table.
+    @param key full name of a table(db.table)
+    @return time_t timestamp
+   */
+  time_t get_backquery_timestamp(const std::string &key);
+
   /* Changes from txsql end. */
 };
 

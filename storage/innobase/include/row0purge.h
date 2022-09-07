@@ -213,6 +213,9 @@ struct purge_node_t {
 
   /** Set of LOB first pages that are to be freed. */
   LOB_free_set m_lob_pages;
+
+ public:
+  bool pre_purge;
 };
 
 #endif

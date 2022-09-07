@@ -4818,7 +4818,7 @@ void lock_trx_print_wait_and_mvcc_state(FILE *file, const trx_t *trx) {
 
   trx_print_latched(file, trx, 600);
 
-  const ReadView *read_view = trx_get_read_view(trx);
+  const ReadView *read_view = trx_get_read_view(trx, nullptr);
 
   if (read_view != nullptr) {
     read_view->print_limits(file);

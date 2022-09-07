@@ -673,7 +673,8 @@ static void row_vers_build_clust_v_col(dtuple_t *row, dict_index_t *clust_index,
 static void row_vers_build_cur_vrow_low(
     bool in_purge, const rec_t *rec, dict_index_t *clust_index,
     ulint *clust_offsets, dict_index_t *index, roll_ptr_t roll_ptr,
-    trx_id_t trx_id, mem_heap_t *v_heap, const dtuple_t **vrow, mtr_t *mtr) {
+    trx_id_t trx_id, mem_heap_t *v_heap, const dtuple_t **vrow, mtr_t *mtr,
+    bool pre_purge = false) {
   const rec_t *version;
   rec_t *prev_version;
   mem_heap_t *heap = nullptr;
@@ -706,7 +707,7 @@ static void row_vers_build_cur_vrow_low(
 
     trx_undo_prev_version_build(rec, mtr, version, clust_index, clust_offsets,
                                 heap, &prev_version, nullptr, vrow, status,
-                                nullptr);
+                                nullptr, pre_purge);
 
     if (heap2) {
       mem_heap_free(heap2);
@@ -774,7 +775,8 @@ static bool row_vers_vc_matches_cluster(
     bool in_purge, const rec_t *rec, const dtuple_t *icentry,
     dict_index_t *clust_index, ulint *clust_offsets, dict_index_t *index,
     const dtuple_t *ientry, roll_ptr_t roll_ptr, trx_id_t trx_id,
-    mem_heap_t *v_heap, const dtuple_t **vrow, mtr_t *mtr) {
+    mem_heap_t *v_heap, const dtuple_t **vrow, mtr_t *mtr,
+    bool pre_purge = false) {
   const rec_t *version;
   rec_t *prev_version;
   mem_heap_t *heap2;
@@ -826,7 +828,7 @@ static bool row_vers_vc_matches_cluster(
 
     trx_undo_prev_version_build(rec, mtr, version, clust_index, clust_offsets,
                                 heap, &prev_version, nullptr, vrow, status,
-                                nullptr);
+                                nullptr, pre_purge);
 
     if (heap2) {
       mem_heap_free(heap2);
@@ -932,7 +934,8 @@ func_exit:
 static const dtuple_t *row_vers_build_cur_vrow(
     bool in_purge, const rec_t *rec, dict_index_t *clust_index,
     ulint **clust_offsets, dict_index_t *index, roll_ptr_t roll_ptr,
-    trx_id_t trx_id, mem_heap_t *heap, mem_heap_t *v_heap, mtr_t *mtr) {
+    trx_id_t trx_id, mem_heap_t *heap, mem_heap_t *v_heap, mtr_t *mtr,
+    bool pre_purge = false) {
   const dtuple_t *cur_vrow = nullptr;
 
   roll_ptr_t t_roll_ptr =
@@ -957,7 +960,7 @@ static const dtuple_t *row_vers_build_cur_vrow(
     /* Try to fetch virtual column data from undo log */
     row_vers_build_cur_vrow_low(in_purge, rec, clust_index, *clust_offsets,
                                 index, roll_ptr, trx_id, v_heap, &cur_vrow,
-                                mtr);
+                                mtr, pre_purge);
   }
 
   *clust_offsets = rec_get_offsets(rec, clust_index, nullptr, ULINT_UNDEFINED,
@@ -982,7 +985,8 @@ bool row_vers_old_has_index_entry(
     dict_index_t *index,    /*!< in: the secondary index */
     const dtuple_t *ientry, /*!< in: the secondary index entry */
     roll_ptr_t roll_ptr,    /*!< in: roll_ptr for the purge record */
-    trx_id_t trx_id)        /*!< in: transaction ID on the purging record */
+    trx_id_t trx_id,        /*!< in: transaction ID on the purging record */
+    bool pre_purge)
 {
   const rec_t *version;
   rec_t *prev_version;
@@ -1132,9 +1136,9 @@ bool row_vers_old_has_index_entry(
     deleted, but the previous version of it might not. We will
     need to get the virtual column data from undo record
     associated with current cluster index */
-    cur_vrow =
-        row_vers_build_cur_vrow(also_curr, rec, clust_index, &clust_offsets,
-                                index, roll_ptr, trx_id, heap, v_heap, mtr);
+    cur_vrow = row_vers_build_cur_vrow(also_curr, rec, clust_index,
+                                       &clust_offsets, index, roll_ptr, trx_id,
+                                       heap, v_heap, mtr, pre_purge);
   }
 
   version = rec;
@@ -1146,7 +1150,8 @@ bool row_vers_old_has_index_entry(
 
     trx_undo_prev_version_build(
         rec, mtr, version, clust_index, clust_offsets, heap, &prev_version,
-        nullptr, dict_index_has_virtual(index) ? &vrow : nullptr, 0, nullptr);
+        nullptr, dict_index_has_virtual(index) ? &vrow : nullptr, 0, nullptr,
+        pre_purge);
     mem_heap_free(heap2); /* free version and clust_offsets */
 
     if (!prev_version) {
@@ -1248,7 +1253,7 @@ bool row_vers_old_has_index_entry(
  @return DB_SUCCESS or DB_MISSING_HISTORY */
 dberr_t row_vers_build_for_consistent_read(
     const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
-    ReadView *view, mem_heap_t **offset_heap, mem_heap_t *in_heap,
+    const ReadView *view, mem_heap_t **offset_heap, mem_heap_t *in_heap,
     rec_t **old_vers, const dtuple_t **vrow, lob::undo_vers_t *lob_undo) {
   DBUG_TRACE;
   const rec_t *version;

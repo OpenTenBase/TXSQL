@@ -266,6 +266,14 @@ struct Srv_threads {
   next phase (SRV_SHUTDOWN_PURGE) in which master thread is not allowed to
   use system transactions or touch DD objects. */
   os_event_t m_master_ready_for_dd_shutdown;
+
+  /**
+   Changes from txsql start.
+  */
+  IB_thread m_backquery_readview_generator;
+  /**
+    Changes from txsql end.
+  */
 };
 
 /** Check if given thread is still active. */
@@ -810,6 +818,7 @@ extern mysql_pfs_key_t trx_recovery_rollback_thread_key;
 extern mysql_pfs_key_t srv_ts_alter_encrypt_thread_key;
 extern mysql_pfs_key_t parallel_read_thread_key;
 extern mysql_pfs_key_t parallel_rseg_init_thread_key;
+extern mysql_pfs_key_t srv_backquery_thread_key;
 #endif /* UNIV_PFS_THREAD */
 #endif /* !UNIV_HOTBACKUP */
 
@@ -1206,6 +1215,9 @@ struct export_var_t {
                                       index lookups when freeing
                                       file pages */
 #endif                                /* UNIV_DEBUG */
+  ulint innodb_backquery_history_views; /*! number of history views */
+  time_t innodb_backquery_up_time;      /*! the time of oldest view */
+  time_t innodb_backquery_low_time;     /*! the time of newest view */
 };
 
 #ifndef UNIV_HOTBACKUP
@@ -1245,5 +1257,63 @@ struct srv_slot_t {
   que_thr_t *thr;
 };
 #endif /* !UNIV_HOTBACKUP */
+
+/**
+ Changes from txsql start.
+*/
+extern bool srv_backquery_enable;
+extern rw_lock_t *backquery_enable_lock;
+extern long srv_backquery_window;
+extern ulong srv_backquery_history_limit;
+extern long srv_backquery_trackpoint_create_interval;
+extern long srv_backquery_trackpoint_clean_interval;
+
+void backquery_sys_create();
+void backquery_sys_close();
+void srv_backquery_thread();
+
+#include <map>
+#include <mutex>
+class ReadView;
+struct HistoryReadView {
+  ReadView *view;
+  int ref;
+  HistoryReadView(ReadView *v = nullptr) : view(v), ref(0) {}
+};
+
+class Backquery_manager {
+ private:
+  /* Mutex to protect history_readviews. */
+  std::mutex mtx;
+  std::map<time_t, HistoryReadView, std::less<time_t>,
+           ut::allocator<std::pair<const time_t, HistoryReadView>>>
+      history_readviews;
+  /* Total references. */
+  ulong total_ref;
+  bool clear_no_lock(long window);
+
+ public:
+  Backquery_manager();
+  Backquery_manager(const Backquery_manager &) = delete;
+  Backquery_manager &operator=(const Backquery_manager &) = delete;
+  ~Backquery_manager();
+  bool clear(long window);
+  bool clone_oldest_view(ReadView *out);
+  void add_view(time_t t);
+  std::size_t size();
+  bool get_view_for_query(time_t ts, ReadView *&out, time_t &real_ts);
+  void release_view_for_query(time_t ts);
+  bool disable();
+  bool enable();
+  bool release_oldest_view();
+  void update_status();
+};
+
+extern Backquery_manager *backquery_manager;
+
+void show_backquery_time_status(THD *thd, SHOW_VAR *var, char *buff);
+/**
+ Changes from txsql end.
+*/
 
 #endif

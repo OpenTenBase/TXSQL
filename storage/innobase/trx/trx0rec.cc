@@ -2413,12 +2413,17 @@ err_exit:
                                                 trx_id_t trx_id,
                                                 mem_heap_t *heap, bool is_temp,
                                                 const table_name_t &name,
-                                                trx_undo_rec_t **undo_rec) {
+                                                trx_undo_rec_t **undo_rec,
+                                                bool pre_purge = false) {
   bool missing_history;
 
   rw_lock_s_lock(&purge_sys->latch, UT_LOCATION_HERE);
 
-  missing_history = purge_sys->view.changes_visible(trx_id, name);
+  if (!pre_purge) {
+    missing_history = purge_sys->view.changes_visible(trx_id, name);
+  } else {
+    missing_history = purge_sys->pre_view.changes_visible(trx_id, name);
+  }
   if (!missing_history) {
     *undo_rec = trx_undo_get_undo_rec_low(roll_ptr, heap, is_temp);
   }
@@ -2439,7 +2444,7 @@ bool trx_undo_prev_version_build(
     mtr_t *index_mtr ATTRIB_USED_ONLY_IN_DEBUG, const rec_t *rec,
     const dict_index_t *const index, ulint *offsets, mem_heap_t *heap,
     rec_t **old_vers, mem_heap_t *v_heap, const dtuple_t **vrow, ulint v_status,
-    lob::undo_vers_t *lob_undo) {
+    lob::undo_vers_t *lob_undo, bool pre_purge) {
   DBUG_TRACE;
 
   trx_undo_rec_t *undo_rec = nullptr;
@@ -2481,7 +2486,7 @@ bool trx_undo_prev_version_build(
   ut_ad(!index->table->skip_alter_undo);
 
   if (trx_undo_get_undo_rec(roll_ptr, rec_trx_id, heap, is_temp,
-                            index->table->name, &undo_rec)) {
+                            index->table->name, &undo_rec, pre_purge)) {
     if (v_status & TRX_UNDO_PREV_IN_PURGE) {
       /* We are fetching the record being purged */
       undo_rec = trx_undo_get_undo_rec_low(roll_ptr, heap, is_temp);
@@ -2557,8 +2562,13 @@ bool trx_undo_prev_version_build(
 
       rw_lock_s_lock(&purge_sys->latch, UT_LOCATION_HERE);
 
-      missing_extern =
-          purge_sys->view.changes_visible(trx_id, index->table->name);
+      if (!pre_purge) {
+        missing_extern =
+            purge_sys->view.changes_visible(trx_id, index->table->name);
+      } else {
+        missing_extern =
+            purge_sys->pre_view.changes_visible(trx_id, index->table->name);
+      }
 
       rw_lock_s_unlock(&purge_sys->latch);
 

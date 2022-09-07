@@ -11,6 +11,7 @@ where name like "wait/synch/sxlock/%"
 "wait/synch/sxlock/innodb/buf_block_debug_latch")
 order by name;
 name
+wait/synch/sxlock/innodb/backquery_enable_lock
 wait/synch/sxlock/innodb/btr_search_latch
 wait/synch/sxlock/innodb/dict_operation_lock
 wait/synch/sxlock/innodb/dict_table_stats

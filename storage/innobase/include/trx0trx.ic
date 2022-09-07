@@ -235,18 +235,39 @@ static inline void trx_release_reference(trx_t *trx) {
   trx_mutex_exit(trx);
 }
 
-/**
-@param trx              Get the active view for this transaction, if one exists
-@return the transaction's read view or NULL if one not assigned. */
-static inline ReadView *trx_get_read_view(trx_t *trx) {
-  return (!MVCC::is_view_active(trx->read_view) ? nullptr : trx->read_view);
+extern void thd_get_backquery_info(THD *thd, uint64_t key, time_t &ts,
+                                   void *&ptr);
+extern bool thd_has_backquery(THD *thd);
+static inline ReadView *trx_get_read_view_low(const trx_t *trx,
+                                              const dict_index_t *index) {
+  ReadView *v = nullptr;
+  if (MVCC::is_view_active(trx->read_view)) {
+    v = trx->read_view;
+    if (unlikely(thd_has_backquery(trx->mysql_thd) && index)) {
+      time_t ts;
+      void *temp_ptr;
+      thd_get_backquery_info(trx->mysql_thd, index->table->id, ts, temp_ptr);
+      if (temp_ptr) {
+        v = static_cast<ReadView *>(temp_ptr);
+      }
+    }
+  }
+  return v;
 }
 
 /**
 @param trx              Get the active view for this transaction, if one exists
 @return the transaction's read view or NULL if one not assigned. */
-static inline const ReadView *trx_get_read_view(const trx_t *trx) {
-  return (!MVCC::is_view_active(trx->read_view) ? nullptr : trx->read_view);
+static inline ReadView *trx_get_read_view(trx_t *trx,  dict_index_t *index) {
+  return trx_get_read_view_low(trx, index);
+}
+
+/**
+@param trx              Get the active view for this transaction, if one exists
+@return the transaction's read view or NULL if one not assigned. */
+static inline const ReadView *trx_get_read_view(const trx_t *trx,
+                                                const dict_index_t *index) {
+  return trx_get_read_view_low(trx, index);
 }
 
 /**

@@ -198,6 +198,7 @@ mysql_pfs_key_t srv_worker_thread_key;
 mysql_pfs_key_t trx_recovery_rollback_thread_key;
 mysql_pfs_key_t srv_ts_alter_encrypt_thread_key;
 mysql_pfs_key_t parallel_rseg_init_thread_key;
+mysql_pfs_key_t srv_backquery_thread_key;
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef HAVE_PSI_STAGE_INTERFACE
@@ -218,6 +219,8 @@ static PSI_stage_info *srv_stages[] = {
     &srv_stage_clone_page_copy,
 };
 #endif /* HAVE_PSI_STAGE_INTERFACE */
+
+static void srv_start_back_query_thread();
 
 /** Sleep time in loops which wait for pending tasks during shutdown. */
 static constexpr uint32_t SHUTDOWN_SLEEP_TIME_US = 100;
@@ -1517,7 +1520,7 @@ dberr_t srv_start(bool create_new_db) {
   page_no_t tablespace_size_in_header;
   dberr_t err;
   mtr_t mtr;
-  purge_pq_t *purge_queue;
+  purge_pq_t *purge_queue, *pre_purge_queue;
 
   assert(srv_dict_metadata == nullptr);
   /* Reset the start state. */
@@ -1780,6 +1783,7 @@ dberr_t srv_start(bool create_new_db) {
   pars_init();
   recv_sys_create();
   recv_sys_init();
+  backquery_sys_create();
   trx_sys_create();
   lock_sys_create(srv_lock_table_size);
 
@@ -1923,12 +1927,13 @@ dberr_t srv_start(bool create_new_db) {
 
     trx_purge_sys_mem_create();
 
-    purge_queue = trx_sys_init_at_db_start();
+    purge_queue = trx_sys_init_at_db_start(&pre_purge_queue);
 
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys is inited. */
 
-    trx_purge_sys_initialize(srv_threads.m_purge_workers_n, purge_queue);
+    trx_purge_sys_initialize(srv_threads.m_purge_workers_n, purge_queue,
+                             pre_purge_queue);
 
     err = dict_create();
 
@@ -2342,7 +2347,7 @@ dberr_t srv_start(bool create_new_db) {
 
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys is inited. */
-    purge_queue = trx_sys_init_at_db_start();
+    purge_queue = trx_sys_init_at_db_start(&pre_purge_queue);
 
     if (srv_is_upgrade_mode) {
       if (!purge_queue->empty()) {
@@ -2364,7 +2369,8 @@ dberr_t srv_start(bool create_new_db) {
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys and trx lists were
     initialized in trx_sys_init_at_db_start(). */
-    trx_purge_sys_initialize(srv_threads.m_purge_workers_n, purge_queue);
+    trx_purge_sys_initialize(srv_threads.m_purge_workers_n, purge_queue,
+                             pre_purge_queue);
   }
 
   /* Open temp-tablespace and keep it open until shutdown. */
@@ -2739,6 +2745,8 @@ void srv_start_threads_after_ddl_recovery() {
 
   /* If recovered, should do write back the dynamic metadata. */
   dict_persist_to_dd_table_buffer();
+
+  srv_start_back_query_thread();
 }
 
 /** Set srv_shutdown_state to a given state and validate change is proper.
@@ -3237,6 +3245,7 @@ void srv_shutdown() {
   log_sys_close();
   recv_sys_close();
   trx_sys_close();
+  backquery_sys_close();
   lock_sys_close();
   trx_pool_close();
 
@@ -3302,3 +3311,15 @@ void srv_fatal_error() {
 
   std::_Exit(3);
 }
+
+/**
+ Changes from txsql start.
+*/
+static void srv_start_back_query_thread() {
+  srv_threads.m_backquery_readview_generator =
+      os_thread_create(srv_backquery_thread_key, 0, srv_backquery_thread);
+  srv_threads.m_backquery_readview_generator.start();
+}
+/**
+ Changes from txsql end.
+*/

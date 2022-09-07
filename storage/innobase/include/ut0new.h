@@ -208,6 +208,7 @@ mem_key_other and mem_key_std are special in the following way.
 Keep this list alphabetically sorted. */
 extern PSI_memory_key mem_key_ahi;
 extern PSI_memory_key mem_key_archive;
+extern PSI_memory_key mem_key_backquery;
 extern PSI_memory_key mem_key_buf_buf_pool;
 extern PSI_memory_key mem_key_buf_stat_per_index_t;
 /** Memory key for clone */

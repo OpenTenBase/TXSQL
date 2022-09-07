@@ -269,6 +269,9 @@ class Item_subselect : public Item_result_field {
 
  protected:
   uint unit_cols() const;
+
+ public:
+  bool is_valid_for_backquery() const override;
 };
 
 /* single value subselect */

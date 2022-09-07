@@ -1484,8 +1484,11 @@ static bool trx_serialisation_number_get(
   already in the rollback segment. User threads only
   produce events when a rollback segment is empty. */
   if ((redo_rseg != nullptr && redo_rseg->last_page_no == FIL_NULL) ||
-      (temp_rseg != nullptr && temp_rseg->last_page_no == FIL_NULL)) {
+      (temp_rseg != nullptr && temp_rseg->last_page_no == FIL_NULL) ||
+      (redo_rseg != nullptr && redo_rseg->pre_last_page_no == FIL_NULL) ||
+      (temp_rseg != nullptr && temp_rseg->pre_last_page_no == FIL_NULL)) {
     TrxUndoRsegs elem;
+    TrxUndoRsegs elem_pre_purge;
 
     if (redo_rseg != nullptr && redo_rseg->last_page_no == FIL_NULL) {
       elem.insert(redo_rseg);
@@ -1495,13 +1498,27 @@ static bool trx_serialisation_number_get(
       elem.insert(temp_rseg);
     }
 
+    if (redo_rseg != nullptr && redo_rseg->pre_last_page_no == FIL_NULL) {
+      elem_pre_purge.insert(redo_rseg);
+    }
+
+    if (temp_rseg != nullptr && temp_rseg->pre_last_page_no == FIL_NULL) {
+      elem_pre_purge.insert(temp_rseg);
+    }
+
     mutex_enter(&purge_sys->pq_mutex);
 
     added_trx_no = trx_add_to_serialisation_list(trx);
 
     elem.set_trx_no(trx->no);
+    elem_pre_purge.set_trx_no(trx->no);
 
-    purge_sys->purge_queue->push(std::move(elem));
+    if (elem.size() > 0) {
+      purge_sys->purge_queue->push(std::move(elem));
+    }
+    if (elem_pre_purge.size() > 0) {
+      purge_sys->pre_purge_queue->push(std::move(elem_pre_purge));
+    }
 
     mutex_exit(&purge_sys->pq_mutex);
 

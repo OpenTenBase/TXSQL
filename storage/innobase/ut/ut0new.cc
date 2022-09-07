@@ -45,6 +45,7 @@ const size_t alloc_max_retries = 60;
 Keep this list alphabetically sorted. */
 PSI_memory_key mem_key_ahi;
 PSI_memory_key mem_key_archive;
+PSI_memory_key mem_key_backquery;
 PSI_memory_key mem_key_buf_buf_pool;
 PSI_memory_key mem_key_buf_stat_per_index_t;
 /** Memory key for clone */
@@ -82,6 +83,7 @@ Keep this list alphabetically sorted. */
 static PSI_memory_info pfs_info[] = {
     {&mem_key_ahi, "adaptive hash index", 0, 0, PSI_DOCUMENT_ME},
     {&mem_key_archive, "log and page archiver", 0, 0, PSI_DOCUMENT_ME},
+    {&mem_key_backquery, "innodb flashback query", 0, 0, PSI_DOCUMENT_ME},
     {&mem_key_buf_buf_pool, "buf_buf_pool", PSI_FLAG_ONLY_GLOBAL_STAT, 0,
      PSI_DOCUMENT_ME},
     {&mem_key_buf_stat_per_index_t, "buf_stat_per_index_t", 0, 0,

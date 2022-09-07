@@ -8682,3 +8682,23 @@ Xa_state_list::instantiation_tuple Xa_state_list::new_instance() {
       std::move(mem_root), std::move(map_alloc), std::move(xid_map),
       std::move(xa_list));
 }
+
+/* Changes from txsql start. */
+static bool end_backquery_handlerton(THD *thd, plugin_ref plugin, void *) {
+  handlerton *hton = plugin_data<handlerton *>(plugin);
+  if (hton->state == SHOW_OPTION_YES && hton->end_backquery)
+    hton->end_backquery(thd);
+  return false;
+}
+
+void ha_end_backquery(THD *thd) {
+  if (!thd->m_backquery_info.empty()) {
+    (void)plugin_foreach(thd, end_backquery_handlerton,
+                         MYSQL_STORAGE_ENGINE_PLUGIN, nullptr);
+  }
+  if (!thd->m_backquery_timestamps.empty()) {
+    thd->m_backquery_timestamps.clear();
+  }
+  thd->backquery_flag = false;
+}
+/* Changes from txsql end. */

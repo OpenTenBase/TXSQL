@@ -818,6 +818,10 @@ static monitor_info_t innodb_counter_info[] = {
      "Number of undo log pages handled by the purge", MONITOR_NONE,
      MONITOR_DEFAULT_START, MONITOR_PURGE_N_PAGE_HANDLED},
 
+    {"pre_purge_undo_log_pages", "purge",
+     "Number of undo log pages handled by the pre purge", MONITOR_NONE,
+     MONITOR_DEFAULT_START, MONITOR_PRE_PURGE_N_PAGE_HANDLED},
+
     {"purge_dml_delay_usec", "purge",
      "Microseconds DML to be delayed due to purge lagging",
      MONITOR_DISPLAY_CURRENT, MONITOR_DEFAULT_START, MONITOR_DML_PURGE_DELAY},

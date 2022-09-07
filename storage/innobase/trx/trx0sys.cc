@@ -433,8 +433,8 @@ const uint32_t max_rseg_init_threads = 4;
 /** Creates and initializes the central memory structures for the transaction
  system. This is called when the database is started.
  @return min binary heap of rsegs to purge */
-purge_pq_t *trx_sys_init_at_db_start(void) {
-  purge_pq_t *purge_queue;
+purge_pq_t *trx_sys_init_at_db_start(purge_pq_t **pre_purge_queue_ptr) {
+  purge_pq_t *purge_queue, *pre_purge_queue;
   trx_sysf_t *sys_header;
   uint64_t rows_to_undo = 0;
   const char *unit = "";
@@ -444,6 +444,11 @@ purge_pq_t *trx_sys_init_at_db_start(void) {
   for freeing the binary heap. */
   purge_queue = ut::new_withkey<purge_pq_t>(UT_NEW_THIS_FILE_PSI_KEY);
   ut_a(purge_queue != nullptr);
+
+  ut_a(pre_purge_queue_ptr != nullptr);
+  pre_purge_queue = ut::new_withkey<purge_pq_t>(UT_NEW_THIS_FILE_PSI_KEY);
+  ut_a(pre_purge_queue != nullptr);
+  *pre_purge_queue_ptr = pre_purge_queue;
 
   if (srv_force_recovery < SRV_FORCE_NO_UNDO_LOG_SCAN) {
     /* Create the memory objects for all the rollback segments
@@ -460,9 +465,9 @@ purge_pq_t *trx_sys_init_at_db_start(void) {
     using Clock_point = std::chrono::time_point<Clock>;
     Clock_point start = Clock::now();
     if (srv_rseg_init_threads > 1) {
-      trx_rsegs_parallel_init(purge_queue);
+      trx_rsegs_parallel_init(purge_queue, pre_purge_queue);
     } else {
-      trx_rsegs_init(purge_queue);
+      trx_rsegs_init(purge_queue, pre_purge_queue);
     }
     Clock_point end = Clock::now();
     const auto time_diff =

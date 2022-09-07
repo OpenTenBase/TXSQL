@@ -729,6 +729,8 @@ class Item_func : public Item_result_field {
   bool check_column_in_group_by(uchar *arg) override;
 
   longlong val_int_from_real();
+
+  bool is_valid_for_backquery() const override;
 };
 
 class Item_real_func : public Item_func {

@@ -10128,3 +10128,12 @@ longlong Item_func_internal_is_enabled_role::val_int() {
 
   return 0;
 }
+
+/* Changes from TXSQL start. */
+bool Item_func::is_valid_for_backquery() const {
+  if (functype() == Functype::FUNC_SP) {
+    return false;
+  }
+  return true;
+}
+/* Changes from TXSQL end. */

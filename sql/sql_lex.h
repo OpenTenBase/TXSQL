@@ -1334,7 +1334,8 @@ class Query_block {
                                 List<Index_hint> *hints = nullptr,
                                 List<String> *partition_names = nullptr,
                                 LEX_STRING *option = nullptr,
-                                Parse_context *pc = nullptr);
+                                Parse_context *pc = nullptr,
+                                Item *backquery_timestamp = nullptr);
 
   /**
     Add item to the hidden part of select list
@@ -2760,6 +2761,9 @@ class Query_tables_list {
       differ on source and replica when @@session.binlog_format=STATEMENT.
     */
     BINLOG_STMT_UNSAFE_CREATE_SELECT_WITH_GIPK,
+
+    /** Statement based binlog is unsafe for flashback query. */
+    BINLOG_STMT_UNSAFE_BACKQUERY,
 
     /* the last element of this enumeration type. */
     BINLOG_STMT_UNSAFE_COUNT

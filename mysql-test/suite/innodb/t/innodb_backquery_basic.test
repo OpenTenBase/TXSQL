@@ -1,0 +1,41 @@
+#############################################################
+# Test variables of backquery.                              #
+#############################################################
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set @saved_innodb_backquery_window = @@global.innodb_backquery_window;
+set @saved_innodb_backquery_history_limit = @@global.innodb_backquery_history_limit;
+set @saved_innodb_backquery_trackpoint_create_interval = @@global.innodb_backquery_trackpoint_create_interval;
+set @saved_innodb_backquery_trackpoint_clean_interval = @@global.innodb_backquery_trackpoint_clean_interval;
+
+show variables like '%backquery%';
+
+set global innodb_backquery_enable=ON;
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_history_limit=10;
+set global innodb_backquery_trackpoint_create_interval=3;
+set global innodb_backquery_trackpoint_clean_interval=2;
+set global innodb_backquery_window=100;
+
+disable_warnings ER_SQL_MODE_MERGED;
+set sql_mode='strict_all_tables';
+enable_warnings ER_SQL_MODE_MERGED;
+
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_history_limit=0;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_trackpoint_create_interval=0;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_trackpoint_clean_interval=0;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_window=0;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_window=2592001;
+
+# restore variables
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+set global innodb_backquery_history_limit=@saved_innodb_backquery_history_limit;
+set global innodb_backquery_trackpoint_create_interval=@saved_innodb_backquery_trackpoint_create_interval;
+set global innodb_backquery_trackpoint_clean_interval=@saved_innodb_backquery_trackpoint_clean_interval;
+set global innodb_backquery_window=@saved_innodb_backquery_window;
+
+show variables like '%backquery%';
