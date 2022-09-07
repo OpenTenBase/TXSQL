@@ -1,0 +1,314 @@
+#================================================================================
+# Title     :  hide partitions continuously
+# Author    :  molliexu
+# Date      :  2019-7-8
+# Level     :  P0
+#================================================================================
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_parts_0_31;
+--enable_warnings
+CREATE DATABASE dbtest_parts_0_31;
+
+--exec $MYSQL --disable-comments dbtest_parts_0_31 2>&1 < "suite/tdsql_hide_partitions/include/0-31.sql"
+
+USE dbtest_parts_0_31;
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+SELECT COUNT(*) FROM sbtest4;
+SELECT COUNT(*) FROM sbtest5;
+
+--echo # 1.1 hide all the partitions
+--echo # TestPoint : set tdsql_hide_partitions
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+SET GLOBAL tdsql_hide_partitions='0-31';
+--echo # TestPoint : show tdsql_hide_partitions
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+
+--echo # TestPoint : select after hiding partitions
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+SELECT COUNT(*) FROM sbtest4;
+SELECT COUNT(*) FROM sbtest5;
+--echo # TestPoint : insert after hiding partitions
+--error 1526
+#partition 10
+INSERT INTO sbtest5 (id, k, c, pad) VALUES (20077, 502, '54597664649-67433364011-97677597551-77298823214-29287984746-76563689377-50441476395-21252218775-94708970004-80135758167', '25162847773-58972245813-67950978727-19293975806-53685824203');
+--echo # TestPoint : update after hiding partitions
+UPDATE sbtest5 set c='hide_partition_test_100' where 1=1;
+SELECT COUNT(*) FROM sbtest5 where c='hide_partition_test100';
+--echo # TestPoint : delete after hiding partitions
+DELETE from sbtest5 where id>100;
+
+SET GLOBAL tdsql_hide_partitions='';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+
+--echo # TestPoint : select/update/delete/insert after release
+--echo # test select after release
+SELECT COUNT(*) FROM sbtest5;
+--echo # test update after release
+UPDATE sbtest5 set c='hide_partition_test_101' where id=523;
+--replace_column 5 #
+SELECT * FROM sbtest5 where id=523;
+--echo # test insert after release
+INSERT INTO sbtest5 (id, k, c, pad) VALUES (20197, 502, '54597664649-67433364011-97677597551-77298823214-29287984746-76563689377-50441476395-21252218775-94708970004-80135758167', '25162847773-58972245813-67950978727-19293975806-53685824203');
+--replace_column 5 #
+SELECT * FROM sbtest5 where id=20197;
+--echo # test delete after release
+DELETE from sbtest5 where id=467;
+SELECT COUNT(*) FROM sbtest5;
+
+--echo # 1.2 hide single part of the partitions
+SET GLOBAL tdsql_hide_partitions='0';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+
+--echo # TestPoint : test select after hiding partition
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+# partition p1
+--replace_column 5 #
+SELECT * FROM sbtest2 WHERE id=1887;
+# partition p0
+--replace_column 5 #
+SELECT * FROM sbtest1 WHERE id=1911;
+# partition p0
+--replace_column 5 #
+SELECT * FROM sbtest2 WHERE id=1862;
+# partition p0
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=1639;
+# partition p0
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=1270;
+# partition p0
+--replace_column 5 #
+SELECT * FROM sbtest5 WHERE id=788;
+
+--echo # TestPoint : test insert after hiding partition
+# partition p0
+--error 1526
+INSERT INTO sbtest5 (id, k, c, pad) VALUES (49980, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition p31
+INSERT INTO sbtest5 (id, k, c, pad) VALUES (49909, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+SELECT * FROM sbtest5 WHERE id=49980;
+--replace_column 5 #
+SELECT * FROM sbtest5 WHERE id=49909;
+
+--echo # TestPoint : test update after hiding partition
+#The item where id=447 exists in partition p0
+UPDATE sbtest5 SET c='hide_partitions_test_102' WHERE id=447;
+#The item where id=888 does not exist in partition 31
+UPDATE sbtest5 SET c='hide_partitions_test_103' WHERE id=888;
+SELECT c FROM sbtest5 WHERE id=447;
+SELECT c FROM sbtest5 WHERE id=888;
+
+--echo # TestPoint : test delete after hiding partition
+#item in partition 0
+DELETE from sbtest5 where id=720;
+#item  not in partition 31
+DELETE from sbtest5 where id=500;
+
+SELECT COUNT(*) FROM sbtest5;
+
+--echo # 1.3 hide parts of the partitions
+--echo # TestPoint : test select after hiding partition
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+SELECT COUNT(*) FROM sbtest4;
+SELECT COUNT(*) FROM sbtest5;
+
+SET GLOBAL tdsql_hide_partitions='5-10';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+SELECT COUNT(*) FROM sbtest4;
+SELECT COUNT(*) FROM sbtest5;
+
+SELECT COUNT(*) FROM sbtest1 partition(p5,p6,p7,p8,p9,p10);
+SELECT COUNT(*) FROM sbtest2 partition(p5,p6,p7,p8,p9,p10);
+SELECT COUNT(*) FROM sbtest3 partition(p5,p6,p7,p8,p9,p10);
+SELECT COUNT(*) FROM sbtest4 partition(p5,p6,p7,p8,p9,p10);
+SELECT COUNT(*) FROM sbtest5 partition(p5,p6,p7,p8,p9,p10);
+
+--echo # TestPoint : test insert after hiding partition
+# partition 0
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (35244, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 4 
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (33021, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 5 
+--error 1526
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (39993, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 6 
+--error 1526
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (33483, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 9
+--error 1526
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (32934, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 10
+--error 1526
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (30694, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 11
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (32808, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+# partition 30
+INSERT INTO sbtest4 (id, k, c, pad) VALUES (33068, 25065, '8740870360-96092211895-92245845870-50076433705-770507855-78557557344-51477159996-19560961956-50017336227-53535198032', '16240797034-59926863925-15186166368-5805268926-6889');
+
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=35244;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=33021;
+SELECT * FROM sbtest4 WHERE id=34041;
+SELECT * FROM sbtest4 WHERE id=33483;
+SELECT * FROM sbtest4 WHERE id=32934;
+SELECT * FROM sbtest4 WHERE id=30694;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=32808;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=33068;
+
+
+--echo # TestPoint : test update after hiding partition
+UPDATE sbtest4 SET c='hide_partitions_test_104' WHERE id=49;    #p0
+UPDATE sbtest4 SET c='hide_partitions_test_105' WHERE id=720;   #p1
+UPDATE sbtest4 SET c='hide_partitions_test_106' WHERE id=210;   #p5
+UPDATE sbtest4 SET c='hide_partitions_test_107' WHERE id=474;   #p8
+UPDATE sbtest4 SET c='hide_partitions_test_108' WHERE id=488;   #p9
+UPDATE sbtest4 SET c='hide_partitions_test_109' WHERE id=240;   #p10
+UPDATE sbtest4 SET c='hide_partitions_test_109' WHERE id=316;   #p11
+UPDATE sbtest4 SET c='hide_partitions_test_109' WHERE id=375;   #p20
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=49;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=720;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=210;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=474;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=488;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=240;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=316;
+--replace_column 5 #
+SELECT * FROM sbtest4 WHERE id=375;
+
+--echo # TestPoint : test delete after hiding partition
+DELETE FROM sbtest4 WHERE id=192; #p4
+DELETE FROM sbtest4 WHERE id=555; #p5
+DELETE FROM sbtest4 WHERE id=620; #p6
+DELETE FROM sbtest4 WHERE id=133; #p10
+DELETE FROM sbtest4 WHERE id=109; #p11
+DELETE FROM sbtest4 WHERE id=412; #p30
+SELECT COUNT(*) FROM sbtest4;
+
+--echo # 1.4 hide multiple continuous parts of the partitions
+--echo # TestPoint : test select after hiding partition
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+SELECT COUNT(*) FROM sbtest4;
+SELECT COUNT(*) FROM sbtest5;
+
+SET GLOBAL tdsql_hide_partitions='0-1,1-2,2-3,3-4,4-5,29-30';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+SELECT COUNT(*) FROM sbtest1;
+SELECT COUNT(*) FROM sbtest2;
+SELECT COUNT(*) FROM sbtest3;
+SELECT COUNT(*) FROM sbtest4;
+SELECT COUNT(*) FROM sbtest5;
+
+SELECT COUNT(*) FROM sbtest1 partition(p0,p1,p2,p3,p4,p5,p29,p30);
+SELECT COUNT(*) FROM sbtest2 partition(p0,p1,p2,p3,p4,p5,p29,p30);
+SELECT COUNT(*) FROM sbtest3 partition(p0,p1,p2,p3,p4,p5,p29,p30);
+SELECT COUNT(*) FROM sbtest4 partition(p0,p1,p2,p3,p4,p5,p29,p30);
+SELECT COUNT(*) FROM sbtest5 partition(p0,p1,p2,p3,p4,p5,p29,p30);
+
+--echo # TestPoint : test insert after hiding partition
+# partition 0
+--error 1526
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3979, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition 3
+--error 1526
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3875, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition 5
+--error 1526
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3946, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition 6
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3993, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition 28
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3986, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition 29
+--error 1526
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3926, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+# partition 30
+--error 1526
+INSERT INTO sbtest3 (id, k, c, pad) VALUES (3992, 25089, '75788366685-89176797908-14130580376-20327176442-11755681249-71618283856-16878702328-56132817132-28173314302-59916021473', '25990836586-52602783347-83347742144-16144161521-44161596333');
+
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3979;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3875;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3946;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3993;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3986;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3926;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=3992;
+
+
+--echo # TestPoint : test update after hiding partition
+UPDATE sbtest3 SET c='hide_partitions_110' WHERE id=788; # partition 0
+UPDATE sbtest3 SET c='hide_partitions_110' WHERE id=717; # partition 2
+UPDATE sbtest3 SET c='hide_partitions_110' WHERE id=772; # partition 5
+UPDATE sbtest3 SET c='hide_partitions_111' WHERE id=741; # partition 6 
+UPDATE sbtest3 SET c='hide_partitions_113' WHERE id=811; # partition 28
+UPDATE sbtest3 SET c='hide_partitions_114' WHERE id=760; # partition 29
+UPDATE sbtest3 SET c='hide_partitions_115' WHERE id=884; # partition 30
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=788;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=717;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=772;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=741;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=811;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=760;
+--replace_column 5 #
+SELECT * FROM sbtest3 WHERE id=884;
+SELECT COUNT(*) FROM sbtest3;
+
+--echo # TestPoint : test delete after hiding partition
+DELETE FROM sbtest3 WHERE id=788; # partition 0
+DELETE FROM sbtest3 WHERE id=717; # partition 2
+DELETE FROM sbtest3 WHERE id=772; # partition 5
+DELETE FROM sbtest3 WHERE id=741; # partition 6 
+DELETE FROM sbtest3 WHERE id=811; # partition 28
+DELETE FROM sbtest3 WHERE id=760; # partition 29
+DELETE FROM sbtest3 WHERE id=884; # partition 30
+SELECT COUNT(*) FROM sbtest3;
+
+--error 1231
+SET GLOBAL tdsql_hide_partitions='8-0';
+--error 1231
+SET GLOBAL tdsql_hide_partitions='5-4,10-26';
+
+SET GLOBAL tdsql_hide_partitions='';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+
+DROP TABLE  sbtest1;
+DROP TABLE  sbtest2;
+DROP TABLE  sbtest3;
+DROP TABLE  sbtest4;
+DROP TABLE  sbtest5;
+DROP DATABASE dbtest_parts_0_31;

@@ -1596,6 +1596,7 @@ bool fix_partition_func(THD *thd, TABLE *table, bool is_create_table_ind) {
   set_up_partition_key_maps(table, part_info);
   set_up_partition_func_pointers(part_info);
   set_up_range_analysis_info(part_info);
+  part_info->computeShardTableType();
   part_handler = table->file->get_partition_handler();
   if (part_handler) {
     part_handler->set_part_info(part_info, false);

@@ -3199,6 +3199,10 @@ int ha_innopart::records(ha_rows *num_rows) {
       indexes.push_back(m_prebuilt->table->first_index());
     }
 
+    if (indexes.empty()) {
+      return 0;
+    }
+
     ulint n_rows{};
 
     auto err =
@@ -3498,7 +3502,7 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
     /* TODO: Only analyze the PK for all partitions,
     then the secondary indexes only for the largest partition! */
     for (uint i = m_part_info->get_first_used_partition(); i < m_tot_parts;
-         i = m_part_info->get_next_used_partition(i)) {
+         i = m_part_info->get_next_used_partition(i, false)) {
       ib_table = m_part_share->get_table_part(i);
       if (is_analyze || innobase_stats_on_metadata) {
         error = update_table_stats(ib_table, is_analyze);
@@ -3532,8 +3536,8 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
       stats.delete_length = 0;
     }
 
-    for (uint i = m_part_info->get_first_used_partition(); i < m_tot_parts;
-         i = m_part_info->get_next_used_partition(i)) {
+    for (uint i = m_part_info->get_first_used_partition(false); i < m_tot_parts;
+         i = m_part_info->get_next_used_partition(i, false)) {
       ib_table = m_part_share->get_table_part(i);
       if ((flag & HA_STATUS_NO_LOCK) == 0) {
         dict_table_stats_lock(ib_table, RW_S_LATCH);
@@ -3847,8 +3851,8 @@ int ha_innopart::check(THD *thd, HA_CHECK_OPT *check_opt) {
     ut_d(ut_error);  // Already checked by set_part_state()!
     ut_o(return HA_ADMIN_INVALID);
   }
-  for (i = m_part_info->get_first_used_partition(); i < m_tot_parts;
-       i = m_part_info->get_next_used_partition(i)) {
+  for (i = m_part_info->get_first_used_partition(false); i < m_tot_parts;
+       i = m_part_info->get_next_used_partition(i, false)) {
     m_prebuilt->table = m_part_share->get_table_part(i);
     error = ha_innobase::check(thd, check_opt);
     if (error != 0) {
@@ -3900,8 +3904,8 @@ int ha_innopart::repair(THD *thd, HA_CHECK_OPT *repair_opt) {
     ut_d(ut_error);  // Already checked by set_part_state()!
     ut_o(return HA_ADMIN_INVALID);
   }
-  for (uint i = m_part_info->get_first_used_partition(); i < m_tot_parts;
-       i = m_part_info->get_next_used_partition(i)) {
+  for (uint i = m_part_info->get_first_used_partition(false); i < m_tot_parts;
+       i = m_part_info->get_next_used_partition(i, false)) {
     /* TODO: Implement and use ha_innobase::repair()! */
     error = Partition_helper::check_misplaced_rows(i, true);
     if (error != 0) {
@@ -3934,7 +3938,7 @@ procedure.
 int ha_innopart::start_stmt(THD *thd, thr_lock_type lock_type) {
   int error = 0;
 
-  if (m_part_info->get_first_used_partition() == MY_BIT_NONE) {
+  if (m_part_info->get_first_used_partition(false) == MY_BIT_NONE) {
     /* All partitions pruned away, do nothing! */
     return (error);
   }
@@ -3990,7 +3994,7 @@ the SQL statement in case of an error.
 int ha_innopart::external_lock(THD *thd, int lock_type) {
   int error = 0;
 
-  if (m_part_info->get_first_used_partition() == MY_BIT_NONE &&
+  if (m_part_info->get_first_used_partition(false) == MY_BIT_NONE &&
       !(m_mysql_has_locked && lock_type == F_UNLCK)) {
     /* All partitions pruned away, do nothing! */
     ut_ad(!m_mysql_has_locked);

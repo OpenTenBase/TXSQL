@@ -1447,6 +1447,105 @@ bool Item_func_connection_id::itemize(Parse_context *pc, Item **res) {
   return false;
 }
 
+uint32_t doMurmurHashCode(char* key, unsigned short len) {
+  /*
+    'm' and 'r' are mixing constants generated offline.
+     They're not really 'magic', they just happen to work well.
+  */
+  uint32_t seed = 2773;
+  const uint32_t m = 0x5bd1e995;
+  const int r = 24;
+
+
+  /* Initialize the hash to a 'random' value */
+  uint32_t h = seed ^ len;
+
+  /* Mix 4 bytes at a time into the hash */
+   unsigned char * data = reinterpret_cast<unsigned char *>(key);
+
+  while(len >= 4) {
+    uint32_t k = *(uint32_t *)data;
+
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+
+    h *= m;
+    h ^= k;
+
+    data += 4;
+    len -= 4;
+  }
+
+  /* Handle the last few bytes of the input array */
+
+  switch(len) {
+    case 3:
+      h ^= data[2] << 16;
+      [[fallthrough]];
+    case 2:
+      h ^= data[1] << 8;
+      [[fallthrough]];
+    case 1:
+      h ^= data[0];
+      h *= m;
+  };
+
+  /* Do a few final mixes of the hash to ensure the last few
+  bytes are well-incorporated. */
+
+  h ^= h >> 13;
+  h *= m;
+  h ^= h >> 15;
+
+  return h;
+}
+
+static inline longlong filter_dropped_parts(longlong ll)
+{
+  if (g_partition_hide.contain(ll))
+    return INT_MAX;
+  return ll;
+}
+
+longlong Item_func_murmurHashCodeAndMod::val_int()
+{
+  Item_result arg0_type= args[0]->result_type();
+  longlong num= args[1]->val_int();
+
+  /*
+    arg0 must be of STRING or INT type, no others allowed.
+    arg1 must be a positive integer number.
+  */
+  if (unlikely((null_value = (num <= 0 || args[1]->null_value ||
+            (arg0_type != STRING_RESULT && arg0_type != INT_RESULT &&
+             arg0_type != DECIMAL_RESULT))) != 0)) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), func_name());
+    return INT_MAX;
+  }
+
+  /* If arg0 is NULL, this buf will be directly used, and arg0 being NULL is not
+  an error. */
+  char buf[1];
+  String *str = args[0]->val_str(&m_str_arg);
+  Item_field *ifld = NULL;
+  longlong result = args[0]->null_value ? (doMurmurHashCode(buf, 0) % num)
+    : (doMurmurHashCode(str->c_ptr(), str->length()) % num); 
+
+  if (args[0]->type() != Item::FIELD_ITEM)
+    goto no_filter;
+
+  ifld = ((Item_field*)args[0]);
+  if (unlikely(!ifld->field || !ifld->field->table ||
+        !ifld->field->table->part_info ||
+        ifld->field->table->part_info->m_pNoVec.empty()))
+    goto no_filter;
+
+  result = filter_dropped_parts(result);
+no_filter:
+  return result;
+}
+
 bool Item_func_connection_id::resolve_type(THD *thd) {
   if (Item_int_func::resolve_type(thd)) return true;
   unsigned_flag = true;
