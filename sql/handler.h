@@ -2528,6 +2528,9 @@ struct Page_track_t {
   page_track_get_status_t get_status;
 };
 
+/* Interface for ending backquery. */
+using end_backquery_t = void (*)(THD *thd);
+
 /**
   handlerton is a singleton structure - one instance per storage engine -
   to provide access to storage engine functionality that works on the
@@ -2758,6 +2761,9 @@ struct handlerton {
 
   /** Page tracking interface */
   Page_track_t page_track;
+
+  /** Backquery interface. */
+  end_backquery_t end_backquery;
 };
 
 /* Possible flags of a handlerton (there can be 32 of them) */
@@ -6864,6 +6870,12 @@ class handler {
   void unlock_shared_ha_data();
 
   friend class DsMrr_impl;
+
+ public:
+  virtual bool prepare_backquery(THD *thd MY_ATTRIBUTE((unused)),
+                                 time_t t MY_ATTRIBUTE((unused))) {
+    return false;
+  }
 };
 
 /* Temporary Table handle for opening uncached table */
@@ -7303,5 +7315,7 @@ class ha_tablespace_statistics {
   dd::String_type m_status;
   dd::String_type m_extra;  // NDB only
 };
+
+void ha_end_backquery(THD *thd);
 
 #endif /* HANDLER_INCLUDED */

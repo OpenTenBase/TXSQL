@@ -1168,5 +1168,8 @@ class ha_innopart : public ha_innobase,
   bool can_reuse_mysql_template() const override {
     return m_reuse_mysql_template;
   }
+
+ public:
+  bool prepare_backquery(THD *thd, time_t t) override;
 };
 #endif /* ha_innopart_h */

@@ -7945,3 +7945,19 @@ bool assert_invalid_stats_is_locked(const TABLE *table) {
 }
 #endif
 //////////////////////////////////////////////////////////////////////////
+
+/* Changes from txsql start. */
+void TABLE_LIST::process_index_for_backquery(const THD *thd, TABLE *tbl) {
+  tbl->keys_in_use_for_query.clear_all();
+  tbl->keys_in_use_for_group_by.clear_all();
+  tbl->keys_in_use_for_order_by.clear_all();
+  if (tbl->s->primary_key < MAX_KEY) {
+    /* Use primary key. */
+    tbl->keys_in_use_for_query.set_bit(tbl->s->primary_key);
+    tbl->keys_in_use_for_group_by.set_bit(tbl->s->primary_key);
+    tbl->keys_in_use_for_order_by.set_bit(tbl->s->primary_key);
+  }
+  /* make sure covering_keys don't include indexes disabled with a hint */
+  tbl->covering_keys.intersect(tbl->keys_in_use_for_query);
+}
+/* Changes from txsql end. */

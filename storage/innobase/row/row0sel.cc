@@ -882,10 +882,13 @@ static inline bool row_sel_test_other_conds(
 
     old_vers = nullptr;
 
+    trx_t *trx = thr_get_trx(thr);
+    ReadView *view = trx_get_read_view(trx, index);
+
     if (!lock_clust_rec_cons_read_sees(clust_rec, index, offsets,
-                                       node->read_view)) {
+                                       view)) {
       err =
-          row_sel_build_prev_vers(node->read_view, index, clust_rec, &offsets,
+          row_sel_build_prev_vers(view, index, clust_rec, &offsets,
                                   &heap, &plan->old_vers_heap, &old_vers, mtr);
 
       if (err != DB_SUCCESS) {
@@ -1387,13 +1390,14 @@ static ulint row_sel_try_search_shortcut(
   offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
 
+  ReadView *view = trx_get_read_view(trx, index);
   if (index->is_clustered()) {
-    if (!lock_clust_rec_cons_read_sees(rec, index, offsets, node->read_view)) {
+    if (!lock_clust_rec_cons_read_sees(rec, index, offsets, view)) {
       ret = SEL_RETRY;
       goto func_exit;
     }
   } else if (!srv_read_only_mode &&
-             !lock_sec_rec_cons_read_sees(rec, index, node->read_view)) {
+             !lock_sec_rec_cons_read_sees(rec, index, view)) {
     ret = SEL_RETRY;
     goto func_exit;
   }
@@ -1749,12 +1753,12 @@ skip_lock:
     /* This is a non-locking consistent read: if necessary, fetch
     a previous version of the record */
 
+    trx_t *trx = thr_get_trx(thr);
+    ReadView *view = trx_get_read_view(trx, index);
     if (index->is_clustered()) {
-      if (!lock_clust_rec_cons_read_sees(rec, index, offsets,
-                                         node->read_view)) {
-        err = row_sel_build_prev_vers(node->read_view, index, rec, &offsets,
-                                      &heap, &plan->old_vers_heap, &old_vers,
-                                      &mtr);
+      if (!lock_clust_rec_cons_read_sees(rec, index, offsets, view)) {
+        err = row_sel_build_prev_vers(view, index, rec, &offsets, &heap,
+                                      &plan->old_vers_heap, &old_vers, &mtr);
 
         if (err != DB_SUCCESS) {
           goto lock_wait_or_error;
@@ -1795,7 +1799,7 @@ skip_lock:
         rec = old_vers;
       }
     } else if (!srv_read_only_mode &&
-               !lock_sec_rec_cons_read_sees(rec, index, node->read_view)) {
+               !lock_sec_rec_cons_read_sees(rec, index, view)) {
       cons_read_requires_clust_rec = true;
     }
   }
@@ -3266,13 +3270,15 @@ non-clustered index. Does the necessary locking.
     /* If the isolation level allows reading of uncommitted data,
     then we never look for an earlier version */
 
+    ReadView *view = trx_get_read_view(trx, clust_index);
+
     if (trx->isolation_level > TRX_ISO_READ_UNCOMMITTED &&
         !lock_clust_rec_cons_read_sees(clust_rec, clust_index, *offsets,
-                                       trx_get_read_view(trx))) {
+                                       view)) {
       if (clust_rec != cached_clust_rec) {
         /* The following call returns 'offsets' associated with 'old_vers' */
         err = row_sel_build_prev_vers_for_mysql(
-            trx->read_view, clust_index, prebuilt, clust_rec, offsets,
+            view, clust_index, prebuilt, clust_rec, offsets,
             offset_heap, &old_vers, vrow, mtr, lob_undo);
 
         if (err != DB_SUCCESS) {
@@ -3712,8 +3718,8 @@ static ulint row_sel_try_search_shortcut_for_mysql(
   *offsets = rec_get_offsets(rec, index, *offsets, ULINT_UNDEFINED,
                              UT_LOCATION_HERE, heap);
 
-  if (!lock_clust_rec_cons_read_sees(rec, index, *offsets,
-                                     trx_get_read_view(trx))) {
+  ReadView *view = trx_get_read_view(trx, index);
+  if (!lock_clust_rec_cons_read_sees(rec, index, *offsets, view)) {
     return (SEL_RETRY);
   }
 
@@ -5260,13 +5266,13 @@ rec_loop:
       high force recovery level set, we try to avoid crashes
       by skipping this lookup */
 
+      ReadView *view = trx_get_read_view(trx, index);
       if (srv_force_recovery < 5 &&
-          !lock_clust_rec_cons_read_sees(rec, index, offsets,
-                                         trx_get_read_view(trx))) {
+          !lock_clust_rec_cons_read_sees(rec, index, offsets, view)) {
         rec_t *old_vers;
         /* The following call returns 'offsets' associated with 'old_vers' */
         err = row_sel_build_prev_vers_for_mysql(
-            trx->read_view, clust_index, prebuilt, rec, &offsets, &heap,
+            view, clust_index, prebuilt, rec, &offsets, &heap,
             &old_vers, need_vrow ? &vrow : nullptr, &mtr,
             prebuilt->get_lob_undo());
 
@@ -5296,8 +5302,9 @@ rec_loop:
 
       ut_ad(!index->is_clustered());
 
+      ReadView *view = trx_get_read_view(trx, index);
       if (!srv_read_only_mode &&
-          !lock_sec_rec_cons_read_sees(rec, index, trx->read_view)) {
+          !lock_sec_rec_cons_read_sees(rec, index, view)) {
         /* We should look at the clustered index.
         However, as this is a non-locking read,
         we can skip the clustered index lookup if

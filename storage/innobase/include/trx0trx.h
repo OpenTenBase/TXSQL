@@ -55,6 +55,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "sql/handler.h"  // Xa_state_list
 #include "srv0srv.h"
 
+#include "dict0mem.h"
+
 // Forward declaration
 struct mtr_t;
 
@@ -208,10 +210,11 @@ void trx_mark_sql_stat_end(trx_t *trx); /*!< in: trx handle */
 ReadView *trx_assign_read_view(trx_t *trx); /*!< in: active transaction */
 
 /** @return the transaction's read view or NULL if one not assigned. */
-static inline ReadView *trx_get_read_view(trx_t *trx);
+static inline ReadView *trx_get_read_view(trx_t *trx, dict_index_t *index);
 
 /** @return the transaction's read view or NULL if one not assigned. */
-static inline const ReadView *trx_get_read_view(const trx_t *trx);
+static inline const ReadView *trx_get_read_view(const trx_t *trx,
+                                                const dict_index_t *index);
 
 /** Prepares a transaction for commit/rollback. */
 void trx_commit_or_rollback_prepare(trx_t *trx); /*!< in/out: transaction */

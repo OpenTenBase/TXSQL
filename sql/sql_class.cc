@@ -850,6 +850,14 @@ THD::THD(bool enable_plugins)
   set_system_user(false);
   set_connection_admin(false);
   m_mem_cnt.set_thd(this);
+
+  backquery_flag = false;
+  m_backquery_timestamps.clear();
+  m_backquery_info.clear();
+
+  /**
+    Changes from txsql end.
+  */
 }
 
 void THD::copy_table_access_properties(THD *thd) {
@@ -3263,3 +3271,25 @@ bool thd_is_killed(THD *thd)
 {
   return thd->killed != THD::NOT_KILLED;
 }
+
+void THD::add_backquery_table(const std::string &key, time_t t) {
+  if (likely(t != 0)) {
+    auto it = m_backquery_timestamps.find(key);
+    if (it != m_backquery_timestamps.end()) {
+      if (it->second > t) {
+        /* Use the oldest timestamp in a single statement. */
+        it->second = t;
+      }
+    } else {
+      m_backquery_timestamps.insert(std::make_pair(key, t));
+    }
+  }
+}
+
+time_t THD::get_backquery_timestamp(const std::string &key) {
+  auto it = m_backquery_timestamps.find(key);
+  assert(it != m_backquery_timestamps.end());
+  return it->second;
+}
+
+/* Changes from TXSQL end. */

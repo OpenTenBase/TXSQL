@@ -745,3 +745,75 @@ void MVCC::view_close(ReadView *&view, bool own_mutex) {
     view = nullptr;
   }
 }
+
+/**
+ Changes from txsql start.
+*/
+void ReadView::ids_t::clone_from(const ids_t &other) {
+  ulint size = other.size();
+
+  if (size == 0) {
+    clear();
+    return;
+  }
+  reserve(size);
+  resize(size);
+  ::memmove(m_ptr, other.m_ptr, sizeof(value_type) * size);
+}
+
+void ReadView::clone_from(const ReadView *other) {
+  m_low_limit_id = other->m_low_limit_id;
+  m_low_limit_no = other->m_low_limit_no;
+  m_up_limit_id = other->m_up_limit_id;
+  m_ids.clone_from(other->m_ids);
+  ut_ad(m_ids.size() == other->m_ids.size());
+}
+
+void ReadView::merge(const ReadView *other) {
+  ut_ad(other != this);
+  if (m_low_limit_no > other->low_limit_no()) {
+    m_low_limit_no = other->low_limit_no();
+  }
+
+  if (m_low_limit_id > other->low_limit_id()) {
+    m_low_limit_id = other->low_limit_id();
+  }
+  /* Merge transaction ids */
+  std::set<trx_id_t> temp_ids;
+  const ids_t::value_type *p = m_ids.data();
+  temp_ids.insert(p, p + m_ids.size());
+  p = other->m_ids.data();
+  temp_ids.insert(p, p + other->m_ids.size());
+
+  m_ids.clear();
+  /* In function ReadView::ids_t::push_back, if capacity() <= size(),
+    function ReadView::ids_t::reserve will be called with parameter size() * 2.
+    When capcity() == 0 and size() == 0, no memory will be allocated, which will
+    cause a SIGSEGV in ReadView::ids_t::push_back. */
+  m_ids.reserve(1);
+  for (auto it = temp_ids.begin(); it != temp_ids.end(); it++) {
+    if (*it >= m_low_limit_id) {
+      /* std::set is an ordered container. */
+      break;
+    }
+    m_ids.push_back(*it);
+  }
+  ut_ad(m_ids.empty() ? true : (m_ids.back() < m_low_limit_id));
+  if (m_ids.empty()) {
+    m_up_limit_id = m_low_limit_id;
+  } else {
+    m_up_limit_id = std::min(m_ids.front(), m_up_limit_id);
+  }
+  ut_a(m_up_limit_id <= m_low_limit_id);
+}
+
+void ReadView::snapshot_for_backquery() {
+  ut_a(!srv_read_only_mode);
+  trx_sys_mutex_enter();
+  this->prepare(0);
+  trx_sys_mutex_exit();
+}
+
+/**
+ Changes from txsql end.
+*/

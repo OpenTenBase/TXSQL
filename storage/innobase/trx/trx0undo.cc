@@ -2190,6 +2190,11 @@ bool trx_undo_truncate_tablespace(undo::Tablespace *marked_space) {
     rseg->last_offset = 0;
     rseg->last_trx_no = 0;
     rseg->last_del_marks = false;
+
+    rseg->pre_last_page_no = FIL_NULL;
+    rseg->pre_last_offset = 0;
+    rseg->pre_last_trx_no = 0;
+    rseg->pre_last_del_marks = false;
   }
 
   marked_rsegs->x_unlock();

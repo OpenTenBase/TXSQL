@@ -678,6 +678,8 @@ class ha_innobase : public handler {
 
   /** If mysql has locked with external_lock() */
   bool m_mysql_has_locked;
+
+  bool prepare_backquery(THD *thd, time_t t) override;
 };
 
 struct trx_t;
@@ -1332,4 +1334,15 @@ after DDL
 @param[in,out]  thd     THD object
 @param[in,out]  table   InnoDB table object */
 void innobase_discard_table(THD *thd, dict_table_t *table);
+
+/* Changes from txsql start. */
+extern void thd_get_backquery_info(THD *thd, uint64_t key, time_t &ts,
+                                   void *&ptr);
+extern void thd_set_backquery_info(THD *thd, uint64_t key, time_t t, void *ptr,
+                                   bool clear);
+extern void thd_get_all_backquery_info(
+    THD *thd, std::vector<std::pair<time_t, void *>> &infos);
+extern bool thd_has_backquery(THD *thd);
+/* Changes from txsql end. */
+
 #endif /* ha_innodb_h */

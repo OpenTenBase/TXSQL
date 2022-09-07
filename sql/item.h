@@ -3431,6 +3431,9 @@ class Item : public Parse_tree_node {
    A helper function to ensure proper usage of CAST(.. AS .. ARRAY)
   */
   virtual void allow_array_cast() {}
+
+  /* Whether the item is an valid timestamp for flashback query. */
+  virtual bool is_valid_for_backquery() const { return true; }
 };
 
 /**

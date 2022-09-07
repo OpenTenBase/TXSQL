@@ -680,3 +680,57 @@ unsigned int thd_get_current_thd_terminology_use_previous() {
   if (!current_thd) return 0;
   return current_thd->variables.terminology_use_previous;
 }
+
+/**
+  Changes from txsql start.
+*/
+void thd_get_backquery_info(MYSQL_THD thd, uint64_t key, time_t &ts,
+                            void *&ptr) {
+  assert(thd);
+  auto it = thd->m_backquery_info.find(key);
+  if (it != thd->m_backquery_info.end()) {
+    ts = it->second.first;
+    assert(it->second.second);
+    ptr = it->second.second;
+  } else {
+    ts = 0;
+    ptr = nullptr;
+  }
+}
+
+/* The real timestamp of backquery may be different from the specified
+timestamp. We should set it to the correct value. */
+void thd_set_backquery_info(MYSQL_THD thd, uint64_t key, time_t t, void *ptr,
+                            bool clear) {
+  assert(thd);
+  if (!clear) {
+    auto ret = thd->m_backquery_info.insert(
+        std::make_pair(key, std::make_pair(t, ptr)));
+    /* Must success. */
+    assert(ret.second);
+  } else {
+    thd->m_backquery_info.clear();
+    thd->m_backquery_timestamps.clear();
+  }
+}
+
+void thd_get_all_backquery_info(MYSQL_THD thd,
+                                std::vector<std::pair<time_t, void *>> &info) {
+  assert(thd);
+  info.clear();
+  info.reserve(thd->m_backquery_info.size());
+  for (auto it = thd->m_backquery_info.begin();
+       it != thd->m_backquery_info.end(); it++) {
+    info.push_back(it->second);
+  }
+}
+
+bool thd_has_backquery(MYSQL_THD thd) {
+  if (unlikely(thd && !thd->m_backquery_info.empty())) {
+    return true;
+  }
+  return false;
+}
+/**
+  Changes from txsql end.
+*/

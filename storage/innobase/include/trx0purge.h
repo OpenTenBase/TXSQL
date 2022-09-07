@@ -64,8 +64,8 @@ void trx_purge_sys_mem_create();
 mutex.
 @param[in]      n_purge_threads   number of purge threads
 @param[in,out]  purge_queue       UNDO log min binary heap */
-void trx_purge_sys_initialize(uint32_t n_purge_threads,
-                              purge_pq_t *purge_queue);
+void trx_purge_sys_initialize(uint32_t n_purge_threads, purge_pq_t *purge_queue,
+                              purge_pq_t *pre_purge_queue);
 
 /** Frees the global purge system control structure. */
 void trx_purge_sys_close(void);
@@ -1084,6 +1084,34 @@ struct trx_purge_t {
 
   /** Set of all rseg queue. */
   std::vector<trx_rseg_t *> rsegs_queue;
+
+  /** Limit up to which we have read and parsed the UNDO log records for pre
+   * purge. */
+  purge_iter_t pre_iter;
+  /** The 'purge pointer' which advances during a pre purge. */
+  purge_iter_t pre_limit;
+  /** true if the info of the next record to pre purge is stored below: if yes,
+  then the transaction number and the undo number of the record are stored in
+  purge_trx_no and purge_undo_no above */
+  bool pre_next_stored;
+  /** Rollback segment for the next undo record to pre purge */
+  trx_rseg_t *pre_rseg;
+  /** Page number for the next undo record to pre purge, page number of the log
+  header, if dummy record */
+  page_no_t pre_page_no;
+  /** Page offset for the next undo record to pre purge, 0 if the dummy record
+   */
+  ulint pre_offset;
+  /** Header page of the undo log where the next record to pre purge belongs */
+  page_no_t pre_hdr_page_no;
+  /** Header byte offset on the page */
+  ulint pre_hdr_offset;
+  /** Iterator to get the next rseg to pre purge */
+  TrxUndoRsegsIterator *pre_rseg_iter;
+  /** Min-heap for pre purge. It is protected by the pq_mutex */
+  purge_pq_t *pre_purge_queue;
+  /** ReadView used for pre purge. */
+  ReadView pre_view;
 };
 
 /** Choose the rollback segment with the smallest trx_no. */
@@ -1097,6 +1125,10 @@ struct TrxUndoRsegsIterator {
   there are no rollback segments to purge and then the returned page
   size object should not be used. */
   const page_size_t set_next();
+
+  const page_size_t set_next_for_pre_purge();
+
+  void copy(TrxUndoRsegsIterator &);
 
  private:
   // Disable copying

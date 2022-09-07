@@ -3331,9 +3331,10 @@ bool PT_table_factor_table_ident::contextualize(Parse_context *pc) {
   THD *thd = pc->thd;
   Yacc_state *yyps = &thd->m_parser_state->m_yacc;
 
-  value = pc->select->add_table_to_list(
-      thd, table_ident, opt_table_alias, 0, yyps->m_lock_type, yyps->m_mdl_type,
-      opt_key_definition, opt_use_partition, nullptr, pc);
+  value = pc->select->add_table_to_list(thd, table_ident, opt_table_alias, 0,
+                                        yyps->m_lock_type, yyps->m_mdl_type,
+                                        opt_key_definition, opt_use_partition,
+                                        nullptr, pc, opt_backquery_timestamp);
   if (value == nullptr) return true;
   if (pc->select->add_joined_table(value)) return true;
   return false;

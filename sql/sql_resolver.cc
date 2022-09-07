@@ -1199,6 +1199,22 @@ bool Query_block::setup_tables(THD *thd, TABLE_LIST *tables,
 
     if (table->part_info)  // Count number of partitioned tables
       partitioned_table_count++;
+
+    if (unlikely(tr->is_backquery())) {
+      tr->process_index_for_backquery(thd, table);
+      std::string key(tr->db, tr->db_length);
+      key.push_back('.');
+      key.append(tr->table_name, tr->table_name_length);
+      time_t ts = thd->get_backquery_timestamp(key);
+      assert(ts != 0);
+      if (table->file->prepare_backquery(thd, ts)) {
+        assert(DB_TYPE_INNODB == table->file->ht->db_type);
+        /* Failed, backquery is disabled or timestamp is out of range. */
+        my_error(ER_BACKQUERY_TIMESTAMP, MYF(0), std::to_string(ts).c_str(),
+                 "is out of range");
+        return true;
+      }
+    }
   }
 
   /*

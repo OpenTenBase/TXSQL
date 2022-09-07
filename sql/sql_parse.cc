@@ -2358,6 +2358,8 @@ done:
   assert(thd->open_tables == nullptr ||
          (thd->locked_tables_mode == LTM_LOCK_TABLES));
 
+  /* Release backquery info after each statement. */
+  if (unlikely(thd->has_backquery())) ha_end_backquery(thd);
   /* Finalize server status flags after executing a command. */
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
@@ -4846,6 +4848,8 @@ finish:
     }
   }
 
+  if (unlikely(thd->has_backquery())) ha_end_backquery(thd);
+
   lex->cleanup(thd, true);
 
   /* Free tables */
@@ -5119,6 +5123,13 @@ void THD::reset_for_next_command() {
 #ifndef NDEBUG
   thd->set_tmp_table_seq_id(1);
 #endif
+  assert(m_backquery_info.empty()); 
+  /*
+    When error occured in parse stage, ha_end_backquery
+    won't be called, we should clean it manually.
+  */
+  m_backquery_timestamps.clear();
+  backquery_flag = false;
 }
 
 /*
@@ -5836,7 +5847,7 @@ TABLE_LIST *Query_block::add_table_to_list(
     THD *thd, Table_ident *table_name, const char *alias, ulong table_options,
     thr_lock_type lock_type, enum_mdl_type mdl_type,
     List<Index_hint> *index_hints_arg, List<String> *partition_names,
-    LEX_STRING *option, Parse_context *pc) {
+    LEX_STRING *option, Parse_context *pc, Item *backquery_timestamp) {
   TABLE_LIST *previous_table_ref =
       nullptr; /* The table preceding the current one. */
   LEX *lex = thd->lex;
@@ -6030,6 +6041,44 @@ TABLE_LIST *Query_block::add_table_to_list(
   table_list.link_in_list(ptr, &ptr->next_local);
   ptr->next_name_resolution_table = nullptr;
   ptr->partition_names = partition_names;
+
+  if (unlikely(backquery_timestamp)) {
+    int warning = 0;
+    my_timeval tm;
+    char buff[120];
+    String str(buff, sizeof(buff), system_charset_info);
+    bool ts_error = false;
+    if (!backquery_timestamp->is_valid_for_backquery()) {
+      my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+               "Usage of subqueries or stored "
+               "function calls as part of backquery timestmap");
+      return nullptr;
+    }
+    if (!backquery_timestamp->fixed &&
+        backquery_timestamp->fix_fields(thd, &backquery_timestamp)) {
+      ts_error = true;
+    }
+    if (!ts_error &&
+        (backquery_timestamp->get_timeval(&tm, &warning) || tm.m_tv_sec == 0)) {
+      ts_error = true;
+    }
+    if (ts_error) {
+      String *str2 = backquery_timestamp->fixed
+                         ? backquery_timestamp->val_str(&str)
+                         : nullptr;
+      my_error(ER_BACKQUERY_TIMESTAMP, MYF(0),
+               str2 ? str2->c_ptr_safe() : "NULL", "is invalid");
+      return nullptr;
+    }
+    ptr->backquery_timestamp = tm.m_tv_sec;
+    std::string key(ptr->db, ptr->db_length);
+    key.push_back('.');
+    key.append(ptr->table_name, ptr->table_name_length);
+    thd->add_backquery_table(key, ptr->backquery_timestamp);
+  } else {
+    ptr->backquery_timestamp = 0;
+  }
+
   /* Link table in global list (all used tables) */
   lex->add_to_query_tables(ptr);
 

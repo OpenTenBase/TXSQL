@@ -1,0 +1,191 @@
+###############################
+#      Test for backquery     #
+###############################
+disable_ps_protocol;
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set @saved_innodb_backquery_window = @@global.innodb_backquery_window;
+set global innodb_backquery_enable = ON;
+
+create table t1(id int primary key, c1 varchar(20));
+insert into t1 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+
+create table t2(id int primary key, c1 varchar(20));
+insert into t2 values(1,'adaa'),(2,'bdbb'),(3,'cdcc'),(4,'ddcd'),(5,'eefe');
+
+create table externally_stored_field_table(id int, c1 text) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+insert into externally_stored_field_table values(1,repeat('a',60000)),(2,'aaaa');
+
+disable_query_log;
+# basic test
+echo basic test;
+sleep 2;
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 1;
+update t1 set c1='abcdefg' where id=4;
+delete from t1 where id=5;
+select * from t1;
+eval select * from t1 as of timestamp '$time1';
+
+update externally_stored_field_table set c1='dddd' where id=1;
+select length(c1) from externally_stored_field_table where id=1;
+
+# test for different tables with different timestamps
+echo different table with different timestamp;
+select t1.c1,t2.id from t1,t2 where t1.id=t2.id;
+eval select t1.c1, t2.id from t1 as of timestamp '$time1',t2 where t1.id=t2.id;
+sleep 2;
+let $time2 = query_get_value(select now(), now(), 1);
+sleep 1;
+
+eval select t1.c1,t2.id from t1 as of timestamp '$time1',t2 as of timestamp '$time2' where t1.id=t2.id;
+eval select t1.c1,t2.id from t1 as of timestamp '$time1' inner join t2 as of timestamp '$time2' on t1.id=t2.id;
+select * from t2;
+update t2 set c1= 'newabcd' where id=1;
+sleep 2;
+let $time3 = query_get_value(select now(), now(), 1);
+sleep 1;
+
+eval select t1.c1,t2.id,t2.c1 from t1 as of timestamp '$time1',t2 as of timestamp '$time3' where t1.id=t2.id;
+eval select t1.c1,t2.id,t2.c1 from t1 as of timestamp '$time3',t2 as of timestamp '$time3' where t1.id=t2.id;
+eval select t1.c1,t2.id,t2.c1 from t1 as of timestamp '$time3',t2 as of timestamp '$time2' where t1.id=t2.id;
+eval select t1.c1,t2.id,t2.c1,t3.c1 as t3c1 from t1 as of timestamp '$time3',t2 as of timestamp '$time2',t2 as t3 where t1.id=t2.id and t1.id=t3.id;
+
+# grammar
+echo test grammar;
+error ER_PARSE_ERROR;
+eval select * from t1 as t as of timestamp '12345';
+
+# test create select
+echo test create select;
+eval select * from t1 as of timestamp '$time1';
+eval create table t3 select * from t1 as of timestamp '$time1';
+select * from t3;
+eval create table t4 select * from t1 as of timestamp '$time3';
+select * from t4;
+
+# test insert select
+echo test insert select;
+create table t5 like t1;
+insert into t5 select * from t1;
+select * from t5;
+create table t6 like t1;
+eval insert into t6 select * from t1 as of timestamp '$time1';
+select * from t6;
+
+# test explain
+echo test explain;
+create table t7(id int primary key, c1 varchar(20), key(c1));
+insert into t7 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+explain select * from t7;
+sleep 2;
+let $time4 = query_get_value(select now(), now(), 1);
+sleep 1;
+delete from t7 where id=5;
+sleep 2;
+let $time5 = query_get_value(select now(), now(), 1);
+sleep 1;
+select * from t7;
+eval explain select * from t7 as of timestamp '$time5';
+
+# test update select
+echo test update select;
+select * from t6 where id in (select id from t7);
+eval select * from t6 where id in (select id from t7 as of timestamp '$time4');
+update t6 set c1='ggg' where id in (select id from t7);
+select * from t6;
+eval update t6 set c1='ddd' where id in (select id from t7 as of timestamp '$time4');
+select * from t6;
+
+# test same table with different timestamps
+echo test same table with different timestamps;
+eval select * from t1 as of timestamp '$time1';
+select * from t1;
+eval select * from t1 as of timestamp '$time5';
+eval select * from t1 as of timestamp '$time1' where id in (select id from t1);
+eval select * from t1 as of timestamp '$time1' where id in (select id from t1 as of timestamp '$time5');
+
+# test isolation level
+echo test isolation level;
+show variables like '%iso%';
+set @saved_transaction_isolation = @@session.transaction_isolation;
+set transaction_isolation ='read-uncommitted';
+select * from t1;
+eval select * from t1 as of timestamp '$time1';
+set transaction_isolation = @saved_transaction_isolation;
+
+# test alter table
+echo test alter table;
+alter table t1 add column c2 int;
+select * from t1;
+eval select * from t1 as of timestamp '$time1';
+sleep 2;
+let $time6 = query_get_value(select now(), now(), 1);
+sleep 1;
+eval select * from t1 as of timestamp '$time6';
+
+# test locking clause
+echo test locking clause;
+error ER_NOT_SUPPORTED_YET;
+eval select * from t1 as of timestamp '$time1' for update;
+error ER_NOT_SUPPORTED_YET;
+eval select * from t1 as of timestamp '$time1' for share;
+error ER_NOT_SUPPORTED_YET;
+eval select * from t1 as of timestamp '$time1' lock in share mode;
+
+# test partition table
+CREATE TABLE partition_table(
+    id   INT,
+    name VARCHAR(35),
+    part int
+)PARTITION BY LIST (id) (
+    PARTITION r0 VALUES IN (1, 5, 9, 13, 17, 21),
+    PARTITION r1 VALUES IN (2, 6, 10, 14, 18, 22),
+    PARTITION r2 VALUES IN (3, 7, 11, 15, 19, 23),
+    PARTITION r3 VALUES IN (4, 8, 12, 16, 20, 24)
+);
+insert into partition_table values(1,'a',1),(2,'a',1),(3,'bbb',2),(4,'jak',2),(5,'jone',343);
+
+echo current data in partition table;
+select * from partition_table;
+echo history data in partition table;
+eval select * from partition_table as of timestamp '$time5';
+sleep 2;
+let $time7 = query_get_value(select now(), now(), 1);
+sleep 1;
+delete from partition_table where id=5;
+delete from partition_table where id=3;
+echo data in partition table after delete;
+select * from partition_table;
+echo data in partition table before delete;
+eval select * from partition_table as of timestamp '$time7';
+
+# test externally stored field
+echo test externally stored field;
+select length(c1) from externally_stored_field_table where id=1;
+eval select length(c1) from externally_stored_field_table as of timestamp '$time1' where id=1;
+
+# test backquery window
+echo test backquery window;
+set global innodb_backquery_window = 3;
+show variables like 'innodb_backquery_window';
+sleep 3;
+disable_result_log;
+error ER_BACKQUERY_TIMESTAMP;
+eval select * from t1 as of timestamp '$time1';
+enable_result_log;
+enable_query_log;
+
+# clean
+echo cleanup;
+select @saved_innodb_backquery_window;
+set global innodb_backquery_window=@saved_innodb_backquery_window;
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+drop table if exists t4;
+drop table if exists t5;
+drop table if exists t6;
+drop table if exists t7;
+drop table if exists partition_table;
+drop table if exists externally_stored_field_table;

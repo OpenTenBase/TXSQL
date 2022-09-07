@@ -87,7 +87,8 @@ bool row_vers_old_has_index_entry(
     dict_index_t *index,    /*!< in: the secondary index */
     const dtuple_t *ientry, /*!< in: the secondary index entry */
     roll_ptr_t roll_ptr,    /*!< in: roll_ptr for the purge record */
-    trx_id_t trx_id);       /*!< in: transaction ID on the purging record */
+    trx_id_t trx_id,        /*!< in: transaction ID on the purging record */
+    bool pre_purge = false); /*!< in: true for pre_purge */
 
 /** Constructs the version of a clustered index record which a consistent
  read should see. We assume that the trx id stored in rec is such that
@@ -113,7 +114,7 @@ bool row_vers_old_has_index_entry(
  @return DB_SUCCESS or DB_MISSING_HISTORY */
 dberr_t row_vers_build_for_consistent_read(
     const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
-    ReadView *view, mem_heap_t **offset_heap, mem_heap_t *in_heap,
+    const ReadView *view, mem_heap_t **offset_heap, mem_heap_t *in_heap,
     rec_t **old_vers, const dtuple_t **vrow, lob::undo_vers_t *lob_undo);
 
 /** Constructs the last committed version of a clustered index record,

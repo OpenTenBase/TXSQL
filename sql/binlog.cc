@@ -10242,6 +10242,10 @@ int THD::decide_logging_format(TABLE_LIST *tables) {
         !get_transaction()->xid_state()->has_state(XID_STATE::XA_NOTR))
       lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_XA);
 
+    if (is_write && this->has_backquery()) {
+      lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_BACKQUERY);
+    }
+
     DBUG_EXECUTE_IF("make_stmt_only_engines",
                     { flags_write_all_set = HA_BINLOG_STMT_CAPABLE; };);
 

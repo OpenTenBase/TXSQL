@@ -4180,3 +4180,16 @@ DS-MRR implementation
 /* TODO: move the default implementations into the base handler class! */
 /* TODO: See if it could be optimized for partitioned tables? */
 /* Use default ha_innobase implementation for now... */
+
+bool ha_innopart::prepare_backquery(THD *thd, time_t t) {
+  dict_table_t *saved_prebuilt_table = m_prebuilt->table;
+  for (auto i = m_part_info->get_first_used_partition(); i < m_tot_parts;
+       i = m_part_info->get_next_used_partition(i)) {
+    m_prebuilt->table = m_part_share->get_table_part(i);
+    if (ha_innobase::prepare_backquery(thd, t)) {
+      return true;
+    }
+  }
+  m_prebuilt->table = saved_prebuilt_table;
+  return false;
+}

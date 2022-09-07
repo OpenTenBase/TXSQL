@@ -284,7 +284,8 @@ bool row_purge_poss_sec(purge_node_t *node,    /*!< in/out: row purge node */
   can_delete =
       !row_purge_reposition_pcur(BTR_SEARCH_LEAF, node, &mtr) ||
       !row_vers_old_has_index_entry(true, node->pcur.get_rec(), &mtr, index,
-                                    entry, node->roll_ptr, node->trx_id);
+                                    entry, node->roll_ptr, node->trx_id,
+                                    node->pre_purge);
 
   /* Persistent cursor is closed if reposition fails. */
   if (node->found_clust) {
@@ -685,6 +686,10 @@ static inline void row_purge_remove_multi_sec_if_poss(purge_node_t *node,
 
   mem_heap_free(heap);
 
+  if (node->pre_purge) {
+    return true;
+  }
+
   return (row_purge_remove_clust_if_poss(node));
 }
 
@@ -742,6 +747,10 @@ static void row_purge_upd_exist_or_extern_func(IF_DEBUG(const que_thr_t *thr, )
   mem_heap_free(heap);
 
 skip_secondaries:
+
+  if (node->pre_purge) {
+    return;
+  }
 
   /* Free possible externally stored fields */
   for (ulint i = 0; i < upd_get_n_fields(node->update); i++) {
@@ -1089,7 +1098,7 @@ try_again:
   switch (node->rec_type) {
     case TRX_UNDO_DEL_MARK_REC:
       purged = row_purge_del_mark(node);
-      if (!purged) {
+      if (!purged || node->pre_purge) {
         break;
       }
       MONITOR_INC(MONITOR_N_DEL_ROW_PURGE);

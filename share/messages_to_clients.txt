@@ -9817,6 +9817,12 @@ ER_DA_EXPIRE_LOGS_DAYS_IGNORED
 ER_DISALLOW_THREAD_HANDLING_SWITCH
   eng "thread_handling_switch_mode=disable, disallow to switch thread handling."
 
+ER_BACKQUERY_TIMESTAMP
+  eng "Timestamp '%s' %s."
+
+ER_BINLOG_UNSAFE_BACKQUERY
+  eng "Statement is unsafe because it is used inside a backquery, which may break replication on slaves."
+
 ################################################################################
 # Error numbers 5000 to 5999 are reserved for X Plugin. Please do not use
 # them for other error messages.
