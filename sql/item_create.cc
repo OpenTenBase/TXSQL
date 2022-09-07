@@ -1546,6 +1546,7 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"SPACE", SQL_FN(Item_func_space, 1)},
     {"STATEMENT_DIGEST", SQL_FN(Item_func_statement_digest, 1)},
     {"STATEMENT_DIGEST_TEXT", SQL_FN(Item_func_statement_digest_text, 1)},
+    {"MURMURHASHCODEANDMOD", SQL_FN(Item_func_murmurHashCodeAndMod, 2)},
     {"WAIT_FOR_EXECUTED_GTID_SET",
      SQL_FN_V(Item_wait_for_executed_gtid_set, 1, 2)},
     {"WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS",

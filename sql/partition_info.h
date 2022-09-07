@@ -25,6 +25,7 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <atomic>
 
 #include "my_bitmap.h"
 #include "my_inttypes.h"
@@ -164,6 +165,37 @@ typedef int (*get_partitions_in_range_iter)(
     partition_info *part_info, bool is_subpart, uint32 *store_length_array,
     uchar *min_val, uchar *max_val, uint min_len, uint max_len, uint flags,
     PARTITION_ITERATOR *part_iter);
+
+/* Tracks the hidden partition number */
+class Partition_hide_info {
+public:
+  Partition_hide_info() {
+    m_parts.clear();
+    m_updating_counter = 0;
+    m_scanning_counter = 0;
+    m_empty = true;
+  }
+
+  ~Partition_hide_info() {
+    m_parts.clear();
+  }
+
+  bool parse(std::string &str);
+
+  bool contain(int64_t part_id);
+
+private:
+  std::set<int64_t> m_parts;
+
+  std::atomic<bool> m_empty;
+
+  std::atomic<int64_t> m_updating_counter;
+
+  std::atomic<int64_t> m_scanning_counter;
+};
+
+extern Partition_hide_info g_partition_hide;
+
 /**
   PARTITION BY KEY ALGORITHM=N
   Which algorithm to use for hashing the fields.
@@ -205,6 +237,13 @@ class Parser_partition_info {
   bool add_column_list_value(THD *thd, Item *item);
 };
 
+enum TDSQL_Shard_Table_Type_Enum{
+  TDSQL_Shard_Table_Type_NotInited,
+  TDSQL_Shard_Table_Type_NormalShard,//normal shard type
+  TDSQL_Shard_Table_Type_ListAndHash,//gtid_log_t ,list and hash partition
+  TDSQL_Shard_Table_Type_Other,//other type,don't need hide
+};
+
 class partition_info {
  public:
   /*
@@ -216,6 +255,7 @@ class partition_info {
   List<char> part_field_list;
   List<char> subpart_field_list;
 
+  std::vector<int> m_pNoVec;
   /*
     If there is no subpartitioning, use only this func to get partition ids.
 
@@ -385,6 +425,42 @@ class partition_info {
 
   enum_key_algorithm key_algorithm;
 
+  /*
+    tdsql: the starting partition number of the global table that this partition
+    table belongs to. UINT16_MAX is invalid.
+
+    In tdsql_disable_partitions , the arguments are global table's partition
+    numbers, not the local table's partition numbers. The global number should
+    substract this starting_part_num to get the corresponding local partition
+    number.
+  */
+
+  TDSQL_Shard_Table_Type_Enum m_tdsql_shard_type;
+  void computePnoVec();
+  void computeShardTableType();
+  
+  inline int getFirstIndexFromPartid(uint partid) const {
+    if (likely(TDSQL_Shard_Table_Type_NormalShard == m_tdsql_shard_type)) {
+      return (int)partid;
+    } else if (TDSQL_Shard_Table_Type_ListAndHash == m_tdsql_shard_type) {
+      if (!num_subparts) {
+        return -1;
+      }
+
+      return (int)(partid / num_subparts);
+    } else {
+      return -1;
+    }
+  }
+
+  inline int getPnoFromPartid(uint partid) const {
+    int index = getFirstIndexFromPartid(partid);
+    if(unlikely(index < 0 || ((size_t)index) >= m_pNoVec.size())){
+      return -1; 
+    }   
+    return m_pNoVec[index];
+  }
+
   /* Only the number of partitions defined (uses default names and options). */
   bool use_default_partitions;
   bool use_default_num_partitions;
@@ -447,6 +523,7 @@ class partition_info {
         has_null_part_id(0),
         linear_hash_mask(0),
         key_algorithm(enum_key_algorithm::KEY_ALGORITHM_NONE),
+        m_tdsql_shard_type(TDSQL_Shard_Table_Type_NotInited),
         use_default_partitions(true),
         use_default_num_partitions(true),
         use_default_subpartitions(true),
@@ -534,15 +611,38 @@ class partition_info {
   inline bool is_partition_locked(uint part_id) const {
     return bitmap_is_set(&lock_partitions, part_id);
   }
-  inline uint num_partitions_used() {
+  inline uint num_partitions_used() const {
     return bitmap_bits_set(&read_partitions);
   }
-  inline uint get_first_used_partition() const {
-    return bitmap_get_first_set(&read_partitions);
+  inline uint get_first_used_partition(bool filter_hidden_parts = true) const {
+    const uint part_id = bitmap_get_first_set(&read_partitions);
+
+    if (filter_hidden_parts && is_partition_hidden(part_id)) {
+      return get_next_used_partition(part_id, filter_hidden_parts);
+    }
+    return part_id;
   }
-  inline uint get_next_used_partition(uint part_id) const {
-    return bitmap_get_next_set(&read_partitions, part_id);
+
+  inline uint get_next_used_partition(
+      uint part_id, bool filter_hidden_parts = true) const { 
+    while (true) {
+      part_id= bitmap_get_next_set(&read_partitions, part_id);
+      if (unlikely(MY_BIT_NONE == part_id)) {
+        return MY_BIT_NONE;
+      }
+
+      if(filter_hidden_parts && is_partition_hidden(part_id)) {
+        continue;
+      }
+      return part_id;
+    }
+    return MY_BIT_NONE;
   }
+
+  bool is_partition_hidden(const uint part_id) const {
+    return (g_partition_hide.contain(getPnoFromPartid(part_id)));
+  }
+
   bool same_key_column_order(List<Create_field> *create_list);
 
   /**

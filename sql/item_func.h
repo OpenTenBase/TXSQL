@@ -981,6 +981,19 @@ class Item_int_func : public Item_func {
   */
 };
 
+uint32_t doMurmurHashCode(char * key, unsigned short len);
+class Item_func_murmurHashCodeAndMod :public Item_int_func {
+  String m_str_arg;
+  public:
+  Item_func_murmurHashCodeAndMod(Item *a,Item *b) :Item_int_func(a,b) {}
+  Item_func_murmurHashCodeAndMod(const POS &pos, Item *a,Item *b)
+    :Item_int_func(pos, a,b) {}
+
+  const char *func_name() const override { return "murmurHashCodeAndMod"; }
+  longlong val_int() override;
+  bool check_partition_func_processor(uchar *) override {return false;}
+};
+
 class Item_func_connection_id final : public Item_int_func {
   typedef Item_int_func super;
 

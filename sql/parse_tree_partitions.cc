@@ -222,6 +222,22 @@ bool PT_part_definition::contextualize(Partition_parse_context *pc) {
     return true;
   }
 
+  /*
+    TDSQL: extract the starting(least) parittion number of this partition
+    table amongst the global table. Tdsql's partition name follows
+    the pN format, N is a positive integer.
+  */
+
+  const char *pname = name.str;
+  if (part_info->part_type == partition_type::LIST &&
+      *pname == 'p' && isdigit(pname[1])) {
+    char *endptr = 0;
+    long resnum = strtol(pname + 1, &endptr, 10);
+    if (*endptr == '\0' && resnum >= 0 && resnum < UINT16_MAX ) {
+      curr_part->m_p_no = (int)resnum;
+    }
+  }
+
   curr_part->partition_name = name.str;
 
   switch (type) {

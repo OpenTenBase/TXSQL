@@ -69,7 +69,43 @@
 #include "sql_string.h"
 #include "varlen_sort.h"
 
+Partition_hide_info g_partition_hide;
+
 using std::string;
+
+void partition_info::computePnoVec() {
+  m_pNoVec.clear();
+  List_iterator<partition_element> part_it(partitions);
+  partition_element *part = NULL;
+  while ((part = (part_it++))) {
+    m_pNoVec.push_back(part->m_p_no);
+  }
+}
+
+void partition_info::computeShardTableType() {//compute
+  if(TDSQL_Shard_Table_Type_NotInited != m_tdsql_shard_type){
+    return ;//have compute
+  }
+
+  computePnoVec();
+
+  if(partition_type::LIST == part_type) {//list partion
+    if (partition_type::NONE == subpart_type) { //no sub partition
+      if (part_func_string &&
+          0 == strncmp(part_func_string,"murmurHashCodeAndMod",
+                       sizeof("murmurHashCodeAndMod")-1)) {
+        m_tdsql_shard_type = TDSQL_Shard_Table_Type_NormalShard;
+        return ;
+      }
+    } else if (partition_type::HASH == subpart_type) {
+      m_tdsql_shard_type = TDSQL_Shard_Table_Type_ListAndHash;
+      return ;
+    }
+  }
+
+  m_tdsql_shard_type = TDSQL_Shard_Table_Type_Other;
+  return ;
+}
 
 // TODO: Create ::get_copy() for getting a deep copy.
 
@@ -139,6 +175,7 @@ partition_info *partition_info::get_clone(THD *thd, bool reset /* = false */) {
     }
     clone->partitions.push_back(part_clone);
   }
+  clone->computeShardTableType();
   return clone;
 }
 
@@ -2863,5 +2900,117 @@ bool partition_info::init_partition_bitmap(MY_BITMAP *bitmap,
     return true;
   }
   bitmap_init(bitmap, bitmap_buf, bitmap_bits);
+  return false;
+}
+
+static inline bool is_valid_range_char(char c) {
+    return (c >= '0' && c <= '9') || c == '-' || c == ',';
+}
+
+static inline const char *check_valid_range_str(const char *str, size_t len) {
+    for (const char *p = str; p < str + len; p++)
+          if (!is_valid_range_char(*p))
+                  return p;
+      return NULL;
+}
+
+bool Partition_hide_info::contain(int64_t part_id) {
+  if (m_empty.load(std::memory_order_relaxed) || part_id == -1 /* invalid id */) {
+    return false;
+  }
+
+loop:
+  /* Someone is modifying tdsql_hide_partitions */
+  while (m_updating_counter.load(std::memory_order_relaxed) > 0) {
+    usleep(100);
+  } 
+
+  /** Increase the counter */
+  m_scanning_counter++;
+
+  /* double check */
+  if (m_updating_counter.load() > 0) {
+    m_scanning_counter--;
+    /*sleep for a while */
+    goto loop;
+  }
+
+  bool ret = (m_parts.find(part_id) != m_parts.end());
+
+  m_scanning_counter--;
+
+  return ret;
+}
+
+bool Partition_hide_info::parse(std::string &str) {
+  const char *ptr = str.c_str(), *p = nullptr;
+  const char *pend = ptr + str.length();
+
+  if ((p = check_valid_range_str(ptr, str.length()))) {
+    my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "tdsql_hide_partitions", p);
+    return true;
+  }
+
+  std::set<int64_t> parts;
+  while (ptr < pend) {
+    p = strchr(ptr, ',');
+    if (!p) p = pend;
+
+    char *endptr = nullptr;
+    int64_t start= strtol(ptr, &endptr, 0), end = 0;
+
+    if (endptr > p) {
+      my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "tdsql_hide_partitions", ptr);
+      return true;
+    }
+
+    if (*endptr== '-') {
+      ptr = endptr+1;
+      end = strtol(ptr, &endptr, 0);
+      if (endptr == ptr || endptr > p) {
+        my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "tdsql_hide_partitions", ptr);
+        return true;
+      }
+      /* 1-2a,4 is a valid range */
+    } else {
+      /* else there can be 0 or more non-digit chars in [endptr, p) and that's ok. */
+      end = start;
+    }
+
+    if (start > end) {
+      my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0),
+          "tdsql_hide_partitions", "must hold: start <= end");
+      return true;
+    }
+
+    for (int64_t i = start; i <= end; i++) {
+      parts.insert(i);
+    }
+
+    ptr = p + 1;
+  }
+
+  /* Make sure there's non concurrent updating. */
+  int64_t old_val = 0;
+  while (!m_updating_counter.compare_exchange_weak(old_val, 1)) {
+    usleep(100);
+    old_val = 0;
+  }
+
+  /* Make sure none is scanning the set */
+  while (m_scanning_counter.load() > 0) {
+    usleep(100);
+  }
+
+  m_parts.clear();
+  m_parts = std::move(parts);
+  m_empty = m_parts.empty();
+
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  assert(m_updating_counter.load() == 1);
+
+  /* Reset to zero */
+  m_updating_counter = 0;
+
   return false;
 }

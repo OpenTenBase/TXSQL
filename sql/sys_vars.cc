@@ -7968,4 +7968,23 @@ static Sys_var_bool Sys_cdb_fire_wall_enabled(
     "cdb_fire_wall_enabled", "CDB fire wall switch. Can be ON/OFF.",
     GLOBAL_VAR(cdb_fire_wall_enabled), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static bool check_hide_partitions(sys_var *, THD *, set_var *var) {
+  if (var->save_result.string_value.str == nullptr)
+    return true;
+
+  std::string str(var->save_result.string_value.str,
+                  var->save_result.string_value.length);
+  return (g_partition_hide.parse(str));
+}
+
+char *tdsql_disable_partitions = nullptr;
+static Sys_var_charptr Sys_tdsql_hide_partitions(
+    "tdsql_hide_partitions",
+    "TDSQL: Partitions to disable, effective for partitions of all partitioned "
+    "tables on the DB instance. Specifiy as comma separated numbers or number "
+    "ranges, e.g. 1,3-6,7 means parititions 1,3,4,5,6,7.",
+    GLOBAL_VAR(tdsql_disable_partitions), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_hide_partitions));
 /* Changes from txsql end. */
