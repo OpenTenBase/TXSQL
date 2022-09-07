@@ -124,6 +124,8 @@ void killall_non_super_threads(THD *thd);
 bool shutdown(THD *thd, enum mysql_enum_shutdown_level level);
 bool show_precheck(THD *thd, LEX *lex, bool lock);
 
+bool thd_system_privilege(THD* thd);
+
 /* Variables */
 
 extern uint sql_command_flags[];

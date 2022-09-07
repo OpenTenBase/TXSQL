@@ -6668,6 +6668,13 @@ opt_comma:
 create_table_option:
           ENGINE_SYM opt_equal ident_or_text
           {
+            if (cdb_convert_memory_to_innodb)
+            {
+              if (6 == $3.length  //MEMORY length is 6
+                  && strcasecmp($3.str, "memory") == 0)
+              strcpy($3.str,"innodb");
+            }
+
             $$= NEW_PTN PT_create_table_engine_option(to_lex_cstring($3));
           }
         | SECONDARY_ENGINE_SYM opt_equal NULL_SYM

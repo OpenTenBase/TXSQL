@@ -7699,6 +7699,27 @@ static Sys_var_charptr Sys_admin_port_tool_md5(
     READ_ONLY GLOBAL_VAR(mysqld_admin_port_init_tool_md5), CMD_LINE(OPT_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(0));
 
+static Sys_var_bool Sys_cdb_convert_memory_to_innodb(
+    "cdb_convert_memory_to_innodb", "memory storage convert innodb",
+    GLOBAL_VAR(cdb_convert_memory_to_innodb), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_enum Sys_myisam_conversion_innodb(
+    "myisam_conversion_innodb",
+    "myisam conversion innodb mode, can be ON/OFF/WARN/TRY",
+    GLOBAL_VAR(opt_myisam_conversion_innodb),
+    CMD_LINE(REQUIRED_ARG), myisam_conversion_innodb_names,
+    DEFAULT(CONVERSION_MODE_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_enum Sys_tencent_myisam_conversion_innodb(
+    "tencent_myisam_conversion_innodb",
+    "control tencentroot/system user, myisam conversion innodb mode, can be "
+    "ON/OFF/WARN/TRY",
+    GLOBAL_VAR(opt_tencent_myisam_conversion_innodb),
+    CMD_LINE(REQUIRED_ARG), myisam_conversion_innodb_names,
+    DEFAULT(CONVERSION_MODE_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 #ifdef HAVE_POOL_OF_THREADS
 
 static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {

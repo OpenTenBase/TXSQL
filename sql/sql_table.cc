@@ -9956,6 +9956,78 @@ bool collect_fk_names_for_new_fks(THD *thd, const char *db_name,
   return false;
 }
 
+void mysql_reset_mdl_request_for_try(THD *thd) {
+  TABLE_LIST *table = NULL;
+  TABLE_LIST *table_begin = thd->lex->query_tables;
+  TABLE_LIST *table_end = thd->lex->first_not_own_table();
+
+  for (table = table_begin; table && table != table_end;
+       table = table->next_global) {
+    table->reinit_before_use(thd);
+  }
+}
+
+void mysql_convert_table_myisam_to_innodb(THD *thd, const char *type,
+                                          const char *db, const char *table,
+                                          bool &converted,
+                                          handlerton *&db_type) {
+  if (converted) {
+    db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_MYISAM);
+    converted = false;
+    sql_print_information(
+        "%s db:[%s],tb[%s]"
+        ",convert innodb failed,use myisam engine",
+        type, db, table);
+  } else if (db_type && db_type->db_type == DB_TYPE_MYISAM &&
+             strcasecmp(db, "mysql")) {
+    ulong tmp_myisam_conversion_innodb;
+    String print_prefix;
+    if (thd_system_privilege(thd)) {
+      tmp_myisam_conversion_innodb = opt_tencent_myisam_conversion_innodb;
+      print_prefix.append("tencent_myisam_conversion_innodb[");
+    } else {
+      tmp_myisam_conversion_innodb = opt_myisam_conversion_innodb;
+      print_prefix.append("myisam_conversion_innodb[");
+    }
+    print_prefix.append(
+        myisam_conversion_innodb_names[tmp_myisam_conversion_innodb]);
+    print_prefix.append("]");
+
+    switch (tmp_myisam_conversion_innodb) {
+      case CONVERSION_MODE_TRY:
+        db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+        converted = true;
+        sql_print_information(
+            "%s %s db:[%s],tb[%s]"
+            ",convert myisam engine to innodb",
+            print_prefix.c_ptr_quick(), type, db, table);
+        break;
+      case CONVERSION_MODE_WARN:
+        push_warning_printf(thd, Sql_condition::SL_WARNING,
+                            ER_WARN_USING_OTHER_HANDLER,
+                            ER_THD(thd, ER_WARN_USING_OTHER_HANDLER),
+                            ha_resolve_storage_engine_name(
+                                ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB)),
+                            table);
+        db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+        sql_print_information(
+            "%s %s db:[%s],tb[%s]"
+            ",convert myisam engine to innodb",
+            print_prefix.c_ptr_quick(), type, db, table);
+        break;
+      case CONVERSION_MODE_ON:
+        db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+        sql_print_information(
+            "%s %s db:[%s],tb[%s]"
+            ",convert myisam engine to innodb",
+            print_prefix.c_ptr_quick(), type, db, table);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 /**
   Implementation of SQLCOM_CREATE_TABLE.
 
@@ -9967,7 +10039,8 @@ bool collect_fk_names_for_new_fks(THD *thd, const char *db_name,
 */
 
 bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
-                        HA_CREATE_INFO *create_info, Alter_info *alter_info) {
+                        HA_CREATE_INFO *create_info, Alter_info *alter_info,
+                        bool &converted) {
   bool result = false;
   bool is_trans = false;
   uint not_used;
@@ -10260,13 +10333,65 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
                                                  : trans_commit_implicit(thd));
 
     if (result && !thd->is_plugin_fake_ddl()) {
-      trans_rollback_stmt(thd);
       /*
-        Full rollback in case we have THD::transaction_rollback_request
-        and to synchronize DD state in cache and on disk (as statement
-        rollback doesn't clear DD cache of modified uncommitted objects).
+        For the table which converted from MyISAM to InnoDB, the first
+        try could be failed. In this case, we need to retry creating
+        table with MyISAM again, so, some status like gtid need to be
+        reset here.
       */
-      trans_rollback(thd);
+      if (converted) {
+        if (! thd->in_sub_stmt) {
+          if (thd->is_error() ||
+              (thd->variables.option_bits & OPTION_MASTER_SQL_ERROR)) {
+            auto gtid_mode = global_gtid_mode.get();
+            if (gtid_mode == Gtid_mode::ON &&
+                thd->variables.gtid_next.type == ASSIGNED_GTID) {
+              /*
+                In GTID mode, If the slave will go to re-execute the DDL
+                again after rollback, the gtid value will be cleared.
+                The gtid states should be restored before re-execute.
+              */
+
+              Gtid last_owned_gtid = thd->owned_gtid;
+
+              trans_rollback_stmt(thd);
+              trans_rollback(thd);
+              global_sid_lock->rdlock();
+              gtid_state->lock_sidno(last_owned_gtid.sidno);
+              gtid_state->acquire_ownership(thd, last_owned_gtid);
+              gtid_state->unlock_sidno(last_owned_gtid.sidno);
+              global_sid_lock->unlock();
+              thd->owned_gtid = last_owned_gtid;
+              thd->variables.gtid_next.type = ASSIGNED_GTID;
+            } else {
+              trans_rollback_stmt(thd);
+              trans_rollback(thd);
+            }
+
+            /*
+              If try to recreate the table,we must reset thd->killed
+              to the initial value.
+            */
+            thd->killed = THD::NOT_KILLED;
+          }
+        }
+
+        close_thread_tables(thd);
+        //clear error and warnings
+        thd->clear_error();
+        thd->get_stmt_da()->reset_diagnostics_area();
+        mysql_reset_mdl_request_for_try(thd);
+
+        mysql_reset_mdl_request_for_try(thd);
+      } else {
+        /*
+          Full rollback in case we have THD::transaction_rollback_request
+          and to synchronize DD state in cache and on disk (as statement
+          rollback doesn't clear DD cache of modified uncommitted objects).
+        */
+        trans_rollback_stmt(thd);
+        trans_rollback(thd);
+      }
     }
 
     /*

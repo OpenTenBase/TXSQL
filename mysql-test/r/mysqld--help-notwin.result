@@ -727,6 +727,8 @@ The following options may be given as the first argument:
  than that
  --myisam-block-size=# 
  Block size to be used for MyISAM index pages
+ --myisam-conversion-innodb=name 
+ myisam conversion innodb mode,Can be ON/OFF/WARN/TRY
  --myisam-data-pointer-size=# 
  Default pointer size to be used for MyISAM tables
  --myisam-max-sort-file-size=# 
@@ -1878,6 +1880,7 @@ max-write-lock-count 18446744073709551615
 memlock FALSE
 min-examined-row-limit 0
 myisam-block-size 1024
+myisam-conversion-innodb OFF
 myisam-data-pointer-size 6
 myisam-max-sort-file-size 9223372036853727232
 myisam-mmap-size 18446744073709551615

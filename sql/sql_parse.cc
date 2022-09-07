@@ -6552,6 +6552,19 @@ class Kill_non_super_conn : public Do_THD_Impl {
   }
 };
 
+/**
+  Tencentroot & system thread should always have access privileges.
+
+  @param thd
+  @return true means should access while false failed to access.
+*/
+
+bool thd_system_privilege(THD* thd) {
+  if (thd->system_thread != NON_SYSTEM_THREAD)
+    return true;
+  return false;
+}
+
 /*
   kills all the threads that do not have the
   SUPER privilege.

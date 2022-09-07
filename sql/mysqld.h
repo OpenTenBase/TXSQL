@@ -861,6 +861,20 @@ extern bool cdb_enable_resource_statistics;
 extern bool cdb_enable_lock_statistics;
 extern ulong cdb_ignore_filename_length;
 
+extern bool cdb_convert_memory_to_innodb;
+
+enum enum_myisam_conversion_innodb_mode
+{
+  CONVERSION_MODE_OFF= 0,  // no conversion
+  CONVERSION_MODE_WARN= 1, // myisam conversion innodb,but show warning
+  CONVERSION_MODE_ON= 2,   // Secretly conversion
+  CONVERSION_MODE_TRY= 3   // once conversion failed, create table with myisam engine.
+};
+
+extern ulong opt_myisam_conversion_innodb;
+extern ulong opt_tencent_myisam_conversion_innodb;
+extern const char *myisam_conversion_innodb_names[];
+
 /**
   The thread statistics are summarized as follows:
   1. sync/async io stats
