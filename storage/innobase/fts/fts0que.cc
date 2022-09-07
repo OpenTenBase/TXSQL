@@ -2499,7 +2499,7 @@ static void fts_query_phrase_split(fts_query_t *query,
 {
   ib_vector_t *tokens;
   ib_vector_t *orig_tokens;
-  mem_heap_t *heap = mem_heap_create(sizeof(fts_string_t), UT_LOCATION_HERE);
+  mem_heap_t *heap = mem_heap_create(1 * 1024 * 1024, UT_LOCATION_HERE);
   ib_alloc_t *heap_alloc;
   ulint num_token;
 
@@ -2653,6 +2653,9 @@ static void fts_query_phrase_split(fts_query_t *query,
 
 func_exit:
   mem_heap_free(heap);
+  int r = malloc_trim(0);
+  if (r < 0)
+    ib::info() << "fts malloc_trim failed." ;
 
   /* Don't need it anymore. */
   query->matched = nullptr;
