@@ -111,6 +111,12 @@ ENDIF()
 # CMake 3.5 is needed for TARGET_SOURCES(... $<TARGET_OBJECTS:${LIB}_objlib>)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 
+# To avoid error in bolt compilation.
+IF(OPT_BOLT)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-reorder-blocks-and-partition")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-reorder-blocks-and-partition")
+ENDIF()
+
 # Will set GIT_EXECUTABLE and GIT_FOUND
 FIND_PACKAGE(Git)
 
@@ -1602,6 +1608,10 @@ ADD_DEFINITIONS(-D__STDC_LIMIT_MACROS)     # Enable C99 limit macros
 ADD_DEFINITIONS(-D__STDC_FORMAT_MACROS)    # Enable C99 printf format macros
 ADD_DEFINITIONS(-D_USE_MATH_DEFINES)       # Get access to M_PI, M_E, etc. in math.h
 ADD_DEFINITIONS(-DLZ4_DISABLE_DEPRECATE_WARNINGS) # C++14 deprecation warnings in LZ4.
+
+IF(GCC_VERSION VERSION_GREATER_EQUAL 7.3)
+  ADD_DEFINITIONS(-Wno-format-truncation)
+ENDIF()
 
 OPTION(ENABLE_EXPERIMENT_SYSVARS "Expose ussually hidden system variables to allow experiments" OFF)
 IF(ENABLE_EXPERIMENT_SYSVARS)
