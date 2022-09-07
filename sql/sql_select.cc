@@ -3375,7 +3375,8 @@ ORDER *simple_remove_const(ORDER *order, Item *where) {
     true    can be used
     false   cannot be used
 */
-static bool test_if_equality_guarantees_uniqueness(Item *l, Item *r) {
+static bool test_if_equality_guarantees_uniqueness(
+    const Item_func_comparison *func, Item *l, Item *r) {
   return r->const_item() &&
          /* elements must be compared as dates */
          (Arg_comparator::can_compare_as_dates(l, r) ||
@@ -3383,7 +3384,7 @@ static bool test_if_equality_guarantees_uniqueness(Item *l, Item *r) {
           (r->result_type() == l->result_type() &&
            /* and must have the same collation if compared as strings */
            (l->result_type() != STRING_RESULT ||
-            l->collation.collation == r->collation.collation)));
+            func->compare_collation() == l->collation.collation)));
 }
 
 /*
@@ -3445,16 +3446,17 @@ bool const_expression_in_where(Item *cond, Item *comp_item, Field *comp_field,
     if (func->functype() != Item_func::EQUAL_FUNC &&
         func->functype() != Item_func::EQ_FUNC)
       return 0;
+    Item_func_comparison *comp = down_cast<Item_func_comparison *>(func);
     Item *left_item = ((Item_func *)cond)->arguments()[0];
     Item *right_item = ((Item_func *)cond)->arguments()[1];
     if (equal(left_item, comp_item, comp_field)) {
-      if (test_if_equality_guarantees_uniqueness(left_item, right_item)) {
+      if (test_if_equality_guarantees_uniqueness(comp, left_item, right_item)) {
         if (*const_item) return right_item->eq(*const_item, 1);
         *const_item = right_item;
         return 1;
       }
     } else if (equal(right_item, comp_item, comp_field)) {
-      if (test_if_equality_guarantees_uniqueness(right_item, left_item)) {
+      if (test_if_equality_guarantees_uniqueness(comp, right_item, left_item)) {
         if (*const_item) return left_item->eq(*const_item, 1);
         *const_item = left_item;
         return 1;

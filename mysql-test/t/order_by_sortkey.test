@@ -78,3 +78,15 @@ SELECT * FROM t2 where f1 =
 SHOW SESSION STATUS LIKE 'Sort%';
 
 DROP TABLE t1, t2, tmp;
+
+CREATE TABLE apsm2 (
+apsmprocod varchar(2) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL DEFAULT '',
+apsmactno varchar(21) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL DEFAULT '',
+abc varchar(10) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL DEFAULT '',
+PRIMARY KEY (apsmprocod,apsmactno),
+KEY idx_actno (apsmactno)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+SET character_set_connection=utf8;
+EXPLAIN SELECT apsmprocod FROM apsm2 WHERE apsmprocod='22' ORDER BY apsmprocod, apsmactno;
+DROP TABLE apsm2;
