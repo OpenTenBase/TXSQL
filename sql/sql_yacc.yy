@@ -1922,6 +1922,8 @@ void warn_about_deprecated_binary(THD *thd)
         simple_statement
         truncate_stmt
         update_stmt
+        ddl_statement
+        parse_ddl_statement
 
 %type <table_ident> table_ident_opt_wild
 
@@ -2282,8 +2284,62 @@ opt_end_of_input:
         | END_OF_INPUT
         ;
 
+ddl_statement:
+          alter_database_stmt           { $$= nullptr; }
+        | alter_event_stmt              { $$= nullptr; }
+        | alter_function_stmt           { $$= nullptr; }
+        | alter_instance_stmt
+        | alter_logfile_stmt            { $$= nullptr; }
+        | alter_procedure_stmt          { $$= nullptr; }
+        | alter_resource_group_stmt
+        | alter_server_stmt             { $$= nullptr; }
+        | alter_tablespace_stmt         { $$= nullptr; }
+        | alter_undo_tablespace_stmt    { $$= nullptr; }
+        | alter_table_stmt
+        | alter_user_stmt               { $$= nullptr; }
+        | alter_view_stmt               { $$= nullptr; }
+        | analyze_table_stmt
+        | create                        { $$= nullptr; }
+        | create_index_stmt
+        | create_resource_group_stmt
+        | create_role_stmt
+        | create_srs_stmt
+        | create_table_stmt
+        | drop_database_stmt            { $$= nullptr; }
+        | drop_event_stmt               { $$= nullptr; }
+        | drop_function_stmt            { $$= nullptr; }
+        | drop_index_stmt
+        | drop_logfile_stmt             { $$= nullptr; }
+        | drop_procedure_stmt           { $$= nullptr; }
+        | drop_resource_group_stmt
+        | drop_role_stmt
+        | drop_server_stmt              { $$= nullptr; }
+        | drop_srs_stmt
+        | drop_tablespace_stmt          { $$= nullptr; }
+        | drop_undo_tablespace_stmt     { $$= nullptr; }
+        | drop_table_stmt               { $$= nullptr; }
+        | drop_trigger_stmt             { $$= nullptr; }
+        | drop_user_stmt                { $$= nullptr; }
+        | drop_view_stmt                { $$= nullptr; }
+        | optimize_table_stmt
+        | rename                        { $$= nullptr; }
+        | truncate_stmt
+        ;
+
+parse_ddl_statement:
+          PARSER_SYM ddl_statement
+          {
+            if ($2 != nullptr)
+              MAKE_CMD($2);
+            Lex->parse_command = Lex->sql_command;
+            Lex->sql_command = SQLCOM_PARSE_STATEMENT;
+            /*$$= NEW_PTN PT_parse_ddl($2);*/
+          }
+        ;
+
 simple_statement_or_begin:
           simple_statement      { *parse_tree= $1; }
+        | parse_ddl_statement   { *parse_tree= $1; }
         | begin_stmt
         ;
 

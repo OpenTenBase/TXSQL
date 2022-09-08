@@ -362,6 +362,223 @@ inline bool check_database_filters(THD *thd, const char *db,
   return db_ok;
 }
 
+#define MAX_PARSE_STRING_LENGTH 512
+#define ADD_ALTER_TYPE_TO_STR(add_string,cur_flag)\
+    if (lex->alter_info->flags & cur_flag)\
+    {\
+      int str_len = strlen(add_string);\
+      if(str_len + pos < MAX_PARSE_STRING_LENGTH)\
+      {\
+        memcpy(tmp_str + pos,add_string,str_len);\
+        pos += str_len;\
+      }\
+    }
+
+/**
+ *   Fill syntax field
+ *   */
+void fill_ddl_info(LEX *const lex, Protocol *protocol)
+{
+  int pos= 0;
+  char tmp_str[MAX_PARSE_STRING_LENGTH]={0};
+
+  switch (lex->parse_command)
+  {
+    case SQLCOM_ALTER_TABLE:
+      protocol->store("ALTER TABLE",system_charset_info);
+      ADD_ALTER_TYPE_TO_STR("ADD_COLUMN,", Alter_info::ALTER_ADD_COLUMN);
+      ADD_ALTER_TYPE_TO_STR("DROP_COLUMN,", Alter_info::ALTER_DROP_COLUMN);
+      ADD_ALTER_TYPE_TO_STR("CHANGE_COLUMN,",Alter_info::ALTER_CHANGE_COLUMN);
+      ADD_ALTER_TYPE_TO_STR("RENAME,",Alter_info::ALTER_RENAME);
+      ADD_ALTER_TYPE_TO_STR("ADD_PARTITION,",Alter_info::ALTER_ADD_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("DROP_PARTITION,",Alter_info::ALTER_DROP_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("COALESCE_PARTITION,",Alter_info::ALTER_COALESCE_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("REORGANIZE_PARTITION,",Alter_info::ALTER_REORGANIZE_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("PARTITION,",Alter_info::ALTER_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("ADMIN_PARTITION,",Alter_info::ALTER_ADMIN_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("TABLE_REORG,",Alter_info::ALTER_TABLE_REORG);
+      ADD_ALTER_TYPE_TO_STR("REBUILD_PARTITION,",Alter_info::ALTER_REBUILD_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("ALL_PARTITION,",Alter_info::ALTER_ALL_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("REMOVE_PARTITIONING,",Alter_info::ALTER_REMOVE_PARTITIONING);
+      ADD_ALTER_TYPE_TO_STR("ADD_FOREIGN_KEY,",Alter_info::ADD_FOREIGN_KEY);
+      ADD_ALTER_TYPE_TO_STR("DROP_FOREIGN_KEY,",Alter_info::DROP_FOREIGN_KEY);
+      ADD_ALTER_TYPE_TO_STR("EXCHANGE_PARTITION,",Alter_info::ALTER_EXCHANGE_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("TRUNCATE_PARTITION,",Alter_info::ALTER_TRUNCATE_PARTITION);
+      ADD_ALTER_TYPE_TO_STR("COLUMN_ORDER,",Alter_info::ALTER_COLUMN_ORDER);
+      ADD_ALTER_TYPE_TO_STR("RENAME_INDEX,",Alter_info::ALTER_RENAME_INDEX);
+      ADD_ALTER_TYPE_TO_STR("RECREATE,",Alter_info::ALTER_RECREATE);
+      ADD_ALTER_TYPE_TO_STR("ADD_INDEX,",Alter_info::ALTER_ADD_INDEX);
+      ADD_ALTER_TYPE_TO_STR("DROP_INDEX,",Alter_info::ALTER_DROP_INDEX);
+      ADD_ALTER_TYPE_TO_STR("ORDER,",Alter_info::ALTER_ORDER);
+      ADD_ALTER_TYPE_TO_STR("OPTIONS,",Alter_info::ALTER_OPTIONS);
+      ADD_ALTER_TYPE_TO_STR("CHANGE_COLUMN_DEFAULT,",Alter_info::ALTER_CHANGE_COLUMN_DEFAULT);
+      ADD_ALTER_TYPE_TO_STR("KEYS_ONOFF,",Alter_info::ALTER_KEYS_ONOFF);
+      if(pos)
+      {
+        tmp_str[pos-1]= 0;
+        protocol->store(tmp_str,system_charset_info);
+      }
+      else
+      {
+        protocol->store("ALTER_UNKNOWN",system_charset_info);
+      }
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_CREATE_TABLE:
+      protocol->store("CREATE_TABLE",system_charset_info);
+      protocol->store("",system_charset_info);
+      if (lex->create_info->db_type)
+      {
+       if (lex->create_info->db_type->db_type == DB_TYPE_INNODB)
+         protocol->store("InnoDB",system_charset_info);
+       else
+         protocol->store("OTHER",system_charset_info);
+      }
+      else
+      {
+        protocol->store("InnoDB",system_charset_info);
+      }
+      break;
+
+    case SQLCOM_CREATE_INDEX:
+      protocol->store("CREATE_INDEX",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_CREATE_DB:
+      protocol->store("CREATE_DB",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_CREATE_USER:
+      protocol->store("CREATE_USER",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_CREATE_SERVER:
+      protocol->store("CREATE_SERVER",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+     break;
+
+    case SQLCOM_CREATE_VIEW:
+      protocol->store("CREATE_VIEW",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_DROP_TABLE:
+      protocol->store("DROP_TABLE",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_DROP_VIEW:
+      protocol->store("DROP_VIEW",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_DROP_INDEX:
+      protocol->store("DROP_INDEX",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_DROP_DB:
+      protocol->store("DROP_DB",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_ALTER_DB:
+      protocol->store("ALTER_DB",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_RENAME_TABLE:
+      protocol->store("RENAME_TABLE",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_TRUNCATE:
+      protocol->store("TRUNCATE_TABLE",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_ANALYZE:
+      protocol->store("ANALYZE_TABLE",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    case SQLCOM_OPTIMIZE:
+      protocol->store("OPTIMIZE_TABLE",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+      break;
+
+    default:
+      protocol->store("UNKNOWN DDL TYPE",system_charset_info);
+      protocol->store("",system_charset_info);
+      protocol->store("",system_charset_info);
+  }
+}
+
+/**
+ *   Parsing DDL syntax,
+ *     Return specific grammar type
+ *     */
+void mysqld_parse_statement(THD *thd)
+{
+  LEX  *const lex= thd->lex;
+  Protocol *protocol= thd->get_protocol();
+  mem_root_deque<Item *> field_list(thd->mem_root);
+
+  DBUG_ENTER("mysqld_parse_statement");
+
+  field_list.push_back(new Item_empty_string("DB_NAME",MAX_PARSE_STRING_LENGTH));
+  field_list.push_back(new Item_empty_string("TABLE_NAME",MAX_PARSE_STRING_LENGTH));
+  field_list.push_back(new Item_empty_string("DDL_TYPE",USERNAME_CHAR_LENGTH));
+  field_list.push_back(new Item_empty_string("SPECIFIC_TYPE",MAX_PARSE_STRING_LENGTH));
+  field_list.push_back(new Item_empty_string("STORAGE_TYPE",USERNAME_CHAR_LENGTH));
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    DBUG_VOID_RETURN;
+
+  if (lex->query_block && lex->query_block->table_list.elements)
+  {
+    TABLE_LIST *first_table= lex->query_block->table_list.first;
+
+    for (;first_table ;first_table= first_table->next_global)
+    {
+      protocol->start_row();
+      protocol->store(first_table->db,system_charset_info);
+      protocol->store(first_table->table_name,system_charset_info);
+      fill_ddl_info(lex, protocol);
+      protocol->end_row();
+    }
+  }
+  else
+  {
+    protocol->start_row();
+    protocol->store("",system_charset_info);
+    protocol->store("",system_charset_info);
+    fill_ddl_info(lex, protocol);
+    protocol->end_row();
+  }
+  my_eof(thd);
+  DBUG_VOID_RETURN;
+}
+
 bool some_non_temp_table_to_be_updated(THD *thd, TABLE_LIST *tables) {
   for (TABLE_LIST *table = tables; table; table = table->next_global) {
     assert(table->db && table->table_name);
@@ -3660,6 +3877,9 @@ int mysql_execute_command(THD *thd, bool first_level) {
               ->mark_as_changed(thd, {});
       }
     } break;
+    case SQLCOM_PARSE_STATEMENT:
+      mysqld_parse_statement(thd);
+      break;
     case SQLCOM_CHANGE_DB: {
       const LEX_CSTRING db_str = {query_block->db, strlen(query_block->db)};
 
