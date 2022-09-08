@@ -1024,6 +1024,7 @@ struct dict_sys_t {
   dict_table_t *sys_indexes; /*!< SYS_INDEXES table */
   dict_table_t *sys_fields;  /*!< SYS_FIELDS table */
   dict_table_t *sys_virtual; /*!< SYS_VIRTUAL table */
+  dict_table_t *sys_instant_cols; /*!< SYS_INSTANT_COLS table */
 
   /** Permanent handle to mysql.innodb_table_stats */
   dict_table_t *table_stats;
@@ -1714,6 +1715,47 @@ bool dict_index_validate_max_rec_size(const dict_table_t *table,
                                       const size_t page_rec_max,
                                       const size_t page_ptr_max,
                                       size_t &rec_max_size);
+
+/** Class to decode or encode a stream of default value for instant table.
+The decode/encode are necessary because that the default values would b
+kept as InnoDB format stream, which is in fact byte stream. However,
+to store them in the SYS_INSTANT_COLS, it requires CHAR.
+So basically, the encode will change the byte stream into char stream,
+by spliting every byte into two chars, for example, 0xFF, would be splitted
+into 0x0F and 0x0F. So the final storage space would be double. For the
+decode, it's the converse process, combining two chars into one byte. */
+class instant_col_def_val_coder {
+public:
+    /** Constructor */
+    instant_col_def_val_coder() : m_result(NULL) {}
+
+    /** Destructor */
+    ~instant_col_def_val_coder() { cleanup(); }
+
+    /** Encode the specified stream in format of bytes into chars
+    @param[in]	stream	stream to encode in bytes
+    @param[in]	in_len	length of the stream
+    @param[out]	out_len	length of the encoded stream
+    @return	the encoded stream, which would be destroyed if the class
+    itself is destroyed */
+    const char *encode(const byte *stream, size_t in_len, size_t *out_len);
+
+    /** Decode the specified stream, which is encoded by encode()
+    @param[in]	stream	stream to decode in chars
+    @param[in]	in_len	length of the stream
+    @param[out]	out_len	length of the decoded stream
+    @return	the decoded stream, which would be destroyed if the class
+    itself is destroyed */
+    const byte *decode(const char *stream, size_t in_len, size_t *out_len);
+
+private:
+    /** Clean-up last result */
+    void cleanup() { ut::delete_arr(m_result); }
+
+private:
+    /** The encoded or decoded stream */
+    byte *m_result;
+};
 
 #include "dict0dict.ic"
 

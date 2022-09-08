@@ -2603,7 +2603,12 @@ dberr_t dict_index_add_to_cache_w_vcol(dict_table_t *table, dict_index_t *index,
     }
 
     if (new_index->table->has_instant_cols()) {
-      ut_ad(new_index->table->is_upgraded_instant());
+      if (srv_is_upgrade_mode) {
+        ut_ad(new_index->table->is_upgraded_instant() || 
+          new_index->table->n_instant_cols < new_index->table->n_cols);
+      } else {
+        ut_ad(new_index->table->is_upgraded_instant());
+      }
       new_index->instant_cols = true;
       const size_t n_instant_fields = new_index->get_instant_fields();
       size_t new_n_nullable =
@@ -5891,6 +5896,12 @@ void dict_table_change_id_sys_tables() {
   for (uint32_t i = 0; i < SYS_NUM_SYSTEM_TABLES; i++) {
     dict_table_t *system_table = dict_table_get_low(SYSTEM_TABLE_NAME[i]);
 
+    /* Evict SYS_INSTANT_COLS for 8.0 upgrade test case, 
+    for the reason that they don't have SYS_INSTANT_COLS table. */
+    if (system_table == nullptr && i == SYS_INSTANT_COLS) {
+      continue;
+    }
+
     ut_a(system_table != nullptr);
     ut_ad(dict_sys_table_id[i] == system_table->id);
 
@@ -5968,6 +5979,12 @@ bool dict_sys_table_id_build() {
     dict_table_t *system_table = dict_table_get_low(SYSTEM_TABLE_NAME[i]);
 
     if (system_table == nullptr) {
+      /* Evict SYS_INSTANT_COLS for 8.0 upgrade test case, 
+      for the reason that they don't have SYS_INSTANT_COLS table. */
+      if (i == dict_system_id_t::SYS_INSTANT_COLS) {
+        dict_sys_table_id[i] = -1;
+        continue;
+      }
       /* Cannot find a system table, this happens only if user trying
       to boot server earlier than 5.7 */
       dict_sys_mutex_exit();
@@ -6120,6 +6137,43 @@ uint32_t dict_vcol_base_is_foreign_key(dict_v_col_t *vcol,
     }
   }
   return foreign_col_count;
+}
+
+const char*
+instant_col_def_val_coder::encode(
+  const byte*	stream,
+  size_t		in_len,
+  size_t*		out_len) {
+  cleanup();
+  m_result = ut::new_arr_withkey<byte>(UT_NEW_THIS_FILE_PSI_KEY, ut::Count{in_len * 2});
+  char *result = reinterpret_cast<char *>(m_result);
+  for (size_t i = 0; i < in_len; ++i) {
+    uint8_t v1 = ((stream[i] & 0xF0) >> 4);
+    uint8_t v2 = (stream[i] & 0x0F);
+    result[i * 2] = (v1 < 10 ? '0' + v1 : 'a' + v1 - 10);
+    result[i * 2 + 1] = (v2 < 10 ? '0' + v2 : 'a' + v2 - 10);
+  }
+  *out_len = in_len * 2;
+  return (result);
+}
+const byte*
+instant_col_def_val_coder::decode(
+  const char*	stream,
+  size_t		in_len,
+  size_t*		out_len) {
+  ut_ad(in_len % 2 == 0);
+  cleanup();
+  m_result = ut::new_arr_withkey<byte>(UT_NEW_THIS_FILE_PSI_KEY, ut::Count{in_len / 2});
+  for (size_t i = 0; i < in_len / 2; ++i) {
+    char c1 = stream[i * 2];
+    char c2 = stream[i * 2 + 1];
+    ut_ad(isdigit(c1) || (c1 >= 'a' && c1 <= 'f'));
+    ut_ad(isdigit(c2) || (c2 >= 'a' && c2 <= 'f'));
+    m_result[i] = ((isdigit(c1) ? c1 - '0' : c1 - 'a' + 10) << 4) +
+      ((isdigit(c2) ? c2 - '0' : c2 - 'a' + 10));
+  }
+  *out_len = in_len / 2;
+  return (m_result);
 }
 
 #endif /* !UNIV_HOTBACKUP */
