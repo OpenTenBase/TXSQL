@@ -1,0 +1,21 @@
+--source include/have_debug.inc
+
+--echo # Create tables ...
+--source suite/standard_benchmarks/inc/tpch_create_tables.inc
+--echo # Load data ...
+--source suite/standard_benchmarks/inc/tpch_load.inc
+--echo # Analyze tables ...
+analyze table customer, lineitem, nation, orders, part, partsupp, region, supplier;
+
+set session debug = '+d,filesort_force_sort_row_ids';
+explain format=tree SELECT DISTINCT STRAIGHT_JOIN SQL_BIG_RESULT SQL_SMALL_RESULT SQL_NO_CACHE
+lineitem.L_RETURNFLAG from lineitem order by L_RETURNFLAG desc;
+
+SELECT DISTINCT STRAIGHT_JOIN SQL_BIG_RESULT SQL_SMALL_RESULT SQL_NO_CACHE
+lineitem.L_RETURNFLAG from lineitem order by L_RETURNFLAG desc;
+set session debug = '-d,filesort_force_sort_row_ids';
+--echo #
+--echo # Test end
+--echo #
+--echo # Cleanup, drop testing tables ...
+--source suite/standard_benchmarks/inc/tpch_drop.inc

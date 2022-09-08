@@ -1542,6 +1542,18 @@ uint Sort_param::make_sortkey(Bounds_checked_array<uchar> dst,
     DBUG_PRINT("info", ("make_sortkey %p %u", orig_to,
                         static_cast<unsigned>(to - p_len)));
   } else {
+#if defined(HAVE_PX)
+    /*
+      The consumer side of parallel query Exchange operators does not support
+      row_id sorting temporarily, and the producer side will not send row_id
+      data to the consumer side. Therefore, the step of constructing a sort
+      key based on row_id is skipped here.
+    */
+    if (is_skip_write_ref()) {
+      assert(!current_thd || PX_ROLE_COORDINATOR(current_thd));
+      return to - orig_to;
+    }
+#endif /* defined(HAVE_PX) */
     if (static_cast<size_t>(to_end - to) < sum_ref_length) {
       return UINT_MAX;
     }

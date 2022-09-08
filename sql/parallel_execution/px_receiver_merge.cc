@@ -77,6 +77,8 @@ bool PX_receiver_merge::Init() {
   SwitchSlice(m_join, curr_slice);
 
   if (m_sort_param) {
+    // Don't write handler::ref to sort key now.
+    m_sort_param->px_skip_write_ref();
     /*
       Parallel query merge sort will use two temporary buffers to save the sort key.
       By default, the length of the sort key is set to Sort_param::m_fixed_rec_length.

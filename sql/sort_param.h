@@ -465,6 +465,10 @@ class Sort_param {
 
   static const uint size_of_varlength_field = 4;
 
+#if defined(HAVE_PX)
+  void px_skip_write_ref() { m_skip_write_ref = true; }
+  bool is_skip_write_ref() { return m_skip_write_ref; }
+#endif /* defined(HAVE_PX) */
  private:
   /// Counts number of varlen keys
   int count_varlen_keys() const {
@@ -481,7 +485,9 @@ class Sort_param {
   bool m_using_packed_addons{false};
   int m_num_varlen_keys{0};  ///< number of varlen keys
   int m_num_json_keys{0};    ///< number of JSON keys
-
+#if defined(HAVE_PX)
+  bool m_skip_write_ref{false};
+#endif /* defined(HAVE_PX) */
  public:
   Sort_param() = default;
   // Not copyable.
