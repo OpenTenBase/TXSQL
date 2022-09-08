@@ -82,6 +82,8 @@ Database: information_schema
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
 | CDB_SQL_FILTER_INFO                   |
+| CDB_SLAVE_THREAD_STATUS               |
+| CDB_SQL_STATISTICS                    |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -168,6 +170,8 @@ Database: INFORMATION_SCHEMA
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
 | CDB_SQL_FILTER_INFO                   |
+| CDB_SLAVE_THREAD_STATUS               |
+| CDB_SQL_STATISTICS                    |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |

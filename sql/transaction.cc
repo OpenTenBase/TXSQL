@@ -67,6 +67,7 @@ void trans_track_end_trx(THD *thd) {
 /**
   Helper: transaction ended, SET TRANSACTION one-shot variables
   revert to session values. Let the transaction state tracker know.
+  Also, we treat binlog_format in the familiar way.
 */
 void trans_reset_one_shot_chistics(THD *thd) {
   if (thd->variables.session_track_transaction_info > TX_TRACK_NONE) {
@@ -77,6 +78,7 @@ void trans_reset_one_shot_chistics(THD *thd) {
 
   thd->tx_isolation = (enum_tx_isolation)thd->variables.transaction_isolation;
   thd->tx_read_only = thd->variables.transaction_read_only;
+  thd->variables.binlog_format= thd->get_save_binlog_format();
 }
 
 /**

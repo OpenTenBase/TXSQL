@@ -78,7 +78,6 @@
 #include "mysql/psi/mysql_statement.h"
 #include "mysql/psi/mysql_thread.h"
 #include "mysql/thread_type.h"
-#include "mysql_com.h"
 #include "mysql_com_server.h"  // NET_SERVER
 #include "mysqld_error.h"
 #include "pfs_thread_provider.h"
@@ -111,6 +110,7 @@
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "violite.h"
+#include "sql/opt_statistics.h"
 
 enum enum_check_fields : int;
 enum enum_tx_isolation : int;
@@ -1857,6 +1857,28 @@ class THD : public MDL_context_owner,
     logged.  This can only be set from @c decide_logging_format().
   */
   enum_binlog_format current_stmt_binlog_format;
+
+  /*
+    Save thd->variables.binlog_fromat in which current session will be
+    logged. Store save_binlog_format to thd->variables.binlog_fromat
+    after every transaction.
+  */
+  ulong save_binlog_format;
+
+public:
+  ulong get_save_binlog_format()
+  {
+    return save_binlog_format;
+  }
+
+  void set_save_binlog_format()
+  {
+    save_binlog_format = variables.binlog_format;
+  }
+
+  void optimize_large_trans_binlog_if_possible();
+
+private:
 
   /**
     Bit field for the state of binlog warnings.

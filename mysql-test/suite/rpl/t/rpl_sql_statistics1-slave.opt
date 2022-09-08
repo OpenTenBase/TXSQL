@@ -1,0 +1,5 @@
+--skip-performance-schema-consumer-statements-digest
+--cdb_optimize_large_trans_binlog=ON
+--cdb_optimize_large_trans_binlog_last_affected_rows_threshold=1
+--cdb_optimize_large_trans_binlog_aver_affected_rows_threshold=1
+--cdb_sql_statistics=ON

@@ -311,7 +311,9 @@ int mysql_parser_get_statement_digest(MYSQL_THD thd, uchar *digest) {
                 "If you change the digest hash, PARSER_SERVICE_DIGEST_LENGTH "
                 "needs to adjust");
 
-  if (thd->m_digest == nullptr) return true;
+  if (thd->m_digest == NULL ||
+      thd->m_digest->m_digest_storage.m_byte_count == 0)
+    return true;
   compute_digest_hash(&thd->m_digest->m_digest_storage, digest);
   return false;
 }

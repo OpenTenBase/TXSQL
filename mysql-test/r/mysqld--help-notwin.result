@@ -338,6 +338,10 @@ The following options may be given as the first argument:
  seperator in sql filter rule,only the first character of
  this var is seperator.If var length is 0, ',' is default
  seperatorSee Cdb_Sql_Filter_Manager::get_seperator
+ --cdb-sql-statistics 
+ sql statistics switch.
+ --cdb-sql-statistics-info-threshold=# 
+ cdb_sql_statistics_info threshold in the map.
  --cdb-tencentroot-audit-action-enabled 
  tencentroot audit switch
  --cdb-tencentroot-slow-log-enabled 
@@ -1851,10 +1855,18 @@ cdb-query-memory-profile-enabled FALSE
 cdb-query-memory-profile-max-stage-num 100
 cdb-query-memory-stack-enabled FALSE
 cdb-session-var-privilege-check-enabled FALSE
+cdb-kill-user-extra (No default value)
+cdb-optimize-large-trans-binlog FALSE
+cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
+cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
+cdb-recycle-bin-db-not-visible TRUE
+cdb-recycle-bin-enabled FALSE
 cdb-skip-event-scheduler FALSE
 cdb-sql-filter (No default value)
 cdb-sql-filter-enable FALSE
 cdb-sql-filter-seperator ,
+cdb-sql-statistics FALSE
+cdb-sql-statistics-info-threshold 10000
 cdb-tencentroot-audit-action-enabled FALSE
 cdb-tencentroot-slow-log-enabled FALSE
 character-set-client-handshake TRUE

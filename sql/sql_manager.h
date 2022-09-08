@@ -25,5 +25,6 @@
 
 void start_handle_manager();
 void stop_handle_manager();
+void start_cdb_sql_statistics_clear_expired_info_thread();
 
 #endif /* SQL_MANAGER_INCLUDED */

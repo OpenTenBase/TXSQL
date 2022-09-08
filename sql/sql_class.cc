@@ -1121,6 +1121,7 @@ void THD::init(void) {
   thd_tx_priority = 0;
   update_charset();
   reset_current_stmt_binlog_format_row();
+  save_binlog_format = variables.binlog_format;
   reset_binlog_local_stmt_filter();
   memset(&status_var, 0, sizeof(status_var));
   binlog_row_event_extra_data = nullptr;
@@ -3009,6 +3010,44 @@ bool THD::is_current_stmt_binlog_disabled() const {
           !mysql_bin_log.is_open());
 }
 
+void THD::optimize_large_trans_binlog_if_possible()
+{
+  if (!cdb_optimize_large_trans_binlog)
+    return;
+
+  if (!(lex->sql_command == SQLCOM_DELETE ||
+      lex->sql_command == SQLCOM_UPDATE ||
+      lex->sql_command == SQLCOM_INSERT_SELECT))
+    return;
+
+  if (in_multi_stmt_transaction_mode())
+    return;
+
+  if (tx_isolation >= ISO_REPEATABLE_READ &&
+      (variables.binlog_format == BINLOG_FORMAT_STMT ||
+       variables.binlog_format == BINLOG_FORMAT_MIXED))
+    return;
+
+  if (!sql_statistics_stmt_binlog_format_if_possible(this))
+    return;
+
+  //if (!pre_decide_logging_format_and_stmt_if_possible(tables)) {
+    /* mark here once and only once, and the statement
+    will blocked by sql_statistics_stmt_binlog_format_if_possible above */
+    //sql_statistics_mark_sql_digest(this, false);
+    //return;
+  //}
+
+  if (tx_isolation < ISO_REPEATABLE_READ)
+    tx_isolation = ISO_REPEATABLE_READ;
+
+  if (variables.binlog_format == BINLOG_FORMAT_ROW) {
+    save_binlog_format = variables.binlog_format;
+    variables.binlog_format= BINLOG_FORMAT_MIXED;
+    reset_current_stmt_binlog_format_row();
+  }
+}
+
 bool THD::is_current_stmt_binlog_log_replica_updates_disabled() const {
   return ((!opt_bin_log || (slave_thread && !opt_log_replica_updates)) ||
           !mysql_bin_log.is_open());
@@ -3279,6 +3318,7 @@ void Transactional_ddl_context::post_ddl() {
 
 void my_ok(THD *thd, ulonglong affected_rows, ulonglong id,
            const char *message) {
+  sql_statistics_update_info(thd, affected_rows);
   thd->set_row_count_func(affected_rows);
   thd->get_stmt_da()->set_ok_status(affected_rows, id, message);
 }

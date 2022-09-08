@@ -579,6 +579,7 @@ bool Sql_cmd_dml::execute(THD *thd) {
     on metadata about tables used and not data from them.
   */
   if (!is_empty_query()) {
+    thd->optimize_large_trans_binlog_if_possible();
     if (lock_tables(thd, lex->query_tables, lex->table_count, 0)) goto err;
   }
 

@@ -1,0 +1,92 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CREATE TABLE `t1` (
+`c1` int(11),
+`c2` int(11)
+) ENGINE=InnoDB;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+show global variables like "%cdb_sql_statistics%";
+Variable_name	Value
+cdb_sql_statistics	ON
+cdb_sql_statistics_info_threshold	10000
+set session transaction isolation level read committed;
+insert into t1 values(10,10),(20,20), (30, 30), (40, 40);
+delete from t1;
+SELECT * FROM  information_schema.CDB_SQL_STATISTICS;
+DIGEST_MD5	648ac29b93e6a26e394fa82725aa3968c1fe12603f512fa491c50b64e2226adf
+DIGEST_TEXT	DELETE FROM `t1`
+SQL_COMMAND	DELETE
+FIRST_UPDATE_TIMESTAMP	#
+LAST_UPDATE_TIMESTAMP	#
+LAST_ACCESS_TIMESTAMP	#
+EXECUTE_COUNT	1
+TOTAL_AFFECTED_ROWS	4
+AVER_AFFECTED_ROWS	4
+LAST_AFFECTED_ROWS	4
+STMT_BINLOG_FORMAT_IF_POSSIBLE	TRUE
+insert into t1 values(10,10),(20,20), (30, 30), (40, 40);
+delete from t1;
+SELECT * FROM  information_schema.CDB_SQL_STATISTICS;
+DIGEST_MD5	648ac29b93e6a26e394fa82725aa3968c1fe12603f512fa491c50b64e2226adf
+DIGEST_TEXT	DELETE FROM `t1`
+SQL_COMMAND	DELETE
+FIRST_UPDATE_TIMESTAMP	#
+LAST_UPDATE_TIMESTAMP	#
+LAST_ACCESS_TIMESTAMP	#
+EXECUTE_COUNT	2
+TOTAL_AFFECTED_ROWS	8
+AVER_AFFECTED_ROWS	4
+LAST_AFFECTED_ROWS	4
+STMT_BINLOG_FORMAT_IF_POSSIBLE	TRUE
+set global cdb_optimize_large_trans_binlog=OFF;
+delete from t1;
+SELECT * FROM  information_schema.CDB_SQL_STATISTICS;
+DIGEST_MD5	648ac29b93e6a26e394fa82725aa3968c1fe12603f512fa491c50b64e2226adf
+DIGEST_TEXT	DELETE FROM `t1`
+SQL_COMMAND	DELETE
+FIRST_UPDATE_TIMESTAMP	#
+LAST_UPDATE_TIMESTAMP	#
+LAST_ACCESS_TIMESTAMP	#
+EXECUTE_COUNT	3
+TOTAL_AFFECTED_ROWS	8
+AVER_AFFECTED_ROWS	2
+LAST_AFFECTED_ROWS	0
+STMT_BINLOG_FORMAT_IF_POSSIBLE	TRUE
+set global cdb_optimize_large_trans_binlog=ON;
+set global cdb_sql_statistics_info_threshold=0;
+SELECT * FROM  information_schema.CDB_SQL_STATISTICS;
+set global cdb_sql_statistics_info_threshold=10000;
+select * from t1;
+c1	c2
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000001	#	Query	#	#	use `test`; CREATE TABLE `t1` (
+`c1` int(11),
+`c2` int(11)
+) ENGINE=InnoDB
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Delete_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Query	#	#	use `test`; delete from t1
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+select * from t1;
+c1	c2
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

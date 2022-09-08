@@ -969,6 +969,7 @@ MySQL clients support the protocol:
 #include "sql/server_component/mysql_server_keyring_lockable_imp.h"
 #include "sql/server_component/persistent_dynamic_loader_imp.h"
 #include "sql/srv_session.h"
+#include "sql/opt_statistics.h"
 
 #include "sql/opt_statistics.h"
 #include "my_md5.h"
@@ -1231,6 +1232,11 @@ ulong opt_myisam_conversion_innodb;
 ulong opt_tencent_myisam_conversion_innodb;
 const char *myisam_conversion_innodb_names[]=
 { "OFF", "WARN", "ON", "TRY", NullS };
+bool cdb_optimize_large_trans_binlog = false;
+bool cdb_sql_statistics = false;
+ulonglong cdb_sql_statistics_info_threshold = 10000;
+ulonglong cdb_optimize_large_trans_binlog_last_affected_rows_threshold = 10000;
+ulonglong cdb_optimize_large_trans_binlog_aver_affected_rows_threshold = 10000;
 
 #if defined(_WIN32)
 /*
@@ -2626,6 +2632,7 @@ static void clean_up(bool print_message) {
   servers_free(true);
   acl_free(true);
   grant_free();
+  sql_statistics_deinit();
   hostname_cache_free();
   range_optimizer_free();
   item_func_sleep_free();
@@ -6242,6 +6249,8 @@ static int init_server_components() {
       have_statement_timeout = SHOW_OPTION_YES;
   }
 
+  sql_statistics_init();
+
   randominit(&sql_rand, (ulong)server_start_time, (ulong)server_start_time / 2);
   setup_fpu();
 
@@ -8425,6 +8434,8 @@ int mysqld_main(int argc, char **argv)
 
   sql_print_information("%s is using '%s' malloc library", my_progname,
                         MALLOC_LIBRARY);
+
+  start_cdb_sql_statistics_clear_expired_info_thread();
 
   create_compress_gtid_table_thread();
 
@@ -12231,6 +12242,7 @@ PSI_thread_key key_thread_one_connection;
 PSI_thread_key key_thread_compress_gtid_table;
 PSI_thread_key key_thread_parser_service;
 PSI_thread_key key_thread_handle_con_admin_sockets;
+PSI_thread_key key_thread_sql_statistics_clear_expired_info;
 
 /* clang-format off */
 static PSI_thread_info all_server_threads[]=
@@ -12250,6 +12262,7 @@ PSI_FLAG_USER | PSI_FLAG_NO_SEQNUM, 0, PSI_DOCUMENT_ME},
   { &key_thread_compress_gtid_table, "compress_gtid_table", "gtid_zip", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_parser_service, "parser_service", "parser_srv", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_con_admin_sockets, "admin_interface", "con_admin", PSI_FLAG_USER, 0, PSI_DOCUMENT_ME},
+  { &key_thread_sql_statistics_clear_expired_info, "sql_statistics", "sql_stat", PSI_FLAG_USER, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 

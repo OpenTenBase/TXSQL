@@ -413,6 +413,12 @@ extern char *opt_protocol_compression_algorithms;
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
 
+extern bool cdb_optimize_large_trans_binlog;
+extern bool cdb_sql_statistics;
+extern ulonglong cdb_sql_statistics_info_threshold;
+extern ulonglong cdb_optimize_large_trans_binlog_last_affected_rows_threshold;
+extern ulonglong cdb_optimize_large_trans_binlog_aver_affected_rows_threshold;
+
 extern bool persisted_globals_load;
 extern bool opt_keyring_operations;
 extern bool opt_table_encryption_privilege_check;
@@ -527,6 +533,7 @@ extern PSI_thread_key key_thread_compress_gtid_table;
 extern PSI_thread_key key_thread_parser_service;
 extern PSI_thread_key key_thread_handle_con_admin_sockets;
 extern PSI_cond_key key_monitor_info_run_cond;
+extern PSI_thread_key key_thread_sql_statistics_clear_expired_info;
 
 extern PSI_file_key key_file_binlog;
 extern PSI_file_key key_file_binlog_index;

@@ -146,6 +146,7 @@
 #include "rpl_msr.h"
 #include "cdb_sql_filter.h"
 #include "sql/deadlock_history.h"
+#include "opt_statistics.h"
 
 /* @see dynamic_privileges_table.cc */
 bool iterate_all_dynamic_privileges(THD *thd,
@@ -3590,6 +3591,17 @@ int fill_deadlock_fields_info(THD* thd, TABLE_LIST* tables, Item* __attribute__(
 
 /* changes from txsql end. */
 
+int fill_sql_statistics_fields_info(THD* thd, TABLE_LIST* tables,
+                                    Item* __attribute__((unused)))
+{
+  DBUG_TRACE;
+  assert((thd != NULL) && (tables != NULL));
+
+  TABLE *table = tables->table;
+
+  return sql_statistics_fill_i_s(thd, table);
+}
+
 /*****************************************************************************
   Status functions
 *****************************************************************************/
@@ -5450,6 +5462,22 @@ ST_FIELD_INFO deadlock_fields_info[] = {
 
 /* changes from txsql end. */
 
+ST_FIELD_INFO sql_statistics_fields_info[] =
+{
+  {"DIGEST_MD5", PARSER_SERVICE_DIGEST_LENGTH*2 , MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"DIGEST_TEXT", 1024, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"SQL_COMMAND", 16, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {"FIRST_UPDATE_TIMESTAMP", 0, MYSQL_TYPE_DATETIME, 0, 1, 0, 0},
+  {"LAST_UPDATE_TIMESTAMP", 0, MYSQL_TYPE_DATETIME, 0, 1, 0, 0},
+  {"LAST_ACCESS_TIMESTAMP", 0, MYSQL_TYPE_DATETIME, 0, 1, 0, 0},
+  {"EXECUTE_COUNT", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "", 0},
+  {"TOTAL_AFFECTED_ROWS", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "", 0},
+  {"AVER_AFFECTED_ROWS", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "", 0},
+  {"LAST_AFFECTED_ROWS", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "", 0},
+  {"STMT_BINLOG_FORMAT_IF_POSSIBLE", 16, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}
+};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -5492,6 +5520,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      fill_cdb_sql_filter_info, make_old_format, nullptr, false},
     {"TXSQL_DEADLOCK_HISTORY", deadlock_fields_info, fill_deadlock_fields_info,
      make_old_format, nullptr, false},
+    {"CDB_SQL_STATISTICS", sql_statistics_fields_info,
+     fill_sql_statistics_fields_info, make_old_format, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
 int initialize_schema_table(st_plugin_int *plugin) {
