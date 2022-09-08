@@ -10036,6 +10036,9 @@ ER_PX_OUT_OF_SORT_LOB
 ER_PX_DECODE_ERROR
   eng "Failed to decode field in PX_receiver."
 
+ER_PX_WORKER_NOT_USE_PX
+  eng "Worker does not use px as same as Coordinator."
+
 #
 # End of parallel execution specific messages to be sent to client
 #

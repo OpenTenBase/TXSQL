@@ -93,22 +93,6 @@ ulong get_parallel_degree_hint(const THD *thd, bool should_effect) {
  * @return true for error.
  */
 bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
-#if defined(HAVE_OPT_CTX)
-  if (OPT_CTX(thd).mode() == OPT_CTX_NATIVE) return false;
-#endif
-
-  // Check compatibility for parallel
-  if (thd->need_fallback ||
-      !thd->lex->pass_px_check ||
-      !thd->lex->check_px_execution()) {
-    thd->lex->pass_px_check = false;
-    return false;
-  }
-
-  // Initialize for PX_PRINT_ macros.
-  PX_EXECUTOR(thd) = nullptr;
-
-  // Check compatibility and get exchange points.
   std::vector<px_access_path::Split_Position> split_positions_all;
   std::vector<AccessPath *> mat_access_path;  // vector for MATERIALIZE and APPEND
                                          // that cross query block
@@ -116,6 +100,26 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   bool exchange_safe = false;
   bool is_stream = false;
   AccessPath *max_px_subpath = nullptr;  // Not used
+  size_t exchange_count = 0;
+  std::vector<px_access_path::Split_Position> split_positions;
+  std::list<QEP_TAB *> parallel_tab;  // Save all tabs to be parallel scanned.
+
+#if defined(HAVE_OPT_CTX)
+  if (OPT_CTX(thd).mode() == OPT_CTX_NATIVE) goto end;
+#endif
+
+  // Check compatibility for parallel
+  if (thd->need_fallback ||
+      !thd->lex->pass_px_check ||
+      !thd->lex->check_px_execution()) {
+    thd->lex->pass_px_check = false;
+    goto end;
+  }
+
+  // Initialize for PX_PRINT_ macros.
+  PX_EXECUTOR(thd) = nullptr;
+
+  // Check compatibility and get exchange points.
   (void)px_access_path::WalkAccessPathsForCompat(
       thd, root, nullptr, join, /*parallel_scan=*/true, /*root=*/true,
       /*root_all=*/true, ref_slice, max_px_subpath, is_stream, &mat_access_path,
@@ -126,35 +130,33 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   if (!thd->variables.txsql_parallel_degree &&
       get_parallel_degree_hint(thd, /*should_effect=*/true) == UINT_MAX32) {
     thd->lex->pass_px_check = false;
-    return false;
+    goto end;
   }
 
-  size_t exchange_count =
+  exchange_count =
       px_access_path::count_exchange_in_split_pos(&split_positions_all);
   if (split_positions_all.empty() || !exchange_count) {
     thd->lex->pass_px_check = false;
-    return false;
+    goto end;
   }
 
   // There must be parallel table node in split_positions_all.
   assert(exchange_count < split_positions_all.size());
 
   // Optimize
-  std::vector<px_access_path::Split_Position> split_positions;
-  std::list<QEP_TAB *> parallel_tab;  // Save all tabs to be parallel scanned.
   try {
     if (px_access_path::FindExchangeInjectPosition(thd, &split_positions_all,
                                                    &split_positions,
                                                    &parallel_tab)) {
       assert(0);
       thd->lex->pass_px_check = false;
-      return true;
+      goto error;
     }
   } catch (std::bad_alloc &) {
     thd->lex->pass_px_check = false;
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0),
              "finding possible exchange positions", "px_optimize()");
-    return true;
+    goto error;
   }
   if (!split_positions.size()) {
     thd->lex->pass_px_check = false;
@@ -167,7 +169,7 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
 #endif
 
   // Generate parallalized plan.
-  if (px_generate_plan(thd, &split_positions, &mat_access_path)) return true;
+  if (px_generate_plan(thd, &split_positions, &mat_access_path)) goto error;
 
   for (QEP_TAB *tab : parallel_tab) {
     tab->set_parallel_scan(true);
@@ -181,7 +183,16 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
 #endif
   thd->use_px = true;
 
+end:
+  if (!thd->use_px && thd->m_is_worker) {
+    my_error(ER_PX_WORKER_NOT_USE_PX, MYF(0));
+    return true;
+  }
+
   return false;
+
+error:
+  return true;
 }
 
 bool px_validate(THD *thd) {
