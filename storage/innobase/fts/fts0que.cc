@@ -2653,9 +2653,6 @@ static void fts_query_phrase_split(fts_query_t *query,
 
 func_exit:
   mem_heap_free(heap);
-  int r = malloc_trim(0);
-  if (r < 0)
-    ib::info() << "fts malloc_trim failed." ;
 
   /* Don't need it anymore. */
   query->matched = nullptr;
