@@ -3245,6 +3245,20 @@ Sql_cmd *PT_explain::make_cmd(THD *thd) {
   return ret;
 }
 
+Sql_cmd *PT_parse_ddl::make_cmd(THD *thd) {
+  LEX *const lex = thd->lex;
+
+  if (!m_ddl_stmt) return nullptr;
+
+  Sql_cmd *ret = m_ddl_stmt->make_cmd(thd);
+  if (ret == nullptr) return nullptr;  // OOM
+
+  lex->parse_command = ret->sql_command_code();
+  lex->sql_command = SQLCOM_PARSE_STATEMENT;
+
+  return ret;
+}
+
 Sql_cmd *PT_load_table::make_cmd(THD *thd) {
   LEX *const lex = thd->lex;
   Query_block *const select = lex->current_query_block();

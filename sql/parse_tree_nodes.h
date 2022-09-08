@@ -5146,6 +5146,17 @@ class PT_explain final : public Parse_tree_root {
   Parse_tree_root *const m_explainable_stmt;
 };
 
+class PT_parse_ddl final : public Parse_tree_root {
+ public:
+  PT_parse_ddl(Parse_tree_root *ddl_stmt)
+      : m_ddl_stmt(ddl_stmt) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Parse_tree_root *const m_ddl_stmt;
+};
+
 class PT_load_table final : public Parse_tree_root {
  public:
   PT_load_table(enum_filetype filetype, thr_lock_type lock_type,

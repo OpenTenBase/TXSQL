@@ -2489,6 +2489,7 @@ class Query_tables_list {
     the tables.
   */
   enum_sql_command sql_command;
+  enum_sql_command parse_command;
   /* Global list of all tables used by this statement */
   TABLE_LIST *query_tables;
   /* Pointer to next_global member of last element in the previous list. */

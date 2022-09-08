@@ -4899,7 +4899,8 @@ bool LEX::make_sql_cmd(Parse_tree_root *parse_tree) {
   m_sql_cmd = parse_tree->make_cmd(thd);
   if (m_sql_cmd == nullptr) return true;
 
-  assert(m_sql_cmd->sql_command_code() == sql_command);
+  assert(m_sql_cmd->sql_command_code() == sql_command
+	      || sql_command == SQLCOM_PARSE_STATEMENT);
 
   return false;
 }
