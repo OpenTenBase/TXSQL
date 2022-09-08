@@ -132,6 +132,7 @@
 #include "sql/xa/sql_cmd_xa.h"  // Sql_cmd_xa_*
 #include "sql_partition.h"
 #include "thr_lock.h"
+#include "sql/opt_statistics.h"
 
 class Item;
 
@@ -10395,6 +10396,8 @@ int THD::decide_logging_format(TABLE_LIST *tables) {
 #endif
           /* log in row format! */
           set_current_stmt_binlog_format_row_if_mixed();
+          /* Mark here if the sql would not binlog stmt format. */
+          sql_statistics_mark_non_stmt_binlog_of_sql_digest(this);
         }
       }
     }

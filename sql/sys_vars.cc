@@ -1399,6 +1399,8 @@ static bool binlog_format_check(sys_var *self, THD *thd, set_var *var) {
 static bool fix_binlog_format_after_update(sys_var *, THD *thd,
                                            enum_var_type type) {
   if (type == OPT_SESSION) thd->reset_current_stmt_binlog_format_row();
+
+  thd->set_save_binlog_format();
   return false;
 }
 
@@ -8022,4 +8024,41 @@ static Sys_var_ulonglong Sys_innodb_buffer_pool_transmit_interval(
     GLOBAL_VAR(innodb_buffer_pool_transmit_interval), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1, (ulonglong)~(intptr)0), DEFAULT(10),
     BLOCK_SIZE(1), ON_CHECK(0));
+
+static Sys_var_bool Sys_cdb_sql_statistics(
+  "cdb_sql_statistics", "sql statistics switch.",
+  GLOBAL_VAR(cdb_sql_statistics), CMD_LINE(OPT_ARG), DEFAULT(false),
+  NO_MUTEX_GUARD, NOT_IN_BINLOG,
+  ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_ulonglong Sys_cdb_sql_statistics_info_threshold(
+  "cdb_sql_statistics_info_threshold",
+  "cdb_sql_statistics_info threshold in the map.",
+  GLOBAL_VAR(cdb_sql_statistics_info_threshold), CMD_LINE(REQUIRED_ARG),
+  VALID_RANGE(0, (ulonglong)~(intptr)0), DEFAULT(10000),
+  BLOCK_SIZE(1), ON_CHECK(0));
+
+static Sys_var_bool Sys_cdb_optimize_large_trans_binlog(
+  "cdb_optimize_large_trans_binlog",
+  "Optimize large transaction binlog format from row to statement.",
+  GLOBAL_VAR(cdb_optimize_large_trans_binlog), CMD_LINE(OPT_ARG),
+  DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+  ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_ulonglong Sys_cdb_optimize_large_trans_binlog_last_affected_rows_threshold(
+  "cdb_optimize_large_trans_binlog_last_affected_rows_threshold",
+  "Optimize large transaction binlog format from row to statement, "
+  "and it's one of thresholds of sql tatistics.",
+  GLOBAL_VAR(cdb_optimize_large_trans_binlog_last_affected_rows_threshold),
+  CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, (ulonglong)~(intptr)0), DEFAULT(10000),
+  BLOCK_SIZE(1), ON_CHECK(0));
+
+static Sys_var_ulonglong Sys_cdb_optimize_large_trans_binlog_aver_affected_rows_threshold(
+  "cdb_optimize_large_trans_binlog_aver_affected_rows_threshold",
+  "Optimize large transaction binlog format from row to statement, "
+  "and it's one of thresholds of sql tatistics.",
+  GLOBAL_VAR(cdb_optimize_large_trans_binlog_aver_affected_rows_threshold),
+  CMD_LINE(REQUIRED_ARG),
+  VALID_RANGE(1, (ulonglong)~(intptr)0), DEFAULT(10000),
+  BLOCK_SIZE(1), ON_CHECK(0));
 /* Changes from txsql end. */

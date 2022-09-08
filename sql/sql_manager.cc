@@ -27,8 +27,6 @@
  *   o Flushing the tables every flush_time seconds.
  */
 
-#include "sql/sql_manager.h"
-
 #include <errno.h>
 #include <sys/types.h>
 #include <time.h>
@@ -50,6 +48,7 @@
 #include "sql/log.h"
 #include "sql/mysqld.h"    // flush_time
 #include "sql/sql_base.h"  // tdc_flush_unused_tables
+#include "sql/opt_statistics.h"
 
 static bool volatile manager_thread_in_use;
 static bool abort_manager;
@@ -101,6 +100,35 @@ static void *handle_manager(void *arg [[maybe_unused]]) {
   return (nullptr);
 }
 }  // extern "C"
+
+extern "C" void *cdb_sql_statistics_clear_expired_info_thread(void *arg __attribute__((unused)))
+{
+  my_thread_init();
+  while (!connection_events_loop_aborted())
+  {
+    sql_statistics_clear_expired_info_by_bg_thread();
+    my_sleep(1000000);
+  }
+  my_thread_end();
+  return (NULL);
+}
+
+void start_cdb_sql_statistics_clear_expired_info_thread()
+{
+  DBUG_ENTER("start_cdb_sql_statistics_clear_expired_info_thread");
+
+  my_thread_handle hThread;
+  int error;
+  if ((error= mysql_thread_create(key_thread_sql_statistics_clear_expired_info,
+                                  &hThread, &connection_attrib,
+                                  cdb_sql_statistics_clear_expired_info_thread,
+                                  0))) {
+    sql_print_warning("TXSQL: Can't cdb sql statistics clear "
+                      "expired info thread(errno= %d)", error);
+  }
+
+  DBUG_VOID_RETURN;
+}
 
 /* Start handle manager thread */
 void start_handle_manager() {

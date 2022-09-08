@@ -178,6 +178,7 @@
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "violite.h"
+
 /**
   Changes from txsql start.
 */
@@ -188,6 +189,7 @@
 #include "sql/sql_initialize.h"     // opt_initialize_insecure
 #include "bp_sync.h"
 #include <netdb.h>
+#include "sql/opt_statistics.h"
 /**
   Changes from txsql end.
 */
@@ -5532,6 +5534,8 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
   invoke_pre_parse_rewrite_plugins(thd);
   thd->m_parser_state = nullptr;
 
+  enable_digest_if_any_feature_needs_it(parser_state);
+  
   // we produce digest if it's not explicitly turned off
   // by setting maximum digest length to zero
   if (get_max_digest_length() != 0)

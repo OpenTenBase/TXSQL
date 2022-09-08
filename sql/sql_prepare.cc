@@ -178,6 +178,7 @@ When one supplies long data for a placeholder:
 #include "sql/window.h"
 #include "sql_string.h"
 #include "violite.h"
+#include "sql/opt_statistics.h"
 
 namespace resourcegroups {
 class Resource_group;
@@ -2514,7 +2515,8 @@ bool Prepared_statement::prepare(const char *query_str, size_t query_length,
   thd->m_digest = &digest;
 
   parser_state.m_input.m_has_digest = true;
-
+  enable_digest_if_any_feature_needs_it(&parser_state);
+  
   // we produce digest if it's not explicitly turned off
   // by setting maximum digest length to zero
   if (get_max_digest_length() != 0)
