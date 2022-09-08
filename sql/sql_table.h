@@ -124,7 +124,8 @@ size_t build_tmptable_filename(THD *thd, char *buff, size_t bufflen);
 void mysql_reset_mdl_request_for_try(THD *thd);
 void mysql_convert_table_myisam_to_innodb(THD* thd, const char *type,
                                           const char *db, const char *table,
-                                          bool &converted, handlerton *&db_type);
+                                          bool &converted, handlerton *&db_type,
+                                          HA_CREATE_INFO *create_info);
 bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
                         HA_CREATE_INFO *create_info, Alter_info *alter_info,
                         bool &converted);
