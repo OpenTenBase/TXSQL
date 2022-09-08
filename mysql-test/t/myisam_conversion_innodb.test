@@ -556,8 +556,65 @@ SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_inno
 
 --disable_warnings
 DROP TABLE IF EXISTS t1,t2,t3,t4;
-DROP DATABASE IF EXISTS mysqltest;
+
 --enable_warnings
+
+## test when the default engine is myisam, create table without
+## specified engine should turn out to be innodb engine.
+
+connection con_tencentroot;
+--let $restart_parameters=restart:--default-storage-engine=myisam
+--source include/restart_mysqld.inc
+--connection con_tencentroot
+SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
+SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
+
+CREATE TABLE t1 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+);
+--echo "t1 with myisam engine"
+SHOW CREATE TABLE t1;
+
+SET GLOBAL tencent_myisam_conversion_innodb=ON;
+
+CREATE TABLE t2 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+);
+--echo "t2 with innodb engine"
+SHOW CREATE TABLE t2;
+
+connect (conroot, localhost, root,'', mysqltest);
+
+connection conroot;
+CREATE TABLE t3 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+);
+--echo "t3 with myisam engine"
+SHOW CREATE TABLE t3;
+
+connection con_tencentroot;
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+SET GLOBAL myisam_conversion_innodb=ON;
+
+connection conroot;
+CREATE TABLE t4 (
+        col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        col2 varchar(30) NOT NULL
+);
+--echo "t4 with innodb engine"
+SHOW CREATE TABLE t4;
+
+connection con_tencentroot;
+
+SET GLOBAL myisam_conversion_innodb=@save_myisam_conversion_innodb;
+SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_innodb;
+
+DROP TABLE IF EXISTS t1, t2, t3, t4;
+DROP DATABASE IF EXISTS mysqltest;
 
 disconnect con_tencentroot;
 disconnect con_root;
+disconnect conroot;

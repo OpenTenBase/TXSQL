@@ -246,7 +246,8 @@ retry_assign_storage_engine:
                                        first_table->db,
                                        first_table->table_name,
                                        converted,
-                                       create_info.db_type);
+                                       create_info.db_type,
+                                       &create_info);
 
   ulong priv = 0;
   ulong priv_needed = ALTER_ACL;

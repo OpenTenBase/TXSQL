@@ -184,7 +184,7 @@ bool Sql_cmd_create_table::execute(THD *thd) {
 retry_assign_storage_engine:
   mysql_convert_table_myisam_to_innodb(thd, "create table", create_table->db,
                                        create_table->table_name, converted,
-                                       create_info.db_type);
+                                       create_info.db_type, &create_info);
 
   assert(create_info.db_type != nullptr);
   if ((m_alter_info->flags & Alter_info::ANY_ENGINE_ATTRIBUTE) != 0 &&
