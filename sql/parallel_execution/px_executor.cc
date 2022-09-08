@@ -28,6 +28,7 @@
 #include "sql/psi_memory_key.h"
 
 PSI_stage_info stage_running_task = {0, "Task runing", 0, PSI_DOCUMENT_ME};
+PSI_stage_info schedule_dfo_inner = {0, "Scheduling", 0, PSI_DOCUMENT_ME};
 
 extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
                          uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
@@ -981,6 +982,9 @@ bool PX_parallel_coordinator::schedule_dfo_pair_inner(worker_pool_t *worker_pool
   bool ret = false;
   int num_workers = worker_pool->num_workers;
   Worker_exec_ctx last_parent_desc(nullptr, num_workers);
+
+  thd()->enter_stage(&schedule_dfo_inner, nullptr, __FILE__,
+                     __FUNCTION__, __LINE__);
 
   std::vector<Dfo*> ready_dfos;
   while(true) {
