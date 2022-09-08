@@ -322,6 +322,25 @@ enum dict_fld_sys_virtual_enum {
   DICT_NUM_FIELDS__SYS_VIRTUAL = 5
 };
 
+/* The columns in SYS_INSTANT_COLS */
+enum dict_col_sys_instant_cols_enum {
+  DICT_COL__SYS_INSTANT_COLS__TABLE_ID	= 0,
+  DICT_COL__SYS_INSTANT_COLS__POS		= 1,
+  DICT_COL__SYS_INSTANT_COLS__DEF_VAL	= 2,
+  DICT_COL__SYS_INSTANT_COLS__DEF_LEN	= 3,
+  DICT_NUM_COLS__SYS_INSTANT_COLS		= 4
+};
+/* The field numbers in the SYS_INSTANT_COLS clustered index */
+enum dict_fld_sys_instant_cols_enum {
+  DICT_FLD__SYS_INSTANT_COLS__TABLE_ID	= 0,
+  DICT_FLD__SYS_INSTANT_COLS__POS		= 1,
+  DICT_FLD__SYS_INSTANT_COLS__DB_TRX_ID	= 2,
+  DICT_FLD__SYS_INSTANT_COLS__DB_ROLL_PTR	= 3,
+  DICT_FLD__SYS_INSTANT_COLS__DEF_VAL	= 4,
+  DICT_FLD__SYS_INSTANT_COLS__DEF_LEN	= 5,
+  DICT_NUM_FIELDS__SYS_INSTANT_COLS	= 6
+};
+
 /* A number of the columns above occur in multiple tables.  These are the
 length of thos fields. */
 constexpr uint32_t DICT_FLD_LEN_SPACE = 4;

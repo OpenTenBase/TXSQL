@@ -1,0 +1,67 @@
+--source include/have_debug.inc
+--source include/not_valgrind.inc
+--source include/have_case_sensitive_file_system.inc
+
+--echo #
+--echo # This test upgrades a 5.7 database with tables having instant column
+--echo #
+
+--echo # Stop the running server
+--source include/shutdown_mysqld.inc
+
+--copy_file $MYSQLTEST_VARDIR/std_data/data57_instant.zip $MYSQL_TMP_DIR/data57_instant.zip
+--file_exists $MYSQL_TMP_DIR/data57_instant.zip
+--exec unzip -qo $MYSQL_TMP_DIR/data57_instant.zip -d $MYSQL_TMP_DIR
+--let $DATADIR1 = $MYSQL_TMP_DIR/data57_instant
+--let $MYSQLD_LOG_UPGRADE = $MYSQLTEST_VARDIR/log/save_dd_upgrade_instant.log
+
+--echo # Restart the server with the unzipped datadir
+--replace_result $DATADIR1 DATADIR $MYSQLD_LOG_UPGRADE MYSQLD_LOG_UPGRADE
+--let $wait_counter=3000
+--let $restart_parameters = restart: --datadir=$DATADIR1 --innodb_page_size=16k --log-error=$MYSQLD_LOG_UPGRADE
+--source include/start_mysqld.inc
+
+SHOW TABLES;
+SELECT * FROM t1;
+select * from information_schema.INNODB_TABLES WHERE NAME='test/t1';
+SELECT * FROM information_schema.innodb_columns sc
+INNER JOIN information_schema.innodb_tables st
+ON sc.TABLE_ID=st.TABLE_ID
+WHERE st.NAME='test/t1' ORDER BY sc.pos, sc.NAME;
+
+ALTER TABLE t1 ADD COLUMN c2 INT, ALGORITHM=INSTANT;
+
+SELECT * FROM t1;
+select * from information_schema.INNODB_TABLES WHERE NAME='test/t1';
+SELECT * FROM information_schema.innodb_columns sc
+INNER JOIN information_schema.innodb_tables st
+ON sc.TABLE_ID=st.TABLE_ID
+WHERE st.NAME='test/t1' ORDER BY sc.pos, sc.NAME;
+
+--echo # Shutdown server
+--source include/shutdown_mysqld.inc
+
+--echo # Restart for checking.
+--replace_result $DATADIR1 DATADIR $MYSQLD_LOG_UPGRADE MYSQLD_LOG_UPGRADE
+--let $wait_counter=3000
+--let $restart_parameters = restart: --datadir=$DATADIR1 --innodb_page_size=16k --log-error=$MYSQLD_LOG_UPGRADE
+--source include/start_mysqld.inc
+
+SELECT * FROM t1;
+select * from information_schema.INNODB_TABLES WHERE NAME='test/t1';
+SELECT * FROM information_schema.innodb_columns sc
+INNER JOIN information_schema.innodb_tables st
+ON sc.TABLE_ID=st.TABLE_ID
+WHERE st.NAME='test/t1' ORDER BY sc.pos, sc.NAME;
+
+--echo # Cleanup
+--echo # Shutdown server
+--source include/shutdown_mysqld.inc
+
+--file_exists $MYSQL_TMP_DIR/data57_instant.zip
+--force-rmdir $MYSQL_TMP_DIR/data57_instant
+--remove_file $MYSQL_TMP_DIR/data57_instant.zip
+
+--echo # Restart the server
+let $restart_parameters =;
+--source include/start_mysqld.inc

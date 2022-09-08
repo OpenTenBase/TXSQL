@@ -954,6 +954,24 @@ bool dd_upgrade_table(THD *thd, const char *db_name, const char *table_name,
         dd_table_key_strings[DD_TABLE_DATA_DIRECTORY], true);
   }
 
+  if (ib_table->has_instant_cols()) {
+    dd_table->se_private_data().set(dd_table_key_strings[DD_TABLE_INSTANT_COLS],
+                                    ib_table->get_instant_cols());
+  }
+
+  for (uint16_t i = 0; i < ib_table->get_n_user_cols(); ++i) {
+    const dict_col_t *col = ib_table->get_col(i);
+    if (col->instant_default == nullptr) {
+      continue;
+    }
+
+    dd::Column *dd_col = const_cast<dd::Column *>(
+        dd_find_column(dd_table, ib_table->get_col_name(i)));
+    ut_ad(dd_col != nullptr);
+
+    dd_write_default_value(col, dd_col);
+  }
+
   /* Set row_type */
   dd_upgrade_set_row_type(ib_table, dd_table);
 
@@ -1374,8 +1392,15 @@ static void dd_upgrade_drop_sys_tables() {
   ut_ad(found);
   ut_ad(page_size.equals_to(univ_page_size));
 
-  for (uint32_t i = 0; i < SYS_NUM_SYSTEM_TABLES; i++) {
+  for (int32_t i = SYS_NUM_SYSTEM_TABLES - 1; i >= 0; i--) {
     dict_table_t *system_table = dict_table_get_low(SYSTEM_TABLE_NAME[i]);
+
+    /* Evict SYS_INSTANT_COLS for 8.0 upgrade test case, 
+    for the reason that they don't have SYS_INSTANT_COLS table. */
+    if (system_table == nullptr && i == SYS_INSTANT_COLS) {
+      continue;
+    }
+
     ut_ad(system_table != nullptr);
     ut_ad(system_table->space == SYSTEM_TABLE_SPACE);
 
@@ -1400,6 +1425,7 @@ static void dd_upgrade_drop_sys_tables() {
   dict_sys->sys_indexes = nullptr;
   dict_sys->sys_fields = nullptr;
   dict_sys->sys_virtual = nullptr;
+  dict_sys->sys_instant_cols = nullptr;
 
   dict_sys_mutex_exit();
 }

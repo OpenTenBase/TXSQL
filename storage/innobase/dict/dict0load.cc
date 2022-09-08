@@ -69,7 +69,9 @@ this array are referenced by enum dict_system_table_id. */
 const char *SYSTEM_TABLE_NAME[] = {
     "SYS_TABLES",      "SYS_INDEXES",   "SYS_COLUMNS",
     "SYS_FIELDS",      "SYS_FOREIGN",   "SYS_FOREIGN_COLS",
-    "SYS_TABLESPACES", "SYS_DATAFILES", "SYS_VIRTUAL"};
+    "SYS_TABLESPACES", "SYS_DATAFILES", "SYS_VIRTUAL",
+    "SYS_INSTANT_COLS" // For 5.7 instant add column. 
+};
 
 /** This variant is based on name comparision and is used because
 system table id array is not built yet.
@@ -820,6 +822,229 @@ static void dict_load_virtual(dict_table_t *table, mem_heap_t *heap) {
     dict_load_virtual_one_col(table, i, v_col, heap);
   }
 }
+
+/** Error message for a delete-marked record in dict_load_instant_col_low() */
+static const char* dict_load_instant_col_del = "delete-marked record in SYS_INSTANT_COLS";
+
+/** Loads an instantly added column information
+from a SYS_INSTANT_COLS record
+@param[in,out]	heap		memory heap
+@param[in,out]	column		base column's dict_column_t
+@param[in,out]	table_id	table id
+@param[in,out]	pos		column position
+@param[in]	rec		SYS_INSTANT_COLS record
+@return error message, or NULL on success */
+const char*
+dict_load_instant_col_low(
+  mem_heap_t*	heap,
+  dict_col_t*	column,
+  table_id_t*	table_id,
+  ulint*		pos,
+  const rec_t*	rec)
+{
+  const byte*	field;
+  ulint		len;
+  ulint		def_len;
+  instant_col_def_val_coder coder;
+
+  if (rec_get_deleted_flag(rec, 0)) {
+    return(dict_load_instant_col_del);
+  }
+
+  if (rec_get_n_fields_old_raw(rec) != DICT_NUM_FIELDS__SYS_INSTANT_COLS) {
+    return("wrong number of columns in SYS_INSTANT_COLS record");
+  }
+
+  field = rec_get_nth_field_old(
+    nullptr, rec, DICT_FLD__SYS_INSTANT_COLS__TABLE_ID, &len);
+  if (len != 8) {
+err_len:
+    return("incorrect column length in SYS_INSTANT_COLS");
+  }
+
+  if (table_id != NULL) {
+    *table_id = mach_read_from_8(field);
+  }
+
+  field = rec_get_nth_field_old(
+    nullptr, rec, DICT_FLD__SYS_INSTANT_COLS__POS, &len);
+  if (len != 4) {
+    goto err_len;
+  }
+
+  if (pos != NULL) {
+    *pos = mach_read_from_4(field);
+  }
+
+  rec_get_nth_field_offs_old(
+    nullptr, rec, DICT_FLD__SYS_INSTANT_COLS__DB_TRX_ID, &len);
+  if (len != DATA_TRX_ID_LEN && len != UNIV_SQL_NULL) {
+    goto err_len;
+  }
+
+  rec_get_nth_field_offs_old(
+    nullptr, rec, DICT_FLD__SYS_INSTANT_COLS__DB_ROLL_PTR, &len);
+  if (len != DATA_ROLL_PTR_LEN && len != UNIV_SQL_NULL) {
+    goto err_len;
+  }
+
+  field = rec_get_nth_field_old(
+    nullptr, rec, DICT_FLD__SYS_INSTANT_COLS__DEF_VAL, &len);
+
+  const char* def_val = NULL;
+  if (len > 0 && len != UNIV_SQL_NULL) {
+    def_val = reinterpret_cast<const char *>(field);
+  } else {
+    def_val = NULL;
+  }
+
+  field = rec_get_nth_field_old(
+    nullptr, rec, DICT_FLD__SYS_INSTANT_COLS__DEF_LEN, &len);
+  if (len != 4) {
+    goto err_len;
+  }
+
+  def_len = mach_read_from_4(field);
+
+  if (def_val == NULL) {
+    column->set_default(NULL, def_len, heap);
+  } else {
+    const byte *default_value;
+    default_value = coder.decode(def_val, def_len, &len);
+    column->set_default(default_value, len, heap);
+  }
+
+  return(NULL);
+}
+
+/** Loads SYS_INSTANT_COLS info for one instantly added column
+@param[in,out]	table		table
+@param[in]	nth_col		column position
+@param[in,out]	col		instant added column
+@param[in,out]	heap		memory heap
+*/
+static
+void
+dict_load_instant_one_col(
+  dict_table_t*	table,
+  ulint		nth_col,
+  dict_col_t*	col,
+  mem_heap_t*	heap)
+{
+  dict_table_t*	sys_instant_cols;
+  dict_index_t*	sys_instant_cols_index;
+  btr_pcur_t	pcur;
+  dtuple_t*	tuple;
+  dfield_t*	dfield;
+  const rec_t*	rec;
+  byte*		buf;
+  mtr_t		mtr;
+  table_id_t	table_id;
+  const char*	err_msg;
+  ulint		pos;
+
+  ut_ad(mutex_own(&dict_sys->mutex));
+
+  mtr_start(&mtr);
+
+  sys_instant_cols = dict_table_get_low("SYS_INSTANT_COLS");
+  sys_instant_cols_index = UT_LIST_GET_FIRST(sys_instant_cols->indexes);
+  ut_ad(!dict_table_is_comp(sys_instant_cols));
+
+  ut_ad(name_of_col_is(sys_instant_cols, sys_instant_cols_index,
+           DICT_FLD__SYS_INSTANT_COLS__POS, "POS"));
+
+  tuple = dtuple_create(heap, 2);
+
+  /* table ID field */
+  dfield = dtuple_get_nth_field(tuple, 0);
+
+  buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+  mach_write_to_8(buf, table->id);
+
+  dfield_set_data(dfield, buf, 8);
+
+  /* column pos field */
+  dfield = dtuple_get_nth_field(tuple, 1);
+
+  buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+  mach_write_to_4(buf, nth_col);
+
+  dfield_set_data(dfield, buf, 4);
+
+  dict_index_copy_types(tuple, sys_instant_cols_index, 2);
+
+  pcur.open_on_user_rec(sys_instant_cols_index, tuple, PAGE_CUR_GE, BTR_SEARCH_LEAF, &mtr,
+                        UT_LOCATION_HERE);
+  ut_a(pcur.is_on_user_rec());
+
+  rec = pcur.get_rec();
+
+  err_msg = dict_load_instant_col_low(table->heap,
+              col, &table_id,
+              &pos, rec);
+
+  if (err_msg) {
+    if (err_msg != dict_load_instant_col_del) {
+      ib::fatal(UT_LOCATION_HERE, ER_IB_MSG_187) << err_msg;
+    }
+  } else {
+    ut_ad(pos == nth_col && table_id == table->id);
+  }
+
+  pcur.close();
+  mtr_commit(&mtr);
+}
+
+/** Loads info from SYS_INSTANT_COLS for instantly added columns.
+@param[in,out]	table	table
+@param[in]	heap	memory heap
+*/
+static
+void
+dict_load_instant_cols(
+  dict_table_t*	table,
+  mem_heap_t*	heap)
+{
+  if (table->n_instant_cols == 0
+      || table->n_instant_cols == table->n_cols) {
+    return;
+  }
+
+  ut_ad(table->n_cols - table->n_instant_cols > 0);
+  ulint n_instant_cols = table->n_cols - table->n_instant_cols;
+  for (ulint i = 0; i < n_instant_cols; i++) {
+    ulint pos = table->get_instant_cols() + i;
+    dict_col_t* col = table->get_col(pos);
+
+    dict_load_instant_one_col(table, pos, col, heap);
+    ut_ad(col->instant_default != NULL);
+  }
+}
+
+/********************************************************************//**
+This function parses a SYS_INSTANT_COLS record and populate a dict_column_t
+structure with the information from the record.
+@return error message, or NULL on success */
+const char*
+dict_process_sys_instant_cols_rec(
+/*==============================*/
+  mem_heap_t*	heap,		/*!< in/out: heap memory */
+  const rec_t*	rec,		/*!< in: current SYS_INSTANT_COLS rec */
+  dict_col_t*	column,		/*!< out: dict_col_t to be filled */
+  table_id_t*	table_id)	/*!< out: table id */
+{
+  const char*	err_msg;
+  ulint		pos;
+
+  /* Parse the record, and get "dict_col_t" struct filled */
+  err_msg = dict_load_instant_col_low(heap, column, table_id,
+              &pos, rec);
+  column->ind = pos;
+
+  return(err_msg);
+}
+
 /** Error message for a delete-marked record in dict_load_field_low() */
 static const char *dict_load_field_del = "delete-marked record in SYS_FIELDS";
 
@@ -1370,14 +1595,17 @@ static inline space_id_t dict_check_sys_tablespaces(bool validate) {
 @param[out]     table_id        Pointer to the table_id for this table
 @param[out]     space_id        Pointer to the space_id for this table
 @param[out]     n_cols          Pointer to number of columns for this table.
+@param[out]	    n_cols_before_instant   
+                                Pointer to number of columns before first
+                                instantly adding column.
 @param[out]     flags           Pointer to table flags
 @param[out]     flags2          Pointer to table flags2
 @return true if the record was read correctly, false if not. */
 static bool dict_sys_tables_rec_read(const rec_t *rec,
                                      const table_name_t &table_name,
                                      table_id_t *table_id, space_id_t *space_id,
-                                     uint32_t *n_cols, uint32_t *flags,
-                                     uint32_t *flags2) {
+                                     uint32_t *n_cols, uint32_t *n_cols_before_instant,
+                                     uint32_t *flags, uint32_t *flags2) {
   const byte *field;
   ulint len;
   uint32_t type;
@@ -1424,6 +1652,10 @@ static bool dict_sys_tables_rec_read(const rec_t *rec,
   }
 
   *flags = dict_sys_tables_type_to_tf(type, *n_cols);
+
+  /* Get n_cols_before_instant from SYS_TABLES.MIX_ID */
+  field = rec_get_nth_field_old(nullptr, rec, DICT_FLD__SYS_TABLES__MIX_ID, &len);
+  *n_cols_before_instant = mach_read_from_8(field);
 
   /* Get flags2 from SYS_TABLES.MIX_LEN */
   field =
@@ -1477,6 +1709,7 @@ static inline space_id_t dict_check_sys_tables(bool validate) {
     table_id_t table_id;
     space_id_t space_id;
     uint32_t n_cols;
+    uint32_t n_cols_before_instant;
     uint32_t flags;
     uint32_t flags2;
     const char *tbl_name;
@@ -1495,8 +1728,8 @@ static inline space_id_t dict_check_sys_tables(bool validate) {
     DBUG_PRINT("dict_check_sys_tables",
                ("name: %p, '%s'", table_name.m_name, table_name.m_name));
 
-    dict_sys_tables_rec_read(rec, table_name, &table_id, &space_id, &n_cols,
-                             &flags, &flags2);
+    dict_sys_tables_rec_read(rec, table_name, &table_id, &space_id, &n_cols, 
+                             &n_cols_before_instant, &flags, &flags2);
     if (flags == UINT32_UNDEFINED ||
         fsp_is_system_or_temp_tablespace(space_id)) {
       ut_ad(!fsp_is_undo_tablespace(space_id));
@@ -2052,6 +2285,7 @@ static const char *dict_load_table_low(table_name_t &name, const rec_t *rec,
   table_id_t table_id;
   space_id_t space_id;
   uint32_t n_cols;
+  uint32_t n_cols_before_instant;
   uint32_t t_num;
   uint32_t flags;
   uint32_t flags2;
@@ -2062,8 +2296,8 @@ static const char *dict_load_table_low(table_name_t &name, const rec_t *rec,
     return (error_text);
   }
 
-  dict_sys_tables_rec_read(rec, name, &table_id, &space_id, &t_num, &flags,
-                           &flags2);
+  dict_sys_tables_rec_read(rec, name, &table_id, &space_id, &t_num, 
+                           &n_cols_before_instant, &flags, &flags2);
 
   if (flags == UINT32_UNDEFINED) {
     return ("incorrect flags in SYS_TABLES");
@@ -2082,6 +2316,10 @@ static const char *dict_load_table_low(table_name_t &name, const rec_t *rec,
 
   (*table)->id = table_id;
   (*table)->ibd_file_missing = false;
+
+  if (srv_is_upgrade_mode && n_cols_before_instant != 0) {
+    (*table)->n_instant_cols = n_cols_before_instant;
+  }
 
   return (nullptr);
 }
@@ -2461,6 +2699,10 @@ static dict_table_t *dict_load_table_one(table_name_t &name, bool cached,
   dict_load_columns(table, heap);
 
   dict_load_virtual(table, heap);
+
+  if (srv_is_upgrade_mode) {
+    dict_load_instant_cols(table, heap);
+  }
 
   dict_table_add_system_columns(table, heap);
 
