@@ -105,7 +105,9 @@ bool px_optimize(THD *thd, JOIN *join, AccessPath *root) {
   std::list<QEP_TAB *> parallel_tab;  // Save all tabs to be parallel scanned.
 
 #if defined(HAVE_OPT_CTX)
-  if (OPT_CTX(thd).mode() == OPT_CTX_NATIVE) goto end;
+  if (OPT_CTX(thd).mode() == OPT_CTX_NATIVE ||
+      OPT_CTX(thd).mode() == OPT_CTX_ERROR)
+    return false;
 #endif
 
   // Check compatibility for parallel
