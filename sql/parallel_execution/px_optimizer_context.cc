@@ -387,7 +387,8 @@ void Opt_ctx_client::end_optimization() {
 
 bool Opt_ctx_client::validate() {
   OPT_CTX_TRACE_CLIENT("validate");
-  if (m_nested_level > 0 || m_mode  == OPT_CTX_NATIVE) return false;
+  if (m_nested_level > 0 || m_mode  == OPT_CTX_NATIVE || m_mode == OPT_CTX_ERROR)
+    return false;
 
   const char *error_type = nullptr;
 
@@ -443,6 +444,8 @@ inline const char *to_str(enum enum_opt_ctx_mode mode) {
       return "record";
     case OPT_CTX_REPLAY:
       return "replay";
+    case OPT_CTX_ERROR:
+      return "error";
     default:
       return "?";
   }
@@ -585,7 +588,10 @@ int Opt_ctx_client::info(TABLE *table, uint flag) {
       table->alias, flag);
 
   // See the comment of m_optimizing.
-  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(table))
+  if (!m_optimizing ||
+      m_mode == OPT_CTX_NATIVE ||
+      m_mode == OPT_CTX_ERROR ||
+      ignore_table(table))
     return 0;
 
   assert(m_mode != OPT_CTX_NATIVE);
@@ -644,7 +650,8 @@ ha_rows Opt_ctx_client::records_in_range(TABLE *table, uint keyno,
                                   key_range *max_endp) {
   ha_rows rows;
 
-  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(table))
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE ||
+      m_mode == OPT_CTX_ERROR || ignore_table(table))
     rows = table->file->records_in_range(keyno, min_endp, max_endp);
   else {
     int err = true;
@@ -688,7 +695,8 @@ end:
 bool Opt_ctx_client::has_records_per_key(const KEY *key, uint key_part_no) {
   bool has;
 
-  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(key->table))
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE ||
+      m_mode == OPT_CTX_ERROR || ignore_table(key->table))
     has = key->has_records_per_key_low(key_part_no);
   else {
     assert(key_part_no < key->actual_key_parts);
@@ -710,7 +718,8 @@ end:
 rec_per_key_t Opt_ctx_client::records_per_key(const KEY *key,
                                               uint key_part_no) {
   rec_per_key_t tmp_rec_per_key;
-  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(key->table))
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE ||
+      m_mode == OPT_CTX_ERROR || ignore_table(key->table))
     tmp_rec_per_key = key->records_per_key_low(key_part_no);
   else {
     assert(key_part_no < key->actual_key_parts);
@@ -754,7 +763,8 @@ void Opt_ctx_client::set_rec_per_key_array(KEY *key, ulong *rec_per_key_arg,
 
 double Opt_ctx_client::in_memory_estimate(const KEY *key) {
   double tmp_estimate;
-  if (!m_optimizing || m_mode == OPT_CTX_NATIVE || ignore_table(key->table))
+  if (!m_optimizing || m_mode == OPT_CTX_NATIVE ||
+      m_mode == OPT_CTX_ERROR || ignore_table(key->table))
     tmp_estimate = key->in_memory_estimate_low();
   else {
     if (m_opt_ctx->stats_cache()->get_in_memory_estimate(key, tmp_estimate)) {

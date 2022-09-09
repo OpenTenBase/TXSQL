@@ -38,6 +38,22 @@ SET txsql_optimizer_context_max_mem_size = 1;
 show variables like 'txsql_optimizer_context_max_mem_size';
 Variable_name	Value
 txsql_optimizer_context_max_mem_size	1
+explain SELECT * FROM t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using filesort
+Warnings:
+Warning	3170	Memory capacity of 1 bytes for 'ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT' exceeded. Optimization context cache isn't enabled due to memory limitation.
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+explain SELECT * FROM t1 order by a,b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Using filesort
+Warnings:
+Warning	3170	Memory capacity of 1 bytes for 'ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT' exceeded. Optimization context cache isn't enabled due to memory limitation.
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`a`,`test`.`t1`.`b`
+SELECT * FROM t1 order by a,b;
+ERROR HY000: Optimization context cache isn't enabled due to memory limitation.
+SELECT * FROM t1 order by a,b;
+ERROR HY000: Optimization context cache isn't enabled due to memory limitation.
 SELECT * FROM t1 order by a,b;
 ERROR HY000: Optimization context cache isn't enabled due to memory limitation.
 show status like '%txsql_parallel_stmt_%';
@@ -49,7 +65,7 @@ Txsql_parallel_stmt_hint_executed	0
 Txsql_parallel_stmt_thread_refused	0
 show status like '%txsql_max_optimizer_context%';
 Variable_name	Value
-Txsql_max_optimizer_context_memory_exceeded	1
+Txsql_max_optimizer_context_memory_exceeded	3
 DROP TABLE t1;
 SET txsql_optimizer_context_max_mem_size = default;
 
@@ -262,9 +278,7 @@ Variable_name	Value
 txsql_optimizer_context_max_mem_size	1
 explain select * from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	NULL
 Warnings:
 Warning	3170	Memory capacity of 1 bytes for 'ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT' exceeded. Optimization context cache isn't enabled due to memory limitation.
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1`

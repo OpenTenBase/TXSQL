@@ -34,6 +34,16 @@ SET txsql_optimizer_context_max_mem_size = 1;
 
 show variables like 'txsql_optimizer_context_max_mem_size';
 
+explain SELECT * FROM t1 order by a,b;
+
+explain SELECT * FROM t1 order by a,b;
+
+--error ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
+SELECT * FROM t1 order by a,b;
+
+--error ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
+SELECT * FROM t1 order by a,b;
+
 --error ER_PX_CAPACITY_EXCEEDED_IN_OPTIMIZER_CONTEXT
 SELECT * FROM t1 order by a,b;
 
