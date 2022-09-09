@@ -1773,7 +1773,7 @@ bool partition_info::set_up_charset_field_preps() {
   DBUG_TRACE;
 
   if (!(part_type == partition_type::HASH && list_of_part_fields) &&
-      check_part_func_fields(part_field_array, false)) {
+      check_part_func_fields(part_field_array, false) && isNotTDSQLTable()) {
     ptr = part_field_array;
     /* Set up arrays and buffers for those fields */
     while ((field = *(ptr++))) {
@@ -1804,7 +1804,7 @@ bool partition_info::set_up_charset_field_preps() {
     part_charset_field_array[i] = nullptr;
   }
   if (is_sub_partitioned() && !list_of_subpart_fields &&
-      check_part_func_fields(subpart_field_array, false)) {
+      check_part_func_fields(subpart_field_array, false) && isNotTDSQLTable()) {
     /* Set up arrays and buffers for those fields */
     ptr = subpart_field_array;
     while ((field = *(ptr++))) {
