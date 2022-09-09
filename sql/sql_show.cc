@@ -3098,8 +3098,13 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     else
       protocol->store(Command_names::str_session(thd_info->command).c_str(),
                       system_charset_info);
+    //now value is retrieved from time function, thd_info->start_time_in_secs
+    //retieved from another. These two values may have fraction different and
+    //cause -1 result.
+    longlong time = (longlong) (now - thd_info->start_time_in_secs);
+    if (time < 0) time = 0;
     if (thd_info->start_time_in_secs)
-      protocol->store_long((longlong)(now - thd_info->start_time_in_secs));
+      protocol->store_long((longlong)(time));
     else
       protocol->store_null();
     protocol->store(thd_info->state_info, system_charset_info);
