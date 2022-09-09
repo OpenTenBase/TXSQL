@@ -438,7 +438,12 @@ class partition_info {
   TDSQL_Shard_Table_Type_Enum m_tdsql_shard_type;
   void computePnoVec();
   void computeShardTableType();
-  
+
+  /* is not tdsql' table ,To distinguish it from a normal partition table */
+  inline bool isNotTDSQLTable() const {
+    return TDSQL_Shard_Table_Type_Other == m_tdsql_shard_type ;
+  }
+
   inline int getFirstIndexFromPartid(uint partid) const {
     if (likely(TDSQL_Shard_Table_Type_NormalShard == m_tdsql_shard_type)) {
       return (int)partid;
@@ -456,8 +461,8 @@ class partition_info {
   inline int getPnoFromPartid(uint partid) const {
     int index = getFirstIndexFromPartid(partid);
     if(unlikely(index < 0 || ((size_t)index) >= m_pNoVec.size())){
-      return -1; 
-    }   
+      return -1;
+    }
     return m_pNoVec[index];
   }
 

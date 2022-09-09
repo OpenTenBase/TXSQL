@@ -269,6 +269,7 @@ our @DEFAULT_SUITES = qw(
   component_keyring_file
   firewall_cdb_plugins
   tdsql_hide_partitions
+  tdsql
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

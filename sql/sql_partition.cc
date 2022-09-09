@@ -1565,10 +1565,12 @@ bool fix_partition_func(THD *thd, TABLE *table, bool is_create_table_ind) {
   if (((part_info->part_type != partition_type::HASH ||
         part_info->list_of_part_fields == false) &&
        !part_info->column_list &&
-       check_part_func_fields(part_info->part_field_array, true)) ||
+       check_part_func_fields(part_info->part_field_array, true) &&
+       part_info->isNotTDSQLTable()) ||
       (part_info->list_of_subpart_fields == false &&
        part_info->is_sub_partitioned() &&
-       check_part_func_fields(part_info->subpart_field_array, true))) {
+       check_part_func_fields(part_info->subpart_field_array, true) &&
+       part_info->isNotTDSQLTable())) {
     /*
       Range/List/HASH (but not KEY) and not COLUMNS or HASH subpartitioning
       with columns in the partitioning expression using unallowed charset.
