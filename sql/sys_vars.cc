@@ -7952,4 +7952,15 @@ static Sys_var_ulonglong Sys_binlog_write_threshold(
     " binlog, the transaction commit will fail.",
     GLOBAL_VAR(binlog_write_threshold), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, SIZE_T_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+extern uint32_t txsql_slave_wait_group_done;
+static Sys_var_uint Sys_txsql_slave_wait_group_done(
+    "txsql_slave_wait_group_done",
+    "when run cmd: stop slave, the slave's coordernate thread just received "
+    "unfinish's trx,it will check whether has new binlog events(for "
+    "txsql_slave_wait_group_done seconds)",
+    GLOBAL_VAR(txsql_slave_wait_group_done),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 200), DEFAULT(60), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
 /* Changes from txsql end. */
