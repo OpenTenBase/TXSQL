@@ -32,6 +32,7 @@ Rule::Rule(char *rule_string, int new_id, Rule_Type new_type,
       expired(false),
       origin_rule_str(new_origin_rule_str),
       type(new_type) {
+  deleted= false;
   rejected_sql_count = 0;
   created_time = time(NULL);
   if (new_expire_time > 0)
@@ -85,7 +86,12 @@ void Rule::handle_key_string(char *key_string) {
   if (key_words.size() == 0) type = END_RULE;
 }
 
+/*
+  return true means rejected by current rule
+*/
 bool Rule::handle_sql_enter_low(const char *sql, bool &matched) {
+  if (deleted) return false;
+
   if (expired) return false;
 
   /* -1 means no expire time */
@@ -125,6 +131,8 @@ bool Rule::handle_sql_exit_low() {
 }
 
 void Rule::display_one_rule(std::vector<cdb_sql_filter::display_result> &ret) {
+  if (deleted) return;
+
   display_result one_rule;
   one_rule.id = id;
   one_rule.created_time = created_time;
@@ -169,19 +177,25 @@ void Cdb_Sql_Filter_Manager::clean_up() {
 
 bool Cdb_Sql_Filter_Manager::reset_all_rules(bool is_clean_up) {
   std::map<int, Rule *>::iterator iter;
+  int unfree_count = 0;
   wrlock();
   for (int i = (int)SELECT_RULE; i < (int)END_RULE; i++) {
-    for (iter = filter_rules[i].begin(); iter != filter_rules[i].end();
-         iter++) {
+    for (iter = filter_rules[i].begin(); iter != filter_rules[i].end();) {
       if (iter->second) {
-        if (is_clean_up) assert(iter->second->current_conn == 0);
-        delete iter->second;
+        if (iter->second->has_concurrence()) {
+          iter->second->deleted = true;
+          iter++;
+          unfree_count++;
+        } else {
+          Rule *tmp = iter->second;
+          filter_rules[i].erase(iter++);
+          delete tmp;
+        }
       }
     }
-    filter_rules[i].clear();
   }
+  if (!unfree_count) id_max = 1;
   unlock();
-  id_max = 1;
   return false;
 }
 
@@ -219,6 +233,8 @@ bool Cdb_Sql_Filter_Manager::handle_sql_enter(const char *sql,
 
   rdlock();
   for (iter = rules_map.begin(); iter != rules_map.end(); iter++) {
+    if (iter->second->is_deleted()) continue;
+
     bool matched = false;
     bool ret = iter->second->handle_sql_enter_low(sql, matched);
     if (matched) v.push_back(iter->second);
@@ -286,6 +302,7 @@ bool Cdb_Sql_Filter_Manager::handle_delete_rule(char *rule, bool pre_check) {
   }
 
   Rule *tmp = 0;
+  bool rule_in_use= false;
   std::map<int, Rule *>::iterator iter;
   wrlock();
   for (int i = (int)SELECT_RULE; i < (int)END_RULE; i++) {
@@ -299,7 +316,15 @@ bool Cdb_Sql_Filter_Manager::handle_delete_rule(char *rule, bool pre_check) {
       // Rule to be deleted is found and mark it as deleted. This rule will
       // not be use in future
       tmp = iter->second;
-      filter_rules[i].erase(rule_id);
+      tmp->deleted = true;
+      // If tmp has concurrence, it means this rule is in filtering.
+      // We should remove when handle_sql_exit make rule released and
+      // remove it in remove_delete_rule_if_possible in next time.
+      if (tmp->has_concurrence()) {
+        tmp = NULL;
+        rule_in_use = true;
+      } else
+        filter_rules[i].erase(rule_id);
       break;
     }
   }
@@ -310,7 +335,10 @@ bool Cdb_Sql_Filter_Manager::handle_delete_rule(char *rule, bool pre_check) {
     return false;
   }
 
-  errmsg = "There is no such rule";
+  if (rule_in_use)
+    return false;
+
+  errmsg= "There is no such rule";
   return true;
 }
 

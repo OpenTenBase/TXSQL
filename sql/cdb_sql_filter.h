@@ -37,7 +37,7 @@ class Rule {
   /* Rule expired after expire_time */
   longlong expire_time;
   int concurrence;
-  int current_conn;
+  volatile int current_conn;
   longlong rejected_sql_count;
   bool expired;
   char *origin_rule_str;
