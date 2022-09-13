@@ -395,6 +395,19 @@ class Throttler {
 };
 }  // namespace ib
 
+/** Time stamp */
+typedef time_t ib_time_t;
+
+/** Number of microseconds read from the monotonic clock (returned by
+ * ut_time_monotonic_us()). */
+typedef int64_t ib_time_monotonic_us_t;
+
+typedef int64_t ib_time_monotonic_ms_t;
+
+/** Returns the number of microseconds since epoch. Uses the monotonic clock.
+ @return us since epoch or 0 if failed to retrieve */
+ib_time_monotonic_us_t ut_time_monotonic_us(void);
+
 #include "ut0ut.ic"
 
 #endif /* !ut0ut_h */

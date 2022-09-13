@@ -563,7 +563,8 @@ enum ib_file_suffix {
   IBT = 4,
   IBU = 5,
   DWR = 6,
-  BWR = 7
+  BWR = 7,
+  TRH = 8
 };
 
 extern const char *dot_ext[];
@@ -2268,5 +2269,30 @@ size_t fil_count_undo_deleted(space_id_t undo_num);
 @param[in]  type  the page type to be checked for validity.
 @return true if it is valid page type, false otherwise. */
 [[nodiscard]] bool fil_is_page_type_valid(page_type_t type) noexcept;
+
+/* Changes from txsql start. */
+
+/** Build a temp file name for a table space file to be dropped according to
+its database and current time.
+@param[in] name file name
+@return file name or NULL on error */
+[[nodiscard]] char *build_tmp_name(char *name);
+
+/** A fault-tolerant function that tries to read the next file name in the
+directory. We retry 100 times if os_file_readdir_next_file() returns -1. The
+idea is to read as much good data as we can and jump over bad data.
+@return 0 if ok, -1 if error even after the retries, 1 if at the end
+of the directory.
+@param[out]     err      this is set to DB_ERROR if an error
+@param[in]      dirname  directory name or path
+@param[in]      dir      directory stream
+@param[in,out]  info     buffer where the info is returned
+@return true if a matching tablespace exists in the InnoDB tablespace memory
+cache. */
+[[nodiscard]] int fil_file_readdir_next_file(dberr_t *err, const char *dirname,
+                                             os_file_dir_t dir,
+                                             os_file_stat_t *info);
+
+/* Changes from txsql end. */
 
 #endif /* fil0fil_h */

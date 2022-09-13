@@ -150,6 +150,10 @@ using os_file_t = os_fd_t;
 
 static constexpr os_fd_t OS_FILE_CLOSED = OS_FD_CLOSED;
 
+/* Changes from txsql start. */
+typedef DIR*  os_file_dir_t;  /*!< directory stream */
+/* Changes from txsql end. */
+
 /** Convert a C file descriptor to a native file handle
 @param fd file descriptor
 @return native file handle */
@@ -850,6 +854,18 @@ file is closed before calling this function.
 @return true if success */
 bool os_file_rename_func(const char *oldpath, const char *newpath);
 
+/** NOTE! Use the corresponding macro os_file_rename_if_exists(), not
+directly this function!
+Renames a file (can also move it to another directory). It is safest that the
+file is closed before calling this function.
+@param[in]  oldpath   old file path as a null-terminated string
+@param[in]  newpath   new file path
+@param[out] exist     indicate if file pre-exist
+@return true if success */
+[[nodiscard]] bool os_file_rename_if_exists_func(const char *oldpath,
+                                                 const char *newpath,
+                                                 bool *exist);
+
 /** NOTE! Use the corresponding macro os_file_close(), not directly
 this function!
 Closes a file handle. In case of error, error number can be retrieved with
@@ -857,6 +873,32 @@ os_file_get_last_error.
 @param[in]      file            Handle to a file
 @return true if success */
 bool os_file_close_func(os_file_t file);
+
+/* Changes from txsql start. */
+
+/** Read information of the next file in the given directory. The '.' and '..'
+entries will be ignored.
+@param[in]  dirname   directory name or path
+@param[in]  dir       directory stream
+@param[out] info      information of the next file
+@return 0 if ok, -1 if error, 1 if at the end of the directory */
+[[nodiscard]] int os_file_readdir_next_file(const char *dirname,
+                                            os_file_dir_t dir,
+                                            os_file_stat_t *info);
+
+/** NOTE! Use the corresponding macro os_file_rename_if_exists(), not
+directly this function!
+Renames a file (can also move it to another directory). It is safest that the
+file is closed before calling this function.
+@param[in]  oldpath   old file path as a null-terminated string
+@param[in]  newpath   new file path
+@param[out] exist     indicate if file pre-exist
+@return true if success */
+[[nodiscard]] bool os_file_rename_if_exists_func(const char *oldpath,
+                                                 const char *newpath,
+                                                 bool *exist);
+
+/* Changes from txsql end. */
 
 #ifdef UNIV_PFS_IO
 
@@ -1028,6 +1070,14 @@ The wrapper functions have the prefix of "innodb_". */
 
 #define os_file_delete_if_exists(key, name, exist) \
   pfs_os_file_delete_if_exists_func(key, name, exist, UT_LOCATION_HERE)
+
+/* Changes from txsql start. */
+
+#define os_file_rename_if_exists(key, oldpath, newpath, exist)    \
+  pfs_os_file_rename_if_exists_func(key, oldpath, newpath, exist, \
+                                    UT_LOCATION_HERE)
+
+/* Changes from txsql end. */
 
 /** NOTE! Please use the corresponding macro os_file_create_simple(),
 not directly this function!
@@ -1308,6 +1358,25 @@ static inline bool pfs_os_file_delete_if_exists_func(mysql_pfs_key_t key,
                                                      bool *exist,
                                                      ut::Location src_location);
 
+/* Changes from txsql start. */
+
+/** NOTE! Please use the corresponding macro os_file_rename_if_exists(),
+not directly this function!
+This is the performance schema instrumented wrapper function for
+os_file_rename_if_exists()
+@param[in]  key       Performance Schema Key
+@param[in]  oldpath   old file path as a null-terminated string
+@param[in]  newpath   new file path
+@param[out] exist     return if old file exists
+@param[in]  src_file  file name where func invoked
+@param[in]  src_line  line where the func invoked
+@return true if success */
+[[nodiscard]] static inline bool pfs_os_file_rename_if_exists_func(
+    mysql_pfs_key_t key, const char *oldpath, const char *newpath, bool *exist,
+    ut::Location src_location);
+
+/* Changes from txsql end. */
+
 #else /* UNIV_PFS_IO */
 
 /* If UNIV_PFS_IO is not defined, these I/O APIs point
@@ -1364,6 +1433,13 @@ to original un-instrumented file I/O APIs */
 
 #define os_file_delete_if_exists(key, name, exist) \
   os_file_delete_if_exists_func(name, exist)
+
+/* Changes from txsql start. */
+
+# define os_file_rename_if_exists(key, oldpath, newpath, exist) \
+  os_file_rename_if_exists_func(oldpath, newpath, exits)
+
+/* Changes from txsql end. */
 
 #endif /* UNIV_PFS_IO */
 

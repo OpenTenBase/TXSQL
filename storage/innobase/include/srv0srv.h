@@ -1270,6 +1270,27 @@ extern ulong srv_backquery_history_limit;
 extern long srv_backquery_trackpoint_create_interval;
 extern long srv_backquery_trackpoint_clean_interval;
 
+/** MBs of file to be truncated each time in background */
+extern ulong srv_async_truncate_size;
+/** Threshold for the difinition of big table, units MBs */
+extern ulong srv_async_table_size;
+/** Directory to store tmp files of async DROP TABLE; if set, DROP TABLE
+will only rename ibd file, the file is deleted in background
+asynchronously */
+extern char *srv_async_drop_tmp_dir;
+/** Table-drop mode */
+extern ulong srv_table_drop_mode;
+/* Alternatives for srv_innodb_stats_method, which could be changed by
+setting innodb_stats_method */
+enum srv_drop_mode_enum {
+  SRV_SYNC_DROP,     /* Drop tables synchronously by unlink all tables. Tables
+                     will be dropped before DROP TABLE ends. */
+  SRV_RENAME_ONLY,   /* Only Rename *.ibd file to srv_async_drop_tmp_dir and
+                     return immediately. */
+  SRV_ASYNC_DROP     /* Rename *.ibd file to srv_async_drop_tmp_dir and
+                     asynchronously drop it in background. */
+};
+
 void backquery_sys_create();
 void backquery_sys_close();
 void srv_backquery_thread();

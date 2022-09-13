@@ -1500,6 +1500,9 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
   LATCH_ADD_RWLOCK(BACKQUERY_ENABLE_LATCH, SYNC_NO_ORDER_CHECK,
                    backquery_enable_lock_key);
 
+  LATCH_ADD_MUTEX(ROW_TRUNCATE_LIST, SYNC_NO_ORDER_CHECK,
+                  row_truncate_list_mutex_key);
+
   latch_id_t id = LATCH_ID_NONE;
 
   /* The array should be ordered on latch ID.We need to

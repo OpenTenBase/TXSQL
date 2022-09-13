@@ -288,7 +288,7 @@ bool MySQL_undo_path_is_unique;
 
 /** Common InnoDB file extentions */
 const char *dot_ext[] = {"",     ".ibd", ".cfg",   ".cfp",
-                         ".ibt", ".ibu", ".dblwr", ".bdblwr"};
+                         ".ibt", ".ibu", ".dblwr", ".bdblwr", ".trh"};
 
 /** Number of pending tablespace flushes */
 ulint fil_n_pending_tablespace_flushes = 0;
@@ -4622,12 +4622,31 @@ dberr_t Fil_shard::space_delete(space_id_t space_id, buf_remove_t buf_remove) {
     space_free_low(space);
 #endif /* UNIV_HOTBACKUP */
 
-    if (!os_file_delete(innodb_data_file_key, path) &&
-        !os_file_delete_if_exists(innodb_data_file_key, path, nullptr)) {
-      /* Note: This is because we have removed the
-      tablespace instance from the cache. */
+    struct stat st;
+    int ret = stat(path, &st);
 
-      err = DB_IO_ERROR;
+    DBUG_EXECUTE_IF("ib_set_big_table",
+                    {
+                      st.st_size = srv_async_table_size*1024*1024;
+                      ib::info() << "enter debug ib_set_big_table";
+                    });
+
+    if ((ret == 0 && (ulong)st.st_size >= srv_async_table_size*1024*1024) &&
+        srv_table_drop_mode != SRV_SYNC_DROP &&
+        srv_async_drop_tmp_dir != nullptr) {
+      dberr_t err = row_process_async_drop(path);
+      if (DB_SUCCESS != err) {
+        ib::error() << "Creating async drop task for tablespace failed path= "
+                    << path << " error=" << err;
+      }
+    } else {
+      if (!os_file_delete(innodb_data_file_key, path) &&
+          !os_file_delete_if_exists(innodb_data_file_key, path, nullptr)) {
+        /* Note: This is because we have removed the tablespace instance
+        from the cache. */
+
+        err = DB_IO_ERROR;
+      }
     }
   } else {
     mutex_release();
@@ -8733,8 +8752,17 @@ This should not be called for temporary tables.
 bool fil_delete_file(const char *path) {
   bool success = true;
 
-  /* Force a delete of any stale .ibd files that are lying around. */
-  success = os_file_delete_if_exists(innodb_data_file_key, path, nullptr);
+  /* Force a delete of any stale .ibd files that are left. */
+  if (srv_table_drop_mode != SRV_SYNC_DROP &&
+      srv_async_drop_tmp_dir != nullptr) {
+    dberr_t err = row_process_async_drop(path);
+    if (DB_SUCCESS != err) {
+      ib::error() << "Creating async drop task for table ibd failed path="
+                  << path << " error=" << err;
+    }
+  } else {
+    success = os_file_delete_if_exists(innodb_data_file_key, path, nullptr);
+  }
 
   char *cfg_filepath = Fil_path::make_cfg(path);
 
@@ -11792,3 +11820,91 @@ void fil_space_t::bump_version() {
   ++m_version;
 }
 #endif /* !UNIV_HOTBACKUP */
+
+/* Changes from txsql start. */
+
+/** Check if dir_input is valid for async_drop_tmp_dir, return true if valid,
+otherwise, return false. */
+extern bool check_async_drop_tmp_dir(THD *thd, const char *dir_input);
+
+/** A fault-tolerant function that tries to read the next file name in the
+directory. We retry 100 times if os_file_readdir_next_file() returns -1. The
+idea is to read as much good data as we can and jump over bad data.
+@return 0 if ok, -1 if error even after the retries, 1 if at the end
+of the directory.
+@param[out]     err      this is set to DB_ERROR if an error
+@param[in]      dirname  directory name or path
+@param[in]      dir      directory stream
+@param[in,out]  info     buffer where the info is returned
+@return true if a matching tablespace exists in the InnoDB tablespace memory
+cache. */
+int fil_file_readdir_next_file(dberr_t *err, const char *dirname,
+                               os_file_dir_t dir, os_file_stat_t *info) {
+  for (ulint i = 0; i < 100; i++) {
+    int ret = os_file_readdir_next_file(dirname, dir, info);
+
+    if (ret != -1) {
+      return(ret);
+    }
+
+    ib::error() << "os_file_readdir_next_file() returned -1, fail to read "
+                << "files in directory: " << dirname;
+    *err = DB_ERROR;
+  }
+
+  return(-1);
+}
+
+/** Build a temp file name for a table space file to be dropped according to
+its database name and current time.
+@param[in] name file name
+@return file name or NULL on error */
+char *build_tmp_name(char *name) {
+  assert(srv_async_drop_tmp_dir != nullptr);
+
+  char time_str[24] = "";
+  ib_time_monotonic_us_t time = ut_time_monotonic_us();
+
+  sprintf(time_str, "%ju", time);
+  int time_len = strlen(time_str);
+
+  mutex_enter(&row_truncate_list_mutex);
+  if (!check_async_drop_tmp_dir(nullptr, srv_async_drop_tmp_dir)) {
+    return nullptr;
+  }
+
+  int dir_len = 0;
+  if (srv_async_drop_tmp_dir[strlen(srv_async_drop_tmp_dir) - 1] ==
+      OS_PATH_SEPARATOR) {
+    dir_len = strlen(srv_async_drop_tmp_dir);
+  } else {
+    dir_len = strlen(srv_async_drop_tmp_dir) + 1;
+  }
+
+  int full_len = dir_len + strlen(name) + time_len + 1;
+
+  char *tmp_name = static_cast<char *>(
+      ut::malloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, full_len + 1));
+  if (tmp_name == nullptr) {
+    return nullptr;
+  }
+
+  memcpy(tmp_name, srv_async_drop_tmp_dir, dir_len);
+  mutex_exit(&row_truncate_list_mutex);
+
+  tmp_name[dir_len - 1] = OS_PATH_SEPARATOR;
+  for (ulint i = 0; i < strlen(name); i++) {
+    if (*(name + i) == OS_PATH_SEPARATOR) {
+      *(tmp_name + dir_len + i) = '_';
+    } else {
+      *(tmp_name + dir_len + i) = *(name + i);
+    }
+  }
+  tmp_name[dir_len + strlen(name)] = '.';
+  memcpy(tmp_name + dir_len + strlen(name) + 1, time_str, strlen(time_str));
+  tmp_name[full_len] = '\0';
+
+  return tmp_name;
+}
+
+/* Changes from txsql end. */
