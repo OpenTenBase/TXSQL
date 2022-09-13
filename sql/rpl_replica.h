@@ -627,4 +627,8 @@ int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);
 /**
   @} (end of group Replication)
 */
+
+/* Changes from TXSQL start. */
+extern uint32_t iothreadreadtime;
+/* Changes from TXSQL end. */
 #endif
