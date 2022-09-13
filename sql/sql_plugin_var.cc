@@ -48,6 +48,7 @@
 #include "sql_string.h"
 #include "template_utils.h"
 #include "typelib.h"
+#include "log.h"
 
 /**
   Set value for global variable with PLUGIN_VAR_MEMALLOC flag.

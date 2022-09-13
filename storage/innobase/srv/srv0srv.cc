@@ -97,6 +97,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 /* Changes from txsql start. */
 int srv_cdb_page_cleaner_priority = 0;
+
+bool srv_async_checkpoint_now = false;
 /* Changes from txsql end. */
 
 #ifdef UNIV_HOTBACKUP
