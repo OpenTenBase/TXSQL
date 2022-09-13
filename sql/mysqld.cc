@@ -979,6 +979,7 @@ MySQL clients support the protocol:
 #include "sql/srv_session.h"
 #include "sql/opt_statistics.h"
 #include "sql/sql_executor.h"
+#include "sql/parallel_execution/px_executor.h" // PX_Executor
 
 #include "sql/opt_statistics.h"
 #include "my_md5.h"
@@ -2363,6 +2364,11 @@ class Set_kill_conn : public Do_THD_Impl {
         mysql_mutex_unlock(killing_thd->current_mutex);
       }
       mysql_mutex_unlock(&killing_thd->LOCK_current_cond);
+#if defined(HAVE_PX)
+      /* Propagate KILL to workers when SHUTDOWN. */
+      if (killing_thd->use_px && killing_thd->px_executor)
+        killing_thd->px_executor->notify_all_workers(THD::KILL_CONNECTION);
+#endif /* defined(HAVE_PX) */
     }
     mysql_mutex_unlock(&killing_thd->LOCK_thd_data);
   }

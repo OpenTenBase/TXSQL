@@ -8837,7 +8837,7 @@ static Sys_var_ulong Sys_txsql_optimizer_context_max_mem_size(
 static Sys_var_ulong Sys_txsql_optimizer_context_prealloc_size(
     "txsql_optimizer_context_prealloc_size",
     "Default buffer size of the optimizer context",
-    TENCENT_VAR GLOBAL_VAR(txsql_optimizer_context_prealloc_size),
+    GLOBAL_VAR(txsql_optimizer_context_prealloc_size),
     CMD_LINE(OPT_ARG),
     VALID_RANGE(OPTIMIZER_CONTEXT_ALLOC_PREALLOC_SIZE, ULONG_MAX),
     DEFAULT(4096), BLOCK_SIZE(1), NO_MUTEX_GUARD,
