@@ -580,6 +580,20 @@ static TYPELIB innodb_change_buffering_typelib = {
     array_elements(innodb_change_buffering_names) - 1,
     "innodb_change_buffering_typelib", innodb_change_buffering_names, nullptr};
 
+/* Changes from txsql start. */
+
+/** Possible values for system variable "innodb_table_drop_mode". */
+static const char *innodb_table_drop_mode_names[] = {
+    "sync_drop", "rename_only", "async_drop", NullS};
+
+/** Used to define an enumerate type of the system variable
+innodb_table_drop_mode. */
+static TYPELIB innodb_table_drop_mode_typelib = {
+    array_elements(innodb_table_drop_mode_names) - 1,
+    "innodb_table_drop_mode_typelib", innodb_table_drop_mode_names, nullptr};
+
+/* Changes from txsql start. */
+
 /** Retrieve the FTS Relevance Ranking result for doc with doc_id
 of m_prebuilt->fts_doc_id
 @param[in,out]  fts_hdl FTS handler
@@ -775,7 +789,8 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(zip_pad_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(master_key_id_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(sync_array_mutex, 0, 0, PSI_DOCUMENT_ME),
-    PSI_MUTEX_KEY(row_drop_list_mutex, 0, 0, PSI_DOCUMENT_ME)};
+    PSI_MUTEX_KEY(row_drop_list_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(row_truncate_list_mutex, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_MUTEX */
 
 #ifdef UNIV_PFS_RWLOCK
@@ -4494,6 +4509,66 @@ static
 
 #ifndef UNIV_HOTBACKUP
 
+/* Changes from txsql start. */
+
+/** Check if dir_input is valid for async_drop_tmp_dir, return true if valid,
+otherwise, return false. */
+[[nodiscard]] bool check_async_drop_tmp_dir(THD *thd, const char *dir_input) {
+  if (!dir_input || strcmp(dir_input, "") == 0) {
+    if (thd) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                          "Path can not be set to empty string");
+    }
+    return (false);
+  }
+
+  if (strlen(dir_input) > FN_REFLEN) {
+    if (thd) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                          "Path length should not exceed %d bytes", FN_REFLEN);
+    }
+    return (false);
+  }
+
+  if (my_access(dir_input, F_OK)) {
+    if (thd) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                          "InnoDB: Path doesn't exist.");
+    }
+    return (false);
+  } else if (my_access(dir_input, R_OK | W_OK)) {
+    if (thd) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                          "InnoDB: Server doesn't have permission in the given "
+                          "location.");
+    }
+    return (false);
+  }
+
+  MY_STAT tmp_stat, cur_stat;
+  if (my_stat(dir_input, &tmp_stat, MYF(0)) == NULL ||
+      (tmp_stat.st_mode & S_IFDIR) != S_IFDIR) {
+    if (thd) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                          "Given path is not a directory.");
+    }
+    return (false);
+  }
+
+  if (my_stat(MySQL_datadir_path, &cur_stat, MYF(0)) == NULL ||
+      cur_stat.st_dev != tmp_stat.st_dev) {
+    if (thd) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                          "Given path has different mount point with datadir.");
+    }
+    return (false);
+  }
+
+  return (true);
+}
+
+/* Changes from txsql end. */
+
 /** Minimum expected tablespace size. (5M) */
 static const ulint MIN_EXPECTED_TABLESPACE_SIZE = 5 * 1024 * 1024;
 
@@ -4754,6 +4829,16 @@ static int innodb_init_params() {
   std::string mysqld_datadir{default_path};
 
   MySQL_datadir_path = Fil_path{mysqld_datadir};
+
+  if (srv_async_drop_tmp_dir != nullptr &&
+      !check_async_drop_tmp_dir(nullptr, srv_async_drop_tmp_dir)) {
+    ib::error() << "Invalid innodb_async_drop_tmp_dir: "
+                << srv_async_drop_tmp_dir;
+    ib::error() << "Directory doesn't exist or is not a directory. "
+                << "The directory should be on the same disk(mout point) as "
+                << "data dir, please check.";
+    return HA_ERR_INITIALIZATION;
+  }
 
   /* Validate, normalize and interpret the InnoDB start-up parameters. */
 
@@ -23190,6 +23275,194 @@ static MYSQL_SYSVAR_BOOL(async_checkpoint_now, srv_async_checkpoint_now,
   "checkpoint. After setting this variable to TRUE, it will be restore to  "
                          "FALSE automaticly." ,
                          nullptr, innodb_async_checkpoint_update, false);
+
+#define ASYNC_TRUNCATE_SIZE_MAX 4096
+#define ASYNC_TRUNCATE_SIZE_MIN 128
+#define ASYNC_TABLE_SIZE_MAX 204800
+#define ASYNC_TABLE_SIZE_MIN 128
+
+/** Validate innodb_async_truncate_size parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] save      immediate result for update function
+@param[in]  value     incoming string */
+static int innodb_async_truncate_size_validate(THD *thd, SYS_VAR *var,
+                                               void *save,
+                                               struct st_mysql_value *value) {
+
+  longlong intbuf;
+  if (value->val_int(value, &intbuf)) {
+    return 1;
+  }
+
+  if (intbuf < ASYNC_TRUNCATE_SIZE_MIN || intbuf > ASYNC_TRUNCATE_SIZE_MAX) {
+    return 1;
+  }
+
+  *reinterpret_cast<ulong *>(save) = static_cast<ulong>(intbuf);
+  return 0;
+}
+
+/** Validate innodb_async_table_size parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] save      immediate result for update function
+@param[in]  value     incoming string */
+static int innodb_async_table_size_validate(THD *thd, SYS_VAR *var,
+                                            void *save,
+                                            struct st_mysql_value *value) {
+  longlong intbuf;
+  if (value->val_int(value, &intbuf)) {
+    return 1;
+  }
+
+  if (intbuf < ASYNC_TABLE_SIZE_MIN || intbuf > ASYNC_TABLE_SIZE_MAX) {
+    return 1;
+  }
+
+  *reinterpret_cast<ulong *>(save) = static_cast<ulong>(intbuf);
+  return 0;
+}
+
+/** Validte innodb_async_drop_tmp_dir parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] save      immediate result for update function
+@param[in]  value     incoming string */
+static int innodb_async_drop_tmp_dir_validate(THD *thd, SYS_VAR *var,
+                                              void *save,
+                                              struct st_mysql_value *value) {
+  ut_a(save != nullptr);
+  ut_a(value != nullptr);
+
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int len = sizeof(buff);
+  const char *dest_dir = value->val_str(value, buff, &len);
+  if (nullptr == dest_dir) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                        "Total path length should not exceed %lu bytes.",
+                        STRING_BUFFER_USUAL_SIZE);
+    *static_cast<const char**>(save) = nullptr;
+    return 1;
+  }
+
+  /* The failed check_func_str indicates errors by setting save pointer to
+  nullptr. */
+  if (!check_async_drop_tmp_dir(thd, dest_dir)) {
+    sql_print_error("InnoDB: invalid innodb_async_drop_tmp_dir value=%s.",
+                    dest_dir);
+    *static_cast<const char**>(save) = nullptr;
+    return 1;
+  }
+
+  *static_cast<const char**>(save) = dest_dir;
+  return 0;
+}
+
+/** Update innodb_async_drop_tmp_dir parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] var_ptr   current value
+@param[in]  save      immediate result from check function */
+static void innodb_async_drop_tmp_dir_update(THD *thd, SYS_VAR *var,
+                                             void *var_ptr, const void *save) {
+  ut_a(var_ptr != nullptr);
+  ut_a(save != nullptr);
+
+  /* Check if task list is empty or not. */
+  mutex_enter(&row_truncate_list_mutex);
+  if (row_get_background_truncate_list_len() != 0) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING,
+                        HA_ERR_NOT_ALLOWED_COMMAND,
+                        "Truncate task list not empty, task len=%lu.",
+                        row_get_background_truncate_list_len());
+  }
+
+  char *new_dir = (*(char **) save);
+  *static_cast<const char **>(var_ptr) = new_dir;
+  mutex_exit(&row_truncate_list_mutex);
+
+  ut_a(strcmp(new_dir, "") != 0);
+  sql_print_information("aysnc_drop tmp dir changed to=%s, try to truncate "
+                        "list from new_dir.", new_dir);
+
+  /* Add orphaned trash files in new_dir to truncate list. */
+  if (srv_table_drop_mode == SRV_ASYNC_DROP) {
+    add_orphaned_file_to_truncate_list(new_dir);
+  }
+}
+
+/** Validate innodb_table_drop_mode parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] save      immediate result for update function
+@param[in]  value     incoming string */
+static int innodb_table_drop_mode_validate(THD *thd, SYS_VAR *var, void *save,
+                                           struct st_mysql_value *value) {
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int len = sizeof(buff);
+  const char *drop_mode = value->val_str(value, buff, &len);
+  int type = find_type(drop_mode, &innodb_table_drop_mode_typelib,
+                       FIND_TYPE_NO_PREFIX);
+  if (type <= 0) {
+    /* Invalid table-drop mode name */
+    return 1;
+  }
+
+  *reinterpret_cast<ulong *>(save) = static_cast<ulong>(type - 1);
+  return 0;
+}
+
+/** Update innodb_table_drop_mode parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] var_ptr   current value
+@param[in]  save      immediate result from check function */
+static void innodb_table_drop_mode_update(THD *thd, SYS_VAR *var,
+                                          void *var_ptr, const void *save) {
+  mutex_enter(&row_truncate_list_mutex);
+  *(unsigned long*)var_ptr = *(unsigned long*)save;
+  mutex_exit(&row_truncate_list_mutex);
+
+  /* If srv_async_drop_tmp_dir and SRV_ASYNC_DROP have been set, add orphaned
+  trash files in srv_async_drop_tmp_dir to truncate list. */
+  if (*(unsigned long*)var_ptr == SRV_ASYNC_DROP &&
+      srv_async_drop_tmp_dir != nullptr) {
+    add_orphaned_file_to_truncate_list(srv_async_drop_tmp_dir);
+  }
+}
+
+static MYSQL_SYSVAR_ULONG(
+    async_truncate_size, srv_async_truncate_size, PLUGIN_VAR_OPCMDARG,
+    "MBs of file to be truncated each time in background.",
+    innodb_async_truncate_size_validate, nullptr,
+    128,                                            /* Default setting */
+    ASYNC_TRUNCATE_SIZE_MIN,                        /* Minimum value */
+    ASYNC_TRUNCATE_SIZE_MAX, 0);                    /* Maximum value */
+
+static MYSQL_SYSVAR_ULONG(
+    async_table_size, srv_async_table_size, PLUGIN_VAR_OPCMDARG,
+    "Threshold for the difinition of big table, units MBs.",
+    innodb_async_table_size_validate, nullptr, 2048, /* Default setting */
+    ASYNC_TABLE_SIZE_MIN,                            /* Minimum value */
+    ASYNC_TABLE_SIZE_MAX, 0);                        /* Maximum value */
+
+
+static MYSQL_SYSVAR_STR(
+    async_drop_tmp_dir, srv_async_drop_tmp_dir,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
+    "Directory to store temp files of asynchronously dropped tables.",
+    innodb_async_drop_tmp_dir_validate, innodb_async_drop_tmp_dir_update, NULL);
+
+static MYSQL_SYSVAR_ENUM(
+    table_drop_mode, srv_table_drop_mode, PLUGIN_VAR_OPCMDARG,
+    "Innodb table-drop mode. If set to SYNC_DROP, innodb will finish dropping "
+    "table before DROP TABLE ends. If set to RENAME_ONLY, innodb will only "
+    "rename *.ibd file to innodb_async_drop_tmp_dir. If set to ASYNC_DROP "
+    "innodb will rename *.ibd to innodb_async_drop_tmp_dir and drop it "
+    "asynchronously in background.", innodb_table_drop_mode_validate,
+    innodb_table_drop_mode_update, SRV_SYNC_DROP,
+    &innodb_table_drop_mode_typelib);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23419,6 +23692,10 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(backquery_trackpoint_create_interval),
     MYSQL_SYSVAR(backquery_trackpoint_clean_interval),
     MYSQL_SYSVAR(async_checkpoint_now),
+    MYSQL_SYSVAR(async_truncate_size),
+    MYSQL_SYSVAR(async_table_size),
+    MYSQL_SYSVAR(async_drop_tmp_dir),
+    MYSQL_SYSVAR(table_drop_mode),
     nullptr};
 
 mysql_declare_plugin(innobase){

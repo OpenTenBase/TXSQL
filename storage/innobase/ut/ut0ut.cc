@@ -536,3 +536,12 @@ fatal_or_error::~fatal_or_error() {
 #endif /* !UNIV_NO_ERR_MSGS */
 
 }  // namespace ib
+
+/** Returns the number of microseconds since epoch. Uses the monotonic clock.
+ @return us since epoch or 0 if failed to retrieve */
+ib_time_monotonic_us_t ut_time_monotonic_us(void) {
+  const auto now = std::chrono::steady_clock::now();
+  return (std::chrono::duration_cast<std::chrono::microseconds>(
+              now.time_since_epoch())
+              .count());
+}

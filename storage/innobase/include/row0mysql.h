@@ -1001,6 +1001,45 @@ constexpr uint32_t ROW_READ_DID_SEMI_CONSISTENT = 2;
 /** Wait for the background drop list to become empty. */
 void row_wait_for_background_drop_list_empty();
 #endif /* UNIV_DEBUG */
+/* Changes from txsql start. */
+
+/** The master thread in srv0srv.cc calls this regularly to truncate files
+ which we must delete in background after DROP TABLE have ended. Such lazy
+ dropping of files is needed to alleviate I/O and dict_sys->mutex bottleneck
+ of DROP TABLE. */
+void row_truncate_file_for_mysql_in_background(void);
+
+/** The master thread in srv0srv.cc calls this when shutdown innodb,
+ we delete all temp files left by unlink now, instead of truncate. */
+void row_truncate_file_for_mysql_in_background_shutdown(void);
+
+/** If a file is not yet in the truncate list, adds the file to the list of
+ files which the master thread truncates in background.
+ @param[in] name  file name
+ CAUTION: this func should be called under row_truncate_list_mutex protect
+ @return TRUE if the file was not yet in the list, and was added there */
+bool row_add_file_to_background_truncate_list(const char *name);
+
+/** Get the background truncate list length.
+ NOTE: the caller must own the row_truncate_list_mutex.
+ @return how many tables in list */
+ulint row_get_background_truncate_list_len(void);
+
+/** Add orphaned trash files under specific directory to the list which master
+ thread would truncate in background.
+ @param[in] dir_path trash file path */
+void add_orphaned_file_to_truncate_list(char *dir_path);
+
+/** Try process one trash name.
+ build tmp_name first and then try add to background task list
+ @param[in]  path  to be processed ibd_file path
+ @return TRUE if process success */
+[[nodiscard]] dberr_t row_process_async_drop(const char *path);
+
+/** Mutex protecting the background file truncate list. */
+extern ib_mutex_t row_truncate_list_mutex;
+
+/* Changes from txsql end. */
 #endif /* !UNIV_HOTBACKUP */
 
 #endif /* row0mysql.h */

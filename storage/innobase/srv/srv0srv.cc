@@ -2335,6 +2335,9 @@ static void srv_master_do_active_tasks(void) {
     return;
   }
 
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background();
+
   /* Do an ibuf merge */
   {
     srv_main_thread_op_info = "doing insert buffer merge";
@@ -2403,6 +2406,9 @@ static void srv_master_do_idle_tasks(void) {
     }
   }
 
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background();
+
   /* Do an ibuf merge */
   {
     srv_main_thread_op_info = "doing insert buffer merge";
@@ -2468,6 +2474,9 @@ static bool srv_master_do_pre_dd_shutdown_tasks(
     srv_main_thread_op_info = "doing background drop tables";
     n_tables_to_drop = row_drop_tables_for_mysql_in_background();
   }
+
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background_shutdown();
 
   /* Print progress message every 60 seconds during shutdown */
   srv_shutdown_print_master_pending(last_print_time, n_tables_to_drop, 0);
@@ -3301,6 +3310,15 @@ long srv_backquery_window = 86400;
 ulong srv_backquery_history_limit = 8000000;
 long srv_backquery_trackpoint_create_interval = 1;
 long srv_backquery_trackpoint_clean_interval = 1;
+
+/** MBs of file to be truncated each time by master thread in background */
+ulong srv_async_truncate_size;
+/** Threhold for the difinition of big table, units MBs */
+ulong srv_async_table_size;
+/** Directory to store temp files of asynchronously dropped tables */
+char *srv_async_drop_tmp_dir = nullptr;
+/** Table-drop mode */
+ulong srv_table_drop_mode = SRV_SYNC_DROP;
 
 Backquery_manager::Backquery_manager() { total_ref = 0; }
 
