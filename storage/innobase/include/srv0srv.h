@@ -67,6 +67,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 /* Changes from txsql start. */
 extern int srv_cdb_page_cleaner_priority;
+/** Trigger checkpoint initiatively in async mode.  */
+extern bool srv_async_checkpoint_now;
 /* Changes from txsql end. */
 
 /* Global counters used inside InnoDB. */

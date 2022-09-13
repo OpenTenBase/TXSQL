@@ -23177,6 +23177,19 @@ static MYSQL_SYSVAR_LONG(
     "The time interval at which the system cleans trackpoints", nullptr,
     nullptr, 1, 1, 86400, 0);
 
+static void innodb_async_checkpoint_update(
+    THD* thd MY_ATTRIBUTE((unused)),
+    struct SYS_VAR* var MY_ATTRIBUTE((unused)),
+    void* var_ptr MY_ATTRIBUTE((unused)),
+    const void* save);
+static MYSQL_SYSVAR_BOOL(async_checkpoint_now, srv_async_checkpoint_now,
+                         PLUGIN_VAR_OPCMDARG,
+  "Initiatively trigger checkpoint, flush redo log to current lsn and purge "
+  "dirty pages. Innodb will print the current lsn to be flushed in error log."
+  "By checking innodb status and lsn in log, user can probe the progress of "
+  "checkpoint. After setting this variable to TRUE, it will be restore to  "
+                         "FALSE automaticly." ,
+                         nullptr, innodb_async_checkpoint_update, false);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23405,6 +23418,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(backquery_history_limit),
     MYSQL_SYSVAR(backquery_trackpoint_create_interval),
     MYSQL_SYSVAR(backquery_trackpoint_clean_interval),
+    MYSQL_SYSVAR(async_checkpoint_now),
     nullptr};
 
 mysql_declare_plugin(innobase){
@@ -24265,5 +24279,21 @@ static void innobase_end_backquery(THD *thd) {
     }
   }
   thd_set_backquery_info(thd, 0, 0, nullptr, true);
+}
+
+void buffer_pool_flush_all();
+static void innodb_async_checkpoint_update(
+    THD* thd MY_ATTRIBUTE((unused)),
+    struct SYS_VAR* var MY_ATTRIBUTE((unused)),
+    void* var_ptr MY_ATTRIBUTE((unused)),
+    const void* save)
+{
+  bool v =  *static_cast<const bool*>(save);
+  if (false == v)
+    return ;
+  if (srv_read_only_mode) {
+    return ;
+  }
+  buffer_pool_flush_all();
 }
 /* Changes from txsql end. */

@@ -3880,6 +3880,14 @@ void Flush_observer::flush() {
     }
   }
 }
+
+/*
+  Flush all page and redo log for flush log
+*/
+void buffer_pool_flush_all()
+{
+  log_buffer_flush_to_disk(true);
+}
 #else
 
 bool buf_flush_page_cleaner_is_active() { return (false); }
