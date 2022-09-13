@@ -676,6 +676,11 @@ bool set_record_buffer(TABLE *table, double expected_rows_to_fetch) {
     return false;
   }
 
+  if (current_thd->variables.cdb_max_prefetch_rows > 0) {
+    expected_rows_to_fetch = std::min(expected_rows_to_fetch,
+        (double)current_thd->variables.cdb_max_prefetch_rows);
+  }
+
   ha_rows rows_in_buffer =
       static_cast<ha_rows>(std::ceil(expected_rows_to_fetch));
 

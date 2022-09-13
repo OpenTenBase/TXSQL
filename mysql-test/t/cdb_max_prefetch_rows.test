@@ -1,0 +1,8 @@
+connect (con1,localhost,tencentroot,,);
+
+connection con1;
+set session cdb_max_prefetch_rows = 8;
+
+--disable_query_log 
+--source include/select.inc
+--enable_query_log
