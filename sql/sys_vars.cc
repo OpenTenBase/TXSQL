@@ -7887,4 +7887,14 @@ static Sys_var_bool Sys_character_set_client_handshake(
     "Don't ignore client side character set value sent during handshake.",
     READ_ONLY GLOBAL_VAR(opt_character_set_client_handshake),
     NO_CMD_LINE, DEFAULT(opt_character_set_client_handshake));
+
+static Sys_var_uint Sys_cdb_max_prefetch_rows(
+    "cdb_max_prefetch_rows",
+    "set max number of prefetch rows by limiting the size of "
+    "record_buffer, so it can reduce the negative impact on performance "
+    "when prefetching a large number of records on an index. "
+    "0 means turn off the limit.",
+    SESSION_VAR(cdb_max_prefetch_rows), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 /* Changes from txsql end. */

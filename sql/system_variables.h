@@ -472,6 +472,10 @@ struct System_variables {
   /* Changes from txsql start. */
   uint threadpool_high_prio_tickets;
   ulong threadpool_high_prio_mode;
+  /**
+    @sa Sys_cdb_max_prefetch_rows
+  */
+  uint cdb_max_prefetch_rows;
   /* Changes from txsql end. */
 };
 
