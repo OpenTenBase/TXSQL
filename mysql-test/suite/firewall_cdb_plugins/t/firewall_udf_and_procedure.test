@@ -1,0 +1,68 @@
+--disable_ps_protocol
+--source suite/firewall_cdb_plugins/include/install_firewall_cdb.inc
+--source suite/firewall_cdb_plugins/include/firewall_test_init.inc
+insert into mysql.cdb_firewall_users values("firewalltest@localhost", "RECORDING");
+#test load_cdb_firewall_userhost_mode
+select load_cdb_firewall_userhost_mode();
+select * from information_schema.cdb_firewall_users;
+
+#test load_cdb_firewall_whitelist
+select load_cdb_firewall_whitelist();
+select * from information_schema.cdb_firewall_whitelist;
+
+set global firewall_cdb_mode = ON;
+connect(conn_firewall, localhost, firewalltest,,test);
+select * from t1;
+select * from t2;
+
+#test flush_cdb_firewall_whitelist 
+connection default;
+select * from information_schema.cdb_firewall_whitelist;
+select * from mysql.cdb_firewall_whitelist;
+select flush_cdb_firewall_whitelist();
+select * from mysql.cdb_firewall_whitelist;
+
+#test cdb_firewall_flush_status
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
+connection conn_firewall;
+select * from t1;
+-- error ER_REJECT_BY_CDB_FIREWALL
+insert into test.t1 values(1);
+
+connection default;
+# compatible for warnings
+call mtr.add_suppression('Rejected by cdb firewall');
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'DETECT');
+connection conn_firewall;
+select * from t1;
+insert into t2 values(1);
+connection default;
+show status like 'Firewall_access_denied';
+show status like 'Firewall_access_granted';
+show status like 'Firewall_access_suspicious';
+show status like 'Firewall_cached_entries';
+select cdb_firewall_flush_status();
+show status like 'Firewall_access_denied';
+show status like 'Firewall_access_granted';
+show status like 'Firewall_access_suspicious';
+show status like 'Firewall_cached_entries';
+
+#test sp_reload_cdb_firewall_user_rules
+connection conn_firewall;
+select * from t1;
+select * from t2; 
+connection default;
+select flush_cdb_firewall_whitelist();
+select * from information_schema.cdb_firewall_whitelist;
+select * from mysql.cdb_firewall_whitelist;
+call mysql.sp_reload_cdb_firewall_user_rules("firewalltest", "localhost");
+select * from information_schema.cdb_firewall_whitelist;
+select * from mysql.cdb_firewall_whitelist;
+
+#test cdb_normalize_statement;
+select cdb_normalize_statement("select * from t1");
+select cdb_normalize_statement("select * from t1 where id = 1");
+
+--source suite/firewall_cdb_plugins/include/firewall_test_deinit.inc
+--source suite/firewall_cdb_plugins/include/uninstall_firewall_cdb.inc
+--enable_ps_protocol

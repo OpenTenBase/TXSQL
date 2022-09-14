@@ -9832,6 +9832,9 @@ ER_CDB_SQL_FILTER_REJECT
 ER_BINLOG_THRESHOLD_EXCEEDED
   eng "binlog write threshold(%lu) exceeded, the transaction has %lu (bytes) binlogs, it is aborted."
 
+ER_REJECT_BY_CDB_FIREWALL
+  eng "SQL rejected by CDB_FIREWALL"
+
 ################################################################################
 # Error numbers 5000 to 5999 are reserved for X Plugin. Please do not use
 # them for other error messages.

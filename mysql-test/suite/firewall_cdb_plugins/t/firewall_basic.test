@@ -1,0 +1,12 @@
+--source suite/firewall_cdb_plugins/include/install_firewall_cdb.inc
+--source suite/firewall_cdb_plugins/include/firewall_test_init.inc
+--source suite/firewall_cdb_plugins/include/firewall_test_deinit.inc
+--source suite/firewall_cdb_plugins/include/uninstall_firewall_cdb.inc
+disable_query_log;
+disable_result_log;
+eval INSTALL PLUGIN FIREWALL_CDB SONAME '$FIREWALL_CDB';
+set global firewall_cdb_mode = ON;
+show variables like '%firewall%';
+eval UNINSTALL PLUGIN FIREWALL_CDB;
+enable_result_log;
+enable_query_log;
