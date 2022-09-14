@@ -4664,6 +4664,8 @@ class THD : public MDL_context_owner,
   bool is_connection_admin();
   void set_connection_admin(bool connection_admin_flag);
 
+  bool cdb_sql_rejected_by_firewall;
+
  public:
   Transactional_ddl_context m_transactional_ddl{this};
 

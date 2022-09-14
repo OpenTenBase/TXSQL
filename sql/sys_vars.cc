@@ -7963,4 +7963,9 @@ static Sys_var_uint Sys_txsql_slave_wait_group_done(
     CMD_LINE(OPT_ARG),
     VALID_RANGE(1, 200), DEFAULT(60), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
+static Sys_var_bool Sys_cdb_fire_wall_enabled(
+    "cdb_fire_wall_enabled", "CDB fire wall switch. Can be ON/OFF.",
+    GLOBAL_VAR(cdb_fire_wall_enabled), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 /* Changes from txsql end. */

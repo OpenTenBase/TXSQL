@@ -864,6 +864,7 @@ extern bool cdb_skip_event_scheduler;
 extern bool cdb_enable_resource_statistics;
 extern bool cdb_enable_lock_statistics;
 extern ulong cdb_ignore_filename_length;
+extern bool cdb_fire_wall_enabled;
 
 extern bool cdb_convert_memory_to_innodb;
 

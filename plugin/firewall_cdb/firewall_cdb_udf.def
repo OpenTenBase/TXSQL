@@ -1,0 +1,15 @@
+/* Copyright (c) 2020, Tencent and/or its affiliates. All rights reserved.
+   CDB firewall for txsql 8.0 
+*/
+LIBRARY   firewall_cdb
+VERSION   1.0
+EXPORTS
+  load_cdb_firewall_userhost_mode_init
+  load_cdb_firewall_userhost_mode
+  load_cdb_firewall_userhost_mode_deinit
+  load_cdb_firewall_whitelist_init
+  load_cdb_firewall_whitelist
+  load_cdb_firewall_whitelist_deinit
+  flush_cdb_firewall_whitelist_init
+  flush_cdb_firewall_whitelist
+  flush_cdb_firewall_whitelist_deinit

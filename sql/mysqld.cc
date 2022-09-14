@@ -1761,6 +1761,7 @@ unsigned long cdb_kill_idle_trans_timeout = 0;
 bool cdb_enable_resource_statistics = true;
 bool cdb_enable_lock_statistics = false;
 ulong cdb_ignore_filename_length = 0;
+bool cdb_fire_wall_enabled= false;
 
 /**
   Total memory used in server layer and innodb layer.

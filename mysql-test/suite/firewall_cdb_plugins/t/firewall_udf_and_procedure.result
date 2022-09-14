@@ -1,0 +1,119 @@
+create user 'firewalltest'@'localhost';
+grant all on mysql.* to 'firewalltest'@'localhost';
+use test;
+select cdb_normalize_statement("select * from t1") into @whitelist_rule;
+select @whitelist_rule;
+@whitelist_rule
+select `*` from `test`.`t1`
+insert into mysql.cdb_firewall_whitelist values ('firewalltest@localhost', @whitelist_rule);
+select * from information_schema.cdb_firewall_whitelist;
+userhost	digest
+create table t1(id int);
+create table t2(id int);
+insert into mysql.cdb_firewall_users values("firewalltest@localhost", "RECORDING");
+select load_cdb_firewall_userhost_mode();
+load_cdb_firewall_userhost_mode()
+load cdb firewall userhost mode
+select * from information_schema.cdb_firewall_users;
+userhost	mode
+firewalltest@localhost	RECORDING
+select load_cdb_firewall_whitelist();
+load_cdb_firewall_whitelist()
+load cdb firewall whitelist
+select * from information_schema.cdb_firewall_whitelist;
+userhost	digest
+firewalltest@localhost	select `*` from `test`.`t1`
+set global firewall_cdb_mode = ON;
+select * from t1;
+id
+select * from t2;
+id
+select * from information_schema.cdb_firewall_whitelist;
+userhost	digest
+firewalltest@localhost	select `*` from `test`.`t2`
+firewalltest@localhost	select `*` from `test`.`t1`
+select * from mysql.cdb_firewall_whitelist;
+USERHOST	DIGEST
+firewalltest@localhost	select `*` from `test`.`t1`
+select flush_cdb_firewall_whitelist();
+flush_cdb_firewall_whitelist()
+flush cdb firewall whitelist
+select * from mysql.cdb_firewall_whitelist;
+USERHOST	DIGEST
+firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select `*` from `test`.`t2`
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'PROTECT');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+select * from t1;
+id
+insert into test.t1 values(1);
+ERROR HY000: SQL rejected by CDB_FIREWALL
+call mtr.add_suppression('Rejected by cdb firewall');
+call mysql.sp_set_cdb_firewall_mode('firewalltest', 'localhost', 'DETECT');
+set_cdb_firewall_userhost_mode(userhost, mode)
+set cdb firewall userhost mode
+select * from t1;
+id
+insert into t2 values(1);
+show status like 'Firewall_access_denied';
+Variable_name	Value
+Firewall_access_denied	1
+show status like 'Firewall_access_granted';
+Variable_name	Value
+Firewall_access_granted	2
+show status like 'Firewall_access_suspicious';
+Variable_name	Value
+Firewall_access_suspicious	1
+show status like 'Firewall_cached_entries';
+Variable_name	Value
+Firewall_cached_entries	1
+select cdb_firewall_flush_status();
+cdb_firewall_flush_status()
+flush cdb firewall whitelist
+show status like 'Firewall_access_denied';
+Variable_name	Value
+Firewall_access_denied	0
+show status like 'Firewall_access_granted';
+Variable_name	Value
+Firewall_access_granted	0
+show status like 'Firewall_access_suspicious';
+Variable_name	Value
+Firewall_access_suspicious	0
+show status like 'Firewall_cached_entries';
+Variable_name	Value
+Firewall_cached_entries	0
+select * from t1;
+id
+select * from t2;
+id
+1
+select flush_cdb_firewall_whitelist();
+flush_cdb_firewall_whitelist()
+flush cdb firewall whitelist
+select * from information_schema.cdb_firewall_whitelist;
+userhost	digest
+firewalltest@localhost	select `*` from `test`.`t2`
+firewalltest@localhost	select `*` from `test`.`t1`
+select * from mysql.cdb_firewall_whitelist;
+USERHOST	DIGEST
+firewalltest@localhost	select `*` from `test`.`t1`
+firewalltest@localhost	select `*` from `test`.`t2`
+call mysql.sp_reload_cdb_firewall_user_rules("firewalltest", "localhost");
+reload_cdb_firewall_user_rules(userhost)
+reload cdb firewall rules for user firewalltest@localhost
+select * from information_schema.cdb_firewall_whitelist;
+userhost	digest
+select * from mysql.cdb_firewall_whitelist;
+USERHOST	DIGEST
+select cdb_normalize_statement("select * from t1");
+cdb_normalize_statement("select * from t1")
+select `*` from `test`.`t1`
+select cdb_normalize_statement("select * from t1 where id = 1");
+cdb_normalize_statement("select * from t1 where id = 1")
+select `*` from `test`.`t1` where (`id` = ?)
+drop table t1;
+drop table t2;
+drop user 'firewalltest'@'localhost';
+flush_cdb_firewall_whitelist()
+flush cdb firewall whitelist

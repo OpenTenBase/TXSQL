@@ -800,6 +800,7 @@ SET(SQL_SOURCE
   protocol_callback.cc
   signal_handler.cc
   sql_audit.cc
+  sql_cdb_firewall.cc
   sql_client.cc
   srv_session.cc
   srv_session_info_service.cc

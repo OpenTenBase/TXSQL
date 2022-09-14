@@ -183,6 +183,7 @@
 */
 #include "sql/threadpool.h"
 #include "cdb_sql_filter.h"
+#include "sql/sql_cdb_firewall.h" 
 /**
   Changes from txsql end.
 */
@@ -3112,6 +3113,15 @@ int mysql_execute_command(THD *thd, bool first_level) {
       return -1;
     }
   } /* endif unlikely slave */
+
+  if (cdb_fire_wall_enabled) {
+    thd->cdb_sql_rejected_by_firewall = false;
+    cdb_firewall_check_sql(thd);
+    if (thd->cdb_sql_rejected_by_firewall) {
+      my_error(ER_REJECT_BY_CDB_FIREWALL, MYF(0));
+      return -1;
+    }
+  }
 
   thd->status_var.com_stat[lex->sql_command]++;
 
