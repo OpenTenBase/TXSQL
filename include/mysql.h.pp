@@ -168,7 +168,9 @@ enum mysql_enum_shutdown_level {
 };
 enum enum_resultset_metadata {
   RESULTSET_METADATA_NONE = 0,
-  RESULTSET_METADATA_FULL = 1
+  RESULTSET_METADATA_FULL = 1,
+  RESULTSET_METADATA_ALIAS_NAME = 2,
+  RESULTSET_METADATA_COLUMN_NAME_ONLY = 3
 };
 enum enum_cursor_type {
   CURSOR_TYPE_NO_CURSOR = 0,
