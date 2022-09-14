@@ -118,7 +118,7 @@ class Whitelist_Cache {
     finally, check if digest match the query
   */
 
-  typedef malloc_unordered_map<Digest_Hash, Digest> User_Whitelist_Map;
+  typedef malloc_unordered_multimap<Digest_Hash, Digest> User_Whitelist_Map;
 
   typedef User_Whitelist_Map::iterator User_Whitelist_Map_Iterator;
 
@@ -138,5 +138,17 @@ class Whitelist_Cache {
     @param locked true if already hold the rwlock
   */
   bool insert_rule(Userhost userhost, Digest digest, bool locked = false);
+
+  /**
+    Check whether {digest_hash, digest} exists in whitelist_map
+
+    @param whitelist_map User_Whitelist_Map
+    @param digest_hash the hash of digest
+    @param digest the digest of a query
+    @retval true if already exist
+  */
+  static bool check_existence_digest(const User_Whitelist_Map &whitelist_map,
+                                     const Digest_Hash &digest_hash,
+                                     const Digest &digest);
 };
 #endif

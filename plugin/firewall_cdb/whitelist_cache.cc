@@ -83,8 +83,9 @@ bool Whitelist_Cache::insert_rule(Userhost userhost, Digest digest,
     return 0;
   }
 
-  User_Whitelist_Map_Iterator it = whitelist_map_it->second.find(digest_hash);
-  if (it == whitelist_map_it->second.end())
+  bool exist =
+      check_existence_digest(whitelist_map_it->second, digest_hash, digest);
+  if (!exist)
     whitelist_map_it->second.emplace(digest_hash, digest);
   if (!locked) unlock();
   return 0;
@@ -107,15 +108,10 @@ bool Whitelist_Cache::query_in_whitelist(THD *thd, Userhost &userhost) {
      so we should check all digest in whitelist that
      digest_hash equal to the inpuh statement.
   */
-  auto it_range = whitelist_map.equal_range(digest_hash);
-  for (auto it_whitelist = it_range.first; it_whitelist != it_range.second;
-       it_whitelist++) {
-    if (normalized_query.compare(it_whitelist->second) == 0) {
-      unlock();
-      return true;
-    }
-  }
+  bool exist =
+      check_existence_digest(whitelist_map, digest_hash, normalized_query);
   unlock();
+  if (exist) return true;
   return false;
 }
 
@@ -125,7 +121,6 @@ bool Whitelist_Cache::record_sql(THD *thd, Userhost &userhost) {
   Whitelist_Map_Iterator it = m_whitelist_map.find(userhost);
   Digest normalized_query;
   Digest_Hash digest_hash;
-  User_Whitelist_Map *whitelist_map;
   User_Whitelist_Map_Iterator whitelist_it;
 
   normalized_query = get_current_query_normalized(thd);
@@ -133,13 +128,8 @@ bool Whitelist_Cache::record_sql(THD *thd, Userhost &userhost) {
 
   if (it == m_whitelist_map.end()) goto query_not_in_whitelist;
 
-  whitelist_map = &(it->second);
-
-  whitelist_it = whitelist_map->find(digest_hash);
-  if (whitelist_it == whitelist_map->end()) goto query_not_in_whitelist;
-
   /* digest hash equal but digest not equal */
-  if (normalized_query.compare(whitelist_it->second) != 0)
+  if (!check_existence_digest(it->second, digest_hash, normalized_query))
     goto query_not_in_whitelist;
 
   /* sql digest in whitelist, do nothing */
@@ -242,4 +232,15 @@ void Whitelist_Cache::delete_rules_for_userhost(Userhost userhost) {
   wrlock();
   m_whitelist_map.erase(userhost);
   unlock();
+}
+
+bool Whitelist_Cache::check_existence_digest(
+    const User_Whitelist_Map &whitelist_map, const Digest_Hash &digest_hash,
+    const Digest &digest) {
+  auto it_range = whitelist_map.equal_range(digest_hash);
+  for (auto it_whitelist = it_range.first; it_whitelist != it_range.second;
+       it_whitelist++) {
+    if (digest.compare(it_whitelist->second) == 0) return true;
+  }
+  return false;
 }
