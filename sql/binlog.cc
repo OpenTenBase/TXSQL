@@ -701,6 +701,7 @@ class binlog_cache_data {
         ptr_binlog_cache_use(ptr_binlog_cache_use_arg),
         ptr_binlog_cache_disk_use(ptr_binlog_cache_disk_use_arg) {
     flags.transactional = trx_cache_arg;
+    err_binlog_size = 0;
   }
 
   bool open(my_off_t cache_size, my_off_t max_cache_size) {
@@ -827,6 +828,7 @@ class binlog_cache_data {
     */
     cache_state_map.clear();
     event_counter = 0;
+    err_binlog_size = 0;
     m_compressed_size = 0;
     m_decompressed_size = 0;
     m_compression_type = binary_log::transaction::compression::NONE;
@@ -893,6 +895,7 @@ class binlog_cache_data {
     return is_binlog_empty() || has_empty_transaction();
   }
 
+  my_off_t err_binlog_size;
  protected:
   /*
     This structure should have all cache variables/flags that should be restored
@@ -1538,6 +1541,16 @@ int binlog_cache_data::write_event(Log_event *ev) {
     if (ev->starts_group()) flags.with_start = true;
     if (ev->ends_group()) flags.with_end = true;
     if (!ev->starts_group() && !ev->ends_group()) flags.with_content = true;
+
+    my_off_t binlog_sz;
+    ulonglong threshold = binlog_write_threshold;
+    if (threshold > 0 && current_thd &&
+        current_thd->system_thread == NON_SYSTEM_THREAD &&
+        (binlog_sz = get_byte_position()) > threshold) {
+      err_binlog_size = binlog_sz;
+      return 1;
+    }
+
     event_counter++;
     DBUG_PRINT("debug",
                ("event_counter= %lu", static_cast<ulong>(event_counter)));
@@ -5385,9 +5398,18 @@ void MYSQL_BIN_LOG::report_cache_write_error(THD *thd, bool is_transactional) {
       my_error(ER_STMT_CACHE_FULL, MYF(MY_WME));
     }
   } else {
-    char errbuf[MYSYS_STRERROR_SIZE];
-    my_error(ER_ERROR_ON_WRITE, MYF(MY_WME), name, errno,
-             my_strerror(errbuf, sizeof(errbuf), errno));
+    binlog_cache_mngr *const cache_mgr = thd_get_cache_mngr(thd);
+    binlog_cache_data *cache_data =
+      cache_mgr ? cache_mgr->get_binlog_cache_data(is_transactional) : 0;
+
+    if (cache_data && cache_data->err_binlog_size > 0) {
+      my_error(ER_BINLOG_THRESHOLD_EXCEEDED, MYF(0),
+               binlog_write_threshold, cache_data->err_binlog_size);
+    } else {
+      char errbuf[MYSYS_STRERROR_SIZE];
+      my_error(ER_ERROR_ON_WRITE, MYF(MY_WME), name, errno,
+               my_strerror(errbuf, sizeof(errbuf), errno));
+    }
   }
 }
 
@@ -6969,6 +6991,10 @@ int MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
         cache_data->set_incident();
       delete pending;
       cache_data->set_pending(nullptr);
+
+      if (cache_data->err_binlog_size > 0) {
+        thd->mark_transaction_to_rollback(true);
+      }
       return 1;
     }
 
@@ -7128,6 +7154,10 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
       if (check_write_error(thd) && cache_data &&
           stmt_cannot_safely_rollback(thd))
         cache_data->set_incident();
+    }
+    
+    if (cache_data && cache_data->err_binlog_size > 0) {
+      thd->mark_transaction_to_rollback(true);
     }
   }
 

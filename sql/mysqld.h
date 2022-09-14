@@ -889,5 +889,7 @@ extern void update_thread_stats(int type, ulonglong size = 0);
 
 /* Update thread lock status*/
 extern void update_lock_stats(int type, const char *name, ulong line, ulong id);
+
+extern ulonglong binlog_write_threshold;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

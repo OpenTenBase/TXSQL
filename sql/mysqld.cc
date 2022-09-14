@@ -12723,3 +12723,4 @@ bool cdb_lock_connect_check_enabled = true;
 bool cdb_convert_memory_to_innodb = false;
 PSI_mutex_key key_LOCK_Sql_Filter_Rule;
 char *sql_filter_command = nullptr;
+ulonglong binlog_write_threshold = 0;
