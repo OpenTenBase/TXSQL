@@ -1654,6 +1654,7 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"SUBSTRING_INDEX", SQL_FN(Item_func_substr_index, 3)},
     {"SUBTIME", SQL_FACTORY(Subtime_instantiator)},
     {"TAN", SQL_FN(Item_func_tan, 1)},
+    {"TDSQL_PASSWORD", SQL_FN(Item_func_password, 1)},
     {"TIMEDIFF", SQL_FN(Item_func_timediff, 2)},
     {"TIME_FORMAT", SQL_FACTORY(Time_format_instantiator)},
     {"TIME_TO_SEC", SQL_FN(Item_func_time_to_sec, 1)},
