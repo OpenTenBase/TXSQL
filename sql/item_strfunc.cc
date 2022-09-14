@@ -5553,3 +5553,70 @@ String *Item_func_internal_get_dd_column_extra::val_str(String *str) {
 
   return str;
 }
+
+/* Changes from TXSQL start. */
+extern void my_make_scrambled_password_sha1(char *to, const char *password,
+                                            size_t pass_len);
+
+/**
+  Helper function for calculating a new password. Used in
+  Item_func_password::fix_length_and_dec() for const parameters and in
+  Item_func_password::val_str_ascii() for non-const parameters.
+  @param str The plain text password which should be digested
+  @param buffer a pointer to the buffer where the digest will be stored.
+
+  @note The buffer must be of at least CRYPT_MAX_PASSWORD_SIZE size.
+
+  @return Size of the password.
+*/
+
+static size_t calculate_password(String *str, char *buffer)
+{
+  assert(str);
+  if (str->length() == 0) // PASSWORD('') returns ''
+    return 0;
+
+  size_t buffer_len= 0;
+  push_deprecated_warn_no_replacement(current_thd, "PASSWORD");
+  
+  my_make_scrambled_password_sha1(buffer, str->ptr(), str->length());
+  buffer_len= SCRAMBLED_PASSWORD_CHAR_LENGTH;
+  
+  return buffer_len;
+}
+
+
+bool Item_func_password::resolve_type(THD *) {
+  CHARSET_INFO *cs = get_checksum_charset(args[0]->collation.collation->csname);
+  args[0]->collation.set(cs, DERIVATION_COERCIBLE);
+  set_data_type_string(64, default_charset());
+  return false;
+}
+
+String *Item_func_password::val_str_ascii(String *str)
+{
+  assert(fixed == 1);
+
+  String *res= args[0]->val_str(str);
+
+  if (args[0]->null_value)
+    res= make_empty_result();
+
+  /* we treat NULLs as equal to empty string when calling the plugin */
+  my_validate_password_policy(res->ptr(), res->length());
+
+  null_value= 0;
+  if (args[0]->null_value)  // PASSWORD(NULL) returns ''
+    return res;
+
+  m_hashed_password_buffer_len= calculate_password(res, m_hashed_password_buffer);
+
+  if (m_hashed_password_buffer_len == 0)
+    return make_empty_result();
+
+  str->set(m_hashed_password_buffer, m_hashed_password_buffer_len,
+           default_charset());
+
+  return str;
+}
+/* Changes from TXSQL end. */
