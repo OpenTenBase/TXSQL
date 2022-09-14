@@ -2746,6 +2746,8 @@ static int read_com_query_metadata(MYSQL *mysql, uchar *pos,
 
   switch (mysql->resultset_metadata) {
     case RESULTSET_METADATA_FULL:
+    case RESULTSET_METADATA_ALIAS_NAME:
+    case RESULTSET_METADATA_COLUMN_NAME_ONLY:
       /* Read metadata. */
       MYSQL_TRACE_STAGE(mysql, WAIT_FOR_FIELD_DEF);
 

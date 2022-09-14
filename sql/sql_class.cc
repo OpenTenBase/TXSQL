@@ -2837,10 +2837,20 @@ bool THD::send_result_metadata(const mem_root_deque<Item *> &list, uint flags) {
     goto err;
   switch (variables.resultset_metadata) {
     case RESULTSET_METADATA_FULL:
+    case RESULTSET_METADATA_ALIAS_NAME:
+    case RESULTSET_METADATA_COLUMN_NAME_ONLY:
       /* Send metadata. */
       for (Item *item : VisibleFields(list)) {
         Send_field field;
         item->make_field(&field);
+
+        if (variables.resultset_metadata == RESULTSET_METADATA_COLUMN_NAME_ONLY) {
+          field.db_name = field.table_name
+            = field.org_table_name = field.org_col_name = "";
+        } else if (variables.resultset_metadata == RESULTSET_METADATA_ALIAS_NAME) {
+          field.org_table_name = field.org_col_name = "";
+        }
+
         m_protocol->start_row();
         if (m_protocol->send_field_metadata(&field,
                                             item->charset_for_protocol()))
