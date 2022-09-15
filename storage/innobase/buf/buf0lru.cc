@@ -754,6 +754,241 @@ the list as they age towards the tail of the LRU.
   return error;
 }
 
+/** Removes a single page from a given tablespace inside a specific
+buffer pool instance.
+@param[in,out]	buf_pool	buffer pool instance
+@param[in,out]	bpage		bpage to remove
+@param[in]	flush		flush to disk if true but don't remove
+                                else remove without flushing to disk
+@param[in,out]	must_restart	flag if must restart the flush list scan
+@return true if page was removed. */
+static MY_ATTRIBUTE((warn_unused_result)) bool buf_flush_or_remove_page(
+    buf_pool_t *buf_pool, buf_page_t *bpage, bool flush, bool *must_restart) {
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  ut_ad(buf_flush_list_mutex_own(buf_pool));
+
+  /* It is safe to check bpage->space and bpage->io_fix while holding
+  buf_pool->LRU_list_mutex only. */
+
+  if (!bpage->was_io_fix_none()) {
+    /* We cannot remove this page during this scan
+    yet; maybe the system is currently reading it
+    in, or flushing the modifications to the file */
+    return (false);
+  }
+
+  BPageMutex *block_mutex = buf_page_get_mutex(bpage);
+  bool processed = false;
+
+  /* We don't have to worry about bpage becoming a dangling
+  pointer by a compressed page flush list relocation because
+  buf_page_get_gen() won't be called for pages from this
+  tablespace.  */
+
+  buf_flush_list_mutex_exit(buf_pool);
+
+  mutex_enter(block_mutex);
+
+  /* Recheck the page I/O fix and the flush list presence now
+  that we hold the right mutex. */
+  if (!bpage->was_io_fix_none() ||
+      bpage->get_oldest_lsn() == 0) {
+    /* The page became I/O-fixed or is not on the flush
+    list anymore, this invalidates any flush-list-page
+    pointers we have. */
+
+    mutex_exit(block_mutex);
+
+    *must_restart = true;
+    processed = false;
+
+  } else if (!flush) {
+    buf_flush_remove(bpage);
+
+    mutex_exit(block_mutex);
+
+    processed = true;
+
+  } else if (buf_flush_ready_for_flush(bpage, BUF_FLUSH_SINGLE_PAGE)) {
+    /* The following call will release the LRU list
+    and block mutexes. */
+    processed = buf_flush_page(buf_pool, bpage, BUF_FLUSH_SINGLE_PAGE, false);
+
+    if (processed) {
+      /* Wake possible simulated aio thread to actually
+      post the writes to the operating system */
+      os_aio_simulated_wake_handler_threads();
+      mutex_enter(&buf_pool->LRU_list_mutex);
+    } else {
+      mutex_exit(block_mutex);
+    }
+  } else {
+    mutex_exit(block_mutex);
+  }
+
+  buf_flush_list_mutex_enter(buf_pool);
+
+  ut_ad(!mutex_own(block_mutex));
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+
+  return (processed);
+}
+
+/******************************************************************/ /**
+ Remove all dirty pages belonging to a given tablespace inside a specific
+ buffer pool instance when we are deleting the data file(s) of that
+ tablespace. The pages still remain a part of LRU and are evicted from
+ the list as they age towards the tail of the LRU.
+ @retval DB_SUCCESS if all freed
+ @retval DB_FAIL if not all freed
+ @retval DB_INTERRUPTED if the transaction was interrupted */
+static MY_ATTRIBUTE((warn_unused_result)) dberr_t
+    buf_flush_or_remove_pages_optimistic(
+        /*======================*/
+        buf_pool_t *buf_pool,    /*!< buffer pool instance */
+        ulint id,                /*!< in: target space id for which
+  to remove or flush pages */
+        Flush_observer *observer, /*!< in: flush observer */
+        bool flush,              /*!< in: flush to disk if true but
+           don't remove else remove without
+           flushing to disk */
+        const trx_t *trx)        /*!< to check if the operation must
+                                 be interrupted, can be 0 */
+{
+  ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
+  buf_page_t *prev;
+  buf_page_t *bpage;
+  ulint processed = 0;
+  bool dummy_must_restart = false;
+
+  buf_flush_list_mutex_enter(buf_pool);
+
+  for (bpage = UT_LIST_GET_LAST(buf_pool->flush_list); bpage != nullptr;
+       bpage = prev) {
+    ut_a(buf_page_in_file(bpage));
+
+    ut_ad(bpage->in_flush_list);
+
+    /* Save the previous link because once we free the
+    page we can't rely on the links. */
+
+    prev = UT_LIST_GET_PREV(list, bpage);
+
+    /* If flush observer is NULL, flush page for space id,
+    or flush page for flush observer. */
+    if (!check_page_flush_observer(bpage, observer, id)) {
+      /* Skip this block, as it does not belong to
+      the target space. */
+
+    } else {
+      /* We pin the prev block so that it won't get removed
+      from the flush_list after buf_pool->mutex
+      is released in buf_flush_or_remove_page.
+      Therefore, we can trust the prev pointer when
+      the flush is successful and continue the scan from prev.
+      However, this is a "best-effort" strategy to
+      flush the related dirty pages and we might miss
+      some dirty pages. We will later rely on
+      buf_flush_or_remove_pages to ensure that all
+      related dirty pages are flushed.
+      It's possible that the prev block is undergoing i/o
+      operations or pinned. We skip these blocks. It's also possible
+      that we skip some of the dirty pages we are trying to flush.
+      However, these blocks will eventually be flushed by
+      buf_flush_or_remove_pages.
+      We also assume that the such pinnable block is not that far away from
+      current page since there is limited number of i/o operations
+      allowed in system.*/
+      while (prev != nullptr) {
+        ut_ad(prev->in_flush_list);
+        /* Do a fast dirty check on block io_fix.
+          It is safe to check bpage->space and bpage->io_fix while holding
+          buf_pool->LRU_list_mutex only. */
+        if (prev->was_io_fix_none()) {
+          BPageMutex *prev_block_mutex = buf_page_get_mutex(prev);
+
+          /* Since latch ordering dictates that a page mutex is obtained
+           before flush list mutex, we work around this by using
+           try-lock on page mutex. If the try-lock did not succeed,
+           we skip the block and move on to the next lock. This
+           avoids deadlock. */
+          if (mutex_enter_nowait(prev_block_mutex) == 0) {
+            /* "Fix" the block so that the position cannot be
+            changed after we release the buffer pool and
+            block mutexes. */
+            buf_page_set_sticky(prev);
+            mutex_exit(prev_block_mutex);
+            break;
+          }
+        }
+        prev = UT_LIST_GET_PREV(list, prev);
+      }
+
+      /* We don't care if the flush succeeded or not since this
+       is an best-effort run. Silence compiler warnings. */
+      bool error [[maybe_unused]] =
+        buf_flush_or_remove_page(buf_pool, bpage, flush, &dummy_must_restart);
+
+      if (prev) {
+        BPageMutex *prev_block_mutex = buf_page_get_mutex(prev);
+        buf_flush_list_mutex_exit(buf_pool);
+
+        mutex_enter(prev_block_mutex);
+
+        buf_page_unset_sticky(prev);
+
+        mutex_exit(prev_block_mutex);
+
+        buf_flush_list_mutex_enter(buf_pool);
+
+        ut_ad(prev->in_flush_list);
+      }
+    }
+
+    ++processed;
+
+    /* Yield if we have hogged the CPU and mutexes for too long. */
+    bool restart = false;
+    if (buf_flush_try_yield(buf_pool, prev, processed, restart)) {
+      /* Reset the batch size counter if we had to yield. */
+
+      processed = 0;
+    }
+
+#ifdef DBUG_OFF
+    if (flush) {
+      DBUG_EXECUTE_IF(
+          "ib_export_flush_crash", static ulint n_pages;
+          if (++n_pages == 4) { DBUG_SUICIDE(); });
+    }
+#endif /* DBUG_OFF */
+
+    /* The check for trx is interrupted is expensive, we want
+    to check every N iterations. */
+    if (!processed && trx && trx_is_interrupted(trx)) {
+      if (trx->flush_observer != NULL) {
+        if (flush) {
+          trx->flush_observer->interrupted();
+        } else {
+          /* We should remove all pages with the
+          the flush observer. */
+          continue;
+        }
+      }
+
+      buf_flush_list_mutex_exit(buf_pool);
+      return DB_INTERRUPTED;
+    }
+  }
+
+  buf_flush_list_mutex_exit(buf_pool);
+
+  /* return DB_FAIL to initiate a round of pessimistic flush. */
+  return DB_FAIL;
+}
+
+extern bool innodb_fast_ddl;
+
 /** Remove or flush all the dirty pages that belong to a given tablespace
 inside a specific buffer pool instance. The pages will remain in the LRU
 list and will be evicted from the LRU list as they age and move towards
@@ -771,6 +1006,26 @@ static void buf_flush_dirty_pages(buf_pool_t *buf_pool, space_id_t id,
                                   Flush_observer *observer, bool flush,
                                   const trx_t *trx, bool strict) {
   dberr_t err;
+
+  if (innodb_fast_ddl) {
+    /* Let's go through an optimistic round of flushing pages in the flush_list
+    in the hope that most of the target dirty pages will be flushed.
+    This significantly reduces the time spent in the following loop in most
+    cases. */
+    mutex_enter(&buf_pool->LRU_list_mutex);
+    err = buf_flush_or_remove_pages_optimistic(buf_pool, id, observer, flush,
+                                               trx);
+    mutex_exit(&buf_pool->LRU_list_mutex);
+
+    ut_ad(buf_flush_validate(buf_pool));
+
+    if (err == DB_INTERRUPTED && observer != NULL) {
+      ut_a(flush);
+
+      flush = false;
+      err = DB_FAIL;
+    }
+  }
 
   do {
     /* TODO: it should be possible to avoid locking the LRU list
