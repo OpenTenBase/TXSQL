@@ -3614,6 +3614,7 @@ void show_backquery_time_status(THD *thd, SHOW_VAR *var, char *buff) {
   }
 }
 
+uint srv_page_hash_cell_factor = 2;
 /**
  Changes from txsql end.
 */

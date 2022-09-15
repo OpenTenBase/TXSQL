@@ -7987,4 +7987,23 @@ static Sys_var_charptr Sys_tdsql_hide_partitions(
     GLOBAL_VAR(tdsql_disable_partitions), CMD_LINE(OPT_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_hide_partitions));
+// NO_CMD_LINE
+static Sys_var_transaction_isolation Sys_tx_isolation(
+    "tx_isolation", "Default transaction isolation level",
+    UNTRACKED_DEFAULT SESSION_VAR(transaction_isolation), NO_CMD_LINE,
+    tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_transaction_isolation));
+
+static Sys_var_bool Sys_reject_table_no_pk{
+    "reject_table_no_pk",
+    "When set, tables must be created with a primary key, and an existing "
+    "primary key cannot be removed with 'ALTER TABLE'. Attempts to do so "
+    "will result in an error.",
+    HINT_UPDATEABLE SESSION_VAR(sql_require_primary_key),
+    CMD_LINE(OPT_ARG),
+    DEFAULT(false),
+    NO_MUTEX_GUARD,
+    IN_BINLOG,
+    ON_CHECK(check_session_admin)};
+
 /* Changes from txsql end. */

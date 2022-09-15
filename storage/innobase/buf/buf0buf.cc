@@ -1302,7 +1302,7 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
     ut_a(srv_n_page_hash_locks <= MAX_PAGE_HASH_LOCKS);
 
     buf_pool->page_hash =
-        ib_create(2 * buf_pool->curr_size, LATCH_ID_HASH_TABLE_RW_LOCK,
+        ib_create(srv_page_hash_cell_factor * buf_pool->curr_size, LATCH_ID_HASH_TABLE_RW_LOCK,
                   srv_n_page_hash_locks, MEM_HEAP_FOR_PAGE_HASH);
 
     buf_pool->zip_hash = ut::new_<hash_table_t>(2 * buf_pool->curr_size);
@@ -1905,7 +1905,8 @@ static void buf_pool_resize_hash(buf_pool_t *buf_pool) {
   ut_ad(mutex_own(&buf_pool->zip_hash_mutex));
 
   /* create a temporary hash_table with twice larger cells[]  */
-  new_hash_table = ut::new_<hash_table_t>(2 * buf_pool->curr_size);
+  new_hash_table =
+      ut::new_<hash_table_t>(srv_page_hash_cell_factor * buf_pool->curr_size);
   /* Only the current thread will use this temporary hash table, so no need for
   latching */
   ut_ad(new_hash_table->type == HASH_TABLE_SYNC_NONE);

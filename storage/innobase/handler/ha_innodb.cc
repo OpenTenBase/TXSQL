@@ -22382,13 +22382,11 @@ static MYSQL_SYSVAR_ULONGLONG(
     ulonglong{srv_buf_pool_chunk_unit_max},
     ulonglong{srv_buf_pool_chunk_unit_blk_sz});
 
-#if defined UNIV_DEBUG || defined UNIV_PERF_DEBUG
 static MYSQL_SYSVAR_ULONG(page_hash_locks, srv_n_page_hash_locks,
                           PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
                           "Number of rw_locks protecting buffer pool "
                           "page_hash. Rounded up to the next power of 2",
                           nullptr, nullptr, 16, 1, MAX_PAGE_HASH_LOCKS, 0);
-#endif /* defined UNIV_DEBUG || defined UNIV_PERF_DEBUG */
 
 static MYSQL_SYSVAR_BOOL(
     validate_tablespace_paths, srv_validate_tablespace_paths,
@@ -22533,6 +22531,12 @@ static MYSQL_SYSVAR_ULONG(concurrency_tickets, srv_n_free_tickets_to_enter,
                           "within the same SQL query after it has once got the "
                           "ticket",
                           nullptr, nullptr, 5000L, 1L, UINT_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    page_reserve_factor, innobase_page_reserve_factor, PLUGIN_VAR_RQCMDARG,
+    "Percentage of B-tree page filled while insertint record, for example: "
+    "16 means 1/16 of the index page space is reserved",
+    NULL, NULL, 16, 2, UNIV_PAGE_SIZE, 0);
 
 static MYSQL_SYSVAR_BOOL(
     deadlock_detect, innobase_deadlock_detect, PLUGIN_VAR_NOCMDARG,
@@ -23134,6 +23138,11 @@ static MYSQL_SYSVAR_ULONG(
     "Percentage of empty space on a data page that can be reserved"
     " to make the page compressible.",
     nullptr, nullptr, 50, 0, 75, 0);
+
+static MYSQL_SYSVAR_UINT(page_hash_cell_factor, srv_page_hash_cell_factor,
+                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+                         "The cells number of page_hash is factor * curr_size",
+                         NULL, NULL, 2, 1, 128, 0);
 
 static MYSQL_SYSVAR_BOOL(read_only, srv_read_only_mode,
                          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY |
@@ -23756,9 +23765,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(merge_threshold_set_all_debug),
     MYSQL_SYSVAR(semaphore_wait_timeout_debug),
 #endif /* UNIV_DEBUG */
-#if defined UNIV_DEBUG || defined UNIV_PERF_DEBUG
     MYSQL_SYSVAR(page_hash_locks),
-#endif /* defined UNIV_DEBUG || defined UNIV_PERF_DEBUG */
     MYSQL_SYSVAR(validate_tablespace_paths),
     MYSQL_SYSVAR(use_fdatasync),
     MYSQL_SYSVAR(status_output),
@@ -23812,6 +23819,8 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(table_drop_mode),
     MYSQL_SYSVAR(log_dummy_cache),
     MYSQL_SYSVAR(txsql_deadlock_history_size),
+    MYSQL_SYSVAR(page_reserve_factor),
+    MYSQL_SYSVAR(page_hash_cell_factor),
     nullptr};
 
 mysql_declare_plugin(innobase){

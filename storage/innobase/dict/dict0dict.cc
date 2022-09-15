@@ -186,6 +186,10 @@ ulong zip_pad_max = 50;
 /** buffer pool max size per table  hash table fixed size in bytes */
 constexpr uint32_t DICT_POOL_PER_TABLE_HASH = 512;
 
+/* Changes from TXSQL start. */
+uint64_t innobase_page_reserve_factor = 16;
+/* Changes from TXSQL end. */
+
 #ifndef UNIV_HOTBACKUP
 /** Identifies generated InnoDB foreign key names */
 static char dict_ibfk[] = "_ibfk_";
