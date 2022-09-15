@@ -5262,8 +5262,28 @@ int init_common_variables() {
   /* Set collactions that depends on the default collation */
   global_system_variables.collation_server = default_charset_info;
   global_system_variables.collation_database = default_charset_info;
-  global_system_variables.default_collation_for_utf8mb4 =
-      &my_charset_utf8mb4_0900_ai_ci;
+  if (!default_collation_for_utf8mb4_str) {
+    global_system_variables.default_collation_for_utf8mb4 =
+        &my_charset_utf8mb4_0900_ai_ci;
+  } else {
+    CHARSET_INFO *tmp_collation =
+        get_charset_by_name(default_collation_for_utf8mb4_str, MYF(0));
+    if (!tmp_collation) {
+      sql_print_error("default_collation_for_utf8mb4:%s can't be loaded",
+                      default_collation_for_utf8mb4_str);
+      return 1;
+    }
+    if (strcmp(MY_UTF8MB4, tmp_collation->csname)) {
+      LogErr(ERROR_LEVEL, ER_INVALID_COLLATION_FOR_CHARSET,
+             default_collation_for_utf8mb4_str, tmp_collation->csname);
+      return 1;
+    }
+    global_system_variables.default_collation_for_utf8mb4 = tmp_collation;
+  }
+
+  sql_print_information(
+      "global_system_variables.default_collation_for_utf8mb4 is:%s",
+      global_system_variables.default_collation_for_utf8mb4->csname);
 
   if (is_supported_parser_charset(default_charset_info)) {
     global_system_variables.collation_connection = default_charset_info;
@@ -9151,6 +9171,11 @@ struct my_option my_long_options[] = {
     {"collation-server", 0, "Set the default collation.",
      &default_collation_name, &default_collation_name, nullptr, GET_STR,
      REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"default_collation_for_utf8mb4", 0,
+     "Controls default collation for utf8mb4 while replicating implicit "
+     "utf8mb4 collations.",
+     &default_collation_for_utf8mb4_str, &default_collation_for_utf8mb4_str,
+     nullptr, GET_STR, REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"console", OPT_CONSOLE,
      "Write error output on screen; don't remove the console window on "
      "windows.",
@@ -12736,3 +12761,4 @@ bool cdb_convert_memory_to_innodb = false;
 PSI_mutex_key key_LOCK_Sql_Filter_Rule;
 char *sql_filter_command = nullptr;
 ulonglong binlog_write_threshold = 0;
+const char *default_collation_for_utf8mb4_str;
