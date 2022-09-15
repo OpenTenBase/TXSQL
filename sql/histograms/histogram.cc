@@ -1942,6 +1942,28 @@ static bool get_temporal(Item *item, Value_map_type preferred_type,
   return false;
 }
 
+static bool get_temporal(Field *field, Value_map_type preferred_type,
+                         MYSQL_TIME *time_value) {
+  switch (preferred_type) {
+    case Value_map_type::DATETIME:
+      TIME_from_longlong_datetime_packed(time_value, field->val_date_temporal());
+      break;
+    case Value_map_type::DATE:
+      TIME_from_longlong_date_packed(time_value, field->val_date_temporal());
+      break;
+    case Value_map_type::TIME:
+      TIME_from_longlong_time_packed(time_value, field->val_time_temporal());
+      break;
+    default:
+      /* purecov: begin deadcode */
+      assert(0);
+      break;
+      /* purecov: end deadcode */
+  }
+
+  return false;
+}
+
 template <class T>
 double Histogram::apply_operator(const enum_operator op, const T &value) const {
   switch (op) {
@@ -1959,7 +1981,34 @@ double Histogram::apply_operator(const enum_operator op, const T &value) const {
   }
 }
 
-bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
+// template helper functions for Histogram::get_selectivity_dispatcher()
+
+inline const CHARSET_INFO *charset_of(Item *item) {
+  return item->collation.collation;
+}
+
+inline const CHARSET_INFO *charset_of(Field *field) {
+  return field->charset();
+}
+
+inline enum_field_types data_type_of(Item *item) {
+  return item->data_type();
+}
+
+inline enum_field_types data_type_of(Field *field) {
+  return field->type();
+}
+
+inline bool is_null(Item *item) {
+  return item->is_null();
+}
+
+inline bool is_null(Field *field) {
+  return field->is_real_null();
+}
+
+template <class T>
+bool Histogram::get_selectivity_dispatcher(T *item, const enum_operator op,
                                            const TYPELIB *typelib,
                                            double *selectivity) const {
   switch (this->get_data_type()) {
@@ -1971,12 +2020,12 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
     }
     case Value_map_type::STRING: {
       // Is the character set the same? If not, we cannot use the histogram
-      if (item->collation.collation->number != get_character_set()->number)
+      if (charset_of(item)->number != get_character_set()->number)
         return true;
 
-      StringBuffer<MAX_FIELD_WIDTH> str_buf(item->collation.collation);
+      StringBuffer<MAX_FIELD_WIDTH> str_buf(charset_of(item));
       const String *str = item->val_str(&str_buf);
-      if (item->is_null()) return true;
+      if (is_null(item)) return true;
 
       *selectivity =
           apply_operator(op, str->substr(0, HISTOGRAM_MAX_COMPARE_LENGTH));
@@ -1984,7 +2033,7 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
     }
     case Value_map_type::INT: {
       const longlong value = item->val_int();
-      if (item->is_null()) return true;
+      if (is_null(item)) return true;
 
       *selectivity = apply_operator(op, value);
       return false;
@@ -1993,10 +2042,10 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
       assert(typelib != nullptr);
 
       longlong value;
-      if (item->data_type() == MYSQL_TYPE_VARCHAR) {
-        StringBuffer<MAX_FIELD_WIDTH> str_buf(item->collation.collation);
+      if (data_type_of(item) == MYSQL_TYPE_VARCHAR) {
+        StringBuffer<MAX_FIELD_WIDTH> str_buf(charset_of(item));
         const String *str = item->val_str(&str_buf);
-        if (item->is_null()) return true;
+        if (is_null(item)) return true;
 
         // Remove any trailing whitespace
         size_t length = str->charset()->cset->lengthsp(
@@ -2004,7 +2053,7 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
         value = find_type2(typelib, str->ptr(), length, str->charset());
       } else {
         value = item->val_int();
-        if (item->is_null()) return true;
+        if (is_null(item)) return true;
       }
 
       if (op == enum_operator::EQUALS_TO) {
@@ -2018,10 +2067,10 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
       assert(typelib != nullptr);
 
       longlong value;
-      if (item->data_type() == MYSQL_TYPE_VARCHAR) {
-        StringBuffer<MAX_FIELD_WIDTH> str_buf(item->collation.collation);
+      if (data_type_of(item) == MYSQL_TYPE_VARCHAR) {
+        StringBuffer<MAX_FIELD_WIDTH> str_buf(charset_of(item));
         const String *str = item->val_str(&str_buf);
-        if (item->is_null()) return true;
+        if (is_null(item)) return true;
 
         bool got_warning;
         const char *not_used;
@@ -2033,7 +2082,7 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
         value = static_cast<ulonglong>(tmp_value);
       } else {
         value = item->val_int();
-        if (item->is_null()) return true;
+        if (is_null(item)) return true;
       }
 
       if (op == enum_operator::EQUALS_TO) {
@@ -2045,14 +2094,14 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
     }
     case Value_map_type::UINT: {
       const ulonglong value = static_cast<ulonglong>(item->val_int());
-      if (item->is_null()) return true;
+      if (is_null(item)) return true;
 
       *selectivity = apply_operator(op, value);
       return false;
     }
     case Value_map_type::DOUBLE: {
       const double value = item->val_real();
-      if (item->is_null()) return true;
+      if (is_null(item)) return true;
 
       *selectivity = apply_operator(op, value);
       return false;
@@ -2060,7 +2109,7 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
     case Value_map_type::DECIMAL: {
       my_decimal buffer;
       const my_decimal *value = item->val_decimal(&buffer);
-      if (item->is_null()) return true;
+      if (is_null(item)) return true;
 
       *selectivity = apply_operator(op, *value);
       return false;
@@ -2083,6 +2132,13 @@ bool Histogram::get_selectivity_dispatcher(Item *item, const enum_operator op,
   return true;
   /* purecov: end deadcode */
 }
+
+template
+bool Histogram::get_selectivity_dispatcher(Field *, const enum_operator,
+                                           const TYPELIB *, double *) const;
+template
+bool Histogram::get_selectivity_dispatcher(Item *, const enum_operator,
+                                           const TYPELIB *, double *) const;
 
 bool Histogram::get_selectivity(Item **items, size_t item_count,
                                 enum_operator op, double *selectivity) const {
@@ -2128,6 +2184,85 @@ bool Histogram::get_selectivity(Item **items, size_t item_count,
   const double minimum_selectivity = 0.001;
   *selectivity = std::max(*selectivity, minimum_selectivity);
   return false;
+}
+
+bool Histogram::get_selectivity(Field *field, enum_operator op,
+                                double *selectivity) const {
+  const TYPELIB *typelib = nullptr;
+  if (field->real_type() == MYSQL_TYPE_ENUM ||
+      field->real_type() == MYSQL_TYPE_SET) {
+     const Field_enum *field_enum =
+         down_cast<const Field_enum *>(field);
+     typelib = field_enum->typelib;
+  }
+
+  switch (op) {
+    case enum_operator::LESS_THAN:
+    case enum_operator::EQUALS_TO:
+    case enum_operator::GREATER_THAN: {
+      return get_selectivity_dispatcher(field, op, typelib, selectivity);
+    }
+    case enum_operator::LESS_THAN_OR_EQUAL: {
+      double less_than_selectivity;
+      double equals_to_selectivity;
+      if (get_selectivity_dispatcher(field, enum_operator::LESS_THAN,
+                                     typelib, &less_than_selectivity) ||
+          get_selectivity_dispatcher(field, enum_operator::EQUALS_TO,
+                                     typelib, &equals_to_selectivity))
+        return true;
+
+      *selectivity = std::min(less_than_selectivity + equals_to_selectivity,
+                              get_non_null_values_fraction());
+      return false;
+    }
+    case enum_operator::GREATER_THAN_OR_EQUAL: {
+      double greater_than_selectivity;
+      double equals_to_selectivity;
+      if (get_selectivity_dispatcher(field, enum_operator::GREATER_THAN,
+                                     typelib, &greater_than_selectivity) ||
+          get_selectivity_dispatcher(field, enum_operator::EQUALS_TO,
+                                     typelib, &equals_to_selectivity))
+        return true;
+
+      *selectivity = std::min(greater_than_selectivity + equals_to_selectivity,
+                              get_non_null_values_fraction());
+      return false;
+    }
+    case enum_operator::BETWEEN: {
+      double less_than_selectivity;
+      double greater_than_selectivity;
+      if (get_selectivity_dispatcher(field, enum_operator::LESS_THAN,
+                                     typelib, &less_than_selectivity) ||
+          get_selectivity_dispatcher(field, enum_operator::GREATER_THAN,
+                                     typelib, &greater_than_selectivity))
+        return true;
+
+      *selectivity = this->get_non_null_values_fraction() -
+                     (less_than_selectivity + greater_than_selectivity);
+      /*
+        Make sure that we don't return a value less than 0.0. This might happen
+        with a query like:
+          EXPLAIN SELECT a FROM t1 WHERE t1.a BETWEEN 3 AND 0;
+      */
+      *selectivity = std::max(0.0, *selectivity);
+      return false;
+    }
+    case enum_operator::IS_NULL:
+      *selectivity = this->get_null_values_fraction();
+      return false;
+    case enum_operator::IS_NOT_NULL:
+      *selectivity = 1.0 - this->get_null_values_fraction();
+      return false;
+    default: {
+      assert(false);
+      return true;
+    }
+  }
+
+  /* purecov: begin deadcode */
+  assert(false);
+  return true;
+  /* purecov: end deadcode */
 }
 
 bool Histogram::get_raw_selectivity(Item **items, size_t item_count,

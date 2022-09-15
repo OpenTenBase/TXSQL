@@ -464,7 +464,8 @@ class Histogram {
 
     @return true on error (i.e the provided item was NULL), false on success.
   */
-  bool get_selectivity_dispatcher(Item *item, const enum_operator op,
+  template <class T>
+  bool get_selectivity_dispatcher(T *item, const enum_operator op,
                                   const TYPELIB *typelib,
                                   double *selectivity) const;
 
@@ -649,6 +650,26 @@ class Histogram {
     @return false if success
   */
   bool get_selectivity(Item **items, size_t item_count, enum_operator op,
+                       double *selectivity) const;
+
+  /**
+    Get selectivity estimation by field value.
+
+    This function will try and get the selectivity estimation for a predicate
+    on the form "OPERATOR CONSTANT", for instance "> 23" in "SELECT * FROM t1
+    WHERE col1 > 23;".
+
+    The constant is provided by the field. Note that the field already has
+    type info, so it does not need COLUMN as in the other get_selectivity().
+
+    @param field            the field with user-provided constant value.
+    @param op               the predicate operator
+    @param[out] selectivity the calculated selectivity
+
+    @retval true if an error occurred
+    @return false if success
+  */
+  bool get_selectivity(Field *field, enum_operator op,
                        double *selectivity) const;
 
   /**

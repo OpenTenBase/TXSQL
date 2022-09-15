@@ -5080,6 +5080,22 @@ class handler {
 
   double estimate_in_memory_buffer(ulonglong table_index_size) const;
 
+  /**
+    Estimate selectivity by histogram instead of index dive.
+
+    @param keyno            Key for the range
+    @param min_endp         min endpoint of range
+    @param max_endp         max endpoint of range
+    @param flag             combined range flag. @see key_range_flags
+    @param[out] selectivity the calculated selectivity
+
+    @retval  false         Success
+    @retval  true          Error code
+  */
+  bool estimate_selectivity_by_histogram(uint keyno, key_range *min_endp,
+                                         key_range *max_endp, uint flag,
+                                         double *selectivity);
+
  public:
   virtual ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
                                               void *seq_init_param,

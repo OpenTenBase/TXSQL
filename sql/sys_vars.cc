@@ -8113,4 +8113,12 @@ static Sys_var_ulonglong Sys_hash_scan_max_agg_event_size(
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static Sys_var_bool Sys_txsql_range_estimation_by_histogram(
+    "txsql_range_estimation_by_histogram",
+    "Enable range estimation by histogram instead of index dive. If histogram "
+    "for the first index column is missing, fall back to index dive. Use "
+    "guesstimates for other columns without histograms.",
+    SESSION_VAR(txsql_range_estimation_by_histogram), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
 /* Changes from txsql end. */
