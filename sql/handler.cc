@@ -130,6 +130,7 @@
 #include "template_utils.h"
 #include "uniques.h"  // Unique_on_insert
 #include "varlen_sort.h"
+#include "sql/histograms/histogram.h"  // Histogram
 
 /**
   @def MYSQL_TABLE_IO_WAIT
@@ -6007,6 +6008,192 @@ static bool key_uses_partial_cols(TABLE *table, uint keyno) {
   return false;
 }
 
+// RAII class to restore positions and null bit.
+class Use_field {
+ public:
+  Use_field(Field *field) : m_field(field) {
+    m_field->backup_field(&m_ptr, &m_null_ptr, &m_null_bit);
+  }
+
+  ~Use_field() {
+    m_field->move_field(m_ptr, m_null_ptr, m_null_bit);
+  }
+
+ private:
+  Field *m_field;
+  uchar *m_ptr;
+  uchar *m_null_ptr;
+  uchar m_null_bit;
+};
+
+/**
+  Estimate selectivity by histogram instead of index dive.
+
+  Histogram for the first key part is required. Guesstimates are used
+  for successive key parts if their histograms are missing.
+
+  TODO: Record per key may be explored to provide more reasonable defaults
+  than guesstimates. More evaluation in the future.
+*/
+bool handler::estimate_selectivity_by_histogram(
+    uint keyno, key_range *min_endp, key_range *max_endp,
+    uint flag, double *selectivity) {
+  *selectivity = 1.0;
+  uint key_part_offset = 0;
+  KEY *key_info = &table->key_info[keyno];
+  KEY_PART_INFO *key_part_info = key_info->key_part;
+
+  uint n_parts = 0;
+  for (uint part = 0; part < actual_key_parts(key_info); part++) {
+    bool has_min = min_endp && (min_endp->keypart_map & (1 << part));
+    bool has_max = max_endp && (max_endp->keypart_map & (1 << part));
+    if (part > 0 && (!has_min || !has_max)) {
+      break;
+    }
+    n_parts++;
+  }
+
+  for (uint part = 0; part < n_parts; part++, key_part_info++) {
+    bool has_min = min_endp && (min_endp->keypart_map & (1 << part));
+    bool has_max = max_endp && (max_endp->keypart_map & (1 << part));
+    assert(has_min || has_max);
+
+    // All parts except for the last one should be for equality test,
+    // so the combined range flag effectively reflects the last part.
+    bool near_min = (part < n_parts - 1) ? false : (flag & key_range_flags::NEAR_MIN);
+    bool near_max = (part < n_parts - 1) ? false : (flag & key_range_flags::NEAR_MAX);
+
+    Field *fld = key_part_info->field;
+    double tmp_selectivity = 1.0;
+    uint key_data_offset = 0;
+    bool min_is_null = false;
+    bool max_is_null = false;
+
+    if (fld->is_nullable()) {
+      key_data_offset = 1;
+      // Check the NULL byte of the current part in the key image.
+      if (min_endp && *(min_endp->key + key_part_offset) == 1) {
+        min_is_null = true;
+      } else if (max_endp && *(max_endp->key + key_part_offset) == 1) {
+        max_is_null = true;
+      }
+    }
+
+    const histograms::Histogram *histogram =
+        table->s->find_histogram(fld->field_index());
+    if (histogram == nullptr) {
+      // Histogram for the first key part is required.
+      if (part == 0) return true;
+      // Use guesstimate for any successive field without histogram.
+      *selectivity *= (part < n_parts - 1) ?
+                          COND_FILTER_EQUALITY:
+                          COND_FILTER_INEQUALITY;
+
+      // Next part.
+      key_part_offset += key_part_info->store_length;
+      continue;
+    }
+
+    // Temporarily reuse the field to provide endpoint value.
+    Use_field use_field(fld);
+
+    // For NULL range [NULL, NULL] or point range [X, X].
+    if (has_min && has_max &&
+            !memcmp(min_endp->key + key_part_offset + key_data_offset,
+            max_endp->key + key_part_offset + key_data_offset,
+            key_part_info->length)) {
+      uchar null_bit = min_is_null ? 1 : 0;
+      fld->move_field(const_cast <uchar*>(min_endp->key +
+              key_part_offset + key_data_offset), &null_bit, null_bit);
+
+      histograms::enum_operator op =
+          min_is_null ?
+              histograms::enum_operator::IS_NULL:
+              histograms::enum_operator::EQUALS_TO;
+      if (histogram->get_selectivity(fld, op, &tmp_selectivity)) {
+        return true;
+      }
+
+      *selectivity *= std::max(0.0, std::min(1.0, tmp_selectivity));
+
+      // Next part.
+      key_part_offset += key_part_info->store_length;
+      continue;
+    }
+
+    if (has_min) {
+      uchar null_bit = min_is_null ? 1 : 0;
+      fld->move_field(const_cast <uchar*>(min_endp->key +
+              key_part_offset + key_data_offset), &null_bit, null_bit);
+
+      histograms::enum_operator op;
+      if (min_is_null) {
+        if (near_min) op = histograms::enum_operator::IS_NOT_NULL;
+        else op = histograms::enum_operator::IS_NULL;
+      } else {
+        if (near_min) op = histograms::enum_operator::GREATER_THAN;
+        else op = histograms::enum_operator::GREATER_THAN_OR_EQUAL;
+      }
+      if (histogram->get_selectivity(fld, op, &tmp_selectivity)) {
+        return true;
+      }
+    }
+
+    double max_selectivity = 1.0;
+    if (has_max) {
+      uchar null_bit = max_is_null ? 1 : 0;
+      fld->move_field(const_cast <uchar*>(max_endp->key +
+              key_part_offset + key_data_offset), &null_bit, null_bit);
+
+      // It cannot be null, because NULL range has been handled.
+      assert(!max_is_null);
+
+      histograms::enum_operator op;
+      if (near_max) op = histograms::enum_operator::LESS_THAN;
+      else op = histograms::enum_operator::LESS_THAN_OR_EQUAL;
+      if (histogram->get_selectivity(fld, op, &max_selectivity)) {
+        return true;
+      }
+    }
+    double part_selectivity;
+    if (has_min && has_max) {
+      if (!min_is_null && !max_is_null) {
+        // X, Y  -- Kind of hack assuming frequency is based on total count.
+        part_selectivity = max_selectivity + tmp_selectivity -
+                               histogram->get_non_null_values_fraction();
+      } else if (min_is_null && max_is_null) {
+        // Already handled as NULL range.
+        assert(false);
+      } else if (min_is_null) {
+        if (near_min) {
+          // (NULL, Y
+          part_selectivity = max_selectivity;
+        } else {
+          // [NULL, Y  -- FIXME is it possible?
+          part_selectivity = tmp_selectivity + max_selectivity;
+        }
+      } else {
+        // , NULL  -- Impossible, given that NULL range is already handled.
+        assert(false);
+      }
+    } else if (!has_min) {
+      //  , Y
+      part_selectivity = max_selectivity;
+    } else if (!has_max) {
+      // X,
+      part_selectivity = tmp_selectivity;
+    }
+    part_selectivity = std::max(0.0, std::min(1.0, part_selectivity));
+
+    *selectivity *= part_selectivity;
+
+    // Next part.
+    key_part_offset += key_part_info->store_length;
+  }
+
+  return false;
+}
+
 /****************************************************************************
  * Default MRR implementation (MRR to non-MRR converter)
  ***************************************************************************/
@@ -6050,6 +6237,7 @@ ha_rows handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   KEY_MULTI_RANGE range;
   range_seq_t seq_it;
   ha_rows rows, total_rows = 0;
+  bool trustable_zero_estimate = true;
   uint n_ranges = 0;
   THD *thd = current_thd;
 
@@ -6136,9 +6324,50 @@ ha_rows handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     } else {
       DBUG_EXECUTE_IF("crash_records_in_range", DBUG_SUICIDE(););
       assert(min_endp || max_endp);
-      rows = table->pos_in_table_list->is_derived_unfinished_materialization()
-                 ? HA_POS_ERROR
-                 : this->records_in_range(keyno, min_endp, max_endp);
+      bool is_derived_unfinished_materialization =
+        table->pos_in_table_list->is_derived_unfinished_materialization();
+      if (!is_derived_unfinished_materialization) {
+        assert(table->s == table_share);
+        /*
+          see definition of key_range_flags.
+          GEOM_FLAG & SKIP_RANGE can not be calculated now.
+        */
+        if (range.range_flag & key_range_flags::GEOM_FLAG
+            || range.range_flag & key_range_flags::SKIP_RANGE) {
+          if (HA_POS_ERROR ==
+              (rows = this->records_in_range(keyno, min_endp, max_endp))) {
+            /* Can't scan one range => can't do MRR scan at all */
+            total_rows = HA_POS_ERROR;
+            break;
+          }
+          total_rows += rows;
+          continue;
+        }
+        double selectivity = 1.0;
+
+        /*
+          Estimate selectivity by histogram. If there is no histogram for the
+          first key part of the index, fall back to index dive.
+
+          Note that due to the problem of stale or missing histogram, the
+          estimation results may be biased.
+         */
+        if (!thd->variables.txsql_range_estimation_by_histogram
+            || estimate_selectivity_by_histogram(keyno, min_endp,
+            max_endp, range.range_flag, &selectivity)) {
+          if (HA_POS_ERROR ==
+              (rows = records_in_range(keyno, min_endp, max_endp))) {
+            /* Can't scan one range => can't do MRR scan at all */
+            total_rows = HA_POS_ERROR;
+            break;
+          }
+        } else {
+          trustable_zero_estimate = false;
+          rows = std::max(0.0, std::round(table->file->stats.records * selectivity));
+        }
+      } else {
+        rows = HA_POS_ERROR;
+      }
       if (rows == HA_POS_ERROR) {
         /* Can't scan one range => can't do MRR scan at all */
         return HA_POS_ERROR;
@@ -6146,6 +6375,10 @@ ha_rows handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     }
     total_rows += rows;
   }
+
+  // Using any statistics does not guarantee zero estimate.
+  if (!trustable_zero_estimate)
+    total_rows = std::max(total_rows, static_cast<ha_rows>(1));
 
   assert(total_rows != HA_POS_ERROR);
   {

@@ -1376,6 +1376,12 @@ class Field {
     null_bit = null_bit_arg;
   }
 
+  void backup_field(uchar **old_ptr, uchar **old_null_ptr, uchar *old_null_bit) {
+    *old_ptr = ptr;
+    *old_null_ptr = m_null_ptr;
+    *old_null_bit = null_bit;
+  }
+
   virtual void move_field_offset(ptrdiff_t ptr_diff) {
     ptr += ptr_diff;
     if (is_nullable()) m_null_ptr += ptr_diff;

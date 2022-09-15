@@ -476,6 +476,10 @@ struct System_variables {
     @sa Sys_cdb_max_prefetch_rows
   */
   uint cdb_max_prefetch_rows;
+  /**
+    @sa Sys_txsql_range_estimation_by_histogram
+  */
+  bool txsql_range_estimation_by_histogram;
   /* Changes from txsql end. */
 };
 
