@@ -1,0 +1,48 @@
+#REPEATABLE-READ
+let $saved_tx_isolation = `SELECT @@global.tx_isolation`;
+
+show global variables like '%_isolation';
+show variables like '%_isolation';
+
+set global tx_isolation='READ-COMMITTED';
+select @@global.transaction_isolation;
+
+set global tx_isolation='READ-UNCOMMITTED';
+select @@global.transaction_isolation;
+
+set global tx_isolation='SERIALIZABLE';
+select @@global.transaction_isolation;
+
+set tx_isolation='READ-COMMITTED';
+select @@transaction_isolation;
+
+set tx_isolation='READ-UNCOMMITTED';
+select @@transaction_isolation;
+
+set tx_isolation='SERIALIZABLE';
+select @@transaction_isolation;
+
+
+create table t (id int primary key);
+set global transaction_isolation='READ-UNCOMMITTED';
+select @@global.transaction_isolation;
+
+begin;
+insert into t values(1);
+
+
+connect(con1,localhost,root,,);
+connection con1;
+--echo "can read uncommited"
+select *from t;
+
+connection default;
+rollback;
+
+connection con1;
+--echo "can not read "
+select *from t;
+
+
+drop table t;
+--eval SET GLOBAL transaction_isolation = '$saved_tx_isolation'

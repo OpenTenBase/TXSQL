@@ -1756,6 +1756,9 @@ private:
     /** The encoded or decoded stream */
     byte *m_result;
 };
+/* Changes from TXSQL start. */
+extern uint64_t innobase_page_reserve_factor;
+/* Changes from TXSQL end. */
 
 #include "dict0dict.ic"
 

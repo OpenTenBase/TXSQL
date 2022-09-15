@@ -809,7 +809,7 @@ static inline rw_lock_t *dict_index_get_lock(
  which make the records bigger might fragment the index.
  @return number of free bytes on page, reserved for updates */
 static inline ulint dict_index_get_space_reserve(void) {
-  return (UNIV_PAGE_SIZE / 16);
+  return (UNIV_PAGE_SIZE / innobase_page_reserve_factor);
 }
 
 /** Gets the status of online index creation.

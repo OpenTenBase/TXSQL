@@ -1338,6 +1338,8 @@ class Backquery_manager {
 extern Backquery_manager *backquery_manager;
 
 void show_backquery_time_status(THD *thd, SHOW_VAR *var, char *buff);
+
+extern uint srv_page_hash_cell_factor;
 /**
  Changes from txsql end.
 */
