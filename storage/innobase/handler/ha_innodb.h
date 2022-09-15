@@ -1402,6 +1402,7 @@ enum check_index_type_enum {
   COMBINED_INDEX = 2,
   UNCOMPRESSED_INDEX = 4
 };
+extern bool innodb_fast_ddl;
 /* Changes from txsql end. */
 
 #endif /* ha_innodb_h */

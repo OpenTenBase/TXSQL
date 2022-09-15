@@ -23545,6 +23545,11 @@ static MYSQL_SYSVAR_BOOL(
     "Skip adjustment NDV for estimating primary key in the leaf page "
     "when calculating persistent statistics of clustered index",
     nullptr, nullptr, false);
+static MYSQL_SYSVAR_BOOL(fast_ddl, innodb_fast_ddl,
+    PLUGIN_VAR_OPCMDARG,
+    "Enable fast ddl to optimize cleaning and romoving pages in flush list. "
+    "Default is FALSE",
+    NULL, NULL, false);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23752,6 +23757,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(redo_log_archive_dirs),
     MYSQL_SYSVAR(redo_log_encrypt),
     MYSQL_SYSVAR(print_ddl_logs),
+    MYSQL_SYSVAR(fast_ddl),
 #ifdef UNIV_DEBUG
     MYSQL_SYSVAR(trx_rseg_n_slots_debug),
     MYSQL_SYSVAR(limit_optimistic_insert_debug),
