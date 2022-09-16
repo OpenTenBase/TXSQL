@@ -575,6 +575,7 @@ void Opt_ctx_client::set_mem_max_capacity(THD *thd, bool force_clear) {
   OPT_CTX_TRACE_CLIENT("set_mem_max_capacity %lu with%s clear",
       thd->variables.txsql_optimizer_context_max_mem_size,
       force_clear ? "":"out");
+  if (!m_opt_ctx) return;
   m_opt_ctx->set_mem_max_capacity(thd, force_clear);
 }
 

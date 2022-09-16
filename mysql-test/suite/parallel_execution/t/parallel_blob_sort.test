@@ -1,3 +1,5 @@
+--source include/have_pq.inc
+--disable_ps_protocol
 
 set session txsql_parallel_lob_enabled=1;
 show variables like '%txsql_parallel_lob_enabled%';
@@ -15,12 +17,15 @@ INSERT INTO testText (id,data) VALUES (2,repeat('0123456789abcdef',510));
 INSERT INTO testText (id,data) VALUES (3,repeat('0123456789abcdef',510));
 ANALYZE TABLE testText;
 
+--disable_warnings
 explain format=tree SELECT DISTINCT STRAIGHT_JOIN SQL_BIG_RESULT SQL_SMALL_RESULT SQL_NO_CACHE
 testText.before,data from testText order by data;
+--enable_warnings
 
+--disable_warnings
 SELECT DISTINCT STRAIGHT_JOIN SQL_BIG_RESULT SQL_SMALL_RESULT SQL_NO_CACHE
 testText.before,data from testText order by data;
-
+--enable_warnings
 
 set session txsql_parallel_lob_enabled=0;
 DROP TABLE testText;
