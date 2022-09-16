@@ -25,9 +25,9 @@
 const char *CompileTime () {
     static char tmpbuf[1024] = { 0 };
 #ifndef NDEBUG
-    snprintf (tmpbuf , sizeof(tmpbuf) , "-v18-txsql-2.0.1-V2.0R741D003-%04d%02d%02d-%02d%02d" , CUR_YEAR , CUR_MONTH , CUR_DAY , CUR_HOUR , CUR_MIN);
+    snprintf (tmpbuf , sizeof(tmpbuf) , "-v18-txsql-2.0.1-V2.0R750D001-%04d%02d%02d-%02d%02d" , CUR_YEAR , CUR_MONTH , CUR_DAY , CUR_HOUR , CUR_MIN);
 #else
-    snprintf (tmpbuf , sizeof(tmpbuf) , "-v18-txsql-2.0.1-V2.0R741D003-%04d%02d%02d" , CUR_YEAR , CUR_MONTH , CUR_DAY);
+    snprintf (tmpbuf , sizeof(tmpbuf) , "-v18-txsql-2.0.1-V2.0R750D001-%04d%02d%02d" , CUR_YEAR , CUR_MONTH , CUR_DAY);
 #endif
     return tmpbuf;
 }
