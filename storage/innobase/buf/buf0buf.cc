@@ -5634,6 +5634,8 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
       /* Pages must be uncompressed for crash recovery. */
       ut_a(uncompressed);
       recv_recover_page(true, (buf_block_t *)bpage);
+    } else if (unlikely(dummy_index_cache)) {
+      dummy_index_cache_free();
     }
 
     if (uncompressed && !Compression::is_compressed_page(frame) &&

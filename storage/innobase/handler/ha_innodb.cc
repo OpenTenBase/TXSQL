@@ -23463,6 +23463,11 @@ static MYSQL_SYSVAR_ENUM(
     "asynchronously in background.", innodb_table_drop_mode_validate,
     innodb_table_drop_mode_update, SRV_SYNC_DROP,
     &innodb_table_drop_mode_typelib);
+
+static MYSQL_SYSVAR_BOOL(log_dummy_cache, srv_log_dummy_cache,
+                         PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+                         "Use dummy index cache in recovery.", nullptr, nullptr,
+                         true);
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23696,6 +23701,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(async_table_size),
     MYSQL_SYSVAR(async_drop_tmp_dir),
     MYSQL_SYSVAR(table_drop_mode),
+    MYSQL_SYSVAR(log_dummy_cache),
     nullptr};
 
 mysql_declare_plugin(innobase){

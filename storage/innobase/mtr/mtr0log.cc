@@ -414,7 +414,8 @@ byte *mlog_parse_index_8027(byte *ptr, const byte *end_ptr, bool comp,
                             dict_index_t **index) {
   ulint i;
   dict_table_t *table;
-  dict_index_t *ind;
+  dict_index_t *ind = nullptr;
+  bool found = false;
   bool instant = false;
   uint16_t n, n_uniq;
   uint16_t n_inst_cols = 0;
@@ -448,14 +449,37 @@ byte *mlog_parse_index_8027(byte *ptr, const byte *end_ptr, bool comp,
   } else {
     n = n_uniq = 1;
   }
-  table = dict_mem_table_create("LOG_DUMMY", DICT_HDR_SPACE, n, 0, 0,
-                                comp ? DICT_TF_COMPACT : 0, 0);
-  if (instant) {
-    table->set_instant_cols(n_inst_cols);
+
+  if (srv_log_dummy_cache) {
+    ind = dummy_index_search(n);
   }
 
-  ind = dict_mem_index_create("LOG_DUMMY", "LOG_DUMMY", DICT_HDR_SPACE, 0, n);
-  ind->table = table;
+  if (!ind) {
+    table = dict_mem_table_create("LOG_DUMMY", DICT_HDR_SPACE, n, 0, 0,
+                                  comp ? DICT_TF_COMPACT : 0, 0);
+
+    ind = dict_mem_index_create("LOG_DUMMY", "LOG_DUMMY", DICT_HDR_SPACE, 0, n);
+    ind->table = table;
+
+    if (srv_log_dummy_cache) {
+      dict_index_dummy tmp;
+
+      tmp.n_cols = n;
+      tmp.index = ind;
+      dummy_index_cache->insert(tmp);
+    }
+  } else {
+    table = ind->table;
+    table->flags = (unsigned int)(comp ? DICT_TF_COMPACT : 0);
+    found = true;
+  }
+
+  if (instant) {
+    table->set_instant_cols(n_inst_cols);
+  } else {
+    table->n_instant_cols = table->n_cols;
+  }
+
   ind->n_uniq = (unsigned int)n_uniq;
   if (n_uniq != n) {
     ut_a(n_uniq + DATA_ROLL_PTR <= n);
@@ -478,7 +502,14 @@ byte *mlog_parse_index_8027(byte *ptr, const byte *end_ptr, bool comp,
       "less than" or "greater than". */
       dict_index_add_col(ind, table, table->get_col(i), 0, true);
     }
-    dict_table_add_system_columns(table, table->heap);
+
+    if (found) {
+      table->n_def += DATA_N_SYS_COLS;
+      table->n_t_def += DATA_N_SYS_COLS;
+    } else {
+      dict_table_add_system_columns(table, table->heap);
+    }
+
     if (n_uniq != n) {
       /* Identify DB_TRX_ID and DB_ROLL_PTR in the index. */
       ut_a(DATA_TRX_ID_LEN == ind->get_col(DATA_TRX_ID - 1 + n_uniq)->len);

@@ -199,6 +199,10 @@ is bigger than the lsn we are able to scan up to, that is an indication that
 the recovery failed and the database may be corrupt. */
 static lsn_t recv_max_page_lsn;
 
+/** changes from txsql start */
+thread_local dummy_index_cache_t *dummy_index_cache = nullptr;
+/** changes from txsql end */
+
 #ifndef UNIV_HOTBACKUP
 #ifdef UNIV_PFS_THREAD
 mysql_pfs_key_t recv_writer_thread_key;
@@ -2456,7 +2460,7 @@ static byte *recv_parse_or_apply_log_rec_body(
       recv_sys->found_corrupt_log = true;
   }
 
-  if (index != nullptr) {
+  if (index != nullptr && !srv_log_dummy_cache) {
     dict_table_t *table = index->table;
 
     dict_mem_index_free(index);
@@ -4192,6 +4196,10 @@ MetadataRecover *recv_recovery_from_checkpoint_finish(bool aborting) {
   /* Free up the flush_rbt. */
   buf_flush_free_flush_rbt();
 
+  if (dummy_index_cache) {
+    dummy_index_cache_free();
+  }
+
   return metadata;
 }
 
@@ -4414,3 +4422,69 @@ const char *get_mlog_string(mlog_id_t type) {
   return nullptr;
 }
 #endif /* UNIV_DEBUG || UNIV_HOTBACKUP */
+
+/** Changes from txsql start. */
+
+/** Find a dummy index struct in cache.
+@param[in]  n_cols  number of columns in the index
+@retval dict_index_t if found */
+dict_index_t *dummy_index_search(ulint n_cols) {
+  dummy_index_cache_t::iterator it;
+  dict_index_dummy tmp;
+  dict_index_t *ind = nullptr;
+  dict_table_t *table;
+
+  ut_ad(srv_log_dummy_cache);
+
+  tmp.n_cols = n_cols;
+
+  if (!dummy_index_cache) {
+    dummy_index_cache =
+        ut::new_withkey<dummy_index_cache_t>(UT_NEW_THIS_FILE_PSI_KEY);
+  }
+
+  ut_ad(dummy_index_cache);
+
+  /* search one from cache */
+  it = dummy_index_cache->find(tmp);
+
+  if (it != dummy_index_cache->end()) {
+    ind = (*it).index;
+    table = ind->table;
+
+    /* Reinit some fileds */
+    ind->n_def = 0;
+    ind->type = 0;
+    ind->n_nullable = 0;
+    ind->n_instant_nullable = 0;
+    table->n_def = 0;
+    table->n_t_def = 0;
+  }
+
+  return ind;
+}
+
+/** free the local dummy index cache */
+void dummy_index_cache_free() {
+  dummy_index_cache_t::iterator it;
+  dict_index_t *index;
+  dict_table_t *table;
+
+  if (dummy_index_cache) {
+    for (it = dummy_index_cache->begin(); it != dummy_index_cache->end();
+         it++) {
+      index = (*it).index;
+      table = index->table;
+      dict_mem_index_free(index);
+      dict_mem_table_free(table);
+    }
+
+    dummy_index_cache->clear();
+
+    ut::delete_(dummy_index_cache);
+
+    dummy_index_cache = NULL;
+  }
+}
+
+/** Changes from txsql end. */
