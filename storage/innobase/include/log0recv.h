@@ -683,6 +683,40 @@ extern ulint recv_n_pool_free_frames;
 completed before crash. */
 extern std::list<space_id_t> recv_encr_ts_list;
 
+/** changes from txsql start */
+
+typedef struct dict_index_dummy {
+  ulint n_cols;
+  dict_index_t *index;
+} dict_index_dummy;
+
+struct dummy_index_compare {
+  bool operator()(const dict_index_dummy &idx1,
+                  const dict_index_dummy &idx2) const {
+    if (idx1.n_cols < idx2.n_cols) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+};
+
+typedef std::set<dict_index_dummy, dummy_index_compare,
+                 ut::allocator<dict_index_dummy>>
+    dummy_index_cache_t;
+
+extern thread_local dummy_index_cache_t* dummy_index_cache;
+
+/** Find a dummy index struct in cache.
+@param[in]  n_cols  number of columns in the index
+@retval dict_index_t if found */
+dict_index_t *dummy_index_search(ulint n_cols);
+
+/** free the local dummy index cache */
+void dummy_index_cache_free();
+
+/** changes from txsql end */
+
 #include "log0recv.ic"
 
 #endif

@@ -237,6 +237,10 @@ static void io_handler_thread(ulint segment) {
          buf_flush_page_cleaner_is_active() || !os_aio_all_slots_free()) {
     fil_aio_wait(segment);
   }
+
+  if (dummy_index_cache) {
+    dummy_index_cache_free();
+  }
 }
 
 /** Create undo tablespace.

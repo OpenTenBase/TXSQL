@@ -1280,6 +1280,8 @@ asynchronously */
 extern char *srv_async_drop_tmp_dir;
 /** Table-drop mode */
 extern ulong srv_table_drop_mode;
+extern bool srv_log_dummy_cache;
+
 /* Alternatives for srv_innodb_stats_method, which could be changed by
 setting innodb_stats_method */
 enum srv_drop_mode_enum {
