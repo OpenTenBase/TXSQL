@@ -8701,4 +8701,42 @@ void ha_end_backquery(THD *thd) {
   }
   thd->backquery_flag = false;
 }
+
+bool handler::print_index_status(THD *thd, const char *table_name,
+                                 const char *index_name, const char *type,
+                                 longlong total_size,
+                                 double physical_usage_rate,
+                                 double deleted_mark_rate, int btr_depth) {
+  Protocol *protocol = thd->get_protocol();
+  protocol->start_row();
+
+  protocol->store(table_name, system_charset_info);
+
+  protocol->store(index_name, system_charset_info);
+
+  protocol->store(type, system_charset_info);
+
+  if (total_size < 0)
+    protocol->store_null();
+  else
+    protocol->store(total_size);
+
+  if (physical_usage_rate < 0)
+    protocol->store_null();
+  else
+    protocol->store_double(physical_usage_rate, 3, 0);
+
+  if (deleted_mark_rate < 0)
+    protocol->store_null();
+  else
+    protocol->store_double(deleted_mark_rate, 3, 0);
+
+  if (btr_depth < 0)
+    protocol->store_null();
+  else
+    protocol->store(btr_depth);
+
+  return protocol->end_row();
+}
+
 /* Changes from txsql end. */

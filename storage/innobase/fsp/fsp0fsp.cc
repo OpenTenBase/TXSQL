@@ -4955,3 +4955,106 @@ std::ostream &File_segment_inode::print(std::ostream &out) const {
 }
 
 #endif /* !UNIV_HOTBACKUP */
+
+/* changes from txsql start. */
+/**********************************************************************/ /**
+  Get all used pages or total pages count of a segment.
+  @return vector of pages */
+void fseg_get_pages_info(
+    /*==============*/
+    fseg_header_t *seg_header,     /*!< in: segment header */
+    ulint space_id,                /*!< in: space id */
+    uint mode,                     /*!< in: FSP_GET_USED_PAGES or
+                                            FSP_GET_TOTAL_CNT  or
+                                            FSP_GET_BOTH */
+    std::vector<uint> &used_pages, /*!< out: used pages */
+    ulint *total_cnt) {            /*!< out: total pages count */
+  mtr_t mtr;
+  xdes_t *descr;
+  fseg_inode_t *seg_inode;
+  uint i;
+  uint page_no;
+  fil_addr_t node_addr;
+
+  mtr_start(&mtr);
+  fil_space_t *space = fil_space_get(space_id);
+  mtr_x_lock_space(space, &mtr);
+  const page_size_t page_size(space->flags);
+
+  seg_inode = fseg_inode_get(seg_header, space_id, page_size, &mtr);
+
+  ut_a(seg_inode);
+  ut_ad(mach_read_from_4(seg_inode + FSEG_MAGIC_N) == FSEG_MAGIC_N_VALUE);
+  ut_ad(!((page_offset(seg_inode) - FSEG_ARR_OFFSET) % FSEG_INODE_SIZE));
+
+  for (i = 0; i < FSEG_FRAG_ARR_N_SLOTS; i++) {
+    page_no = fseg_get_nth_frag_page_no(seg_inode, i, &mtr);
+    if (page_no == FIL_NULL) {
+      continue;
+    }
+
+    if (mode == FSP_GET_TOTAL_CNT || mode == FSP_GET_BOTH) {
+      (*total_cnt)++;
+    }
+
+    if (mode == FSP_GET_USED_PAGES || mode == FSP_GET_BOTH) {
+      used_pages.push_back(page_no);
+    }
+  }
+
+  /* Scan FSEG_NOT_FULL list */
+  node_addr = flst_get_first(seg_inode + FSEG_NOT_FULL, &mtr);
+  while (!fil_addr_is_null(node_addr)) {
+    descr = xdes_lst_get_descriptor(space_id, page_size, node_addr, &mtr);
+
+    if (mode == FSP_GET_TOTAL_CNT || mode == FSP_GET_BOTH) {
+      *total_cnt += FSP_EXTENT_SIZE;
+    }
+
+    if (mode == FSP_GET_USED_PAGES || mode == FSP_GET_BOTH) {
+      for (i = 0; i < FSP_EXTENT_SIZE; i++) {
+        if (false == xdes_mtr_get_bit(descr, XDES_FREE_BIT, i, &mtr)) {
+          page_no = xdes_get_offset(descr) + i;
+          used_pages.push_back(page_no);
+        }
+      }
+    }
+
+    node_addr = flst_get_next_addr(descr + XDES_FLST_NODE, &mtr);
+  }
+
+  /* Scan FSEG_FULL list */
+  node_addr = flst_get_first(seg_inode + FSEG_FULL, &mtr);
+  while (!fil_addr_is_null(node_addr)) {
+    descr = xdes_lst_get_descriptor(space_id, page_size, node_addr, &mtr);
+
+    if (mode == FSP_GET_TOTAL_CNT || mode == FSP_GET_BOTH) {
+      *total_cnt += FSP_EXTENT_SIZE;
+    }
+
+    if (mode == FSP_GET_USED_PAGES || mode == FSP_GET_BOTH) {
+      for (i = 0; i < FSP_EXTENT_SIZE; i++) {
+        if (false == xdes_mtr_get_bit(descr, XDES_FREE_BIT, i, &mtr)) {
+          page_no = xdes_get_offset(descr) + i;
+          used_pages.push_back(page_no);
+        }
+      }
+    }
+
+    node_addr = flst_get_next_addr(descr + XDES_FLST_NODE, &mtr);
+  }
+
+  /* Scan FSEG_FREE list */
+  if (mode == FSP_GET_TOTAL_CNT || mode == FSP_GET_BOTH) {
+    node_addr = flst_get_first(seg_inode + FSEG_FREE, &mtr);
+    while (!fil_addr_is_null(node_addr)) {
+      descr = xdes_lst_get_descriptor(space_id, page_size, node_addr, &mtr);
+      *total_cnt += FSP_EXTENT_SIZE;
+
+      node_addr = flst_get_next_addr(descr + XDES_FLST_NODE, &mtr);
+    }
+  }
+
+  mtr_commit(&mtr);
+}
+/* changes from txsql end. */

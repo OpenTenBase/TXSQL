@@ -612,4 +612,9 @@ bool lock_check_constraint_names_for_rename(THD *thd, const char *db,
 bool prepare_check_constraints_for_create(THD *thd, const char *db_name,
                                           const char *table_name,
                                           Alter_info *alter_info);
+
+/* changes from txsql start. */
+bool mysql_check_index(THD *thd, TABLE_LIST *tables);
+/* changes from txsql end. */
+
 #endif /* SQL_TABLE_INCLUDED */

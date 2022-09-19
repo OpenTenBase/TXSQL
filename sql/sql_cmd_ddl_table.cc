@@ -73,6 +73,7 @@ Sql_cmd_ddl_table::Sql_cmd_ddl_table(Alter_info *alter_info)
          lex->sql_command == SQLCOM_ANALYZE ||
          lex->sql_command == SQLCOM_ASSIGN_TO_KEYCACHE ||
          lex->sql_command == SQLCOM_CHECK ||
+         lex->sql_command == SQLCOM_CHECK_INDEX ||
          lex->sql_command == SQLCOM_CREATE_INDEX ||
          lex->sql_command == SQLCOM_CREATE_TABLE ||
          lex->sql_command == SQLCOM_DROP_INDEX ||

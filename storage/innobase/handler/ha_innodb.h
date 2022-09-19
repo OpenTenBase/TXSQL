@@ -76,6 +76,41 @@ struct INNOBASE_SHARE {
 /** Prebuilt structures in an InnoDB table handle used within MySQL */
 struct row_prebuilt_t;
 
+/** stuctures to record index physical information for partition. */
+struct index_physical_info_t {
+  /* total used bytes of a partition index, deleted mark bytes and
+  unalloc bytes are exclude. */
+  longlong used_bytes;
+  /* total bytes that a partition index occupies. */
+  longlong total_bytes;
+  /* total real user record of leaf level. */
+  longlong real_recs;
+  /* total records in page heap of leaf level, including deleted mark records
+  and infimum, supremum. */
+  longlong heap_recs;
+
+  index_physical_info_t()
+      : used_bytes(0), total_bytes(0), real_recs(0), heap_recs(0) {}
+
+  index_physical_info_t &operator+=(const index_physical_info_t &info) {
+    used_bytes += info.used_bytes;
+    total_bytes += info.total_bytes;
+    real_recs += info.real_recs;
+    heap_recs += info.heap_recs;
+    return (*this);
+  }
+
+  double usage_rate() {
+    return (static_cast<double>(used_bytes) / static_cast<double>(total_bytes));
+  }
+
+  double delete_rate() {
+    return (static_cast<double>(heap_recs - real_recs) /
+            static_cast<double>(heap_recs));
+  }
+};
+/* Changes from txsql end. */
+
 namespace dd {
 namespace cache {
 class Dictionary_client;
@@ -641,6 +676,11 @@ class ha_innobase : public handler {
   @retval       true Can reuse the mysql_template */
   virtual bool can_reuse_mysql_template() const { return false; }
 
+  /**
+  Calculate physical usage ratio, deleted mark ratio, btr depth and total
+  size of each index. */
+  bool check_index(THD *thd) override;
+
   /** The multi range read session object */
   DsMrr_impl m_ds_mrr;
 
@@ -678,6 +718,11 @@ class ha_innobase : public handler {
 
   /** If mysql has locked with external_lock() */
   bool m_mysql_has_locked;
+
+  /**
+    Map to store index physical information of partition table,
+    the first part is index name, the second pard is its physical info. */
+  std::map<std::string, index_physical_info_t> partition_index_map;
 
   bool prepare_backquery(THD *thd, time_t t) override;
 };
@@ -1343,6 +1388,20 @@ extern void thd_set_backquery_info(THD *thd, uint64_t key, time_t t, void *ptr,
 extern void thd_get_all_backquery_info(
     THD *thd, std::vector<std::pair<time_t, void *>> &infos);
 extern bool thd_has_backquery(THD *thd);
+
+/** Index type of "CHECK INDEX" operation.
+1. "Primary_index" and "Secondary_index" refer to normal table indexes.
+2. "Combined_primary_index" and "Combined_secondary_index" refer to
+compressed table indexes.
+3. "Uncompressed_primary_index" and "Uncompressed_secondary_index" refer to
+partition table indexes. */
+extern const char *CHECK_INDEX_TYPE[];
+
+enum check_index_type_enum {
+  NORMAL_INDEX = 0,
+  COMBINED_INDEX = 2,
+  UNCOMPRESSED_INDEX = 4
+};
 /* Changes from txsql end. */
 
 #endif /* ha_innodb_h */

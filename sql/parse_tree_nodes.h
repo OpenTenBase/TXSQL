@@ -5225,5 +5225,17 @@ class PT_returning_clause : public PT_item_list {
   bool contextualize(Parse_context *pc) override;
 };
 
+
+class PT_check_index_stmt final : public PT_table_ddl_stmt_base {
+ public:
+  PT_check_index_stmt(MEM_ROOT *mem_root,
+                      Mem_root_array<Table_ident *> *table_list)
+      : PT_table_ddl_stmt_base(mem_root), m_table_list(table_list) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Mem_root_array<Table_ident *> *m_table_list;
+};
 /* Changes from txsql end. */
 #endif /* PARSE_TREE_NODES_INCLUDED */

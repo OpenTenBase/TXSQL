@@ -470,4 +470,21 @@ class Sql_cmd_clone : public Sql_cmd {
   /** If it is local clone operation */
   bool m_is_local;
 };
+
+/* changes from txsql start. */
+/**
+  Sql_cmd_check_index represents the CHECK INDEX statement.
+*/
+class Sql_cmd_check_index : public Sql_cmd_ddl_table {
+ public:
+  using Sql_cmd_ddl_table::Sql_cmd_ddl_table;
+
+  bool execute(THD *thd) override;
+
+  enum_sql_command sql_command_code() const override {
+    return SQLCOM_CHECK_INDEX;
+  }
+};
+/* changes from txsql end. */
+
 #endif

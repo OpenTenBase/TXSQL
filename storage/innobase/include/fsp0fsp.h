@@ -1024,4 +1024,23 @@ inline std::ostream &operator<<(std::ostream &out,
 fseg_inode_t *fseg_inode_get(const fseg_header_t *header, space_id_t space,
                              const page_size_t &page_size, mtr_t *mtr,
                              buf_block_t **block = nullptr);
+
+/* changes from txsql start. */
+#define FSP_GET_USED_PAGES 0
+#define FSP_GET_TOTAL_CNT  1
+#define FSP_GET_BOTH       3
+
+/**********************************************************************/ /**
+  Get all used pages or total pages count of a segment.
+  @return vector of pages */
+void fseg_get_pages_info(
+    /*==============*/
+    fseg_header_t *seg_header,     /*!< in: segment header */
+    ulint space_id,                /*!< in: space id */
+    uint mode,                     /*!< in: FSP_GET_USED_PAGES or
+                                            FSP_GET_TOTAL_CNT  or
+                                            FSP_GET_BOTH */
+    std::vector<uint> &used_pages, /*!< out: used pages */
+    ulint *total_cnt);             /*!< out: total pages count */
+/* changes from txsql end. */
 #endif

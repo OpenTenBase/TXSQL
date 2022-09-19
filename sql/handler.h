@@ -187,6 +187,19 @@ extern ulong total_ha_2pc;
 /** User needs to dump and re-create table to fix pre 5.0 decimal types */
 #define HA_ADMIN_NEEDS_DUMP_UPGRADE -14
 
+/* changes from txsql start. */
+// the following is for checking indexes
+#define ONE_EMPTY_RESULT -1
+#define TWO_EMPTY_RESULT -1, -1
+#define FOUR_EMPTY_RESULT -1, -1, -1, -1
+
+typedef bool(index_stat_print_fn)(THD *thd, const char *table_name,
+                                  const char *index_name, const char *type,
+                                  longlong total_size,
+                                  double physical_usage_rate,
+                                  double deleted_mark_rate, int btr_depth);
+/* changes from txsql end. */
+
 /**
    Return values for check_if_supported_inplace_alter().
 
@@ -6841,6 +6854,15 @@ class handler {
   void ha_mv_key_capacity(uint *num_keys, size_t *keys_length) const {
     return mv_key_capacity(num_keys, keys_length);
   }
+
+  static bool print_index_status(THD *thd, const char *table_name,
+                                 const char *index_name, const char *type,
+                                 longlong total_size,
+                                 double physical_usage_rate,
+                                 double deleted_mark_rate, int btr_depth);
+
+  /* Calculate physical status of each index in an innodb table. */
+  virtual bool check_index(THD *thd MY_ATTRIBUTE((unused))) { return 0; }
 
  private:
   /**

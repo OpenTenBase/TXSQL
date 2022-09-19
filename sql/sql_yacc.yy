@@ -1843,6 +1843,7 @@ void warn_about_deprecated_binary(THD *thd)
         alter_table_stmt
         analyze_table_stmt
         call_stmt
+        check_index_stmt
         check_table_stmt
         create_index_stmt
         create_resource_group_stmt
@@ -2304,6 +2305,7 @@ simple_statement:
         | binlog_base64_event           { $$= nullptr; }
         | call_stmt
         | change                        { $$= nullptr; }
+        | check_index_stmt
         | check_table_stmt
         | checksum                      { $$= nullptr; }
         | clone_stmt                    { $$= nullptr; }
@@ -9582,6 +9584,13 @@ binlog_base64_event:
           {
             Lex->sql_command = SQLCOM_BINLOG_BASE64_EVENT;
             Lex->binlog_stmt_arg= $2;
+          }
+        ;
+
+check_index_stmt:
+          CHECK_SYM keys_or_index FROM table_list
+          {
+            $$= NEW_PTN PT_check_index_stmt(YYMEM_ROOT, $4);
           }
         ;
 

@@ -2172,3 +2172,23 @@ bool Sql_cmd_alter_user_default_role::execute(THD *thd) {
 
   return ret;
 }
+
+/* changes from txsql start. */
+bool Sql_cmd_check_index::execute(THD *thd) {
+  TABLE_LIST *first_table = thd->lex->query_block->get_table_list();
+  assert(first_table != nullptr);
+  bool res = true;
+  DBUG_TRACE;
+
+  if (check_table_access(thd, SELECT_ACL, first_table, true, UINT_MAX, false))
+    goto error; /* purecov: inspected */
+
+  res = mysql_check_index(thd, first_table);
+
+  thd->lex->query_block->table_list.first = first_table;
+  thd->lex->query_tables = first_table;
+
+error:
+  return res;
+}
+/* changes from txsql end. */

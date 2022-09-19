@@ -1,0 +1,192 @@
+--source include/have_debug.inc
+
+create table t (a int unsigned not null auto_increment, b varchar(300), primary key(a)) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+create table t1 (a int unsigned not null auto_increment, b char(10), primary key(a)) ENGINE=InnoDB DEFAULT CHARSET=latin1 row_format=compressed;
+
+delimiter $$;
+create procedure load_t(count int unsigned)
+begin
+set@c=0;
+while@c<count do
+insert into t select null,repeat(char(97+rand()*26),300);
+insert into t1 select null,repeat(char(97+rand()*26),10);
+set@c=@c+1;
+end while;
+end;
+$$
+delimiter ;$$
+call load_t(10000);
+
+CREATE TABLE `t2` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+  `avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+  `avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+  `pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+  `dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`,`pt`),
+  KEY `uid_idx` (`uid`(191)),
+  KEY `avatar_name_idx` (`avatar_name`(191)),
+  KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB ;
+
+
+CREATE TABLE `t3` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+  `avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+  `avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+  `pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+  `dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`,`pt`),
+  KEY `uid_idx` (`uid`(191)),
+  KEY `avatar_name_idx` (`avatar_name`(191)),
+  KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+/*!50500 PARTITION BY LIST  COLUMNS(pt)
+(PARTITION `preserve` VALUES IN ('preserve') ENGINE = InnoDB,
+ PARTITION p20181109 VALUES IN ('2018-11-09') ENGINE = InnoDB,
+ PARTITION p20181110 VALUES IN ('2018-11-10') ENGINE = InnoDB,
+ PARTITION p20181111 VALUES IN ('2018-11-11') ENGINE = InnoDB,
+ PARTITION p20181112 VALUES IN ('2018-11-12') ENGINE = InnoDB,
+ PARTITION p20181113 VALUES IN ('2018-11-13') ENGINE = InnoDB,
+ PARTITION p20181114 VALUES IN ('2018-11-14') ENGINE = InnoDB,
+ PARTITION p20181115 VALUES IN ('2018-11-15') ENGINE = InnoDB,
+ PARTITION p20181116 VALUES IN ('2018-11-16') ENGINE = InnoDB,
+ PARTITION p20181117 VALUES IN ('2018-11-17') ENGINE = InnoDB,
+ PARTITION p20181118 VALUES IN ('2018-11-18') ENGINE = InnoDB,
+ PARTITION p20181119 VALUES IN ('2018-11-19') ENGINE = InnoDB) */;
+
+CREATE TABLE `t4` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+  `avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+  `avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+  `pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+  `dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`,`pt`),
+  KEY `uid_idx` (`uid`(191)),
+  KEY `avatar_name_idx` (`avatar_name`(191)),
+  KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB row_format=compressed;
+
+create table t5 (a int) engine = myisam;
+
+create table t6 (a int) engine = memory;
+
+# check index from tables above
+check index from t;
+check index from t1;
+check keys from t2;
+check keys from t3;
+check index from t4;
+check index from t5, t6;
+
+# check index from non-existent table
+check index from ttt;
+check index from ttt, t, t1;
+
+create table t7 (a int) engine = innodb;
+alter table t7 discard tablespace;
+
+--error ER_TABLESPACE_DISCARDED
+check index from t7;
+
+SET SESSION debug="+d,innobase_ibd_file_missing";
+--error ER_TABLESPACE_MISSING
+check index from t1;
+SET SESSION debug="-d,innobase_ibd_file_missing";
+
+SET SESSION debug="+d,innobase_revert_ibd_file_missing";
+check index from t1;
+SET SESSION debug="-d,innobase_revert_ibd_file_missing";
+
+SET SESSION debug="+d,innobase_corrupted_table";
+--error ER_TABLE_CORRUPT
+check index from t2;
+SET SESSION debug="-d,innobase_corrupted_table";
+
+SET SESSION debug="+d,innobase_error_in_check_index";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t3;
+SET SESSION debug="-d,innobase_error_in_check_index";
+
+SET SESSION debug="+d,check_index_fake_pages_info";
+check index from t1;
+SET SESSION debug="-d,check_index_fake_pages_info";
+
+SET SESSION debug="+d,check_index_simulate_get_block_fail";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_get_block_fail";
+
+SET SESSION debug="+d,check_index_simulate_get_root_block_fail";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_get_root_block_fail";
+
+SET SESSION debug="+d,check_index_simulate_leaf_page_status_fail";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_leaf_page_status_fail";
+
+SET SESSION debug="+d,check_index_simulate_print_index_status_fail";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t1;
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t3;
+SET SESSION debug="-d,check_index_simulate_print_index_status_fail";
+
+SET SESSION debug="+d,check_index_simulate_add_tables_fail";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_add_tables_fail";
+
+SET SESSION debug="+d,check_index_simulate_query_killed";
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_query_killed";
+
+SET SESSION debug="+d,check_index_simulate_send_metadata_fail";
+--error ER_CDB_ERROR_IN_CHECK_INDEX
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_send_metadata_fail";
+
+SET SESSION debug="+d,check_index_simulate_open_tmp_table_fail";
+check index from t1;
+SET SESSION debug="-d,check_index_simulate_open_tmp_table_fail";
+
+# no privilege test
+create user 'user_1'@localhost;
+connect (con1, localhost, user_1, , );
+connection con1;
+show grants;
+--error ER_TABLEACCESS_DENIED_ERROR
+check index from mysql.slow_log;
+disconnect con1;
+connection default;
+drop user 'user_1'@localhost;
+
+# test using check index in procedure
+delimiter $$;
+--error ER_SP_BADSTATEMENT
+create procedure check_index_procedure()
+begin
+check index from t;
+end;
+$$
+delimiter ;$$
+
+# test temporary table 
+create temporary table tmp_table(id int, c1 int);
+check index from tmp_table;
+drop table tmp_table;
+
+drop procedure load_t;
+drop table t;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop table t6;
+drop table t7;
