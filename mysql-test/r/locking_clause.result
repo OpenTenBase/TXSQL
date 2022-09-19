@@ -149,11 +149,11 @@ SELECT 1 FROM v1 FOR UPDATE;
 #  Test of syntax errors.
 #
 SELECT * FROM t1 FOR SHARE WAIT WAIT;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WAIT WAIT' at line 1
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WAIT' at line 1
 SELECT * FROM t1 FOR SHARE WAIT NOWAIT;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WAIT NOWAIT' at line 1
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NOWAIT' at line 1
 SELECT * FROM t1 FOR SHARE WAIT SKIP LOCKED;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WAIT SKIP LOCKED' at line 1
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SKIP LOCKED' at line 1
 SELECT 1 FOR UPDATE UNION SELECT 2;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'UNION SELECT 2' at line 1
 SELECT 1 LOCK IN SHARE MODE UNION SELECT 2;
