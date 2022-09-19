@@ -11276,6 +11276,12 @@ bool Sql_cmd_discard_import_tablespace::mysql_discard_or_import_tablespace(
   int error;
   DBUG_TRACE;
 
+  ulong wait_time;
+  if (thd->lex->wait_time == ULONG_MAX)
+    wait_time= thd->variables.lock_wait_timeout;
+  else
+    wait_time= thd->lex->wait_time;
+
   /*
     Note that DISCARD/IMPORT TABLESPACE always is the only operation in an
     ALTER TABLE
@@ -11365,7 +11371,7 @@ bool Sql_cmd_discard_import_tablespace::mysql_discard_or_import_tablespace(
        thd->locked_tables_mode == LTM_PRELOCKED_UNDER_LOCK_TABLES)) {
     mdl_ticket = table_list->table->mdl_ticket;
     if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_EXCLUSIVE,
-                                             thd->variables.lock_wait_timeout))
+                                             wait_time))
       return true;
   }
 
@@ -12925,6 +12931,12 @@ static bool collect_and_lock_fk_tables_for_complex_alter_table(
     Foreign_key_parents_invalidator *fk_invalidator) {
   MDL_request_list mdl_requests;
 
+  ulong wait_time;
+  if (thd->lex->wait_time == ULONG_MAX)
+    wait_time= thd->variables.lock_wait_timeout;
+  else
+    wait_time= thd->lex->wait_time;
+
   if (collect_fk_parents_for_new_fks(
           thd, table_list->db, table_list->table_name, alter_info,
           MDL_EXCLUSIVE, new_hton, &mdl_requests, fk_invalidator))
@@ -12967,8 +12979,7 @@ static bool collect_and_lock_fk_tables_for_complex_alter_table(
   }
 
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
     return true;
 
   return false;
@@ -13313,6 +13324,12 @@ static bool mysql_inplace_alter_table(
 
   DBUG_TRACE;
 
+  ulong wait_time;
+  if (thd->lex->wait_time == ULONG_MAX)
+    wait_time= thd->variables.lock_wait_timeout;
+  else
+    wait_time= thd->lex->wait_time;
+
   /*
     Upgrade to EXCLUSIVE lock if:
     - This is requested by the storage engine
@@ -13353,7 +13370,7 @@ static bool mysql_inplace_alter_table(
       of table by other threads during main phase of in-place ALTER TABLE.
     */
     if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
-                                             thd->variables.lock_wait_timeout))
+                                             wait_time))
       goto cleanup;
 
     tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE, table->s->db.str,
@@ -13370,7 +13387,7 @@ static bool mysql_inplace_alter_table(
        alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED) &&
       thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
                                            MDL_SHARED_NO_WRITE,
-                                           thd->variables.lock_wait_timeout)) {
+                                           wait_time)) {
     goto cleanup;
   }
 
@@ -16296,6 +16313,12 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
                        Alter_info *alter_info) {
   DBUG_TRACE;
 
+  ulong wait_time;
+  if (thd->lex->wait_time == ULONG_MAX)
+    wait_time= thd->variables.lock_wait_timeout;
+  else
+    wait_time= thd->lex->wait_time;
+
   /*
     Check if we attempt to alter mysql.slow_log or
     mysql.general_log table and return an error if
@@ -16637,8 +16660,7 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       assert(thd->mdl_context.owns_equal_or_stronger_lock(
           MDL_key::GLOBAL, "", "", MDL_INTENTION_EXCLUSIVE));
 
-      if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                         thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
         return true;
 
       DEBUG_SYNC(thd, "locked_table_name");
@@ -17576,7 +17598,7 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     */
     if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE &&
         thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
-                                             thd->variables.lock_wait_timeout))
+                                             wait_time))
       goto err_new_table_cleanup;
 
     DEBUG_SYNC(thd, "alter_table_copy_after_lock_upgrade");
