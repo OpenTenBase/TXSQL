@@ -1994,6 +1994,9 @@ void innobase_disable_core_dump() {
 std::chrono::seconds thd_lock_wait_timeout(THD *thd) {
   /* According to <mysql/plugin.h>, passing thd == NULL
   returns the global value of the session variable. */
+  if (unlikely(thd && thd->get_select_lock_n_sec())) {
+    return std::chrono::seconds{thd->get_select_lock_n_sec()};
+  }
   return std::chrono::seconds{THDVAR(thd, lock_wait_timeout)};
 }
 

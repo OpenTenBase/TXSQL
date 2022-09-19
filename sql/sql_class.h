@@ -4790,6 +4790,11 @@ class THD : public MDL_context_owner,
    */
   time_t get_backquery_timestamp(const std::string &key);
 
+  unsigned long m_select_lock_n_sec = 0;
+  unsigned long get_select_lock_n_sec() const { return m_select_lock_n_sec; }
+  void set_select_lock_n_sec(unsigned long select_lock_n_sec) {
+    m_select_lock_n_sec = select_lock_n_sec;
+  }
   /* Changes from txsql end. */
 };
 

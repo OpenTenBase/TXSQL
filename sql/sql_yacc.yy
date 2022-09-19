@@ -10141,7 +10141,15 @@ locking_clause_list:
 locking_clause:
           FOR_SYM lock_strength opt_locked_row_action
           {
-            $$= NEW_PTN PT_query_block_locking_clause($2, $3);
+            $$= NEW_PTN PT_query_block_locking_clause($2, 0, $3);
+          }
+        | FOR_SYM lock_strength WAIT_SYM ulong_num /*select for update wait 3*/
+          {
+            if ($4 == 0 ) {
+              my_error(ER_WRONG_VALUE, MYF(0), "wait n(the n can't be 0)", "0");
+              MYSQL_YYABORT;
+            }
+            $$= NEW_PTN PT_query_block_locking_clause($2, $4, Locked_row_action::WAIT);
           }
         | FOR_SYM lock_strength table_locking_list opt_locked_row_action
           {
