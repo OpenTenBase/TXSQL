@@ -517,57 +517,152 @@ std::string Equi_height<T>::histogram_type_to_str() const {
 }
 
 template <class T>
-bool Equi_height<T>::json_to_histogram(const Json_object &json_object) {
-  if (Histogram::json_to_histogram(json_object))
-    return true; /* purecov: deadcode */
+bool Equi_height<T>::json_to_histogram(const Json_object &json_object,
+                                       Error_context *context) {
+  if (Histogram::json_to_histogram(json_object, context)) return true;
 
   const Json_dom *buckets_dom = json_object.get(buckets_str());
-  assert(buckets_dom->json_type() == enum_json_type::J_ARRAY);
+  if (buckets_dom == nullptr) {
+    assert(!context->binary());
+    context->report_missing_attribute(buckets_str());
+    return true;
+  }
+  if (buckets_dom->json_type() != enum_json_type::J_ARRAY) {
+    context->report_node(buckets_dom, Message::JSON_WRONG_ATTRIBUTE_TYPE);
+    return true;
+  }
 
   const Json_array *buckets = down_cast<const Json_array *>(buckets_dom);
   if (m_buckets.reserve(buckets->size())) return true;
   for (size_t i = 0; i < buckets->size(); ++i) {
     const Json_dom *bucket_dom = (*buckets)[i];
-    assert(bucket_dom->json_type() == enum_json_type::J_ARRAY);
+
+    if (bucket_dom->json_type() != enum_json_type::J_ARRAY) {
+      assert(!context->binary());
+      context->report_node(bucket_dom, Message::JSON_WRONG_ATTRIBUTE_TYPE);
+      return true;
+    }
 
     const Json_array *bucket = down_cast<const Json_array *>(bucket_dom);
-    assert(bucket->size() == 4);
+    assert(!context->binary() || bucket->size() == 4);
+    // Only the first four items are defined, others are simply ignored.
+    if (bucket->size() < 4) {
+      context->report_node(bucket_dom, Message::JSON_WRONG_BUCKET_TYPE_4);
+      return true;
+    }
 
-    if (add_bucket_from_json(bucket)) return true; /* purecov: deadcode */
+    if (add_bucket_from_json(bucket, context)) return true;
   }
+
+  // Global post-check
+#ifdef DBUG_OFF
+  if (!context->internal())
+#endif
+  {
+    if (m_buckets.empty()) {
+      context->report_global(Message::JSON_IMPOSSIBLE_EMPTY_EQUI_HEIGHT);
+      return true;
+    } else if (std::abs(m_buckets.back().get_cumulative_frequency() +
+                        get_null_values_fraction() - 1.0) > FREQUENCY_EPSILON) {
+      context->report_global(Message::JSON_INVALID_TOTAL_FREQUENCY);
+      return true;
+    }
+  }
+
   assert(std::is_sorted(m_buckets.begin(), m_buckets.end(),
                         Histogram_comparator()));
   return false;
 }
 
 template <class T>
-bool Equi_height<T>::add_bucket_from_json(const Json_array *json_bucket) {
+bool Equi_height<T>::add_bucket_from_json(const Json_array *json_bucket,
+                                          Error_context *context) {
   const Json_dom *cumulative_frequency_dom = (*json_bucket)[2];
-  if (cumulative_frequency_dom->json_type() != enum_json_type::J_DOUBLE)
-    return true; /* purecov: deadcode */
-
-  const Json_dom *num_distinct_dom = (*json_bucket)[3];
-  if (num_distinct_dom->json_type() != enum_json_type::J_UINT)
-    return true; /* purecov: deadcode */
+  if (cumulative_frequency_dom->json_type() != enum_json_type::J_DOUBLE) {
+    context->report_node(cumulative_frequency_dom,
+                         Message::JSON_WRONG_ATTRIBUTE_TYPE);
+    return true;
+  }
 
   const Json_double *cumulative_frequency =
       down_cast<const Json_double *>(cumulative_frequency_dom);
 
-  const Json_uint *num_distinct =
-      down_cast<const Json_uint *>(num_distinct_dom);
+  const Json_dom *num_distinct_dom = (*json_bucket)[3];
+  ulonglong num_distinct_v = 0;
+  if (num_distinct_dom->json_type() == enum_json_type::J_UINT) {
+    num_distinct_v = down_cast<const Json_uint *>(num_distinct_dom)->value();
+  } else if (!context->binary() &&
+             num_distinct_dom->json_type() == enum_json_type::J_INT) {
+    const Json_int *num_distinct =
+        down_cast<const Json_int *>(num_distinct_dom);
+    num_distinct_v = (num_distinct->value() > 0) ? num_distinct->value() : 0;
+  } else {
+    context->report_node(num_distinct_dom, Message::JSON_WRONG_ATTRIBUTE_TYPE);
+    return true;
+  }
 
   const Json_dom *lower_inclusive_dom = (*json_bucket)[0];
   const Json_dom *upper_inclusive_dom = (*json_bucket)[1];
 
   T upper_value;
   T lower_value;
-  if (extract_json_dom_value(upper_inclusive_dom, &upper_value) ||
-      extract_json_dom_value(lower_inclusive_dom, &lower_value))
-    return true; /* purecov: deadcode */
+  if (extract_json_dom_value(upper_inclusive_dom, &upper_value, context))
+    return true;
+  if (extract_json_dom_value(lower_inclusive_dom, &lower_value, context))
+    return true;
+
+  // Bucket-extraction post-check
+#ifdef DBUG_OFF
+  if (!context->internal())
+#endif
+  {
+    // Check items in the bucket
+    if (cumulative_frequency->value() < 0.0 ||
+        cumulative_frequency->value() > 1.0) {
+      context->report_node(cumulative_frequency_dom,
+                           Message::JSON_INVALID_FREQUENCY);
+      return true;
+    }
+    if (num_distinct_v < 1) {
+      context->report_node(num_distinct_dom,
+                           Message::JSON_INVALID_NUM_DISTINCT);
+      return true;
+    }
+    if (context->check_value(&upper_value)) {
+      context->report_node(upper_inclusive_dom,
+                           Message::JSON_VALUE_OUT_OF_RANGE);
+      return true;
+    }
+    if (context->check_value(&lower_value)) {
+      context->report_node(lower_inclusive_dom,
+                           Message::JSON_VALUE_OUT_OF_RANGE);
+      return true;
+    }
+
+    // Check endpoint sequence and frequency sequence.
+    if (histograms::Histogram_comparator()(upper_value, lower_value)) {
+      context->report_node(json_bucket,
+                           Message::JSON_VALUE_DESCENDING_IN_BUCKET);
+      return true;
+    }
+    if (!m_buckets.empty()) {
+      if (!histograms::Histogram_comparator()(m_buckets.back(),
+                                              lower_value)) {
+        context->report_node(json_bucket, Message::JSON_VALUE_NOT_ASCENDING_2);
+        return true;
+      }
+      if (m_buckets.back().get_cumulative_frequency() >=
+          cumulative_frequency->value()) {
+        context->report_node(json_bucket,
+                             Message::JSON_CUMULATIVE_FREQUENCY_NOT_ASCENDING);
+        return true;
+      }
+    }
+  }
 
   equi_height::Bucket<T> bucket(lower_value, upper_value,
                                 cumulative_frequency->value(),
-                                num_distinct->value());
+                                num_distinct_v);
   if (m_buckets.push_back(bucket)) return true;
   return false;
 }
