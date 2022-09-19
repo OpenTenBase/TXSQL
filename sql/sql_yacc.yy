@@ -1509,6 +1509,7 @@ void warn_about_deprecated_binary(THD *thd)
         profile_defs
         profile_def
         factor
+        opt_wait
 
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
@@ -3598,28 +3599,33 @@ default_role_clause:
 create_index_stmt:
           CREATE opt_unique INDEX_SYM ident opt_index_type_clause
           ON_SYM table_ident '(' key_list_with_expression ')' opt_index_options
-          opt_index_lock_and_algorithm
+          opt_index_lock_and_algorithm opt_wait
           {
             $$= NEW_PTN PT_create_index_stmt(YYMEM_ROOT, $2, $4, $5,
                                              $7, $9, $11,
                                              $12.algo.get_or_default(),
                                              $12.lock.get_or_default());
+            Lex->wait_time = $13;
           }
         | CREATE FULLTEXT_SYM INDEX_SYM ident ON_SYM table_ident
-          '(' key_list_with_expression ')' opt_fulltext_index_options opt_index_lock_and_algorithm
+          '(' key_list_with_expression ')' opt_fulltext_index_options
+          opt_index_lock_and_algorithm opt_wait
           {
             $$= NEW_PTN PT_create_index_stmt(YYMEM_ROOT, KEYTYPE_FULLTEXT, $4,
                                              NULL, $6, $8, $10,
                                              $11.algo.get_or_default(),
                                              $11.lock.get_or_default());
+            Lex->wait_time = $12;
           }
         | CREATE SPATIAL_SYM INDEX_SYM ident ON_SYM table_ident
-          '(' key_list_with_expression ')' opt_spatial_index_options opt_index_lock_and_algorithm
+          '(' key_list_with_expression ')' opt_spatial_index_options
+          opt_index_lock_and_algorithm opt_wait
           {
             $$= NEW_PTN PT_create_index_stmt(YYMEM_ROOT, KEYTYPE_SPATIAL, $4,
                                              NULL, $6, $8, $10,
                                              $11.algo.get_or_default(),
                                              $11.lock.get_or_default());
+            Lex->wait_time = $12;
           }
         ;
 
@@ -8084,25 +8090,27 @@ string_list:
 */
 
 alter_table_stmt:
-          ALTER TABLE_SYM table_ident opt_alter_table_actions
+          ALTER TABLE_SYM table_ident opt_wait opt_alter_table_actions
           {
             $$= NEW_PTN PT_alter_table_stmt(
                   YYMEM_ROOT,
                   $3,
-                  $4.actions,
-                  $4.flags.algo.get_or_default(),
-                  $4.flags.lock.get_or_default(),
-                  $4.flags.validation.get_or_default());
+                  $5.actions,
+                  $5.flags.algo.get_or_default(),
+                  $5.flags.lock.get_or_default(),
+                  $5.flags.validation.get_or_default());
+            Lex->wait_time = $4;
           }
-        | ALTER TABLE_SYM table_ident standalone_alter_table_action
+        | ALTER TABLE_SYM table_ident opt_wait standalone_alter_table_action
           {
             $$= NEW_PTN PT_alter_table_standalone_stmt(
                   YYMEM_ROOT,
                   $3,
-                  $4.action,
-                  $4.flags.algo.get_or_default(),
-                  $4.flags.lock.get_or_default(),
-                  $4.flags.validation.get_or_default());
+                  $5.action,
+                  $5.flags.algo.get_or_default(),
+                  $5.flags.lock.get_or_default(),
+                  $5.flags.validation.get_or_default());
+            Lex->wait_time = $4;
           }
         ;
 
@@ -9632,9 +9640,10 @@ mi_check_type:
         ;
 
 optimize_table_stmt:
-          OPTIMIZE opt_no_write_to_binlog table_or_tables table_list
+          OPTIMIZE opt_no_write_to_binlog table_or_tables table_list opt_wait
           {
             $$= NEW_PTN PT_optimize_table_stmt(YYMEM_ROOT, $2, $4);
+            Lex->wait_time = $5;
           }
         ;
 
@@ -9676,15 +9685,16 @@ table_to_table_list:
         ;
 
 table_to_table:
-          table_ident TO_SYM table_ident
+          table_ident opt_wait TO_SYM table_ident
           {
             LEX *lex=Lex;
             Query_block *sl= Select;
             if (!sl->add_table_to_list(lex->thd, $1,NULL,TL_OPTION_UPDATING,
                                        TL_IGNORE, MDL_EXCLUSIVE) ||
-                !sl->add_table_to_list(lex->thd, $3,NULL,TL_OPTION_UPDATING,
+                !sl->add_table_to_list(lex->thd, $4,NULL,TL_OPTION_UPDATING,
                                        TL_IGNORE, MDL_EXCLUSIVE))
               MYSQL_YYABORT;
+            lex->wait_time = $2;
           }
         ;
 
@@ -12805,9 +12815,9 @@ do_stmt:
 */
 
 drop_table_stmt:
-          DROP opt_temporary table_or_tables if_exists table_list opt_restrict
+          DROP opt_temporary table_or_tables if_exists table_list opt_wait opt_restrict
           {
-            // Note: opt_restrict ($6) is ignored!
+            // Note: opt_restrict ($7) is ignored!
             LEX *lex=Lex;
             lex->sql_command = SQLCOM_DROP_TABLE;
             lex->drop_temporary= $2;
@@ -12817,15 +12827,17 @@ drop_table_stmt:
             if (Select->add_tables(YYTHD, $5, TL_OPTION_UPDATING,
                                    YYPS->m_lock_type, YYPS->m_mdl_type))
               MYSQL_YYABORT;
+            Lex->wait_time = $6;
           }
         ;
 
 drop_index_stmt:
-          DROP INDEX_SYM ident ON_SYM table_ident opt_index_lock_and_algorithm
+          DROP INDEX_SYM ident ON_SYM table_ident opt_index_lock_and_algorithm opt_wait
           {
             $$= NEW_PTN PT_drop_index_stmt(YYMEM_ROOT, $3.str, $5,
                                            $6.algo.get_or_default(),
                                            $6.lock.get_or_default());
+            Lex->wait_time = $7;
           }
         ;
 
@@ -13563,9 +13575,10 @@ opt_delete_option:
         ;
 
 truncate_stmt:
-          TRUNCATE_SYM opt_table table_ident
+          TRUNCATE_SYM opt_table table_ident opt_wait
           {
             $$= NEW_PTN PT_truncate_table_stmt($3);
+            Lex->wait_time = $4;
           }
         ;
 
@@ -16113,6 +16126,35 @@ lock:
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_lock_instance();
             if (Lex->m_sql_cmd == nullptr)
               MYSQL_YYABORT; // OOM
+          }
+        ;
+
+opt_wait:
+          /* empty */
+          {
+            $$ = ULONG_MAX;
+          }
+        | WAIT_SYM
+          {
+            YYTHD->syntax_error();
+            MYSQL_YYABORT;
+          }
+        | WAIT_SYM ulong_num
+          {
+            ulong wait_time = $2;
+            if (wait_time > LONG_TIMEOUT)
+            {
+              char buf[22];
+              sprintf(buf, "%ld", wait_time);
+              my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "wait_time", buf);
+              MYSQL_YYABORT;
+            }
+
+            $$ = $2;
+          }
+        | NO_WAIT_SYM
+          {
+            $$ = (ulong) 0;
           }
         ;
 

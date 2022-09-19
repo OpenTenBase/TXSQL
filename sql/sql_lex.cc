@@ -3560,7 +3560,8 @@ LEX::LEX()
       keep_diagnostics(DA_KEEP_UNSPECIFIED),
       is_lex_started(false),
       in_update_value_clause(false),
-      will_contextualize(true) {
+      will_contextualize(true),
+      wait_time(ULONG_MAX) {
   reset_query_tables_list(true);
 }
 

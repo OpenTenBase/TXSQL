@@ -2465,8 +2465,14 @@ bool wait_while_table_is_used(THD *thd, TABLE *table,
                        table->s->table_name.str, table->s, table->db_stat,
                        table->s->version()));
 
+  ulong wait_time;
+  if (thd->lex->wait_time == ULONG_MAX)
+    wait_time= thd->variables.lock_wait_timeout;
+  else
+    wait_time= thd->lex->wait_time;
+
   if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
-                                           thd->variables.lock_wait_timeout))
+                                           wait_time))
     return true;
 
   tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN, table->s->db.str,
@@ -3119,7 +3125,7 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx) {
         DEBUG_SYNC(thd, "before_upgrading_lock_from_S_to_X_for_create_table");
         bool wait_result = thd->mdl_context.upgrade_shared_lock(
             table_list->mdl_request.ticket, MDL_EXCLUSIVE,
-            thd->variables.lock_wait_timeout);
+            ot_ctx->get_timeout());
 
         thd->pop_internal_handler();
         DEBUG_SYNC(thd, "after_upgrading_lock_from_S_to_X_for_create_table");
@@ -4053,13 +4059,21 @@ Open_table_context::Open_table_context(THD *thd, uint flags)
     : m_thd(thd),
       m_failed_table(nullptr),
       m_start_of_statement_svp(thd->mdl_context.mdl_savepoint()),
-      m_timeout(flags & MYSQL_LOCK_IGNORE_TIMEOUT
-                    ? LONG_TIMEOUT
-                    : thd->variables.lock_wait_timeout),
       m_flags(flags),
       m_action(OT_NO_ACTION),
       m_has_locks(thd->mdl_context.has_locks()),
-      m_has_protection_against_grl(false) {}
+      m_has_protection_against_grl(false)
+{
+  if (flags & MYSQL_LOCK_IGNORE_TIMEOUT)
+    m_timeout= LONG_TIMEOUT;
+  else
+  {
+    if (thd->lex->wait_time == ULONG_MAX)
+      m_timeout= thd->variables.lock_wait_timeout;
+    else
+      m_timeout= thd->lex->wait_time;
+  }
+}
 
 /**
   Check if we can back-off and set back off action if we can.
@@ -5405,6 +5419,12 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
   assert(!thd->locked_tables_mode ||
          thd->lex->sql_command == SQLCOM_RENAME_TABLE);
 
+  ulong wait_time;
+  if (thd->lex->wait_time == ULONG_MAX)
+    wait_time= lock_wait_timeout;
+  else
+    wait_time= thd->lex->wait_time;
+
   // Phase 1: Iterate over tables, collect set of unique schema names, and
   //          construct a list of requests for table MDL locks.
   for (table = tables_start; table && table != tables_end;
@@ -5485,7 +5505,7 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
   }
 
   // Phase 3: Acquire the locks which have been requested so far.
-  if (thd->mdl_context.acquire_locks(&mdl_requests, lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
     return true;
 
   /*
@@ -5511,7 +5531,7 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
     to do this, we must have acquired a lock on the table.
   */
   return get_and_lock_tablespace_names(thd, tables_start, tables_end,
-                                       lock_wait_timeout, flags);
+                                       wait_time, flags);
 }
 
 /**
