@@ -24649,4 +24649,263 @@ static void innodb_async_checkpoint_update(
   }
   buffer_pool_flush_all();
 }
+
+/** Index type of "CHECK INDEX" operation.
+1. "Primary_index" and "Secondary_index" refer to normal table indexes.
+2. "Combined_primary_index" and "Combined_secondary_index" refer to
+partition table indexes.
+3. "Uncompressed_primary_index" and "Uncompressed_secondary_index" refer to
+compressed table indexes. */
+const char *CHECK_INDEX_TYPE[] = {"SECONDARY_INDEX",
+                                  "PRIMARY_INDEX",
+                                  "COMBINED_SECONDARY_INDEX",
+                                  "COMBINED_PRIMARY_INDEX",
+                                  "UNCOMPRESSED_SECONARY_INDEX",
+                                  "UNCOMPRESSED_PRIMARY_INDEX"};
+
+/**********************************************************************
+Calculate used pages of page.
+@param[in] block innobase page */
+ulint innobase_calc_used_bytes(buf_block_t *block) {
+  ulint occupied =
+      page_header_get_field(buf_block_get_frame(block), PAGE_HEAP_TOP);
+  ulint slots =
+      page_header_get_field(buf_block_get_frame(block), PAGE_N_DIR_SLOTS);
+  ulint unalloc = UNIV_PAGE_SIZE - occupied - slots * PAGE_DIR_SLOT_SIZE -
+                  FIL_PAGE_DATA_END;
+  ulint deleted =
+      page_header_get_field(buf_block_get_frame(block), PAGE_GARBAGE);
+  return (UNIV_PAGE_SIZE - deleted - unalloc);
+}
+
+/**
+Calculate used bytes, real records, heap records of target pages. */
+bool innobase_get_page_status(std::vector<uint>& pages, ulint space_id,
+                              longlong *used_bytes, longlong *real_recs,
+                              longlong *heap_recs) {
+  uint idx = 0;
+  uint page_num = 0;
+  mtr_t mtr;
+  bool res = false;
+  const fil_space_t *space = fil_space_get(space_id);
+  ut_a(space);
+  const page_size_t space_page_size(space->flags);
+  page_id_t page_id(space_id, 0);
+  std::sort(pages.begin(), pages.end());
+  mtr_start(&mtr);
+  for (; idx < pages.size(); idx++) {
+    page_num = pages[idx];
+    page_id.set_page_no(page_num);
+    /* Innodb cannot evict uncommitted mtr pages from bufferpool.
+    If we handle all pages in one mini-transaction, bufferpool will be
+    occupied by this operation and other operations will be blocked.
+    To solve this problem, we handle 100 pages in one mini-transaction. */
+    if (idx % 100 == 0) {
+      mtr_commit(&mtr);
+      mtr_start(&mtr);
+    }
+    buf_block_t *block =
+        buf_page_get_gen(page_id, space_page_size, RW_NO_LATCH, nullptr,
+                         Page_fetch::POSSIBLY_FREED, UT_LOCATION_HERE, &mtr);
+    /* The segment page may change since we get information from inode and
+    it is acceptable. In extreme cases, the block we get is NULL, we return
+    true to indicate error and stop checking index at once. */
+    DBUG_EXECUTE_IF("check_index_simulate_get_block_fail", block = nullptr;);
+    if (block == nullptr) {
+      res = true;
+      break;
+    }
+    *used_bytes += innobase_calc_used_bytes(block);
+    /* Add infimum and supremum to non-deleted recs. */
+    *real_recs +=
+        (page_header_get_field(buf_block_get_frame(block), PAGE_N_RECS) + 2);
+    *heap_recs += page_dir_get_n_heap(buf_block_get_frame(block));
+  }
+  mtr_commit(&mtr);
+  return (res);
+}
+
+/**
+Get physical status of an innobase index.
+param[in]     index       an innobase index
+param[in]     space_id    space id
+param[in/out] info        physical info of index
+param[out]    btr_depth   btr depth of index
+*/
+bool innobase_get_index_status(dict_index_t *index, ulint space_id,
+                               index_physical_info_t *info, int *btr_depth) {
+  index_physical_info_t top_info;
+  index_physical_info_t leaf_info;
+  ulint top_total_pages_cnt = 0;
+  ulint leaf_total_pages_cnt = 0;
+  std::vector<uint> top_used_pages;
+  std::vector<uint> leaf_used_pages;
+
+  mtr_t mtr;
+  mtr_start(&mtr);
+  buf_block_t *root_block = btr_root_block_get(index, RW_S_LATCH, &mtr);
+  DBUG_EXECUTE_IF("check_index_simulate_get_root_block_fail",
+                  root_block = nullptr;);
+  if (root_block == nullptr) {
+    mtr_commit(&mtr);
+    return (true);
+  }
+  /* An index consists of two segment, one called leaf segment is used to
+  store leaf page, the other called top segment is used store non-leaf page.*/
+  fseg_header_t *leaf_seg =
+      buf_block_get_frame(root_block) + PAGE_HEADER + PAGE_BTR_SEG_LEAF;
+  fseg_header_t *top_seg =
+      buf_block_get_frame(root_block) + PAGE_HEADER + PAGE_BTR_SEG_TOP;
+  *btr_depth = btr_page_get_level(buf_block_get_frame(root_block));
+
+  fseg_get_pages_info(top_seg, space_id, FSP_GET_BOTH, top_used_pages,
+                      &top_total_pages_cnt);
+  fseg_get_pages_info(leaf_seg, space_id, FSP_GET_BOTH, leaf_used_pages,
+                      &leaf_total_pages_cnt);
+
+  DBUG_EXECUTE_IF("check_index_fake_pages_info", {
+    ulint fake_total_pages_cnt;
+    std::vector<uint> fake_used_pages;
+    fseg_get_pages_info(leaf_seg, space_id, FSP_GET_TOTAL_CNT, fake_used_pages,
+                        &fake_total_pages_cnt);
+    fake_used_pages.clear();
+    fseg_get_pages_info(leaf_seg, space_id, FSP_GET_USED_PAGES, fake_used_pages,
+                        &fake_total_pages_cnt);
+    fake_used_pages.clear();
+    fseg_get_pages_info(leaf_seg, space_id, 1234, fake_used_pages,
+                        &fake_total_pages_cnt);
+  });
+
+  mtr_commit(&mtr);
+  top_info.total_bytes = top_total_pages_cnt * UNIV_PAGE_SIZE;
+  leaf_info.total_bytes = leaf_total_pages_cnt * UNIV_PAGE_SIZE;
+
+  if (innobase_get_page_status(top_used_pages, space_id, &top_info.used_bytes,
+                               &top_info.real_recs, &top_info.heap_recs)) {
+    return (true);
+  }
+  DBUG_EXECUTE_IF("check_index_simulate_leaf_page_status_fail",
+                  DBUG_SET("+d,check_index_simulate_get_block_fail"););
+  if (innobase_get_page_status(leaf_used_pages, space_id, &leaf_info.used_bytes,
+                               &leaf_info.real_recs, &leaf_info.heap_recs)) {
+    DBUG_EXECUTE_IF("check_index_simulate_leaf_page_status_fail",
+                    DBUG_SET("-d,check_index_simulate_get_block_fail"););
+    return (true);
+  }
+
+  info->used_bytes = top_info.used_bytes + leaf_info.used_bytes;
+  info->total_bytes = top_info.total_bytes + leaf_info.total_bytes;
+  /* Root page is always placed in top level, when there is no heap recs in
+  leaf segment, it means root page is the only page in the btree, and user
+  recs is placed in root page. */
+  if (leaf_info.heap_recs == 0) {
+    info->real_recs = top_info.real_recs;
+    info->heap_recs = top_info.real_recs;
+  } else {
+    /* When the Btree is multi-level, we only care about the recs info in
+    leaf level. */
+    info->real_recs = leaf_info.real_recs;
+    info->heap_recs = leaf_info.heap_recs;
+  }
+  DBUG_EXECUTE_IF("innobase_error_in_check_index", return (true););
+  return (false);
+}
+
+/** Get physical index status of a table. The status includes
+1. index total size
+2. physical usage rate of each index
+3. leaf-level deleted mark rate of each index
+4. btree depth of each index
+5. total size and usage rate of table
+@return false on success, true on failure.
+*/
+bool ha_innobase::check_index(THD *thd) { /*!< in: user thread handle */
+  dict_index_t *index;
+  check_index_type_enum index_type = NORMAL_INDEX;
+  bool ret = false;
+  std::string table_name;
+  DBUG_ENTER("ha_innobase::check_index");
+  assert(thd == ha_thd());
+  ut_a(m_prebuilt->trx->magic_n == TRX_MAGIC_N);
+  ut_a(m_prebuilt->trx == thd_to_trx(thd));
+  if (m_prebuilt->mysql_template == nullptr) {
+    build_template(true);
+  }
+  DBUG_EXECUTE_IF("innobase_ibd_file_missing",
+                  m_prebuilt->table->ibd_file_missing = true;);
+
+  DBUG_EXECUTE_IF(
+      "innobase_revert_ibd_file_missing",
+      if (m_prebuilt->table->ibd_file_missing) {
+        m_prebuilt->table->ibd_file_missing = false;
+      });
+
+  /* Member 'corrupted' has been removed */
+  DBUG_EXECUTE_IF("innobase_corrupted_table",
+                  dict_set_corrupted(m_prebuilt->table->first_index()););
+
+  if (dict_table_is_discarded(m_prebuilt->table)) {
+    ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_TABLESPACE_DISCARDED,
+                table->s->table_name.str);
+    DBUG_RETURN(true);
+  } else if (m_prebuilt->table->ibd_file_missing) {
+    ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_TABLESPACE_MISSING,
+                table->s->table_name.str);
+    DBUG_RETURN(true);
+  } else if (m_prebuilt->table->is_corrupted()) {
+    ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_TABLE_CORRUPT, table->s->db.str,
+                table->s->table_name.str);
+    DBUG_RETURN(true);
+  }
+  m_prebuilt->trx->op_info = "checking index";
+  table_name.append(table->s->db.str, table->s->db.length);
+  table_name.append(".");
+  table_name.append(table->s->table_name.str, table->s->table_name.length);
+  if (dict_tf_get_rec_format(m_prebuilt->table->flags) ==
+      REC_FORMAT_COMPRESSED) {
+    index_type = UNCOMPRESSED_INDEX;
+  }
+  index_physical_info_t tb_info;
+  for (index = m_prebuilt->table->first_index(); index != nullptr;
+       index = index->next()) {
+    if (index->type & DICT_FTS) continue;
+
+    index_physical_info_t idx_info;
+    int btr_depth = 0;
+    if (innobase_get_index_status(index, m_prebuilt->table->space, &idx_info,
+                                  &btr_depth)) {
+      ret = true;
+      ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_CDB_ERROR_IN_CHECK_INDEX);
+      goto finish;
+    }
+    if (table->part_info == nullptr) {
+      int index_type_offset = index->is_clustered() ? 1 : 0;
+      ret = handler::print_index_status(
+          thd, table_name.c_str(), (const char *)index->name,
+          CHECK_INDEX_TYPE[index_type + index_type_offset],
+          idx_info.total_bytes, idx_info.usage_rate(), idx_info.delete_rate(),
+          btr_depth + 1);
+      DBUG_EXECUTE_IF("check_index_simulate_print_index_status_fail", {
+        ret = true;
+      });
+      if (ret) {
+        ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_CDB_ERROR_IN_CHECK_INDEX);
+        goto finish;
+      }
+      tb_info.used_bytes += idx_info.used_bytes;
+      tb_info.total_bytes += idx_info.total_bytes;
+    } else {
+      /* Combine the same index info from different partitions. */
+      partition_index_map[(const char *)index->name] += idx_info;
+    }
+  }
+  if (table->part_info == nullptr) {
+    ret = handler::print_index_status(thd, table_name.c_str(), nullptr,
+                                      "TABLE_LEVEL", tb_info.total_bytes,
+                                      tb_info.usage_rate(), TWO_EMPTY_RESULT);
+  }
+finish:
+  m_prebuilt->trx->op_info = "";
+  DBUG_RETURN(ret);
+}
 /* Changes from txsql end. */

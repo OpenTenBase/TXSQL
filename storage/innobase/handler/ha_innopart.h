@@ -609,6 +609,8 @@ class ha_innopart : public ha_innobase,
   */
   void parallel_scan_end(void *parallel_scan_ctx) override;
 
+  bool check_index(THD *thd) override;
+
  private:
   /** Pointer to Ha_innopart_share on the TABLE_SHARE. */
   Ha_innopart_share *m_part_share;

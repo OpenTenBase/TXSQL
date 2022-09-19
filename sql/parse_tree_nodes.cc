@@ -4388,4 +4388,30 @@ bool PT_returning_clause::contextualize(Parse_context *pc) {
   return false;
 }
 
+Sql_cmd *PT_check_index_stmt::make_cmd(THD *thd) {
+  thd->lex->sql_command = SQLCOM_CHECK_INDEX;
+
+  LEX *const lex = thd->lex;
+  Query_block *const select = lex->current_query_block();
+
+  if (lex->sphead) {
+    my_error(ER_SP_BADSTATEMENT, MYF(0), "CHECK INDEX");
+    return nullptr;
+  }
+
+  bool ret = select->add_tables(thd, m_table_list, TL_OPTION_UPDATING,
+                                TL_UNLOCK, MDL_SHARED_READ);
+
+  DBUG_EXECUTE_IF("check_index_simulate_add_tables_fail", { ret = true; });
+
+  if (ret) {
+    my_error(ER_CDB_ERROR_IN_CHECK_INDEX, MYF(0),
+             "CHECK INDEX add tables fail");
+    return nullptr;
+  }
+
+  thd->lex->alter_info = &m_alter_info;
+  return new (thd->mem_root) Sql_cmd_check_index(&m_alter_info);
+}
+
 /* Changes from txsql end. */

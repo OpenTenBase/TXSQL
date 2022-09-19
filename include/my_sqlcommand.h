@@ -204,6 +204,7 @@ enum enum_sql_command {
   SQLCOM_DROP_SRS,
   SQLCOM_SHOW_THREADPOOL_STAT,
   SQLCOM_SHOW_CDB_SQL_FILTERS,
+  SQLCOM_CHECK_INDEX,
   /* This should be the last !!! */
   SQLCOM_END
 };

@@ -1,0 +1,208 @@
+create table t (a int unsigned not null auto_increment, b varchar(300), primary key(a)) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+create table t1 (a int unsigned not null auto_increment, b char(10), primary key(a)) ENGINE=InnoDB DEFAULT CHARSET=latin1 row_format=compressed;
+create procedure load_t(count int unsigned)
+begin
+set@c=0;
+while@c<count do
+insert into t select null,repeat(char(97+rand()*26),300);
+insert into t1 select null,repeat(char(97+rand()*26),10);
+set@c=@c+1;
+end while;
+end;
+$$
+call load_t(10000);
+CREATE TABLE `t2` (
+`id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+`uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+`avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+`avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+`pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+`dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`id`,`pt`),
+KEY `uid_idx` (`uid`(191)),
+KEY `avatar_name_idx` (`avatar_name`(191)),
+KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB ;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE `t3` (
+`id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+`uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+`avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+`avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+`pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+`dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`id`,`pt`),
+KEY `uid_idx` (`uid`(191)),
+KEY `avatar_name_idx` (`avatar_name`(191)),
+KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+/*!50500 PARTITION BY LIST  COLUMNS(pt)
+(PARTITION `preserve` VALUES IN ('preserve') ENGINE = InnoDB,
+PARTITION p20181109 VALUES IN ('2018-11-09') ENGINE = InnoDB,
+PARTITION p20181110 VALUES IN ('2018-11-10') ENGINE = InnoDB,
+PARTITION p20181111 VALUES IN ('2018-11-11') ENGINE = InnoDB,
+PARTITION p20181112 VALUES IN ('2018-11-12') ENGINE = InnoDB,
+PARTITION p20181113 VALUES IN ('2018-11-13') ENGINE = InnoDB,
+PARTITION p20181114 VALUES IN ('2018-11-14') ENGINE = InnoDB,
+PARTITION p20181115 VALUES IN ('2018-11-15') ENGINE = InnoDB,
+PARTITION p20181116 VALUES IN ('2018-11-16') ENGINE = InnoDB,
+PARTITION p20181117 VALUES IN ('2018-11-17') ENGINE = InnoDB,
+PARTITION p20181118 VALUES IN ('2018-11-18') ENGINE = InnoDB,
+PARTITION p20181119 VALUES IN ('2018-11-19') ENGINE = InnoDB) */;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE `t4` (
+`id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+`uid` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'uid',
+`avatar_name` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_name',
+`avatar_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'avatar_url',
+`pt` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'pt',
+`dhash` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`id`,`pt`),
+KEY `uid_idx` (`uid`(191)),
+KEY `avatar_name_idx` (`avatar_name`(191)),
+KEY `pt_idx` (`pt`)
+) ENGINE=InnoDB row_format=compressed;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+create table t5 (a int) engine = myisam;
+create table t6 (a int) engine = memory;
+check index from t;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t	PRIMARY	PRIMARY_INDEX	3686400	0.891	0.002	2
+test.t	NULL	TABLE_LEVEL	3686400	0.891	NULL	NULL
+check index from t1;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t1	PRIMARY	UNCOMPRESSED_PRIMARY_INDEX	393216	0.861	0.022	2
+test.t1	NULL	TABLE_LEVEL	393216	0.861	NULL	NULL
+check keys from t2;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t2	PRIMARY	PRIMARY_INDEX	16384	0.008	0.000	1
+test.t2	uid_idx	SECONDARY_INDEX	16384	0.008	0.000	1
+test.t2	avatar_name_idx	SECONDARY_INDEX	16384	0.008	0.000	1
+test.t2	pt_idx	SECONDARY_INDEX	16384	0.008	0.000	1
+test.t2	NULL	TABLE_LEVEL	65536	0.008	NULL	NULL
+check keys from t3;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t3	PRIMARY	COMBINED_PRIMARY_INDEX	196608	0.008	0.000	NULL
+test.t3	uid_idx	COMBINED_SECONDARY_INDEX	196608	0.008	0.000	NULL
+test.t3	avatar_name_idx	COMBINED_SECONDARY_INDEX	196608	0.008	0.000	NULL
+test.t3	pt_idx	COMBINED_SECONDARY_INDEX	196608	0.008	0.000	NULL
+test.t3	NULL	TABLE_LEVEL	786432	0.008	NULL	NULL
+check index from t4;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t4	PRIMARY	UNCOMPRESSED_PRIMARY_INDEX	16384	0.008	0.000	1
+test.t4	uid_idx	UNCOMPRESSED_SECONARY_INDEX	16384	0.008	0.000	1
+test.t4	avatar_name_idx	UNCOMPRESSED_SECONARY_INDEX	16384	0.008	0.000	1
+test.t4	pt_idx	UNCOMPRESSED_SECONARY_INDEX	16384	0.008	0.000	1
+test.t4	NULL	TABLE_LEVEL	65536	0.008	NULL	NULL
+check index from t5, t6;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t5	NULL	DISABLED	NULL	NULL	NULL	NULL
+test.t6	NULL	DISABLED	NULL	NULL	NULL	NULL
+check index from ttt;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.ttt	NULL	NOT_EXIST	NULL	NULL	NULL	NULL
+Warnings:
+Error	1146	Table 'test.ttt' doesn't exist
+check index from ttt, t, t1;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.ttt	NULL	NOT_EXIST	NULL	NULL	NULL	NULL
+test.t	PRIMARY	PRIMARY_INDEX	3686400	0.891	0.002	2
+test.t	NULL	TABLE_LEVEL	3686400	0.891	NULL	NULL
+test.t1	PRIMARY	UNCOMPRESSED_PRIMARY_INDEX	393216	0.861	0.022	2
+test.t1	NULL	TABLE_LEVEL	393216	0.861	NULL	NULL
+Warnings:
+Error	1146	Table 'test.ttt' doesn't exist
+create table t7 (a int) engine = innodb;
+alter table t7 discard tablespace;
+check index from t7;
+ERROR HY000: Tablespace has been discarded for table 't7'
+SET SESSION debug="+d,innobase_ibd_file_missing";
+check index from t1;
+ERROR HY000: Tablespace is missing for table t1.
+SET SESSION debug="-d,innobase_ibd_file_missing";
+SET SESSION debug="+d,innobase_revert_ibd_file_missing";
+check index from t1;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t1	PRIMARY	UNCOMPRESSED_PRIMARY_INDEX	393216	0.861	0.022	2
+test.t1	NULL	TABLE_LEVEL	393216	0.861	NULL	NULL
+SET SESSION debug="-d,innobase_revert_ibd_file_missing";
+SET SESSION debug="+d,innobase_corrupted_table";
+check index from t2;
+ERROR HY000: Operation cannot be performed. The table 'test.t2' is missing, corrupt or contains bad data.
+SET SESSION debug="-d,innobase_corrupted_table";
+SET SESSION debug="+d,innobase_error_in_check_index";
+check index from t3;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,innobase_error_in_check_index";
+SET SESSION debug="+d,check_index_fake_pages_info";
+check index from t1;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t1	PRIMARY	UNCOMPRESSED_PRIMARY_INDEX	393216	0.861	0.022	2
+test.t1	NULL	TABLE_LEVEL	393216	0.861	NULL	NULL
+SET SESSION debug="-d,check_index_fake_pages_info";
+SET SESSION debug="+d,check_index_simulate_get_block_fail";
+check index from t1;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,check_index_simulate_get_block_fail";
+SET SESSION debug="+d,check_index_simulate_get_root_block_fail";
+check index from t1;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,check_index_simulate_get_root_block_fail";
+SET SESSION debug="+d,check_index_simulate_leaf_page_status_fail";
+check index from t1;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,check_index_simulate_leaf_page_status_fail";
+SET SESSION debug="+d,check_index_simulate_print_index_status_fail";
+check index from t1;
+ERROR HY000: Failed to get index physical status.
+check index from t3;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,check_index_simulate_print_index_status_fail";
+SET SESSION debug="+d,check_index_simulate_add_tables_fail";
+check index from t1;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,check_index_simulate_add_tables_fail";
+SET SESSION debug="+d,check_index_simulate_query_killed";
+check index from t1;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+SET SESSION debug="-d,check_index_simulate_query_killed";
+SET SESSION debug="+d,check_index_simulate_send_metadata_fail";
+check index from t1;
+ERROR HY000: Failed to get index physical status.
+SET SESSION debug="-d,check_index_simulate_send_metadata_fail";
+SET SESSION debug="+d,check_index_simulate_open_tmp_table_fail";
+check index from t1;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.t1	NULL	NOT_EXIST	NULL	NULL	NULL	NULL
+SET SESSION debug="-d,check_index_simulate_open_tmp_table_fail";
+create user 'user_1'@localhost;
+show grants;
+Grants for user_1@localhost
+GRANT USAGE ON *.* TO `user_1`@`localhost`
+check index from mysql.slow_log;
+ERROR 42000: SELECT command denied to user 'user_1'@'localhost' for table 'slow_log'
+drop user 'user_1'@localhost;
+create procedure check_index_procedure()
+begin
+check index from t;
+end;
+$$
+ERROR 0A000: CHECK INDEX is not allowed in stored procedures
+create temporary table tmp_table(id int, c1 int);
+check index from tmp_table;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.tmp_table	GEN_CLUST_INDEX	PRIMARY_INDEX	16384	0.008	0.000	1
+test.tmp_table	NULL	TABLE_LEVEL	16384	0.008	NULL	NULL
+drop table tmp_table;
+drop procedure load_t;
+drop table t;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop table t6;
+drop table t7;

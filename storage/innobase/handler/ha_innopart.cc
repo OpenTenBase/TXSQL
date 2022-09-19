@@ -4185,6 +4185,8 @@ DS-MRR implementation
 /* TODO: See if it could be optimized for partitioned tables? */
 /* Use default ha_innobase implementation for now... */
 
+/* changes from txsql start. */
+
 bool ha_innopart::prepare_backquery(THD *thd, time_t t) {
   dict_table_t *saved_prebuilt_table = m_prebuilt->table;
   for (auto i = m_part_info->get_first_used_partition(); i < m_tot_parts;
@@ -4197,3 +4199,55 @@ bool ha_innopart::prepare_backquery(THD *thd, time_t t) {
   m_prebuilt->table = saved_prebuilt_table;
   return false;
 }
+
+/** Checks index status of a partitioned table.
+@return false on success, true on failure.
+*/
+bool ha_innopart::check_index(THD *thd) {
+  dict_index_t *index;
+  uint i;
+  check_index_type_enum index_type = COMBINED_INDEX;
+  std::string table_name;
+
+  DBUG_ENTER("ha_innopart::check_index");
+
+  table_name.append(table->s->db.str, table->s->db.length);
+  table_name.append(".");
+  table_name.append(table->s->table_name.str, table->s->table_name.length);
+
+  partition_index_map.clear();
+  for (i = m_part_info->get_first_used_partition(); i < m_tot_parts;
+       i = m_part_info->get_next_used_partition(i)) {
+    m_prebuilt->table = m_part_share->get_table_part(i);
+    if (ha_innobase::check_index(thd)) {
+      DBUG_RETURN(true);
+    }
+  }
+
+  index_physical_info_t tb_info;
+  for (index = m_prebuilt->table->first_index(); index != nullptr;
+       index = index->next()) {
+    index_physical_info_t &idx_info =
+        partition_index_map[(const char *)index->name];
+    int index_type_offset = index->is_clustered() ? 1 : 0;
+    bool ret = handler::print_index_status(
+        thd, table_name.c_str(), (const char *)index->name,
+        CHECK_INDEX_TYPE[index_type + index_type_offset], idx_info.total_bytes,
+        idx_info.usage_rate(), idx_info.delete_rate(), ONE_EMPTY_RESULT);
+    DBUG_EXECUTE_IF("check_index_simulate_print_index_status_fail", {
+      ret = true;
+    });
+    if (ret) {
+      ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_CDB_ERROR_IN_CHECK_INDEX);
+      DBUG_RETURN(true);
+    }
+
+    tb_info.used_bytes += idx_info.used_bytes;
+    tb_info.total_bytes += idx_info.total_bytes;
+  }
+
+  DBUG_RETURN(handler::print_index_status(
+      thd, table_name.c_str(), nullptr, "TABLE_LEVEL", tb_info.total_bytes,
+      tb_info.usage_rate(), TWO_EMPTY_RESULT));
+}
+/* changes from txsql end. */

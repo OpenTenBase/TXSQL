@@ -19888,3 +19888,124 @@ bool lock_check_constraint_names(THD *thd, TABLE_LIST *tables) {
 
   return false;
 }
+
+/* changes from txsql start. */
+/**
+  check the physical status of table indexes.
+  @return Error status.
+*/
+bool mysql_check_index(THD *thd, TABLE_LIST *tables) {
+  DBUG_ENTER("mysql_check_index");
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  Item *item;
+  TABLE *t;
+  TABLE_LIST *table;
+  bool result = false;
+
+  /*
+    CHECK INDEX returns results and rollbacks statement transaction,
+    so it should not be used in stored function or trigger.
+  */
+  assert(!thd->in_sub_stmt);
+
+  field_list.push_back(new Item_empty_string("Table_name", NAME_LEN * 2));
+  field_list.push_back(item = new Item_empty_string("Index_name", NAME_LEN));
+  item->set_nullable(true);
+  field_list.push_back(item = new Item_empty_string("Type", 30));
+  item->set_nullable(true);
+  field_list.push_back(
+      item = new Item_return_int("Total_size", 30, MYSQL_TYPE_LONGLONG));
+  item->set_nullable(true);
+  field_list.push_back(
+      item = new Item_float(NAME_STRING("Usage_rate"), 0.0, 3, 5));
+  item->set_nullable(true);
+  field_list.push_back(
+      item = new Item_float(NAME_STRING("Delete_rate"), 0.0, 3, 5));
+  item->set_nullable(true);
+  field_list.push_back(
+      item = new Item_return_int("Btr_depth", 10, MYSQL_TYPE_LONG));
+  item->set_nullable(true);
+
+  result = thd->send_result_metadata(
+      field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+  DBUG_EXECUTE_IF("check_index_simulate_send_metadata_fail", result = true;);
+  if (result){
+    my_error(ER_CDB_ERROR_IN_CHECK_INDEX, MYF(0),
+             "CHECK INDEX send metadata fail");
+    DBUG_RETURN(true);
+  }
+
+  /*
+    Close all temporary tables which were pre-open to simplify
+    privilege checking. Clear all references to closed tables.
+  */
+  close_thread_tables(thd);
+  for (table = tables; table; table = table->next_local) table->table = nullptr;
+
+  for (table = tables; table; table = table->next_local) {
+    DBUG_EXECUTE_IF("check_index_simulate_query_killed",
+                    thd->killed = THD::KILL_QUERY;);
+    if (thd->killed) {
+      goto finish;
+    }
+
+    TABLE_LIST *save_next_global, *save_next_local;
+    save_next_global = table->next_global;
+    save_next_local = table->next_local;
+    table->next_global = nullptr;
+    table->next_local = nullptr;
+
+    Lock_descriptor ld;
+    ld.type = TL_READ;
+    ld.action = THR_DEFAULT;
+    table->set_lock(ld);
+
+    /* Allow to open real tables only. */
+    table->required_type = dd::enum_table_type::BASE_TABLE;
+
+    result = open_temporary_tables(thd, table);
+    DBUG_EXECUTE_IF("check_index_simulate_open_tmp_table_fail", result = true;);
+    if (result || open_and_lock_tables(thd, table, 0)) {
+      t = nullptr;
+      /* we should ignore the error of open_temporary_tables;
+      set result to false, otherwise if error occurred
+      the server will crash due to assertion fail in
+      function THD::send_statement_status.
+      */
+      result = false;
+    } else
+      t = table->table;
+
+    table->next_global = save_next_global;
+    table->next_local = save_next_local;
+
+    std::string table_name;
+    table_name.append(table->db, table->db_length);
+    table_name.append(".");
+    table_name.append(table->table_name, table->table_name_length);
+    if (!t) {
+      /* Table doesn`t exist. We dont`t return error. Instead we hide error and
+      continue to check index of other tables. */
+      thd->clear_error();
+      result |= handler::print_index_status(thd, table_name.c_str(), "NULL",
+                                            "NOT_EXIST", FOUR_EMPTY_RESULT);
+    } else {
+      /* CHECK INDEX only works for innodb. */
+      if (t->file->ht->db_type != DB_TYPE_INNODB)
+        result |= handler::print_index_status(thd, table_name.c_str(), "NULL",
+                                              "DISABLED", FOUR_EMPTY_RESULT);
+      else
+        result |= t->file->check_index(thd);
+
+      /* Free Resources. */
+      trans_rollback_stmt(thd);
+      close_thread_tables(thd);
+      thd->mdl_context.release_transactional_locks();
+    }
+  }
+
+finish:
+  if (!result) my_eof(thd);
+  DBUG_RETURN(result);
+}
+/* changes from txsql end. */

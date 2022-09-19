@@ -771,6 +771,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_REPAIR] |= CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_PRELOAD_KEYS] |= CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_ASSIGN_TO_KEYCACHE] |= CF_PREOPEN_TMP_TABLES;
+  sql_command_flags[SQLCOM_CHECK_INDEX] |= CF_PREOPEN_TMP_TABLES;
 
   /*
     DDL statements that should start with closing opened handlers.
@@ -994,6 +995,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_REVOKE_ROLE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_ALTER_USER_DEFAULT_ROLE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_IMPORT] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_CHECK_INDEX] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_END] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_CREATE_SRS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_DROP_SRS] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -4578,6 +4580,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     }
     case SQLCOM_ANALYZE:
     case SQLCOM_CHECK:
+    case SQLCOM_CHECK_INDEX:
     case SQLCOM_OPTIMIZE:
     case SQLCOM_REPAIR:
     case SQLCOM_TRUNCATE:
