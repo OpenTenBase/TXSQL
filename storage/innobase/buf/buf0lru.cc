@@ -1499,6 +1499,9 @@ buf_block_t *buf_LRU_get_free_only(buf_pool_t *buf_pool) {
       /* found valid free block */
       /* No adaptive hash index entries may point to
       a free block. */
+      if (block->locks_inited == false)
+        buf_block_init_locks(block);
+
       assert_block_ahi_empty(block);
 
       buf_block_set_state(block, BUF_BLOCK_READY_FOR_USE);
