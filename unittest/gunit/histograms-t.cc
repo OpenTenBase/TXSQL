@@ -272,6 +272,9 @@ void VerifyCommonJSONFields(Json_object *json_histogram,
     case Histogram::enum_histogram_type::SINGLETON:
       EXPECT_STREQ(json_histogram_type->value().c_str(), "singleton");
       break;
+    case Histogram::enum_histogram_type::COMPRESSED:
+      assert(0);
+      break;
   }
 
   // Buckets field.

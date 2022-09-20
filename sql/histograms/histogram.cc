@@ -66,6 +66,7 @@
 #include "sql/error_handler.h"  // Internal_error_handler
 #include "sql/field.h"  // Field
 #include "sql/handler.h"
+#include "sql/histograms/compressed_histogram.h"  // Compressed_histogram<T>
 #include "sql/histograms/equi_height.h"  // Equi_height<T>
 #include "sql/histograms/singleton.h"    // Singleton<T>
 #include "sql/histograms/value_map.h"    // Value_map
@@ -454,12 +455,26 @@ Histogram *build_histogram(MEM_ROOT *mem_root, const Value_map<T> &value_map,
                            const std::string &col_name) {
   Histogram *histogram = nullptr;
 
-  /*
-    If the number of buckets specified is greater or equal to the number
-    of distinct values, we create a Singleton histogram. Otherwise we create
-    an equi-height histogram.
-  */
-  if (num_buckets >= value_map.size()) {
+  if (cdb_compressed_histogram_enabled) {
+    // Use compressed histogram.
+    bool error = false;
+    Compressed_histogram<T> *compressed =
+        new (mem_root) Compressed_histogram<T>(
+            mem_root, db_name, tbl_name, col_name, 
+            value_map.get_data_type(), &error);
+
+    if (compressed == nullptr) return nullptr;
+
+    if (compressed->build_histogram(value_map, num_buckets))
+      return nullptr; /* purecov: inspected */
+
+    histogram = compressed;
+  } else if (num_buckets >= value_map.size()) {
+    /*
+      If the number of buckets specified is greater or equal to the number
+      of distinct values, we create a Singleton histogram. Otherwise we create
+      an equi-height histogram.
+    */
     Singleton<T> *singleton = Singleton<T>::create(
         mem_root, db_name, tbl_name, col_name, value_map.get_data_type());
 
@@ -506,7 +521,7 @@ Histogram *Histogram::json_to_histogram(MEM_ROOT *mem_root,
                                         const std::string &column_name,
                                         const Json_object &json_object,
                                         Error_context *context) {
-  // Histogram type (equi-height or singleton).
+  // Histogram type (equi-height or singleton or compressed).
   const Json_dom *histogram_type_dom =
       json_object.get(Histogram::histogram_type_str());
   if (histogram_type_dom == nullptr) {
@@ -613,6 +628,55 @@ Histogram *Histogram::json_to_histogram(MEM_ROOT *mem_root,
     } else {
       context->report_node(data_type_dom, Message::JSON_UNSUPPORTED_DATA_TYPE);
       return nullptr;
+    }
+  } else if (histogram_type->value() == Histogram::compressed_str()) {
+    // Compressed_histogram histogram
+    bool error = false;
+    if (data_type->value() == "double") {
+      histogram = new (mem_root)
+          Compressed_histogram<double>(mem_root, schema_name, table_name,
+                                       column_name, Value_map_type::DOUBLE,
+                                       &error);
+    } else if (data_type->value() == "int") {
+      histogram = new (mem_root) Compressed_histogram<longlong>(
+          mem_root, schema_name, table_name, column_name, Value_map_type::INT,
+          &error);
+    } else if (data_type->value() == "enum") {
+      histogram = new (mem_root) Compressed_histogram<longlong>(
+          mem_root, schema_name, table_name, column_name, Value_map_type::ENUM,
+          &error);
+    } else if (data_type->value() == "set") {
+      histogram = new (mem_root) Compressed_histogram<longlong>(
+          mem_root, schema_name, table_name, column_name, Value_map_type::SET,
+          &error);
+    } else if (data_type->value() == "uint") {
+      histogram = new (mem_root) Compressed_histogram<ulonglong>(
+          mem_root, schema_name, table_name, column_name, Value_map_type::UINT,
+          &error);
+    } else if (data_type->value() == "string") {
+      histogram = new (mem_root)
+          Compressed_histogram<String>(mem_root, schema_name, table_name,
+                                       column_name, Value_map_type::STRING,
+                                       &error);
+    } else if (data_type->value() == "datetime") {
+      histogram = new (mem_root) Compressed_histogram<MYSQL_TIME>(
+          mem_root, schema_name, table_name, column_name,
+          Value_map_type::DATETIME, &error);
+    } else if (data_type->value() == "date") {
+      histogram = new (mem_root) Compressed_histogram<MYSQL_TIME>(
+          mem_root, schema_name, table_name, column_name, Value_map_type::DATE,
+          &error);
+    } else if (data_type->value() == "time") {
+      histogram = new (mem_root) Compressed_histogram<MYSQL_TIME>(
+          mem_root, schema_name, table_name, column_name, Value_map_type::TIME,
+          &error);
+    } else if (data_type->value() == "decimal") {
+      histogram = new (mem_root) Compressed_histogram<my_decimal>(
+          mem_root, schema_name, table_name, column_name,
+          Value_map_type::DECIMAL, &error);
+    } else {
+      context->report_node(data_type_dom, Message::JSON_UNSUPPORTED_DATA_TYPE);
+      return nullptr; /* purecov: deadcode */
     }
   } else {
     // Unsupported histogram type.
@@ -1922,6 +1986,11 @@ double Histogram::get_less_than_selectivity_dispatcher(const T &value) const {
           down_cast<const Equi_height<T> *>(this);
       return equi_height->get_less_than_selectivity(value);
     }
+    case enum_histogram_type::COMPRESSED: {
+      const Compressed_histogram<T> *compressed =
+          down_cast<const Compressed_histogram<T> *>(this);
+      return compressed->get_less_than_selectivity(value);
+    }
   }
   /* purecov: begin deadcode */
   assert(false);
@@ -1942,6 +2011,11 @@ double Histogram::get_greater_than_selectivity_dispatcher(
           down_cast<const Equi_height<T> *>(this);
       return equi_height->get_greater_than_selectivity(value);
     }
+    case enum_histogram_type::COMPRESSED: {
+      const Compressed_histogram<T> *compressed =
+          down_cast<const Compressed_histogram<T> *>(this);
+      return compressed->get_greater_than_selectivity(value);
+    }
   }
   /* purecov: begin deadcode */
   assert(false);
@@ -1960,6 +2034,11 @@ double Histogram::get_equal_to_selectivity_dispatcher(const T &value) const {
       const Equi_height<T> *equi_height =
           down_cast<const Equi_height<T> *>(this);
       return equi_height->get_equal_to_selectivity(value);
+    }
+    case enum_histogram_type::COMPRESSED: {
+      const Compressed_histogram<T> *compressed =
+          down_cast<const Compressed_histogram<T> *>(this);
+      return compressed->get_equal_to_selectivity(value);
     }
   }
   /* purecov: begin deadcode */
