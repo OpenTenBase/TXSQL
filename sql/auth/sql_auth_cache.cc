@@ -1584,6 +1584,7 @@ bool acl_getroot(THD *thd, Security_context *sctx, const char *user,
 
     sctx->set_password_expired(acl_user->password_expired);
     sctx->lock_account(acl_user->account_locked);
+    sctx->set_is_tencent_root(false);
   }  // end if
 
   if (acl_user && sctx->get_active_roles()->size() > 0) {

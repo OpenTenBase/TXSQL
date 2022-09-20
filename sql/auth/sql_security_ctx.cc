@@ -93,6 +93,7 @@ void Security_context::init() {
   m_has_drop_policy = false;
   m_executed_drop_policy = false;
   m_registration_sandbox_mode = false;
+  m_is_tencent_root = false;
 }
 
 void Security_context::logout() {
@@ -158,6 +159,7 @@ void Security_context::destroy() {
   m_master_access = m_db_access = 0;
   m_password_expired = false;
   m_is_skip_grants_user = false;
+  m_is_tencent_root = false;
   clear_db_restrictions();
   m_registration_sandbox_mode = false;
 }
@@ -295,8 +297,10 @@ bool Security_context::change_security_context(
       my_error(ER_NO_SUCH_USER, MYF(0), definer_user.str, definer_host.str);
       return true;
     }
+    thd->security_context()->set_is_tencent_root(thd->is_tencent_root);
     *backup = thd->security_context();
     thd->set_security_context(this);
+    thd->is_tencent_root = thd->security_context()->is_tencent_root();
   }
 
   return false;
@@ -304,7 +308,10 @@ bool Security_context::change_security_context(
 
 void Security_context::restore_security_context(THD *thd,
                                                 Security_context *backup) {
-  if (backup) thd->set_security_context(backup);
+  if (backup) {
+    thd->set_security_context(backup);
+    thd->is_tencent_root = backup->is_tencent_root();
+  }
 }
 
 bool Security_context::user_matches(Security_context *them) {
