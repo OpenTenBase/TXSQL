@@ -397,6 +397,29 @@ JSON_EXTRACT(histogram, '$."histogram-type"') AS should_be_equiheight
 FROM information_schema.COLUMN_STATISTICS;
 SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	should_be_equiheight
 test	t1	col_integer	"equi-height"
+DELETE FROM t1;
+#
+# Check that the server switches to compressed when it should.
+#
+set global cdb_compressed_histogram_enabled = on;
+INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
+SELECT schema_name, table_name, column_name,
+JSON_REMOVE(histogram, '$."last-updated"')
+FROM information_schema.COLUMN_STATISTICS;
+SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
+test	t1	col_integer	{"mcv-list": [[1, 0.1], [2, 0.2], [3, 0.3], [4, 0.4], [5, 0.5], [6, 0.6], [7, 0.7], [8, 0.8], [9, 0.9], [10, 1.0]], "data-type": "int", "equi-height": [], "null-values": 0.0, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "compressed", "distinct-values": 10.0, "number-of-buckets-specified": 10}
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 9 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
+SELECT schema_name, table_name, column_name,
+JSON_REMOVE(histogram, '$."last-updated"')
+FROM information_schema.COLUMN_STATISTICS;
+SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
+test	t1	col_integer	{"mcv-list": [[1, 0.1], [2, 0.2], [3, 0.3], [4, 0.4], [5, 0.5], [6, 0.6], [7, 0.7], [8, 0.8], [9, 0.9]], "data-type": "int", "equi-height": [10, 10], "null-values": 0.0, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "compressed", "distinct-values": 10.0, "number-of-buckets-specified": 9}
+SET global cdb_compressed_histogram_enabled=0;
 DROP TABLE t1;
 #
 # Check that invalid range for the number of buckets is rejected

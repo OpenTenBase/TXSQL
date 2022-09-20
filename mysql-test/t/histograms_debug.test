@@ -93,6 +93,60 @@ FROM information_schema.COLUMN_STATISTICS;
 SET DEBUG='-d,histogram_force_sampling';
 DROP TABLE t1;
 
+
+--echo #
+--echo # Check that compressed histogram mcv resizing works as expected
+--echo #
+
+--let $saved_cdb_compressed_histogram_enabled= `SELECT @@global.cdb_compressed_histogram_enabled`
+set global cdb_compressed_histogram_enabled = on;
+
+# Cheat the check in analyze_mcv_list() that the entire table was sampled
+SET DEBUG='+d,histogram_force_sampling';
+
+CREATE TABLE t1 (col_integer INT);
+
+INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 10 BUCKETS;
+
+--sorted_result
+SELECT schema_name, table_name, column_name,
+       JSON_REMOVE(histogram, '$."last-updated"')
+FROM information_schema.COLUMN_STATISTICS;
+
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 9 BUCKETS;
+
+--sorted_result
+SELECT schema_name, table_name, column_name,
+       JSON_REMOVE(histogram, '$."last-updated"')
+FROM information_schema.COLUMN_STATISTICS;
+
+DELETE FROM t1;
+
+INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (7), (7), (7), (7), (10);
+
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 7 BUCKETS;
+
+--sorted_result
+SELECT schema_name, table_name, column_name,
+       JSON_REMOVE(histogram, '$."last-updated"')
+FROM information_schema.COLUMN_STATISTICS;
+
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 6 BUCKETS;
+
+--sorted_result
+SELECT schema_name, table_name, column_name,
+       JSON_REMOVE(histogram, '$."last-updated"')
+FROM information_schema.COLUMN_STATISTICS;
+
+SET DEBUG='-d,histogram_force_sampling';
+
+eval SET global cdb_compressed_histogram_enabled=$saved_cdb_compressed_histogram_enabled;
+
+DROP TABLE t1;
+
+
 --echo #
 --echo # Bug#26020352 WL8943:ASSERTION `M_THD->GET_TRANSACTION()->IS_EMPTY(
 --echo #              TRANSACTION_CTX::STMT) && M

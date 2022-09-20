@@ -7729,6 +7729,14 @@ static Sys_var_enum Sys_tencent_myisam_conversion_innodb(
     CMD_LINE(REQUIRED_ARG), myisam_conversion_innodb_names,
     DEFAULT(CONVERSION_MODE_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_bool Sys_cdb_compressed_histogram_enabled(
+    "cdb_compressed_histogram_enabled",
+    "Enable to use compressed histogram, which consists of most common values "
+    "and equi-height buckets for other values.",
+    GLOBAL_VAR(cdb_compressed_histogram_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
 #ifdef HAVE_POOL_OF_THREADS
 
 static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {

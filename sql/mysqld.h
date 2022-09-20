@@ -914,5 +914,6 @@ extern bool cdb_hash_scan_index_selection_enabled;
 extern bool g_txsql_load_data_local_strict_mode;
 extern bool g_tdsql_compat_oracle_mode;
 extern char *opt_cdb_column_encryption_whitelist;
+extern bool cdb_compressed_histogram_enabled;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

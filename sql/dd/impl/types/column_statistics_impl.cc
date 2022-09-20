@@ -130,7 +130,6 @@ bool Column_statistics_impl::restore_attributes(const Raw_record &r) {
       &m_mem_root, {m_schema_name.data(), m_schema_name.size()},
       {m_table_name.data(), m_table_name.size()},
       {m_column_name.data(), m_column_name.size()}, *json_object, &context);
-  if (m_histogram == nullptr) return true; /* purecov: deadcode */
   return false;
 }
 
