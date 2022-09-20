@@ -9849,6 +9849,9 @@ ER_REJECT_BY_CDB_FIREWALL
 ER_CDB_ERROR_IN_CHECK_INDEX
   eng "Failed to get index physical status."
 
+ER_CDB_UNABLE_TO_RENAME_COLUMN_STATISTICS_INCOMPATIBLE_HISTOGRAM
+  eng "Unable to rename column statistics with incompatible histogram for column '%.64s' in table '%.64s'.'%.64s'. Please drop the histogram and try again."
+
 ################################################################################
 # Error numbers 5000 to 5999 are reserved for X Plugin. Please do not use
 # them for other error messages.
