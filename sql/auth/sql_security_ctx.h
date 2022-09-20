@@ -310,6 +310,9 @@ class Security_context {
 
   THD *get_thd();
 
+  bool is_tencent_root();
+
+  void set_is_tencent_root(bool is_tencent_root_var);
  private:
   void init();
   void destroy();
@@ -405,6 +408,10 @@ class Security_context {
     m_thd - Thread handle, set to nullptr if this does not belong to any THD yet
   */
   THD *m_thd;
+  /**
+    m_is_tencent_root - save thd->is_tencent_root in change_security_context 
+  */
+  bool m_is_tencent_root;
 };
 
 /**
@@ -514,5 +521,13 @@ inline void Security_context::set_registration_sandbox_mode(bool v) {
 inline void Security_context::set_thd(THD *thd) { m_thd = thd; }
 
 inline THD *Security_context::get_thd() { return m_thd; }
+
+inline bool Security_context::is_tencent_root() {
+  return m_is_tencent_root;
+}
+
+inline void Security_context::set_is_tencent_root(bool is_tencent_root_var) {
+  m_is_tencent_root = is_tencent_root_var;
+}
 
 #endif /* SQL_SECURITY_CTX_INCLUDED */
