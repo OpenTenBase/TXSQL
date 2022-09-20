@@ -11937,6 +11937,9 @@ ER_CDB_FAILED_TO_SET_CLEANER_COORDINATOR_PRIORITY
 ER_CDB_FAILED_TO_SET_CLEANER_WORKER_PRIORITY
   eng "CDB: page_cleaner worker priority: %d"
 
+ER_CDB_WARN_INCOMPATIBLE_HISTOGRAM
+  eng "Could not load incompatible histogram for column '%.64s' in table '%.64s'.'%.64s'"
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #

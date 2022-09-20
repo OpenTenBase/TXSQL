@@ -137,6 +137,12 @@ static void mock_column_statistics_obj(dd::Column_statistics *c,
   c->set_histogram(equi_height);
 }
 
+static void mock_column_statistics_obj_no_histogram(dd::Column_statistics *c) {
+  c->set_schema_name("my_schema");
+  c->set_table_name("my_table");
+  c->set_column_name("my_column");
+}
+
 static void mock_dd_obj(dd::Index_element *ie) {
   ie->set_length(42);
   ie->set_order(dd::Index_element::ORDER_DESC);
@@ -361,6 +367,28 @@ TEST(SdiTest, Column_statistics) {
   EXPECT_TRUE(dd_obj.get()->table_name() == deserialized.get()->table_name());
   EXPECT_TRUE(dd_obj.get()->column_name() == deserialized.get()->column_name());
   mem_root.Clear();
+}
+
+TEST(SdiTest, Column_statistics_incompatible_histogram) {
+  std::unique_ptr<dd::Column_statistics> dd_obj(
+      dd::create_object<dd::Column_statistics>());
+
+  mock_column_statistics_obj_no_histogram(dd_obj.get());
+
+  /*
+    We only support proper serialization of column statistics. Proper
+    deserialization (which will include re-generating histogram data) will be
+    available later.
+  */
+  dd::String_type sdi = serialize_drv(dd_obj.get());
+  EXPECT_FALSE(sdi.empty());
+
+  std::unique_ptr<dd::Column_statistics> deserialized{
+      deserialize_drv<dd::Column_statistics>(sdi)};
+
+  EXPECT_TRUE(dd_obj.get()->schema_name() == deserialized.get()->schema_name());
+  EXPECT_TRUE(dd_obj.get()->table_name() == deserialized.get()->table_name());
+  EXPECT_TRUE(dd_obj.get()->column_name() == deserialized.get()->column_name());
 }
 
 TEST(SdiTest, Index_element) { simple_test<dd::Index_element>(); }

@@ -261,3 +261,80 @@ SET DEBUG_SYNC = 'now SIGNAL drop_resume';
 --echo # Clean-up.
 SET DEBUG_SYNC = 'RESET';
 --disable_connect_log
+
+
+--echo #
+--echo # Bug #97172 UNABLE TO OPEN TABLE WITH INCOMPATIBLE HISTOGRAM
+--echo #            ASSERTION: thd->is_system_thread() || thd->killed || thd->is_error()
+
+--disable_query_log
+call mtr.add_suppression("Could not load incompatible histogram for column '[^']*'");
+--enable_query_log
+
+--echo #
+--echo # We will inject a dummy histogram to simulate an incompatible histogram.
+--echo #
+SET debug='+d,skip_dd_table_access_check';
+
+--echo #
+--echo # The dummy histogram will be ignored on opening table,
+--echo # and removed on drop table.
+--echo #
+CREATE TABLE tbl_int (col1 int);
+INSERT tbl_int VALUES (1);
+INSERT mysql.column_statistics
+VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
+        "test", "tbl_int", "col1",
+        "{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
+        NULL);
+FLUSH TABLE tbl_int;
+SELECT * from tbl_int;
+DROP TABLE tbl_int;
+SELECT COUNT(*) AS should_be_0 from information_schema.COLUMN_STATISTICS;
+
+--echo #
+--echo # The dummy histogram will be removed on DROP HISTOGRAM.
+--echo #
+CREATE TABLE tbl_int (col1 int);
+INSERT mysql.column_statistics
+VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
+        "test", "tbl_int", "col1",
+        "{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
+        NULL);
+ANALYZE TABLE tbl_int DROP HISTOGRAM ON col1;
+SELECT COUNT(*) AS should_be_0 FROM information_schema.COLUMN_STATISTICS;
+DROP TABLE tbl_int;
+
+--echo #
+--echo # The dummy histogram will be overwritten on UPDATE HISTOGRAM.
+--echo #
+CREATE TABLE tbl_int (col1 int);
+INSERT tbl_int VALUES (1);
+INSERT mysql.column_statistics
+VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
+        "test", "tbl_int", "col1",
+        "{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
+        NULL);
+FLUSH TABLE tbl_int;
+SELECT JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.COLUMN_STATISTICS;
+ANALYZE TABLE tbl_int update histogram on col1;
+SELECT JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.COLUMN_STATISTICS;
+SELECT * FROM tbl_int;
+DROP TABLE tbl_int;
+
+--echo #
+--echo # The dummy histogram aborts RENAME TABLE
+--echo #
+CREATE TABLE tbl_int (col1 int);
+INSERT mysql.column_statistics
+VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
+        "test", "tbl_int", "col1",
+        "{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
+        NULL);
+--error ER_CDB_UNABLE_TO_RENAME_COLUMN_STATISTICS_INCOMPATIBLE_HISTOGRAM
+RENAME TABLE tbl_int TO tbl_int_2;
+ANALYZE TABLE tbl_int DROP HISTOGRAM ON col1;
+RENAME TABLE tbl_int TO tbl_int_2;
+DROP TABLE tbl_int_2;
+
+SET DEBUG='-d,skip_dd_table_access_check';

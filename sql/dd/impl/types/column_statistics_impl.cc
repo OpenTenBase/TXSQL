@@ -115,17 +115,32 @@ bool Column_statistics_impl::restore_attributes(const Raw_record &r) {
     return true; /* purecov: deadcode */
 
   const Json_object *json_object = down_cast<const Json_object *>(json_dom);
+
+  /*
+    Note that m_histogram will be set to nullptr on any JSON validation error.
+    In this case, the Column_statistics object is considered as a valid one
+    containing an incompatible histogram, and the DD client for
+    Column_statistics is expected to handle it. The histogram is classified as
+    compatible instead of invalid, because it should be a meaningful one with
+    just some tiny validation breaking points.
+  */
   m_histogram = histograms::Histogram::json_to_histogram(
       &m_mem_root, {m_schema_name.data(), m_schema_name.size()},
       {m_table_name.data(), m_table_name.size()},
       {m_column_name.data(), m_column_name.size()}, *json_object);
-  if (m_histogram == nullptr) return true; /* purecov: deadcode */
+
   return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 
 bool Column_statistics_impl::store_attributes(Raw_record *r) {
+  /*
+    Any histogram that could be set into a Column_statistics object, should
+    be a compatible one that passes validation rules. Incompatible histograms
+    only come from persisted storage for legacy reasons (such as Bug#104108).
+  */
+  assert(m_histogram);
   Json_object json_object;
   m_histogram->histogram_to_json(&json_object);
 
@@ -161,7 +176,12 @@ void Column_statistics_impl::serialize(Sdi_wcontext *wctx,
   write(w, m_schema_name, STRING_WITH_LEN("schema_name"));
   write(w, m_table_name, STRING_WITH_LEN("table_name"));
   write(w, m_column_name, STRING_WITH_LEN("column_name"));
-  write(w, m_histogram->get_num_buckets_specified(),
+  /*
+    Use DEFAULT_NUMBER_OF_HISTOGRAM_BUCKETS (100) in corner cases, because
+    missing attribute or invalid value (0) may cause unexpected consequence.
+    It is just kind of defensiveness. AFAIU, histogram sdi is never used.
+  */
+  write(w, (m_histogram ? m_histogram->get_num_buckets_specified() : 100),
         STRING_WITH_LEN("number_of_buckets_specified"));
   w->EndObject();
 }

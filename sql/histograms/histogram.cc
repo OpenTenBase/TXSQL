@@ -36,6 +36,8 @@
 #include <string>
 #include <vector>
 
+#include <mysql/components/services/log_builtins.h>
+
 #include "field_types.h"  // enum_field_types
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -1138,6 +1140,8 @@ bool drop_histograms(THD *thd, TABLE_LIST &table, const columns_set &columns,
       continue;
     }
 
+    // Dropping column statistics whether or not the histogram is compatible,
+    // is by-design. We just need some way to get rid of it.
     if (client->drop(column_statistics)) {
       /* purecov: begin inspected */
       my_error(ER_UNABLE_TO_DROP_COLUMN_STATISTICS, MYF(0), column_name.c_str(),
@@ -1259,6 +1263,13 @@ static bool rename_histogram(THD *thd, const char *old_schema_name,
     return false;
   }
 
+  // The user is supposed to drop incompatible histograms before RENAME TABLE.
+  if (column_statistics->histogram() == nullptr) {
+    my_error(ER_CDB_UNABLE_TO_RENAME_COLUMN_STATISTICS_INCOMPATIBLE_HISTOGRAM,
+             MYF(0), column_name, old_schema_name, old_table_name);
+    return true;
+  }
+
   dd::Column_statistics::create_mdl_key(new_schema_name, new_table_name,
                                         column_name, &mdl_key);
 
@@ -1340,7 +1351,11 @@ bool find_histogram(THD *thd, const std::string &schema_name,
 
   if (column_statistics == nullptr) return false;
 
-  *histogram = column_statistics->histogram();
+  if (!(*histogram = column_statistics->histogram())) {
+    LogErr(WARNING_LEVEL, ER_CDB_WARN_INCOMPATIBLE_HISTOGRAM,
+           column_name.c_str(), schema_name.c_str(), table_name.c_str());
+  }
+
   return false;
 }
 

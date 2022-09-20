@@ -80,7 +80,8 @@ class Column_statistics_impl final : public Entity_object_impl,
 
   static void register_tables(Open_dictionary_tables_ctx *otx);
 
-  bool validate() const override { return m_histogram == nullptr; }
+  /// @return false (valid) whether or not the histogram is compatible.
+  bool validate() const override { return false; }
 
   bool store_attributes(Raw_record *r) override;
 
@@ -108,6 +109,7 @@ class Column_statistics_impl final : public Entity_object_impl,
     m_column_name = column_name;
   }
 
+  /// @return histogram or nullptr for an incompatible one
   const histograms::Histogram *histogram() const override {
     return m_histogram;
   }
