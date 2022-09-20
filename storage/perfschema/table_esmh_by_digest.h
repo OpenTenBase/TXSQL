@@ -58,7 +58,9 @@ struct pos_esmh_by_digest : public PFS_double_index {
     m_index_2 = 0;
   }
 
-  inline bool has_more_buckets(void) { return (m_index_2 < NUMBER_OF_BUCKETS); }
+  inline bool has_more_buckets(void) {
+    return (m_index_2 < pfs_param.m_events_statements_histogram_bucket_number);
+  }
 
   inline void next_bucket(void) { m_index_2++; }
 };
@@ -99,7 +101,7 @@ struct PFS_esmh_by_digest_histogram {
   PFS_digest_row m_digest;
 
   /** Statistics for all buckets. */
-  PFS_esmh_by_digest_bucket m_buckets[NUMBER_OF_BUCKETS];
+  PFS_esmh_by_digest_bucket m_buckets[MAX_NUMBER_OF_BUCKETS];
 };
 
 struct row_esmh_by_digest {
@@ -169,6 +171,8 @@ class table_esmh_by_digest : public PFS_engine_table {
   pos_t m_next_pos;
 
   PFS_index_esmh_by_digest *m_opened_index;
+
+  uint m_num_buckets;
 };
 
 /** @} */

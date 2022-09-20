@@ -126,6 +126,7 @@ int init_digest(const PFS_global_param *param) {
         statements_digest_token_array + index * pfs_max_digest_length,
         pfs_max_digest_length,
         statements_digest_query_sample_text_array + index * pfs_max_sqltext);
+    statements_digest_stat_array[index].m_histogram.init();
   }
 
   /* Set record[0] as allocated. */

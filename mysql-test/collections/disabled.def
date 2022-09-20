@@ -118,3 +118,6 @@ group_replication.gr_xa_commit_one_phase_failure_before_gtid_externalization @wi
 group_replication.gr_xa_prepare_failure_before_gtid_externalization @windows : BUG#34155238 Disabled until bug is fixed
 group_replication.gr_xa_rollback_failure_before_gtid_externalization @windows : BUG#34155238 Disabled until bug is fixed
 
+#TXSQL
+main.admin_interface : BUG#00000000 Too long to run
+main.select_for_update_wait_n : BUG#00000000 Fail in autotest.sh

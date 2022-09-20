@@ -156,6 +156,9 @@
 /* Changes from txsql start. */
 #include "mysqld_error.h"
 #include "sql/threadpool.h"
+#ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
+#include "storage/perfschema/pfs_histogram.h"  // MAX_NUMBER_OF_BUCKETS
+#endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 #define MAX_CONNECTIONS 100000
 /* Changes from txsql end. */
@@ -8061,4 +8064,23 @@ static Sys_var_ulonglong Sys_cdb_optimize_large_trans_binlog_aver_affected_rows_
   CMD_LINE(REQUIRED_ARG),
   VALID_RANGE(1, (ulonglong)~(intptr)0), DEFAULT(10000),
   BLOCK_SIZE(1), ON_CHECK(0));
+#ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
+static Sys_var_uint Sys_pfs_events_statements_histogram_bucket_number(
+    "performance_schema_events_statements_histogram_bucket_number",
+    "Number of buckets in table EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and "
+    "EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_events_statements_histogram_bucket_number),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, MAX_NUMBER_OF_BUCKETS), DEFAULT(32),
+    BLOCK_SIZE(1), PFS_TRAILING_PROPERTIES);
+
+static Sys_var_double Sys_pfs_events_statements_histogram_bucket_base_factor(
+    "performance_schema_events_statements_histogram_base_factor",
+    "Bucket factor. Used for bucket timer value increase in in table "
+    "EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and "
+    "EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.",
+    READ_ONLY GLOBAL_VAR(
+        pfs_param.m_events_statements_histogram_bucket_base_factor),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, DBL_MAX), DEFAULT(2.0),
+    PFS_TRAILING_PROPERTIES);
+#endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 /* Changes from txsql end. */

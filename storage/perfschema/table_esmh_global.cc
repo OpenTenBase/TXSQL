@@ -95,13 +95,16 @@ int table_esmh_global::delete_all_rows() {
   return 0;
 }
 
-ha_rows table_esmh_global::get_row_count(void) { return NUMBER_OF_BUCKETS; }
+ha_rows table_esmh_global::get_row_count(void) {
+  return pfs_param.m_events_statements_histogram_bucket_number;
+}
 
 table_esmh_global::table_esmh_global()
     : PFS_engine_table(&m_share, &m_pos),
       m_pos(0),
       m_next_pos(0),
-      m_materialized(false) {}
+      m_materialized(false),
+      m_num_buckets(pfs_param.m_events_statements_histogram_bucket_number) {}
 
 void table_esmh_global::reset_position(void) {
   m_pos.m_index = 0;
@@ -109,8 +112,7 @@ void table_esmh_global::reset_position(void) {
 }
 
 int table_esmh_global::rnd_next(void) {
-  for (m_pos.set_at(&m_next_pos); m_pos.m_index < NUMBER_OF_BUCKETS;
-       m_pos.next()) {
+  for (m_pos.set_at(&m_next_pos); m_pos.m_index < m_num_buckets; m_pos.next()) {
     make_row(m_pos.m_index);
     m_next_pos.set_after(&m_pos);
     return 0;
@@ -122,7 +124,7 @@ int table_esmh_global::rnd_next(void) {
 int table_esmh_global::rnd_pos(const void *pos) {
   set_position(pos);
 
-  if (m_pos.m_index < NUMBER_OF_BUCKETS) {
+  if (m_pos.m_index < m_num_buckets) {
     return make_row(m_pos.m_index);
   }
 
@@ -139,8 +141,7 @@ int table_esmh_global::index_init(uint idx [[maybe_unused]], bool) {
 }
 
 int table_esmh_global::index_next(void) {
-  for (m_pos.set_at(&m_next_pos); m_pos.m_index < NUMBER_OF_BUCKETS;
-       m_pos.next()) {
+  for (m_pos.set_at(&m_next_pos); m_pos.m_index < m_num_buckets; m_pos.next()) {
     if (m_opened_index->match_bucket(m_pos.m_index)) {
       make_row(m_pos.m_index);
       m_next_pos.set_after(&m_pos);
@@ -159,7 +160,7 @@ void table_esmh_global::materialize() {
     ulonglong count = 0;
     ulonglong count_and_lower = 0;
 
-    for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
+    for (index = 0; index < m_num_buckets; index++) {
       count = histogram->read_bucket(index);
       count_and_lower += count;
 
@@ -175,7 +176,8 @@ void table_esmh_global::materialize() {
 
 int table_esmh_global::make_row(ulong bucket_index) {
   assert(m_materialized);
-  assert(bucket_index < NUMBER_OF_BUCKETS);
+  assert(m_num_buckets > 0 && m_num_buckets <= MAX_NUMBER_OF_BUCKETS);
+  assert(bucket_index < m_num_buckets);
 
   m_row.m_bucket_number = bucket_index;
   m_row.m_bucket_timer_low =
@@ -188,9 +190,8 @@ int table_esmh_global::make_row(ulong bucket_index) {
   m_row.m_count_bucket_and_lower =
       m_materialized_histogram.m_buckets[bucket_index].m_count_bucket_and_lower;
 
-  ulonglong count_star =
-      m_materialized_histogram.m_buckets[NUMBER_OF_BUCKETS - 1]
-          .m_count_bucket_and_lower;
+  ulonglong count_star = m_materialized_histogram.m_buckets[m_num_buckets - 1]
+                             .m_count_bucket_and_lower;
 
   if (count_star > 0) {
     double dividend = m_row.m_count_bucket_and_lower;

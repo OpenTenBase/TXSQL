@@ -122,6 +122,13 @@ void init_timers(void) {
   }
 #endif
 
+  /*
+    By here, the bucket_base_factor variable is already loaded, and
+    g_histogram_pico_timers is never used before here. Hence, initializing it
+    here is safe.
+  */
+  g_histogram_pico_timers.init();
+
   /* Initialize histograms bucket timers. */
 
   uint timer_index;
@@ -133,17 +140,17 @@ void init_timers(void) {
     ulonglong bucket_index;
 
     if (to_pico != 0) {
-      for (bucket_index = 0; bucket_index < NUMBER_OF_BUCKETS; bucket_index++) {
+      for (bucket_index = 0; bucket_index < MAX_NUMBER_OF_BUCKETS; bucket_index++) {
         normalizer->m_bucket_timer[bucket_index] =
             g_histogram_pico_timers.m_bucket_timer[bucket_index] / to_pico;
       }
     } else {
-      for (bucket_index = 0; bucket_index < NUMBER_OF_BUCKETS; bucket_index++) {
+      for (bucket_index = 0; bucket_index < MAX_NUMBER_OF_BUCKETS; bucket_index++) {
         normalizer->m_bucket_timer[bucket_index] = 0;
       }
     }
 
-    normalizer->m_bucket_timer[NUMBER_OF_BUCKETS] = UINT64_MAX;
+    normalizer->m_bucket_timer[MAX_NUMBER_OF_BUCKETS] = UINT64_MAX;
   }
 }
 
@@ -189,7 +196,7 @@ void time_normalizer::to_pico(ulonglong start, ulonglong end,
 ulong time_normalizer::bucket_index(ulonglong t) {
   ulong low = 0;
   ulong mid;
-  ulong high = NUMBER_OF_BUCKETS;
+  ulong high = MAX_NUMBER_OF_BUCKETS;
 
   assert(m_bucket_timer[low] <= t);
   assert(t <= m_bucket_timer[high]);
@@ -206,7 +213,7 @@ ulong time_normalizer::bucket_index(ulonglong t) {
   } while (low + 1 < high);
 
   assert(m_bucket_timer[low] <= t);
-  assert((t < m_bucket_timer[high]) || (high == NUMBER_OF_BUCKETS));
+  assert((t < m_bucket_timer[high]) || (high == MAX_NUMBER_OF_BUCKETS));
 
   return low;
 }
