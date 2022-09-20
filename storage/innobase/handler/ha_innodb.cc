@@ -895,7 +895,9 @@ static PSI_thread_info all_innodb_threads[] = {
                    PSI_DOCUMENT_ME),
     PSI_THREAD_KEY(meb::redo_log_archive_consumer_thread, "ib_meb_rl",
                    PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME),
-    PSI_THREAD_KEY(srv_backquery_thread, "ib_bq_gen", 0, 0, PSI_DOCUMENT_ME)};
+    PSI_THREAD_KEY(srv_backquery_thread, "ib_bq_gen", 0, 0, PSI_DOCUMENT_ME),
+    PSI_THREAD_KEY(buf_synchronize_thread, "ib_bp_sync", 0, 0,
+                   PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef UNIV_PFS_IO
@@ -1324,6 +1326,14 @@ static SHOW_VAR innodb_status_variables[] = {
      SHOW_SCOPE_GLOBAL},
     {"backquery_low_time", (char *)&show_backquery_time_status, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    /* Changes from txsql start. */
+    {"buffer_pool_snapshot_status",
+     (char*)&export_vars.innodb_buffer_pool_snapshot_status, SHOW_CHAR,
+     SHOW_SCOPE_GLOBAL},
+    {"buffer_pool_recover_status",
+     (char*) &export_vars.innodb_buffer_pool_recover_status, SHOW_CHAR,
+     SHOW_SCOPE_GLOBAL},
+    /* Changes from txsql end. */
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
 /** Handling the shared INNOBASE_SHARE structure that is needed to provide table
@@ -23281,6 +23291,54 @@ char **thd_innodb_interpreter(THD *thd) {
 #endif /* UNIV_DEBUG */
 
 /* Changes from txsql start. */
+/** Trigger a snapshot of the buffer pool if innodb_buffer_pool_snapshot_now is set
+to ON. This function is registered as a callback with MySQL.
+@param[in]  thd        thread handle
+@param[in]  var        pointer to system variable
+@param[out] var_ptr    where the formal string goes
+@param[in]  save       immediate result from check function */
+static void buffer_pool_snapshot_now(THD* thd MY_ATTRIBUTE((unused)),
+                                     struct SYS_VAR*
+                                     var MY_ATTRIBUTE((unused)),
+                                     void* var_ptr MY_ATTRIBUTE((unused)),
+                                     const void* save) {
+  if (*(bool*) save && !srv_read_only_mode) {
+    buf_snapshot_start();
+  }
+}
+
+/** Trigger a recover of the buffer pool if innodb_buffer_pool_recover_now is set
+to ON. This function is registered as a callback with MySQL.
+@param[in]  thd        thread handle
+@param[in]  var        pointer to system variable
+@param[out] var_ptr    where the formal string goes
+@param[in]  save       immediate result from check function */
+static void buffer_pool_recover_now(THD* thd MY_ATTRIBUTE((unused)),
+                                     struct SYS_VAR*
+                                     var MY_ATTRIBUTE((unused)),
+                                     void* var_ptr MY_ATTRIBUTE((unused)),
+                                     const void* save) {
+  if (*(bool*) save) {
+    buf_recover_start();
+  }
+}
+
+/** Abort a recover of the buffer pool if innodb_buffer_pool_recover_abort
+is set to ON. This function is registered as a callback with MySQL.
+@param[in]  thd        thread handle
+@param[in]  var        pointer to system variable
+@param[out] var_ptr    where the formal string goes
+@param[in]  save       immediate result from check function */
+static void buffer_pool_recover_abort(THD* thd MY_ATTRIBUTE((unused)),
+                                     struct SYS_VAR*
+                                     var MY_ATTRIBUTE((unused)),
+                                     void* var_ptr MY_ATTRIBUTE((unused)),
+                                     const void* save) {
+  if (*(bool*) save) {
+    buf_recover_abort();
+  }
+}
+
 static MYSQL_SYSVAR_INT(cdb_page_cleaner_priority,
                         srv_cdb_page_cleaner_priority,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -23582,6 +23640,50 @@ static MYSQL_SYSVAR_BOOL(fast_ddl, innodb_fast_ddl,
     "Enable fast ddl to optimize cleaning and romoving pages in flush list. "
     "Default is FALSE",
     NULL, NULL, false);
+
+static MYSQL_SYSVAR_ULONG(
+    buffer_pool_snapshot_interval, srv_buffer_pool_snapshot_interval,
+    PLUGIN_VAR_RQCMDARG,
+    "Time interval to trigger a bufferpool snapshot, unit second", NULL, NULL,
+    0, 0, 86400, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    buffer_pool_snapshot_threshold, srv_buffer_pool_snapshot_threshold,
+    PLUGIN_VAR_RQCMDARG,
+    "Bufferpool change percentage threshold to trigger a bufferpool snapshot",
+    NULL, NULL, 0, 0, 50, 0);
+
+static MYSQL_SYSVAR_BOOL(buffer_pool_snapshot_now, srv_buffer_pool_snapshot_now,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Trigger an immediate bufferpool snapshot", NULL,
+                         buffer_pool_snapshot_now, false);
+
+static MYSQL_SYSVAR_ULONG(buffer_pool_snapshot_pct,
+                          srv_buffer_pool_snapshot_pct, PLUGIN_VAR_RQCMDARG,
+                          "Snapshot only the hottest N% of each buffer pool",
+                          NULL, NULL, 60, 1, 100, 0);
+
+static MYSQL_SYSVAR_BOOL(
+    buffer_pool_recover_now, srv_buffer_pool_recover_now, PLUGIN_VAR_RQCMDARG,
+    "Trigger an immediate bufferpool recovery out of ib_bp_info", NULL,
+    buffer_pool_recover_now, false);
+
+static MYSQL_SYSVAR_BOOL(
+    buffer_pool_recover_after_transmit, srv_buffer_pool_recover_after_transmit,
+    PLUGIN_VAR_RQCMDARG,
+    "Trigger an immediate bufferpool recovery right after receiving ib_bp_info",
+    NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(buffer_pool_recover_abort,
+                         srv_buffer_pool_recover_abort, PLUGIN_VAR_RQCMDARG,
+                         "Abort a current running recovery of bufferpool", NULL,
+                         buffer_pool_recover_abort, false);
+
+static MYSQL_SYSVAR_ULONG(
+    buffer_pool_recover_pct, srv_buffer_pool_recover_pct, PLUGIN_VAR_RQCMDARG,
+    "Recover this % of each buffer pool at most during BP recover", NULL, NULL,
+    60, 1, 100, 0);
+
 /* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -23821,6 +23923,14 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(txsql_deadlock_history_size),
     MYSQL_SYSVAR(page_reserve_factor),
     MYSQL_SYSVAR(page_hash_cell_factor),
+    MYSQL_SYSVAR(buffer_pool_snapshot_now),
+    MYSQL_SYSVAR(buffer_pool_snapshot_interval),
+    MYSQL_SYSVAR(buffer_pool_snapshot_threshold),
+    MYSQL_SYSVAR(buffer_pool_snapshot_pct),
+    MYSQL_SYSVAR(buffer_pool_recover_now),
+    MYSQL_SYSVAR(buffer_pool_recover_abort),
+    MYSQL_SYSVAR(buffer_pool_recover_after_transmit),
+    MYSQL_SYSVAR(buffer_pool_recover_pct),
     nullptr};
 
 mysql_declare_plugin(innobase){

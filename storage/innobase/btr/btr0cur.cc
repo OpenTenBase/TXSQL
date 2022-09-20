@@ -2642,11 +2642,11 @@ static void btr_cur_prefetch_siblings(buf_block_t *block) {
 
   if (left_page_no != FIL_NULL) {
     buf_read_page_background(page_id_t(block->page.id.space(), left_page_no),
-                             block->page.size, false);
+                             block->page.size, false, true);
   }
   if (right_page_no != FIL_NULL) {
     buf_read_page_background(page_id_t(block->page.id.space(), right_page_no),
-                             block->page.size, false);
+                             block->page.size, false, true);
   }
   if (left_page_no != FIL_NULL || right_page_no != FIL_NULL) {
     os_aio_simulated_wake_handler_threads();

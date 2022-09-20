@@ -190,5 +190,10 @@ class Rpl_info : public Slave_reporting_capability {
  public:
   /* True when the thread is still running, but started the stop procedure */
   std::atomic<bool> atomic_is_stopping{false};
+
+  /* Changes from txsql start. */
+  THD *transmit_thd;
+  std::atomic<uint> transmit_running;
+  /* Changes from txsql end. */
 };
 #endif /* RPL_INFO_H */

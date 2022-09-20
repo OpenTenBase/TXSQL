@@ -95,7 +95,7 @@ enum enum_server_command {
   COM_CLONE,
   COM_SUBSCRIBE_GROUP_REPLICATION_STREAM,
   /* don't forget to update const char *command_name[] in sql_parse.cc */
-
+  COM_BP_TRANSMIT,
   /* Must be last */
   COM_END /**< Not a real command. Refused. */
 };

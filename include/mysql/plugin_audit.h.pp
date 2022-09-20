@@ -173,6 +173,7 @@ enum enum_server_command {
   COM_RESET_CONNECTION,
   COM_CLONE,
   COM_SUBSCRIBE_GROUP_REPLICATION_STREAM,
+  COM_BP_TRANSMIT,
   COM_END
 };
 #include "my_sqlcommand.h"

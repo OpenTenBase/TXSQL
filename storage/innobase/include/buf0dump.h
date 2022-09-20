@@ -58,8 +58,33 @@ again. */
 void buf_dump_thread();
 
 /** Generate the path to the buffer pool dump/load file.
-@param[out]     path            generated path
-@param[in]      path_size       size of 'path', used as in snprintf(3). */
-void buf_dump_generate_path(char *path, size_t path_size);
+@param[out]	path		generated path
+@param[in]	path_size	size of 'path', used as in snprintf(3).
+@param[in]	filename	real filename without directory. */
+void buf_generate_path(char *path, size_t path_size, const char* filename);
+
+/* Changes from txsql start. */
+/** Wakes up the buffer pool snapshot/recover thread and instructs it to start
+a dump. This function is called by MySQL code via buffer_pool_snapshot_now()
+and it should return immediately because the whole MySQL is frozen during
+its execution. */
+void buf_snapshot_start();
+
+/** Wakes up the buffer pool snapshot/recover thread and instructs it to start
+a load. This function is called by MySQL code via buffer_pool_recover_now()
+and it should return immediately because the whole MySQL is frozen during
+its execution. */
+void buf_recover_start();
+
+/** Aborts a currently running buffer pool recover. This function is called by
+MySQL code via buffer_pool_recover_abort() and it should return immediately
+because the whole MySQL is frozen during its execution. */
+void buf_recover_abort();
+
+/** This is the main thread for buffer pool snapshot/recover. It waits for an
+event and when waked up either performs a snapshot/recover and sleeps
+again. */
+void buf_synchronize_thread();
+/* Changes from txsql end. */
 
 #endif /* buf0dump_h */

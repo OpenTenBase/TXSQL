@@ -106,6 +106,7 @@ Master_info *Rpl_info_factory::create_mi(uint mi_option, const char *channel,
             &key_source_info_rotate_lock, &key_source_info_data_cond,
             &key_source_info_start_cond, &key_source_info_stop_cond,
             &key_source_info_sleep_cond, &key_source_info_rotate_cond,
+            &key_master_info_transmit_lock,
 #endif
             instances, channel)))
     goto err;

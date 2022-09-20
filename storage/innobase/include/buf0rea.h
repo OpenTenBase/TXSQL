@@ -56,7 +56,7 @@ is never read into the pool, or if the tablespace does not exist or is being
 dropped */
 ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                         const page_id_t &page_id, const page_size_t &page_size,
-                        bool unzip);
+                        bool unzip, bool is_old);
 
 /** High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets
@@ -74,9 +74,14 @@ released by the i/o-handler thread.
 @param[in]      page_id         page id
 @param[in]      page_size       page size
 @param[in]      sync            true if synchronous aio is desired
+@param[in]      is_old          TRUE if new block should be put to the old
+                        blocks in the LRU list(midpoint), else put to the start;
+                        if the LRU list is very short, the block is added
+                        to the start, regardless of this parameter
 @return true if page has been read in, false in case of failure */
 bool buf_read_page_background(const page_id_t &page_id,
-                              const page_size_t &page_size, bool sync);
+                              const page_size_t &page_size, bool sync,
+                              bool is_old);
 
 /** Applies a random read-ahead in buf_pool if there are at least a threshold
 value of accessed pages from the random read-ahead area. Does not read any

@@ -8009,4 +8009,17 @@ static Sys_var_bool Sys_reject_table_no_pk{
     IN_BINLOG,
     ON_CHECK(check_session_admin)};
 
+static Sys_var_bool Sys_innodb_buffer_pool_transmit_enabled(
+    "innodb_buffer_pool_transmit_enabled",
+    "Enabled ib_bp_info transmit from master to slave",
+    GLOBAL_VAR(innodb_buffer_pool_transmit_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_ulonglong Sys_innodb_buffer_pool_transmit_interval(
+    "innodb_buffer_pool_transmit_interval",
+    "Interval to transmit ib_bp_info from master to slave",
+    GLOBAL_VAR(innodb_buffer_pool_transmit_interval), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, (ulonglong)~(intptr)0), DEFAULT(10),
+    BLOCK_SIZE(1), ON_CHECK(0));
 /* Changes from txsql end. */

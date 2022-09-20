@@ -621,6 +621,9 @@ void p_s_fill_lock_data(const char **lock_data, const lock_t *lock,
     return;
   }
 
+  /* Check inside buf_page_try_get was moved here. */
+  ut_ad(!block->page.was_stale());
+
   page = reinterpret_cast<const page_t *>(buf_block_get_frame(block));
 
   rec = page_find_rec_with_heap_no(page, heap_no);

@@ -199,6 +199,9 @@ mysql_pfs_key_t trx_recovery_rollback_thread_key;
 mysql_pfs_key_t srv_ts_alter_encrypt_thread_key;
 mysql_pfs_key_t parallel_rseg_init_thread_key;
 mysql_pfs_key_t srv_backquery_thread_key;
+/* Changes from txsql start. */
+mysql_pfs_key_t buf_synchronize_thread_key;
+/* Changes from txsql end. */
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef HAVE_PSI_STAGE_INTERFACE
@@ -1381,7 +1384,10 @@ static const Thread_to_stop threads_to_stop[]{
      []() { os_event_set(srv_buf_resize_event); }, SRV_SHUTDOWN_CLEANUP},
 
     {"master", srv_threads.m_master, srv_wake_master_thread,
-     SRV_SHUTDOWN_MASTER_STOP}};
+     SRV_SHUTDOWN_MASTER_STOP},
+
+    {"buf_synchronize", srv_threads.m_buf_synchronize,
+     []() { os_event_set(srv_buf_synchronize_event); }, SRV_SHUTDOWN_CLEANUP}};
 
 void srv_shutdown_exit_threads() {
   srv_shutdown_state.store(SRV_SHUTDOWN_EXIT_THREADS);
@@ -2722,6 +2728,12 @@ void srv_start_threads_after_ddl_recovery() {
       os_thread_create(buf_dump_thread_key, 0, buf_dump_thread);
 
   srv_threads.m_buf_dump.start();
+
+  /* Create the buffer pool snapshot/recover/scp thread */
+  srv_threads.m_buf_synchronize =
+      os_thread_create(buf_synchronize_thread_key, 0, buf_synchronize_thread);
+
+  srv_threads.m_buf_synchronize.start();
 
   /* Resume unfinished (un)encryption process in background thread. */
   if (!ts_encrypt_ddl_records.empty()) {

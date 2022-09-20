@@ -982,6 +982,7 @@ using std::vector;
 /* Changes from txsql start. */
 #include "my_md5.h"
 #include "sql/threadpool.h"
+#include <set>
 
 char *mysqld_admin_port_init_tool = nullptr;
 char *mysqld_admin_port_init_tool_md5 = nullptr;
@@ -1001,7 +1002,6 @@ static int show_threadpool_idle_threads(THD *thd MY_ATTRIBUTE((unused)),
   return 0;
 }
 #endif
-/* Changes from txsql end. */
 
 #define mysqld_charset &my_charset_latin1
 #define mysqld_default_locale_name "en_US"
@@ -2768,6 +2768,8 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_password_history);
   mysql_mutex_destroy(&LOCK_password_reuse_interval);
   mysql_cond_destroy(&COND_manager);
+  mysql_mutex_destroy(&LOCK_transmit_client_access);
+
 #ifdef _WIN32
   mysql_cond_destroy(&COND_handler_count);
   mysql_mutex_destroy(&LOCK_handler_count);
@@ -4914,6 +4916,9 @@ int init_common_variables() {
   max_system_variables.pseudo_thread_id = (my_thread_id)~0;
   server_start_time = flush_status_time = time(nullptr);
 
+  snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+           "ib_bp_info transmition not started");
+
   binlog_filter = new Rpl_filter;
   if (!binlog_filter) {
     LogErr(ERROR_LEVEL, ER_RPL_BINLOG_FILTERS_OOM, strerror(errno));
@@ -5482,6 +5487,8 @@ static int init_thread_environment() {
   mysql_mutex_init(key_LOCK_collect_instance_log, &LOCK_collect_instance_log,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_compress_gtid_table, &COND_compress_gtid_table);
+  mysql_mutex_init(key_LOCK_transmit_client_access,
+                   &LOCK_transmit_client_access, MY_MUTEX_INIT_FAST);
   Events::init_mutexes();
 #if defined(_WIN32)
   mysql_mutex_init(key_LOCK_handler_count, &LOCK_handler_count,
@@ -7429,6 +7436,16 @@ int mysql_admin_tool_set_group(ulonglong os_thread_id) {
 
   return ret;
 }
+
+int show_transmit_status(THD *thd MY_ATTRIBUTE((unused)), SHOW_VAR *var,
+                         char *buff) {
+  var->type = SHOW_CHAR;
+  var->value = buff;
+  sprintf(buff, "%s", innodb_buffer_pool_transmit_status);
+
+  return 0;
+}
+
 /* Changes from txsql end. */
 
 #ifdef _WIN32
@@ -10199,6 +10216,8 @@ SHOW_VAR status_vars[] = {
     {"Threads_running", (char *)&show_num_thread_running, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Uptime", (char *)&show_starttime, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Innodb_buffer_pool_transmit_status", (char *)&show_transmit_status,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
 #ifdef ENABLED_PROFILING
     {"Uptime_since_flush_status", (char *)&show_flushstatustime, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
@@ -11994,6 +12013,7 @@ PSI_mutex_key key_mutex_replica_worker_hash;
 PSI_mutex_key key_monitor_info_run_lock;
 PSI_mutex_key key_LOCK_delegate_connection_mutex;
 PSI_mutex_key key_LOCK_group_replication_connection_mutex;
+PSI_mutex_key key_master_info_transmit_lock;
 
 /* clang-format off */
 static PSI_mutex_info all_server_mutexes[]=
@@ -12086,7 +12106,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_group_replication_connection_mutex, "LOCK_group_replication_connection_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 { &key_LOCK_authentication_policy, "LOCK_authentication_policy", PSI_FLAG_SINGLETON, 0, "A lock to ensure execution of CREATE USER or ALTER USER sql and SET @@global.authentication_policy variable are serialized"},
   { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME}
+  { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME},
+  { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -12762,3 +12783,15 @@ PSI_mutex_key key_LOCK_Sql_Filter_Rule;
 char *sql_filter_command = nullptr;
 ulonglong binlog_write_threshold = 0;
 const char *default_collation_for_utf8mb4_str;
+/* Variables for ib_bp_info file transmit from master to slave. */
+bool innodb_buffer_pool_transmit_enabled = false;
+bool innodb_buffer_pool_transmit_exit = false;
+bool innodb_buffer_pool_transmit_finished = false;
+bool innodb_buffer_pool_current_file_has_sent = false;
+ulonglong innodb_buffer_pool_transmit_interval = 120;
+mysql_mutex_t LOCK_transmit_client_access;
+PSI_mutex_key key_LOCK_transmit_client_access;
+std::map<std::string, std::set<uint16> > global_transmit_client;
+
+/* Status for ib_bp_info file transmit from master to slave. */
+char  innodb_buffer_pool_transmit_status[TRANSMIT_STATUS_LEN];

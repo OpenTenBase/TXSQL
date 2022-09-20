@@ -166,6 +166,7 @@ Master_info::Master_info(
     PSI_mutex_key *param_key_info_stop_cond,
     PSI_mutex_key *param_key_info_sleep_cond,
     PSI_mutex_key *param_key_info_rotate_cond,
+    PSI_mutex_key *param_key_info_transmit_lock,
 #endif
     uint param_id, const char *param_channel)
     : Rpl_info("I/O",
@@ -244,6 +245,13 @@ Master_info::Master_info(
       key_rwlock_channel_lock
 #endif
   );
+
+#ifdef HAVE_PSI_INTERFACE
+  mysql_mutex_init(*param_key_info_transmit_lock, &transmit_lock,
+                   MY_MUTEX_INIT_FAST);
+#else
+  mysql_mutex_init(nullptr, &transmit_lock, MY_MUTEX_INIT_FAST);
+#endif
 }
 
 Master_info::~Master_info() {
@@ -261,6 +269,8 @@ Master_info::~Master_info() {
   delete ignore_server_ids;
   delete mi_description_event;
   delete gtid_monitoring_info;
+
+  mysql_mutex_destroy(&transmit_lock);
 }
 
 void Master_info::request_rotate(THD *thd) {

@@ -183,7 +183,11 @@
 */
 #include "sql/threadpool.h"
 #include "cdb_sql_filter.h"
-#include "sql/sql_cdb_firewall.h" 
+#include "sql/sql_cdb_firewall.h"
+#include "sql/dd/impl/bootstrap/bootstrap_ctx.h"       // DD_bootstrap_ctx
+#include "sql/sql_initialize.h"     // opt_initialize_insecure
+#include "bp_sync.h"
+#include <netdb.h>
 /**
   Changes from txsql end.
 */
@@ -258,6 +262,7 @@ const std::string Command_names::m_names[] = {
     "Reset Connection",
     "clone",
     "Group Replication Data Stream subscription",
+    "Bufferpool Transmit",
     "Error"  // Last command number
 };
 
@@ -2420,6 +2425,95 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
           thd->get_protocol_classic()->get_packet_length());
       tp_change_active_thread(thd, command, true/*inc*/);
       break;
+    case COM_BP_TRANSMIT: {
+      char filename[FN_REFLEN] = "";
+      char *send_buf = NULL;
+
+      char peer_ip[NI_MAXHOST] = {0};
+      bool has_sent = false;
+
+      if (vio_peer_addr(thd->net.vio, peer_ip, &thd->peer_port, NI_MAXHOST))
+        sql_print_error("vio_peer_addr get client ip error");
+      else {
+        mysql_mutex_lock(&LOCK_transmit_client_access);
+        if (global_transmit_client.find(peer_ip) !=
+                global_transmit_client.end() &&
+            global_transmit_client[peer_ip].find(thd->peer_port) !=
+                global_transmit_client[peer_ip].end())
+          has_sent = true;
+        mysql_mutex_unlock(&LOCK_transmit_client_access);
+      }
+
+      fn_format(filename, SNAPSHOT_FILENAME, mysql_real_data_home_ptr, "",
+                MY_UNPACK_FILENAME | MY_REPLACE_DIR);
+
+      FILE *f = fopen(filename, "r");
+      if (f == NULL || has_sent) {
+        uint end_flag = BP_END_FLAG;
+        thd->get_protocol_classic()->write(
+            pointer_cast<const uchar *>(&end_flag), BP_END_FLAG_LEN);
+        thd->get_protocol_classic()->flush();
+        if (f) {
+          fclose(f);
+        }
+        my_ok(thd);
+        break;
+      }
+
+      char start_time[32] = "";
+      char end_time[32] = "";
+      uint size = 0;
+
+      get_current_timestamp(start_time);
+      send_buf = (char *)malloc(BP_SEND_BUFFER_SIZE + 4);
+      bool io_err = false;
+      do {
+        size = fread(send_buf, sizeof(char), BP_SEND_BUFFER_SIZE, f);
+        if (size != BP_SEND_BUFFER_SIZE && !feof(f)) {
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Error occurs in fread:%s", SNAPSHOT_FILENAME);
+          io_err = true;
+          break;
+        }
+
+        /* Add end mark. */
+        if (feof(f)) {
+          int3store(send_buf + size, BP_END_FLAG);
+          size += BP_END_FLAG_LEN;
+        }
+
+        if (thd->get_protocol_classic()->write(
+                pointer_cast<const uchar *>(send_buf), size)) {
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Error occurs in net write:%s", SNAPSHOT_FILENAME);
+          io_err = true;
+          break;
+        }
+
+        if (thd->get_protocol_classic()->flush()) {
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Error occurs in net flush:%s", SNAPSHOT_FILENAME);
+          io_err = true;
+          break;
+        }
+      } while (!feof(f));
+
+      if (!io_err) {
+        get_current_timestamp(end_time);
+        snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                 "Buffer pool(s) transmit started at %s, completed at %s on "
+                 "master side",
+                 start_time, end_time);
+        mysql_mutex_lock(&LOCK_transmit_client_access);
+        global_transmit_client[peer_ip].insert(thd->peer_port);
+        mysql_mutex_unlock(&LOCK_transmit_client_access);
+      }
+
+      fclose(f);
+      free(send_buf);
+      my_ok(thd);
+      break;
+    }
     case COM_REFRESH: {
       int not_used;
       push_deprecated_warn(thd, "COM_REFRESH", "FLUSH statement");

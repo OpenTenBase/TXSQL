@@ -53,7 +53,8 @@ typedef enum {
   SLAVE_THD_IO,
   SLAVE_THD_SQL,
   SLAVE_THD_WORKER,
-  SLAVE_THD_MONITOR
+  SLAVE_THD_MONITOR,
+  SLAVE_THD_TRANSMIT
 } SLAVE_THD_TYPE;
 
 /**
@@ -630,5 +631,8 @@ int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);
 
 /* Changes from TXSQL start. */
 extern uint32_t iothreadreadtime;
-/* Changes from TXSQL end. */
+extern "C" void *handle_slave_transmit(void *arg);
+
+void get_current_timestamp(char *buf);
+/* Changes from txsql end. */
 #endif

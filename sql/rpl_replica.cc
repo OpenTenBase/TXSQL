@@ -164,6 +164,10 @@
 #include "rpl_debug_points.h"
 #endif
 
+/* Changes from txsql start. */
+#include "bp_sync.h"
+/* Changes from txsql end. */
+
 struct mysql_cond_t;
 struct mysql_mutex_t;
 
@@ -407,7 +411,8 @@ static void set_replica_max_allowed_packet(THD *thd, MYSQL *mysql) {
 static PSI_memory_key key_memory_rli_mta_coor;
 
 static PSI_thread_key key_thread_replica_io, key_thread_replica_sql,
-    key_thread_replica_worker, key_thread_replica_monitor_io;
+    key_thread_replica_worker, key_thread_replica_monitor_io,
+    key_thread_slave_transmit;
 
 static PSI_thread_info all_slave_threads[] = {
     {&key_thread_replica_io, "replica_io", "rpl_rca_io", PSI_FLAG_THREAD_SYSTEM,
@@ -417,6 +422,8 @@ static PSI_thread_info all_slave_threads[] = {
     {&key_thread_replica_worker, "replica_worker", "rpl_rca_wkr",
      PSI_FLAG_THREAD_SYSTEM, 0, PSI_DOCUMENT_ME},
     {&key_thread_replica_monitor_io, "replica_monitor", "rpl_rca_mon",
+     PSI_FLAG_SINGLETON | PSI_FLAG_THREAD_SYSTEM, 0, PSI_DOCUMENT_ME},
+    {&key_thread_slave_transmit, "slave_transmit", "rpl_rca_tsm",
      PSI_FLAG_SINGLETON | PSI_FLAG_THREAD_SYSTEM, 0, PSI_DOCUMENT_ME}};
 
 static PSI_memory_info all_slave_memory[] = {{&key_memory_rli_mta_coor,
@@ -1765,6 +1772,19 @@ int terminate_slave_threads(Master_info *mi, int thread_mask,
 
     mysql_mutex_unlock(log_lock);
   }
+
+  /*
+    Avoid another user thread terminating or creating transmit thread.
+  */
+  mysql_mutex_lock(&mi->transmit_lock);
+  if (mi->transmit_running) {
+    innodb_buffer_pool_transmit_exit = true;
+
+    /* Wait sometime before transmit thread exits. */
+    usleep(2 * SLEEP_UNIT);
+  }
+  mysql_mutex_unlock(&mi->transmit_lock);
+
   return 0;
 }
 
@@ -2057,6 +2077,27 @@ bool start_slave_threads(bool need_lock_slave, bool wait_for_start,
       terminate_slave_threads(mi, thread_mask & (SLAVE_IO | SLAVE_MONITOR),
                               rpl_stop_replica_timeout, need_lock_slave);
   }
+
+  /*
+    Avoid another user thread terminating or creating transmit thread.
+  */
+  mysql_mutex_lock(&mi->transmit_lock);
+  if (!is_error && innodb_buffer_pool_transmit_enabled &&
+      !mi->transmit_running) {
+    my_thread_handle th;
+    if (mysql_thread_create(key_thread_slave_transmit, &th, &connection_attrib,
+                            handle_slave_transmit, (void *)mi)) {
+      snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+               "Can't create slave transmit thread%s",
+               mi->get_for_channel_str());
+      sql_print_error("Can't create slave transmit thread%s",
+                      mi->get_for_channel_str());
+      is_error = true;
+      my_error(ER_SLAVE_THREAD, MYF(0));
+    }
+  }
+  mysql_mutex_unlock(&mi->transmit_lock);
+
   return is_error;
 }
 
@@ -3947,11 +3988,11 @@ int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type) {
 #if !defined(NDEBUG)
   int simulate_error = 0;
 #endif
-  thd->system_thread = (thd_type == SLAVE_THD_WORKER)
-                           ? SYSTEM_THREAD_SLAVE_WORKER
-                           : (thd_type == SLAVE_THD_SQL)
-                                 ? SYSTEM_THREAD_SLAVE_SQL
-                                 : SYSTEM_THREAD_SLAVE_IO;
+  thd->system_thread =
+      (thd_type == SLAVE_THD_WORKER) ? SYSTEM_THREAD_SLAVE_WORKER
+      : (thd_type == SLAVE_THD_SQL)  ? SYSTEM_THREAD_SLAVE_SQL
+      : (thd_type == SLAVE_THD_IO)   ? SYSTEM_THREAD_SLAVE_IO
+                                     : SYSTEM_THREAD_SLAVE_TRANSMIT;
   thd->get_protocol_classic()->init_net(nullptr);
   thd->slave_thread = true;
   thd->enable_slow_log = opt_log_slow_replica_statements;
@@ -8451,71 +8492,94 @@ int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi, bool reconnect,
   bool replica_was_killed{false};
   bool connected{false};
 
-  while (!connected) {
-    replica_was_killed = is_io_thread ? io_slave_killed(thd, mi)
-                                      : monitor_io_replica_killed(thd, mi);
-    if (replica_was_killed) break;
-
-    if (reconnect) {
-      connected = !mysql_reconnect(mysql);
-    } else {
-      // Set this each time mysql_real_connect() is called to make a connection
-      mysql_extension_set_server_extn(mysql, &mi->server_extn);
-
-      connected = mysql_real_connect(mysql, tmp_host, user, password, nullptr,
-                                     tmp_port, nullptr, client_flag);
-    }
-    if (connected) break;
-
-    /*
-       SHOW REPLICA STATUS will display the number of retries which
-       would be real retry counts instead of mi->retry_count for
-       each connection attempt by 'Last_IO_Error' entry.
-    */
-    last_errno = mysql_errno(mysql);
-    suppress_warnings = false;
-    if (is_io_thread) {
-      mi->report(ERROR_LEVEL, last_errno,
-                 "error %s to master '%s@%s:%d'"
-                 " - retry-time: %d retries: %lu message: %s",
-                 (reconnect ? "reconnecting" : "connecting"), mi->get_user(),
-                 tmp_host, tmp_port, mi->connect_retry, err_count + 1,
-                 mysql_error(mysql));
+  if (thd == mi->transmit_thd) {
+    while (!innodb_buffer_pool_transmit_exit &&
+           (reconnect ? mysql_reconnect(mysql) != 0
+                      : mysql_real_connect(mysql, mi->host, user, password, 0,
+                                           mi->port, 0, client_flag) == 0)) {
+      /* If err_count < TRANSMIT_RETRY_MAX, sleep 1 second and retry again. */
+      if (++err_count == TRANSMIT_RETRY_MAX) {
+        replica_was_killed = 1;
+        break;
+      }
+      usleep(1000000);
     }
 
-    /*
-      By default we try forever. The reason is that failure will trigger
-      master election, so if the user did not set mi->retry_count we
-      do not want to have election triggered on the first failure to
-      connect
-    */
-    if (++err_count == mi->retry_count) {
-      if (is_network_error(last_errno) && is_io_thread) mi->set_network_error();
-      replica_was_killed = true;
-      break;
+    /* If succeed, set vio to active. */
+    if (!replica_was_killed) {
+      thd->set_active_vio(mysql->net.vio);
     }
-    slave_sleep(thd, mi->connect_retry,
-                is_io_thread ? io_slave_killed : monitor_io_replica_killed, mi);
-  }
+  } else {
+    while (!connected) {
+      replica_was_killed = is_io_thread ? io_slave_killed(thd, mi)
+                                        : monitor_io_replica_killed(thd, mi);
+      if (replica_was_killed) break;
 
-  if (!replica_was_killed) {
-    if (is_io_thread) {
-      mi->clear_error();  // clear possible left over reconnect error
-      mi->reset_network_error();
+      if (reconnect) {
+        connected = !mysql_reconnect(mysql);
+      } else {
+        // Set this each time mysql_real_connect() is called to make a
+        // connection
+        mysql_extension_set_server_extn(mysql, &mi->server_extn);
+
+        connected = mysql_real_connect(mysql, tmp_host, user, password, nullptr,
+                                       tmp_port, nullptr, client_flag);
+      }
+      if (connected) break;
+
+      /*
+         SHOW REPLICA STATUS will display the number of retries which
+         would be real retry counts instead of mi->retry_count for
+         each connection attempt by 'Last_IO_Error' entry.
+      */
+      last_errno = mysql_errno(mysql);
+      suppress_warnings = false;
+      if (is_io_thread) {
+        mi->report(ERROR_LEVEL, last_errno,
+                   "error %s to master '%s@%s:%d'"
+                   " - retry-time: %d retries: %lu message: %s",
+                   (reconnect ? "reconnecting" : "connecting"), mi->get_user(),
+                   tmp_host, tmp_port, mi->connect_retry, err_count + 1,
+                   mysql_error(mysql));
+      }
+
+      /*
+        By default we try forever. The reason is that failure will trigger
+        master election, so if the user did not set mi->retry_count we
+        do not want to have election triggered on the first failure to
+        connect
+      */
+      if (++err_count == mi->retry_count) {
+        if (is_network_error(last_errno) && is_io_thread)
+          mi->set_network_error();
+        replica_was_killed = true;
+        break;
+      }
+      slave_sleep(thd, mi->connect_retry,
+                  is_io_thread ? io_slave_killed : monitor_io_replica_killed,
+                  mi);
     }
 
-    if (reconnect) {
-      if (!suppress_warnings)
-        LogErr(
-            SYSTEM_LEVEL, ER_RPL_SLAVE_CONNECTED_TO_MASTER_REPLICATION_RESUMED,
-            mi->get_for_channel_str(), mi->get_user(), tmp_host, tmp_port,
-            mi->get_io_rpl_log_name(), llstr(mi->get_master_log_pos(), llbuff));
-    } else {
-      query_logger.general_log_print(thd, COM_CONNECT_OUT, "%s@%s:%d",
-                                     mi->get_user(), tmp_host, tmp_port);
-    }
+    if (!replica_was_killed) {
+      if (is_io_thread) {
+        mi->clear_error();  // clear possible left over reconnect error
+        mi->reset_network_error();
+      }
 
-    thd->set_active_vio(mysql->net.vio);
+      if (reconnect) {
+        if (!suppress_warnings)
+          LogErr(SYSTEM_LEVEL,
+                 ER_RPL_SLAVE_CONNECTED_TO_MASTER_REPLICATION_RESUMED,
+                 mi->get_for_channel_str(), mi->get_user(), tmp_host, tmp_port,
+                 mi->get_io_rpl_log_name(),
+                 llstr(mi->get_master_log_pos(), llbuff));
+      } else {
+        query_logger.general_log_print(thd, COM_CONNECT_OUT, "%s@%s:%d",
+                                       mi->get_user(), tmp_host, tmp_port);
+      }
+
+      thd->set_active_vio(mysql->net.vio);
+    }
   }
   mysql->reconnect = true;
   DBUG_PRINT("exit", ("replica_was_killed: %d", replica_was_killed));
@@ -11415,3 +11479,252 @@ static bool check_replica_configuration_errors(Master_info *mi,
   }
   return false;
 }
+
+/* Changes from txsql start. */
+/**
+  Get current timestamp.
+*/
+void get_current_timestamp(char *buf) {
+  struct tm *cal_tm_ptr;
+  time_t tm;
+
+  struct tm cal_tm;
+  time(&tm);
+  localtime_r(&tm, &cal_tm);
+  cal_tm_ptr = &cal_tm;
+  sprintf(buf, "%02d%02d%02d %2d:%02d:%02d", cal_tm_ptr->tm_year % 100,
+          cal_tm_ptr->tm_mon + 1, cal_tm_ptr->tm_mday, cal_tm_ptr->tm_hour,
+          cal_tm_ptr->tm_min, cal_tm_ptr->tm_sec);
+}
+
+bool check_while_sleep() {
+  int counts = innodb_buffer_pool_transmit_interval * 1000000 / SLEEP_UNIT;
+  for (int i = 0; i < counts; i++) {
+    if (innodb_buffer_pool_transmit_exit) return (true);
+    usleep(SLEEP_UNIT);
+  }
+  return (false);
+}
+
+/**
+  Slave bufferpool file transmit thread entry point.
+
+  @param arg Pointer to Master_info struct that holds information for
+  the transmit thread.
+
+  @return Always 0.
+*/
+extern "C" void *handle_slave_transmit(void *arg) {
+  THD *thd = nullptr;
+  MYSQL *mysql = nullptr;
+  Master_info *mi = (Master_info *)arg;
+  bool error = false;
+  bool end_flag = false;
+  int ret;
+  bool successfully_connected;
+
+  char tmp_filename[FN_REFLEN] = "";
+  char filename[FN_REFLEN] = "";
+  char start_time[32] = "";
+  char end_time[32] = "";
+
+  my_thread_init();
+  {
+    DBUG_TRACE;
+
+    assert(mi->inited);
+
+    thd = new THD;
+    THD_CHECK_SENTRY(thd);
+    mi->transmit_thd = thd;
+    mi->transmit_running = true;
+
+    thd->thread_stack = (char *)&thd;
+    if (init_replica_thread(thd, SLAVE_THD_TRANSMIT)) {
+      snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+               "Failed during slave_transmit thread initialization");
+      goto err;
+    }
+
+    RPL_MASTER_INFO = mi;
+
+    if (!(mysql = mysql_init(nullptr))) {
+      snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+               "Failed during mysql_init()");
+      goto err;
+    }
+
+    mysql_extension_set_server_extn(mysql, &mi->server_extn);
+
+    if (mi->is_set_network_namespace()) {
+#ifdef HAVE_SETNS
+      if (set_network_namespace(mi->network_namespace)) goto err;
+#else
+      // Network namespace not supported by the platform. Report error.
+      LogErr(ERROR_LEVEL, ER_NETWORK_NAMESPACES_NOT_SUPPORTED);
+      goto err;
+#endif
+      // Save default value of network namespace
+      // Set network namespace before sockets be created
+    }
+    successfully_connected = !safe_connect(thd, mysql, mi);
+    // we can get killed during safe_connect
+#ifdef HAVE_SETNS
+    if (mi->is_set_network_namespace()) {
+      // Restore original network namespace used to be before connection has
+      // been created
+      successfully_connected =
+          restore_original_network_namespace() | successfully_connected;
+    }
+#endif
+
+    if (successfully_connected) {
+      snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+               "slave_transmit thread%s: connected to master '%s@%s:%d'",
+               mi->get_for_channel_str(), mi->get_user(), mi->host, mi->port);
+    } else {
+      snprintf(
+          innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+          "slave_transmit thread%s: failed connecting to master '%s@%s:%d'",
+          mi->get_for_channel_str(), mi->get_user(), mi->host, mi->port);
+      goto err;
+    }
+
+  connected:
+    fn_format(tmp_filename, SNAPSHOT_FILENAME, mysql_real_data_home_ptr,
+              ".incomplete",
+              MY_UNPACK_FILENAME | MY_REPLACE_EXT | MY_REPLACE_DIR);
+    fn_format(filename, SNAPSHOT_FILENAME, mysql_real_data_home_ptr, "",
+              MY_UNPACK_FILENAME | MY_REPLACE_DIR);
+
+    while (!innodb_buffer_pool_transmit_exit) {
+      if (check_while_sleep()) {
+        /* innodb_buffer_pool_transmit_exit is true while sleep. */
+        break;
+      }
+
+      error = false;
+      if (simple_command(mysql, COM_BP_TRANSMIT, 0, 0, 1)) {
+        /* Try to reconnect. */
+        if (!safe_reconnect(thd, mysql, mi, 1)) {
+          goto connected;
+        }
+
+        /* Failed to connect. */
+        snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                 "Error on %s: %d %s",
+                 Command_names::str_global(COM_BP_TRANSMIT).c_str(),
+                 mysql_errno(mysql), mysql_error(mysql));
+        sql_print_error("Error on %s: %d %s",
+                        Command_names::str_global(COM_BP_TRANSMIT).c_str(),
+                        mysql_errno(mysql), mysql_error(mysql));
+
+        goto err;
+      }
+
+      FILE *f = fopen(tmp_filename, "w");
+      if (f == NULL) {
+        /* Error occurs in open table. */
+        snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                 "Cannot open '%s' for writing in slave transmit: %s",
+                 tmp_filename, strerror(errno));
+        continue;
+      }
+
+      /* Reading packets from net and write it to file. */
+      get_current_timestamp(start_time);
+      do {
+        ulong data_len = my_net_read(&mysql->net);
+        if (data_len == packet_error) {
+          /* Error occurs in event reading, igonre it and transmit
+          ib_bp_info next time. */
+          error = true;
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Error on read_event in slave transmit: %d %s",
+                   mysql_errno(mysql), mysql_error(mysql));
+
+          break;
+        } else if (data_len == BP_END_FLAG_LEN) {
+          error = true;
+          break;
+          ;
+        }
+
+        const char *data_buf = (const char *)mysql->net.read_pos;
+        if (uint3korr(data_buf + data_len - BP_END_FLAG_LEN) == BP_END_FLAG) {
+          end_flag = true;
+          data_len -= BP_END_FLAG_LEN;
+        } else
+          end_flag = false;
+
+        if (fwrite(data_buf, sizeof(char), data_len, f) != data_len) {
+          /* Error occcurs in writing file, igonre it and write ib_bp_info
+          next time. */
+          error = true;
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Cannot write %s in slave transmit: %s", tmp_filename,
+                   strerror(errno));
+          break;
+        }
+      } while (!end_flag);
+
+      error |= fclose(f);
+      if (!error) {
+        ret = unlink(filename);
+        if (ret != 0 && errno != ENOENT) {
+          /* leave tmp_filename to exist */
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Cannot delete '%s': %s", filename, strerror(errno));
+        }
+
+        ret = rename(tmp_filename, filename);
+        if (ret != 0) {
+          /* leave tmp_filename to exist */
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Cannot rename '%s' to '%s': %s", tmp_filename, filename,
+                   strerror(errno));
+        } else {
+          get_current_timestamp(end_time);
+          snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+                   "Buffer pool(s) transmit started at %s, completed at %s on "
+                   "slave side",
+                   start_time, end_time);
+          innodb_buffer_pool_transmit_finished = true;
+          mysql_mutex_lock(&LOCK_transmit_client_access);
+          global_transmit_client.clear();
+          mysql_mutex_unlock(&LOCK_transmit_client_access);
+        }
+      }
+
+      if (cli_safe_read_with_ok(mysql, 1, NULL) == packet_error) {
+        /* Receive the result of current command. */
+        error = true;
+        break;
+      }
+    }
+
+  err:
+    if (mysql) {
+      thd->clear_active_vio();
+      mysql_close(mysql);
+    }
+
+    thd->get_protocol_classic()->end_net();
+
+    thd->release_resources();
+    THD_CHECK_SENTRY(thd);
+    mi->transmit_running = false;
+    innodb_buffer_pool_transmit_exit = false;
+    snprintf(innodb_buffer_pool_transmit_status, TRANSMIT_STATUS_LEN,
+             "slave_transmit thread exited");
+
+    delete thd;
+  }
+  my_thread_end();
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+  ERR_remove_thread_state(0);
+#endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
+  my_thread_exit(nullptr);
+  return (nullptr);  // Avoid compiler warnings
+}
+/* Changes from txsql end. */
