@@ -288,6 +288,19 @@ struct PFS_global_param {
 
   /** Sizing hints, for auto tuning. */
   PFS_sizing_hints m_hints;
+  /* Changes from TXSQL start. */
+
+  /**
+    Number of buckets in table EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+    EVENTS_STATEMENTS_HISTOGRAM_GLOBAL
+  */
+  uint m_events_statements_histogram_bucket_number;
+
+  /**
+    Bucket factor.
+  */
+  double m_events_statements_histogram_bucket_base_factor;
+  /* Changes from TXSQL end. */
 };
 
 /**

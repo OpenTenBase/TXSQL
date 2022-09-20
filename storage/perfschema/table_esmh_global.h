@@ -63,7 +63,7 @@ struct PFS_esmh_global_bucket {
 
 struct PFS_esmh_global_histogram {
   /** Statistics for all buckets. */
-  PFS_esmh_global_bucket m_buckets[NUMBER_OF_BUCKETS];
+  PFS_esmh_global_bucket m_buckets[MAX_NUMBER_OF_BUCKETS];
 };
 
 struct row_esmh_global {
@@ -130,6 +130,8 @@ class table_esmh_global : public PFS_engine_table {
   PFS_index_esmh_global *m_opened_index;
 
   bool m_materialized;
+
+  uint m_num_buckets;
 };
 
 /** @} */

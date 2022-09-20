@@ -34,6 +34,9 @@
 #define BUCKET_BASE_TIMER (10 * 1000 * 1000)
 
 /**
+  DEPRECATED:
+  We've made the base factor a read-only variable. This macro is no longer used.
+
   Bucket factor.
   histogram_timer[i+1] = BUCKET_BASE_FACTOR * histogram_timer[i]
   The value is chosen so that BUCKET_BASE_FACTOR ^ 50 = 10,
@@ -59,7 +62,7 @@ PFS_histogram_timers g_histogram_pico_timers;
 void PFS_histogram::reset() {
   ulong bucket_index;
 
-  for (bucket_index = 0; bucket_index < NUMBER_OF_BUCKETS; bucket_index++) {
+  for (bucket_index = 0; bucket_index < m_bucket.size(); bucket_index++) {
     m_bucket[bucket_index] = 0;
   }
 }
@@ -70,10 +73,15 @@ void PFS_histogram_timers::init() {
 
   m_bucket_timer[0] = 0;
 
-  for (bucket_index = 1; bucket_index < NUMBER_OF_BUCKETS; bucket_index++) {
+  for (bucket_index = 1;
+       bucket_index < pfs_param.m_events_statements_histogram_bucket_number;
+       bucket_index++) {
     m_bucket_timer[bucket_index] = current_bucket_timer;
-    current_bucket_timer *= BUCKET_BASE_FACTOR;
+    current_bucket_timer *=
+        pfs_param.m_events_statements_histogram_bucket_base_factor;
   }
 
-  m_bucket_timer[NUMBER_OF_BUCKETS] = UINT64_MAX;
+  for (; bucket_index <= MAX_NUMBER_OF_BUCKETS; bucket_index++) {
+    m_bucket_timer[bucket_index] = UINT64_MAX;
+  }
 }
