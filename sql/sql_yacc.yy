@@ -1373,6 +1373,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> THREADPOOL_SYM 1250
 %token<lexer.keyword> DETAIL 1252
 %token<lexer.keyword> SQL_CDB_FILTER_SYM 1259
+%token<lexer.keyword> MASK_SYM 1260
+%token<lexer.keyword> UNMASK_SYM 1261
 /* Changes from txsql end. */
 
 /*
@@ -1979,6 +1981,8 @@ void warn_about_deprecated_binary(THD *thd)
 %type <index_name_and_type> opt_index_name_and_type
 
 %type <visibility> visibility
+%type <masked> masked
+%type <mask_scope_st> masked_scope
 
 %type <with_clause> with_clause opt_with_clause
 %type <with_list> with_list
@@ -7599,6 +7603,10 @@ column_attribute:
           {
             $$ = NEW_PTN PT_column_visibility_attr($1);
           }
+        | masked masked_scope
+          {
+            $$ = NEW_PTN PT_column_mask_attr($1, $2.mask_start, $2.mask_end);
+          }
         ;
 
 column_format:
@@ -8051,6 +8059,20 @@ index_type_clause:
 visibility:
           VISIBLE_SYM { $$= true; }
         | INVISIBLE_SYM { $$= false; }
+        ;
+
+masked:
+          MASK_SYM { $$ = true; }
+        | UNMASK_SYM { $$ = false; }
+        ;
+
+masked_scope:
+        /* empty */ {$$.mask_start = 0; $$.mask_end = 0; }
+        | '(' real_ulong_num '-' real_ulong_num ')'
+        {
+          $$.mask_start = $2;
+          $$.mask_end = $4;
+        }
         ;
 
 index_type:
@@ -9078,6 +9100,10 @@ alter_list_item:
         | ALTER INDEX_SYM ident visibility
           {
             $$= NEW_PTN PT_alter_table_index_visible($3.str, $4);
+          }
+        | ALTER opt_column ident SET_SYM masked masked_scope
+          {
+            $$ = NEW_PTN PT_alter_table_column_mask($3.str, $5, $6.mask_start, $6.mask_end);
           }
         | ALTER CHECK_SYM ident constraint_enforcement
           {
@@ -15476,6 +15502,8 @@ ident_keywords_unambiguous:
         | LOCKS_SYM
         | LOGFILE_SYM
         | LOGS_SYM
+        | MASK_SYM
+        | UNMASK_SYM
         | MASTER_AUTO_POSITION_SYM
         | MASTER_COMPRESSION_ALGORITHM_SYM
         | MASTER_CONNECT_RETRY_SYM

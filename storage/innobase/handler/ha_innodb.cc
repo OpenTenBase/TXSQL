@@ -2009,6 +2009,23 @@ void thd_set_lock_wait_time(THD *thd,
   }
 }
 
+bool thd_can_read_mask(THD *thd) {
+  if (!thd) {
+    /* For transaction without thd, always can read masked data */
+    return true;
+  }
+
+  if (!(thd_sql_command(thd) == SQLCOM_SELECT
+        || thd_sql_command(thd) == SQLCOM_INSERT_SELECT
+        || thd_sql_command(thd) == SQLCOM_REPLACE_SELECT)) {
+    /** We allow DML on masked data, but don't allow to read it */
+    return true;
+  }
+
+  /* The session has READ_MASK privilege */
+  return thd->can_read_mask();
+}
+
 const char *thd_innodb_tmpdir(THD *thd) {
 #ifdef UNIV_DEBUG
   if (thd != nullptr) {
@@ -6836,6 +6853,9 @@ static void innobase_vcol_build_templ(const TABLE *table,
   templ->mbminlen = col->get_mbminlen();
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
+  templ->is_mask = field->is_mask;
+  templ->mask_start_pos = field->mask_start_pos;
+  templ->mask_end_pos = field->mask_end_pos;
 }
 
 /** Callback used by MySQL server layer to initialize
@@ -8386,6 +8406,9 @@ static mysql_row_templ_t *build_template_field(
   templ->mbminlen = col->get_mbminlen();
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
+  templ->is_mask = field->is_mask;
+  templ->mask_start_pos = field->mask_start_pos;
+  templ->mask_end_pos = field->mask_end_pos;
 
   if (!index->is_clustered() && templ->rec_field_no == ULINT_UNDEFINED) {
     prebuilt->need_to_access_clustered = true;
@@ -23986,7 +24009,7 @@ dfield_t *innobase_get_computed_value(
     const dtuple_t *row, const dict_v_col_t *col, const dict_index_t *index,
     mem_heap_t **local_heap, mem_heap_t *heap, const dict_field_t *ifield,
     THD *thd, TABLE *mysql_table, const dict_table_t *old_table,
-    upd_t *parent_update, dict_foreign_t *foreign) {
+    upd_t *parent_update, dict_foreign_t *foreign, row_prebuilt_t *prebuilt) {
   byte rec_buf1[REC_VERSION_56_MAX_INDEX_COL_LEN];
   byte rec_buf2[REC_VERSION_56_MAX_INDEX_COL_LEN];
   byte *mysql_rec;
@@ -24070,7 +24093,7 @@ dfield_t *innobase_get_computed_value(
     } else {
       row_sel_field_store_in_mysql_format(
           mysql_rec + templ->mysql_col_offset, templ, index,
-          templ->clust_rec_field_no, (const byte *)data, len, ULINT_UNDEFINED);
+          templ->clust_rec_field_no, (const byte *)data, prebuilt, len, ULINT_UNDEFINED);
 
       if (templ->mysql_null_bit_mask) {
         /* It is a nullable column with a

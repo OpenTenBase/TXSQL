@@ -4677,6 +4677,9 @@ bool prepare_create_field(THD *thd, const char *error_schema_name,
         sql_field->m_default_val_expr = dup_field->m_default_val_expr;
         sql_field->stored_in_db = dup_field->stored_in_db;
         sql_field->hidden = dup_field->hidden;
+        sql_field->is_mask = dup_field->is_mask;
+        sql_field->mask_start_pos = dup_field->mask_start_pos;
+        sql_field->mask_end_pos = dup_field->mask_end_pos;
         it.remove();  // Remove first (create) definition
         (*select_field_pos)--;
         break;
@@ -11985,6 +11988,9 @@ static bool fill_alter_inplace_info(THD *thd, TABLE *table,
   if (alter_info->flags & Alter_info::ALTER_COLUMN_VISIBILITY)
     ha_alter_info->handler_flags |= Alter_inplace_info::ALTER_COLUMN_VISIBILITY;
 
+  if (alter_info->flags & Alter_info::ALTER_COLUMN_MASK)
+    ha_alter_info->handler_flags |= Alter_inplace_info::ALTER_COLUMN_MASK;
+
   /*
     Go through fields in old version of table and detect changes to them.
     We don't want to rely solely on Alter_info flags for this since:
@@ -14500,6 +14506,19 @@ static bool alter_column_name_default_or_visibility(
 
     case Alter_column::Type::SET_COLUMN_INVISIBLE:
       def->hidden = dd::Column::enum_hidden_type::HT_HIDDEN_USER;
+      break;
+
+    case Alter_column::Type::SET_COLUMN_MASK:
+      if (def->field->is_gcol()) {
+        my_error(ER_CAN_NOT_CREATE_WITH_MASK, MYF(0), def->field_name);
+        return true;
+      }
+      def->is_mask = true;
+      def->mask_start_pos = alter->mask_start();
+      def->mask_end_pos = alter->mask_end();
+      break;
+    case Alter_column::Type::SET_COLUMN_UNMASK:
+      def->is_mask = false;
       break;
 
     default:

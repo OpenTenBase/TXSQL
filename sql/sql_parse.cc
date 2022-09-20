@@ -5688,7 +5688,8 @@ bool Alter_info::add_field(
     Value_generator *gcol_info, Value_generator *default_val_expr,
     const char *opt_after, std::optional<gis::srid_t> srid,
     Sql_check_constraint_spec_list *col_check_const_spec_list,
-    dd::Column::enum_hidden_type hidden, bool is_array) {
+    dd::Column::enum_hidden_type hidden, bool is_array, bool is_masked, 
+    uint64_t mask_start, uint64_t mask_end) {
   uint8 datetime_precision = decimals ? atoi(decimals) : 0;
   DBUG_TRACE;
   assert(!is_array || hidden == dd::Column::enum_hidden_type::HT_HIDDEN_SQL);
@@ -5701,6 +5702,20 @@ bool Alter_info::add_field(
              field_name->str); /* purecov: inspected */
     return true;               /* purecov: inspected */
   }
+
+  if (is_masked && gcol_info != nullptr) {
+    my_error(ER_CAN_NOT_CREATE_WITH_MASK, MYF(0), field_name->str);
+    return true;
+  }
+
+  /* case 1: both mask start/end = 0;
+   * case 2: mask_start counted starting from 1 */
+  if (is_masked && (mask_start > mask_end ||
+                   (mask_start == 0 && mask_end > 0))) {
+    my_error(ER_CAN_NOT_CREATE_WITH_MASK, MYF(0), field_name->str);
+    return true;
+  }
+
   if (type_modifier & PRI_KEY_FLAG) {
     List<Key_part_spec> key_parts;
     auto key_part_spec =
@@ -5789,7 +5804,7 @@ bool Alter_info::add_field(
                       type_modifier, default_value, on_update_value, comment,
                       change, interval_list, cs, has_explicit_collation,
                       uint_geom_type, gcol_info, default_val_expr, srid, hidden,
-                      is_array))
+                      is_array, is_masked, mask_start, mask_end))
     return true;
 
   for (const auto &a : cf_appliers) {

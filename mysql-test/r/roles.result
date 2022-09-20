@@ -821,6 +821,7 @@ PASSWORDLESS_USER_ADMIN	Server Admin
 PERSIST_RO_VARIABLES_ADMIN	Server Admin	
 Process	Server Admin	To view the plain text of currently executing queries
 Proxy	Server Admin	To make proxy user possible
+READ_MASK	Server Admin	
 REPLICATION_APPLIER	Server Admin	
 REPLICATION_SLAVE_ADMIN	Server Admin	
 RESOURCE_GROUP_ADMIN	Server Admin	

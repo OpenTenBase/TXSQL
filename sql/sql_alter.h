@@ -96,7 +96,9 @@ class Alter_column {
     DROP_DEFAULT,
     RENAME_COLUMN,
     SET_COLUMN_VISIBLE,
-    SET_COLUMN_INVISIBLE
+    SET_COLUMN_INVISIBLE,
+    SET_COLUMN_MASK,
+    SET_COLUMN_UNMASK
   };
 
  public:
@@ -138,8 +140,20 @@ class Alter_column {
                              : Type::SET_COLUMN_INVISIBLE);
   }
 
+  Alter_column(const char *par_name, bool is_masked, uint64_t start_pos, uint64_t end_pos)
+    : name(par_name) {
+      m_type = (is_masked ? Type::SET_COLUMN_MASK : Type::SET_COLUMN_UNMASK);
+      mask_start_pos = start_pos;
+      mask_end_pos = end_pos;
+    }
+
+  uint64_t mask_start() const { return mask_start_pos; }
+  uint64_t mask_end() const { return mask_end_pos; }
+
  private:
   Type m_type;
+  uint64_t mask_start_pos;
+  uint64_t mask_end_pos;
 };
 
 /// An ALTER INDEX operation that changes the visibility of an index.
@@ -341,7 +355,9 @@ class Alter_info {
     ANY_ENGINE_ATTRIBUTE = 1ULL << 39,
 
     /// Set for column visibility attribute alter.
-    ALTER_COLUMN_VISIBILITY = 1ULL << 40
+    ALTER_COLUMN_VISIBILITY = 1ULL << 40,
+
+    ALTER_COLUMN_MASK = 1ULL << 41
   };
 
   enum enum_enable_or_disable { LEAVE_AS_IS, ENABLE, DISABLE };
@@ -496,7 +512,9 @@ class Alter_info {
                  Value_generator *default_val_expr, const char *opt_after,
                  std::optional<gis::srid_t> srid,
                  Sql_check_constraint_spec_list *check_cons_list,
-                 dd::Column::enum_hidden_type hidden, bool is_array = false);
+                 dd::Column::enum_hidden_type hidden, bool is_array = false,
+                 bool is_masked = false, uint64_t mask_start = 0, 
+                 uint64_t mask_end = 0);
 
  private:
   Alter_info &operator=(const Alter_info &rhs);  // not implemented

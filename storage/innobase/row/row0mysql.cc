@@ -2211,7 +2211,7 @@ static dberr_t row_del_upd_for_mysql_using_cursor(row_prebuilt_t *prebuilt) {
 
   /* Internal table is created by optimizer. So there
   should not be any virtual columns. */
-  row_upd_store_row(node, nullptr, nullptr);
+  row_upd_store_row(node, nullptr, nullptr, nullptr);
 
   if (!node->is_delete) {
     /* UPDATE operation */

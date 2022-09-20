@@ -1899,6 +1899,8 @@ bool PT_column_def::contextualize(Table_ddl_parse_context *pc) {
           ? dd::Column::enum_hidden_type::HT_HIDDEN_USER
           : dd::Column::enum_hidden_type::HT_VISIBLE;
 
+  bool is_masked = field_def->type_flags & FIELD_IS_MASK;
+
   return pc->alter_info->add_field(
       pc->thd, &field_ident, field_def->type, field_def->length, field_def->dec,
       field_def->type_flags, field_def->default_value,
@@ -1906,7 +1908,8 @@ bool PT_column_def::contextualize(Table_ddl_parse_context *pc) {
       field_def->interval_list, field_def->charset,
       field_def->has_explicit_collation, field_def->uint_geom_type,
       field_def->gcol_info, field_def->default_val_info, opt_place,
-      field_def->m_srid, field_def->check_const_spec_list, field_hidden_type);
+      field_def->m_srid, field_def->check_const_spec_list, field_hidden_type, false,
+      is_masked, field_def->mask_start_pos, field_def->mask_end_pos);
 }
 
 Sql_cmd *PT_create_table_stmt::make_cmd(THD *thd) {
@@ -2652,6 +2655,8 @@ bool PT_alter_table_change_column::contextualize(Table_ddl_parse_context *pc) {
           ? dd::Column::enum_hidden_type::HT_HIDDEN_USER
           : dd::Column::enum_hidden_type::HT_VISIBLE;
 
+  bool is_masked = m_field_def->type_flags & FIELD_IS_MASK;
+
   return pc->alter_info->add_field(
       pc->thd, &m_new_name, m_field_def->type, m_field_def->length,
       m_field_def->dec, m_field_def->type_flags, m_field_def->default_value,
@@ -2660,7 +2665,8 @@ bool PT_alter_table_change_column::contextualize(Table_ddl_parse_context *pc) {
       m_field_def->has_explicit_collation, m_field_def->uint_geom_type,
       m_field_def->gcol_info, m_field_def->default_val_info, m_opt_place,
       m_field_def->m_srid, m_field_def->check_const_spec_list,
-      field_hidden_type);
+      field_hidden_type, is_masked,
+      m_field_def->mask_start_pos, m_field_def->mask_end_pos);
 }
 
 bool PT_alter_table_rename::contextualize(Table_ddl_parse_context *pc) {

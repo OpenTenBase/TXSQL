@@ -790,7 +790,7 @@ dberr_t Builder::get_virtual_column(Copy_ctx &ctx, const dict_field_t *ifield,
 
       src_field = innobase_get_computed_value(
           ctx.m_row.m_ptr, v_col, clust_index, &p, key_buffer->heap(), ifield,
-          m_ctx.thd(), ctx.m_my_table, m_ctx.m_old_table, nullptr, nullptr);
+          m_ctx.thd(), ctx.m_my_table, m_ctx.m_old_table, nullptr, nullptr, nullptr);
 
       m_v_heap.reset(p);
 
@@ -821,7 +821,7 @@ dberr_t Builder::get_virtual_column(Copy_ctx &ctx, const dict_field_t *ifield,
 
     src_field = innobase_get_computed_value(
         ctx.m_row.m_ptr, v_col, clust_index, &p, nullptr, ifield, m_ctx.thd(),
-        ctx.m_my_table, m_ctx.m_old_table, nullptr, nullptr);
+        ctx.m_my_table, m_ctx.m_old_table, nullptr, nullptr, nullptr);
 
     m_v_heap.reset(p);
 

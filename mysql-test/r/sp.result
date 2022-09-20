@@ -6223,11 +6223,11 @@ drop table t1;
 SET NAMES latin1;
 CREATE PROCEDURE p1()
 BEGIN
-DECLARE бвд INT;
-SELECT бвд;
+DECLARE пїЅпїЅпїЅ INT;
+SELECT пїЅпїЅпїЅ;
 END|
 CALL p1();
-бвд
+пїЅпїЅпїЅ
 NULL
 SET NAMES default;
 DROP PROCEDURE p1;

@@ -73,6 +73,9 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
       is_unsigned(false),  // Init to avoid UBSAN warnings
       treat_bit_as_char(
           false),  // Init to avoid valgrind warnings in opt. build
+      is_mask(old_field->is_mask),
+      mask_start_pos(old_field->mask_start_pos),
+      mask_end_pos(old_field->mask_end_pos),
       pack_length_override(0),
       gcol_info(old_field->gcol_info),
       stored_in_db(old_field->stored_in_db),
@@ -195,7 +198,8 @@ bool Create_field::init(
     bool has_explicit_collation, uint fld_geom_type,
     Value_generator *fld_gcol_info, Value_generator *fld_default_val_expr,
     std::optional<gis::srid_t> srid, dd::Column::enum_hidden_type hidden,
-    bool is_array_arg) {
+    bool is_array_arg, bool is_masked_arg, uint64_t mask_start_arg,
+    uint64_t mask_end_arg) {
   uint sign_len, allowed_type_modifier = 0;
   ulong max_field_charlength = MAX_FIELD_CHARLENGTH;
 
@@ -217,6 +221,9 @@ bool Create_field::init(
   is_nullable = !(fld_type_modifier & NOT_NULL_FLAG);
   this->hidden = hidden;
   is_array = is_array_arg;
+  is_mask = is_masked_arg;
+  mask_start_pos = mask_start_arg;
+  mask_end_pos = mask_end_arg;
 
   if (fld_default_value != nullptr &&
       fld_default_value->type() == Item::FUNC_ITEM) {

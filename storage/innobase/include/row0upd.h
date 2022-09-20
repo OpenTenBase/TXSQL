@@ -200,7 +200,7 @@ trx id */
 [[nodiscard]] upd_t *row_upd_build_difference_binary(
     dict_index_t *index, const dtuple_t *entry, const rec_t *rec,
     const ulint *offsets, bool no_sys, trx_t *trx, mem_heap_t *heap,
-    TABLE *mysql_table, dberr_t *error);
+    TABLE *mysql_table, row_prebuilt_t *prebuilt, dberr_t *error);
 
 /** Replaces the new column values stored in the update vector to the index
  entry given.
@@ -316,7 +316,7 @@ bool row_upd_changes_some_index_ord_field_binary(
 @param[in]      thd             mysql thread handle
 @param[in,out]  mysql_table     NULL, or mysql table object when
                                 user thread invokes dml */
-void row_upd_store_row(upd_node_t *node, THD *thd, TABLE *mysql_table);
+void row_upd_store_row(upd_node_t *node, THD *thd, TABLE *mysql_table, row_prebuilt_t *prebuilt);
 
 /** Updates a row in a table. This is a high-level function used
  in SQL execution graphs.
