@@ -3963,7 +3963,7 @@ void Buf_fetch<T>::read_page() {
     dberr_t err;
 
     auto ret = buf_read_page_low(&err, false, 0, BUF_READ_ANY_PAGE, m_page_id,
-                                 m_page_size, false);
+                                 m_page_size, false, true);
     success = ret > 0;
 
     if (success) {
@@ -4577,7 +4577,9 @@ const buf_block_t *buf_page_try_get(const page_id_t &page_id,
 
   buf_page_mutex_enter(block);
   rw_lock_s_unlock(hash_lock);
-  ut_ad(!block->page.was_stale());
+  /* block->page.was_stale() is used to check here. We remove
+  this check for the reason that buf_snapshot may get access to some
+  freed pages, we add this check in upper level. */
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
   ut_a(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
@@ -4614,8 +4616,10 @@ const buf_block_t *buf_page_try_get(const page_id_t &page_id,
   ut_a(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
+  /* block->page.file_page_was_freed is used to check here. We remove
+  this check for the reason that buf_snapshot may get access to some
+  freed pages, we add this check in upper level. */
   ut_d(buf_page_mutex_enter(block));
-  ut_d(ut_a(!block->page.file_page_was_freed));
   ut_d(buf_page_mutex_exit(block));
 
   buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
@@ -4739,10 +4743,15 @@ and the lock released later.
 @param[in]      page_id                 page id
 @param[in]      page_size               page size
 @param[in]      unzip                   true=request uncompressed page
+@param[in]      is_old                  TRUE if new block should be put to the
+old blocks in the LRU list(midpoint), else put to the start; if the LRU list
+is very short, the block is added to the start, regardless of this parameter.
+
 @return pointer to the block or NULL */
 buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
                                    const page_id_t &page_id,
-                                   const page_size_t &page_size, bool unzip) {
+                                   const page_size_t &page_size, bool unzip,
+                                   bool is_old) {
   buf_block_t *block;
   rw_lock_t *hash_lock;
   mtr_t mtr;
@@ -4840,8 +4849,8 @@ buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
 
     buf_page_set_io_fix(bpage, BUF_IO_READ);
 
-    /* The block must be put to the LRU list, to the old blocks */
-    buf_LRU_add_block(bpage, true /* to old blocks */);
+    /* The block must be put to the LRU list. */
+    buf_LRU_add_block(bpage, is_old /* to old blocks */);
 
     if (page_size.is_compressed()) {
       block->page.zip.data = (page_zip_t *)data;
@@ -4922,9 +4931,9 @@ buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
 
     rw_lock_x_unlock(hash_lock);
 
-    /* The block must be put to the LRU list, to the old blocks.
+    /* The block must be put to the LRU list.
     The zip size is already set into the page zip */
-    buf_LRU_add_block(bpage, true /* to old blocks */);
+    buf_LRU_add_block(bpage, is_old);
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
     buf_LRU_insert_zip_clean(bpage);
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */

@@ -396,6 +396,21 @@ start to record origin in bytes.
 static inline rec_t *rec_copy(void *buf, const rec_t *rec,
                               const ulint *offsets);
 
+/* Changes from txsql start. */
+/** Copy a physical record key fields to a mem_heap buffer.
+@param[in]	heap mem_heap to create buffer
+@param[in]	rec	physical record
+@param[in]	offsets	array returned by rec_get_offsets()
+@param[in]	index which the record belong to
+@param[out]	extra_len total size of record minus data size of record
+@param[out]	data_len key fields length
+@return pointer to the origin of the copy */
+static inline rec_t *rec_key_fields_copy(mem_heap_t *heap, const rec_t *rec,
+                                         const ulint *offsets,
+                                         dict_index_t *index, ulint &extra_len,
+                                         ulint &data_len);
+/* Changes from txsql end. */
+
 #ifndef UNIV_HOTBACKUP
 /** Determines the size of a data tuple prefix in a temporary file.
 @param[in]      index           record descriptor

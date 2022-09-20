@@ -1,0 +1,155 @@
+--source include/master-slave.inc
+
+connection master;
+set @old_snapshot_pct = @@innodb_buffer_pool_snapshot_pct;
+
+SET GLOBAL innodb_buffer_pool_snapshot_pct = 100;
+
+connection slave;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+set @old_transmit_enabled = @@innodb_buffer_pool_transmit_enabled;
+set @old_transmit_interval = @@innodb_buffer_pool_transmit_interval;
+set @old_recover_after_transmit = @@innodb_buffer_pool_recover_after_transmit;
+set @old_recover_pct = @@innodb_buffer_pool_recover_pct;
+
+SET GLOBAL innodb_buffer_pool_recover_pct = 100;
+
+SET GLOBAL innodb_buffer_pool_transmit_enabled = OFF;
+--echo # Check STOP REPLICA && START REPLICA when slave is on and enabled is off
+STOP REPLICA; START REPLICA;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+--echo # Check START REPLICA && STOP REPLICA when slave is off and enabled is off
+STOP REPLICA;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+START REPLICA; STOP REPLICA;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+--echo # Set slave is on and enabled is on
+SET GLOBAL innodb_buffer_pool_transmit_enabled = ON;
+START REPLICA;
+sleep 1;
+replace_result $MASTER_MYPORT MASTER_PORT;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+--echo # Check STOP REPLICA && START REPLICA when slave is on and enabled is on
+STOP REPLICA; START REPLICA;
+sleep 1;
+replace_result $MASTER_MYPORT MASTER_PORT;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+--echo # check START REPLICA && STOP REPLICA when slave is off and enabled is on
+STOP REPLICA;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+START REPLICA; STOP REPLICA;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+START REPLICA;
+
+# Prepare master ib_bp_info file
+connection master;
+
+--disable_query_log
+call mtr.add_suppression('.*Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT.*');
+--enable_query_log
+
+# Create a table and populate it with some data
+--disable_warnings
+CREATE TABLE ib_bp_test
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(128)))
+ENGINE=INNODB;
+
+# Here we end up with 16382 rows in the table
+--disable_query_log
+INSERT INTO ib_bp_test (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 256));
+INSERT INTO ib_bp_test (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 256));
+let $i=12;
+while ($i)
+{
+  --eval INSERT INTO ib_bp_test (b, c) VALUES ($i, $i * $i);
+  INSERT INTO ib_bp_test (b, c) SELECT b, c FROM ib_bp_test;
+  dec $i;
+}
+--enable_query_log
+--enable_warnings
+
+# Snapshot bufferpool
+SET GLOBAL innodb_buffer_pool_snapshot_now = ON;
+
+--disable_warnings
+let $wait_condition =
+  SELECT SUBSTR(variable_value, 1, 34) = 'Buffer pool(s) snapshot started at'
+  FROM performance_schema.global_status
+  WHERE LOWER(variable_name) = 'innodb_buffer_pool_snapshot_status';
+--enable_warnings
+--source include/wait_condition.inc
+
+# Confirm ib_bp_info
+--let $file = `SELECT CONCAT(@@datadir, "ib_bp_info")`
+--file_exists $file
+
+# Start testing bufferpool transmit
+connection slave;
+
+# Start transmit thread
+SET GLOBAL innodb_buffer_pool_transmit_enabled = ON;
+STOP REPLICA;
+START REPLICA;
+
+# Check whether transmit thread was created
+sleep 1;
+replace_result $MASTER_MYPORT MASTER_PORT;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_transmit_status";
+
+# Check if ib_bp_info can be transmited
+SET GLOBAL innodb_buffer_pool_transmit_interval = 5;
+
+sleep 10;
+--echo $file1
+--let $file1 = `SELECT CONCAT(@@datadir, "ib_bp_info")`
+--file_exists $file1
+
+# Check innodb_buffer_pool_transmit_status in master
+connection master;
+
+# Check innodb_buffer_pool_recover_after_transmit
+connection slave;
+SHOW STATUS WHERE Variable_name = "innodb_buffer_pool_recover_status";
+SET GLOBAL innodb_buffer_pool_recover_after_transmit = ON;
+
+connection master;
+SET GLOBAL innodb_buffer_pool_snapshot_now = ON;
+
+connection slave;
+--disable_warnings
+let $wait_condition =
+  SELECT SUBSTR(variable_value, 1, 34) = 'Buffer pool(s) transmit started at'
+  FROM performance_schema.global_status
+  WHERE LOWER(variable_name) = 'innodb_buffer_pool_transmit_status';
+--enable_warnings
+--source include/wait_condition.inc
+
+--let $file1 = `SELECT CONCAT(@@datadir, "ib_bp_info")`
+--file_exists $file1
+
+--disable_warnings
+let $wait_condition =
+  SELECT SUBSTR(variable_value, 1, 33) = 'Buffer pool(s) recover started at'
+  FROM performance_schema.global_status
+  WHERE LOWER(variable_name) = 'innodb_buffer_pool_recover_status';
+--enable_warnings
+--source include/wait_condition.inc
+
+SET GLOBAL innodb_buffer_pool_transmit_enabled = @old_transmit_enabled;
+SET GLOBAL innodb_buffer_pool_transmit_interval = @old_transmit_interval;
+SET GLOBAL innodb_buffer_pool_recover_after_transmit = @old_recover_after_transmit;
+SET GLOBAL innodb_buffer_pool_recover_pct = @old_recover_pct;
+
+# Clean
+connection master;
+SET GLOBAL innodb_buffer_pool_snapshot_pct = @old_snapshot_pct;
+DROP TABLE ib_bp_test;
+
+--source include/rpl_end.inc

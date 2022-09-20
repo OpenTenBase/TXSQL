@@ -89,7 +89,7 @@ static int add_page_callback(void *context, byte *buff, uint num_pages) {
 int Clone_Snapshot::add_buf_pool_file() {
   char path[OS_FILE_MAX_PATH];
   /* Generate the file name. */
-  buf_dump_generate_path(path, sizeof(path));
+  buf_generate_path(path, sizeof(path), srv_buf_dump_filename);
 
   /* Add if the file is found. */
   int err = 0;

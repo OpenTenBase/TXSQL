@@ -269,13 +269,12 @@ struct Srv_threads {
   use system transactions or touch DD objects. */
   os_event_t m_master_ready_for_dd_shutdown;
 
-  /**
-   Changes from txsql start.
-  */
+  /* Changes from txsql start. */
   IB_thread m_backquery_readview_generator;
-  /**
-    Changes from txsql end.
-  */
+
+  /** Create the buffer pool snapshot/recover/scp thread */
+  IB_thread m_buf_synchronize;
+  /* Changes from txsql end. */
 };
 
 /** Check if given thread is still active. */
@@ -783,6 +782,24 @@ extern struct export_var_t export_vars;
 /** Global counters */
 extern srv_stats_t srv_stats;
 
+/* These variables are used for buffer pool synchronization between
+master and slave. */
+extern ulint srv_buffer_pool_snapshot_interval;
+extern ulint srv_buffer_pool_snapshot_threshold;
+extern bool srv_buffer_pool_snapshot_now;
+extern bool srv_buffer_pool_recover_now;
+extern bool srv_buffer_pool_recover_abort;
+extern bool srv_buffer_pool_recover_after_transmit;
+
+/** Snapshot this % of each buffer pool during BP snapshot */
+extern ulong srv_buffer_pool_snapshot_pct;
+/** Recover this % of each buffer pool at most during BP recover */
+extern ulong srv_buffer_pool_recover_pct;
+
+/** Event to signal the buffer pool snapshot/recover thread */
+extern os_event_t srv_buf_synchronize_event;
+/* Changes from txsql end. */
+
 /* Keys to register InnoDB threads with performance schema */
 
 #ifdef UNIV_PFS_THREAD
@@ -822,6 +839,9 @@ extern mysql_pfs_key_t srv_ts_alter_encrypt_thread_key;
 extern mysql_pfs_key_t parallel_read_thread_key;
 extern mysql_pfs_key_t parallel_rseg_init_thread_key;
 extern mysql_pfs_key_t srv_backquery_thread_key;
+/* Changes from txsql start. */
+extern mysql_pfs_key_t buf_synchronize_thread_key;
+/* Changes from txsql end. */
 #endif /* UNIV_PFS_THREAD */
 #endif /* !UNIV_HOTBACKUP */
 
@@ -1221,6 +1241,12 @@ struct export_var_t {
   ulint innodb_backquery_history_views; /*! number of history views */
   time_t innodb_backquery_up_time;      /*! the time of oldest view */
   time_t innodb_backquery_low_time;     /*! the time of newest view */
+  /* Changes from txsql start. */
+  char innodb_buffer_pool_snapshot_status[OS_FILE_MAX_PATH +
+                                          128]; /*!< Buf pool snapshot status */
+  char innodb_buffer_pool_recover_status[OS_FILE_MAX_PATH +
+                                         128]; /*!< Buf pool recover status */
+  /* Changes from txsql end. */
 };
 
 #ifndef UNIV_HOTBACKUP

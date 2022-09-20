@@ -4584,6 +4584,9 @@ static void lock_rec_print(FILE *file,         /*!< in: file where to print */
     fprintf(file, "Record lock, heap no %lu", (ulong)i);
 
     if (block) {
+      /* Check inside buf_page_try_get was moved here. */
+      ut_ad(!block->page.was_stale());
+
       const rec_t *rec;
 
       rec = page_find_rec_with_heap_no(buf_block_get_frame(block), i);

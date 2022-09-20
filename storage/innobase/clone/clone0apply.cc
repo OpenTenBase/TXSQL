@@ -129,7 +129,7 @@ int Clone_Snapshot::update_sys_file_name(bool replace,
     ut_ad(0 == strcmp(file_name.c_str(), SRV_BUF_DUMP_FILENAME_DEFAULT));
 
     char path[OS_FILE_MAX_PATH];
-    buf_dump_generate_path(path, sizeof(path));
+    buf_generate_path(path, sizeof(path), srv_buf_dump_filename);
 
     file_name.assign(path);
     return (0);

@@ -896,10 +896,15 @@ and the lock released later.
 @param[in]      page_id                 page id
 @param[in]      page_size               page size
 @param[in]      unzip                   true=request uncompressed page
+@param[in]      is_old                  TRUE if the new block should be put to
+the old blocks in the LRU list(midpoint), else put to the start; if the LRU
+list is very short, the block is added to the start, regardless of
+this parameter.
 @return pointer to the block or NULL */
 buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
                                    const page_id_t &page_id,
-                                   const page_size_t &page_size, bool unzip);
+                                   const page_size_t &page_size, bool unzip,
+                                   bool is_old);
 
 /** Completes an asynchronous read or write request of a file page to or from
 the buffer pool.

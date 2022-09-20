@@ -53,6 +53,46 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "univ.i"
 #include "ut0byte.h"
 
+/* Changes from txsql start. */
+#include "btr0btr.h"
+#include "rem0rec.h"
+#include "btr0pcur.h"
+#include "dict0dd.h"
+#include "bp_sync.h"
+#include <boost/unordered/unordered_set.hpp>
+#include <unistd.h>
+#include <mysqld.h>
+
+static bool buf_recover_abort_flag = false;
+
+#define SNAPSHOT_LENGTH_FORMAT "%lu,%lu,%lu,%lu,%lu,%lu,"
+const rec_t MAGIC_NUM = 0xFF;
+const uint  MAGIC_LEN = 1;
+
+/* Flages that tell the bufferpool snapshot/recover thread whitch action should
+it take after being waked up. */
+static bool buf_snapshot_should_start = false;
+static bool buf_recover_should_start = false;
+
+/** Wakes up the buffer pool snapshot/recover thread and instructs it to start
+a dump. This function is called by MySQL code via buffer_pool_snapshot_now()
+and it should return immediately because the whole MySQL is frozen during
+its execution. */
+void buf_snapshot_start() {
+  buf_snapshot_should_start = true;
+  os_event_set(srv_buf_synchronize_event);
+}
+
+/** Wakes up the buffer pool snapshot/recover thread and instructs it to start
+a load. This function is called by MySQL code via buffer_pool_recover_now()
+and it should return immediately because the whole MySQL is frozen during
+its execution. */
+void buf_recover_start() {
+  buf_recover_should_start = true;
+  os_event_set(srv_buf_synchronize_event);
+}
+/* Changes from txsql end. */
+
 enum status_severity { STATUS_VERBOSE, STATUS_INFO, STATUS_ERR };
 
 static inline bool SHUTTING_DOWN() {
@@ -189,14 +229,15 @@ static const char *get_buf_dump_dir() {
   return (dump_dir);
 }
 
-/** Generate the path to the buffer pool dump/load file.
-@param[out]     path            generated path
-@param[in]      path_size       size of 'path', used as in snprintf(3). */
-void buf_dump_generate_path(char *path, size_t path_size) {
+/** Generate the path to the buffer pool dump/load/snapshot/recover file.
+@param[out]	path		generated path
+@param[in]	path_size	size of 'path', used as in snprintf(3).
+@param[in]	filename	real filename without directory. */
+void buf_generate_path(char *path, size_t path_size, const char* filename) {
   char buf[FN_REFLEN];
 
   snprintf(buf, sizeof(buf), "%s%c%s", get_buf_dump_dir(), OS_PATH_SEPARATOR,
-           srv_buf_dump_filename);
+           filename);
 
   /* Use this file if it exists. */
   if (os_file_exists(buf)) {
@@ -207,7 +248,7 @@ void buf_dump_generate_path(char *path, size_t path_size) {
     my_realpath(path, buf, 0);
   } else {
     /* If it does not exist, then resolve only srv_data_home
-    and append srv_buf_dump_filename to it. */
+    and append filename to it. */
     char srv_data_home_full[FN_REFLEN];
 
     my_realpath(srv_data_home_full, get_buf_dump_dir(), 0);
@@ -215,10 +256,10 @@ void buf_dump_generate_path(char *path, size_t path_size) {
     if (srv_data_home_full[strlen(srv_data_home_full) - 1] ==
         OS_PATH_SEPARATOR) {
       snprintf(path, path_size, "%s%s", srv_data_home_full,
-               srv_buf_dump_filename);
+               filename);
     } else {
       snprintf(path, path_size, "%s%c%s", srv_data_home_full, OS_PATH_SEPARATOR,
-               srv_buf_dump_filename);
+               filename);
     }
   }
 }
@@ -239,7 +280,8 @@ static void buf_dump(bool obey_shutdown) {
   ulint i;
   int ret;
 
-  buf_dump_generate_path(full_filename, sizeof(full_filename));
+  buf_generate_path(full_filename, sizeof(full_filename),
+                    srv_buf_dump_filename);
 
   snprintf(tmp_filename, sizeof(tmp_filename), "%s.incomplete", full_filename);
 
@@ -446,7 +488,7 @@ static void buf_load() {
   /* Ignore any leftovers from before */
   buf_load_abort_flag = false;
 
-  buf_dump_generate_path(full_filename, sizeof(full_filename));
+  buf_generate_path(full_filename, sizeof(full_filename), srv_buf_dump_filename);
 
   buf_load_status(STATUS_INFO, "Loading buffer pool(s) from %s", full_filename);
 
@@ -608,7 +650,7 @@ static void buf_load() {
     }
 
     buf_read_page_background(page_id_t(this_space_id, BUF_DUMP_PAGE(dump[i])),
-                             page_size, true);
+                             page_size, true, true);
 
     if (i % 64 == 63) {
       os_aio_simulated_wake_handler_threads();
@@ -663,6 +705,818 @@ static void buf_load() {
   mysql_end_stage();
 #endif /* HAVE_PSI_STAGE_INTERFACE */
 }
+
+/* Changes from txsql start. */
+
+/** Sets the global variable that feeds MySQL's
+innodb_buffer_pool_snapshot_status to the specified string. The format and the
+following parameters are the same as the ones used for printf(3). The value of
+this variable can be retrieved by: SELECT variable_value FROM
+information_schema.global_status WHERE variable_name =
+'INNODB_BUFFER_POOL_SNAPSHOT_STATUS'; or by: SHOW STATUS LIKE
+'innodb_buffer_pool_snapshot_status'; */
+static MY_ATTRIBUTE((format(printf, 2, 3))) void buf_snapshot_status(
+    enum status_severity severity, /*!< in: status severity */
+    const char *fmt,               /*!< in: format */
+    ...)                           /*!< in: extra parameters according
+                                   to fmt */
+{
+  va_list ap;
+
+  va_start(ap, fmt);
+
+  ut_vsnprintf(export_vars.innodb_buffer_pool_snapshot_status,
+               sizeof(export_vars.innodb_buffer_pool_snapshot_status), fmt, ap);
+
+  switch (severity) {
+    case STATUS_INFO:
+      ib::info(ER_INNODB_BUFFER_POOL_SNAPSHOT_STATUS_INFO)
+          << export_vars.innodb_buffer_pool_snapshot_status;
+      break;
+
+    case STATUS_ERR:
+      ib::error(ER_INNODB_BUFFER_POOL_SNAPSHOT_STATUS_ERR)
+          << export_vars.innodb_buffer_pool_snapshot_status;
+      break;
+
+    case STATUS_VERBOSE:
+      break;
+  }
+
+  va_end(ap);
+}
+
+/** Sets the global variable that feeds MySQL's
+innodb_buffer_pool_recover_status to the specified string. The format and the
+following parameters are the same as the ones used for printf(3). The value of
+this variable can be retrieved by: SELECT variable_value FROM
+information_schema.global_status WHERE variable_name =
+'INNODB_BUFFER_POOL_RECOVER_STATUS'; or by: SHOW STATUS LIKE
+'innodb_buffer_pool_recover_status'; */
+static MY_ATTRIBUTE((format(printf, 2, 3))) void buf_recover_status(
+    enum status_severity severity, /*!< in: status severity */
+    const char *fmt,               /*!< in: format */
+    ...)                           /*!< in: extra parameters according to fmt */
+{
+  va_list ap;
+
+  va_start(ap, fmt);
+
+  ut_vsnprintf(export_vars.innodb_buffer_pool_recover_status,
+               sizeof(export_vars.innodb_buffer_pool_recover_status), fmt, ap);
+
+  switch (severity) {
+    case STATUS_INFO:
+      ib::info(ER_INNODB_BUFFER_POOL_RECOVER_STATUS_INFO)
+          << export_vars.innodb_buffer_pool_recover_status;
+      break;
+
+    case STATUS_ERR:
+      ib::error(ER_INNODB_BUFFER_POOL_RECOVER_STATUS_ERR)
+          << export_vars.innodb_buffer_pool_recover_status;
+      break;
+
+    case STATUS_VERBOSE:
+      break;
+  }
+
+  va_end(ap);
+}
+
+struct record_t {
+  /* Normal record consists of two parts:"extra" + "data",
+  The record pointer is pointed to the begning of "data" usually.
+  "rec" below points to different place in buffer pool snapshot/recover.
+  1. Snapshot: To convey record from master to slave, "rec" points to the
+  begining of "extra".
+  2. Recover: To loacate a record to btree leaf page, "rec" points to the
+  begining of "data". */
+  rec_t *rec;
+  ulint extra_len;
+  ulint data_len;
+
+  record_t() : rec(nullptr), extra_len(0), data_len(0) {}
+};
+
+/* one value range in an index. */
+struct range_t {
+  /* Table name. */
+  std::string table_name;
+  /* Index name. */
+  std::string index_name;
+  /* Left-most record of current range. */
+  record_t left;
+  /* Right-most record of current range. */
+  record_t right;
+};
+
+/** Link adjacent pages in bufferpool and get left most record and right
+most record from pages list. */
+void link_page(uint space, boost::unordered_set<uint> &page_set,
+               std::vector<range_t> &multi_ranges, mem_heap_t *heap) {
+  boost::unordered_set<uint>::iterator iter;
+  buf_block_t *block = nullptr;
+  buf_block_t *left_block = nullptr;
+  buf_block_t *right_block = nullptr;
+  dict_index_t *index = nullptr;
+  page_no_t next_left_page_no = 0;
+  page_no_t next_right_page_no = 0;
+  ulint *offsets = nullptr;
+  rec_t *rec = nullptr;
+  range_t range;
+  mtr_t mtr;
+  page_id_t left_page_id(0, 0);
+  page_id_t right_page_id(0, 0);
+  space_index_t index_id = 0;
+
+  while (page_set.size() > 0) {
+    iter = page_set.begin();
+    mtr_start(&mtr);
+    block = (buf_block_t *)buf_page_try_get(page_id_t(space, *iter),
+                                            UT_LOCATION_HERE, &mtr);
+    page_set.erase(*iter);
+
+    /* We only care about btree leaf page. */
+    if (block == nullptr ||
+#ifdef UNIV_DEBUG
+        /* Check inside buf_page_try_get was moved here. */
+        block->page.file_page_was_freed || block->page.was_stale() ||
+#endif
+        fil_page_get_type(block->frame) != FIL_PAGE_INDEX ||
+        btr_page_get_level(block->frame) != 0) {
+      mtr_commit(&mtr);
+      continue;
+    }
+
+    /* Save index id. */
+    index_id = btr_page_get_index_id(block->frame);
+    index_id_t page_index_id(block->page.id.space(), index_id);
+
+    /* Set an original value to left_page_id and right_page_id. */
+    left_page_id.reset(block->page.id.space(), block->page.id.page_no());
+    right_page_id.reset(block->page.id.space(), block->page.id.page_no());
+
+    next_left_page_no = btr_page_get_prev(block->frame, &mtr);
+    next_right_page_no = btr_page_get_next(block->frame, &mtr);
+    mtr_commit(&mtr);
+
+    /* Search the left side. */
+    while (page_set.find(next_left_page_no) != page_set.end()) {
+      mtr_start(&mtr);
+      block = (buf_block_t *)buf_page_try_get(
+          page_id_t(space, next_left_page_no), UT_LOCATION_HERE, &mtr);
+      page_set.erase(next_left_page_no);
+
+      /* If the page is not in BP now, we won`t count it. */
+      if (block == nullptr
+#ifdef UNIV_DEBUG
+          /* Check inside buf_page_try_get was moved here. */
+          || block->page.file_page_was_freed || block->page.was_stale()
+#endif
+      ) {
+        mtr_commit(&mtr);
+        break;
+      }
+
+      /* Update left_page_id. */
+      left_page_id.reset(block->page.id.space(), block->page.id.page_no());
+      next_left_page_no = btr_page_get_prev(block->frame, &mtr);
+
+      mtr_commit(&mtr);
+    }
+
+    /* Search the right side. */
+    while (page_set.find(next_right_page_no) != page_set.end()) {
+      mtr_start(&mtr);
+      block = (buf_block_t *)buf_page_try_get(
+          page_id_t(space, next_right_page_no), UT_LOCATION_HERE, &mtr);
+      page_set.erase(next_right_page_no);
+
+      /* If the page is not in BP now, we won`t count it. */
+      if (block == nullptr
+#ifdef UNIV_DEBUG
+          /* Check inside buf_page_try_get was moved here. */
+          || block->page.file_page_was_freed || block->page.was_stale()
+#endif
+      ) {
+        mtr_commit(&mtr);
+        break;
+      }
+
+      /* Update right_page_id. */
+      right_page_id.reset(block->page.id.space(), block->page.id.page_no());
+      next_right_page_no = btr_page_get_next(block->frame, &mtr);
+
+      mtr_commit(&mtr);
+    }
+
+    mutex_enter(&dict_sys->mutex);
+    index = const_cast<dict_index_t *>(dict_index_find(page_index_id));
+    mutex_exit(&dict_sys->mutex);
+
+    /* We skip the following three types of indexes:
+    1. Not in cache
+    2. Ibuf index
+    3. Space of index != space of page. This may occur in
+    "innodb_temporary" space. */
+    if (index == nullptr || dict_index_is_ibuf(index) ||
+        index->table->space != space) {
+      continue;
+    }
+
+    range.table_name = index->table_name;
+    range.index_name = (const char *)index->name;
+
+    mtr_start(&mtr);
+    left_block =
+        (buf_block_t *)buf_page_try_get(left_page_id, UT_LOCATION_HERE, &mtr);
+
+    /* If there is no user record in current page list. ignore it. */
+    if (left_block == nullptr ||
+#ifdef UNIV_DEBUG
+        left_block->page.file_page_was_freed || left_block->page.was_stale() ||
+#endif
+        index_id != btr_page_get_index_id(left_block->frame) ||
+        0 == page_header_get_field(left_block->frame, PAGE_N_RECS)) {
+      mtr_commit(&mtr);
+      continue;
+    }
+
+    /* Get first user record from left most leaf page. */
+    rec = page_rec_get_next(page_get_infimum_rec(left_block->frame));
+    offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &heap);
+    range.left.rec = rec_key_fields_copy(
+        heap, rec, offsets, index, range.left.extra_len, range.left.data_len);
+    mtr_commit(&mtr);
+
+    mtr_start(&mtr);
+    right_block =
+        (buf_block_t *)buf_page_try_get(right_page_id, UT_LOCATION_HERE, &mtr);
+
+    /* If there is no user record in current page list. ignore it. */
+    if (right_block == nullptr ||
+#ifdef UNIV_DEBUG
+        right_block->page.file_page_was_freed ||
+        right_block->page.was_stale() ||
+#endif
+        index_id != btr_page_get_index_id(right_block->frame) ||
+        0 == page_header_get_field(right_block->frame, PAGE_N_RECS)) {
+      mtr_commit(&mtr);
+      continue;
+    }
+
+    /* Get last user record from right most leaf page. */
+    rec = page_rec_get_prev(page_get_supremum_rec(right_block->frame));
+    offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &heap);
+    range.right.rec = rec_key_fields_copy(
+        heap, rec, offsets, index, range.right.extra_len, range.right.data_len);
+    mtr_commit(&mtr);
+
+    multi_ranges.push_back(range);
+  }
+}
+
+/** Dump multi-ranges info to local file.
+DATA FORMAT: num1,num2,num3,num4,num5,num6,table+index+left+right
+num1: length of table name
+num2: length of index name
+num3: extra_len of left record
+num4: data_len of left record
+mum5: extra_len of right record
+num6: data_len of right record
+table: table name
+index: index name
+left: left-most record in a range
+right: right-most record in a range
+
+@return false	succeed
+@return true	failed */
+bool dump_multi_ranges(std::vector<range_t> &multi_ranges, FILE *f) {
+  ulint size = 0;
+
+  for (uint i = 0; i < multi_ranges.size(); i++) {
+    range_t &range = multi_ranges[i];
+    /* fprintf() returns a negative value if an output error occurs. */
+    if (fprintf(f, SNAPSHOT_LENGTH_FORMAT "%s%s", range.table_name.size(),
+                range.index_name.size(), range.left.extra_len,
+                range.left.data_len, range.right.extra_len,
+                range.right.data_len, range.table_name.c_str(),
+                range.index_name.c_str()) < 0) {
+      return (true);
+    }
+
+    /* fwrite() returns the number of members successfully written,
+    if the return value is not equeal to the input number,
+    an output error occurs. */
+    /* Write left-most record. */
+    size = range.left.extra_len + range.left.data_len;
+    if (fwrite(range.left.rec, sizeof(rec_t), size, f) != size) {
+      return (true);
+    }
+
+    /* Write right-most record. */
+    size = range.right.extra_len + range.right.data_len;
+    if (fwrite(range.right.rec, sizeof(rec_t), size, f) != size) {
+      return (true);
+    }
+
+    /* Write a magic number to each range end. */
+    if (fwrite(&MAGIC_NUM, sizeof(rec_t), MAGIC_LEN, f) != MAGIC_LEN) {
+      return (true);
+    }
+  }
+
+  /* fflush() returns zero to indicates success. */
+  if (fflush(f)) {
+    return (true);
+  }
+
+  return (false);
+}
+
+/** Perform a buffer pool snapshot into the file specified by
+SNAPSHOT_FILENAME. If any errors occur then the value of
+innodb_buffer_pool_snapshot_status will be set accordingly,
+see buf_snapshot_status(). */
+static void buf_snapshot(bool obey_shutdown) /*!< in: quit if we are in a
+                                              shutting down state */
+{
+#define SHOULD_QUIT() (SHUTTING_DOWN() && obey_shutdown)
+
+  char full_filename[OS_FILE_MAX_PATH];
+  char tmp_filename[OS_FILE_MAX_PATH * 2];
+  char start_time[32];
+  char end_time[32];
+  FILE *f;
+  ulint i;
+  int ret;
+
+  ut_sprintf_timestamp(start_time);
+
+  buf_generate_path(full_filename, sizeof(full_filename), SNAPSHOT_FILENAME);
+
+  snprintf(tmp_filename, sizeof(tmp_filename), "%s.incomplete", full_filename);
+
+  buf_snapshot_status(STATUS_INFO, "Start snapshotting buffer pool(s) to %s",
+                      full_filename);
+
+  f = fopen(tmp_filename, "w");
+  if (f == nullptr) {
+    buf_snapshot_status(STATUS_ERR, "Cannot open '%s' for writing: %s",
+                        tmp_filename, strerror(errno));
+    return;
+  }
+  /* else */
+
+  /* Raw page info. */
+  std::map<uint, boost::unordered_set<uint>> lru_maps;
+
+  /* Step 1: walk through each buffer pool. All pages are classified
+  by spaceid. */
+  for (i = 0; i < srv_buf_pool_instances && !SHOULD_QUIT(); i++) {
+    buf_pool_t *buf_pool;
+    const buf_page_t *bpage;
+    buf_dump_t *dump;
+    ulint n_pages;
+    ulint j;
+
+    buf_pool = buf_pool_from_array(i);
+
+    /* obtain buf_pool mutex before allocate, since
+    UT_LIST_GET_LEN(buf_pool->LRU) could change */
+    mutex_enter(&buf_pool->LRU_list_mutex);
+
+    n_pages = UT_LIST_GET_LEN(buf_pool->LRU);
+
+    /* Skip empty buffer pools */
+    if (n_pages == 0) {
+      mutex_exit(&buf_pool->LRU_list_mutex);
+      continue;
+    }
+
+    if (srv_buffer_pool_snapshot_pct != 100) {
+      ut_ad(srv_buffer_pool_snapshot_pct < 100);
+
+      n_pages = n_pages * srv_buffer_pool_snapshot_pct / 100;
+
+      if (n_pages == 0) {
+        n_pages = 1;
+      }
+    }
+
+    dump = static_cast<buf_dump_t *>(
+        ut::malloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, n_pages * sizeof(*dump)));
+
+    if (dump == nullptr) {
+      mutex_exit(&buf_pool->LRU_list_mutex);
+      fclose(f);
+      buf_snapshot_status(STATUS_ERR, "Cannot allocate " ULINTPF " bytes: %s",
+                          (ulint)(n_pages * sizeof(*dump)), strerror(errno));
+      return;
+    }
+
+    for (bpage = UT_LIST_GET_FIRST(buf_pool->LRU), j = 0;
+         bpage != nullptr && j < n_pages;
+         bpage = UT_LIST_GET_NEXT(LRU, bpage), j++) {
+      ut_a(buf_page_in_file(bpage));
+
+      dump[j] = BUF_DUMP_CREATE(bpage->id.space(), bpage->id.page_no());
+    }
+
+    ut_a(j == n_pages);
+
+    mutex_exit(&buf_pool->LRU_list_mutex);
+
+    for (j = 0; j < n_pages; j++) {
+      boost::unordered_set<uint> &hash_set = lru_maps[BUF_DUMP_SPACE(dump[j])];
+      hash_set.insert(BUF_DUMP_PAGE(dump[j]));
+    }
+
+    ut::free(dump);
+  }
+
+  buf_snapshot_status(STATUS_INFO,
+                      "LRU list snapshot saved, Start dumping space by space.");
+
+  mem_heap_t *heap = mem_heap_create(UNIV_PAGE_SIZE, UT_LOCATION_HERE);
+  std::map<uint, boost::unordered_set<uint>>::iterator iter;
+  iter = lru_maps.begin();
+
+  while (iter != lru_maps.end()) {
+    /* Step 2: Concatenate pages through a doubly linked list
+    spaceid by spaceid. */
+    uint space = iter->first;
+    std::vector<range_t> multi_ranges;
+    link_page(space, lru_maps[space], multi_ranges, heap);
+
+    /* Step 3: Dump each value range spaceid by spaceid. */
+    ret = dump_multi_ranges(multi_ranges, f);
+    if (ret) {
+      fclose(f);
+      mem_heap_free(heap);
+      buf_snapshot_status(STATUS_ERR, "Cannot write to '%s': %s", tmp_filename,
+                          strerror(errno));
+      return;
+    }
+
+    iter++;
+  }
+
+  mem_heap_free(heap);
+  ret = fclose(f);
+  if (ret != 0) {
+    buf_snapshot_status(STATUS_ERR, "Cannot close '%s': %s", tmp_filename,
+                        strerror(errno));
+    return;
+  }
+  /* else */
+
+  ret = unlink(full_filename);
+  if (ret != 0 && errno != ENOENT) {
+    buf_snapshot_status(STATUS_ERR, "Cannot delete '%s': %s", full_filename,
+                        strerror(errno));
+    /* leave tmp_filename to exist */
+    return;
+  }
+  /* else */
+
+  ret = rename(tmp_filename, full_filename);
+  if (ret != 0) {
+    buf_snapshot_status(STATUS_ERR, "Cannot rename '%s' to '%s': %s",
+                        tmp_filename, full_filename, strerror(errno));
+    /* leave tmp_filename to exist */
+    return;
+  }
+  /* else */
+
+  /* success */
+
+  ut_sprintf_timestamp(end_time);
+  buf_snapshot_status(STATUS_INFO,
+                      "Buffer pool(s) snapshot started at %s, completed at %s",
+                      start_time, end_time);
+  mysql_mutex_lock(&LOCK_transmit_client_access);
+  global_transmit_client.clear();
+  mysql_mutex_unlock(&LOCK_transmit_client_access);
+}
+
+void insert_page_id(boost::unordered_set<ulonglong> &pages_set,
+                    page_id_t page_id) {
+  ulonglong page_id_num = page_id.space();
+  page_id_num = (page_id_num << 32) + page_id.page_no();
+  pages_set.insert(page_id_num);
+}
+
+/** Perform a buffer pool recover from the file specified by
+SNAPSHOT_FILENAME. If any errors occur then the value of
+innodb_buffer_pool_recover_status will be set accordingly. */
+static void buf_recover() {
+  char full_filename[OS_FILE_MAX_PATH];
+  char start_time[32];
+  char end_time[32];
+  FILE *f = nullptr;
+  int fscanf_ret = 0;
+  lint file_len = 0;
+  lint cur_pos = 0;
+  boost::unordered_set<ulonglong> pages_set;
+  ulint pages_limit = (srv_buf_pool_size * srv_buffer_pool_recover_pct) /
+                      (UNIV_PAGE_SIZE * 100);
+  THD *thd = create_thd(false, true, true, 0, 0);
+
+  if (thd == nullptr) {
+    buf_recover_status(STATUS_ERR, "THD create failed");
+    return;
+  }
+
+  ut_sprintf_timestamp(start_time);
+
+  /* Ignore any leftovers from before */
+  buf_recover_abort_flag = false;
+
+  buf_generate_path(full_filename, sizeof(full_filename), SNAPSHOT_FILENAME);
+
+  buf_recover_status(STATUS_INFO, "Recovering buffer pool(s) from %s",
+                     full_filename);
+
+  f = fopen(full_filename, "r");
+  if (f == nullptr) {
+    buf_recover_status(STATUS_ERR, "Cannot open '%s' for reading: %s",
+                       full_filename, strerror(errno));
+    return;
+  }
+
+  if (fseek(f, 0L, SEEK_END) || (file_len = ftell(f)) < 0 ||
+      fseek(f, 0L, SEEK_SET)) {
+    buf_recover_status(STATUS_ERR, "Cannot get '%s' size", full_filename);
+    fclose(f);
+    return;
+  }
+
+  /* Variables for parsing range. */
+  record_t left, right;
+  ulint table_len = 0;
+  ulint index_len = 0;
+  char table_name[NAME_LEN + 1] = "";
+  char index_name[NAME_LEN + 1] = "";
+  dict_table_t *table = nullptr;
+  dict_index_t *index = nullptr;
+  buf_block_t *left_block = nullptr;
+  buf_block_t *right_block = nullptr;
+  std::map<std::string, dict_index_t *> index_map;
+
+  /* Variables for locating record to btree leaf page and loading pages. */
+  mtr_t mtr;
+  btr_pcur_t pcur;
+  page_id_t left_page_id(0, 0);
+  page_id_t right_page_id(0, 0);
+  page_id_t next_page_id(0, 0);
+  uint next_page_no = 0;
+  dtuple_t *tuple = nullptr;
+  void *buf = nullptr;
+  mem_heap_t *heap = mem_heap_create(UNIV_PAGE_SIZE, UT_LOCATION_HERE);
+
+  if (!heap) {
+    buf_recover_status(STATUS_ERR, "Cannot create mem_heap in buf_reocver");
+    goto free_resource;
+  }
+
+  do {
+    fscanf_ret = fscanf(f, SNAPSHOT_LENGTH_FORMAT, &table_len, &index_len,
+                        &left.extra_len, &left.data_len, &right.extra_len,
+                        &right.data_len);
+
+    if (fscanf_ret != 6 || table_len > NAME_LEN || index_len > NAME_LEN) {
+      if (feof(f)) {
+        /* Normal end. */
+        ut_sprintf_timestamp(end_time);
+        buf_recover_status(
+            STATUS_INFO,
+            "Buffer pool(s) recover started at %s, completed at %s", start_time,
+            end_time);
+        break;
+      }
+      /* else */
+      buf_recover_status(STATUS_ERR,
+                         "Error parsing '%s', unable to get data length "
+                         "or table/index name length not right",
+                         full_filename);
+      goto free_resource;
+    }
+
+    uint total_len = table_len + index_len + left.extra_len + left.data_len +
+                     right.extra_len + right.data_len;
+    buf = mem_heap_alloc(heap, total_len);
+
+    if (fread(buf, sizeof(rec_t), total_len, f) != total_len) {
+      buf_recover_status(STATUS_ERR, "Error parsing '%s', unable to get data",
+                         full_filename);
+      goto free_resource;
+    }
+
+    rec_t magic = 0;
+    if (fread(&magic, sizeof(rec_t), MAGIC_LEN, f) != MAGIC_LEN ||
+        magic != MAGIC_NUM) {
+      buf_recover_status(STATUS_ERR,
+                         "Error parsing '%s', unable to get magic number "
+                         "or magic number not right",
+                         full_filename);
+      goto free_resource;
+    }
+
+    /* Parse data. */
+    memcpy(table_name, (char *)buf, table_len);
+    table_name[table_len] = '\0';
+    memcpy(index_name, (char *)buf + table_len, index_len);
+    index_name[index_len] = '\0';
+
+    left.rec = (rec_t *)buf + table_len + index_len + left.extra_len;
+    right.rec = (rec_t *)buf + table_len + index_len + left.extra_len +
+                left.data_len + right.extra_len;
+
+    /* Get new table if needed. */
+    if (table == nullptr || 0 != strcmp(table->name.m_name, table_name)) {
+      /* Close old table. */
+      if (table) dict_table_close(table, false, false);
+
+      table = dd_table_open_on_name(thd, nullptr, table_name, false,
+                                    DICT_ERR_IGNORE_NONE);
+
+      if (table == nullptr || table->to_be_dropped) {
+        buf_recover_status(STATUS_INFO,
+                           "Failed loading table:%s, ignore it and continue",
+                           table_name);
+        continue;
+      }
+
+      index_map.clear();
+      for (index = table->first_index(); index != nullptr;
+           index = index->next()) {
+        index_map[(const char *)index->name] = index;
+      }
+    }
+
+    if (index_map.find(index_name) == index_map.end()) {
+      buf_recover_status(
+          STATUS_INFO,
+          "Failed loading index:%s in table:%s, ignore it and continue",
+          index_name, table_name);
+      continue;
+    }
+
+    index = index_map[index_name];
+
+    /* Locate left record to btree leaf page. */
+    tuple = dict_index_build_node_ptr(index, left.rec, 0, heap, 0);
+
+    mtr_start(&mtr);
+    pcur.open_on_user_rec(index, tuple, PAGE_CUR_GE, BTR_SEARCH_LEAF, &mtr,
+                          UT_LOCATION_HERE);
+
+    left_block = pcur.m_btr_cur.page_cur.block;
+    pcur.close();
+
+    /* TODO: Error handling when record does not exist. */
+    ut_ad(left_block);
+
+    /* Save left page id to prevent page id change after mtr commit. */
+    left_page_id.reset(left_block->page.id.space(),
+                       left_block->page.id.page_no());
+    insert_page_id(pages_set, left_page_id);
+    next_page_no = btr_page_get_next(left_block->frame, &mtr);
+    /* Left record and right record may in the same page. to avoid latching
+    the same block, we commit mtr here. */
+    mtr_commit(&mtr);
+
+    /* Locate right record to btree leaf page. */
+    tuple = dict_index_build_node_ptr(index, right.rec, 0, heap, 0);
+
+    mtr_start(&mtr);
+    pcur.open_on_user_rec(index, tuple, PAGE_CUR_GE, BTR_SEARCH_LEAF, &mtr,
+                          UT_LOCATION_HERE);
+    right_block = pcur.m_btr_cur.page_cur.block;
+    pcur.close();
+
+    /* TODO: Error handling when record does not exist. */
+    ut_ad(right_block);
+
+    /* Save the right_page_id for the page_id comparison. */
+    right_page_id.reset(right_block->page.id.space(),
+                        right_block->page.id.page_no());
+    insert_page_id(pages_set, right_page_id);
+
+    /* Release right_block to avoid dead-lock. */
+    mtr_commit(&mtr);
+
+    /* Check if we reach pages limit. */
+    if (pages_set.size() >= pages_limit) {
+      buf_recover_status(STATUS_INFO,
+                         "Buffer pool(s) recover "
+                         "aborted because it reached the pages limit");
+      goto free_resource;
+    }
+
+    if (left_page_id == right_page_id) {
+      /* Left record and right record are in the same pace.
+      Finished recovering this round.*/
+      continue;
+    }
+
+    /* Load pages between left block and right block. */
+    page_id_t page_id(left_page_id.space(), 0);
+    page_size_t page_size(right_block->page.size.physical(),
+                          right_block->page.size.logical(),
+                          right_block->page.size.is_compressed());
+
+    while (FIL_NULL != next_page_no &&
+           next_page_no != right_page_id.page_no()) {
+      page_id.set_page_no(next_page_no);
+      /* Load page to the start of LRU. */
+      mtr_start(&mtr);
+      buf_read_page_background(page_id, page_size, true, false);
+      buf_block_t *block = btr_block_get(page_id, page_size, RW_S_LATCH,
+                                         UT_LOCATION_HERE, nullptr, &mtr);
+      /* Abort loading pages when errors occur. */
+      if (block == nullptr) {
+        mtr_commit(&mtr);
+        break;
+      }
+
+      next_page_no = btr_page_get_next(block->frame, &mtr);
+      mtr_commit(&mtr);
+
+      /* Check if we reach pages limit. */
+      insert_page_id(pages_set, page_id);
+      if (pages_set.size() >= pages_limit) {
+        buf_recover_status(
+            STATUS_INFO,
+            "Buffer pool(s) recover "
+            "aborted because it reached the pages limit, %f%% finished",
+            (float)(cur_pos * 100) / (float)file_len);
+        goto free_resource;
+      }
+    }
+
+    if ((cur_pos = ftell(f)) < 0) {
+      buf_recover_status(STATUS_ERR, "Cannot get current position of '%s'",
+                         full_filename);
+      goto free_resource;
+    }
+
+    buf_recover_status(STATUS_VERBOSE, "Buffer pool(s) recover Finished %f%%",
+                       (float)(cur_pos * 100) / (float)file_len);
+
+    /* Terminate if needed. */
+    if (buf_recover_abort_flag) {
+      buf_recover_abort_flag = false;
+      buf_recover_status(
+          STATUS_INFO,
+          "Buffer pool(s) recover aborted on request, %f%% finished",
+          (float)(cur_pos * 100) / (float)file_len);
+      goto free_resource;
+    }
+  } while (true);
+
+free_resource:
+  if (table) dict_table_close(table, false, false);
+  if (heap) mem_heap_free(heap);
+  if (f) fclose(f);
+  if (thd) destroy_thd(thd);
+}
+
+/** Aborts a currently running buffer pool recover. This function is called by
+MySQL code via buffer_pool_recover_abort() and it should return immediately
+because the whole MySQL is frozen during its execution. */
+void buf_recover_abort() { buf_recover_abort_flag = true; }
+
+/** This is the main thread for buffer pool snapshot/recover. It waits for an
+event and when waked up either performs a snapshot/recover and sleeps
+again. */
+void buf_synchronize_thread() {
+  ut_ad(!srv_read_only_mode);
+
+  buf_snapshot_status(STATUS_VERBOSE, "Snapshoting of buffer pool not started");
+  buf_recover_status(STATUS_VERBOSE, "Recovering of buffer pool not started");
+
+  while (!SHUTTING_DOWN()) {
+    os_event_wait(srv_buf_synchronize_event);
+
+    if (buf_snapshot_should_start) {
+      buf_snapshot_should_start = false;
+      buf_snapshot(true /* quit on shutdown */);
+    }
+
+    if (buf_recover_should_start) {
+      buf_recover_should_start = false;
+      buf_recover();
+    }
+
+    os_event_reset(srv_buf_synchronize_event);
+  }
+}
+
+/* Changes from txsql end. */
 
 /** Aborts a currently running buffer pool load. This function is called by
  MySQL code via buffer_pool_load_abort() and it should return immediately

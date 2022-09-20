@@ -158,6 +158,7 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
+statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES
@@ -217,6 +218,7 @@ thread_instrumentation
 enabled_threads	thread_type
 innodb/buf_dump_thread	BACKGROUND
 innodb/buf_resize_thread	BACKGROUND
+innodb/buf_synchronize_thread	BACKGROUND
 innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
@@ -270,6 +272,7 @@ thread_instrumentation
 enabled_threads	thread_type
 innodb/buf_dump_thread	BACKGROUND
 innodb/buf_resize_thread	BACKGROUND
+innodb/buf_synchronize_thread	BACKGROUND
 innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
@@ -386,6 +389,7 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
+statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES

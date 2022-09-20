@@ -638,6 +638,7 @@ class Master_info : public Rpl_info {
       PSI_mutex_key *param_key_info_stop_cond,
       PSI_mutex_key *param_key_info_sleep_cond,
       PSI_mutex_key *param_key_info_rotate_cond,
+      PSI_mutex_key *param_key_info_transmit_lock,
 #endif
       uint param_id, const char *param_channel);
 
@@ -828,7 +829,12 @@ class Master_info : public Rpl_info {
 
   void init_complete_trx_log_pos();
 
-  protected:
+  /**
+    Used to ensure the uniqueness of the slave transmit thread.
+  */
+  mysql_mutex_t transmit_lock;
+
+ protected:
   my_off_t complete_trx_log_pos;
   /* Changes from txsql end. */
 };

@@ -96,6 +96,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0rseg.h"
 
 /* Changes from txsql start. */
+#include "buf0dump.h"
+
 int srv_cdb_page_cleaner_priority = 0;
 
 bool srv_async_checkpoint_now = false;
@@ -657,6 +659,71 @@ static ulint srv_log_writes_and_flush = 0;
 
 #endif /* !UNIV_HOTBACKUP */
 
+/* Changes from txsql start. */
+/* These variables are used for buffer pool synchronization between
+master and slave.
+
+To snapshot a bufferpool, call the statement below at master side:
+  SET GLOBAL innodb_buffer_pool_snapshot_now=ON;
+
+Two triggers are introduced to snapshot bufferpool:
+  SET GLOBAL innodb_buffer_pool_snapshot_interval=120;
+  SET GLOBAL innodb_buffer_pool_snapshot_threashold=10;
+Set variables above to 0 to disable them.
+
+Slave can take the initiative to copy ib_bp_info file from master node,
+call the statement below to configure it:
+  SET GLOBAL innodb_buffer_pool_transmit_enabled=ON;
+  SET GLOBAL innodb_buffer_pool_transmit_interval=120;
+
+To snapshot only the hottest N% pages of each buffer pool for recovering,
+call the statement below at master side:
+  set global innodb_buffer_pool_snapshot_pct=N;
+
+To recover a bufferpool, call the statement below at slave side:
+  SET GLOBAL innodb_buffer_pool_recover_now=ON;
+
+One trigger is introduced to recover bufferpool, If the variable below set,
+bufferpool recovery will be executed after each transmition:
+  SET GLOBAL innodb_buffer_pool_recover_after_transmit=ON;
+
+To Abort a current running recovery of bufferpool, call the statement
+below at slave side:
+  SET GLOBAL innodb_buffer_pool_recover_abort=ON;
+
+To recover N% pages of each buffer pool at most during BP recover,
+call the statement below at slave side:
+  set global srv_buffer_pool_recover_pct=N;
+
+All variables above are read by MySQL and displayed to the user when queried:
+  SELECT @@innodb_buffer_pool_snapshot_now;
+  SELECT @@innodb_buffer_pool_snapshot_interval;
+  SELECT @@innodb_buffer_pool_snapshot_threashold;
+  SELECT @@innodb_buffer_pool_transmit_enabled;
+  SELECT @@innodb_buffer_pool_transmit_interval;
+  SELECT @@innodb_buffer_pool_recover_now;
+  SELECT @@innodb_buffer_pool_recover_after_transmit;
+  SELECT @@innodb_buffer_pool_recover_abort;
+  SELECT @@innodb_buffer_pool_snapshot_pct;
+  SELECT @@innodb_buffer_pool_recover_pct;
+
+Attention: the following variales are implemented at sql/sys_vars.cc
+  innodb_buffer_pool_transmit_enabled
+  innodb_buffer_pool_transmit_interval*/
+
+ulint srv_buffer_pool_snapshot_interval = 0;
+ulint srv_buffer_pool_snapshot_threshold = 0;
+bool srv_buffer_pool_recover_now = false;
+bool srv_buffer_pool_recover_abort = false;
+bool srv_buffer_pool_recover_after_transmit = false;
+bool srv_buffer_pool_snapshot_now = false;
+
+/** Snapshot this % of each buffer pool during BP snapshot */
+ulong srv_buffer_pool_snapshot_pct;
+/** Recover this % of each buffer pool at most during BP recover */
+ulong srv_buffer_pool_recover_pct;
+/* Changes from txsql end. */
+
 /* Interval in seconds at which various tasks are performed by the
 master thread when server is active. In order to balance the workload,
 we should try to keep intervals such that they are not multiple of
@@ -787,6 +854,11 @@ os_event_t srv_error_event;
 
 /** Event to signal the buffer pool dump/load thread */
 os_event_t srv_buf_dump_event;
+
+/* Changes from txsql start. */
+/** Event to signal the buffer pool snapshot/recover thread */
+os_event_t srv_buf_synchronize_event;
+/* Changes from txsql end. */
 
 /** Event to signal the buffer pool resize thread */
 os_event_t srv_buf_resize_event;
@@ -966,6 +1038,28 @@ static srv_slot_t *srv_reserve_slot(
 
   return (slot);
 }
+
+
+/* Changes from txsql start. */
+/** Check if need to snapshot bufferpool.
+@return true if we have to snapshot bufferpool right now. */
+bool srv_check_if_need_snapshot(
+    ulint *last_data_read, std::chrono::system_clock::time_point *last_time) {
+  auto cur_time = std::chrono::system_clock::now();
+  std::chrono::seconds snapshot_interval{srv_buffer_pool_snapshot_interval};
+
+  if ((srv_buffer_pool_snapshot_threshold != 0 &&
+       srv_stats.data_read - *last_data_read >
+           srv_buf_pool_size * srv_buffer_pool_snapshot_threshold / 100) ||
+      (srv_buffer_pool_snapshot_interval != 0 &&
+       std::chrono::system_clock::now() - *last_time > snapshot_interval)) {
+    *last_time = cur_time;
+    *last_data_read = srv_stats.data_read;
+    return (true);
+  }
+  return (false);
+}
+/* Changes from txsql end. */
 
 /** Suspends the calling thread to wait for the event in its thread slot.
  @return the current signal count of the event. */
@@ -1183,6 +1277,8 @@ static void srv_init(void) {
 
     buf_flush_tick_event = os_event_create();
 
+    srv_buf_synchronize_event = os_event_create();
+
     UT_LIST_INIT(srv_sys->tasks);
   }
 
@@ -1232,6 +1328,7 @@ void srv_free(void) {
     os_event_destroy(srv_buf_dump_event);
     os_event_destroy(buf_flush_event);
     os_event_destroy(buf_flush_tick_event);
+    os_event_destroy(srv_buf_synchronize_event);
   }
 
   os_event_destroy(srv_buf_resize_event);
@@ -2702,6 +2799,8 @@ static void srv_master_main_loop(srv_slot_t *slot) {
   }
 
   ulint old_activity_count = srv_get_activity_count();
+  ulint last_data_read = srv_stats.data_read;
+  auto last_snapshot_time = std::chrono::system_clock::now();
 
   while (srv_shutdown_state.load() <
          SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
@@ -2714,6 +2813,16 @@ static void srv_master_main_loop(srv_slot_t *slot) {
     performed in such background thread. */
     srv_main_thread_op_info = "checking free log space";
     log_free_check();
+
+    if (srv_check_if_need_snapshot(&last_data_read, &last_snapshot_time)) {
+      buf_snapshot_start();
+    }
+
+    if (srv_buffer_pool_recover_after_transmit &&
+        innodb_buffer_pool_transmit_finished) {
+      innodb_buffer_pool_transmit_finished = false;
+      buf_recover_start();
+    }
 
     if (srv_check_activity(old_activity_count)) {
       old_activity_count = srv_get_activity_count();

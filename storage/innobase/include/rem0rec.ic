@@ -712,6 +712,35 @@ static inline rec_t *rec_copy(void *buf, const rec_t *rec,
   return ((byte *)buf + extra_len);
 }
 
+/* Changes from txsql start. */
+/** Copy a physical record key fields to a mem_heap buffer.
+@param[in]	heap mem_heap to create buffer
+@param[in]	rec	physical record
+@param[in]	offsets	array returned by rec_get_offsets()
+@param[in]	index which the record belong to
+@param[out]	extra_len total size of record minus data size of record
+@param[out]	data_len key fields length
+@return pointer to the origin of the copy */
+static inline rec_t *rec_key_fields_copy(mem_heap_t *heap, const rec_t *rec,
+                                         const ulint *offsets,
+                                         dict_index_t *index, ulint &extra_len,
+                                         ulint &data_len) {
+  ut_ad(rec != nullptr);
+  ut_ad(rec_offs_validate(rec, nullptr, offsets));
+  ut_ad(rec_validate(rec, offsets));
+
+  extra_len = rec_offs_extra_size(offsets);
+  data_len =
+      rec_offs_base(offsets)[dict_index_get_n_unique_in_tree_nonleaf(index)] &
+      REC_OFFS_MASK;
+
+  void *buf = mem_heap_alloc(heap, extra_len + data_len);
+  ut_memcpy(buf, rec - extra_len, extra_len + data_len);
+
+  return ((byte *)buf);
+}
+/* Changes from txsql end. */
+
 /** Returns the extra size of an old-style physical record if we know its
  data size and number of fields. */
 static inline ulint rec_get_converted_extra_size(ulint data_size,

@@ -1434,6 +1434,7 @@ bool cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
     case COM_BINLOG_DUMP:
     case COM_BINLOG_DUMP_GTID:
     case COM_TABLE_DUMP:
+    case COM_BP_TRANSMIT:
       MYSQL_TRACE(DISCONNECTED, mysql, ());
       break;
 

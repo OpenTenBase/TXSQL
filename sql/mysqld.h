@@ -69,6 +69,9 @@
 
 /* Changes from txsql start. */
 #include "my_thread_os_id.h"  //my_thread_os_id_t
+#include "bp_sync.h"
+#include <map>
+#include <set>
 
 extern char *mysqld_admin_port_init_tool;
 extern char *mysqld_admin_port_init_tool_md5;
@@ -76,7 +79,6 @@ extern int mysql_admin_tool_set_group(ulonglong os_thread_id);
 extern int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority);
 extern my_thread_os_id_t admin_listener_os_thread_id;
 extern bool admin_tool_valid;
-/* Changes from txsql end. */
 
 class Rpl_global_filter;
 class Rpl_acf_configuration_handler;
@@ -555,6 +557,7 @@ extern PSI_socket_key key_socket_tcpip;
 extern PSI_socket_key key_socket_unix;
 extern PSI_socket_key key_socket_client_connection;
 
+extern PSI_mutex_key key_master_info_transmit_lock;
 #endif /* HAVE_PSI_INTERFACE */
 
 /*
@@ -893,5 +896,9 @@ extern void update_lock_stats(int type, const char *name, ulong line, ulong id);
 
 extern ulonglong binlog_write_threshold;
 extern const char *default_collation_for_utf8mb4_str;
+/* Variable to control ib_bp_info to only copy once for each client. */
+extern mysql_mutex_t LOCK_transmit_client_access;
+extern PSI_mutex_key key_LOCK_transmit_client_access;
+extern std::map<std::string, std::set<uint16> > global_transmit_client;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */
