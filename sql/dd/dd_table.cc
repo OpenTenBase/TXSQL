@@ -710,6 +710,12 @@ bool fill_dd_columns_from_create_fields(THD *thd, dd::Abstract_table *tab_obj,
       col_options->set("is_array", true);
     }
 
+    if (field.is_mask) {
+      col_options->set("is_mask", true);
+      col_options->set("mask_start", field.mask_start_pos);
+      col_options->set("mask_end", field.mask_end_pos);
+    }
+
     //
     // Write intervals
     //

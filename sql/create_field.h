@@ -150,6 +150,12 @@ class Create_field {
   */
   bool treat_bit_as_char;
 
+  bool is_mask{false};
+
+  uint64_t mask_start_pos{0};
+
+  uint64_t mask_end_pos{0};
+
   /**
     Row based replication code sometimes needs to create ENUM and SET
     fields with pack length which doesn't correspond to number of
@@ -223,7 +229,9 @@ class Create_field {
             bool has_explicit_collation, uint uint_geom_type,
             Value_generator *gcol_info, Value_generator *default_val_expr,
             std::optional<gis::srid_t> srid,
-            dd::Column::enum_hidden_type hidden, bool is_array = false);
+            dd::Column::enum_hidden_type hidden, bool is_array = false, 
+            bool is_masked = false, uint64_t mask_start = 0,
+            uint64_t mask_end = 0);
 
   ha_storage_media field_storage_type() const {
     return (ha_storage_media)((flags >> FIELD_FLAGS_STORAGE_MEDIA) & 3);

@@ -499,6 +499,11 @@ struct mysql_row_templ_t {
   ulint is_virtual;             /*!< if a column is a virtual column */
   ulint is_multi_val;           /*!< if a column is a Multi-Value Array virtual
                                 column */
+  bool is_mask;                 /*!< if column maybe masked */
+
+  uint64_t mask_start_pos;
+
+  uint64_t mask_end_pos;
 };
 
 constexpr uint32_t MYSQL_FETCH_CACHE_SIZE = 8;
@@ -956,7 +961,7 @@ dfield_t *innobase_get_computed_value(
     const dtuple_t *row, const dict_v_col_t *col, const dict_index_t *index,
     mem_heap_t **local_heap, mem_heap_t *heap, const dict_field_t *ifield,
     THD *thd, TABLE *mysql_table, const dict_table_t *old_table,
-    upd_t *parent_update, dict_foreign_t *foreign);
+    upd_t *parent_update, dict_foreign_t *foreign, row_prebuilt_t *prebuilt);
 
 /** Parse out multi-values from a MySQL record
 @param[in]      mysql_table     MySQL table structure

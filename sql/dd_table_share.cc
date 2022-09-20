@@ -922,6 +922,19 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
   if (field_type == MYSQL_TYPE_BIT)
     column_options->get("treat_bit_as_char", &treat_bit_as_char);
 
+  // Is masked data
+  bool is_mask = false;
+  uint64_t mask_start = 0;
+  uint64_t mask_end = 0;
+  if (column_options->exists("is_mask")) {
+    column_options->get("is_mask", &is_mask);
+
+    if (is_mask) {
+      column_options->get("mask_start", &mask_start);
+      column_options->get("mask_end", &mask_end);
+    }
+  }
+
   // Collation ID
   charset = dd_get_mysql_charset(col_obj->collation_id());
   if (charset == nullptr) {
@@ -1085,6 +1098,10 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
     reg_field->set_flag(NOT_SECONDARY_FLAG);
 
   reg_field->set_hidden(col_obj->hidden());
+
+  reg_field->is_mask = is_mask;
+  reg_field->mask_start_pos = mask_start;
+  reg_field->mask_end_pos = mask_end;
 
   reg_field->m_engine_attribute = LexStringDupRootUnlessEmpty(
       &share->mem_root, col_obj->engine_attribute());

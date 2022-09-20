@@ -2047,6 +2047,12 @@ bool has_full_view_routine_access(THD *thd, const char *db,
                          sctx->priv_host().str));
 }
 
+bool has_mask_data_access(THD *thd) {
+  DBUG_TRACE;
+  Security_context *sctx = thd->security_context();
+  return sctx->has_global_grant(STRING_WITH_LEN("READ_MASK")).first;
+}
+
 /**
   @brief Check if user has partial access to view routine's properties
   (i.e. excluding stored routine code). User must have EXECUTE/CREATE/ALTER

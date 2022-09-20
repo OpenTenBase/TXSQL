@@ -88,6 +88,7 @@ bool row_vers_old_has_index_entry(
     const dtuple_t *ientry, /*!< in: the secondary index entry */
     roll_ptr_t roll_ptr,    /*!< in: roll_ptr for the purge record */
     trx_id_t trx_id,        /*!< in: transaction ID on the purging record */
+    row_prebuilt_t *prebuilt,
     bool pre_purge = false); /*!< in: true for pre_purge */
 
 /** Constructs the version of a clustered index record which a consistent

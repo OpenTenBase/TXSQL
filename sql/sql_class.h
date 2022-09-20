@@ -4796,6 +4796,16 @@ class THD : public MDL_context_owner,
     m_select_lock_n_sec = select_lock_n_sec;
   }
   /* Changes from txsql end. */
+
+  enum READ_MASK_ACL {
+    READ_MASK_UNINIT = 0,
+    READ_MASK_CAN_READ = 1,
+    READ_MASK_NOT_READ = 2,
+  };
+
+  enum READ_MASK_ACL read_mask;
+
+  bool can_read_mask();
 };
 
 /**
