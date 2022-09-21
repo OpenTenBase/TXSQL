@@ -79,6 +79,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "sql_thd_internal_api.h"
 #include "srv0mon.h"
 #include "trx0tlog.h"
+#include "rpl_gtid.h"
 
 #include "my_dbug.h"
 #include "my_psi_config.h"
@@ -2545,6 +2546,10 @@ static void srv_master_do_active_tasks(void) {
       MONITOR_INC_VALUE(MONITOR_SRV_DICT_LRU_EVICT_COUNT, n_evicted);
     }
     MONITOR_INC_TIME(MONITOR_SRV_DICT_LRU_MICROSECOND, counter_time);
+  }
+
+  if (cdb_optimize_gtid_lock) {
+    gtid_state->cleanup_owned_gtids();
   }
 }
 

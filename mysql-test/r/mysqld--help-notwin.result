@@ -2145,6 +2145,17 @@ cdb-recycle-bin-db-not-visible TRUE
 cdb-recycle-bin-enabled FALSE
 cdb-recycle-bin-retention 604800
 cdb-recycle-scheduler-interval 0
+cdb-more-gtid-feature-supported FALSE
+cdb-opt-outline-enabled FALSE
+cdb-optimize-gtid-lock FALSE
+cdb-optimize-large-trans-binlog FALSE
+cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
+cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
+cdb-plan-cache FALSE
+cdb-plan-cache-query-length-limit 102400
+cdb-plan-cache-stats FALSE
+cdb-recycle-bin-db-not-visible TRUE
+cdb-recycle-bin-enabled FALSE
 cdb-replica-host-detection TRUE
 cdb-role CDB_ROLE_UNKNOWN
 cdb-session-var-privilege-check-enabled FALSE

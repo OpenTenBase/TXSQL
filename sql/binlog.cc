@@ -1600,9 +1600,17 @@ bool MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group(THD *first_seen) {
                  ("thd->variables.gtid_next.type=%d "
                   "thd->owned_gtid.sidno=%d",
                   head->variables.gtid_next.type, head->owned_gtid.sidno));
-      if (head->variables.gtid_next.type == ASSIGNED_GTID)
+      if (head->variables.gtid_next.type == ASSIGNED_GTID){
         assert(head->owned_gtid.sidno > 0);
-      else {
+        if (cdb_optimize_gtid_lock) {
+          /* Add GTID into executed_gtids. */
+          if (!is_global_sid_locked) {
+            global_sid_lock->rdlock();
+            is_global_sid_locked = true;
+          }
+          gtid_state->add_executed_gtid(head->owned_gtid, &locked_sidno);
+        }
+      } else {
         assert(head->variables.gtid_next.type == ANONYMOUS_GTID);
         assert(head->owned_gtid.sidno == THD::OWNED_SIDNO_ANONYMOUS);
       }

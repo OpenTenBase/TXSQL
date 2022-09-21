@@ -1,0 +1,1 @@
+--tencent-root-cnf=tmy.conf  --cdb_optimize_gtid_lock=ON --gtid_mode=ON --enforce_gtid_consistency=ON --binlog_order_commits=OFF --log-bin

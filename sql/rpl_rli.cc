@@ -852,6 +852,10 @@ int Relay_log_info::wait_for_gtid_set(THD *thd, const Gtid_set *wait_gtid_set,
     const Gtid_set *executed_gtids = gtid_state->get_executed_gtids();
     const Owned_gtids *owned_gtids = gtid_state->get_owned_gtids();
 
+    if (cdb_optimize_gtid_lock) {
+      (const_cast<Gtid_set *>(wait_gtid_set))->remove_gtid_set(gtid_state->get_undeleted_gtids());
+    }
+
 #ifndef NDEBUG
     char *wait_gtid_set_buf;
     wait_gtid_set->to_string(&wait_gtid_set_buf);

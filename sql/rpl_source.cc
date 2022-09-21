@@ -1299,11 +1299,44 @@ bool show_master_status(THD *thd) {
 
   global_sid_lock->wrlock();
   const Gtid_set *gtid_set = gtid_state->get_executed_gtids();
-  if ((gtid_set_size = gtid_set->to_string(&gtid_set_buffer)) < 0) {
-    global_sid_lock->unlock();
-    my_eof(thd);
-    my_free(gtid_set_buffer);
-    return true;
+  if (cdb_optimize_gtid_lock) {
+    /* pure_executed_gtids = gtid_set - owned_gtids + undeleted_gtids */
+    const Owned_gtids *owned_gtids = gtid_state->get_owned_gtids();
+    const Gtid_set *undeleted_gtids = gtid_state->get_undeleted_gtids();
+    Sid_map sid_map(nullptr);
+    Gtid_set pure_executed_gtids(&sid_map, nullptr); 
+    // Allocate some intervals on stack to reduce allocation.
+    static const int PREALLOCATED_INTERVAL_COUNT = 64;
+    Gtid_set::Interval iv[PREALLOCATED_INTERVAL_COUNT];
+    pure_executed_gtids.add_interval_memory(PREALLOCATED_INTERVAL_COUNT, iv);
+
+    if (pure_executed_gtids.add_gtid_set(gtid_set) != RETURN_STATUS_OK) {
+      global_sid_lock->unlock();
+      my_eof(thd);
+      my_free(gtid_set_buffer);
+      return true;
+    }
+    owned_gtids->weed_out_gtids(pure_executed_gtids);
+    if (pure_executed_gtids.add_gtid_set(undeleted_gtids) != RETURN_STATUS_OK) {
+      global_sid_lock->unlock();
+      my_eof(thd);
+      my_free(gtid_set_buffer);
+      return true;
+    } 
+
+    if ((gtid_set_size = pure_executed_gtids.to_string(&gtid_set_buffer)) < 0) {
+      global_sid_lock->unlock();
+      my_eof(thd);
+      my_free(gtid_set_buffer);
+      return true;
+    }
+  } else {
+    if ((gtid_set_size = gtid_set->to_string(&gtid_set_buffer)) < 0) {
+      global_sid_lock->unlock();
+      my_eof(thd);
+      my_free(gtid_set_buffer);
+      return true;
+    }
   }
   global_sid_lock->unlock();
 

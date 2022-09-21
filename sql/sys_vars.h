@@ -2621,7 +2621,27 @@ class Sys_var_gtid_executed : Sys_var_charptr_func {
     return (uchar *)buf;
   }
 };
+/**
+  Class for @@global.gtid_undeleted.
+*/
+class Sys_var_gtid_undeleted : Sys_var_charptr_func {
+ public:
+  Sys_var_gtid_undeleted(const char *name_arg, const char *comment_arg)
+      : Sys_var_charptr_func(name_arg, comment_arg, GLOBAL) {}
 
+  const uchar *global_value_ptr(THD *thd, std::string_view) override {
+    DBUG_TRACE;
+    global_sid_lock->wrlock();
+    const Gtid_set *gs = gtid_state->get_undeleted_gtids();
+    char *buf = (char *)thd->alloc(gs->get_string_length() + 1);
+    if (buf == nullptr)
+      my_error(ER_OUT_OF_RESOURCES, MYF(0));
+    else
+      gs->to_string(buf);
+    global_sid_lock->unlock();
+    return (uchar *)buf;
+  }
+};
 /**
   Class for @@global.system_time_zone.
 */
