@@ -324,6 +324,134 @@ class Basic_binlog_file_reader {
     return ev;
   }
 
+#if defined(MYSQL_SERVER)
+  /**
+    Aggregate multiple adjacent events into a new event.
+
+    @param[in] apply_unit              Aggregation structure
+    @param[in|out] unmatch_event_info  Last unmatched event in this aggregation
+                                       process
+    @param[in] relay_log_name          Current reading relay log file name
+    @param[in] max_pending_event_size  Max size of SQL do not applied events
+    @param[in] max_reading_file_pos    Max reading position of current file
+
+    @return a aggregated event
+  */
+  Log_event *read_event_object(Aggregation_apply_unit *apply_unit,
+                               Unmatch_event_info *unmatch_event_info,
+                               const char *relay_log_name,
+                               ulonglong max_pending_event_size,
+                               ulonglong max_reading_file_pos) {
+    DBUG_TRACE;
+    Log_event *ev = nullptr;
+    bool reach_max_reading_file_pos = false;
+    if (Aggregation_apply_unit::max_agg_event_size > 0 ||
+        unmatch_event_info->exist_unmatch_event() || !apply_unit->empty()) {
+      DBUG_PRINT("hash_scan_optimize",
+                ("Collection phase start: apply_unit: %lu, unmatch_event: %lu, "
+                  "unmatch_event position: %llu, unmatch_event file: %s",
+                  (ulong)apply_unit, (ulong)(unmatch_event_info->event),
+                  unmatch_event_info->future_event_relay_log_pos,
+                  unmatch_event_info->relay_log_file));
+
+      /*
+        Phase1. Collect the same type event into apply_unit until the ev is NULL
+        or it read a different type event.
+      */
+      while(true) {
+        if (!unmatch_event_info->exist_unmatch_event()) {
+          DBUG_PRINT("hash_scan_optimize",
+                     ("Collection phase start: read log event"));
+          my_off_t event_start = position();
+          if ((ev = read_event_object())) {
+            ev->relay_log_start_pos = event_start;
+            ev->future_event_relay_log_pos = position();
+            strmake(ev->relay_log_file, relay_log_name,
+                    sizeof(ev->relay_log_file)-1);
+          }
+          /*
+            Make sure the file offset retains unchange after
+            encountering Binlog_read_error::READ_EOF
+          */
+          assert(!(ev == nullptr &&
+                   get_error_type() == Binlog_read_error::READ_EOF &&
+                   event_start != position()));
+        } else {
+          DBUG_PRINT("hash_scan_optimize",
+                     ("Collection phase start: exist unmatch event"));
+          if (!strcmp(unmatch_event_info->relay_log_file, relay_log_name) &&
+              unmatch_event_info->future_event_relay_log_pos == position()) {
+            DBUG_PRINT("hash_scan_optimize",
+                       ("Collection phase start: exist unmatch event: "
+                        "use unmatch event"));
+            ev = unmatch_event_info->event;
+            unmatch_event_info->event = nullptr;
+            unmatch_event_info->reset();
+            /*
+              When reading to the end of the log file, we need to try again
+              to check whether there are new events written.
+            */
+            if (!ev && get_error_type() == Binlog_read_error::READ_EOF) {
+              assert(apply_unit->empty());
+              continue;
+            }
+          } else {
+            unmatch_event_info->reset();
+            continue;
+          }
+        }
+        DBUG_PRINT("hash_scan_optimize",
+                  ("Collection phase check: event: %lu, unmatch_event: %lu",
+                   (ulong)ev, (ulong)(unmatch_event_info->event)));
+        /*
+          When one of the following two conditions is met, we exit the
+          collection phase then start aggregation phase.
+          1. reading event encounter error and here ev is nullptr
+          2. failed to check event meta data
+         */
+        if (!ev ||
+            !apply_unit->check_event_metadata(ev, max_pending_event_size))
+          break;
+
+        DBUG_PRINT("hash_scan_optimize",
+                  ("Collection phase check successfully: log pos: %llu, "
+                   "log file: %s",
+                   ev->relay_log_start_pos, ev->relay_log_file));
+
+        apply_unit->push_event(static_cast<Rows_log_event *>(ev));
+
+        if (position() >= max_reading_file_pos) {
+          reach_max_reading_file_pos = true;
+          break;
+        }
+      }
+      DBUG_PRINT("hash_scan_optimize", ("Collection phase end"));
+      /*
+        Phase2. Aggregate the collected event in apply_unit and store the
+        different event into unmatch event
+      */
+      if(!apply_unit->empty()) {
+        if (!reach_max_reading_file_pos)
+          unmatch_event_info->set(position(), relay_log_name, ev);
+
+        ev = apply_unit->aggregate_event_collection();
+      }
+      DBUG_PRINT("hash_scan_optimize",
+                ("aggregation phase end: event: %lu, unmatch_event: %lu, "
+                "unmatch_event position: %llu, unmatch_event file: %s",
+                (ulong)ev, (ulong)unmatch_event_info->event,
+                unmatch_event_info->future_event_relay_log_pos,
+                unmatch_event_info->relay_log_file));
+      if (ev) ev->is_aggregation_event = true;
+    } else {
+      if((ev = read_event_object())) ev->is_aggregation_event = false;
+    }
+    return ev;
+  }
+
+#endif
+
+
   bool has_fatal_error() { return m_error.has_fatal_error(); }
   /**
      Return the error happened in the stream pipeline.

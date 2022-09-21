@@ -8104,4 +8104,13 @@ static Sys_var_bool Sys_hash_scan_index_selection_enabled(
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static Sys_var_ulonglong Sys_hash_scan_max_agg_event_size(
+    "cdb_hash_scan_max_agg_event_size", "Maximum event size allowed after"
+    " aggregation. Default is 0 and if variable is 0, the event"
+    " aggregation never work",
+    GLOBAL_VAR(Aggregation_apply_unit::max_agg_event_size),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, ULLONG_MAX),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
 /* Changes from txsql end. */

@@ -837,6 +837,20 @@ class Log_event {
   */
   ulonglong future_event_relay_log_pos;
 
+  /**
+     The file position and name of the event when it is read.
+   */
+  my_off_t relay_log_start_pos;
+  char relay_log_file[FN_REFLEN];
+
+  /**
+    The variable determines whether the aggregation method is used to read the
+    event. When it set to true the event related postions may be inconsistent
+    with relay file positions and we use event related file positions to set
+    the related m_rli position status.
+   */
+  bool is_aggregation_event;
+
 #ifdef MYSQL_SERVER
   THD *thd;
   /**
@@ -2672,6 +2686,127 @@ class Rows_applier_psi_stage {
 };
 #endif
 
+#if defined(MYSQL_SERVER)
+
+class Rows_log_event;
+
+/**
+  @class Aggregation_apply_unit
+
+ Aggregate a segment of successive consequent event into a new event, then apply
+ the event using HASH_SCAN algorithm to speed up this apply process.
+
+ It has two phases:
+ phase1. collect the successive event of the same type;
+ phase2. aggregate event that has been gathered into a new event;
+
+*/
+class Aggregation_apply_unit
+{
+private:
+  /**
+     This vector that will queue the same type of events for while opening
+     event_aggregate performance optimization to aggregate new event.
+  */
+  std::vector<Rows_log_event *> event_collection;
+
+  /**
+     The cur_agg_size is the sum of length of events in the event_collection,
+     but it is greater than the length of new event to be aggregated.
+  */
+  ulonglong cur_agg_size;
+
+  /** Check whether this event belongs to rows event */
+  bool is_rows_event(Log_event *ev);
+
+  /** Clear event_collection and cur_agg_size for the next aggregation */
+  void clear();
+
+public:
+
+  static ulonglong max_agg_event_size;
+
+  Aggregation_apply_unit()
+  : cur_agg_size(0) { }
+
+  ~Aggregation_apply_unit() { assert(empty()); }
+
+  /**
+     Check whether the event is the same type of event_collection[0]. the criteria
+     for judging the same type is consist of the following rule:
+     1. is rows event type;
+     2. there is no Rows_log_event::STMT_END_F flag in the Rows_event::m_flags;
+     3. the cur_agg_size is less than max_agg_event_size;
+     4. have same of event flags judged by  Rows_log_event::compare_header_info;
+
+     @return
+     true if satisfy the above rules or a false otherwise.
+  */
+  bool check_event_metadata(Log_event *ev, ulonglong max_pending_event_size);
+
+  /**
+     If event position is greater than current relay log position ,it push the
+     event to the back of event_collection.
+  */
+  void push_event(Rows_log_event *ev);
+
+  /**
+     Aggregate the event in the event_collection.
+
+     @return
+     return the aggregated event
+  */
+  Rows_log_event *aggregate_event_collection();
+
+  bool empty() { return event_collection.empty(); }
+};
+
+/**
+  @class Unmatch_event_info
+
+  Hold last unmatched event infomation in aggregation process. This information
+  also include the event position in relay log file and relay log file name.
+*/
+struct Unmatch_event_info
+{
+  my_off_t future_event_relay_log_pos; /* the end position of event in relay log file */
+  char relay_log_file[FN_REFLEN]; /* the relay log file name */
+  Log_event* event; /* the unmatched event */
+
+  Unmatch_event_info()
+  : event(nullptr) { reset(); }
+
+  ~Unmatch_event_info() { reset(); }
+
+  /** whether the information exist a unmatched event */
+  bool exist_unmatch_event()
+  {
+    return future_event_relay_log_pos != 0 &&
+           relay_log_file[0] != '\0';
+  }
+
+  /** reset all recorded information */
+  void reset()
+  {
+    future_event_relay_log_pos = 0;
+    memset(relay_log_file, 0, sizeof(relay_log_file));
+    if (event)
+      delete event;
+
+    event = nullptr;
+  }
+
+  /** set relative information about unmatched event */
+  void set(my_off_t pos, const char* file_name, Log_event* ev)
+  {
+    future_event_relay_log_pos = pos;
+    strmake(relay_log_file, file_name, sizeof(relay_log_file)-1);
+    event = ev;
+  }
+};
+
+#endif
+
 /**
   @class Rows_log_event
 
@@ -3197,6 +3332,20 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     the values are calculated, we set the write set back to its original value.
   */
   MY_BITMAP write_set_backup;
+
+#if defined(MYSQL_SERVER)
+public:
+  /**
+    Compare the header information of two events that need to be aggregated.
+
+    @param ev rows log event to be compared.
+    @returns true if all flags is same, or a false otherwise.
+  */
+  bool compare_header_info(Rows_log_event *ev);
+
+  friend Rows_log_event *Aggregation_apply_unit::aggregate_event_collection();
+
+#endif
 };
 
 /**

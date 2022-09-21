@@ -9705,6 +9705,97 @@ err:
   return error;
 }
 
+/**
+  Some need to be compared flags (Y: need compare, N: not compare):
+  +------------+----------------+-----------------+------------------
+  |            |   field        |   length        | compare
+  +------------+----------------+-----------------+------------------
+  |            | timestamp      |    4            |   N (first event)
+  |            +----------------+-----------------+------------------
+  |            | event_type     |    1            |   Y
+  |            +----------------+-----------------+------------------
+  |            | server_id      |    4            |   Y
+  | log event  +----------------+-----------------+------------------
+  |   header   | event_size     |    4            |   N (sum of all)
+  |(LOG_EVENT  +----------------+-----------------+------------------
+  |_HEADER_LEN)| log_pos        |    4            |   N (log_pos of the last event)
+  |            +----------------+-----------------+------------------
+  |            | flags          |    2            |   Y
+  +------------+----------------+-----------------+------------------
+  |            | m_table_id     |    6/4          |   Y
+  | row event  +----------------+-----------------+------------------
+  | post header| m_flags        |    2            |   Y
+  |            +----------------+-----------------+------------------
+  |            | var_header_len |    2 (option)   |   N
+  +------------+----------------+-----------------+------------------
+  |            |ROWS_V_EXTRAINFO|    1 (option)   |   N
+  |extra info[]|_TAG            |                 |
+  |            +----------------+-----------------+------------------
+  |            | info len       |    1 (option)   |   N
+  |            +----------------+-----------------+------------------
+  |            |m_extra_row_data|    info len     |   Y
+  +------------+----------------+-----------------+------------------
+  |            |columns_before  |    1~9          |   N
+  |            |_image_width    |                 |
+  |            +----------------+-----------------+------------------
+  | column     |columns_before  |  columns_before |   Y
+  | bitmap     |_image_bitmap   |   _image_width  |
+  |            +----------------+-----------------+------------------
+  |            |columns_after   |1~9 (only update)|   N
+  |            |_image_width    |                 |
+  |            +----------------+-----------------+------------------
+  |            |columns_after   |  columns_after  |   Y
+  |            |_image_bitmap   |  _image_width   |
+  +------------+----------------+-----------------+------------------
+  | rows data  |                |                 |   N (aggregate)
+  +------------+----------------+-----------------+------------------
+
+*/
+bool Rows_log_event::compare_header_info(Rows_log_event *ev) {
+  DBUG_TRACE;
+  assert(ev != NULL);
+
+  // compare log event header
+  if (server_id != ev->server_id ||
+      get_general_type_code() != ev->get_general_type_code() ||
+      common_header->flags != ev->common_header->flags)
+    return false;
+
+
+  // compare row event post header
+  flag_set flag_mask= STMT_END_F | NO_FOREIGN_KEY_CHECKS_F |
+                      RELAXED_UNIQUE_CHECKS_F | COMPLETE_ROWS_F;
+  if (get_table_id() != ev->get_table_id() ||
+      get_flags(flag_mask) != ev->get_flags(flag_mask))
+    return false;
+
+  // compare extra info
+  if (!m_extra_row_info.compare_extra_row_info(
+           ev->m_extra_row_info.get_ndb_info(),
+           ev->m_extra_row_info.get_partition_id(),
+           ev->m_extra_row_info.get_source_partition_id()))
+    return false;
+
+  // compare column bitmap
+  bool same_type = false;
+  switch (get_general_type_code()) {
+    case binary_log::DELETE_ROWS_EVENT:
+      same_type = bitmap_cmp(get_cols(), ev->get_cols());
+      break;
+    case binary_log::UPDATE_ROWS_EVENT:
+      same_type = (bitmap_cmp(get_cols(), ev->get_cols()) &&
+                   bitmap_cmp(get_cols_ai(), ev->get_cols_ai()));
+      break;
+    case binary_log::WRITE_ROWS_EVENT:
+      same_type = bitmap_cmp(get_cols(), ev->get_cols());
+      break;
+    default:
+      same_type = false;
+  }
+
+  return same_type;
+}
+
 int Rows_log_event::do_hash_scan_and_update(Relay_log_info const *rli) {
   DBUG_TRACE;
   assert(m_table && m_table->in_use != nullptr);
@@ -14526,3 +14617,124 @@ std::pair<bool, binary_log::Log_event_basic_info> extract_log_event_basic_info(
       uint2korr(buf + FLAGS_OFFSET) & LOG_EVENT_IGNORABLE_F;
   return std::make_pair(false, event_info);
 }
+
+#if defined(MYSQL_SERVER)
+
+ulonglong Aggregation_apply_unit::max_agg_event_size = 1048576;
+
+bool Aggregation_apply_unit::is_rows_event(Log_event *ev) {
+  switch(ev->get_type_code()) {
+    case binary_log::WRITE_ROWS_EVENT:
+    case binary_log::UPDATE_ROWS_EVENT:
+    case binary_log::DELETE_ROWS_EVENT:
+    case binary_log::WRITE_ROWS_EVENT_V1:
+    case binary_log::UPDATE_ROWS_EVENT_V1:
+    case binary_log::DELETE_ROWS_EVENT_V1:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool Aggregation_apply_unit::check_event_metadata(
+    Log_event *ev, ulonglong max_pending_event_size) {
+  DBUG_TRACE;
+  DBUG_PRINT("hash_scan_optimize",
+             ("Aggregation_apply_unit::check_event_metadata: "
+              "apply event size: %lu, event type: %s, cur agg size: %llu, "
+              "max_pending_event_size: %llu, max_agg_event_size: %llu"
+              "event len: %lu",
+              event_collection.size(),
+              Log_event::get_type_str(ev->get_type_code()),
+              cur_agg_size, max_pending_event_size, max_agg_event_size,
+              ev->common_header->data_written));
+
+  if (!is_rows_event(ev)) return false;
+
+  Rows_log_event *rev = static_cast<Rows_log_event *>(ev);
+  if (ev->common_header->data_written + cur_agg_size >=
+          std::min(max_agg_event_size, max_pending_event_size))
+    return false;
+
+  if (!event_collection.empty() &&
+      !event_collection[0]->compare_header_info(rev))
+    return false;
+
+  return true;
+}
+
+void Aggregation_apply_unit::push_event(Rows_log_event *ev) {
+  cur_agg_size += ev->common_header->data_written;
+  event_collection.push_back(ev);
+}
+
+Rows_log_event *Aggregation_apply_unit::aggregate_event_collection() {
+  DBUG_TRACE;
+  DBUG_PRINT("hash_scan_optimize",
+            ("collection event number: %lu", event_collection.size()));
+  if (event_collection.empty()) return nullptr;
+
+  Rows_log_event *ev = event_collection[0];
+  if (event_collection.size() == 1) {
+    clear();
+    return ev;
+  }
+
+  char *buf = nullptr;
+  if (!(buf = (char*) my_malloc(key_memory_log_event,
+                                cur_agg_size+1, MYF(MY_WME)))) {
+    sql_print_error("Error in Aggregation_apply_unit::aggregate_event_collection:"
+                    " Out of memory");
+    return nullptr;
+  }
+
+  /* merge the rows data */
+  char *start = buf;
+  size_t count = 0;
+  for (size_t i = 0; i < event_collection.size(); i++) {
+    count = event_collection[i]->m_rows_end - event_collection[i]->m_rows_buf;
+    DBUG_DUMP("hash_scan_optimize", event_collection[i]->m_rows_buf,  count + 16);
+    DBUG_PRINT("hash_scan_optimize",
+               ("Aggregation_apply_unit::aggregate_event_collection: "
+                "log pos: %llu, log name: %s", event_collection[i]->relay_log_start_pos,
+                event_collection[i]->relay_log_file));
+
+    memcpy(buf, event_collection[i]->m_rows_buf, count);
+    buf+= count;
+  }
+  // copy aggregated row data to aggregated event
+  ev->row.assign(start, buf);
+  ev->m_rows_buf = &(ev->row[0]);
+  ev->m_curr_row = ev->m_rows_buf;
+
+  ev->m_rows_end = ev->m_rows_buf + ev->row.size();
+  ev->m_rows_cur = ev->m_rows_end;
+
+  // recalculate event data length
+  ev->common_header->data_written = cur_agg_size;
+  ev->common_header->log_pos = event_collection.back()->common_header->log_pos;
+
+  // reset event future_event_relay_log_pos
+  ev->future_event_relay_log_pos =
+    event_collection.back()->future_event_relay_log_pos;
+  my_free(start);
+  DBUG_PRINT("hash_scan_optimize",
+             ("Aggregation_apply_unit::aggregate_event_collection: "
+              "apply event size: %lu, event type: %s, row buf: %lu,"
+              "row end: %lu, cur_agg_size: %llu",
+              event_collection.size(), Log_event::get_type_str(ev->get_type_code()),
+              (ulong)(ev->m_rows_buf), (ulong)(ev->m_rows_end), cur_agg_size));
+  clear();
+  return ev;
+}
+
+void Aggregation_apply_unit::clear() {
+  for (size_t i = 1; i < event_collection.size(); i++) {
+    delete event_collection[i];
+    event_collection[i] = NULL;
+  }
+  event_collection.clear();
+  cur_agg_size = 0;
+}
+
+#endif
