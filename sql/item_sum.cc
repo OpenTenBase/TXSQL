@@ -60,6 +60,10 @@
 #include "sql/gis/geometry_extraction.h"
 #include "sql/gis/relops.h"
 #include "sql/handler.h"
+#include "sql/histograms/histogram.h"
+#include "sql/histograms/value_map.h"
+#include "sql/histograms/value_map_type.h"
+#include "sql/histograms/value_vector.h"
 #include "sql/item_cmpfunc.h"
 #include "sql/item_func.h"
 #include "sql/item_json_func.h"
@@ -6101,6 +6105,246 @@ Item *Item_sum_json_object::copy_or_same(THD *thd) {
 
   return new (thd->mem_root)
       Item_sum_json_object(thd, this, std::move(wrapper), std::move(object));
+}
+
+Item_sum_histogram::Item_sum_histogram(
+    const POS &pos, Item *a, int num_buckets, int seed, bool default_seed,
+    PT_window *w, unique_ptr_destroy_only<Json_wrapper> wrapper,
+    unique_ptr_destroy_only<Json_object> object)
+    : Item_sum_json(std::move(wrapper), pos, a, w),
+      m_json_object(std::move(object)), m_num_buckets(num_buckets),
+      m_seed(seed), m_default_seed(default_seed) {}
+
+Item_sum_histogram::~Item_sum_histogram() = default;
+
+bool Item_sum_histogram::resolve_type(THD *thd) {
+  if (param_type_is_default(thd, 0, -1)) return true;
+
+  set_nullable(true);
+  null_value = true;
+
+  // No need of reject_geometry_args() because no geometry type is mapped.
+  if (histograms::field_type_to_value_map_type(args[0]->data_type(),
+                                               /*meaningless*/false) ==
+      histograms::Value_map_type::INVALID) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), func_name());
+    return true;
+  }
+
+  return false;
+}
+
+bool Item_sum_histogram::add() {
+  assert(fixed == 1);
+  assert(arg_count == 1);
+
+  if (null_value) return false;
+
+  try {
+    /*
+      Value_map is used first to take values. When the memory used is greater
+      than a certain limit, Value_vector is used intead and existing values
+      are migrated, because Value_vector allows random access which is required
+      by reservoir sampling algorithms.
+     */
+    if (m_use_map && DBUG_EVALUATE_IF("histogram_use_map", false, true)) {
+      histograms::Value_map_base *value_map = m_value_map;
+      if (histograms::add_value<histograms::Value_map_base, Item>(
+              value_map, m_value_map_type, m_source_item) ||
+          DBUG_EVALUATE_IF("map_add_value_error", true, false)) {
+        throw std::runtime_error("Out of memory"); /* purecov: deadcode */
+      }
+      if (m_value_map->size_bytes() > m_memory_limit) {
+        if (m_value_map->fill_into(m_value_vector) ||
+            DBUG_EVALUATE_IF("vector_add_values_error", true, false)) {
+          throw std::runtime_error("Out of memory"); /* purecov: deadcode */
+        } else {
+          delete m_value_map;
+        }
+
+        size_t row_size_bytes = 0;
+        if (histograms::prepare_value_container<histograms::Value_map>(
+                &m_value_map, m_value_map_type, m_source_item, &row_size_bytes))
+          throw std::runtime_error("Out of memory"); /* purecov: deadcode */
+
+        m_use_map = false;
+      }
+    } else {
+      histograms::Value_vector_base *value_vector = m_value_vector;
+      if (histograms::add_value<histograms::Value_vector_base, Item>(
+              value_vector, m_value_map_type, m_source_item) ||
+          DBUG_EVALUATE_IF("vector_add_value_error", true, false)) {
+        throw std::runtime_error("Out of memory"); /* purecov: deadcode */
+      }
+    }
+
+  } catch (...) {
+    /* purecov: begin inspected */
+    handle_std_exception(func_name());
+    return true;
+    /* purecov: end */
+  }
+
+  return false;
+}
+
+void Item_sum_histogram::clear() {
+  set_nullable(true);
+  m_json_object->clear();
+
+  m_value_map = nullptr;
+  m_value_vector = nullptr;
+  m_source_item = args[0]->real_item();
+  enum_field_types field_type = real_data_type(m_source_item);
+
+  /*
+    Set the object to the m_wrapper, but let Item_sum_histogram keep the
+    ownership.
+  */
+  *m_wrapper = Json_wrapper(m_json_object.get(), true);
+
+  const THD *thd = current_thd;
+
+  m_value_map_type = histograms::field_type_to_value_map_type(
+      field_type, m_source_item->unsigned_flag);
+  if (m_value_map_type == histograms::Value_map_type::INVALID) return;
+
+  size_t row_size_bytes = 0;
+  if (histograms::prepare_value_container<histograms::Value_map>(
+          &m_value_map, m_value_map_type, m_source_item, &row_size_bytes))
+    return; /* purecov: deadcode */
+
+  /*
+    Since there might be conversion between value vector and value map,
+    the memory limit is halved so as not to exeed the configured hard limit.
+    FIXME: This might be optimized later.
+   */
+  m_memory_limit = thd->variables.histogram_generation_max_mem_size / 2;
+  DBUG_EXECUTE_IF("histogram_low_memory_limit", { m_memory_limit = 0; });
+
+  row_size_bytes = 0;
+  if (histograms::prepare_value_container<histograms::Value_vector>(
+          &m_value_vector, m_value_map_type, m_source_item, &row_size_bytes))
+    return; /* purecov: deadcode */
+
+  row_size_bytes = std::max(row_size_bytes, static_cast<size_t>(1));
+  size_t capacity =
+      std::max(static_cast<size_t>(m_memory_limit / row_size_bytes),
+               static_cast<size_t>(1));
+  if (m_default_seed) {
+    m_value_vector->init_reservoir(capacity);
+  } else {
+    m_value_vector->init_reservoir(capacity, m_seed);
+  }
+
+  /*
+    Value_map is very memory-efficient in small NDV cases; however, it does not
+    fit well with any reservoir algorithm. The problem is that the histogram
+    module interface, histograms::build_histogram(), takes Value_map for
+    historical reasons, while the conversion from Value_vector to Value_map is
+    kind of heavy.
+
+    The conversion chould be avoided if there is some clue about small NDV.
+
+    ENUM type by definition implies small NDV.
+
+    Current histogram, if any, has been loaded by read_histograms() in
+    get_table_share(), and provides good knowlege about the NDV, which could
+    be explored to choose between Value_map and Value_vector.
+  */
+  m_use_map = false;
+  if (m_value_map_type == histograms::Value_map_type::ENUM) {
+    m_use_map = true;
+  } else if (m_source_item->type() == Item::FIELD_ITEM) {
+    Item_field *item_field = dynamic_cast<Item_field *>(m_source_item);
+    Field *field = item_field->field;
+    const histograms::Histogram *current_histogram =
+        field->table->s->find_histogram(field->field_index());
+
+    // Note that get_num_distinct_values() does not count NULL.
+    if (current_histogram &&
+        current_histogram->get_num_distinct_values() < capacity) {
+      m_use_map = true;
+    }
+  }
+  DBUG_EXECUTE_IF("set_default_map_use", m_use_map = true;);
+
+  // Will get a valid histogram json.
+  null_value = false;
+}
+
+String *Item_sum_histogram::val_str(String *str) {
+  Json_wrapper wrapper;
+  if (val_json(&wrapper)) return error_str(); /* purecov: inspected */
+  if (null_value) return null_return_str();
+  str->length(0);
+  if (wrapper.to_string(str, true, func_name(), JsonDocumentDefaultDepthHandler))
+    return error_str(); /* purecov: inspected */
+  return str;
+}
+
+bool Item_sum_histogram::val_json(Json_wrapper *wr) {
+  const THD *thd = current_thd;
+  MEM_ROOT local_mem_root;
+  init_sql_alloc(key_memory_histograms, &local_mem_root, 256);
+
+  if (null_value) return false;
+
+  if (!m_use_map) {
+    if (m_value_vector->fill_into_value_map(m_value_map) ||
+        DBUG_EVALUATE_IF("fill_into_value_map_error", true, false)) {
+      my_error(ER_STD_RUNTIME_ERROR, MYF(0), "Out of memory", func_name());
+      return error_str();
+    }
+  }
+
+  if (m_use_map || m_value_vector->size() == 0) {
+    m_value_map->set_sampling_rate(1.0);
+  } else {
+    m_value_map->set_sampling_rate(double(m_value_vector->size()) /
+                                   m_value_vector->num_processed());
+    m_value_vector->clean();
+    delete m_value_vector;
+  }
+
+  if (thd->is_error()) return true; /* purecov: deadcode */
+  try {
+    Json_object *object = down_cast<Json_object *>(m_wrapper->to_dom());
+
+    histograms::Histogram *histogram = m_value_map->build_histogram(
+        &local_mem_root, m_num_buckets, "dummy_db", "dummy_table", "dummy_col");
+
+    if (histogram == nullptr ||
+        histogram->histogram_to_json(object) ||
+        m_wrapper->empty()) {
+      throw std::runtime_error("Out of memory"); /* purecov: deadcode */
+    }
+
+    *wr = Json_wrapper(m_wrapper->clone_dom());
+    return false;
+  } catch (...) {
+    /* purecov: begin inspected */
+    handle_std_exception(func_name());
+    return true;
+    /* purecov: end */
+  }
+}
+
+enum_field_types Item_sum_histogram::real_data_type(const Item *item) {
+  if (item->type() == Item::FIELD_ITEM) {
+    /*
+      Item_fields::field_type ask Field_type() but sometimes field return
+      a different type, like for enum/set, so we need to ask real type.
+    */
+    Field *field = ((Item_field *)item)->field;
+    enum_field_types type = field->real_type();
+    if (field->is_created_from_null_item) return MYSQL_TYPE_NULL;
+    // work around about varchar type field detection
+    if (type == MYSQL_TYPE_STRING && field->type() == MYSQL_TYPE_VAR_STRING)
+      return MYSQL_TYPE_VAR_STRING;
+    return type;
+  }
+  return item->data_type();
 }
 
 /**

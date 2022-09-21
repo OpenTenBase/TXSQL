@@ -69,6 +69,7 @@
 #include "sql/histograms/equi_height.h"  // Equi_height<T>
 #include "sql/histograms/singleton.h"    // Singleton<T>
 #include "sql/histograms/value_map.h"    // Value_map
+#include "sql/histograms/value_vector.h" // Value_vector
 #include "sql/item.h"
 #include "sql/item_json_func.h"  // parse_json
 #include "sql/key.h"
@@ -122,8 +123,8 @@ void *Histogram_psi_key_alloc::operator()(size_t s) const {
   @return A Value_map_type. May be INVALID if the Value_map does not support
           the field type.
 */
-static Value_map_type field_type_to_value_map_type(
-    const enum_field_types field_type, const bool is_unsigned) {
+Value_map_type field_type_to_value_map_type(const enum_field_types field_type,
+                                            const bool is_unsigned) {
   switch (field_type) {
     case MYSQL_TYPE_DECIMAL:
     case MYSQL_TYPE_NEWDECIMAL:
@@ -1003,6 +1004,183 @@ static bool covered_by_single_part_index(const THD *thd, const Field *field) {
   return false;
 }
 
+template <>
+size_t max_length_of(Item *item) {
+  return static_cast<size_t>(item->max_length) /
+         item->collation.collation->mbmaxlen;
+}
+
+template <>
+size_t max_length_of(Field *field) {
+  return field->field_length;
+}
+
+template <>
+const CHARSET_INFO *charset_of(Item *item) {
+  return item->collation.collation;
+}
+
+template <>
+const CHARSET_INFO *charset_of(Field *field) {
+  return field->charset();
+}
+
+/**
+  Prepare a Value_map or Value_vector instance.
+
+  Refactored from prepare_value_maps() and templateized with type length and
+  charset of elements. The Value_map_type parameter is needed because
+  instantiation does not consider return type.
+
+  @param container_base[out]  The prepared container.
+  @param data_type[in]        Value_map_type of elements in the container.
+  @param data_value[in]       The source of elements, a field or an item.
+  @param row_size_bytes[out]  To accumulate the size of the data type.
+
+  @return true on error, false otherwise.
+ */
+template <template <typename> class Value_container, class Value_container_base,
+          class V>
+bool prepare_value_container(Value_container_base **container_base,
+                             histograms::Value_map_type data_type,
+                             V *data_value, size_t *row_size_bytes) {
+  Value_container_base *cont = nullptr;
+  switch (data_type) {
+    case histograms::Value_map_type::STRING: {
+      size_t max_length = std::min(max_length_of(data_value),
+                                   histograms::HISTOGRAM_MAX_COMPARE_LENGTH) *
+                          charset_of(data_value)->mbmaxlen;
+      *row_size_bytes += max_length;
+
+      cont = new Value_container<String>(charset_of(data_value), data_type);
+      break;
+    }
+    case histograms::Value_map_type::DOUBLE: {
+      cont = new Value_container<double>(charset_of(data_value), data_type);
+      break;
+    }
+    case histograms::Value_map_type::INT:
+    case histograms::Value_map_type::ENUM:
+    case histograms::Value_map_type::SET: {
+      cont = new Value_container<longlong>(charset_of(data_value), data_type);
+      break;
+    }
+    case histograms::Value_map_type::UINT: {
+      cont = new Value_container<ulonglong>(charset_of(data_value), data_type);
+      break;
+    }
+    case histograms::Value_map_type::DATETIME:
+    case histograms::Value_map_type::DATE:
+    case histograms::Value_map_type::TIME: {
+      cont = new Value_container<MYSQL_TIME>(charset_of(data_value), data_type);
+      break;
+    }
+    case histograms::Value_map_type::DECIMAL: {
+      cont = new Value_container<my_decimal>(charset_of(data_value), data_type);
+      break;
+    }
+    case histograms::Value_map_type::INVALID: {
+      return true;
+    }
+  }
+
+  *row_size_bytes += cont->element_overhead();
+
+  *container_base = cont;
+  return false;
+}
+
+/**
+  Add a value to the container.
+
+  Refactored from fill_value_maps(). The Value_map_type parameter is needed
+  because instantiation does not consider return type.
+
+  @param container   The container.
+  @param data_type   Value_map_type of the value.
+  @param data_value  The value.
+
+  @return true on error, false otherwise.
+ */
+template <class C, class V>
+bool add_value(C *container, histograms::Value_map_type data_type,
+               V *data_value) {
+  switch (data_type) {
+    case histograms::Value_map_type::STRING: {
+      char buff[MAX_FIELD_WIDTH];
+      String *str, tmp_str(buff, sizeof(buff), charset_of(data_value));
+      str = data_value->val_str(&tmp_str);
+      if (data_value->is_null()) str = &tmp_str;
+      if (container->add_values(static_cast<String>(*str), 1,
+                                data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::DOUBLE: {
+      double value = data_value->val_real();
+      if (container->add_values(value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::INT:
+    case histograms::Value_map_type::ENUM:
+    case histograms::Value_map_type::SET: {
+      longlong value = data_value->val_int();
+      if (container->add_values(value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::UINT: {
+      ulonglong value = static_cast<ulonglong>(data_value->val_int());
+      if (container->add_values(value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::DATE: {
+      MYSQL_TIME time_value;
+      TIME_from_longlong_date_packed(&time_value,
+                                     data_value->val_date_temporal());
+      if (container->add_values(time_value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::TIME: {
+      MYSQL_TIME time_value;
+      TIME_from_longlong_time_packed(&time_value,
+                                     data_value->val_time_temporal());
+      if (container->add_values(time_value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::DATETIME: {
+      MYSQL_TIME time_value;
+      TIME_from_longlong_datetime_packed(&time_value,
+                                         data_value->val_date_temporal());
+      if (container->add_values(time_value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::DECIMAL: {
+      my_decimal buffer;
+      my_decimal *value;
+      value = data_value->val_decimal(&buffer);
+      if (data_value->is_null()) {
+        my_decimal_set_zero(&buffer);
+        value = &buffer;
+      }
+      if (container->add_values(*value, 1, data_value->is_null()))
+        return true;  // purecov: deadcode
+      break;
+    }
+    case histograms::Value_map_type::INVALID: {
+      assert(false);  // purecov: deadcode
+      break;
+    }
+  }
+
+  return false;
+}
+
 /**
   Prepare one Value_map for each field we are creating histogram statistics for.
   We will also estimate how many bytes one row will consume. For example, if we
@@ -1021,59 +1199,15 @@ static bool prepare_value_maps(
     std::vector<Field *, Histogram_key_allocator<Field *>> &fields,
     value_map_collection &value_maps, size_t *row_size_bytes) {
   *row_size_bytes = 0;
-  for (const Field *field : fields) {
+  for (Field *field : fields) {
     histograms::Value_map_base *value_map = nullptr;
 
     const Value_map_type value_map_type =
         histograms::field_type_to_value_map_type(field);
 
-    switch (value_map_type) {
-      case histograms::Value_map_type::STRING: {
-        size_t max_field_length =
-            std::min(static_cast<size_t>(field->field_length),
-                     histograms::HISTOGRAM_MAX_COMPARE_LENGTH);
-        *row_size_bytes += max_field_length * field->charset()->mbmaxlen;
-        value_map =
-            new histograms::Value_map<String>(field->charset(), value_map_type);
-        break;
-      }
-      case histograms::Value_map_type::DOUBLE: {
-        value_map =
-            new histograms::Value_map<double>(field->charset(), value_map_type);
-        break;
-      }
-      case histograms::Value_map_type::INT:
-      case histograms::Value_map_type::ENUM:
-      case histograms::Value_map_type::SET: {
-        value_map = new histograms::Value_map<longlong>(field->charset(),
-                                                        value_map_type);
-        break;
-      }
-      case histograms::Value_map_type::UINT: {
-        value_map = new histograms::Value_map<ulonglong>(field->charset(),
-                                                         value_map_type);
-        break;
-      }
-      case histograms::Value_map_type::DATETIME:
-      case histograms::Value_map_type::DATE:
-      case histograms::Value_map_type::TIME: {
-        value_map = new histograms::Value_map<MYSQL_TIME>(field->charset(),
-                                                          value_map_type);
-        break;
-      }
-      case histograms::Value_map_type::DECIMAL: {
-        value_map = new histograms::Value_map<my_decimal>(field->charset(),
-                                                          value_map_type);
-        break;
-      }
-      case histograms::Value_map_type::INVALID: {
-        assert(false); /* purecov: deadcode */
-        return true;
-      }
-    }
-
-    // Overhead for each element
-    *row_size_bytes += value_map->element_overhead();
+    if (prepare_value_container<Value_map>(&value_map, value_map_type, field,
+                                           row_size_bytes))
+      return true;
 
     value_maps.emplace(field->field_index(),
                        std::unique_ptr<histograms::Value_map_base>(value_map));
@@ -1136,89 +1270,9 @@ static bool fill_value_maps(
       histograms::Value_map_base *value_map =
           value_maps.at(field->field_index()).get();
 
-      switch (histograms::field_type_to_value_map_type(field)) {
-        case histograms::Value_map_type::STRING: {
-          StringBuffer<MAX_FIELD_WIDTH> str_buf(field->charset());
-          field->val_str(&str_buf);
-
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(static_cast<String>(str_buf), 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::DOUBLE: {
-          double value = field->val_real();
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::INT:
-        case histograms::Value_map_type::ENUM:
-        case histograms::Value_map_type::SET: {
-          longlong value = field->val_int();
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::UINT: {
-          ulonglong value = static_cast<ulonglong>(field->val_int());
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::DATE: {
-          MYSQL_TIME time_value;
-          TIME_from_longlong_date_packed(&time_value,
-                                         field->val_date_temporal());
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(time_value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::TIME: {
-          MYSQL_TIME time_value;
-          TIME_from_longlong_time_packed(&time_value,
-                                         field->val_time_temporal());
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(time_value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::DATETIME: {
-          MYSQL_TIME time_value;
-          TIME_from_longlong_datetime_packed(&time_value,
-                                             field->val_date_temporal());
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(time_value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::DECIMAL: {
-          my_decimal buffer;
-          my_decimal *value;
-          value = field->val_decimal(&buffer);
-
-          if (field->is_null())
-            value_map->add_null_values(1);
-          else if (value_map->add_values(*value, 1))
-            return true; /* purecov: deadcode */
-          break;
-        }
-        case histograms::Value_map_type::INVALID: {
-          assert(false); /* purecov: deadcode */
-          break;
-        }
-      }
+      if (add_value(value_map, histograms::field_type_to_value_map_type(field),
+                    field))
+        return true;
     }
 
     res = table->file->ha_sample_next(scan_ctx, table->record[0]);
@@ -2513,5 +2567,15 @@ template Histogram *build_histogram(MEM_ROOT *, const Value_map<MYSQL_TIME> &,
 template Histogram *build_histogram(MEM_ROOT *, const Value_map<my_decimal> &,
                                     size_t, const std::string &,
                                     const std::string &, const std::string &);
+
+template bool prepare_value_container<Value_map>(Value_map_base **,
+                                                 Value_map_type, Item *,
+                                                 size_t *);
+template bool prepare_value_container<Value_vector>(Value_vector_base **,
+                                                    Value_map_type, Item *,
+                                                    size_t *);
+
+template bool add_value(Value_map_base *, Value_map_type, Item *);
+template bool add_value(Value_vector_base *, Value_map_type, Item *);
 
 }  // namespace histograms

@@ -46,6 +46,7 @@ class Mem_root_allocator;
 
 namespace histograms {
 
+class Value_vector_base;
 class Histogram;
 template <class T>
 struct SingletonBucket;
@@ -194,11 +195,21 @@ class Value_map_base {
 
     @param value The value to add.
     @param count Count of the value to add.
+    @param is_null Indicate NULL to add instead of value.
 
     @return false on success, and true in case of errors (OOM).
   */
   template <class T>
-  bool add_values(const T &value, const ha_rows count);
+  bool add_values(const T &value, const ha_rows count, bool is_null = false);
+
+  /**
+    Add values to Value_vector from this Value_map.
+
+    @param value_vector The target Value_vector.
+
+    @return false on success, and true in case of errors (OOM).
+  */
+  virtual bool fill_into(Value_vector_base *value_vector) const = 0;
 
   /**
     Increase the number of null values with the given count.
@@ -250,6 +261,9 @@ class Value_map_base {
   /// @return the overhead in bytes for each distinct value stored in the
   ///         Value_map.
   virtual size_t element_overhead() const = 0;
+
+  /// @return the bytes this value_map has used.
+  virtual ha_rows size_bytes() const = 0;
 };
 
 /**
@@ -267,11 +281,13 @@ class Value_map final : public Value_map_base {
                Mem_root_allocator<std::pair<const T, ha_rows>>>;
 
   value_map_type m_value_map;
+  size_t m_size_bytes = 0;
 
  public:
   Value_map(const CHARSET_INFO *charset, Value_map_type data_type)
       : Value_map_base(charset, data_type),
         m_value_map(typename value_map_type::allocator_type(&m_mem_root)) {}
+  ~Value_map() override {}
 
   size_t size() const override { return m_value_map.size(); }
 
@@ -284,6 +300,18 @@ class Value_map final : public Value_map_base {
   }
 
   bool add_values(const T &value, const ha_rows count);
+
+  bool fill_into(Value_vector_base *value_vector) const override;
+
+  /**
+    @return the size of memory that value_map used.
+    ( sizeof(key) + sizeof(val) + element_overhead ) * N
+  */
+  ha_rows size_bytes() const override {
+    return m_size_bytes + (sizeof(typename value_map_type::value_type) +
+                           sizeof(typename value_map_type::key_type) + 32) *
+                              m_value_map.size();
+  }
 
   /**
     Insert a range of values into the Value_map.

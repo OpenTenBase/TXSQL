@@ -47,8 +47,9 @@
 #include <string>   // std::string
 #include <utility>  // std::pair
 
-#include "lex_string.h"  // LEX_CSTRING
-#include "my_base.h"     // ha_rows
+#include "field_types.h"  // enum_field_types
+#include "lex_string.h"   // LEX_CSTRING
+#include "my_base.h"      // ha_rows
 #include "sql/histograms/value_map_type.h"
 #include "sql/mem_root_allocator.h"   // Mem_root_allocator
 #include "sql/stateless_allocator.h"  // Stateless_allocator
@@ -792,6 +793,28 @@ bool find_histogram(THD *thd, const std::string &schema_name,
                     const std::string &table_name,
                     const std::string &column_name,
                     const Histogram **histogram);
+
+// Auxlilary functions
+
+Value_map_type field_type_to_value_map_type(const enum_field_types field_type,
+                                            const bool is_unsigned);
+
+template <class T>
+size_t max_length_of(T *item);
+
+template <class T>
+const CHARSET_INFO *charset_of(T *item);
+
+template <template <typename> class Value_container, class Value_container_base,
+          class V>
+bool prepare_value_container(Value_container_base **container_base,
+                             histograms::Value_map_type data_type,
+                             V *data_value, size_t *row_size_bytes);
+
+template <class C, class V>
+bool add_value(C *container, histograms::Value_map_type data_type,
+               V *data_value);
+
 }  // namespace histograms
 
 #endif
