@@ -1814,5 +1814,84 @@ public:
   //                                           size_t pass_len);
 };
 
-/* Changes from TXSQL end. */
+
+/*
+ * TDSQL:SM3 is a hash function standard. HMAC is a key-related hash
+ * operation message authentication code. This is an HMAC based on
+ * the SM3 algorithm.
+*/
+class Item_func_sm3_hmac final : public Item_str_func {
+  String tmp_value;
+  typedef Item_str_func super;
+
+ public:
+  Item_func_sm3_hmac(const POS &pos, Item *a, Item *b)
+      : Item_str_func(pos, a, b) {}
+  Item_func_sm3_hmac(const POS &pos, Item *a, Item *b, Item *c)
+      : Item_str_func(pos, a, b, c) {}
+
+  bool itemize(Parse_context *pc, Item **res) override;
+  String *val_str(String *) override;
+  bool resolve_type(THD *) override;
+  const char *func_name() const override { return "sm3_hmac"; }
+};
+
+/*
+ * TDSQL:SM3 is a hash function standard, which is a hash
+ * function based on SM3, similar to MD5.
+*/
+class Item_func_sm3_digest final : public Item_str_func {
+  String tmp_value;
+  typedef Item_str_func super;
+
+ public:
+  Item_func_sm3_digest(const POS &pos, Item *a)
+      : Item_str_func(pos, a) {}
+
+  bool itemize(Parse_context *pc, Item **res) override;
+  String *val_str(String *) override;
+  bool resolve_type(THD *) override;
+  const char *func_name() const override { return "sm2_digest"; }
+};
+
+/*
+ * TDSQL: SM4 encryption function. A simple block symmetric
+ * encryption algorithm similar to DES and AES.
+*/
+class Item_func_sm4_cbc_encrypt final : public Item_str_func {
+  String tmp_value;
+  typedef Item_str_func super;
+
+ public:
+  Item_func_sm4_cbc_encrypt(const POS &pos, Item *a, Item *b)
+      : Item_str_func(pos, a, b) {}
+  Item_func_sm4_cbc_encrypt(const POS &pos, Item *a, Item *b, Item *c)
+      : Item_str_func(pos, a, b, c) {}
+
+  bool itemize(Parse_context *pc, Item **res) override;
+  String *val_str(String *) override;
+  bool resolve_type(THD *) override;
+  const char *func_name() const override { return "sm4_encrypt"; }
+};
+
+/**
+ * TDSQL: SM4 decryption function. A simple block symmetric
+ * encryption algorithm similar to DES and AES.
+ */
+class Item_func_sm4_cbc_decrypt : public Item_str_func {
+  String tmp_value;
+  typedef Item_str_func super;
+
+ public:
+  Item_func_sm4_cbc_decrypt(const POS &pos, Item *a, Item *b)
+      : Item_str_func(pos, a, b) {}
+  Item_func_sm4_cbc_decrypt(const POS &pos, Item *a, Item *b, Item *c)
+      : Item_str_func(pos, a, b, c) {}
+
+  bool itemize(Parse_context *pc, Item **res) override;
+  String *val_str(String *) override;
+  bool resolve_type(THD *thd) override;
+  const char *func_name() const override { return "sm4_decrypt"; }
+};
+
 #endif /* ITEM_STRFUNC_INCLUDED */

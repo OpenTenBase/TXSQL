@@ -1,0 +1,37 @@
+SHOW VARIABLES LIKE "block_encryption_mode";
+--error ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE
+SELECT HEX(SM4_ENCRYPT('kongzhi','test')) AS test;
+SET block_encryption_mode='sm4-128-cbc';
+SHOW VARIABLES LIKE "block_encryption_mode";
+--error ER_KEY_LEN_NOT_LEGAL
+SELECT HEX(SM4_ENCRYPT('kongzhi','test12345678901234567890123456789')) AS test;
+SELECT HEX(SM4_ENCRYPT('kongzhi','test')) AS test;
+--error ER_AES_INVALID_IV
+SELECT HEX(SM4_ENCRYPT('kongzhi','test', 'test_iv')) AS test;
+SELECT HEX(SM4_ENCRYPT('kongzhi','test', 'test_iv123456789')) AS test;
+SELECT HEX(AES_ENCRYPT('kongzhi','test')) AS test;
+
+SET block_encryption_mode='aes-128-ecb';
+--error ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE
+SELECT SM4_DECRYPT(UNHEX('6DD4764B7E0C3A96C23ED09632D4C3BC'),'test') AS test;
+SET block_encryption_mode='sm4-128-cbc';
+SHOW VARIABLES LIKE "block_encryption_mode";
+--error ER_KEY_LEN_NOT_LEGAL
+SELECT SM4_DECRYPT(UNHEX('6DD4764B7E0C3A96C23ED09632D4C3BC'),'test12345678901234567890123456789') AS test;
+SELECT SM4_DECRYPT(UNHEX('6DD4764B7E0C3A96C23ED09632D4C3BC'),'test') AS test;
+--error ER_AES_INVALID_IV
+SELECT SM4_DECRYPT(UNHEX('39F97CDCFED6A764707DC12690902C78'),'test','test_iv') AS test;
+SELECT SM4_DECRYPT(UNHEX('39F97CDCFED6A764707DC12690902C78'),'test','test_iv123456789') AS test;
+SELECT AES_DECRYPT(UNHEX('01047F2C75B904BD88E5B27764B15E22'),'test') AS test;
+
+SET block_encryption_mode='aes-128-ecb';
+--error ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE
+SELECT HEX(SM3_DIGEST('kongzhi')) AS test;
+SET block_encryption_mode='sm4-128-cbc';
+SELECT HEX(SM3_DIGEST('kongzhi')) AS test;
+
+SET block_encryption_mode='aes-128-ecb';
+--error ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE
+SELECT HEX(SM3_HMAC('kongzhi','test')) AS test;
+SET block_encryption_mode='sm4-128-cbc';
+SELECT HEX(SM3_HMAC('kongzhi','test')) AS test;

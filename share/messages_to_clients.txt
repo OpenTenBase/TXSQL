@@ -9811,7 +9811,13 @@ ER_CAN_NOT_CREATE_WITH_MASK
 
 ER_MASKED_COLUMN_NOT_IN_WHERE
   eng  "Can not use masked column %s as where clause"
-#
+
+ER_KEY_LEN_NOT_LEGAL
+        eng "The key length is not legal and its length must be no greater than %d bytes."
+
+ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE
+        eng "The block encryption mode %s is not supported"
+
 #  End of 8.0 error messages (server-to-client).
 #  Do NOT add messages intended for the error log above!
 #
