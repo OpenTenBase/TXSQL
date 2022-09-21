@@ -1232,7 +1232,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> PERSIST_ONLY_SYM 927      /* MYSQL */
 %token<lexer.keyword> HISTOGRAM_SYM 928         /* MYSQL */
 %token<lexer.keyword> BUCKETS_SYM 929           /* MYSQL */
-%token<lexer.keyword> OBSOLETE_TOKEN_930 930    /* was: REMOTE_SYM */
+%token PAR_KEY_GEN_SYM 930                             /* MYSQL */
 %token<lexer.keyword> CLONE_SYM 931             /* MYSQL */
 %token  CUME_DIST_SYM 932                 /* SQL-2003-R */
 %token  DENSE_RANK_SYM 933                /* SQL-2003-R */

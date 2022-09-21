@@ -206,6 +206,7 @@ enum enum_sql_command {
   SQLCOM_SHOW_CDB_SQL_FILTERS,
   SQLCOM_CHECK_INDEX,
   SQLCOM_PARSE_STATEMENT,
+  SQLCOM_GEN_KEY_PAIR,
   /* This should be the last !!! */
   SQLCOM_END
 };

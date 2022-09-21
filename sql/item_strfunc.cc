@@ -58,6 +58,7 @@
 #include "m_ctype.h"      // is_supported_parser_charset
 #include "m_string.h"
 #include "my_aes.h"    // MY_AES_IV_SIZE
+#include "my_sm4.h"
 #include "my_alloc.h"  // MEM_ROOT
 #include "my_byteorder.h"
 #include "my_checksum.h"  // my_checksum
@@ -121,6 +122,7 @@
 #include "template_utils.h"
 #include "typelib.h"
 #include "unhex.h"
+#include "protocol.h"
 
 extern uint *my_aes_opmode_key_sizes;
 
@@ -5637,4 +5639,271 @@ String *Item_func_password::val_str_ascii(String *str)
 
   return str;
 }
-/* Changes from TXSQL end. */
+
+/* TDSQL: SM4 encrypt function */
+bool Item_func_sm4_cbc_encrypt::itemize(Parse_context *pc, Item **res) {
+  if (skip_itemize(res)) return false;
+  if (super::itemize(pc, res)) return true;
+  /* Unsafe for SBR since result depends on a session variable */
+  pc->thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
+  /* Not safe to cache either */
+  pc->thd->lex->set_uncacheable(pc->select, UNCACHEABLE_SIDEEFFECT);
+  return false;
+}
+
+String *Item_func_sm4_cbc_encrypt::val_str(String *str) {
+  assert(fixed == 1);
+
+  char key_buff[80];
+  String tmp_key_value(key_buff, sizeof(key_buff), system_charset_info);
+  String *sptr, *key;
+  THD *thd = current_thd;
+  iv_argument iv_arg;
+  DBUG_TRACE;
+
+  if (thd->variables.my_aes_mode != my_sm4_128_cbc) {
+    my_error(ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE, MYF(0),
+             my_aes_opmode_names[thd->variables.my_aes_mode]);
+    null_value = 1;
+    return 0;
+  }
+
+  sptr = args[0]->val_str(str);            // String to encrypt
+  key = args[1]->val_str(&tmp_key_value);  // key
+
+  //The key length of SM4 requires 32 byte(No more than)
+  if (key->length() > MY_SM4_CBC_KEY_SIZE) {
+      my_error(ER_KEY_LEN_NOT_LEGAL, MYF(0), MY_SM4_CBC_KEY_SIZE);
+      null_value = 1;
+      return 0;
+  }
+
+  int ret = 0;
+  int len = 0;
+
+  if (sptr && key) {  // we need both arguments to be not NULL
+    if (null_value) return NULL;
+
+    tmp_value.set_charset(&my_charset_bin);
+    int alloc_len = my_sm4_get_size(sptr->length());
+    if (!tmp_value.alloc(alloc_len)) {  // Ensure that memory is free
+      unsigned char *iv_str = nullptr;
+      if (arg_count == 3) { // if iv provided
+        String tmp_iv_value;
+        String *iv = args[2]->val_str(&tmp_iv_value);
+        if (!iv || iv->length() < MY_SM4_IV_SIZE) {
+          my_error(ER_AES_INVALID_IV, MYF(0), func_name(),
+                   (long long)MY_SM4_IV_SIZE);
+          null_value = 1;
+          return 0;
+        }
+        iv_str = (unsigned char *)iv->ptr();
+      }
+      memset(key_buff, 0, MY_SM4_CBC_KEY_SIZE);
+      memcpy(key_buff, key->ptr(), key->length());
+      ret = my_sm4_encrypt((unsigned char*)sptr->ptr(), sptr->length(),
+        (unsigned char *)tmp_value.ptr(), &len, (unsigned char*)key_buff, iv_str, true);
+      if (ret == 0 && len == alloc_len) {
+         tmp_value.length(len);
+         return &tmp_value;
+      }
+    }
+  }
+  null_value = 1;
+  return 0;
+}
+
+bool Item_func_sm4_cbc_encrypt::resolve_type(THD *thd) {
+  set_data_type_string((uint)my_sm4_get_size(args[0]->max_length));
+  return false;
+}
+
+bool Item_func_sm4_cbc_decrypt::itemize(Parse_context *pc, Item **res) {
+  if (skip_itemize(res)) return false;
+  if (super::itemize(pc, res)) return true;
+  /* Unsafe for SBR since result depends on a session variable */
+  pc->thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
+  /* Not safe to cache either */
+  pc->thd->lex->set_uncacheable(pc->select, UNCACHEABLE_SIDEEFFECT);
+  return false;
+}
+
+String *Item_func_sm4_cbc_decrypt::val_str(String *str) {
+
+  assert(fixed == 1);
+  char key_buff[80];
+  String tmp_key_value(key_buff, sizeof(key_buff), system_charset_info);
+  String *sptr, *key;
+  THD *thd = current_thd;
+  DBUG_TRACE;
+
+  if (thd->variables.my_aes_mode != my_sm4_128_cbc) {
+    my_error(ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE, MYF(0),
+             my_aes_opmode_names[thd->variables.my_aes_mode]);
+    null_value = 1;
+    return 0;
+  }
+
+  sptr = args[0]->val_str(str);            // String to decrypt
+  key = args[1]->val_str(&tmp_key_value);  // Key
+
+  //The key length of SM4 requires 32 byte(No more than)
+  if (key->length() > MY_SM4_CBC_KEY_SIZE) {
+    my_error(ER_KEY_LEN_NOT_LEGAL, MYF(0), MY_SM4_CBC_KEY_SIZE);
+    null_value = 1;
+    return 0;
+  }
+
+  int ret = 0;
+  int len = 0;
+
+  if (sptr && key) {  // Need to have both arguments not NULL
+    if (null_value) return NULL;
+    str_value.set_charset(&my_charset_bin);
+    if (!str_value.alloc(sptr->length())) {  // Ensure that memory is free
+      unsigned char *iv_str = nullptr;
+      if (arg_count == 3) { // if iv provided
+        String tmp_iv_value;
+        String *iv = args[2]->val_str(&tmp_iv_value);
+        if (!iv || iv->length() < MY_SM4_IV_SIZE) {
+          my_error(ER_AES_INVALID_IV, MYF(0), func_name(),
+                   (long long)MY_SM4_IV_SIZE);
+          null_value = 1;
+          return 0;
+        }
+        iv_str = (unsigned char *)iv->ptr();
+      }
+      memset(key_buff, 0, MY_SM4_CBC_KEY_SIZE);
+      memcpy(key_buff, key->ptr(), key->length());
+      ret = my_sm4_decrypt((unsigned char*)sptr->ptr(), sptr->length(),
+        (unsigned char *)str_value.ptr(), &len, (unsigned char*)key_buff, iv_str, true);
+      if (ret == 0 && len > 0) {  // if we got correct data data
+        str_value.length(len);
+        return &str_value;
+      }
+    }
+  }
+  
+  // Bad parameters. No memory or bad data will all go here
+  null_value = 1;
+  return 0;
+}
+
+bool Item_func_sm4_cbc_decrypt::resolve_type(THD *) {
+  set_data_type_string(args[0]->max_char_length());
+  set_nullable(true);
+  return false;
+}
+
+/* TDSQL: SM3 HMAC function. */
+String *Item_func_sm3_hmac::val_str(String *str) {
+  assert(fixed == 1);
+  char key_buff[64] = {0};
+  String tmp_key_value(key_buff, sizeof(key_buff), system_charset_info);
+  String *sptr, *key;
+  THD *thd = current_thd;
+  iv_argument iv_arg;
+  DBUG_TRACE;
+
+  if (thd->variables.my_aes_mode != my_sm4_128_cbc) {
+    my_error(ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE, MYF(0),
+             my_aes_opmode_names[thd->variables.my_aes_mode]);
+    null_value = 1;
+    return 0;
+  }
+
+  sptr = args[0]->val_str(str);            // String to decrypt
+  key = args[1]->val_str(&tmp_key_value);  // private key
+
+  int ret = 0;
+  int len = 0;
+
+  if (sptr && key) {  // we need both arguments to be not NULL
+    if (null_value) return NULL;
+
+    tmp_value.set_charset(&my_charset_bin);
+    if (!tmp_value.alloc(MY_SM3_HMAC_SIZE)) {  // Ensure that memory is free
+      ret = my_sm3_hmac((unsigned char*)sptr->ptr(), sptr->length(),
+                        (unsigned char *)tmp_value.ptr(), &len,
+                        (unsigned char*)key->ptr(), key->length());
+      if (ret != 0 || len != MY_SM3_HMAC_SIZE) {
+        null_value = 1;
+        return 0;
+      }
+      tmp_value.length(static_cast<size_t>(len));
+      return &tmp_value;
+    }
+  }
+  null_value = 1;
+  return 0;
+}
+
+bool Item_func_sm3_hmac::itemize(Parse_context *pc, Item **res) {
+  if (skip_itemize(res)) return false;
+  if (super::itemize(pc, res)) return true;
+  /* Unsafe for SBR since result depends on a session variable */
+  pc->thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
+  /* Not safe to cache either */
+  pc->thd->lex->set_uncacheable(pc->select, UNCACHEABLE_SIDEEFFECT);
+  return false;
+}
+
+bool Item_func_sm3_hmac::resolve_type(THD *thd) {
+  set_data_type_string(uint32(MY_SM3_HMAC_SIZE));
+  return false;
+}
+
+/* TDSQL: SM3 digest function. */
+String *Item_func_sm3_digest::val_str(String *str) {
+  assert(fixed == 1);
+
+  String *sptr;
+  THD *thd = current_thd;
+  iv_argument iv_arg;
+  DBUG_TRACE;
+
+  if (thd->variables.my_aes_mode != my_sm4_128_cbc) {
+    my_error(ER_UNSUPPORTED_BLOCK_ENCRYPTION_MODE, MYF(0),
+             my_aes_opmode_names[thd->variables.my_aes_mode]);
+    null_value = 1;
+    return 0;
+  }
+
+  sptr = args[0]->val_str(str);            // String to decrypt
+
+  int ret = 0;
+  int len = 0;
+
+  if (sptr) {  // we need both arguments to be not NULL
+    if (null_value) return NULL;
+
+    tmp_value.set_charset(&my_charset_bin);
+    if (!tmp_value.alloc(MY_SM3_DIGEST_SIZE)) {  // Ensure that memory is free
+      ret = my_sm3_digest((unsigned char*)sptr->ptr(), sptr->length(),
+                          (unsigned char *)tmp_value.ptr(), &len);
+      if (ret != 0 || len != MY_SM3_DIGEST_SIZE) {
+        null_value = 1;
+        return 0;
+      }
+      tmp_value.length(static_cast<size_t>(len));
+      return &tmp_value;
+    }
+  }
+  null_value = 1;
+  return 0;
+}
+
+bool Item_func_sm3_digest::itemize(Parse_context *pc, Item **res) {
+  if (skip_itemize(res)) return false;
+  if (super::itemize(pc, res)) return true;
+  /* Unsafe for SBR since result depends on a session variable */
+  pc->thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
+  /* Not safe to cache either */
+  pc->thd->lex->set_uncacheable(pc->select, UNCACHEABLE_SIDEEFFECT);
+  return false;
+}
+
+bool Item_func_sm3_digest::resolve_type(THD *thd) {
+  set_data_type_string((uint32)MY_SM3_DIGEST_SIZE);
+  return false;
+}

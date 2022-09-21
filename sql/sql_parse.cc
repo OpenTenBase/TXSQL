@@ -227,6 +227,7 @@ using std::max;
        ? "FUNCTION"                                        \
        : "PROCEDURE")
 
+
 static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
 
 const std::string Command_names::m_names[] = {
@@ -3706,6 +3707,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
       res = change_master_cmd(thd);
       break;
     }
+
     case SQLCOM_START_GROUP_REPLICATION: {
       Security_context *sctx = thd->security_context();
       if (!sctx->check_access(SUPER_ACL) &&

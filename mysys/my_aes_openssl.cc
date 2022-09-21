@@ -52,7 +52,7 @@ const char *my_aes_opmode_names[] = {
     "aes-192-cbc",    "aes-256-cbc",    "aes-128-cfb1",   "aes-192-cfb1",
     "aes-256-cfb1",   "aes-128-cfb8",   "aes-192-cfb8",   "aes-256-cfb8",
     "aes-128-cfb128", "aes-192-cfb128", "aes-256-cfb128", "aes-128-ofb",
-    "aes-192-ofb",    "aes-256-ofb",    nullptr /* needed for the type
+    "aes-192-ofb",    "aes-256-ofb",    "sm4-128-cbc",     nullptr /* needed for the type
                                                    enumeration */
 };
 
@@ -66,7 +66,8 @@ static uint my_aes_opmode_key_sizes_impl[] = {
     192 /* aes-192-cfb8 */,   256 /* aes-256-cfb8 */,
     128 /* aes-128-cfb128 */, 192 /* aes-192-cfb128 */,
     256 /* aes-256-cfb128 */, 128 /* aes-128-ofb */,
-    192 /* aes-192-ofb */,    256 /* aes-256-ofb */
+    192 /* aes-192-ofb */,    256 /* aes-256-ofb */,
+    128 /* aes-128-ecb & sm4-128-cbc */
 };
 
 uint *my_aes_opmode_key_sizes = my_aes_opmode_key_sizes_impl;
@@ -74,6 +75,7 @@ uint *my_aes_opmode_key_sizes = my_aes_opmode_key_sizes_impl;
 static const EVP_CIPHER *aes_evp_type(const my_aes_opmode mode) {
   switch (mode) {
     case my_aes_128_ecb:
+    case my_sm4_128_cbc:
       return EVP_aes_128_ecb();
     case my_aes_128_cbc:
       return EVP_aes_128_cbc();
