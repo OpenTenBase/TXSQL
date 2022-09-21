@@ -11269,6 +11269,66 @@ sum_expr:
             $$ = NEW_PTN Item_sum_json_object(
                 @$, $3, $5, $7, std::move(wrapper), std::move(object));
           }
+        | HISTOGRAM_SYM '(' in_sum_expr ')' opt_windowing_clause
+          {
+            if ($5 != NULL) {
+              my_error(ER_NOT_SUPPORTED_YET, MYF(0), "histogram as window function");
+              MYSQL_YYABORT;
+            }
+            auto wrapper = make_unique_destroy_only<Json_wrapper>(YYMEM_ROOT);
+            if (wrapper == nullptr) YYABORT;
+            unique_ptr_destroy_only<Json_object> object{::new (YYMEM_ROOT)
+                                                            Json_object};
+            if (object == nullptr) YYABORT;
+            $$ = NEW_PTN Item_sum_histogram(@$, $3, DEFAULT_NUMBER_OF_HISTOGRAM_BUCKETS, 0, true, $5, std::move(wrapper), std::move(object));
+          }
+        | HISTOGRAM_SYM '(' in_sum_expr ',' NUM ')' opt_windowing_clause
+          {
+            if ($7 != NULL) {
+              my_error(ER_NOT_SUPPORTED_YET, MYF(0), "histogram as window function");
+              MYSQL_YYABORT;
+            }
+            auto wrapper = make_unique_destroy_only<Json_wrapper>(YYMEM_ROOT);
+            if (wrapper == nullptr) YYABORT;
+            unique_ptr_destroy_only<Json_object> object{::new (YYMEM_ROOT)
+                                                            Json_object};
+            if (object == nullptr) YYABORT;
+            int error;
+            longlong num= my_strtoll10($5.str, nullptr, &error);
+            MYSQL_YYABORT_UNLESS(error <= 0);
+
+            if (num < 1 || num > MAX_NUMBER_OF_HISTOGRAM_BUCKETS)
+            {
+              my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "Number of buckets",
+                       "SELECT HISTOGRAM_FUNC()");
+              MYSQL_YYABORT;
+            }
+            $$ = NEW_PTN Item_sum_histogram(@$, $3, num, 0, true, $7, std::move(wrapper), std::move(object));
+          }
+        | HISTOGRAM_SYM '(' in_sum_expr ',' NUM, ',' NUM ')' opt_windowing_clause
+          {
+            if ($9 != NULL) {
+              my_error(ER_NOT_SUPPORTED_YET, MYF(0), "histogram as window function");
+              MYSQL_YYABORT;
+            }
+            auto wrapper = make_unique_destroy_only<Json_wrapper>(YYMEM_ROOT);
+            if (wrapper == nullptr) YYABORT;
+            unique_ptr_destroy_only<Json_object> object{::new (YYMEM_ROOT)
+                                                            Json_object};
+            if (object == nullptr) YYABORT;
+            int error;
+            longlong num= my_strtoll10($5.str, nullptr, &error);
+            MYSQL_YYABORT_UNLESS(error <= 0);
+
+            if (num < 1 || num > MAX_NUMBER_OF_HISTOGRAM_BUCKETS)
+            {
+              my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "Number of buckets",
+                       "SELECT HISTOGRAM_FUNC()");
+              MYSQL_YYABORT;
+            }
+            longlong seed = my_strtoll10($7.str, nullptr, &error);
+            $$ = NEW_PTN Item_sum_histogram(@$, $3, num, seed, false, $9, std::move(wrapper), std::move(object));
+          }
         | ST_COLLECT_SYM '(' in_sum_expr ')' opt_windowing_clause
           {
             $$= NEW_PTN Item_sum_collect(@$, $3, $5, false);

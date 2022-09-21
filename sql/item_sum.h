@@ -54,6 +54,7 @@
 #include "sql/enum_query_type.h"
 #include "sql/gis/geometries_cs.h"
 #include "sql/gis/wkb.h"
+#include "sql/histograms/value_map.h"  // histograms::Value_map_type
 #include "sql/item.h"       // Item_result_field
 #include "sql/item_func.h"  // Item_int_func
 #include "sql/mem_root_array.h"
@@ -84,6 +85,11 @@ struct ORDER;
 struct Parse_context;
 struct TABLE;
 struct Window_evaluation_requirements;
+
+namespace histograms {
+class Value_map_base;
+class Value_vector_base;
+}  // namespace histograms
 
 /**
   The abstract base class for the Aggregator_* classes.
@@ -461,7 +467,8 @@ class Item_sum : public Item_func {
     FIRST_LAST_VALUE_FUNC,
     NTH_VALUE_FUNC,
     ROLLUP_SUM_SWITCHER_FUNC,
-    GEOMETRY_AGGREGATE_FUNC
+    GEOMETRY_AGGREGATE_FUNC,
+    HISTOGRAM_FUNC
   };
 
   /**
@@ -1243,6 +1250,50 @@ class Item_sum_json : public Item_sum {
 
   bool check_wf_semantics1(THD *, Query_block *,
                            Window_evaluation_requirements *) override;
+};
+
+class Item_sum_histogram final : public Item_sum_json {
+  unique_ptr_destroy_only<Json_object> m_json_object;
+
+  /// Set true when use value_map.
+  bool m_use_map;
+
+  /// Number of buckets in histogram.
+  int m_num_buckets;
+
+  /// The seed for the random generator used by the reservoir algorithm.
+  int m_seed;
+  /// True if using default seed thus ignoring m_seed.
+  bool m_default_seed;
+
+  /// The item on behalf of the data stream.
+  Item *m_source_item;
+
+  /// Memory limit for histogram computation.
+  ulonglong m_memory_limit;
+
+  /// The deduced element type.
+  histograms::Value_map_type m_value_map_type;
+  /// The container for histogram construction.
+  histograms::Value_map_base *m_value_map;
+  /// Alternative container for histogram construction, allowing random access.
+  histograms::Value_vector_base *m_value_vector;
+
+ public:
+  Item_sum_histogram(const POS &pos, Item *item_par, int num_buckets,
+                     int seed, bool default_seed, PT_window *window,
+                     unique_ptr_destroy_only<Json_wrapper> wrapper,
+                     unique_ptr_destroy_only<Json_object> object);
+  ~Item_sum_histogram() override;
+
+  const char *func_name() const override { return "histogram"; }
+  enum Sumfunctype sum_func() const override { return HISTOGRAM_FUNC; }
+  void clear() override;
+  bool add() override;
+  String *val_str(String *str) override;
+  bool val_json(Json_wrapper *wr) override;
+  enum_field_types real_data_type(const Item *item);
+  bool resolve_type(THD *thd) override;
 };
 
 /// Implements aggregation of values into an array.

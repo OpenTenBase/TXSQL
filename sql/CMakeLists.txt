@@ -393,6 +393,8 @@ SET(SQL_SHARED_SOURCES
   histograms/history_table_access.cc
   histograms/singleton.cc
   histograms/value_map.cc
+  histograms/value_vector.cc
+  histograms/reservoir.cc
   hostname_cache.cc
   init.cc
   log_resource.cc

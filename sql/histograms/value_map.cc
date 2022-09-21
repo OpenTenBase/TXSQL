@@ -37,6 +37,7 @@
 #include "my_time.h"
 #include "mysql_time.h"  // MYSQL_TIME
 #include "sql/histograms/histogram.h"
+#include "sql/histograms/value_vector.h"
 #include "sql/my_decimal.h"      // my_decimal_cmp
 #include "sql/psi_memory_key.h"  // key_memory_histograms
 #include "sql_string.h"          // String
@@ -81,7 +82,12 @@ Value_map_base::Value_map_base(const CHARSET_INFO *charset,
       m_mem_root(key_memory_histograms, 256) {}
 
 template <class T>
-bool Value_map_base::add_values(const T &value, const ha_rows count) {
+bool Value_map_base::add_values(const T &value, const ha_rows count,
+                                bool is_null) {
+  if (is_null) {
+    add_null_values(count);
+    return false;
+  }
   Value_map<T> *value_map = down_cast<Value_map<T> *>(this);
   return value_map->add_values(value, count);
 }
@@ -90,7 +96,11 @@ template <class T>
 bool Value_map<T>::add_values(const T &value, const ha_rows count) {
   try {
     auto res = m_value_map.emplace(value, count);
-    if (!res.second) res.first->second += count;
+    if (!res.second) {
+      res.first->second += count;
+    } else {
+      m_size_bytes += sizeof(value) + sizeof(count);
+    }
   } catch (const std::bad_alloc &) {
     // Out of memory.
     return true;
@@ -120,12 +130,29 @@ bool Value_map<String>::add_values(const String &value, const ha_rows count) {
 
       String string_dup(string_data, substring.length(), substring.charset());
       m_value_map.emplace(string_dup, count);
+      m_size_bytes += sizeof(string_dup) + sizeof(count);
     } catch (const std::bad_alloc &) {
       // Out of memory.
       return true;
     }
   } else {
     found->second += count;
+  }
+  return false;
+}
+
+template <class T>
+bool Value_map<T>::fill_into(Value_vector_base *value_vector) const {
+  T null_value;
+  try {
+    for (auto const &node : m_value_map) {
+      if (value_vector->add_values(node.first, node.second, false)) return true;
+    }
+    if (value_vector->add_values(null_value, get_num_null_values(), true))
+      return true;
+  } catch (const std::bad_alloc &) {
+    // Out of memory.
+    return true; /* purecov: inspected */
   }
   return false;
 }
@@ -161,11 +188,14 @@ template class Value_map<longlong>;
 template class Value_map<MYSQL_TIME>;
 template class Value_map<my_decimal>;
 
-template bool Value_map_base::add_values(const double &, const ha_rows);
-template bool Value_map_base::add_values(const String &, const ha_rows);
-template bool Value_map_base::add_values(const ulonglong &, const ha_rows);
-template bool Value_map_base::add_values(const longlong &, const ha_rows);
-template bool Value_map_base::add_values(const MYSQL_TIME &, const ha_rows);
-template bool Value_map_base::add_values(const my_decimal &, const ha_rows);
+template bool Value_map_base::add_values(const double &, const ha_rows, bool);
+template bool Value_map_base::add_values(const String &, const ha_rows, bool);
+template bool Value_map_base::add_values(const ulonglong &, const ha_rows,
+                                         bool);
+template bool Value_map_base::add_values(const longlong &, const ha_rows, bool);
+template bool Value_map_base::add_values(const MYSQL_TIME &, const ha_rows,
+                                         bool);
+template bool Value_map_base::add_values(const my_decimal &, const ha_rows,
+                                         bool);
 
 }  // namespace histograms
