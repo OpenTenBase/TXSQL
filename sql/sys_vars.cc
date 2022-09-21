@@ -6737,6 +6737,11 @@ static Sys_var_gtid_executed Sys_gtid_executed(
     "binary log. The session variable contains the set of GTIDs "
     "in the current, ongoing transaction.");
 
+static Sys_var_gtid_undeleted Sys_gtid_undeleted(
+    "gtid_undeleted",
+    "The set of GTIDs that has been executed but not deleted from"
+    "Owned_gtids.");
+
 static bool check_gtid_purged(sys_var *self, THD *thd, set_var *var) {
   DBUG_TRACE;
 
@@ -7462,6 +7467,12 @@ static Sys_var_uint Sys_immediate_server_version(
     VALID_RANGE(0, UNDEFINED_SERVER_VERSION), DEFAULT(UNDEFINED_SERVER_VERSION),
     BLOCK_SIZE(1), NO_MUTEX_GUARD, IN_BINLOG,
     ON_CHECK(check_session_admin_or_replication_applier));
+
+static Sys_var_bool Sys_cdb_optimize_gtid_lock(
+  "cdb_optimize_gtid_lock",
+  "Optimize gtid lock conflict when binlog_order_commits=0.",
+  READ_ONLY GLOBAL_VAR(cdb_optimize_gtid_lock),
+  CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 static bool check_set_default_table_encryption_access(sys_var *self
                                                       [[maybe_unused]],
@@ -8760,5 +8771,5 @@ static Sys_var_ulong Sys_pseudo_server_id(
 static Sys_var_bool Sys_partition_table_skip_limit(
     "partition_table_skip_limit",
     "The partion key doesn't need to be part of all unique index if setting to true",
-    TDSQL_VAR GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
+    GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
 /* Changes from txsql end. */

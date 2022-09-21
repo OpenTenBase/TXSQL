@@ -23676,7 +23676,7 @@ static MYSQL_SYSVAR_BOOL(
     false);
 
 static MYSQL_SYSVAR_BOOL(
-    strict_gtid_commit, opt_strict_gtid_commit, PLUGIN_VAR_TXSQL,
+    strict_gtid_commit, opt_strict_gtid_commit, PLUGIN_VAR_OPCMDARG,
     "Strictly write gtid to clone gtid persister if true, else only "
     "when thread is apply thread or explicitly set gtid_next, it'll "
     "write gtid.", NULL, NULL, true);

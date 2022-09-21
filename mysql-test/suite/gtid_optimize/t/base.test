@@ -1,0 +1,197 @@
+--disable_warnings
+--source include/master-slave.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+--echo [master]
+connection master;
+--let $master_uuid= `SELECT @@GLOBAL.SERVER_UUID`
+
+#------------------------------------------------------------------------------
+# case1: normal case, including create table, insert, select.
+#------------------------------------------------------------------------------
+--echo ==== Case1 ====
+USE test;
+CREATE TABLE t(id int) engine=innodb;
+INSERT INTO test.t VALUES (1);
+SLEEP 1;
+#
+#  @@gtid_undeleted should be null by master thread after 2 seconds.
+# 
+--replace_result $master_uuid master_uuid
+SHOW VARIABLES LIKE '%gtid%';
+
+connect (slave_tencent,127.0.0.1,tencentroot,,test,$SLAVE_MYPORT);
+--echo [slave]
+connection slave_tencent;
+--replace_result $master_uuid master_uuid
+SHOW VARIABLES LIKE '%gtid%';
+SELECT * FROM test.t;
+
+#------------------------------------------------------------------------------
+# case2: insert on master, select from slave.
+#------------------------------------------------------------------------------
+--echo ==== Case2 ====
+--echo [master]
+connection master;
+INSERT INTO test.t VALUES (2),(3);
+INSERT INTO test.t VALUES (4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15);
+SLEEP 2;
+
+--echo [slave]
+connection slave_tencent;
+SELECT count(*) FROM test.t;
+
+#------------------------------------------------------------------------------
+# case3: check cleanup_owned_gtids which flush gtids from undeleted_gtids and owned_gtids.
+#
+#       step1: set a debug point 'stop_cleanup_owned_gtids' to stop flushing gtids from gtid_undeleted and gtid_owned.
+#       step2: run some statements to make gtids grow up.
+#       step3: check gtid_executed, gtid_owned, gtid_undeleted, check 'Executed_Gtid_Set' of `show master status`.
+#       step4: remove debug point 'stop_cleanup_owned_gtids' and sleep for a while.
+#       step5: check again to ensure 'cleanup_owned_gtids' works.
+#------------------------------------------------------------------------------
+--echo ==== Case3 ====
+--echo [master]
+connection master;
+FLUSH LOGS;
+--replace_result $master_uuid master_uuid
+SELECT * FROM mysql.gtid_executed;
+--replace_result $master_uuid master_uuid
+SELECT @@gtid_undeleted;
+--replace_column 1 # 2 # 3 #
+--replace_result $master_uuid master_uuid
+show master status;
+
+--let $debug_point= stop_cleanup_owned_gtids
+--source include/add_debug_point.inc
+
+--echo exec 1000 times: insert into test.t values...
+--disable_query_log
+let $count=1000;
+while ($count)
+{
+ INSERT INTO test.t VALUES(1);
+ dec $count;
+}
+FLUSH LOGS;
+--enable_query_log
+
+--replace_result $master_uuid master_uuid
+SELECT * FROM mysql.gtid_executed;
+--replace_result $master_uuid master_uuid
+SELECT @@gtid_undeleted;
+
+--let $debug_point= stop_cleanup_owned_gtids
+--source include/remove_debug_point.inc
+
+sleep 2;
+--replace_result $master_uuid master_uuid
+SELECT * FROM mysql.gtid_executed;
+--replace_result $master_uuid master_uuid
+SELECT @@gtid_undeleted;
+
+#------------------------------------------------------------------------------
+# case4: check gtid_executed table and show master status.
+#------------------------------------------------------------------------------
+--echo ==== Case4 ====
+--replace_result $master_uuid master_uuid
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+--replace_column 1 # 2 # 3 #
+--replace_result $master_uuid master_uuid
+show master status;
+
+connection master;
+SET debug_sync = "bgc_after_sync_stage_before_commit_stage WAIT_FOR continue";
+--send INSERT INTO test.t VALUES(2);
+
+connection master1;
+sleep 1;
+--echo # gtid_undeleted should be null, and Executed_Gtid_Set should be less than gtid_executed.
+--replace_result $master_uuid master_uuid
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+--replace_column 1 # 2 # 3 #
+--replace_result $master_uuid master_uuid
+show master status;
+SET debug_sync = "now SIGNAL continue";
+
+connection master;
+--reap
+
+--replace_result $master_uuid master_uuid
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+--replace_column 1 # 2 # 3 #
+--replace_result $master_uuid master_uuid
+show master status;
+
+#------------------------------------------------------------------------------
+# case5: check @@binlog_order_commits modified.
+#------------------------------------------------------------------------------
+--echo ==== Case5 ====
+--let $debug_point= stop_cleanup_owned_gtids
+--source include/add_debug_point.inc
+
+select @@binlog_order_commits;
+set global binlog_order_commits=1;
+--echo # exec 20 times 'insert into...'
+--disable_query_log
+let $count=20;
+while ($count)
+{
+ INSERT INTO test.t VALUES(3);
+ dec $count;
+}
+--enable_query_log
+
+set global binlog_order_commits=0;
+--echo # exec 20 times 'insert into...'
+--disable_query_log
+let $count=20;
+while ($count)
+{
+ INSERT INTO test.t VALUES(3);
+ dec $count;
+}
+--enable_query_log
+
+set global binlog_order_commits=1;
+--echo # exec 20 times 'insert into...'
+--disable_query_log
+let $count=20;
+while ($count)
+{
+ INSERT INTO test.t VALUES(3);
+ dec $count;
+}
+--enable_query_log
+
+set global binlog_order_commits=0;
+--echo # exec 20 times 'insert into...'
+--disable_query_log
+let $count=20;
+while ($count)
+{
+ INSERT INTO test.t VALUES(3);
+ dec $count;
+}
+--enable_query_log
+
+--replace_result $master_uuid master_uuid
+SHOW VARIABLES LIKE '%gtid%';
+
+--let $debug_point= stop_cleanup_owned_gtids
+--source include/remove_debug_point.inc
+sleep 1;
+
+--replace_result $master_uuid master_uuid
+SHOW VARIABLES LIKE '%gtid%';
+
+#------------------------------------------------------------------------------
+# cleanup environment.
+#------------------------------------------------------------------------------
+--echo -------------cleanup
+--echo [master]
+connection master;
+DROP TABLE t;
+--enable_warnings
+--source include/rpl_end.inc

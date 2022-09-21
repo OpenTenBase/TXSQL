@@ -2432,12 +2432,14 @@ class Owned_gtids {
     @return RETURN_STATUS_OK or RETURN_STATUS_REPORTED_ERROR.
   */
   enum_return_status add_gtid_owner(const Gtid &gtid, my_thread_id owner);
-
   /*
     Fill all gtids into the given Gtid_set object. It doesn't clear the given
     gtid set before filling its owned gtids into it.
   */
   void get_gtids(Gtid_set &gtid_set) const;
+  /* Removes GTIDs of Owned_gtids from the gtid_set. */
+  void weed_out_gtids(Gtid_set &gtid_set) const;
+
   /**
     Removes the given GTID.
 
@@ -2448,6 +2450,14 @@ class Owned_gtids {
     @param owner thread_id of the owner thread
   */
   void remove_gtid(const Gtid &gtid, const my_thread_id owner);
+  /**
+   * Removes the given GTID interval from Owned_gtids.
+   * 
+   * @param sidno sidno of the interval.
+   * @param gno_start gno_start of the interval.
+   * @param gno_end gno_end of the interval.
+   */
+  void remove_gtid_interval(rpl_sidno sidno, rpl_gno gno_start, rpl_gno gno_end);
   /**
     Ensures that this Owned_gtids object can accommodate SIDNOs up to
     the given SIDNO.
@@ -2572,6 +2582,9 @@ class Owned_gtids {
   */
   bool is_owned_by(const Gtid &gtid, const my_thread_id thd_id) const;
 
+  /// Return true iff this Owned_gtids object contains the given gtid.
+  bool contains_gtid(const Gtid &gtid) const;
+
  private:
   /// Represents one owned GTID.
   struct Node {
@@ -2589,8 +2602,6 @@ class Owned_gtids {
     sid_lock->assert_some_lock();
     return sidno_to_hash[sidno - 1];
   }
-  /// Return true iff this Owned_gtids object contains the given gtid.
-  bool contains_gtid(const Gtid &gtid) const;
 
   /// Growable array of hashes.
   Prealloced_array<
@@ -2711,11 +2722,13 @@ class Gtid_state {
       : sid_lock(_sid_lock),
         sid_map(_sid_map),
         sid_locks(sid_lock),
+        sid_locks_undeleted(sid_lock),
         lost_gtids(sid_map, sid_lock),
         executed_gtids(sid_map, sid_lock),
         gtids_only_in_table(sid_map, sid_lock),
         previous_gtids_logged(sid_map, sid_lock),
         owned_gtids(sid_lock),
+        undeleted_gtids(sid_map, sid_lock),
         commit_group_sidnos(key_memory_Gtid_state_group_commit_sidno) {}
   /**
     Add @@GLOBAL.SERVER_UUID to this binlog's Sid_map.
@@ -2751,12 +2764,7 @@ class Gtid_state {
     @retval true The gtid is logged in the binary log.
     @retval false The gtid is not logged in the binary log.
   */
-  bool is_executed(const Gtid &gtid) const {
-    DBUG_TRACE;
-    sid_locks.assert_owner(gtid.sidno);
-    bool ret = executed_gtids.contains_gtid(gtid);
-    return ret;
-  }
+  bool is_executed(const Gtid &gtid) const ;
   /**
     Returns true if GTID is owned, otherwise returns 0.
 
@@ -2824,6 +2832,21 @@ class Gtid_state {
   void update_on_rollback(THD *thd);
 
   void update_gtids_specific(THD *thd, const Gtid &gtid, bool is_commit);
+
+  /**
+    Add GTID to Executed_gtids.
+
+   * @param gtid gtid to add.
+   * @param locked_sidno This parameter should be used when there is
+                          a need of add many GTIDs without having
+                          to acquire/release a sidno_lock many times.
+                          The caller must hold global_sid_lock and unlock
+                          the locked_sidno after invocation when
+                          locked_sidno > 0 if locked_sidno!=NULL.
+                          The caller must not hold global_sid_lock when
+                          locked_sidno==NULL.
+   */
+  void add_executed_gtid(const Gtid &gtid, rpl_sidno *locked_sidno);
 
   /**
     Acquire anonymous ownership.
@@ -3086,6 +3109,12 @@ class Gtid_state {
   void assert_sidno_lock_owner(rpl_sidno sidno) const {
     sid_locks.assert_owner(sidno);
   }
+
+  /// Locks a mutex for the given SIDNO. Uses to protect undeleted_gtids.
+  void lock_sidno_undeleted(rpl_sidno sidno) { sid_locks_undeleted.lock(sidno); }
+  /// Unlocks a mutex for the given SIDNO. Uses to protect undeleted_gtids.
+  void unlock_sidno_undeleted(rpl_sidno sidno) { sid_locks_undeleted.unlock(sidno); }
+
 #ifdef MYSQL_SERVER
   /**
     Wait for a signal on the given SIDNO.
@@ -3208,6 +3237,12 @@ class Gtid_state {
   const Gtid_set *get_previous_gtids_logged() const {
     return &previous_gtids_logged;
   }
+  /*
+    Return a pointer to the Gtid_set that contains the GTIDs waiting to be 
+    removed from Owned_gtids.
+  */
+  const Gtid_set *get_undeleted_gtids() const { return &undeleted_gtids; }
+
   /// Return a pointer to the Owned_gtids that contains the owned gtids.
   const Owned_gtids *get_owned_gtids() const { return &owned_gtids; }
   /// Return the server's SID's SIDNO
@@ -3226,7 +3261,7 @@ class Gtid_state {
     return owned_gtids.get_max_string_length() +
            executed_gtids.get_string_length() + lost_gtids.get_string_length() +
            gtids_only_in_table.get_string_length() +
-           previous_gtids_logged.get_string_length() + 150;
+           previous_gtids_logged.get_string_length() + undeleted_gtids.get_string_length() + 150;
   }
   /// Debug only: Generate a string in the given buffer and return the length.
   int to_string(char *buf) const {
@@ -3235,6 +3270,8 @@ class Gtid_state {
     p += executed_gtids.to_string(p);
     p += sprintf(p, "\nOwned GTIDs:\n");
     p += owned_gtids.to_string(p);
+    p += sprintf(p, "\nUndeleted GTIDs:\n");
+    p += undeleted_gtids.to_string(p);
     p += sprintf(p, "\nLost GTIDs:\n");
     p += lost_gtids.to_string(p);
     p += sprintf(p, "\nGTIDs only_in_table:\n");
@@ -3327,6 +3364,28 @@ class Gtid_state {
       -1   Error
   */
   int compress(THD *thd);
+  /**
+    Release ownership of the GTID owned by the THD by adding GTID into 
+    Undeleted_gtids and clears the ownership status in the THD object.
+
+    This is a sub task of update_gtids_impl responsible only to handle
+    the case of a thread with a single non-anonymous GTID being updated
+    either for commit or rollback.
+    
+    It is similar to Gtid_state::update_gtids_impl_own_gtid and the 
+    propose of this function is to reduce the sid_locks conflict when 
+    binlog_order_commits=0.
+      
+   * 
+   * @param thd Thread to be updated that owns single non-anonymous GTID.
+   * @param is_commit If the thread is being updated by a commit.
+   */
+  void handle_gtid_on_finish(THD *thd, bool is_commit);
+
+  /**
+    Remove GTIDs of Undeleted_gtids from Owned_gtids. 
+  */
+  void cleanup_owned_gtids();
 #ifdef MYSQL_SERVER
   /**
     Push a warning to client if user is modifying the gtid_executed
@@ -3377,6 +3436,7 @@ class Gtid_state {
   mutable Sid_map *sid_map;
   /// Contains one mutex/cond pair for every SIDNO.
   Mutex_cond_array sid_locks;
+  Mutex_cond_array sid_locks_undeleted;
   /**
     The set of GTIDs that existed in some previously purged binary log.
     This is always a subset of executed_gtids.
@@ -3399,6 +3459,18 @@ class Gtid_state {
   /// The SIDNO for this server.
   rpl_sidno server_sidno;
 
+  /**
+    The set of GTIDs that has been executed and should be removed from  
+    Owned_gtids asynchronously by master thread.
+
+    The caller must hold global_sid_lock->wrlock or sid_locks_undeleted.
+    
+    NB: We does not store THD but only the GTID in Undeleted_gtids. These 
+    GTIDs will be removed from Owned_gtids asynchronously by master thread. 
+    Is it possible that there are still multiple different threads with same 
+    GTID record in owned_gtids after the transaction committed?
+  */
+  Gtid_set undeleted_gtids;
   /// The number of anonymous transactions owned by any client.
   std::atomic<int32> atomic_anonymous_gtid_count{0};
   /// The number of GTID-violating transactions that use GTID_NEXT=AUTOMATIC.

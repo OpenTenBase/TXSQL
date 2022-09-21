@@ -100,6 +100,18 @@ void Owned_gtids::remove_gtid(const Gtid &gtid, const my_thread_id owner) {
   }
 }
 
+void Owned_gtids::remove_gtid_interval(rpl_sidno sidno, rpl_gno gno_start, rpl_gno gno_end) {
+  DBUG_TRACE;
+  malloc_unordered_multimap<rpl_gno, unique_ptr_my_free<Node>> *hash =
+      get_hash(sidno);
+  for (auto gno = gno_start; gno <= gno_end; gno++){
+    auto it_range = hash->equal_range(gno);
+    for (auto it = it_range.first; it != it_range.second; ++it) {
+        hash->erase(it);
+    }
+  }
+}
+
 bool Owned_gtids::is_intersection_nonempty(const Gtid_set *other) const {
   DBUG_TRACE;
   if (sid_lock != nullptr) sid_lock->assert_some_wrlock();
@@ -122,6 +134,20 @@ void Owned_gtids::get_gtids(Gtid_set &gtid_set) const {
   Gtid g = git.get();
   while (g.sidno != 0) {
     gtid_set._add_gtid(g);
+    git.next();
+    g = git.get();
+  }
+}
+
+void Owned_gtids::weed_out_gtids(Gtid_set &gtid_set) const {
+  DBUG_TRACE;
+
+  if (sid_lock != nullptr) sid_lock->assert_some_wrlock();
+
+  Gtid_iterator git(this);
+  Gtid g = git.get();
+  while (g.sidno != 0) {
+    gtid_set._remove_gtid(g.sidno, g.gno);
     git.next();
     g = git.get();
   }

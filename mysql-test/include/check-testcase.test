@@ -21,6 +21,9 @@
 # STATUS, and if it returns no rows we fake the result.
 --let $tmp= 0
 if (`SELECT @@server_id <> 0`) {
+  if (`SELECT '@@gtid_owned' <> ''`) {
+    sleep 1;
+  }
   --let $tmp= query_get_value(SHOW REPLICA STATUS, Replica_IO_Running, 1)
   --let $tmp= `SELECT '$tmp' = 'No such row'`
 }

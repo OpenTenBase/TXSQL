@@ -988,5 +988,6 @@ extern bool txsql_parallel_copy_ddl;
 
 extern bool opt_drop_if_exceed_recycle_limit;
 extern ulonglong g_recycle_bin_max_size;
+extern bool cdb_optimize_gtid_lock;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */
