@@ -910,5 +910,6 @@ extern const char *default_collation_for_utf8mb4_str;
 extern mysql_mutex_t LOCK_transmit_client_access;
 extern PSI_mutex_key key_LOCK_transmit_client_access;
 extern std::map<std::string, std::set<uint16> > global_transmit_client;
+extern bool cdb_hash_scan_index_selection_enabled;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

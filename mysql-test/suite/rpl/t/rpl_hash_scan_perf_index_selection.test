@@ -1,0 +1,75 @@
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+
+
+--echo # init ==================================================================
+--connection master
+--echo # construct table
+create table t1(
+  a int,
+  b int,
+  c varchar(1024),
+  key i_a(a),
+  key i_b(b),
+  key i_c(c)
+) DEFAULT charset=latin1 engine= innodb;
+
+--connect(conn_tencentroot,localhost,tencentroot,,)
+--connect (conn_tencentroot_slave, 127.0.0.1, tencentroot, ,, $SLAVE_MYPORT,)
+set global slave_rows_search_algorithms='INDEX_SCAN,HASH_SCAN';
+show variables like 'innodb_stats%';
+
+
+
+--connection master
+
+--echo # construct data
+--let $total_rows_number=10000
+--let $field_a_card=200
+--let $field_b_card=500
+--let $iterator=0
+
+--disable_query_log
+--disable_result_log
+
+
+begin;
+while ($iterator < $total_rows_number)
+{
+  --let $a_value=`select ($iterator%$field_a_card)`
+  --let $b_value=`select ($iterator%$field_b_card)`
+  --eval insert into t1 values($a_value, $b_value, repeat('a', 100));
+  --inc $iterator
+}
+commit;
+
+--enable_result_log
+--enable_query_log
+
+let $slave_sync_timeout= 86400;
+--source include/wait_for_slave_to_sync_with_master.inc
+
+--connection conn_tencentroot
+
+--echo # run ===================================================================
+ANALYZE table t1;
+
+update t1 set c=repeat("b", 100) where b=21;
+update t1 set c=repeat("b", 100) where b=43;
+update t1 set c=repeat("b", 100) where a=32;
+
+let $slave_sync_timeout= 86400;
+--source include/wait_for_slave_to_sync_with_master.inc
+--connection slave
+select count(*) from t1 where b=43 and c like 'b%' ;
+
+
+
+--echo # cleanup ===============================================================
+--connection master
+drop table if exists t1;
+
+--connection conn_tencentroot_slave
+set global slave_rows_search_algorithms=default;
+
+--source include/rpl_end.inc

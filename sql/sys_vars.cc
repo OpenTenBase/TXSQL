@@ -8098,4 +8098,10 @@ static Sys_var_uint Sys_histogram_history_versions_limit(
     GLOBAL_VAR(histogram_history_versions_limit), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1, 100), DEFAULT(5), BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_hash_scan_index_selection_enabled(
+    "cdb_hash_scan_index_selection_enabled", "Enalbe hash_scan_index_selection",
+    GLOBAL_VAR(cdb_hash_scan_index_selection_enabled),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
 /* Changes from txsql end. */

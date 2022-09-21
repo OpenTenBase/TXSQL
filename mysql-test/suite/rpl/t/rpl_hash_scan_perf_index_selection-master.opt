@@ -1,0 +1,5 @@
+--tencent_root_cnf=tmy.conf
+--slave_parallel_workers=2
+--slave_parallel_type=LOGICAL_CLOCK
+--gtid_mode=on
+--enforce_gtid_consistency

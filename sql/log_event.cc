@@ -172,6 +172,9 @@ Error_log_throttle slave_ignored_err_throttle(
 #include "sql/rpl_record.h"  // enum_row_image_type, Bit_reader
 #include "sql/rpl_utility.h"
 #include "sql/xa_aux.h"
+#if !defined(MYSQL_CLIENT) && defined(HAVE_REPLICATION)
+#include "sql_select.h"
+#endif
 
 struct mysql_mutex_t;
 
@@ -8466,8 +8469,10 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
 
   if (key_type & UNIQUE_KEY_FLAG) {
     DBUG_PRINT("debug", ("Searching for UK"));
+    uint min_uk_len = ~(uint)0;
+    uint uk_res = MAX_KEY;
     for (key = 0, keyinfo = table->key_info;
-         (key < table->s->keys) && (res == MAX_KEY); key++, keyinfo++) {
+         (key < table->s->keys); key++, keyinfo++) {
       /*
         - Unique keys cannot be disabled, thence we skip the check.
         - Skip unique keys with nullable parts
@@ -8485,15 +8490,27 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
       }
       res = are_all_columns_signaled_for_key(keyinfo, bi_cols) ? key : MAX_KEY;
 
-      if (res < MAX_KEY) return res;
+      if (!cdb_hash_scan_index_selection_enabled) {
+        if (res < MAX_KEY) return res;
+      } else {
+        // Choose the unique index with the smallest key_length
+        if (keyinfo->key_length < min_uk_len) {
+          min_uk_len = keyinfo->key_length;
+          uk_res = res;
+        }
+      }
     }
+    if (uk_res != MAX_KEY) return uk_res;
     DBUG_PRINT("debug", ("UK has NULLABLE parts or not all columns signaled."));
   }
 
   if (key_type & MULTIPLE_KEY_FLAG && table->s->keys) {
     DBUG_PRINT("debug", ("Searching for K."));
+    double min_sec_rows_per_key = DBL_MAX;
+    uint sec_res = MAX_KEY;
+    uint first_sec_res = MAX_KEY;
     for (key = 0, keyinfo = table->key_info;
-         (key < table->s->keys) && (res == MAX_KEY); key++, keyinfo++) {
+         (key < table->s->keys); key++, keyinfo++) {
       /*
         The following indexes are skipped:
         - Inactive/invisible indexes.
@@ -8516,8 +8533,37 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
 
       res = are_all_columns_signaled_for_key(keyinfo, bi_cols) ? key : MAX_KEY;
 
-      if (res < MAX_KEY) return res;
+      if (!cdb_hash_scan_index_selection_enabled) {
+        if (res < MAX_KEY) return res;
+      } else {
+        if (res < MAX_KEY) {
+          if (first_sec_res == MAX_KEY) first_sec_res = res;
+
+          double cur_fanout = 0.0;
+          // Use records per key statistics if available
+          if (keyinfo->has_records_per_key(actual_key_parts(keyinfo) - 1)) {
+            cur_fanout =
+                keyinfo->records_per_key(actual_key_parts(keyinfo) - 1);
+            DBUG_PRINT(
+                "hash_scan_index_optimization",
+                ("key nane: %s, rows per key: %lf", keyinfo->name, cur_fanout));
+            // selects index if it have minimal rows_per_key
+            if (cur_fanout < min_sec_rows_per_key) {
+              min_sec_rows_per_key = cur_fanout;
+              sec_res = res;
+            }
+          } else {
+            return first_sec_res;
+          }
+        }
+      }
     }
+    if (sec_res != MAX_KEY) {
+      DBUG_PRINT("hash_scan_index_optimization",
+                 ("select key name: %s", table->key_info[sec_res].name));
+      return sec_res;
+    }
+
     DBUG_PRINT("debug", ("Not all columns signaled for K."));
   }
 
