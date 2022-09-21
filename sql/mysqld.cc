@@ -12811,3 +12811,4 @@ std::map<std::string, std::set<uint16> > global_transmit_client;
 
 /* Status for ib_bp_info file transmit from master to slave. */
 char  innodb_buffer_pool_transmit_status[TRANSMIT_STATUS_LEN];
+bool cdb_hash_scan_index_selection_enabled = false;
