@@ -4821,7 +4821,9 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
 */
 static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
                                 Rpl_applier_reader *applier_reader,
-                                Log_event *in) {
+                                Log_event *in,
+                                Unmatch_event_info* unmatch_event_info) {
+
   DBUG_TRACE;
 
   /*
@@ -4863,6 +4865,7 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
   if (sql_slave_killed(thd, rli)) {
     mysql_mutex_unlock(&rli->data_lock);
     delete ev;
+    unmatch_event_info->reset();
 
     LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_ERROR_READING_RELAY_LOG_EVENTS,
            rli->get_for_channel_str(), "slave SQL thread was killed");
@@ -5092,6 +5095,7 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
             slave_sleep(thd,
                         min<ulong>(rli->trans_retries, MAX_SLAVE_RETRY_PAUSE),
                         sql_slave_killed, rli);
+            unmatch_event_info->reset();
             mysql_mutex_lock(&rli->data_lock);  // because of SHOW STATUS
             if (!silent) {
               rli->trans_retries++;
@@ -6891,6 +6895,8 @@ extern "C" void *handle_slave_sql(void *arg) {
     thd_set_psi(rli->info_thd, psi);
 #endif
     mysql_thread_set_psi_THD(thd);
+    Aggregation_apply_unit apply_unit;
+    Unmatch_event_info unmatch_event_info;
 
     if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
       rli->current_mts_submode= new Mts_submode_database();
@@ -7157,7 +7163,7 @@ extern "C" void *handle_slave_sql(void *arg) {
 
       // read next event
       mysql_mutex_lock(&rli->data_lock);
-      ev = applier_reader.read_next_event();
+      ev = applier_reader.read_next_event(&apply_unit, &unmatch_event_info);
       mysql_mutex_unlock(&rli->data_lock);
 
       // set additional context as needed by the scheduler before execution
@@ -7167,7 +7173,8 @@ extern "C" void *handle_slave_sql(void *arg) {
         rli->current_mts_submode->set_multi_threaded_applier_context(*rli, *ev);
 
       // try to execute the event
-      switch (exec_relay_log_event(thd, rli, &applier_reader, ev)) {
+      switch (exec_relay_log_event(thd, rli, &applier_reader, ev,
+                                   &unmatch_event_info)) {
         case SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK:
           /** success, we read the next event. */
           /** fall through */

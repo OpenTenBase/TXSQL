@@ -1,0 +1,6 @@
+
+let $target= 1;
+let $con_limit= 5;
+let $table_limit= 1;
+let $run_script=rpl_hash_scan_perf_buffer_size_switch.inc;
+--source rpl_hash_scan_perf_buffer_size_base.inc

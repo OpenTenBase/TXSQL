@@ -81,7 +81,8 @@ class Rpl_applier_reader {
      @retval     Log_event*     A valid Log_event object.
      @retval     nullptr        Error happened or sql thread was killed.
   */
-  Log_event *read_next_event();
+  Log_event *read_next_event(Aggregation_apply_unit* apply_unit,
+                             Unmatch_event_info* unmatch_event_info);
 
  private:
   Relaylog_file_reader m_relaylog_file_reader;

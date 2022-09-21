@@ -148,7 +148,9 @@ void Rpl_applier_reader::close() {
   m_errmsg = nullptr;
 }
 
-Log_event *Rpl_applier_reader::read_next_event() {
+Log_event *Rpl_applier_reader::read_next_event(
+    Aggregation_apply_unit* apply_unit,
+    Unmatch_event_info* unmatch_event_info) {
   DBUG_TRACE;
   Log_event *ev = nullptr;
 
@@ -175,6 +177,10 @@ Log_event *Rpl_applier_reader::read_next_event() {
 #endif
 
       if (read_active_log_end_pos()) break;
+
+      if (unmatch_event_info->exist_unmatch_event() &&
+          unmatch_event_info->event)
+        break;
 
       /*
         At this point the coordinator has no job to delegate to workers.
@@ -227,16 +233,30 @@ Log_event *Rpl_applier_reader::read_next_event() {
   }
 
   m_rli->set_event_start_pos(m_relaylog_file_reader.position());
-  ev = m_relaylog_file_reader.read_event_object();
+  ulonglong max_pending_event_size= m_rli->is_parallel_exec() ?
+                                    m_rli->mts_pending_jobs_size_max :
+                                    ~(ulonglong)0;
+  ulonglong max_reading_file_pos= m_reading_active_log ?
+                                  m_log_end_pos : ~(ulonglong)0;
+  ev = m_relaylog_file_reader.read_event_object(apply_unit,
+                                                unmatch_event_info,
+                                                m_rli->get_event_relay_log_name(),
+                                                max_pending_event_size,
+                                                max_reading_file_pos);
   if (ev != nullptr) {
-    m_rli->set_future_event_relay_log_pos(m_relaylog_file_reader.position());
-    ev->future_event_relay_log_pos = m_rli->get_future_event_relay_log_pos();
+    if (ev->is_aggregation_event) {
+      m_rli->set_future_event_relay_log_pos(ev->future_event_relay_log_pos);
+      m_rli->set_event_start_pos(ev->relay_log_start_pos);
+    } else {
+      m_rli->set_future_event_relay_log_pos(m_relaylog_file_reader.position());
+      ev->future_event_relay_log_pos = m_rli->get_future_event_relay_log_pos();
+    }
     return ev;
   }
 
   if (m_relaylog_file_reader.get_error_type() == Binlog_read_error::READ_EOF &&
       !m_reading_active_log) {
-    if (!move_to_next_log()) return read_next_event();
+    if (!move_to_next_log()) return read_next_event(apply_unit, unmatch_event_info);
   }
 
   LogErr(ERROR_LEVEL, ER_RPL_SLAVE_ERROR_READING_RELAY_LOG_EVENTS,
@@ -513,12 +533,13 @@ void Rpl_applier_reader::debug_print_next_event_positions() {
                       m_rli->get_event_relay_log_pos()));
 
   assert(m_relaylog_file_reader.position() >= BIN_LOG_HEADER_SIZE);
-  assert(m_relaylog_file_reader.position() ==
+  assert(m_relaylog_file_reader.position() >= 
              m_rli->get_event_relay_log_pos() ||
          (m_rli->is_parallel_exec() ||
           // TODO: double check that this is safe:
           (m_rli->info_thd != nullptr &&
            m_rli->info_thd->variables.binlog_trx_compression)));
+
 
   DBUG_PRINT(
       "info",
