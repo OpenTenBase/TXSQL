@@ -619,3 +619,18 @@ SET @str = IF(@have_ndb = 1, @str, 'SET @dummy = 0');
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
+
+SET @cmd="CREATE TABLE IF NOT EXISTS `column_statistics_history` (
+  `schema_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `table_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `column_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_tolower_ci NOT NULL,
+  `histogram` json NOT NULL,
+  `version` bigint NOT NULL,
+  `creation_time` datetime NOT NULL,
+  `options` mediumtext COLLATE utf8_bin,
+  PRIMARY KEY (`schema_name`,`table_name`,`column_name`,`version`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_bin STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
+SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;

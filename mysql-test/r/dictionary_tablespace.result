@@ -17,6 +17,7 @@ character_sets	mysql
 check_constraints	mysql
 collations	mysql
 column_statistics	mysql
+column_statistics_history	mysql
 column_type_elements	mysql
 columns	mysql
 columns_priv	mysql
@@ -90,6 +91,7 @@ character_sets
 check_constraints
 collations
 column_statistics
+column_statistics_history
 column_type_elements
 columns
 columns_priv

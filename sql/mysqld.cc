@@ -1451,6 +1451,9 @@ bool opt_keyring_operations = true;
 
 bool opt_table_encryption_privilege_check = false;
 
+bool histogram_history_enabled = false;
+uint histogram_history_versions_limit = 0;
+
 const double log_10[] = {
     1e000, 1e001, 1e002, 1e003, 1e004, 1e005, 1e006, 1e007, 1e008, 1e009, 1e010,
     1e011, 1e012, 1e013, 1e014, 1e015, 1e016, 1e017, 1e018, 1e019, 1e020, 1e021,

@@ -209,6 +209,7 @@ void System_tables::add_remaining_dd_tables() {
   register_table("backup_progress", system);
   register_table("backup_sbt_history", system);
   register_table("columns_priv", system);
+  register_table("column_statistics_history", system);
   register_table("component", system);
   register_table("db", system);
   register_table("default_roles", system);

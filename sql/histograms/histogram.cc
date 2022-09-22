@@ -78,6 +78,8 @@
 #include "sql/sql_base.h"        // open_and_lock_tables,
 #include "sql/sql_bitmap.h"
 // close_thread_tables
+#include "sql/histograms/history_table_access.h"  // History_table_persistor
+#include "sql/mysqld.h"                           // histogram_history_enabled
 #include "sql/sql_class.h"  // make_lex_string_root
 #include "sql/sql_const.h"
 #include "sql/sql_time.h"  // str_to_time
@@ -1242,7 +1244,8 @@ static bool fill_value_maps(
 }
 
 bool update_histogram(THD *thd, TABLE_LIST *table, const columns_set &columns,
-                      int num_buckets, LEX_STRING data, results_map &results) {
+                      int num_buckets, LEX_STRING data, int64_t version,
+                      results_map &results) {
   dd::cache::Dictionary_client::Auto_releaser auto_releaser(thd->dd_client());
 
   // Read only should have been stopped at an earlier stage.
@@ -1395,88 +1398,138 @@ bool update_histogram(THD *thd, TABLE_LIST *table, const columns_set &columns,
 
     // Create a histogram for the json object.
     Error_context context(thd, field, &results);
+    std::string schema_name(table->db, table->db_length);
+    std::string table_name(table->table_name, table->table_name_length);
     std::string col_name(field->field_name);
     histograms::Histogram *histogram = Histogram::json_to_histogram(
-        &local_mem_root, std::string(table->db, table->db_length),
-        std::string(table->table_name, table->table_name_length), col_name,
+        &local_mem_root, schema_name, table_name, col_name,
         *down_cast<Json_object *>(dom.get()), &context);
 
     // Store it to persistent storage.
-    if (histogram == nullptr || histogram->store_histogram(thd)) return true;
+    if (histogram == nullptr) return true;
 
-    results.emplace(col_name, Message::HISTOGRAM_CREATED);
-
-    bool ret = trans_commit_stmt(thd) || trans_commit(thd);
-    close_thread_tables(thd);
-    tables_guard.commit();
-
-    return ret;
-  }
-
-  /*
-    Prepare one Value_map for each field we are creating histogram statistics
-    for. Also, estimate how many bytes one row will consume so that we can
-    estimate how many rows we can fit into memory permitted by
-    histogram_generation_max_mem_size.
-  */
-  size_t row_size_bytes = 0;
-  value_map_collection value_maps;
-  if (prepare_value_maps(resolved_fields, value_maps, &row_size_bytes))
-    return true; /* purecov: deadcode */
-
-  /*
-    Caclulate how many rows we can fit into memory permitted by
-    histogram_generation_max_mem_size.
-  */
-  double rows_in_memory = thd->variables.histogram_generation_max_mem_size /
-                          static_cast<double>(row_size_bytes);
-
-  /*
-    Ensure that we estimate at least one row in the table, so we avoid
-    division by zero error.
-
-    NOTE: We ignore errors from "fetch_number_of_rows()" on purpose, since we
-    don't consider it fatal not having the correct row estimate.
-  */
-  table->fetch_number_of_rows();
-  ha_rows rows_in_table = std::max(1ULL, tbl->file->stats.records);
-
-  double sample_percentage = rows_in_memory / rows_in_table * 100.0;
-  sample_percentage = std::min(sample_percentage, 100.0);
-
-  // Read data from the table into the Value_maps we have prepared.
-  if (fill_value_maps(resolved_fields, sample_percentage, tbl, value_maps))
-    return true; /* purecov: deadcode */
-
-  // Create a histogram for each Value_map, and store it to persistent storage.
-  for (const Field *field : resolved_fields) {
-    /*
-      The MEM_ROOT is transferred to the dictionary object when
-      histogram->store_histogram is called.
-    */
-    MEM_ROOT local_mem_root(key_memory_histograms, 256);
-
-    std::string col_name(field->field_name);
-    histograms::Histogram *histogram =
-        value_maps.at(field->field_index())
-            ->build_histogram(
-                &local_mem_root, num_buckets,
-                std::string(table->db, table->db_length),
-                std::string(table->table_name, table->table_name_length),
-                col_name);
-
-    if (histogram == nullptr) {
-      /* purecov: begin inspected */
-      my_error(ER_UNABLE_TO_BUILD_HISTOGRAM, MYF(0), field->field_name,
-               table->db, table->table_name);
-      return true;
-      /* purecov: end */
-    } else if (histogram->store_histogram(thd)) {
-      // errors have already been reported
-      return true; /* purecov: deadcode */
+    if (histogram_history_enabled) {
+      Histogram_error_handler error_handler(thd);
+      History_table_persistor persistor{thd};
+      if (persistor.save(schema_name.data(), table_name.data(), col_name.data(),
+                         histogram)) {
+        results.emplace(col_name + 'h',
+                        Message::HISTOGRAM_HISTORY_VERSION_CREATE_FAILURE);
+      } else {
+        results.emplace(col_name + 'h',
+                        Message::HISTOGRAM_HISTORY_VERSION_CREATED);
+      }
     }
 
+    if (histogram->store_histogram(thd)) return true;
+
     results.emplace(col_name, Message::HISTOGRAM_CREATED);
+  } else if (version != Histogram::INVALID_VERSION) {
+    if (resolved_fields.size() != 1) {
+      results.emplace("", Message::MULTIPLE_COLUMNS_SPECIFIED);
+      return true;
+    }
+
+    Field *field = resolved_fields.front();
+    dd::String_type db_name(table->db);
+    dd::String_type table_name(table->table_name);
+    dd::String_type column_name(field->field_name);
+    Histogram *histogram = nullptr;
+
+    Histogram_error_handler error_handler(thd);
+    History_table_persistor persistor{thd};
+    if (persistor.load(db_name, table_name, column_name, version, &histogram)) {
+      results.emplace(column_name.data(),
+                      Message::HISTOGRAM_HISTORY_VERSION_LOAD_FAILURE);
+      return true;
+    }
+
+    if (histogram->store_histogram(thd)) return true;
+
+    results.emplace(column_name.data(),
+                    Message::HISTOGRAM_CREATED_BY_HISTORY_VERSION);
+  } else {
+    /*
+      Prepare one Value_map for each field we are creating histogram statistics
+      for. Also, estimate how many bytes one row will consume so that we can
+      estimate how many rows we can fit into memory permitted by
+      histogram_generation_max_mem_size.
+    */
+    size_t row_size_bytes = 0;
+    value_map_collection value_maps;
+    if (prepare_value_maps(resolved_fields, value_maps, &row_size_bytes))
+      return true; /* purecov: deadcode */
+
+    /*
+      Caclulate how many rows we can fit into memory permitted by
+      histogram_generation_max_mem_size.
+    */
+    double rows_in_memory = thd->variables.histogram_generation_max_mem_size /
+                            static_cast<double>(row_size_bytes);
+
+    /*
+      Ensure that we estimate at least one row in the table, so we avoid
+      division by zero error.
+
+      NOTE: We ignore errors from "fetch_number_of_rows()" on purpose, since we
+      don't consider it fatal not having the correct row estimate.
+    */
+    table->fetch_number_of_rows();
+    ha_rows rows_in_table = std::max(1ULL, tbl->file->stats.records);
+
+    double sample_percentage = rows_in_memory / rows_in_table * 100.0;
+    sample_percentage = std::min(sample_percentage, 100.0);
+
+    // Read data from the table into the Value_maps we have prepared.
+    if (fill_value_maps(resolved_fields, sample_percentage, tbl, value_maps))
+      return true; /* purecov: deadcode */
+
+    // Create a histogram for each Value_map, and store it to persistent
+    // storage.
+    for (const Field *field : resolved_fields) {
+      /*
+        The MEM_ROOT is transferred to the dictionary object when
+        histogram->store_histogram is called.
+      */
+      MEM_ROOT local_mem_root;
+      init_sql_alloc(key_memory_histograms, &local_mem_root, 256);
+
+      std::string schema_name(table->db, table->db_length);
+      std::string table_name(table->table_name, table->table_name_length);
+      std::string col_name(field->field_name);
+      histograms::Histogram *histogram =
+          value_maps.at(field->field_index())
+              ->build_histogram(&local_mem_root, num_buckets, schema_name,
+                                table_name, col_name);
+
+      if (histogram == nullptr) {
+        /* purecov: begin inspected */
+        my_error(ER_UNABLE_TO_BUILD_HISTOGRAM, MYF(0), field->field_name,
+                 table->db, table->table_name);
+        return true;
+        /* purecov: end */
+      }
+
+      if (histogram_history_enabled) {
+        Histogram_error_handler error_handler(thd);
+        History_table_persistor persistor{thd};
+        if (persistor.save(schema_name.data(), table_name.data(),
+                           col_name.data(), histogram)) {
+          results.emplace(col_name + 'h',
+                          Message::HISTOGRAM_HISTORY_VERSION_CREATE_FAILURE);
+        } else {
+          results.emplace(col_name + 'h',
+                          Message::HISTOGRAM_HISTORY_VERSION_CREATED);
+        }
+      }
+
+      if (histogram->store_histogram(thd)) {
+        // errors have already been reported
+        return true; /* purecov: deadcode */
+      }
+
+      results.emplace(col_name, Message::HISTOGRAM_CREATED);
+    }
   }
 
   bool ret = trans_commit_stmt(thd) || trans_commit(thd);
@@ -1573,6 +1626,16 @@ bool drop_histograms(THD *thd, TABLE_LIST &table, const columns_set &columns,
                table.db, table.table_name);
       return true;
       /* purecov: end */
+    }
+
+    if (histogram_history_enabled) {
+      // Ignore lower-level errors because they are insignificant to the DDL,
+      // For example, missing mysql.column_statistics_history.
+      Histogram_error_handler error_handler(thd);
+      History_table_persistor persistor{nullptr};
+      persistor.drop({table.db, table.db_length},
+                     {table.table_name, table.table_name_length},
+                     column_name.c_str());
     }
 
     results.emplace(column_name, Message::HISTOGRAM_DELETED);
@@ -1713,6 +1776,15 @@ static bool rename_histogram(THD *thd, const char *old_schema_name,
              old_schema_name, old_table_name);
     return true;
     /* purecov: end */
+  }
+
+  if (histogram_history_enabled) {
+    // Ignore lower-level errors because they are insignificant to the DDL,
+    // For example, missing mysql.column_statistics_history.
+    Histogram_error_handler error_handler(thd);
+    History_table_persistor persistor{nullptr};
+    persistor.rename(old_schema_name, old_table_name, new_schema_name,
+                     new_table_name, column_name);
   }
 
   results.emplace(column_name, Message::HISTOGRAM_DELETED);

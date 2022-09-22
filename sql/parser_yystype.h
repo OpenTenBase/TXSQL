@@ -618,6 +618,7 @@ union YYSTYPE {
   struct Histogram_param {
     int num_buckets;
     LEX_STRING data;
+    int64_t version;
   } histogram_param;
   struct {
     Sql_cmd_analyze_table::Histogram_command command;

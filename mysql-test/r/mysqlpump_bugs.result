@@ -25,6 +25,7 @@ include/assert_grep.inc [Should not contain mysql.default_roles]
 include/assert_grep.inc [Should contain mysql.password_history]
 Test: dump of mysql database should not contain unexpected tables
 Matching lines are:
+CREATE TABLE `mysql`.`column_statistics_history` (
 CREATE TABLE `mysql`.`component` (
 CREATE TABLE `mysql`.`engine_cost` (
 CREATE TABLE `mysql`.`func` (

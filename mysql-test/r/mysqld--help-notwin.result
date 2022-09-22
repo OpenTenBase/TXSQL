@@ -286,6 +286,8 @@ The following options may be given as the first argument:
  --cdb-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
+ --cdb-kill-user-extra=name 
+ Kill any session except tencentroot user
  --cdb-lock-connect-detect-enabled 
  Enable connection check when transaction is blocked by
  row lock. Default is TRUE
@@ -562,6 +564,12 @@ The following options may be given as the first argument:
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
+ --histogram-history-enabled 
+ When enabled, automatically save and remove versions of
+ histograms in mysql.column_statistics_history.
+ --histogram-history-versions-limit=# 
+ The maximum number of records per column in the table
+ mysql.column_statistics_history.
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --information-schema-stats-expiry=# 
  The number of seconds after which mysqld server will
@@ -1017,6 +1025,14 @@ The following options may be given as the first argument:
  --performance-schema-events-stages-history-size=# 
  Number of rows per thread in EVENTS_STAGES_HISTORY. Use 0
  to disable, -1 for automated sizing.
+ --performance-schema-events-statements-histogram-base-factor=# 
+ Bucket factor. Used for bucket timer value increase in in
+ table EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+ EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.
+ --performance-schema-events-statements-histogram-bucket-number=# 
+ Number of buckets in table
+ EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+ EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.
  --performance-schema-events-statements-history-long-size=# 
  Number of rows in EVENTS_STATEMENTS_HISTORY_LONG. Use 0
  to disable, -1 for automated sizing.
@@ -1844,6 +1860,7 @@ cdb-enable-precise-memory-usage TRUE
 cdb-enable-resource-statistics TRUE
 cdb-fire-wall-enabled FALSE
 cdb-kill-idle-trans-timeout 0
+cdb-kill-user-extra (No default value)
 cdb-lock-connect-detect-enabled TRUE
 cdb-max-prefetch-rows 0
 cdb-pt-filter TRUE
@@ -1926,6 +1943,8 @@ gtid-executed-compression-period 0
 gtid-mode OFF
 help TRUE
 histogram-generation-max-mem-size 20000000
+histogram-history-enabled FALSE
+histogram-history-versions-limit 5
 host-cache-size 279
 information-schema-stats-expiry 86400
 init-connect 
@@ -2065,6 +2084,8 @@ performance-schema-digests-size -1
 performance-schema-error-size ####
 performance-schema-events-stages-history-long-size -1
 performance-schema-events-stages-history-size -1
+performance-schema-events-statements-histogram-base-factor 2
+performance-schema-events-statements-histogram-bucket-number 32
 performance-schema-events-statements-history-long-size -1
 performance-schema-events-statements-history-size -1
 performance-schema-events-transactions-history-long-size -1

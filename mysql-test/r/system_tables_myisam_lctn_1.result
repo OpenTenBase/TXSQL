@@ -48,6 +48,10 @@ END WHILE;
 END$
 CALL test_system_table_alter_engine();
 @table_name
+MYSQL.COLUMN_STATISTICS_HISTORY
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
+@table_name
 MYSQL.COLUMNS_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
@@ -239,6 +243,8 @@ SET i = i + 1;
 END WHILE;
 END$
 CALL test_create_system_table();
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
 SEVERITY	ERRNO	MESSAGE

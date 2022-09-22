@@ -291,13 +291,14 @@ static inline bool table_not_corrupt_error(uint sql_errno) {
 
 Sql_cmd_analyze_table::Sql_cmd_analyze_table(
     THD *thd, Alter_info *alter_info, Histogram_command histogram_command,
-    int histogram_buckets, LEX_STRING data)
+    int histogram_buckets, LEX_STRING data, int64_t version)
     : Sql_cmd_ddl_table(alter_info),
       m_histogram_command(histogram_command),
       m_histogram_fields(Column_name_comparator(),
                          Mem_root_allocator<String>(thd->mem_root)),
       m_histogram_buckets(histogram_buckets),
-      m_data{data} {}
+      m_data{data},
+      m_version{version} {}
 
 bool Sql_cmd_analyze_table::drop_histogram(THD *thd, TABLE_LIST *table,
                                            histograms::results_map &results) {
@@ -586,7 +587,31 @@ bool Sql_cmd_analyze_table::send_histogram_results(
         break;
       case histograms::Message::JSON_IMPOSSIBLE_EMPTY_EQUI_HEIGHT:
         message_type.assign("Error");
-        message.assign( "Equi-height histogram must have some buckets");
+        message.assign("Equi-height histogram must have some buckets");
+        break;
+      case histograms::Message::HISTOGRAM_CREATED_BY_HISTORY_VERSION:
+        message_type.assign("status");
+        message.assign("The histogram on column '");
+        message.append(pair.first);
+        message.append("' restored with history version.");
+        break;
+      case histograms::Message::HISTOGRAM_HISTORY_VERSION_LOAD_FAILURE:
+        message_type.assign("Error");
+        message.assign("The histogram history on column '");
+        message.append(pair.first);
+        message.append("' load failed.");
+        break;
+      case histograms::Message::HISTOGRAM_HISTORY_VERSION_CREATED:
+        message_type.assign("status");
+        message.assign("Histogram history created for column '");
+        message.append(pair.first.begin(), pair.first.end() - 1);
+        message.append("'.");
+        break;
+      case histograms::Message::HISTOGRAM_HISTORY_VERSION_CREATE_FAILURE:
+        message_type.assign("Error");
+        message.assign("Cannot create histogram history on column '");
+        message.append(pair.first.begin(), pair.first.end() - 1);
+        message.append("'.");
         break;
     }
 
@@ -613,9 +638,9 @@ bool Sql_cmd_analyze_table::update_histogram(THD *thd, TABLE_LIST *table,
   for (const auto column : get_histogram_fields())
     fields.emplace(column->ptr(), column->length());
 
-  return histograms::update_histogram(thd, table, fields,
-                                      get_histogram_buckets(),
-                                      get_histogram_data_string(), results);
+  return histograms::update_histogram(
+      thd, table, fields, get_histogram_buckets(), get_histogram_data_string(),
+      get_histogram_version(), results);
 }
 
 using Check_result = std::pair<bool, int>;
