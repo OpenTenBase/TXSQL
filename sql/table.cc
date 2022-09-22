@@ -4128,6 +4128,7 @@ void TABLE::reset() {
   file->ft_handler = nullptr;
 
   pos_in_table_list = nullptr;
+  table_sample_arg = nullptr;
 }
 
 /**

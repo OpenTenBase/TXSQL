@@ -429,6 +429,7 @@ class PT_table_factor_table_ident : public PT_table_reference {
   List<String> *opt_use_partition;
   const char *const opt_table_alias;
   List<Index_hint> *opt_key_definition;
+  Table_sample *opt_table_sample;
   Item *opt_backquery_timestamp;
 
  public:
@@ -436,11 +437,13 @@ class PT_table_factor_table_ident : public PT_table_reference {
                               List<String> *opt_use_partition_arg,
                               const LEX_CSTRING &opt_table_alias_arg,
                               List<Index_hint> *opt_key_definition_arg,
+                              Table_sample *opt_table_sample_arg,
                               Item *opt_backquery_timestamp_arg = nullptr)
       : table_ident(table_ident_arg),
         opt_use_partition(opt_use_partition_arg),
         opt_table_alias(opt_table_alias_arg.str),
         opt_key_definition(opt_key_definition_arg),
+        opt_table_sample(opt_table_sample_arg),
         opt_backquery_timestamp(opt_backquery_timestamp_arg) {}
 
   bool contextualize(Parse_context *pc) override;
@@ -1728,6 +1731,7 @@ class PT_delete final : public Parse_tree_root {
   const char *const opt_table_alias;
   Mem_root_array_YY<Table_ident *> table_list;
   List<String> *opt_use_partition;
+  Table_sample *opt_table_sample;
   Mem_root_array_YY<PT_table_reference *> join_table_list;
   Item *opt_where_clause;
   PT_order *opt_order_clause;
@@ -1740,7 +1744,8 @@ class PT_delete final : public Parse_tree_root {
   PT_delete(PT_with_clause *with_clause_arg, PT_hint_list *opt_hints_arg,
             int opt_delete_options_arg, Table_ident *table_ident_arg,
             const LEX_CSTRING &opt_table_alias_arg,
-            List<String> *opt_use_partition_arg, Item *opt_where_clause_arg,
+            List<String> *opt_use_partition_arg,
+            Table_sample *opt_table_sample_arg, Item *opt_where_clause_arg,
             PT_order *opt_order_clause_arg, Item *opt_delete_limit_clause_arg,
             PT_item_list *opt_returning_clause_arg)
       : m_with_clause(with_clause_arg),
@@ -1749,6 +1754,7 @@ class PT_delete final : public Parse_tree_root {
         table_ident(table_ident_arg),
         opt_table_alias(opt_table_alias_arg.str),
         opt_use_partition(opt_use_partition_arg),
+        opt_table_sample(opt_table_sample_arg),
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(opt_order_clause_arg),
         opt_delete_limit_clause(opt_delete_limit_clause_arg),
@@ -1770,6 +1776,7 @@ class PT_delete final : public Parse_tree_root {
         opt_table_alias(nullptr),
         table_list(table_list_arg),
         opt_use_partition(nullptr),
+        opt_table_sample(nullptr),
         join_table_list(join_table_list_arg),
         opt_where_clause(opt_where_clause_arg),
         opt_order_clause(nullptr),

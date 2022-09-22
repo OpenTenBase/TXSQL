@@ -3718,6 +3718,16 @@ AccessPath *QEP_TAB::access_path() {
                                         /*count_examined_rows=*/true);
       }
       break;
+    case JT_SAMPLE: {
+      bool count_examined_rows = true;
+
+      // For coverage.
+      DBUG_EXECUTE_IF("set_donot_count_exmainde_rows",
+                      { count_examined_rows = false; });
+      path = NewTableSampleAccessPath(join()->thd, table(), this,
+                                      count_examined_rows);
+      break;
+    }
     default:
       assert(false);
       break;

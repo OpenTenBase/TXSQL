@@ -1,0 +1,577 @@
+#
+# Syntax compatibility.
+#
+create table tablesample (tablesample int);
+select * from tablesample tablesample;
+tablesample
+select * from tablesample tablesample tablesample (0);
+tablesample
+select * from tablesample AS tablesample tablesample (0);
+tablesample
+select * from tablesample AS tablesample tablesample system (0);
+tablesample
+select * from tablesample AS tablesample tablesample bernoulli (0);
+tablesample
+drop table tablesample;
+create procedure tablesample (in tablesample int) begin select tablesample; end|
+call tablesample(1);
+tablesample
+1
+drop procedure tablesample;
+#
+# No const optimization.
+#
+create table t1 (c int) engine = myisam;
+insert t1 values (1);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+select * from t1 tablesample (0);
+c
+select * from t1 tablesample bernoulli (0);
+c
+select * from t1 tablesample system (0);
+c
+drop table t1;
+#
+# Bernoulli is properly initialized for sampling_percentage being zero.
+#
+create table t1 (c int) engine = innodb;
+insert t1 values (1);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+select * from t1 tablesample (0);
+c
+drop table t1;
+#
+# create a table and insert 1000 rows.
+#
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;
+create table t1 (a int primary key, b int);
+create table t2 (a int primary key, b int);
+create procedure p1(in max_num int)
+begin
+declare i int default 0;
+set autocommit = 0;
+repeat
+set i = i + 1;
+insert into t1 values (i, i);
+insert into t2 values (i, max_num - i);
+until i = max_num
+end repeat;
+commit;
+set autocommit = 1;
+end |
+call p1(1000);
+#
+# Sample rate.
+#
+select * from t1 tablesample (100.1);
+ERROR 22003: Sample percentage value is out of range in 'TABLESAMPLE'
+#
+# Sample method. The default sample method is bernoulli.
+#
+select * from t1 tablesample (1.1) repeatable(1);
+a	b
+102	102
+203	203
+265	265
+278	278
+317	317
+340	340
+581	581
+745	745
+768	768
+791	791
+847	847
+855	855
+858	858
+882	882
+891	891
+904	904
+911	911
+929	929
+939	939
+select * from t1 tablesample bernoulli (1.1) repeatable(1);
+a	b
+102	102
+203	203
+265	265
+278	278
+317	317
+340	340
+581	581
+745	745
+768	768
+791	791
+847	847
+855	855
+858	858
+882	882
+891	891
+904	904
+911	911
+929	929
+939	939
+select * from t1 tablesample system (50.1) repeatable(1);
+a	b
+830	830
+831	831
+832	832
+833	833
+834	834
+835	835
+836	836
+837	837
+838	838
+839	839
+840	840
+841	841
+842	842
+843	843
+844	844
+845	845
+846	846
+847	847
+848	848
+849	849
+850	850
+851	851
+852	852
+853	853
+854	854
+855	855
+856	856
+857	857
+858	858
+859	859
+860	860
+861	861
+862	862
+863	863
+864	864
+865	865
+866	866
+867	867
+868	868
+869	869
+870	870
+871	871
+872	872
+873	873
+874	874
+875	875
+876	876
+877	877
+878	878
+879	879
+880	880
+881	881
+882	882
+883	883
+884	884
+885	885
+886	886
+887	887
+888	888
+889	889
+890	890
+891	891
+892	892
+893	893
+894	894
+895	895
+896	896
+897	897
+898	898
+899	899
+900	900
+901	901
+902	902
+903	903
+904	904
+905	905
+906	906
+907	907
+908	908
+909	909
+910	910
+911	911
+912	912
+913	913
+914	914
+915	915
+916	916
+917	917
+918	918
+919	919
+920	920
+921	921
+922	922
+923	923
+924	924
+925	925
+926	926
+927	927
+928	928
+929	929
+930	930
+931	931
+932	932
+933	933
+934	934
+935	935
+936	936
+937	937
+938	938
+939	939
+940	940
+941	941
+942	942
+943	943
+944	944
+945	945
+946	946
+947	947
+948	948
+949	949
+950	950
+951	951
+952	952
+953	953
+954	954
+955	955
+956	956
+957	957
+958	958
+959	959
+960	960
+961	961
+962	962
+963	963
+964	964
+965	965
+966	966
+967	967
+968	968
+969	969
+970	970
+971	971
+972	972
+973	973
+974	974
+975	975
+976	976
+977	977
+978	978
+979	979
+980	980
+981	981
+982	982
+983	983
+984	984
+985	985
+986	986
+987	987
+988	988
+989	989
+990	990
+991	991
+992	992
+993	993
+994	994
+995	995
+996	996
+997	997
+998	998
+999	999
+1000	1000
+#
+# Index.
+#
+select a from t1 tablesample bernoulli (1.1) repeatable(1);
+a
+102
+203
+265
+278
+317
+340
+581
+745
+768
+791
+847
+855
+858
+882
+891
+904
+911
+929
+939
+#
+# Unrepeatable (for coverage).
+#
+select * from t1 tablesample (0);
+a	b
+#
+# Partition.
+#
+alter table t2
+PARTITION BY RANGE (a)
+(PARTITION p0 VALUES LESS THAN (333),
+PARTITION p1 VALUES LESS THAN (666),
+PARTITION p2 VALUES LESS THAN (1001));
+select * from t2 partition (p0) tablesample (1.1) repeatable(1);
+a	b
+102	898
+203	797
+265	735
+278	722
+317	683
+select * from t2 partition (p1,p2) tablesample (1.1) repeatable(1);
+a	b
+434	566
+535	465
+597	403
+610	390
+649	351
+672	328
+913	87
+#
+# Unsupported: update statement.
+#
+update t1 tablesample (1) set b=1;
+ERROR 42000: This version of MySQL doesn't yet support 'UPDATE/DELETE with table sample'
+update t1 tablesample (1), t2 set t1.b = 2 where t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'UPDATE/DELETE with table sample'
+update t1, t2 tablesample (1) set t1.b = 2 where t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'UPDATE/DELETE with table sample'
+#
+# Unsupported: delete statement.
+#
+delete from t1 tablesample (1) where b>100;
+ERROR 42000: This version of MySQL doesn't yet support 'UPDATE/DELETE with table sample'
+delete t1,t2 from t1,t2 tablesample (1)  where t1.a=t2.a and t1.a=1;
+ERROR 42000: This version of MySQL doesn't yet support 'UPDATE/DELETE with table sample'
+#
+# Unsupported: Create view statement.
+#
+create view v1 as select * from t1 tablesample (1.1);
+ERROR 42000: This version of MySQL doesn't yet support 'CREATE VIEW with table sample'
+#
+# Join clause
+#
+select * from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+select t1.a from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+select * from t1 tablesample (1.1) repeatable(1) left join
+t2 tablesample (50) repeatable(2) on t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+#
+# Hash join clause
+#
+select * from t1 tablesample (1.1) repeatable (1) join t2 on t1.b=t2.b;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+select t1.b from t1 tablesample (1.1) repeatable(1) left join t2 on t1.b=t2.b;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+#
+# Union
+#
+(select * from t1 tablesample (1.1) repeatable(1)) union
+(select * from t2 tablesample (1.1) repeatable(1));
+a	b
+102	102
+203	203
+265	265
+278	278
+317	317
+340	340
+581	581
+745	745
+768	768
+791	791
+847	847
+855	855
+858	858
+882	882
+891	891
+904	904
+911	911
+929	929
+939	939
+102	898
+203	797
+265	735
+278	722
+317	683
+340	660
+581	419
+745	255
+768	232
+791	209
+847	153
+855	145
+858	142
+882	118
+891	109
+904	96
+911	89
+929	71
+939	61
+#
+# Where clause.
+#
+select * from t1 tablesample (1.1) repeatable (1) where b > 500;
+a	b
+581	581
+745	745
+768	768
+791	791
+847	847
+855	855
+858	858
+882	882
+891	891
+904	904
+911	911
+929	929
+939	939
+select * from t1 tablesample (1.1) repeatable (1) where b > 500;
+a	b
+581	581
+745	745
+768	768
+791	791
+847	847
+855	855
+858	858
+882	882
+891	891
+904	904
+911	911
+929	929
+939	939
+#
+# Aggregate function.
+#
+select COUNT(*) from t1 tablesample (1.1) repeatable (1);
+COUNT(*)
+19
+select max(a) from t1 tablesample (1.1) repeatable (1);
+max(a)
+939
+select min(a) from t1 tablesample (1.1) repeatable (1);
+min(a)
+102
+#
+# Explain statement.
+#
+analyze table t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+explain format=tree select * from t1 tablesample(1.1) repeatable (1);
+EXPLAIN
+-> Table sample on t1  (cost=0.02 rows=1000)
+
+explain format=traditional select * from t1 tablesample(1.1) repeatable (1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	table_sample	NULL	NULL	NULL	NULL	1000	1.10	NULL
+explain format=json select * from t1 tablesample(1.1) repeatable (1);
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "101.00"
+    },
+    "table": {
+      "table_name": "t1",
+      "access_type": "table_sample",
+      "rows_examined_per_scan": 1000,
+      "rows_produced_per_join": 1000,
+      "filtered": "1.10",
+      "cost_info": {
+        "read_cost": "1.00",
+        "eval_cost": "100.00",
+        "prefix_cost": "101.00",
+        "data_read_per_join": "15K"
+      },
+      "used_columns": [
+        "a",
+        "b"
+      ]
+    }
+  }
+}
+explain format=tree select * from t1 tablesample(1.1) repeatable (1) join t2 on
+t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+explain format=traditional select * from t1 tablesample(1.1) repeatable (1) join
+t2 on t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+explain format=json select * from t1 tablesample(1.1) repeatable (1) join t2 on
+t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+#
+# Subquery.
+#
+explain format=tree select * from (select a from t1 tablesample (1.1)) as tb1;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample in subquery'
+explain format=tree (select * from (select a from t1) as tb1,
+(select b from t1 tablesample (1.1) union all select b from t2) as tb2);
+ERROR 42000: This version of MySQL doesn't yet support 'table sample in subquery'
+#
+# Order by clause.
+#
+select * from t2 tablesample (1.1) repeatable (1) order by b;
+a	b
+939	61
+929	71
+911	89
+904	96
+891	109
+882	118
+858	142
+855	145
+847	153
+791	209
+768	232
+745	255
+581	419
+340	660
+317	683
+278	722
+265	735
+203	797
+102	898
+#
+# Limit clause.
+#
+select * from t1 tablesample (1.1) repeatable (1) limit 5;
+a	b
+102	102
+203	203
+265	265
+278	278
+317	317
+#
+# Test NULL value.
+#
+update t1 set b=NULL where a=203;
+update t1 set b=NULL where a=265;
+update t1 set b=NULL where a=278;
+select * from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+select * from t1 tablesample (1.1) repeatable(1) left join
+t2 tablesample (50) repeatable(2) on t1.a=t2.a;
+ERROR 42000: This version of MySQL doesn't yet support 'table sample with join'
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;

@@ -3102,7 +3102,13 @@ bool JOIN::get_best_combination() {
     tab->set_idx(target);
     tab->set_position(pos);
     TABLE *const table = tab->table();
-    if (tab->type() != JT_CONST && tab->type() != JT_SYSTEM) {
+
+    if (table->use_table_sample()) {
+      tab->set_type(JT_SAMPLE);
+    }
+
+    if (tab->type() != JT_CONST && tab->type() != JT_SYSTEM &&
+        tab->type() != JT_SAMPLE) {
       if (pos->sj_strategy == SJ_OPT_LOOSE_SCAN && tab->range_scan() &&
           used_index(tab->range_scan()) != pos->loosescan_key) {
         /*
@@ -5510,6 +5516,9 @@ bool JOIN::extract_const_tables() {
     } else if (tab->join_cond()) {
       // tab is the only inner table of an outer join, extract empty tables
       extract_method = extract_empty_table;
+    } else if (tl->use_table_sample()) {
+      // Do not pull out table sample because it is indeterministic.
+      extract_method = extract_no_table;
     }
     switch (extract_method) {
       case extract_no_table:

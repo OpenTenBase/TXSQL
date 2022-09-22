@@ -294,6 +294,8 @@ bool optimize_aggregated_query(THD *thd, Query_block *select,
   table_map inner_tables = 0;
   // The set of tables in the join, excluding the inner tables of outer join
   table_map used_tables = 0;
+  // The set of tables with tablesample clause
+  table_map sampled_tables = 0;
 
   TABLE_LIST *tables = select->leaf_tables;
 
@@ -322,6 +324,11 @@ bool optimize_aggregated_query(THD *thd, Query_block *select,
     of returned rows.
   */
   for (TABLE_LIST *tl = tables; tl; tl = tl->next_leaf) {
+    // Don't replace expression on a table that is sampled
+    if (tl->use_table_sample()) {
+      sampled_tables |= tl->map();
+    }
+
     // Don't replace expression on a table that is part of an outer join
     if (tl->is_inner_table_of_outer_join()) {
       inner_tables |= tl->map();
@@ -378,7 +385,7 @@ bool optimize_aggregated_query(THD *thd, Query_block *select,
 
   for (Item *item : fields) {
     if (item->type() == Item::SUM_FUNC_ITEM && !item->m_is_window_function) {
-      if (item->is_outer_reference()) {
+      if (item->is_outer_reference() || item->used_tables() & sampled_tables) {
         aggr_impossible = true;
         continue;
       }

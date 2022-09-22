@@ -830,7 +830,7 @@ bool PT_delete::add_table(Parse_context *pc, Table_ident *table) {
                                      : MDL_SHARED_WRITE;
   return !pc->select->add_table_to_list(
       pc->thd, table, opt_table_alias, table_opts, lock_type, mdl_type, nullptr,
-      opt_use_partition, nullptr, pc);
+      opt_use_partition, opt_table_sample, nullptr, pc);
 }
 
 Sql_cmd *PT_delete::make_cmd(THD *thd) {
@@ -3360,7 +3360,8 @@ bool PT_table_factor_table_ident::contextualize(Parse_context *pc) {
   value = pc->select->add_table_to_list(thd, table_ident, opt_table_alias, 0,
                                         yyps->m_lock_type, yyps->m_mdl_type,
                                         opt_key_definition, opt_use_partition,
-                                        nullptr, pc, opt_backquery_timestamp);
+                                        opt_table_sample, nullptr, pc, 
+                                        opt_backquery_timestamp);
   if (value == nullptr) return true;
   if (pc->select->add_joined_table(value)) return true;
   return false;

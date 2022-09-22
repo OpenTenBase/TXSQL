@@ -1998,10 +1998,22 @@ int ha_innopart::sample_init(void *&scan_ctx, double sampling_percentage,
 
   ut_ad(sampling_percentage >= 0.0);
   ut_ad(sampling_percentage <= 100.0);
-  ut_ad(sampling_method == enum_sampling_method::SYSTEM);
+  ut_ad(sampling_method != enum_sampling_method::NONE);
 
-  if (sampling_percentage <= 0.0 || sampling_percentage > 100.0 ||
-      sampling_method != enum_sampling_method::SYSTEM) {
+  m_sampling_method = sampling_method;
+
+  /* Note that sampling_percentage being zero is valid code path which performs
+  successlful early return. However, bypassing rnd_init() causes uninitialized
+  m_prebuilt->index and would crash in index_end(). The community might not
+  correct the sampling_percentage check, since block sampling does not have the
+  problem. So leave it and move bernoulli before the check. */
+  if (sampling_method == enum_sampling_method::BERNOULLI) {
+    return rnd_init(true);
+  }
+
+  assert(m_sampling_method == enum_sampling_method::SYSTEM);
+
+  if (sampling_percentage <= 0.0 || sampling_percentage > 100.0) {
     return 0;
   }
 
@@ -2070,6 +2082,20 @@ int ha_innopart::sample_init(void *&scan_ctx, double sampling_percentage,
 }
 
 int ha_innopart::sample_next(void *scan_ctx, uchar *buf) {
+  if (m_sampling_method == enum_sampling_method::BERNOULLI) {
+    // Temporary set inited to RND, since we are calling rnd_next().
+    int res = rnd_next(buf);
+
+    std::uniform_real_distribution<double> rnd(0.0, 1.0);
+    while (!res &&
+           rnd(m_random_number_engine) > (m_sampling_percentage / 100.0))
+      res = rnd_next(buf);
+
+    return res;
+  }
+
+  assert(m_sampling_method == enum_sampling_method::SYSTEM);
+
   dberr_t err = DB_SUCCESS;
 
   auto sampler = static_cast<Histogram_sampler *>(scan_ctx);
@@ -2087,6 +2113,12 @@ int ha_innopart::sample_next(void *scan_ctx, uchar *buf) {
 }
 
 int ha_innopart::sample_end(void *scan_ctx) {
+  if (m_sampling_method == enum_sampling_method::BERNOULLI) {
+    return rnd_end();
+  }
+
+  assert(m_sampling_method == enum_sampling_method::SYSTEM);
+
   auto sampler = static_cast<Histogram_sampler *>(scan_ctx);
   ut::delete_(sampler);
 

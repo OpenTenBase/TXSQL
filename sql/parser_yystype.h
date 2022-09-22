@@ -53,7 +53,7 @@
 #include "sql/sql_exchange.h"  // Line_separators, enum_filetype
 #include "sql/sql_get_diagnostics.h"  // Diagnostics_information::Which_area
 #include "sql/sql_signal.h"           // enum_condition_item_name
-#include "sql/table.h"                // index_hint_type
+#include "sql/table.h"                // index_hint_type, Table_sample
 #include "sql/trigger_def.h"          // enum_trigger_order_type
 #include "sql/window_lex.h"           // enum_window_frame_unit
 #include "sql/xa.h"                   // xa_option_words
@@ -146,6 +146,8 @@ enum class enum_ha_read_modes;
 enum class enum_jt_column;
 enum class enum_key_algorithm;
 enum class partition_type;
+enum class enum_sampling_method;
+struct Table_sample;
 struct Alter_tablespace_parse_context;
 struct CHARSET_INFO;
 struct LEX;
@@ -626,6 +628,12 @@ union YYSTYPE {
     int num_buckets;
     Histogram_param *param;
   } histogram;
+  Table_sample *table_sample;
+  enum_sampling_method sample_method;
+  struct {
+    bool repeatable;
+    int repeat_seed;
+  } table_sample_repeatable;
   Acl_type acl_type;
   Mem_root_array<LEX_CSTRING> *lex_cstring_list;
   PT_role_or_privilege *role_or_privilege;

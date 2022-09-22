@@ -6230,6 +6230,7 @@ bool PT_common_table_expr::match_table_ref(TABLE_LIST *tl, bool in_self,
   @param index_hints_arg a list of index hints(FORCE/USE/IGNORE INDEX).
   @param partition_names List to carry partition names from PARTITION (...)
   clause in statement
+  @param table_sample_arg Used by TABLESAMPLE clause
   @param option         Used by cache index
   @param pc             Current parsing context, if available.
 
@@ -6241,8 +6242,9 @@ bool PT_common_table_expr::match_table_ref(TABLE_LIST *tl, bool in_self,
 TABLE_LIST *Query_block::add_table_to_list(
     THD *thd, Table_ident *table_name, const char *alias, ulong table_options,
     thr_lock_type lock_type, enum_mdl_type mdl_type,
-    List<Index_hint> *index_hints_arg, List<String> *partition_names,
-    LEX_STRING *option, Parse_context *pc, Item *backquery_timestamp) {
+    List<Index_hint> *index_hints_arg, List<String> *partition_names, 
+    Table_sample *table_sample_arg, LEX_STRING *option, Parse_context *pc, 
+    Item *backquery_timestamp) {
   TABLE_LIST *previous_table_ref =
       nullptr; /* The table preceding the current one. */
   LEX *lex = thd->lex;
@@ -6436,6 +6438,10 @@ TABLE_LIST *Query_block::add_table_to_list(
   table_list.link_in_list(ptr, &ptr->next_local);
   ptr->next_name_resolution_table = nullptr;
   ptr->partition_names = partition_names;
+
+  /* Arguments for table sample */
+  ptr->table_sample_arg = table_sample_arg;
+  if (table_sample_arg != nullptr) sampled_table_count++;
 
   if (unlikely(backquery_timestamp)) {
     int warning = 0;

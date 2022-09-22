@@ -90,6 +90,7 @@ void WalkAccessPaths(AccessPath *path, JoinPtr join,
     case AccessPath::INDEX_SKIP_SCAN:
     case AccessPath::GROUP_INDEX_SKIP_SCAN:
     case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
+    case AccessPath::TABLE_SAMPLE:
     case AccessPath::TABLE_VALUE_CONSTRUCTOR:
     case AccessPath::FAKE_SINGLE_ROW:
     case AccessPath::ZERO_ROWS:
@@ -288,6 +289,8 @@ void WalkTablesUnderAccessPath(AccessPath *root_path, Func &&func,
             return func(path->group_index_skip_scan().table);
           case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
             return func(path->dynamic_index_range_scan().table);
+          case AccessPath::TABLE_SAMPLE:
+            return func(path->table_sample().table);
           case AccessPath::STREAM:
             return func(path->stream().table);
           case AccessPath::MATERIALIZE:

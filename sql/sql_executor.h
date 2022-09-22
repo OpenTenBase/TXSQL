@@ -468,6 +468,10 @@ class QEP_TAB : public QEP_shared_owner {
 
   Mem_root_array<const AccessPath *> *invalidators = nullptr;
 
+  // Temporary table for table sample @see JOIN::Init_sample_tables()
+  TABLE *m_table_sample_tmp_table = nullptr;
+  Temp_table_param *m_table_sample_tmp_table_param = nullptr;
+
   QEP_TAB(const QEP_TAB &);             // not defined
   QEP_TAB &operator=(const QEP_TAB &);  // not defined
 };

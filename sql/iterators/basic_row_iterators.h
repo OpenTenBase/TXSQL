@@ -40,11 +40,13 @@
 
 class Filesort_info;
 class Item;
+class QEP_TAB;
 class JOIN;
 class Sort_result;
 class THD;
 struct IO_CACHE;
 struct TABLE;
+struct Table_sample;
 
 /**
   Scan a table from beginning to end.
@@ -498,6 +500,27 @@ class TableValueConstructorIterator final : public RowIterator {
   /// be output, this contains Item_values_column objects. In this case, each
   /// call to Read() will replace its current reference with the next row.
   mem_root_deque<Item *> *const m_output_refs;
+};
+
+/**
+  Sample a physics table.
+*/
+class TableSampleIterator final : public TableRowIterator {
+ public:
+  TableSampleIterator(THD *thd, TABLE *table, QEP_TAB *qep_tab,
+                      double expected_rows, ha_rows *examined_rows);
+  ~TableSampleIterator() override;
+
+  bool Init() override;
+  int Read() override;
+
+ private:
+  uchar *const m_record;
+  QEP_TAB *const m_qep_tab;
+  double m_expected_rows;
+  ha_rows *const m_examined_rows;
+  void *m_scan_ctx;  // Scan context for sampling
+  Table_sample *m_table_sample_arg;
 };
 
 #endif  // SQL_ITERATORS_BASIC_ROW_ITERATORS_H_

@@ -1531,6 +1531,15 @@ void Query_expression::change_to_access_path_without_in2exists(THD *thd) {
   create_access_paths(thd);
 }
 
+bool Query_expression::validate_use_table_sample(bool is_subquery) const {
+  for (Query_block *sl = first_query_block(); sl != nullptr;
+       sl = sl->next_query_block()) {
+    if (sl->validate_use_table_sample(is_subquery)) return true;
+  }
+
+  return false;
+}
+
 /**
   Closes (and, if last reference, drops) temporary tables created to
   materialize derived tables, schema tables and CTEs.
@@ -1651,4 +1660,34 @@ void Query_block::destroy() {
     rollup_sums.clear();
     rollup_sums.shrink_to_fit();
   }
+}
+
+/**
+ * TABLESAMPE in JOIN clause or subquery need to create temp table.
+ *
+ * @param is_subquery true if this select_lex belong to a subquery
+ */
+bool Query_block::validate_use_table_sample(bool is_subquery) const {
+  if (is_subquery) {
+    for (TABLE_LIST *tl = leaf_tables; tl; tl = tl->next_local) {
+      if (tl->use_table_sample()) {
+        my_error(ER_NOT_SUPPORTED_YET, MYF(0), "table sample in subquery");
+        return true;
+      }
+    }
+  } else if (leaf_table_count > 1 && has_table_sample()) {
+    for (TABLE_LIST *tl = leaf_tables; tl; tl = tl->next_local) {
+      if (tl->use_table_sample()) {
+        my_error(ER_NOT_SUPPORTED_YET, MYF(0), "table sample with join");
+        return true;
+      }
+    }
+  }
+
+  /* Validating the Query_expression belong to the select_lex */
+  for (Query_expression *unit = first_inner_query_expression(); unit;
+       unit = unit->next_query_expression())
+    if (unit->validate_use_table_sample(true)) return true;
+
+  return false;
 }

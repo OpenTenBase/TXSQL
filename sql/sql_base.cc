@@ -3487,6 +3487,9 @@ reset:
     }
   }
 
+  /* Set tablesample args */
+  table->table_sample_arg = table_list->table_sample_arg;
+
   table->init(thd, table_list);
 
   /* Request a read lock for implicitly opened P_S tables. */

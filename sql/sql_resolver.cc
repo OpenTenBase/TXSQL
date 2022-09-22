@@ -1200,6 +1200,9 @@ bool Query_block::setup_tables(THD *thd, TABLE_LIST *tables,
     if (table->part_info)  // Count number of partitioned tables
       partitioned_table_count++;
 
+    // If there is a TABLESAMPLE cluase, index scan should be banned.
+    tr->process_table_sample(table);
+
     if (unlikely(tr->is_backquery())) {
       tr->process_index_for_backquery(thd, table);
       std::string key(tr->db, tr->db_length);

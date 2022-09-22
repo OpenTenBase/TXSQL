@@ -617,6 +617,12 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             thd, mem_root, param.table, param.qep_tab, examined_rows);
         break;
       }
+      case AccessPath::TABLE_SAMPLE:
+        iterator = NewIterator<TableSampleIterator>(
+            thd, mem_root, path->table_sample().table, 
+            path->table_sample().qep_tab, path->num_output_rows,
+            examined_rows);
+        break;
       case AccessPath::TABLE_VALUE_CONSTRUCTOR: {
         assert(join != nullptr);
         Query_block *query_block = join->query_block;

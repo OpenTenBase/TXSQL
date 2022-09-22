@@ -2951,6 +2951,7 @@ int handler::ha_sample_init(void *&scan_ctx, double sampling_percentage,
   DBUG_TRACE;
   assert(sampling_percentage >= 0.0);
   assert(sampling_percentage <= 100.0);
+  assert(sampling_method != enum_sampling_method::NONE);
   assert(inited == NONE);
 
   // Initialise the random number generator.
@@ -8015,8 +8016,16 @@ int handler::ha_external_lock(THD *thd, int lock_type) {
   assert(table_share->tmp_table != NO_TMP_TABLE ||
          ((lock_type != F_UNLCK && m_lock_type == F_UNLCK) ||
           lock_type == F_UNLCK));
-  /* SQL HANDLER call locks/unlock while scanning (RND/INDEX). */
-  assert(inited == NONE || table->open_by_handler);
+  /*
+    Exceptional cases:
+
+      1. SQL HANDLER call locks/unlock while scanning (RND/INDEX).
+      2. JOIN::join_free() is called before iterator destruction, so
+         there is no chance for ha_sample_end() in TableSampleIterator
+         destructor to set inited to NONE.
+   */
+  assert(inited == NONE || table->open_by_handler ||
+         (inited == SAMPLING && lock_type == F_UNLCK));
 
   ha_statistic_increment(&System_status_var::ha_external_lock_count);
 

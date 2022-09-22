@@ -1088,6 +1088,15 @@ class Query_expression {
 
   bool walk(Item_processor processor, enum_walk walk, uchar *arg);
 
+  /**
+    If tablesample usage is supported with this unit.
+
+    Currently rescanning table sample is not supported.
+
+    @return true if not supported, false else.
+   */
+  bool validate_use_table_sample(bool is_subquery) const;
+
   /*
     An exception: this is the only function that needs to adjust
     explain_marker.
@@ -1302,6 +1311,9 @@ class Query_block {
   /// @returns true if query block is a recursive member of a recursive unit
   bool is_recursive() const { return recursive_reference != nullptr; }
 
+  /// @returns true if query block has sampled table
+  bool has_table_sample() const { return sampled_table_count > 0; }
+
   bool is_in_select_list(Item *i);
 
   /**
@@ -1333,6 +1345,7 @@ class Query_block {
                                 enum_mdl_type mdl_type = MDL_SHARED_READ,
                                 List<Index_hint> *hints = nullptr,
                                 List<String> *partition_names = nullptr,
+                                Table_sample *table_sample_arg = nullptr,
                                 LEX_STRING *option = nullptr,
                                 Parse_context *pc = nullptr,
                                 Item *backquery_timestamp = nullptr);
@@ -1831,6 +1844,14 @@ class Query_block {
   bool field_list_is_empty() const;
 
   void remove_hidden_fields();
+
+  /**
+    If tablesample usage is supported with this query block.
+    Currently rescanning table sample is not supported.
+    @return true if not supported, false else.
+  */
+  bool validate_use_table_sample(bool is_subquery) const;
+
   /// Creates a clone for the given expression by re-parsing the
   /// expression. Used in condition pushdown to derived tables.
   Item *clone_expression(THD *thd, Item *item, bool is_system_view);
@@ -2067,6 +2088,8 @@ class Query_block {
   uint leaf_table_count{0};
   /// Number of derived tables and views in this query block.
   uint derived_table_count{0};
+  /// Number of sampled tables in this query block.
+  uint sampled_table_count{0};
   /// Number of table functions in this query block
   uint table_func_count{0};
 

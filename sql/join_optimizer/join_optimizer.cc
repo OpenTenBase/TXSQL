@@ -3868,6 +3868,9 @@ string PrintAccessPath(const AccessPath &path, const JoinHypergraph &graph,
     case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
       str += "DYNAMIC_INDEX_RANGE_SCAN";
       break;
+    case AccessPath::TABLE_SAMPLE:
+      str += "TABLE_SAMPLE";
+      break;
     case AccessPath::TABLE_VALUE_CONSTRUCTOR:
       str += "TABLE_VALUE_CONSTRUCTOR";
       break;
