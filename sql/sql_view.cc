@@ -574,6 +574,14 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
     }
 
     /*
+      Creating a view of sampled table is not supported.
+    */
+    if (tbl->use_table_sample()) {
+      my_error(ER_NOT_SUPPORTED_YET, MYF(0), "CREATE VIEW with table sample");
+      goto err;
+    }
+
+    /*
       tbl->table can be NULL when tbl is a placeholder for a view
       that is indirectly referenced via a stored function from the
       view being created. We don't check these indirectly

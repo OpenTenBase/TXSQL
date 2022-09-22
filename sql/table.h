@@ -270,6 +270,14 @@ class View_creation_ctx : public Default_object_creation_ctx {
   View_creation_ctx(THD *thd) : Default_object_creation_ctx(thd) {}
 };
 
+/* Arguments for table sample */
+struct Table_sample {
+  enum_sampling_method method;
+  double sample_percentage;
+  bool repeatable;
+  int repeat_seed;
+};
+
 /*************************************************************************/
 
 /** Order clause list element */
@@ -1772,6 +1780,10 @@ struct TABLE {
   partition_info *part_info{nullptr}; /* Partition related information */
   /* If true, all partitions have been pruned away */
   bool all_partitions_pruned_away{false};
+
+  /* Arguments for table sample */
+  Table_sample *table_sample_arg{nullptr};
+
   MDL_ticket *mdl_ticket{nullptr};
 
  private:
@@ -2031,6 +2043,11 @@ struct TABLE {
     Return the cost model object for this table.
   */
   const Cost_model_table *cost_model() const { return &m_cost_model; }
+
+  /**
+   Return true if sample the table.
+  */
+  bool use_table_sample() { return table_sample_arg != nullptr; }
 
   /**
     Bind all the table's value generator columns in all the forms:
@@ -3194,6 +3211,16 @@ struct TABLE_LIST {
   */
   bool process_index_hints(const THD *thd, TABLE *table);
 
+
+  /**
+    If there is a TABLESAMPLE clause, never select any index scan.
+  */
+  void process_table_sample(TABLE *table) {
+    if (use_table_sample()) {
+      table->keys_in_use_for_query.subtract(table->keys_in_use_for_query);
+    }
+  }
+
   /**
     Compare the version of metadata from the previous execution
     (if any) with values obtained from the current table
@@ -3321,6 +3348,11 @@ struct TABLE_LIST {
     return const_cast<TABLE_LIST *>(
         static_cast<const TABLE_LIST *>(this)->updatable_base_table());
   }
+
+  /**
+   Return true if the table is sampled.
+  */
+  bool use_table_sample() { return table_sample_arg != nullptr; }
 
   /**
     Mark that there is a NATURAL JOIN or JOIN ... USING between two tables.
@@ -3765,6 +3797,9 @@ struct TABLE_LIST {
 
   /* List to carry partition names from PARTITION (...) clause in statement */
   List<String> *partition_names{nullptr};
+
+  /* arguments for table sample */
+  Table_sample *table_sample_arg{nullptr};
 
   /// Set table number
   void set_tableno(uint tableno) {

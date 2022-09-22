@@ -3780,7 +3780,8 @@ void Query_expression::include_down(LEX *lex, Query_block *outer) {
    - A table-less query (unimportant special case).
    - A query with a LIMIT (limit applies to subquery, so the implementation
      strategy is to materialize this subquery, including row count constraint).
-   - It has windows
+   - It has windows.
+   - A query with sampled table.
 */
 
 bool Query_expression::is_mergeable() const {
@@ -3789,7 +3790,8 @@ bool Query_expression::is_mergeable() const {
   Query_block *const select = first_query_block();
   return !select->is_grouped() && !select->having_cond() &&
          !select->is_distinct() && select->table_list.elements > 0 &&
-         !select->has_limit() && select->m_windows.elements == 0;
+         !select->has_limit() && select->m_windows.elements == 0 &&
+         !select->has_table_sample();
 }
 
 /**

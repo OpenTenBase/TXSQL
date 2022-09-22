@@ -719,6 +719,12 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
+    case AccessPath::TABLE_SAMPLE:
+      description.push_back(string("Table sample on ") +
+                            path->table_sample().table->alias +
+                            path->table_sample().table->file->explain_extra());
+      AddChildrenFromPushedCondition(path->table_sample().table, &children);
+      break;
     case AccessPath::TABLE_VALUE_CONSTRUCTOR:
     case AccessPath::FAKE_SINGLE_ROW:
       description.emplace_back("Rows fetched before execution");

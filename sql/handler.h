@@ -715,8 +715,6 @@ enum enum_binlog_command {
   LOGCOM_DROP_DB,
 };
 
-enum class enum_sampling_method { SYSTEM, NONE };
-
 /* Bits in used_fields */
 #define HA_CREATE_USED_AUTO (1L << 0)
 #define HA_CREATE_USED_RAID (1L << 1)  // RAID is no longer available

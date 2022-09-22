@@ -1375,6 +1375,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> SQL_CDB_FILTER_SYM 1259
 %token<lexer.keyword> MASK_SYM 1260
 %token<lexer.keyword> UNMASK_SYM 1261
+%token<lexer.keyword> TABLESAMPLE_SYM 1262
+%token<lexer.keyword> BERNOULLI_SYM 1263
 /* Changes from txsql end. */
 
 /*
@@ -2096,6 +2098,10 @@ void warn_about_deprecated_binary(THD *thd)
 %type <acl_type> opt_acl_type
 %type <histogram_param> opt_histogram_update_param
 %type <histogram> opt_histogram
+
+%type <table_sample> opt_table_sample_clause
+%type <sample_method> opt_table_sample_method
+%type <table_sample_repeatable> opt_table_sample_repeatable_clause
 
 %type <lex_cstring_list> column_list opt_column_list
 
@@ -10216,7 +10222,7 @@ explicit_table:
           {
             $$.init(YYMEM_ROOT);
             auto table= NEW_PTN
-                PT_table_factor_table_ident($2, nullptr, NULL_CSTR, nullptr);
+                PT_table_factor_table_ident($2, nullptr, NULL_CSTR, nullptr, nullptr);
             if ($$.push_back(table))
               MYSQL_YYABORT; // OOM
           }
@@ -12276,16 +12282,44 @@ single_table_parens:
         | '(' single_table ')' { $$= $2; }
         ;
 
+/*
+  We choose to support TABLESAMPLE as an unquoted identifier anywhere,
+  to provide best user query compatibility.
+
+  Note that the different relative orders of partition and alias clauses in
+  delete_stmt and single_table are already consolidated in the user manual.
+  In any case, it seems that resolving conflicts with TABLESAMPLE as an alias
+  or the sample keyword requires:
+
+    1) the sample clause must be placed immediately after the alias clause,
+    2) opt_table_alias must be inlined.
+
+  Another way considered is to support TABLESAMPLE as an unquoted identifer
+  except for table alias, by replacing ident with alias_ident in opt_table_alias
+  and using a new ident_keywords_ambiguous_5_table_aliases rule for the keyword.
+  The way is discarded because it might break user queries.
+
+  It is said that the community is developing the same TABLESAMPLE feature. When
+  it is released, this patch might be reverted.
+ */
 single_table:
-          table_ident opt_use_partition opt_table_alias opt_key_definition
+          table_ident opt_use_partition AS ident opt_table_sample_clause opt_key_definition
           {
-            $$= NEW_PTN PT_table_factor_table_ident($1, $2, $3, $4, nullptr);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, to_lex_cstring($4), $6, $5, nullptr);
           }
-        | table_ident opt_use_partition AS OF_SYM TIMESTAMP_SYM expr
+        | table_ident opt_use_partition AS OF_SYM TIMESTAMP_SYM expr opt_table_sample_clause opt_key_definition
           {
             YYTHD->backquery_flag = true;
             ITEMIZE($6, &$6);
-            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, nullptr, $6);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, $8, $7, $6);
+          }
+        | table_ident opt_use_partition ident opt_table_sample_clause opt_key_definition
+          {
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, to_lex_cstring($3), $5, $4, nullptr);
+          }
+        | table_ident opt_use_partition opt_table_sample_clause opt_key_definition
+          {
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, $4, $3, nullptr);
           }
         ;
 
@@ -12331,6 +12365,61 @@ table_function:
             }
 
             $$= NEW_PTN PT_table_factor_function($3, $5, $6, to_lex_string($8));
+          }
+        ;
+
+opt_table_sample_clause:
+          /* empty */
+          {
+            $$ = nullptr;
+          }
+        | TABLESAMPLE_SYM opt_table_sample_method '(' NUM_literal ')'
+          opt_table_sample_repeatable_clause
+          {
+            $$ = NEW_PTN Table_sample;
+            $$->method = $2;
+
+            Item *num= $4;
+            ITEMIZE(num, &num);
+            $$->sample_percentage = num->val_real();
+            if ($$->sample_percentage < 0 || $$->sample_percentage > 100)
+            {
+              my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "Sample percentage",
+                       "TABLESAMPLE");
+              MYSQL_YYABORT;
+            }
+
+            $$->repeatable = $6.repeatable;
+            $$->repeat_seed = $6.repeat_seed;
+          }
+        ;
+
+opt_table_sample_method:
+          /* empty */
+          {
+            $$ = enum_sampling_method::BERNOULLI;
+          }
+        | SYSTEM_SYM
+          {
+            $$ = enum_sampling_method::SYSTEM;
+          }
+        | BERNOULLI_SYM
+          {
+            $$ = enum_sampling_method::BERNOULLI;
+          }
+        ;
+
+opt_table_sample_repeatable_clause:
+          /* empty */
+          {
+            $$.repeatable = false;
+            $$.repeat_seed = MYF(0); /* Not sure */
+          }
+        | REPEATABLE_SYM '(' NUM ')'
+          {
+            $$.repeatable = true;
+            int num = atoi($3.str);
+            $$.repeat_seed = num;
           }
         ;
 
@@ -13717,14 +13806,44 @@ delete_stmt:
           opt_delete_options
           FROM
           table_ident
-          opt_table_alias
+          AS
+          ident
+          opt_table_sample_clause
           opt_use_partition
           opt_where_clause
           opt_order_clause
           opt_simple_limit
           opt_returning_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($7), $9, $8, $10, $11, $12, $13);
+          }
+        | opt_with_clause
+          DELETE_SYM
+          opt_delete_options
+          FROM
+          table_ident
+          ident
+          opt_table_sample_clause
+          opt_use_partition
+          opt_where_clause
+          opt_order_clause
+          opt_simple_limit
+          {
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($6), $8, $7, $9, $10, $11, nullptr);
+          }
+        | opt_with_clause
+          DELETE_SYM
+          opt_delete_options
+          FROM
+          table_ident
+          opt_table_sample_clause
+          opt_use_partition
+          opt_where_clause
+          opt_order_clause
+          opt_simple_limit
+          opt_returning_clause
+          {
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, NULL_CSTR, $7, $6, $8, $9, $10, $11);
           }
         | opt_with_clause
           DELETE_SYM
@@ -15476,6 +15595,7 @@ ident_keywords_unambiguous:
         | AVG_ROW_LENGTH
         | AVG_SYM
         | BACKUP_SYM
+        | BERNOULLI_SYM
         | BINLOG_SYM
         | BIT_SYM %prec KEYWORD_USED_AS_IDENT
         | BLOCK_SYM
@@ -15837,6 +15957,7 @@ ident_keywords_unambiguous:
         | SWAPS_SYM
         | SWITCHES_SYM
         | TABLES
+        | TABLESAMPLE_SYM
         | TABLESPACE_SYM
         | TABLE_CHECKSUM_SYM
         | TABLE_NAME_SYM

@@ -1145,4 +1145,7 @@ typedef my_off_t ha_rows;
 
 #define HA_VARCHAR_PACKLENGTH(field_length) ((field_length) < 256 ? 1 : 2)
 
+/* Table sample methods */
+enum class enum_sampling_method { NONE, SYSTEM, BERNOULLI };
+
 #endif /* _my_base_h */

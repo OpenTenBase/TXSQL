@@ -63,6 +63,7 @@
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/auth_common.h"  // *_ACL
 #include "sql/auth/sql_security_ctx.h"
+#include "sql/create_field.h"  // Create_field
 #include "sql/current_thd.h"
 #include "sql/debug_sync.h"  // DEBUG_SYNC
 #include "sql/enum_query_type.h"
@@ -311,6 +312,39 @@ bool validate_use_secondary_engine(const LEX *lex) {
   return false;
 }
 
+/**
+  Validates a statement that uses the table sample.
+
+  TABLESAMPLE clause is not supported in these cases:
+
+    - In any UPDATE/DELETE statment.
+    - In subquery or a query block with multiple tables,
+      to support rescanning.
+
+  @param lex Parse tree descriptor.
+
+  @return true if error, false otherwise.
+ */
+static bool validate_use_table_sample(LEX *lex) {
+  const Sql_cmd *sql_cmd = lex->m_sql_cmd;
+
+  if (sql_cmd->sql_command_code() == SQLCOM_UPDATE ||
+      sql_cmd->sql_command_code() == SQLCOM_UPDATE_MULTI ||
+      sql_cmd->sql_command_code() == SQLCOM_DELETE ||
+      sql_cmd->sql_command_code() == SQLCOM_DELETE_MULTI) {
+    for (TABLE_LIST *tl = lex->query_tables; tl; tl = tl->next_global) {
+      if (tl->use_table_sample()) {
+        my_error(ER_NOT_SUPPORTED_YET, MYF(0), "UPDATE/DELETE with table sample");
+        return true;
+      }
+    }
+  }
+
+  if (lex->unit->validate_use_table_sample(false)) return true;
+
+  return false;
+}
+
 bool Sql_cmd_dml::prepare(THD *thd) {
   DBUG_TRACE;
 
@@ -555,6 +589,8 @@ bool Sql_cmd_dml::execute(THD *thd) {
   }
 
   if (validate_use_secondary_engine(lex)) goto err;
+
+  if (validate_use_table_sample(lex)) goto err;
 
   lex->set_exec_started();
 
@@ -3158,6 +3194,27 @@ bool make_join_readinfo(JOIN *join, uint no_jbuf_after) {
             else
               join->thd->inc_status_select_full_join();
           }
+        }
+        break;
+      case JT_SAMPLE:
+        assert(table_ref->use_table_sample());
+        join->thd->set_status_no_index_used();
+        tab->position()->rows_fetched = qep_tab->position()->rows_fetched;
+
+        // For coverage.
+        DBUG_EXECUTE_IF("set_filter_effect_COND_FILTER_STALE", {
+          tab->position()->filter_effect = COND_FILTER_STALE;
+        });
+
+        if (tab->position()->filter_effect != COND_FILTER_STALE) {
+          tab->position()->filter_effect *=
+              table_ref->table_sample_arg->sample_percentage / 100.0;
+        }
+        if (statistics) {
+          if (i == join->const_tables)
+            join->thd->inc_status_select_scan();
+          else
+            join->thd->inc_status_select_full_join();
         }
         break;
       case JT_RANGE:

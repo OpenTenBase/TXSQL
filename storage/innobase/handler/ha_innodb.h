@@ -724,6 +724,9 @@ class ha_innobase : public handler {
     the first part is index name, the second pard is its physical info. */
   std::map<std::string, index_physical_info_t> partition_index_map;
 
+  /** Sampling method */
+  enum_sampling_method m_sampling_method;
+
   bool prepare_backquery(THD *thd, time_t t) override;
 };
 

@@ -388,3 +388,60 @@ bool FollowTailIterator::RepositionCursorAfterSpillToDisk() {
   }
   return reposition_innodb_cursor(table(), m_read_rows);
 }
+
+TableSampleIterator::TableSampleIterator(THD *thd, TABLE *table,
+                                         QEP_TAB *qep_tab,
+                                         double expected_rows,
+                                         ha_rows *examined_rows)
+    : TableRowIterator(thd, table),
+      m_record(table->record[0]),
+      m_qep_tab(qep_tab),
+      m_expected_rows(expected_rows),
+      m_examined_rows(examined_rows),
+      m_scan_ctx(nullptr),
+      m_table_sample_arg(table->table_sample_arg) {}
+
+TableSampleIterator::~TableSampleIterator() {
+  if (table()->file != nullptr) {
+    // For early exits with LIMIT clause
+    if (table()->file->inited) table()->file->ha_sample_end(m_scan_ctx);
+    table()->file->ha_index_or_rnd_end();
+  }
+}
+
+bool TableSampleIterator::Init() {
+  const bool first_init = !table()->file->inited;
+
+  // Don't support rescan.
+  assert(first_init);
+
+  if (!m_table_sample_arg->repeatable) {
+    std::random_device rd;
+    std::uniform_int_distribution<int> dist;
+    m_table_sample_arg->repeat_seed = dist(rd);
+  }
+
+  int error = table()->file->ha_sample_init(
+      m_scan_ctx, m_table_sample_arg->sample_percentage,
+      m_table_sample_arg->repeat_seed, m_table_sample_arg->method, true);
+
+  if (error) {
+    PrintError(error); /* purecov: inspected */
+    return true;       /* purecov: inspected */
+  }
+
+  if (set_record_buffer(table(), m_expected_rows)) return true; /* purecov: inspected */
+
+  return false;
+}
+
+int TableSampleIterator::Read() {
+  int tmp;
+  while ((tmp = table()->file->ha_sample_next(m_scan_ctx, m_record))) {
+    table()->file->ha_sample_end(m_scan_ctx);
+    return HandleError(tmp);
+  }
+  if (m_examined_rows != nullptr) ++*m_examined_rows; /* purecov: inspected */
+
+  return 0;
+}

@@ -200,6 +200,10 @@ enum join_type {
   */
   JT_ALL,
   /*
+    Table sample scan.
+  */
+  JT_SAMPLE,
+  /*
     Range scan.
   */
   JT_RANGE,

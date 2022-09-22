@@ -1,0 +1,230 @@
+#####################################################################
+#                                                                   #
+# Test for tablesample clause.                                      #
+#                                                                   #
+#####################################################################
+
+--echo #
+--echo # Syntax compatibility.
+--echo #
+create table tablesample (tablesample int);
+select * from tablesample tablesample;
+select * from tablesample tablesample tablesample (0);
+select * from tablesample AS tablesample tablesample (0);
+select * from tablesample AS tablesample tablesample system (0);
+select * from tablesample AS tablesample tablesample bernoulli (0);
+drop table tablesample;
+delimiter |;
+create procedure tablesample (in tablesample int) begin select tablesample; end|
+delimiter ;|
+call tablesample(1);
+drop procedure tablesample;
+
+
+--echo #
+--echo # No const optimization.
+--echo #
+create table t1 (c int) engine = myisam;
+insert t1 values (1);
+analyze table t1;
+select * from t1 tablesample (0);
+select * from t1 tablesample bernoulli (0);
+select * from t1 tablesample system (0);
+drop table t1;
+
+--echo #
+--echo # Bernoulli is properly initialized for sampling_percentage being zero.
+--echo #
+create table t1 (c int) engine = innodb;
+insert t1 values (1);
+analyze table t1;
+select * from t1 tablesample (0);
+drop table t1;
+
+--echo #
+--echo # create a table and insert 1000 rows.
+--echo #
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;
+--enable_warnings
+
+create table t1 (a int primary key, b int);
+create table t2 (a int primary key, b int);
+
+delimiter |;
+create procedure p1(in max_num int)
+begin
+  declare i int default 0;
+  set autocommit = 0;
+  repeat
+    set i = i + 1;
+    insert into t1 values (i, i);
+    insert into t2 values (i, max_num - i);
+  until i = max_num
+  end repeat;
+  commit;
+  set autocommit = 1;
+end |
+delimiter ;|
+
+call p1(1000);
+
+--echo #
+--echo # Sample rate.
+--echo #
+--error ER_DATA_OUT_OF_RANGE
+select * from t1 tablesample (100.1);
+
+--echo #
+--echo # Sample method. The default sample method is bernoulli.
+--echo #
+select * from t1 tablesample (1.1) repeatable(1);
+select * from t1 tablesample bernoulli (1.1) repeatable(1);
+select * from t1 tablesample system (50.1) repeatable(1);
+
+--echo #
+--echo # Index.
+--echo #
+select a from t1 tablesample bernoulli (1.1) repeatable(1);
+
+--echo #
+--echo # Unrepeatable (for coverage).
+--echo #
+select * from t1 tablesample (0);
+
+--echo #
+--echo # Partition.
+--echo #
+alter table t2
+  PARTITION BY RANGE (a)
+  (PARTITION p0 VALUES LESS THAN (333),
+   PARTITION p1 VALUES LESS THAN (666),
+   PARTITION p2 VALUES LESS THAN (1001));
+
+select * from t2 partition (p0) tablesample (1.1) repeatable(1);
+select * from t2 partition (p1,p2) tablesample (1.1) repeatable(1);
+
+--echo #
+--echo # Unsupported: update statement.
+--echo #
+--error ER_NOT_SUPPORTED_YET
+update t1 tablesample (1) set b=1;
+--error ER_NOT_SUPPORTED_YET
+update t1 tablesample (1), t2 set t1.b = 2 where t1.a=t2.a;
+--error ER_NOT_SUPPORTED_YET
+update t1, t2 tablesample (1) set t1.b = 2 where t1.a=t2.a;
+
+--echo #
+--echo # Unsupported: delete statement.
+--echo #
+--error ER_NOT_SUPPORTED_YET
+delete from t1 tablesample (1) where b>100;
+--error ER_NOT_SUPPORTED_YET
+delete t1,t2 from t1,t2 tablesample (1)  where t1.a=t2.a and t1.a=1;
+
+--echo #
+--echo # Unsupported: Create view statement.
+--echo #
+--error ER_NOT_SUPPORTED_YET
+create view v1 as select * from t1 tablesample (1.1);
+
+--echo #
+--echo # Join clause
+--echo #
+--error ER_NOT_SUPPORTED_YET
+select * from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+--error ER_NOT_SUPPORTED_YET
+select t1.a from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+
+--error ER_NOT_SUPPORTED_YET
+select * from t1 tablesample (1.1) repeatable(1) left join
+  t2 tablesample (50) repeatable(2) on t1.a=t2.a;
+
+--echo #
+--echo # Hash join clause
+--echo #
+--error ER_NOT_SUPPORTED_YET
+select * from t1 tablesample (1.1) repeatable (1) join t2 on t1.b=t2.b;
+--error ER_NOT_SUPPORTED_YET
+select t1.b from t1 tablesample (1.1) repeatable(1) left join t2 on t1.b=t2.b;
+
+--echo #
+--echo # Union
+--echo #
+(select * from t1 tablesample (1.1) repeatable(1)) union
+  (select * from t2 tablesample (1.1) repeatable(1));
+
+--echo #
+--echo # Where clause.
+--echo #
+select * from t1 tablesample (1.1) repeatable (1) where b > 500;
+select * from t1 tablesample (1.1) repeatable (1) where b > 500;
+
+--echo #
+--echo # Aggregate function.
+--echo #
+select COUNT(*) from t1 tablesample (1.1) repeatable (1);
+select max(a) from t1 tablesample (1.1) repeatable (1);
+select min(a) from t1 tablesample (1.1) repeatable (1);
+
+--echo #
+--echo # Explain statement.
+--echo #
+--disable_warnings
+analyze table t1, t2;
+explain format=tree select * from t1 tablesample(1.1) repeatable (1);
+explain format=traditional select * from t1 tablesample(1.1) repeatable (1);
+explain format=json select * from t1 tablesample(1.1) repeatable (1);
+
+--error ER_NOT_SUPPORTED_YET
+explain format=tree select * from t1 tablesample(1.1) repeatable (1) join t2 on
+  t1.a=t2.a;
+--error ER_NOT_SUPPORTED_YET
+explain format=traditional select * from t1 tablesample(1.1) repeatable (1) join
+  t2 on t1.a=t2.a;
+--error ER_NOT_SUPPORTED_YET
+explain format=json select * from t1 tablesample(1.1) repeatable (1) join t2 on
+  t1.a=t2.a;
+--enable_warnings
+
+--echo #
+--echo # Subquery.
+--echo #
+--disable_warnings
+--error ER_NOT_SUPPORTED_YET
+explain format=tree select * from (select a from t1 tablesample (1.1)) as tb1;
+
+--error ER_NOT_SUPPORTED_YET
+explain format=tree (select * from (select a from t1) as tb1,
+  (select b from t1 tablesample (1.1) union all select b from t2) as tb2);
+--enable_warnings
+
+--echo #
+--echo # Order by clause.
+--echo #
+select * from t2 tablesample (1.1) repeatable (1) order by b;
+
+--echo #
+--echo # Limit clause.
+--echo #
+select * from t1 tablesample (1.1) repeatable (1) limit 5;
+
+--echo #
+--echo # Test NULL value.
+--echo #
+update t1 set b=NULL where a=203;
+update t1 set b=NULL where a=265;
+update t1 set b=NULL where a=278;
+--error ER_NOT_SUPPORTED_YET
+select * from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+--error ER_NOT_SUPPORTED_YET
+select * from t1 tablesample (1.1) repeatable(1) left join
+  t2 tablesample (50) repeatable(2) on t1.a=t2.a;
+
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;
+--enable_warnings

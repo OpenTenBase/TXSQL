@@ -219,6 +219,7 @@ struct AccessPath {
     INDEX_SKIP_SCAN,
     GROUP_INDEX_SKIP_SCAN,
     DYNAMIC_INDEX_RANGE_SCAN,
+    TABLE_SAMPLE,
 
     // Basic access paths that don't correspond to a specific table.
     TABLE_VALUE_CONSTRUCTOR,
@@ -622,6 +623,14 @@ struct AccessPath {
     assert(type == DYNAMIC_INDEX_RANGE_SCAN);
     return u.dynamic_index_range_scan;
   }
+  auto &table_sample() {
+    assert(type == TABLE_SAMPLE);
+    return u.table_sample;
+  }
+  const auto &table_sample() const {
+    assert(type == TABLE_SAMPLE);
+    return u.table_sample;
+  }
   auto &materialized_table_function() {
     assert(type == MATERIALIZED_TABLE_FUNCTION);
     return u.materialized_table_function;
@@ -1005,6 +1014,10 @@ struct AccessPath {
     } dynamic_index_range_scan;
     struct {
       TABLE *table;
+      QEP_TAB *qep_tab;  // Used only for buffering.
+    } table_sample;
+    struct {
+      TABLE *table;
       Table_function *table_function;
       AccessPath *table_path;
     } materialized_table_function;
@@ -1356,6 +1369,17 @@ inline AccessPath *NewDynamicIndexRangeScanAccessPath(
   path->count_examined_rows = count_examined_rows;
   path->dynamic_index_range_scan().table = table;
   path->dynamic_index_range_scan().qep_tab = qep_tab;
+  return path;
+}
+
+inline AccessPath *NewTableSampleAccessPath(THD *thd, TABLE *table,
+                                            QEP_TAB *qep_tab,
+                                            bool count_examined_rows) {
+  AccessPath *path = new (thd->mem_root) AccessPath;
+  path->type = AccessPath::TABLE_SAMPLE;
+  path->count_examined_rows = count_examined_rows;
+  path->table_sample().table = table;
+  path->table_sample().qep_tab = qep_tab;
   return path;
 }
 

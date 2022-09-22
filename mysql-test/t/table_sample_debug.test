@@ -1,0 +1,54 @@
+--source include/have_debug.inc
+
+--echo # Testing of table sample that uses DEBUG functionality.
+
+--disable_query_log
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;
+--enable_warnings
+
+create table t1 (a int primary key, b int);
+create table t2 (a int primary key, b int);
+
+delimiter |;
+create procedure p1(in max_num int)
+begin
+  declare i int default 0; 
+  set autocommit = 0; 
+  repeat
+    set i = i + 1;
+    insert into t1 values (i, i);
+    insert into t2 values (i, max_num - i);
+  until i = max_num
+  end repeat;
+  commit;
+end |
+delimiter ;|
+
+call p1(1000);
+--enable_query_log
+--echo #
+--echo # Just for coverage.
+--echo #
+# filter_effect coverage
+set debug="+d,set_filter_effect_COND_FILTER_STALE";
+--error ER_NOT_SUPPORTED_YET
+select * from t1 tablesample (1.1) repeatable(1) left join t2 on t1.a=t2.a;
+set debug="-d,set_filter_effect_COND_FILTER_STALE";
+
+# WalkAccessPaths coverage
+set debug="+d,filesort_force_sort_row_ids";
+set debug="+d,table_sample_force_rescan";
+select * from t2 tablesample (1.1) repeatable(1) order by t2.b;
+set debug="-d,table_sample_force_rescan";
+set debug="-d,filesort_force_sort_row_ids";
+
+--disable_query_log
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+drop procedure if exists p1;
+--enable_warnings
+--enable_query_log
