@@ -1019,11 +1019,14 @@ class Item_func_connection_id final : public Item_int_func {
 };
 
 class Item_typecast_signed final : public Item_int_func {
+ private:
+   bool is_to_number;
  public:
-  Item_typecast_signed(const POS &pos, Item *a) : Item_int_func(pos, a) {
+  Item_typecast_signed(const POS &pos, Item *a, bool to_number_arg = false) : Item_int_func(pos, a),
+                                                                              is_to_number(to_number_arg) {
     unsigned_flag = false;
   }
-  const char *func_name() const override { return "cast_as_signed"; }
+  const char *func_name() const override { return is_to_number ? "to_number" : "cast_as_signed"; }
   longlong val_int() override;
   bool resolve_type(THD *thd) override;
   void print(const THD *thd, String *str,
@@ -1045,10 +1048,21 @@ class Item_typecast_unsigned final : public Item_int_func {
 };
 
 class Item_typecast_decimal final : public Item_func {
+ private:
+   bool is_to_number;
+   bool parse_format();
+   bool format_parsed;
+
  public:
-  Item_typecast_decimal(const POS &pos, Item *a, int len, int dec)
-      : Item_func(pos, a) {
+  Item_typecast_decimal(const POS &pos, Item *a, int len, int dec, bool to_number_arg = false)
+      : Item_func(pos, a), is_to_number(to_number_arg) {
     set_data_type_decimal(len, dec);
+  }
+  Item_typecast_decimal(const POS &pos, Item *a, Item *b, bool to_number_arg = false)
+      : Item_func(pos, a, b), is_to_number(to_number_arg) {
+    // for set setup_fields and change to the format string at parse_format phase
+    set_data_type_decimal(10, 0);
+    format_parsed = false;
   }
   String *val_str(String *str) override;
   double val_real() override;
@@ -1066,7 +1080,7 @@ class Item_typecast_decimal final : public Item_func {
       return true;
     return false;
   }
-  const char *func_name() const override { return "cast_as_decimal"; }
+  const char *func_name() const override { return is_to_number ? "to_number" : "cast_as_decimal"; }
   enum Functype functype() const override { return TYPECAST_FUNC; }
   void print(const THD *thd, String *str,
              enum_query_type query_type) const override;

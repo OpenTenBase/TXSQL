@@ -1,0 +1,31 @@
+# || with null
+select 'tdsql' || null;
+select null || 'tdsql';
+
+# tochar(ffn)
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff0');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff1');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff2');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff3');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff4');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff5');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff6');
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff7');
+select to_char('2021-07-21 12:20:45.00001', 'hh24:mi:ss ff');
+select to_char('2021-07-21 12:20:45.01', 'hh24:mi:ss ff3');
+select to_char('2021-07-21 12:20:45.0', 'hh24:mi:ss ff3');
+select to_char('2021-07-21 12:20:45', 'hh24:mi:ss ff6');
+
+# substr('', 0 x)
+select substr('tdsql', 0, 5);
+
+set global tdsql_compat_oracle_mode=off;
+connect(con1, localhost, root, '',);
+--connection con1
+select 'tdsql' || null;
+select null || 'tdsql';
+
+select substr('tdsql', 0, 5);
+--connection default
+set global tdsql_compat_oracle_mode=on;

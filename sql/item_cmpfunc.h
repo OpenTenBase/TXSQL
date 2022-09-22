@@ -1438,10 +1438,11 @@ class Item_func_coalesce : public Item_func_numhybrid {
 class Item_func_ifnull final : public Item_func_coalesce {
  protected:
   bool field_type_defined;
+  bool is_nvl;
 
  public:
-  Item_func_ifnull(const POS &pos, Item *a, Item *b)
-      : Item_func_coalesce(pos, a, b) {}
+  Item_func_ifnull(const POS &pos, Item *a, Item *b, bool nvl = false)
+      : Item_func_coalesce(pos, a, b), is_nvl(nvl) {}
   double real_op() override;
   longlong int_op() override;
   String *str_op(String *str) override;
@@ -1449,7 +1450,7 @@ class Item_func_ifnull final : public Item_func_coalesce {
   bool time_op(MYSQL_TIME *ltime) override;
   my_decimal *decimal_op(my_decimal *) override;
   bool val_json(Json_wrapper *result) override;
-  const char *func_name() const override { return "ifnull"; }
+  const char *func_name() const override { return is_nvl ? "nvl" : "ifnull"; }
   Field *tmp_table_field(TABLE *table) override;
 };
 

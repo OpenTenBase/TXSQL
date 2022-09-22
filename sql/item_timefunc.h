@@ -1226,18 +1226,38 @@ class Item_func_from_days final : public Item_date_func {
   }
 };
 
+/* the max length of datetime format models string in Oracle is 144 */
+#define MAX_DATETIME_FORMAT_MODEL_LEN 144
+
 class Item_func_date_format final : public Item_str_func {
+ public:
+enum date_func_type {
+  DATE_FORMAT = 0,
+  TIME_FORMAT,
+  TO_CHAR
+};
+ private:
   int fixed_length;
-  const bool is_time_format;
+  const date_func_type func_type{DATE_FORMAT};
   String value;
 
  public:
   Item_func_date_format(const POS &pos, Item *a, Item *b,
-                        bool is_time_format_arg = false)
-      : Item_str_func(pos, a, b), is_time_format(is_time_format_arg) {}
+                        date_func_type func_type_arg = DATE_FORMAT)
+      : Item_str_func(pos, a, b), func_type(func_type_arg) {}
   String *val_str(String *str) override;
   const char *func_name() const override {
-    return is_time_format ? "time_format" : "date_format";
+    switch (func_type) {
+      case DATE_FORMAT:
+        return "date_format";
+      case TIME_FORMAT:
+        return "time_format";
+      case TO_CHAR:
+        return "to_char";
+      default:
+        assert(false);
+        return nullptr;
+    }
   }
   bool resolve_type(THD *thd) override;
   uint format_length(const String *format);
@@ -1642,14 +1662,15 @@ class Item_func_get_format final : public Item_str_ascii_func {
 class Item_func_str_to_date final : public Item_temporal_hybrid_func {
   enum_mysql_timestamp_type cached_timestamp_type;
   void fix_from_format(const char *format, size_t length);
+  bool is_to_date;
 
  protected:
   bool val_datetime(MYSQL_TIME *ltime, my_time_flags_t fuzzy_date) override;
 
  public:
-  Item_func_str_to_date(const POS &pos, Item *a, Item *b)
-      : Item_temporal_hybrid_func(pos, a, b) {}
-  const char *func_name() const override { return "str_to_date"; }
+  Item_func_str_to_date(const POS &pos, Item *a, Item *b, bool to_date_arg = false)
+      : Item_temporal_hybrid_func(pos, a, b), is_to_date(to_date_arg) {}
+  const char *func_name() const override { return is_to_date ? "to_date" : "str_to_date"; }
   bool resolve_type(THD *) override;
 };
 

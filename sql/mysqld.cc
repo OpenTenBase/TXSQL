@@ -12822,3 +12822,4 @@ std::map<std::string, std::set<uint16> > global_transmit_client;
 char  innodb_buffer_pool_transmit_status[TRANSMIT_STATUS_LEN];
 bool cdb_hash_scan_index_selection_enabled = false;
 bool g_txsql_load_data_local_strict_mode = false;
+bool g_tdsql_compat_oracle_mode = false;

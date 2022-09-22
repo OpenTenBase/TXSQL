@@ -1111,8 +1111,15 @@ String *Item_func_concat::val_str(String *str) {
   for (uint i = 0; i < arg_count; ++i) {
     String *res = eval_string_arg(collation.collation, args[i], str);
     if (res == nullptr) {  // NULL value or error
-      assert(thd->is_error() || (args[i]->null_value && is_nullable()));
-      return error_str();
+      if (thd->is_error()) return error_str();
+      /* compatible with oracle x || null return x */
+      if (args[i]->null_value && is_nullable() &&
+         (thd->variables.sql_mode & MODE_PIPES_AS_CONCAT) &&
+         g_tdsql_compat_oracle_mode) {
+        continue;
+      } else {
+        return error_str();
+      }
     }
     if (res->length() + tmp_value.length() >
         thd->variables.max_allowed_packet) {
@@ -1548,6 +1555,12 @@ String *Item_func_substr::val_str(String *str) {
   if (args[1]->null_value || thd->is_error()) {
     return error_str();
   }
+
+  /*
+     if compat oracle change start position from 0 to 1 automatically
+     and return the substr from 1 instead of empty result if start = 0
+  */
+  if (g_tdsql_compat_oracle_mode && start == 0) start = 1;
   /* Assumes that the maximum length of a String is < INT_MAX32. */
   /* Limit so that code sees out-of-bound value properly. */
   longlong length = INT_MAX32;

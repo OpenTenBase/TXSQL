@@ -648,4 +648,7 @@ double double_from_datetime_packed(enum enum_field_types type,
 /**
   @} (end of ingroup MY_TIME)
 */
+/* Changes from TXSQL start. */
+unsigned int year_2000_handling_oracle(unsigned int year);
+/* Changes from TXSQL end. */
 #endif /* MY_TIME_INCLUDED */

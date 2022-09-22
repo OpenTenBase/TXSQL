@@ -960,6 +960,8 @@ class Item_charset_conversion : public Item_str_func {
   bool m_use_cached_value{false};
   /// Length argument value, if any given.
   longlong m_cast_length{-1};  // a priori not used
+  bool is_to_char{false};
+
  public:
   bool m_safe;
 
@@ -994,8 +996,9 @@ class Item_charset_conversion : public Item_str_func {
                 cs_arg == &my_charset_bin || (cs_arg->state & MY_CS_UNICODE));
     }
   }
-  Item_charset_conversion(const POS &pos, Item *a, const CHARSET_INFO *cs_arg)
-      : Item_str_func(pos, a), m_cast_cs(cs_arg) {}
+  Item_charset_conversion(const POS &pos, Item *a, const CHARSET_INFO *cs_arg,
+                          bool to_char = false)
+      : Item_str_func(pos, a), m_cast_cs(cs_arg), is_to_char(to_char) {}
 
   String *val_str(String *) override;
 };
@@ -1008,13 +1011,18 @@ class Item_typecast_char final : public Item_charset_conversion {
     m_cast_length = length_arg;
   }
   Item_typecast_char(const POS &pos, Item *a, longlong length_arg,
-                     const CHARSET_INFO *cs_arg)
-      : Item_charset_conversion(pos, a, cs_arg) {
+                     const CHARSET_INFO *cs_arg, bool to_char = false)
+      : Item_charset_conversion(pos, a, cs_arg, to_char) {
     m_cast_length = length_arg;
   }
   enum Functype functype() const override { return TYPECAST_FUNC; }
   bool eq(const Item *item, bool binary_cmp) const override;
-  const char *func_name() const override { return "cast_as_char"; }
+  const char *func_name() const override {
+    if (!is_to_char)
+      return "cast_as_char";
+    else
+      return "to_char";
+  }
   void print(const THD *thd, String *str,
              enum_query_type query_type) const override;
 };
