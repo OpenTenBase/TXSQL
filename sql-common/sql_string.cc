@@ -1224,3 +1224,19 @@ bool append_escaped(String *to_str, const String *from_str) {
   }
   return false;
 }
+
+/* Changes from TXSQL start. */
+bool String::append_with_afterfill(const char *s, size_t arg_length,
+                                   size_t full_length, char fill_char) {
+  size_t t_length = arg_length > full_length ? arg_length : full_length;
+
+  if (mem_realloc(m_length + t_length)) return true;
+  append(s, arg_length);
+  if (full_length > arg_length) {
+    t_length = full_length - arg_length;
+    memset(m_ptr + m_length, fill_char, t_length);
+    m_length = m_length + t_length;
+  }
+  return false;
+}
+/* Changes from TXSQL end. */

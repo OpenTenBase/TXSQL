@@ -8137,4 +8137,9 @@ static Sys_var_charptr Sys_git_commit(
     READ_ONLY GLOBAL_VAR(server_git_commit_ptr), NO_CMD_LINE,
     IN_SYSTEM_CHARSET, SHOW_GIT_COMMIT);
 #endif
+
+static Sys_var_bool Sys_tdsql_compat_oracle_mode(
+    "tdsql_compat_oracle_mode",
+    "Keep tdsql compatible with oracle if it's set.",
+    GLOBAL_VAR(g_tdsql_compat_oracle_mode), CMD_LINE(OPT_ARG), DEFAULT(false));
 /* Changes from txsql end. */

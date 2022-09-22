@@ -141,6 +141,8 @@ static bool sec_to_time(lldiv_t seconds, MYSQL_TIME *ltime) {
   return warning ? true : false;
 }
 
+#include "item_timefunc_oracle.cc"
+
 /** Array of known date_time formats */
 static constexpr const Known_date_time_format known_date_time_formats[6] = {
     {"USA", "%m.%d.%Y", "%Y-%m-%d %H.%i.%s", "%h:%i:%s %p"},
@@ -194,9 +196,10 @@ static bool extract_date_time(const Date_time_format *format, const char *val,
                               size_t length, MYSQL_TIME *l_time,
                               enum_mysql_timestamp_type cached_timestamp_type,
                               const char **sub_pattern_end,
-                              const char *date_time_type) {
+                              const char *date_time_type,
+                              bool is_to_date = false) {
   int weekday = 0, yearday = 0, daypart = 0;
-  int week_number = -1;
+  int week_number = -1, week_number_month = -1;
   int error = 0;
   int strict_week_number_year = -1;
   int frac_part;
@@ -406,10 +409,26 @@ static bool extract_date_time(const Date_time_format *format, const char *val,
       if (error)  // Error from my_strtoll10
         goto err;
     } else if (!my_isspace(cs, *ptr)) {
-      if (*val != *ptr) goto err;
-      val++;
+      if (is_to_date) {
+        if (extract_date_time_oracle(ptr, end, val, val_end,
+            l_time, yearday, week_number, week_number_month,
+            weekday, usa_time, daypart, error)) goto err;
+      } else {
+        if (*val != *ptr) goto err;
+        val++;
+      }
     }
   }
+
+  if (week_number > 0 && is_to_date) {
+     yearday = 7 * (week_number - 1) + weekday;
+     week_number = -1; // ovoid the str_to_date process it
+  }
+
+  if (week_number_month > 0) {
+    l_time->day = 7 * (week_number_month - 1) + weekday;
+  }
+
   if (usa_time) {
     if (l_time->hour > 12 || l_time->hour < 1) goto err;
     l_time->hour = l_time->hour % 12 + daypart;
@@ -493,7 +512,7 @@ err : {
   push_warning_printf(current_thd, Sql_condition::SL_WARNING,
                       ER_WRONG_VALUE_FOR_TYPE,
                       ER_THD(current_thd, ER_WRONG_VALUE_FOR_TYPE),
-                      date_time_type, buff, "str_to_date");
+                      date_time_type, buff, is_to_date ? "to_date" : "str_to_date");
 }
   return true;
 }
@@ -2290,11 +2309,13 @@ String *Item_func_date_format::val_str(String *str) {
   uint size;
   assert(fixed == 1);
 
-  if (!is_time_format) {
+  if (func_type == DATE_FORMAT || func_type == TO_CHAR) {
     if (get_arg0_date(&l_time, TIME_FUZZY_DATE)) return nullptr;
-  } else {
+  } else if (func_type == TIME_FORMAT) {
     if (get_arg0_time(&l_time)) return nullptr;
     l_time.year = l_time.month = l_time.day = 0;
+  } else {
+    assert(false);
   }
 
   if (!(format = args[1]->val_str(str)) || !format->length()) goto null_date;
@@ -2316,10 +2337,15 @@ String *Item_func_date_format::val_str(String *str) {
 
   /* Create the result string */
   str->set_charset(collation.collation);
-  if (!make_date_time(
-          &date_time_format, &l_time,
-          is_time_format ? MYSQL_TIMESTAMP_TIME : MYSQL_TIMESTAMP_DATE, str))
-    return str;
+  if (func_type != TO_CHAR) {
+    if (!make_date_time(
+            &date_time_format, &l_time,
+            (func_type != DATE_FORMAT) ? MYSQL_TIMESTAMP_TIME : MYSQL_TIMESTAMP_DATE, str))
+      return str;
+  } else {
+    if (!make_date_time_oracle(&date_time_format, &l_time, MYSQL_TIMESTAMP_DATETIME, str))
+      return str;
+  }
 
 null_date:
   null_value = true;
@@ -3578,7 +3604,7 @@ bool Item_func_str_to_date::val_datetime(MYSQL_TIME *ltime,
   date_time_format.format.str = format->ptr();
   date_time_format.format.length = format->length();
   if (extract_date_time(&date_time_format, val->ptr(), val->length(), ltime,
-                        cached_timestamp_type, nullptr, "datetime"))
+                        cached_timestamp_type, nullptr, "datetime", is_to_date))
     goto null_date;
   if (date_should_be_null(data_type(), *ltime, fuzzy_date)) {
     char buff[128];

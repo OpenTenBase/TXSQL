@@ -2901,3 +2901,16 @@ longlong DRV_my_packed_time_make_int(longlong i) {
   return my_packed_time_make_int(i);
 }
 }  // namespace mysys_my_time
+
+/* Changes from TXSQL start. */
+/**
+  Handle 2 digit year conversions of oracle style.
+
+  @param year 2 digit year
+  @return Year between 1950-2049
+*/
+uint year_2000_handling_oracle(uint year) {
+  if ((year = year + 1900) < 1950) year += 100;
+  return year;
+}
+/* Changes from TXSQL end. */

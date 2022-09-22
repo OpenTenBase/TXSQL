@@ -2025,7 +2025,12 @@ longlong Item_typecast_unsigned::val_int() {
   return value;
 }
 
+#include "item_func_oracle.cc"
+
 String *Item_typecast_decimal::val_str(String *str) {
+  if (arg_count == 2 && !format_parsed && parse_format()) {
+    return str;
+  }
   my_decimal tmp_buf, *tmp = val_decimal(&tmp_buf);
   if (null_value) return nullptr;
   my_decimal2string(E_DEC_FATAL_ERROR, tmp, str);
@@ -2033,6 +2038,7 @@ String *Item_typecast_decimal::val_str(String *str) {
 }
 
 double Item_typecast_decimal::val_real() {
+  if (arg_count == 2 && !format_parsed && parse_format()) return 0.0;
   my_decimal tmp_buf, *tmp = val_decimal(&tmp_buf);
   double res;
   if (null_value) return 0.0;
@@ -2041,6 +2047,7 @@ double Item_typecast_decimal::val_real() {
 }
 
 longlong Item_typecast_decimal::val_int() {
+  if (arg_count == 2 && !format_parsed && parse_format()) return 0;
   my_decimal tmp_buf, *tmp = val_decimal(&tmp_buf);
   longlong res;
   if (null_value) return 0;
@@ -2055,6 +2062,10 @@ my_decimal *Item_typecast_decimal::val_decimal(my_decimal *dec) {
 
   if ((null_value = args[0]->null_value)) return nullptr;
   my_decimal_round(E_DEC_FATAL_ERROR, tmp, decimals, false, dec);
+  if (arg_count == 2 && !format_parsed && parse_format()) {
+    my_decimal_set_zero(dec);
+    return dec;
+  }
   sign = dec->sign();
   if (unsigned_flag) {
     if (sign) {

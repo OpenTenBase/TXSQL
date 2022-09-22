@@ -505,6 +505,8 @@ class String {
   bool append_longlong(longlong val);
   bool append_with_prefill(const char *s, size_t arg_length, size_t full_length,
                            char fill_char);
+  bool append_with_afterfill(const char *s, size_t arg_length, size_t full_length,
+                           char fill_char);
   bool append_parenthesized(int64_t nr);
   /**
     Search for a substring.

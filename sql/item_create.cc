@@ -755,7 +755,7 @@ class Time_format_instantiator {
 
   Item *instantiate(THD *thd, PT_item_list *args) {
     return new (thd->mem_root)
-        Item_func_date_format(POS(), (*args)[0], (*args)[1], true);
+        Item_func_date_format(POS(), (*args)[0], (*args)[1],Item_func_date_format::TIME_FORMAT);
   }
 };
 
@@ -782,7 +782,7 @@ class From_unixtime_instantiator {
         Item *ut =
             new (thd->mem_root) Item_func_from_unixtime(POS(), (*args)[0]);
         return new (thd->mem_root)
-            Item_func_date_format(POS(), ut, (*args)[1], false);
+            Item_func_date_format(POS(), ut, (*args)[1], Item_func_date_format::DATE_FORMAT);
       }
       default:
         assert(false);
@@ -1354,6 +1354,8 @@ Item *Create_sp_func::create(THD *thd, LEX_STRING db, LEX_STRING name,
 #define SQL_FN_LIST_INTERNAL_V(F, MIN, MAX) \
   &Internal_function_factory<List_instantiator<F, MIN, MAX>>::s_singleton
 
+#include "item_create_oracle.cc"
+
 /**
   MySQL native functions.
   MAINTAINER:
@@ -1509,6 +1511,7 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"MONTHNAME", SQL_FN(Item_func_monthname, 1)},
     {"NAME_CONST", SQL_FN(Item_name_const, 2)},
     {"NULLIF", SQL_FN(Item_func_nullif, 2)},
+    {"NVL", SQL_FACTORY(Nvl_instantiator)},
     {"OCT", SQL_FACTORY(Oct_instantiator)},
     {"OCTET_LENGTH", SQL_FN(Item_func_length, 1)},
     {"ORD", SQL_FN(Item_func_ord, 1)},
@@ -1660,7 +1663,10 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"TIME_FORMAT", SQL_FACTORY(Time_format_instantiator)},
     {"TIME_TO_SEC", SQL_FN(Item_func_time_to_sec, 1)},
     {"TO_BASE64", SQL_FN(Item_func_to_base64, 1)},
+    {"TO_CHAR", SQL_FACTORY(To_char_instantiator)},
+    {"TO_DATE", SQL_FACTORY(To_date_instantiator)},
     {"TO_DAYS", SQL_FN(Item_func_to_days, 1)},
+    {"TO_NUMBER", SQL_FACTORY(To_number_instantiator)},
     {"TO_SECONDS", SQL_FN(Item_func_to_seconds, 1)},
     {"UCASE", SQL_FN(Item_func_upper, 1)},
     {"UNCOMPRESS", SQL_FN(Item_func_uncompress, 1)},
