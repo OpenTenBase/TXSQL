@@ -9624,11 +9624,11 @@ analyze_table_stmt:
             if ($5.param) {
               $$= NEW_PTN PT_analyze_table_stmt(YYMEM_ROOT, $2, $4,
                                                 $5.command, $5.param->num_buckets,
-                                                $5.columns, $5.param->data);
+                                                $5.columns, $5.param->data, $5.param->version);
             } else {
               $$= NEW_PTN PT_analyze_table_stmt(YYMEM_ROOT, $2, $4,
                                                 $5.command, 0,
-                                                $5.columns, {nullptr, 0});
+                                                $5.columns, {nullptr, 0}, histograms::Histogram::INVALID_VERSION);
             }
           }
         ;
@@ -9638,6 +9638,7 @@ opt_histogram_update_param:
           {
             $$.num_buckets= DEFAULT_NUMBER_OF_HISTOGRAM_BUCKETS;
             $$.data= { nullptr, 0 };
+            $$.version= histograms::Histogram::INVALID_VERSION;
           }
         | WITH NUM BUCKETS_SYM
           {
@@ -9654,11 +9655,41 @@ opt_histogram_update_param:
 
             $$.num_buckets= num;
             $$.data= { nullptr, 0 };
+            $$.version= histograms::Histogram::INVALID_VERSION;
           }
         | USING DATA_SYM TEXT_STRING_literal
           {
             $$.num_buckets= 0;
             $$.data= $3;
+            $$.version= histograms::Histogram::INVALID_VERSION;
+          }
+        | USING HISTORY_SYM signed_num
+          {
+            if ($3 == histograms::Histogram::INVALID_VERSION)
+            {
+              my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "Version of histogram",
+                       "ANALYZE TABLE");
+              MYSQL_YYABORT;
+            }
+
+            $$.num_buckets= 0;
+            $$.data= { nullptr, 0 };
+            $$.version= $3;
+          }
+        | USING HISTORY_SYM LONG_NUM
+          {
+            int error;
+            ulong version = (ulong) my_strtoll10($3.str, nullptr, &error);
+            if (version == histograms::Histogram::INVALID_VERSION)
+            {
+              my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "Version of histogram",
+                       "ANALYZE TABLE");
+              MYSQL_YYABORT;
+            }
+
+            $$.num_buckets= 0;
+            $$.data= { nullptr, 0 };
+            $$.version= version;
           }
         ;
 

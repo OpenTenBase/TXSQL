@@ -111,6 +111,7 @@ USER_PRIVILEGES
 VIEWS
 VIEW_ROUTINE_USAGE
 VIEW_TABLE_USAGE
+column_statistics_history
 columns_priv
 component
 db
@@ -834,6 +835,7 @@ TABLES	CHECK_TIME	datetime
 TABLES	UPDATE_TIME	datetime
 TXSQL_DEADLOCK_HISTORY	DETECTION_TIME	datetime
 TXSQL_DEADLOCK_HISTORY	TRX_START_TIME	datetime
+column_statistics_history	creation_time	datetime
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES A
 WHERE NOT EXISTS
 (SELECT * FROM INFORMATION_SCHEMA.COLUMNS B
@@ -902,7 +904,7 @@ AND table_name not like 'ndb%' AND table_name COLLATE utf8_general_ci not like '
 GROUP BY TABLE_SCHEMA;
 TABLE_SCHEMA	count(*)
 information_schema	51
-mysql	36
+mysql	37
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
 begin

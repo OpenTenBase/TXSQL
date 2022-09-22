@@ -1,0 +1,75 @@
+###############################################################################
+#                                                                             #
+# File containing basic tests for histogram history auto save variable        #
+#                                                                             #
+###############################################################################
+
+--echo #
+--echo # Variable name : histogram_history_enabled
+--echo # Scope         : Global
+--echo #
+
+--echo # Global - default
+SELECT @@global.histogram_history_enabled;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.histogram_history_enabled;
+--echo
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.histogram_history_enabled= 'true';
+--echo
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.histogram_history_enabled= 100;
+--echo
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.histogram_history_enabled= WRONGVALUE;
+--echo
+
+--echo # via performance_schema.global_variables
+--disable_warnings
+SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME LIKE 'histogram_history_enabled';
+--enable_warnings
+
+# Save the global value to be used to restore the original value.
+SET @global_saved_tmp =  @@global.histogram_history_enabled;
+--echo
+
+--echo # Altering global variable's value
+SET @@global.histogram_history_enabled = 0;
+SELECT @@global.histogram_history_enabled;
+
+SET @@global.histogram_history_enabled = TrUe;
+SELECT @@global.histogram_history_enabled;
+
+SET @@global.histogram_history_enabled = FaLsE;
+SELECT @@global.histogram_history_enabled;
+--echo
+
+--echo # Variables' values in a new session.
+connect (con1,"127.0.0.1",root,,test,$MASTER_MYPORT,);
+
+--echo # Global - expect 0
+SELECT @@global.histogram_history_enabled;
+--echo
+
+--echo # Switching to the default connection.
+connection default;
+
+SELECT @@global.histogram_history_enabled;
+--echo
+
+--echo # Test if DEFAULT is working as expected.
+SET @@global.histogram_history_enabled = DEFAULT;
+--echo
+
+--echo # Global - expect 0
+SELECT @@global.histogram_history_enabled;
+--echo
+
+--echo # Restoring the original values.
+SET @@global.histogram_history_enabled = @global_saved_tmp;
+
+--echo # End of tests.
+

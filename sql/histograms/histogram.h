@@ -114,7 +114,13 @@ enum class Message {
   JSON_CUMULATIVE_FREQUENCY_NOT_ASCENDING,
   JSON_INVALID_TOTAL_FREQUENCY,
   JSON_NUM_BUCKETS_MORE_THAN_SPECIFIED,
-  JSON_IMPOSSIBLE_EMPTY_EQUI_HEIGHT
+  JSON_IMPOSSIBLE_EMPTY_EQUI_HEIGHT,
+
+  // History message code
+  HISTOGRAM_CREATED_BY_HISTORY_VERSION,
+  HISTOGRAM_HISTORY_VERSION_LOAD_FAILURE,
+  HISTOGRAM_HISTORY_VERSION_CREATED,
+  HISTOGRAM_HISTORY_VERSION_CREATE_FAILURE,
 };
 
 struct Histogram_psi_key_alloc {
@@ -301,6 +307,10 @@ class Histogram {
 
   /// String representation of the histogram type EQUI-HEIGHT.
   static constexpr const char *equi_height_str() { return "equi-height"; }
+
+  /// The convention is positive numbers are exact versions, and
+  /// negative numbers are relative: -1 means last, -2 means second to last.
+  static constexpr int64_t INVALID_VERSION = 0;
 
  protected:
   double m_sampling_rate;
@@ -692,12 +702,15 @@ Histogram *build_histogram(MEM_ROOT *mem_root, const Value_map<T> &value_map,
   @param columns Columns specified by the user.
   @param num_buckets The maximum number of buckets to create in each
          histogram.
+  @param data The histogram json literal for update
+  @param version The version of histogram history
   @param results A map where the result of each operation is stored.
 
   @return false on success, true on error.
 */
 bool update_histogram(THD *thd, TABLE_LIST *table, const columns_set &columns,
-                      int num_buckets, LEX_STRING data, results_map &results);
+                      int num_buckets, LEX_STRING data, int64_t version,
+                      results_map &results);
 
 /**
   Drop histograms for all columns in a given table.

@@ -8064,6 +8064,7 @@ static Sys_var_ulonglong Sys_cdb_optimize_large_trans_binlog_aver_affected_rows_
   CMD_LINE(REQUIRED_ARG),
   VALID_RANGE(1, (ulonglong)~(intptr)0), DEFAULT(10000),
   BLOCK_SIZE(1), ON_CHECK(0));
+
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 static Sys_var_uint Sys_pfs_events_statements_histogram_bucket_number(
     "performance_schema_events_statements_histogram_bucket_number",
@@ -8083,4 +8084,18 @@ static Sys_var_double Sys_pfs_events_statements_histogram_bucket_base_factor(
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, DBL_MAX), DEFAULT(2.0),
     PFS_TRAILING_PROPERTIES);
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
+
+static Sys_var_bool Sys_histogram_history_enabled(
+    "histogram_history_enabled",
+    "When enabled, automatically save and remove "
+    "versions of histograms in mysql.column_statistics_history.",
+    GLOBAL_VAR(histogram_history_enabled), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_uint Sys_histogram_history_versions_limit(
+    "histogram_history_versions_limit",
+    "The maximum number of records per column in the table "
+    "mysql.column_statistics_history.",
+    GLOBAL_VAR(histogram_history_versions_limit), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 100), DEFAULT(5), BLOCK_SIZE(1));
+
 /* Changes from txsql end. */

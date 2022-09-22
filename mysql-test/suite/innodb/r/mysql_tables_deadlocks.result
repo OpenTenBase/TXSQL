@@ -34,6 +34,10 @@ AND table_name NOT IN (
 "replication_asynchronous_connection_failover_managed"
 )
 ORDER BY table_name;
+Preparing deadlock scenario for mysql.column_statistics_history
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
 Preparing deadlock scenario for mysql.component
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction

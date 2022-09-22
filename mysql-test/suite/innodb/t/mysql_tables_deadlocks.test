@@ -95,13 +95,16 @@ while($i <= $n)
     {
       SET SESSION sql_mode = "";
       let $zeros= `
-        SELECT REPEAT("0,", COUNT(*) - 1)
+        SELECT GROUP_CONCAT(
+            IF(column_type='json','\'{}\'','0')
+            ORDER BY ordinal_position
+          )
         FROM information_schema.columns
         WHERE table_schema = 'mysql'
         AND table_name = '$name'
       `;
 
-      --eval INSERT INTO mysql.$name VALUES ($zeros 0)
+      --eval INSERT INTO mysql.$name VALUES ($zeros)
     }
     # 1. c1: locks at least one row in $name FOR UPDATE (let's call the row "A")
     --eval SELECT COUNT(*) FROM mysql.$name FOR UPDATE

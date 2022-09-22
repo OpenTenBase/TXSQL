@@ -430,6 +430,9 @@ extern char *opt_keyring_migration_source;
 extern char *opt_keyring_migration_destination;
 extern ulong opt_keyring_migration_port;
 
+extern bool histogram_history_enabled;
+extern uint histogram_history_versions_limit;
+
 extern ulonglong global_conn_mem_limit;
 extern ulonglong global_conn_mem_counter;
 extern char *sql_filter_command;

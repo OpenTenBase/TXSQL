@@ -390,6 +390,7 @@ SET(SQL_SHARED_SOURCES
   histograms/equi_height.cc
   histograms/equi_height_bucket.cc
   histograms/histogram.cc
+  histograms/history_table_access.cc
   histograms/singleton.cc
   histograms/value_map.cc
   hostname_cache.cc

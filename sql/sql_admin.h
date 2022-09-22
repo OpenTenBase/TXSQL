@@ -78,7 +78,8 @@ class Sql_cmd_analyze_table : public Sql_cmd_ddl_table {
   */
   Sql_cmd_analyze_table(THD *thd, Alter_info *alter_info,
                         Histogram_command histogram_command,
-                        int histogram_buckets, LEX_STRING data);
+                        int histogram_buckets, LEX_STRING data,
+                        int64_t version);
 
   bool execute(THD *thd) override;
 
@@ -106,6 +107,9 @@ class Sql_cmd_analyze_table : public Sql_cmd_ddl_table {
   /// The histogram json literal for update
   const LEX_STRING m_data;  
 
+  /// The histogram history version
+  int64_t m_version;
+
   /// @return The histogram command specified, if any.
   Histogram_command get_histogram_command() const {
     return m_histogram_command;
@@ -116,6 +120,9 @@ class Sql_cmd_analyze_table : public Sql_cmd_ddl_table {
 
   /// @return The histogram json literal specified in UPDATE HISTOGRAM.
   LEX_STRING get_histogram_data_string() const { return m_data; }
+
+  /// @return The version of histogram history specified in UPDATE HISTOGRAM.
+  int64_t get_histogram_version() const { return m_version; }
 
   /// @return The fields specified in UPDATE/DROP HISTOGRAM
   const columns_set &get_histogram_fields() const { return m_histogram_fields; }
