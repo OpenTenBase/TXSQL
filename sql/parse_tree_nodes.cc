@@ -3303,8 +3303,11 @@ Sql_cmd *PT_load_table::make_cmd(THD *thd) {
     return nullptr;
 
   /* We can't give an error in the middle when using LOCAL files */
-  if (m_cmd.m_is_local_file && lex->duplicates == DUP_ERROR)
-    lex->set_ignore(true);
+  if (m_cmd.m_is_local_file && lex->duplicates == DUP_ERROR) {
+    if (!g_txsql_load_data_local_strict_mode) {
+      lex->set_ignore(true);
+    }
+  }
 
   Parse_context pc(thd, select);
   if (contextualize_safe(&pc, &m_cmd.m_opt_fields_or_vars)) {

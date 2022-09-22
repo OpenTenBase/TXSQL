@@ -900,3 +900,17 @@ SELECT * FROM t2;
 --remove_file $MYSQLTEST_VARDIR/tmp/t2.csv
 
 DROP TABLE t1, t2;
+
+CREATE TABLE t1 ( id int NOT NULL, brith datetime DEFAULT NULL, name int(10) COLLATE utf8mb4_general_ci DEFAULT NULL, PRIMARY KEY (id) );
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+--eval LOAD DATA LOCAL INFILE '$MYSQLTEST_VARDIR/std_data/t1.csv' INTO TABLE t1 FIELDS TERMINATED BY ','
+SELECT * FROM t1;
+DROP TABLE t1;
+set global txsql_load_data_local_strict_mode = 1;
+CREATE TABLE t1 ( id int NOT NULL, brith datetime DEFAULT NULL, name int(10) COLLATE utf8mb4_general_ci DEFAULT NULL, PRIMARY KEY (id) );
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+--error 1292
+--eval LOAD DATA LOCAL INFILE '$MYSQLTEST_VARDIR/std_data/t1.csv' INTO TABLE t1 FIELDS TERMINATED BY ','
+SELECT * FROM t1;
+set global txsql_load_data_local_strict_mode = 0;
+DROP TABLE t1;
