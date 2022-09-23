@@ -3901,6 +3901,9 @@ string PrintAccessPath(const AccessPath &path, const JoinHypergraph &graph,
     case AccessPath::HASH_JOIN:
       str += "HASH_JOIN";
       break;
+    case AccessPath::SORT_MERGE_JOIN:
+      str += "SORT_MERGE";
+      break;
     case AccessPath::FILTER:
       str += "FILTER";
       break;

@@ -905,6 +905,9 @@ The following options may be given as the first argument:
  After this many write locks, allow some read locks to run
  in between
  --memlock           Lock mysqld in memory.
+ --merge-join-buffer-size=# 
+ The size of the buffer that is used for the sort merge
+ join
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
@@ -1002,8 +1005,8 @@ The following options may be given as the first argument:
  block_nested_loop, batched_key_access,
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
- prefer_ordering_index, derived_condition_pushdown} and
- val is one of {on, off, default}
+ prefer_ordering_index, derived_condition_pushdown,
+ sort_merge_join} and val is one of {on, off, default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -2173,6 +2176,7 @@ max-sp-recursion-depth 0
 max-user-connections 0
 max-write-lock-count 18446744073709551615
 memlock FALSE
+merge-join-buffer-size 262144
 min-examined-row-limit 0
 myisam-block-size 1024
 myisam-conversion-innodb OFF

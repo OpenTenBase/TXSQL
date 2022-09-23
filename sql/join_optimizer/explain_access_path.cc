@@ -806,6 +806,45 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       children.push_back({path->hash_join().inner, "Hash"});
       break;
     }
+    case AccessPath::SORT_MERGE_JOIN: {
+      const JoinPredicate *predicate = path->sort_merge_join().join_predicate;
+      RelationalExpression::Type type = path->sort_merge_join().rewrite_semi_to_inner
+                                      ? RelationalExpression::INNER_JOIN
+                                      : predicate->expr->type;
+      string ret = HashJoinTypeToString(type);
+
+      if (predicate->expr->equijoin_conditions.empty()) {
+        ret.append(" (no condition)");
+      } else {
+        for (Item_func_eq *cond : predicate->expr->equijoin_conditions) {
+          if (cond != predicate->expr->equijoin_conditions[0]) {
+            ret.push_back(',');
+          }
+          // TODO: change the code.
+          HashJoinCondition hj_cond(cond, *THR_MALLOC);
+          if (!hj_cond.store_full_sort_key()) {
+            ret.append(" (<merge>(" + ItemToString(hj_cond.left_extractor()) +
+                       ")=<merge>(" + ItemToString(hj_cond.right_extractor()) +
+                       "))");
+          } else {
+            ret.append(" " + ItemToString(cond));
+          }
+        }
+      }
+      for (Item *cond : predicate->expr->join_conditions) {
+        if (cond == predicate->expr->join_conditions[0]) {
+          ret.append(", extra conditions: ");
+        } else {
+          ret += " and ";
+        }
+        ret += ItemToString(cond);
+      }
+
+      description.push_back(move(ret));
+      children.push_back({path->sort_merge_join().outer, "Merge"});
+      children.push_back({path->sort_merge_join().inner});
+      break;
+    }
     case AccessPath::FILTER:
       description.push_back("Filter: " +
                             ItemToString(path->filter().condition));

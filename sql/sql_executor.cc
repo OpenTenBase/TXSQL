@@ -67,6 +67,7 @@
 #include "sql/field.h"
 #include "sql/filesort.h"  // Filesort
 #include "sql/handler.h"
+#include "sql/iterators/sort_merge_join_iterator.h"
 #include "sql/item.h"
 #include "sql/item_cmpfunc.h"
 #include "sql/item_func.h"
@@ -1866,6 +1867,29 @@ void SetCostOnHashJoinAccessPath(const Cost_model_server &cost_model,
                cost_model.row_evaluate_cost(joined_rows);
 }
 
+void SetCostOnSortMergeJoinAccessPath(const Cost_model_server &cost_model,
+                                 const POSITION *pos_outer, AccessPath *path) {
+  if (pos_outer == nullptr) {
+    // No cost information.
+    return;
+  }
+  AccessPath *outer = path->sort_merge_join().outer;
+  AccessPath *inner = path->sort_merge_join().inner;
+  if (outer->type == AccessPath::SORT) outer = outer->sort().child;
+  if (inner->type == AccessPath::SORT) inner = inner->sort().child;
+  if (outer->num_output_rows == -1.0 || inner->num_output_rows == -1.0) {
+    // Missing cost information on at least one child.
+    return;
+  }
+  // Mirrors set_prefix_join_cost(), even though the cost calculation doesn't
+  // make a lot of sense.
+  double joined_rows = outer->num_output_rows * inner->num_output_rows;
+  path->num_output_rows = joined_rows * pos_outer->filter_effect;
+  // need sort or not
+  path->cost = inner->cost + pos_outer->read_cost +
+               cost_model.row_evaluate_cost(joined_rows);
+}
+
 static bool ConditionIsAlwaysTrue(Item *item) {
   return item->const_item() && item->val_bool();
 }
@@ -2114,6 +2138,272 @@ static AccessPath *CreateHashJoinAccessPath(
 
   SetCostOnHashJoinAccessPath(*thd->cost_model(), qep_tab->position(), path);
 
+  return path;
+}
+
+// Create a sort merge join iterator with the given outer and inner input. We will
+// move conditions from the argument "join_conditions" into two separate lists;
+// one list for equi-join conditions that will be used as normal join conditions
+// in sort step, and one list for non-equi-join conditions that will be attached
+// as "extra" conditions in sort merge join. The "extra" conditions are conditions
+// that must be evaluated after the "merge" step, but _before_ returning a
+// row. Conditions that are not moved will be attached as filters after the
+// join.
+//
+// Note that we only attach conditions as "extra" conditions if the join
+// type is not inner join. This gives us more fine-grained output from EXPLAIN
+// ANALYZE, where we can see whether the condition was expensive.
+// This information is lost when we attach conditions as extra conditions inside
+// sort merge join.
+static AccessPath *CreateSortMergeJoinAccessPath(
+    THD *thd, QEP_TAB *qep_tab, AccessPath *left_path,
+    qep_tab_map left_tables, AccessPath *right_path, qep_tab_map right_tables,
+    JoinType join_type, vector<Item *> *join_conditions,
+    table_map *conditions_depend_on_outer_tables) {
+  table_map left_table_map =
+      ConvertQepTabMapToTableMap(qep_tab->join(), left_tables);
+  table_map right_table_map =
+      ConvertQepTabMapToTableMap(qep_tab->join(), right_tables);
+
+
+
+
+
+  // Move out equi-join conditions and non-equi-join conditions, so we can
+  // attach them as join condition and extra conditions in hash join.
+  vector<HashJoinCondition> hash_join_conditions;
+  vector<Item *> hash_join_extra_conditions;
+  for (Item *outer_item : *join_conditions) {
+    // We can encounter conditions that are AND'ed together (i.e. a condition
+    // that originally was Item_cond_and inside a Item_trig_cond).
+    Mem_root_array<Item *> condition_parts(thd->mem_root);
+    ExtractConditions(outer_item, &condition_parts);
+    for (Item *inner_item : condition_parts) {
+      if (ConditionIsAlwaysTrue(inner_item)) {
+        // The optimizer may leave conditions that are always 'true'. These have
+        // no effect on the query, so we ignore them. Ideally, the optimizer
+        // should not attach these conditions in the first place.
+        continue;
+      }
+      // See if this is an equi-join condition.
+      if (inner_item->type() == Item::FUNC_ITEM ||
+          inner_item->type() == Item::COND_ITEM) {
+        Item_func *func_item = down_cast<Item_func *>(inner_item);
+        if (func_item->functype() == Item_func::EQ_FUNC) {
+          bool found = false;
+          down_cast<Item_func_eq *>(func_item)
+              ->ensure_multi_equality_fields_are_available(left_table_map,
+                                                           right_table_map,
+                                                           true, &found);
+        }
+        if (func_item->contains_only_equi_join_condition() &&
+            !ItemRefersToOneSideOnly(func_item, left_table_map,
+                                     right_table_map)) {
+          Item_func_eq *join_condition = down_cast<Item_func_eq *>(func_item);
+          // Join conditions with items that returns row values (subqueries or
+          // row value expression) are set up with multiple child comparators,
+          // one for each column in the row. As long as the row contains only
+          // one column, use it as a join condition. If it has more than one
+          // column, attach it as an extra condition. Note that join conditions
+          // that does not return row values are not set up with any child
+          // comparators, meaning that get_child_comparator_count() will return
+          // 0.
+          if (join_condition->get_comparator()->get_child_comparator_count() <
+              2) {
+            // Make a hash join condition for this equality comparison.
+            // This may entail allocating type cast nodes; see the comments
+            // on HashJoinCondition for more details.
+            hash_join_conditions.emplace_back(join_condition, thd->mem_root);
+            continue;
+          }
+        }
+      }
+      // It was not.
+      hash_join_extra_conditions.push_back(inner_item);
+    }
+  }
+  // For any conditions for which HashJoinCondition decided only to store the
+  // hash in the key, we need to re-check.
+  for (const HashJoinCondition &cond : hash_join_conditions) {
+    if (!cond.store_full_sort_key()) {
+      hash_join_extra_conditions.push_back(cond.join_condition());
+    }
+  }
+
+  RelationalExpression *expr = new (thd->mem_root) RelationalExpression(thd);
+  expr->left = expr->right =
+      nullptr;  // Only used in the hypergraph join optimizer.
+  switch (join_type) {
+    case JoinType::ANTI:
+      expr->type = RelationalExpression::ANTIJOIN;
+      break;
+    case JoinType::INNER:
+      expr->type = RelationalExpression::INNER_JOIN;
+      break;
+    case JoinType::OUTER:
+      expr->type = RelationalExpression::LEFT_JOIN;
+      break;
+    case JoinType::SEMI:
+      expr->type = RelationalExpression::SEMIJOIN;
+      break;
+    case JoinType::FULL_OUTER:
+      expr->type = RelationalExpression::FULL_OUTER_JOIN;
+      break;
+  }
+  for (Item *item : hash_join_extra_conditions) {
+    expr->join_conditions.push_back(item);
+  }
+  for (const HashJoinCondition &condition : hash_join_conditions) {
+    expr->equijoin_conditions.push_back(condition.join_condition());
+  }
+
+  if (join_type == JoinType::INNER) {
+    // For inner join, attach the extra conditions as filters after the join.
+    // This gives us more detailed output in EXPLAIN ANALYZE since we get an
+    // instrumented FilterIterator on top of the join.
+    *join_conditions = move(hash_join_extra_conditions);
+  } else {
+    join_conditions->clear();
+    // The join condition could contain conditions that can be pushed down into
+    // the right side, e.g. “t1 LEFT JOIN t2 ON t2.x > 3” (or simply
+    // “ON FALSE”). For inner joins, the optimizer will have pushed these down
+    // to the right tables, but it is not capable of doing so for outer joins.
+    // As a band-aid, we identify these and push them down onto the left
+    // iterator. This isn't ideal (they will not e.g. give rise to index
+    // lookups, and if there are multiple tables, we don't push the condition
+    // as far down as we should), but it should give reasonable speedups for
+    // many common cases.
+    vector<Item *> left_conditions;
+    for (auto cond_it = hash_join_extra_conditions.begin();
+         cond_it != hash_join_extra_conditions.end();) {
+      Item *cond = *cond_it;
+      if ((cond->used_tables() & (right_table_map | RAND_TABLE_BIT)) == 0) {
+        left_conditions.push_back(cond);
+        cond_it = hash_join_extra_conditions.erase(cond_it);
+      } else {
+        *conditions_depend_on_outer_tables |= cond->used_tables();
+        ++cond_it;
+      }
+    }
+    left_path = PossiblyAttachFilter(left_path, left_conditions, thd,
+                                      conditions_depend_on_outer_tables);
+  }
+  // If we have a degenerate semijoin or antijoin (ie., no join conditions),
+  // we only need a single row from the inner side.
+  if ((join_type == JoinType::SEMI || join_type == JoinType::ANTI) &&
+      hash_join_conditions.empty() && hash_join_extra_conditions.empty()) {
+    left_path = NewLimitOffsetAccessPath(thd, left_path,
+                                          /*limit=*/1, /*offset=*/0,
+                                          /*count_all_rows=*/false,
+                                          /*reject_multiple_rows=*/false,
+                                          /*send_records_override=*/nullptr);
+  }
+  JoinPredicate *pred = new (thd->mem_root) JoinPredicate;
+  pred->expr = expr;
+  for (Item *item : hash_join_extra_conditions) {
+    pred->expr->join_conditions.push_back(item);
+  }
+  for (const HashJoinCondition &condition : hash_join_conditions) {
+    pred->expr->equijoin_conditions.push_back(condition.join_condition());
+  }
+  // Go through the equijoin conditions and check that all of them still
+  // refer to tables that exist. If some table was pruned away due to
+  // being replaced by ZeroRowsAccessPath, but the equijoin condition still
+  // refers to it, it could become degenerate: The only rows it could ever
+  // see would be NULL-complemented rows, which would never match.
+  // In this case, we can remove the entire left path (ie., propagate the
+  // zero-row property to our own join).
+  //
+  // We also remove the join conditions, to avoid using time on extracting their
+  // hash values. (Also, Item_func_eq::append_join_key_for_hash_join has an
+  // assert that this case should never happen, so it would trigger.)
+  const table_map right_used_tables = GetUsedTableMap(right_path, false);
+  const table_map left_used_tables = GetUsedTableMap(left_path, false);
+  bool equi_condition_clear = false;
+  //file sort iterator
+  ORDER *left_sort_order = nullptr, **prev_left = &left_sort_order;
+  ORDER *right_sort_order = nullptr, **prev_right = &right_sort_order;
+  for (const HashJoinCondition &condition : hash_join_conditions) {
+    if ((!condition.left_uses_any_table(right_used_tables) &&
+         !condition.right_uses_any_table(right_used_tables)) ||
+        (!condition.left_uses_any_table(left_used_tables) &&
+         !condition.right_uses_any_table(left_used_tables))) {
+      if (left_path->type != AccessPath::ZERO_ROWS) {
+        string cause = "Join condition " +
+                       ItemToString(condition.join_condition()) +
+                       " requires pruned table";
+        left_path = NewZeroRowsAccessPath(
+            thd, left_path, strdup_root(thd->mem_root, cause.c_str()));
+        left_path->cost = 0.0;
+        left_path->num_output_rows = 0;
+      }
+      pred->expr->equijoin_conditions.clear();
+      equi_condition_clear = true;
+      break;
+    } else {
+      ORDER *ord_left = (ORDER *)thd->mem_calloc(sizeof(ORDER));
+      if (!ord_left) return nullptr;
+      ORDER *ord_right = (ORDER *)thd->mem_calloc(sizeof(ORDER));
+      if (!ord_right) return nullptr;
+      if (condition.left_uses_any_table(left_table_map)) {
+        assert(!condition.right_uses_any_table(left_table_map));
+        ord_left->item = &condition.join_condition()->arguments()[0];
+        ord_right->item = &condition.join_condition()->arguments()[1];
+      } else if (condition.right_uses_any_table(left_table_map)) {
+        assert(!condition.left_uses_any_table(left_table_map));
+        ord_left->item = &condition.join_condition()->arguments()[1];
+        ord_right->item = &condition.join_condition()->arguments()[0];
+      }
+      ord_left->direction = ORDER_ASC;
+      ord_right->direction = ORDER_ASC;
+      *prev_left = ord_left;
+      prev_left = &ord_left->next;
+      *prev_right = ord_right;
+      prev_right = &ord_right->next;
+    }
+  }
+  if (!equi_condition_clear) {
+    *prev_left = nullptr;
+    *prev_right = nullptr;
+    Filesort *left_filesort = nullptr;
+    Filesort *right_filesort = nullptr;
+    Mem_root_array<TABLE *> l_tables(thd->mem_root);
+    Mem_root_array<TABLE *> r_tables(thd->mem_root);
+    bool force_sort_positions = false;
+    for (QEP_TAB *tab : TablesContainedIn(qep_tab->join(), left_tables)) {
+      l_tables.push_back(tab->table());
+    }
+    for (QEP_TAB *tab : TablesContainedIn(qep_tab->join(), right_tables)) {
+      r_tables.push_back(tab->table());
+    }
+    if (left_sort_order != nullptr && right_sort_order != nullptr) {
+      assert(l_tables.size()>0);
+      assert(r_tables.size()>0);
+      left_filesort = new (thd->mem_root)
+          Filesort(thd, move(l_tables), /*keep_buffers=*/false,
+              left_sort_order, HA_POS_ERROR,
+              /*remove_duplicates=*/false, force_sort_positions,
+              /*unwrap_rollup=*/false);
+      right_filesort = new (thd->mem_root)
+          Filesort(thd, move(r_tables), /*keep_buffers=*/false,
+              right_sort_order, HA_POS_ERROR,
+              /*remove_duplicates=*/false, force_sort_positions,
+              /*unwrap_rollup=*/false);
+      left_path = NewSortAccessPath(thd, left_path, left_filesort,
+                      /*count_examined_rows=*/true);
+      right_path = NewSortAccessPath(thd, right_path, right_filesort,
+                      /*count_examined_rows=*/true);
+    }
+  }
+  AccessPath *path = new (thd->mem_root) AccessPath;
+  path->type = AccessPath::SORT_MERGE_JOIN;
+  path->sort_merge_join().outer = right_path;
+  path->sort_merge_join().inner = left_path;
+  path->sort_merge_join().join_predicate = pred;
+  // Will be set later if we get a weedout access path as parent.
+  path->sort_merge_join().store_rowids = false;
+  path->sort_merge_join().tables_to_get_rowid_for = 0;
+  SetCostOnSortMergeJoinAccessPath(*thd->cost_model(), qep_tab->position(), path);
   return path;
 }
 
@@ -2575,11 +2865,20 @@ AccessPath *ConnectJoins(plan_idx upper_first_idx, plan_idx first_idx,
         PickOutConditionsForTableIndex(i, &subtree_pending_join_conditions,
                                        &join_conditions);
 
+        bool replace_with_sort_merge_join = hint_table_state(
+            qep_tab->join()->thd, qep_tab->table_ref,
+            SORT_MERGE_JOIN_HINT_ENUM, OPTIMIZER_SWITCH_SORT_MERGE_JOIN);
+
         if (UseBKA(qep_tab)) {
           path = CreateBKAAccessPath(thd, qep_tab->join(), path, left_tables,
                                      subtree_path, right_tables,
                                      qep_tab->table(), qep_tab->table_ref,
                                      &qep_tab->ref(), join_type);
+        } else if (replace_with_sort_merge_join) {
+          qep_tab->op_type = QEP_TAB::OT_SMJ;
+          path = CreateSortMergeJoinAccessPath(
+              thd, qep_tab, subtree_path, right_tables, path, left_tables,
+              join_type, &join_conditions, conditions_depend_on_outer_tables);
         } else {
           path = CreateHashJoinAccessPath(
               thd, qep_tab, subtree_path, right_tables, path, left_tables,
@@ -2809,11 +3108,25 @@ AccessPath *ConnectJoins(plan_idx upper_first_idx, plan_idx first_idx,
       // we find them.
       assert(qep_tab->last_inner() == NO_PLAN_IDX);
 
+      bool replace_with_sort_merge_join = hint_table_state(
+          qep_tab->join()->thd, qep_tab->table_ref,
+          SORT_MERGE_JOIN_HINT_ENUM, OPTIMIZER_SWITCH_SORT_MERGE_JOIN);
+
       if (is_bka) {
         path = CreateBKAAccessPath(thd, qep_tab->join(), path, left_tables,
                                    table_path, right_tables, qep_tab->table(),
                                    qep_tab->table_ref, &qep_tab->ref(),
                                    JoinType::INNER);
+      } else if(replace_with_hash_join && replace_with_sort_merge_join) {
+        qep_tab->op_type = QEP_TAB::OT_SMJ;
+        path = CreateSortMergeJoinAccessPath(thd, qep_tab, path, left_tables,
+                                        table_path, right_tables,
+                                        JoinType::INNER, &join_conditions,
+                                        conditions_depend_on_outer_tables);
+        // Attach any remaining non-equi-join conditions as a filter after the
+        // join.
+        path = PossiblyAttachFilter(path, join_conditions, thd,
+                                    conditions_depend_on_outer_tables);
       } else if (replace_with_hash_join) {
         // The numerically lower QEP_TAB is often (if not always) the smaller
         // input, so use that as the build input.

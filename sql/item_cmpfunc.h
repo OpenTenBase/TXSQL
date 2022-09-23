@@ -202,6 +202,11 @@ class Arg_comparator {
 
   inline int compare() { return (this->*func)(); }
 
+  /**
+     When comparing with NULL value, return 1 for sort merge join.
+  */
+  int compare_and_exchange_null_state();
+
   int compare_string();         // compare args[0] & args[1]
   int compare_binary_string();  // compare args[0] & args[1]
   int compare_real();           // compare args[0] & args[1]
@@ -992,6 +997,9 @@ class Item_func_eq : public Item_func_comparison {
                              table_map read_tables,
                              const MY_BITMAP *fields_to_ignore,
                              double rows_in_table) override;
+
+  /// add for sort_merge_join to special judge of NULL value
+  longlong val_cmp();
 
   /// Read the value from the join condition, and append it to the output vector
   /// "join_key_buffer". The function will determine which side of the condition

@@ -85,6 +85,7 @@ struct st_opt_hint_info opt_hint_info[] = {
     {"GROUP_INDEX", false, false, false},
     {"ORDER_INDEX", false, false, false},
     {"DERIVED_CONDITION_PUSHDOWN", true, true, false},
+    {"SORT_MERGE_JOIN", false, false, false},
     {nullptr, false, false, false}};
 
 /**
@@ -573,7 +574,8 @@ bool is_compound_hint(opt_hints_enum type_arg) {
   return (
       type_arg == INDEX_MERGE_HINT_ENUM || type_arg == SKIP_SCAN_HINT_ENUM ||
       type_arg == INDEX_HINT_ENUM || type_arg == JOIN_INDEX_HINT_ENUM ||
-      type_arg == GROUP_INDEX_HINT_ENUM || type_arg == ORDER_INDEX_HINT_ENUM);
+      type_arg == GROUP_INDEX_HINT_ENUM || type_arg == ORDER_INDEX_HINT_ENUM ||
+      type_arg == SORT_MERGE_JOIN_HINT_ENUM);
 }
 
 PT_hint *Opt_hints_table::get_complex_hints(opt_hints_enum type) {

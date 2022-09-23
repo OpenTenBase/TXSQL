@@ -419,6 +419,9 @@ class QEP_TAB : public QEP_shared_owner {
     // Block-nested loop (rewritten to hash join).
     OT_BNL,
 
+    // Sort Merge Join
+    OT_SMJ,
+
     // Batch key access.
     OT_BKA
   } op_type = OT_NONE;

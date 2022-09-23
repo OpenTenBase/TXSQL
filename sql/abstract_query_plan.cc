@@ -32,6 +32,7 @@
 #include "sql/abstract_query_plan.h"
 #include "sql/filesort.h"
 #include "sql/item.h"
+#include "sql/iterators/sort_merge_join_iterator.h"
 #include "sql/join_optimizer/access_path.h"
 #include "sql/range_optimizer/path_helpers.h"
 #include "sql/sql_optimizer.h"
@@ -499,6 +500,41 @@ void Join_plan::construct(Join_nest *nest_ctx, AccessPath *path) {
         join_nest->m_filter = nullptr;
       }
       construct(join_nest, path->limit_offset().child);
+      break;
+    }
+    case AccessPath::SORT_MERGE_JOIN: {
+      const JoinPredicate *predicate = path->sort_merge_join().join_predicate;
+      string ret = JoinTypeToString(predicate->type);
+
+      if (predicate->equijoin_conditions.empty()) {
+        ret.append(" (no condition)");
+      } else {
+        for (Item_func_eq *cond : predicate->equijoin_conditions) {
+          if (cond != predicate->equijoin_conditions[0]) {
+            ret.push_back(',');
+          }
+          HashJoinCondition hj_cond(cond, *THR_MALLOC);
+          if (!hj_cond.store_full_sort_key()) {
+            ret.append(" (<merge>(" + ItemToString(hj_cond.left_extractor()) +
+                       ")=<merge>(" + ItemToString(hj_cond.right_extractor()) +
+                       "))");
+          } else {
+            ret.append(" " + ItemToString(cond));
+          }
+        }
+      }
+      for (Item *cond : predicate->join_conditions) {
+        if (cond == predicate->join_conditions[0]) {
+          ret.append(", extra conditions: ");
+        } else {
+          ret += " and ";
+        }
+        ret += ItemToString(cond);
+      }
+
+      description.push_back(move(ret));
+      children.push_back({path->sort_merge_join().outer, "Merge"});
+      children.push_back({path->sort_merge_join().inner});
       break;
     }
     case AccessPath::FILTER: {

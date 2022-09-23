@@ -125,6 +125,12 @@ void WalkAccessPaths(AccessPath *path, JoinPtr join,
       WalkAccessPaths(path->hash_join().inner, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
       break;
+    case AccessPath::SORT_MERGE_JOIN:
+      WalkAccessPaths(path->sort_merge_join().outer, join, cross_query_blocks,
+                      std::forward<Func &&>(func));
+      WalkAccessPaths(path->sort_merge_join().inner, join, cross_query_blocks,
+                      std::forward<Func &&>(func));
+      break;
     case AccessPath::FILTER:
       WalkAccessPaths(path->filter().child, join, cross_query_blocks,
                       std::forward<Func &&>(func), post_order_traversal);
@@ -320,6 +326,7 @@ void WalkTablesUnderAccessPath(AccessPath *root_path, Func &&func,
           case AccessPath::FAKE_SINGLE_ROW:
           case AccessPath::FILTER:
           case AccessPath::HASH_JOIN:
+          case AccessPath::SORT_MERGE_JOIN:
           case AccessPath::LIMIT_OFFSET:
           case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE:
           case AccessPath::NESTED_LOOP_JOIN:

@@ -213,6 +213,7 @@ struct System_variables {
   uint cte_max_recursion_depth;
   ulonglong histogram_generation_max_mem_size;
   ulong join_buff_size;
+  ulong merge_join_buff_size; ///< buffer size of sort merge join iterator
   ulong lock_wait_timeout;
   ulong max_allowed_packet;
   ulong max_error_count;

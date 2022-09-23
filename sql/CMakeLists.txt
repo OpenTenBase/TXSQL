@@ -422,6 +422,7 @@ SET(SQL_SHARED_SOURCES
   iterators/hash_join_buffer.cc
   iterators/hash_join_chunk.cc
   iterators/hash_join_iterator.cc
+  iterators/sort_merge_join_iterator.cc
   iterators/ref_row_iterators.cc
   iterators/sorting_iterator.cc
   iterators/window_iterators.cc
@@ -866,6 +867,7 @@ ENDIF()
 ADD_COMPILE_FLAGS(
   ${BUNDLED_LZ4_PATH}/xxhash.c
   iterators/hash_join_iterator.cc
+  iterators/sort_merge_join_iterator.cc
   rpl_write_set_handler.cc
   COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/extra/lz4 -I${BUNDLED_LZ4_PATH}
   )

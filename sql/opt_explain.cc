@@ -1593,13 +1593,17 @@ bool Explain_join::explain_extra() {
     if (tab->has_guarded_conds() && push_extra(ET_FULL_SCAN_ON_NULL_KEY))
       return true;
 
-    if (tab->op_type == QEP_TAB::OT_BNL || tab->op_type == QEP_TAB::OT_BKA) {
+    if (tab->op_type == QEP_TAB::OT_BNL ||
+        tab->op_type == QEP_TAB::OT_SMJ ||
+        tab->op_type == QEP_TAB::OT_BKA) {
       StringBuffer<64> buff(cs);
       if (tab->op_type == QEP_TAB::OT_BNL) {
         // BNL does not exist in the iterator executor, but is nearly
         // always rewritten to hash join, so use that in traditional EXPLAIN.
         buff.append("hash join");
-      } else if (tab->op_type == QEP_TAB::OT_BKA)
+      } else if (tab->op_type == QEP_TAB::OT_SMJ)
+        buff.append("Sort Merge Join");
+      else if (tab->op_type == QEP_TAB::OT_BKA)
         buff.append("Batched Key Access");
       else
         assert(0); /* purecov: inspected */
