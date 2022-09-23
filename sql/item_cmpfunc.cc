@@ -1715,6 +1715,18 @@ int Arg_comparator::compare_json() {
   return aw.compare(bw);
 }
 
+int Arg_comparator::compare_and_exchange_null_state() {
+  int fal = (this->*func)();
+  if (fal == -1) {
+    if ((*left)->null_value) {
+      return -1;
+    } else if ((*right)->null_value) {
+      return 1;
+    }
+  }
+  return fal;
+}
+
 int Arg_comparator::compare_string() {
   const CHARSET_INFO *cs = cmp_collation.collation;
   String *res1 = eval_string_arg(cs, *left, &value1);
@@ -2489,6 +2501,11 @@ longlong Item_func_eq::val_int() {
   assert(fixed == 1);
   int value = cmp.compare();
   return value == 0 ? 1 : 0;
+}
+
+longlong Item_func_eq::val_cmp() {
+  assert(fixed == 1);
+  return cmp.compare_and_exchange_null_state();
 }
 
 /** Same as Item_func_eq, but NULL = NULL. */

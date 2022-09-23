@@ -84,6 +84,7 @@ enum opt_hints_enum {
   GROUP_INDEX_HINT_ENUM,
   ORDER_INDEX_HINT_ENUM,
   DERIVED_CONDITION_PUSHDOWN_HINT_ENUM,
+  SORT_MERGE_JOIN_HINT_ENUM,
   MAX_HINT_ENUM
 };
 
@@ -663,7 +664,8 @@ class Opt_hints_table : public Opt_hints {
     if (type_arg == INDEX_MERGE_HINT_ENUM) return &index_merge;
     if (type_arg == SKIP_SCAN_HINT_ENUM) return &skip_scan;
     if (type_arg == INDEX_HINT_ENUM) return &index;
-    if (type_arg == JOIN_INDEX_HINT_ENUM) return &join_index;
+    if (type_arg == JOIN_INDEX_HINT_ENUM ||
+        type_arg == SORT_MERGE_JOIN_HINT_ENUM) return &join_index;
     if (type_arg == GROUP_INDEX_HINT_ENUM) return &group_index;
     if (type_arg == ORDER_INDEX_HINT_ENUM) return &order_index;
     assert(0);

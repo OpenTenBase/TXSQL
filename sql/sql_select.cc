@@ -606,26 +606,30 @@ bool Sql_cmd_dml::execute(THD *thd) {
   }
 
   if (!is_prepared()) {
-    if (prepare(thd)) goto err;
+    if (prepare(thd))
+      goto err;
   } else {
     /*
       Prepared statement, open tables referenced in statement and check
       privileges for it.
     */
     cleanup(thd);
-    if (open_tables_for_query(thd, lex->query_tables, 0)) goto err;
+    if (open_tables_for_query(thd, lex->query_tables, 0))
+      goto err;
 #ifndef NDEBUG
     if (sql_command_code() == SQLCOM_SELECT)
       DEBUG_SYNC(thd, "after_table_open");
 #endif
     // Bind table and field information
     if (restore_cmd_properties(thd)) return true;
-    if (check_privileges(thd)) goto err;
+    if (check_privileges(thd))
+      goto err;
 
     if (m_lazy_result) {
       Prepared_stmt_arena_holder ps_arena_holder(thd);
 
-      if (result->prepare(thd, *unit->get_unit_column_types(), unit)) goto err;
+      if (result->prepare(thd, *unit->get_unit_column_types(), unit))
+        goto err;
       m_lazy_result = false;
     }
   }

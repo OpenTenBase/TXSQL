@@ -130,6 +130,8 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 %token DERIVED_CONDITION_PUSHDOWN_HINT 1047
 %token NO_DERIVED_CONDITION_PUSHDOWN_HINT 1048
 %token HINT_ARG_FLOATING_POINT_NUMBER 1049
+%token SORT_MERGE_JOIN_HINT 1050
+%token NO_SORT_MERGE_JOIN_HINT 1051
 
 /*
   YYUNDEF in internal to Bison. Please don't change its number, or change
@@ -514,6 +516,10 @@ table_level_hint_type_on:
           {
             $$= DERIVED_CONDITION_PUSHDOWN_HINT_ENUM;
           }
+        | SORT_MERGE_JOIN_HINT
+          {
+            $$= SORT_MERGE_JOIN_HINT_ENUM;
+          }
         ;
 
 table_level_hint_type_off:
@@ -536,6 +542,10 @@ table_level_hint_type_off:
         | NO_DERIVED_CONDITION_PUSHDOWN_HINT
           {
             $$= DERIVED_CONDITION_PUSHDOWN_HINT_ENUM;
+          }
+        | NO_SORT_MERGE_JOIN_HINT
+          {
+            $$= SORT_MERGE_JOIN_HINT_ENUM;
           }
         ;
 

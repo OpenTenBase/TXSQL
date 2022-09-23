@@ -51,6 +51,7 @@
 #include "sql/sql_optimizer.h"
 #include "sql/sql_update.h"
 #include "sql/table.h"
+#include "sql/iterators/sort_merge_join_iterator.h"
 
 #include <vector>
 
@@ -684,6 +685,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             param.table, param.key, param.key_len);
         break;
       }
+      //TODO: sort merge join.
       case AccessPath::BKA_JOIN: {
         const auto &param = path->bka_join();
         AccessPath *mrr_path =
@@ -786,6 +788,55 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             param.allow_spill_to_disk, join_type,
             join_predicate->expr->join_conditions, probe_input_batch_mode,
             hash_table_generation);
+        break;
+      }
+      case AccessPath::SORT_MERGE_JOIN: {
+        const JoinPredicate *join_predicate = path->sort_merge_join().join_predicate;
+        unique_ptr_destroy_only<RowIterator> outer = CreateIteratorFromAccessPath(
+            thd, path->sort_merge_join().outer, join, eligible_for_batch_mode);
+        unique_ptr_destroy_only<RowIterator> inner = CreateIteratorFromAccessPath(
+            thd, path->sort_merge_join().inner, join, /*eligible_for_batch_mode=*/true);
+        vector<HashJoinCondition> conditions;
+        for (Item_func_eq *cond : join_predicate->expr->equijoin_conditions) {
+          conditions.emplace_back(HashJoinCondition(cond, thd->mem_root));
+        }
+
+        JoinType join_type{JoinType::INNER};
+        switch (join_predicate->expr->type) {
+          case RelationalExpression::INNER_JOIN:
+          case RelationalExpression::STRAIGHT_INNER_JOIN:
+            join_type = JoinType::INNER;
+            break;
+          case RelationalExpression::LEFT_JOIN:
+            join_type = JoinType::OUTER;
+            break;
+          case RelationalExpression::ANTIJOIN:
+            join_type = JoinType::ANTI;
+            break;
+          case RelationalExpression::SEMIJOIN:
+            join_type =
+              path->sort_merge_join().rewrite_semi_to_inner ?
+                JoinType::INNER : JoinType::SEMI;
+            break;
+          case RelationalExpression::TABLE:
+          default:
+            assert(false);
+        }
+
+        const bool probe_input_batch_mode =
+            eligible_for_batch_mode &&
+            ShouldEnableBatchMode(path->sort_merge_join().inner);
+        iterator = NewIterator<SortMergeJoinIterator>(
+            thd, thd->mem_root, move(outer), 
+            GetUsedTables(path->sort_merge_join().outer, true),
+            move(inner),
+            GetUsedTables(path->sort_merge_join().inner, true),
+            path->sort_merge_join().store_rowids,
+            path->sort_merge_join().tables_to_get_rowid_for,
+            thd->variables.merge_join_buff_size, move(conditions),
+            thd->variables.merge_join_buff_size > 0 ? true : false,
+            join_type, join,
+            join_predicate->expr->join_conditions, probe_input_batch_mode);
         break;
       }
       case AccessPath::FILTER: {
@@ -1155,6 +1206,10 @@ void FindTablesToGetRowidFor(AccessPath *path) {
             GetUsedTableMap(subpath, /*include_pruned_tables=*/true);
         FindTablesToGetRowidFor(subpath);
         return true;  // Don't double-traverse.
+      case AccessPath::SORT_MERGE_JOIN:
+        handled_by_others |= GetUsedTableMap(subpath, /*include_pruned_tables=*/true);
+        FindTablesToGetRowidFor(subpath);
+        return true;  // Don't double-traverse.
       case AccessPath::BKA_JOIN:
         handled_by_others |= GetUsedTableMap(subpath->bka_join().outer,
                                              /*include_pruned_tables=*/true);
@@ -1186,6 +1241,15 @@ void FindTablesToGetRowidFor(AccessPath *path) {
                       add_tables_handled_by_others);
       path->hash_join().store_rowids = true;
       path->hash_join().tables_to_get_rowid_for =
+          GetUsedTableMap(path, /*include_pruned_tables=*/true) &
+          ~handled_by_others;
+      break;
+    case AccessPath::SORT_MERGE_JOIN:
+      WalkAccessPaths(path, /*join=*/nullptr,
+                      WalkAccessPathPolicy::STOP_AT_MATERIALIZATION,
+                      add_tables_handled_by_others);
+      path->sort_merge_join().store_rowids = true;
+      path->sort_merge_join().tables_to_get_rowid_for =
           GetUsedTableMap(path, /*include_pruned_tables=*/true) &
           ~handled_by_others;
       break;

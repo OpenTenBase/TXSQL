@@ -234,6 +234,7 @@ struct AccessPath {
     NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL,
     BKA_JOIN,
     HASH_JOIN,
+    SORT_MERGE_JOIN,
 
     // Composite access paths.
     FILTER,
@@ -687,6 +688,14 @@ struct AccessPath {
     assert(type == HASH_JOIN);
     return u.hash_join;
   }
+  auto &sort_merge_join() {
+    assert(type == SORT_MERGE_JOIN);
+    return u.sort_merge_join;
+  }
+  const auto &sort_merge_join() const {
+    assert(type == SORT_MERGE_JOIN);
+    return u.sort_merge_join;
+  }
   auto &bka_join() {
     assert(type == BKA_JOIN);
     return u.bka_join;
@@ -1057,6 +1066,13 @@ struct AccessPath {
       bool rewrite_semi_to_inner;
       table_map tables_to_get_rowid_for;
     } hash_join;
+    struct {
+      AccessPath *outer, *inner;
+      const JoinPredicate *join_predicate;
+      bool store_rowids;  // Whether we are below a weedout or not.
+      bool rewrite_semi_to_inner;
+      table_map tables_to_get_rowid_for;
+    } sort_merge_join;
     struct {
       AccessPath *outer, *inner;
       JoinType join_type;
