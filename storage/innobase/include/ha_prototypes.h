@@ -452,10 +452,19 @@ ulong thd_parallel_read_threads(THD *thd);
 @return memory upper limit in bytes. */
 [[nodiscard]] ulong thd_ddl_buffer_size(THD *thd);
 
+/** Return the maximum buffer size to use for TXSQL Parallel DDL. */
+[[nodiscard]] ulong thd_txsql_ddl_buffer_size(THD *thd);
+
 /** Whether this is a computed virtual column */
 #define innobase_is_v_fld(field) ((field)->gcol_info && !(field)->stored_in_db)
 
 /** @return the number of DDL threads to use (global/session). */
 [[nodiscard]] size_t thd_ddl_threads(THD *thd) noexcept;
+
+/** @return the number of DDL threads to use (global/session) for TXSQL Parallel DDL. */
+[[nodiscard]] size_t thd_txsql_ddl_threads(THD *thd) noexcept;
+
+/** @return if we can use TXSQL Parallel DDL (global/session). */
+[[nodiscard]] bool thd_txsql_parallel_ddl(THD *thd) noexcept;
 
 #endif /* HA_INNODB_PROTOTYPES_H */

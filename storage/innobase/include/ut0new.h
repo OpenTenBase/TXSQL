@@ -221,6 +221,8 @@ extern PSI_memory_key mem_key_redo_log_archive_queue_element;
 extern PSI_memory_key mem_key_other;
 extern PSI_memory_key mem_key_partitioning;
 extern PSI_memory_key mem_key_row_log_buf;
+extern PSI_memory_key mem_key_row_merge_sort;
+extern PSI_memory_key mem_key_build_btr;
 extern PSI_memory_key mem_key_ddl;
 extern PSI_memory_key mem_key_std;
 extern PSI_memory_key mem_key_trx_sys_t_rw_trx_ids;

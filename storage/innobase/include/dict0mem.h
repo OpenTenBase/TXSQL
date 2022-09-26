@@ -1334,6 +1334,16 @@ struct dict_index_t {
     return (size);
   }
 
+  /** Returns the maximum data size of an index record.
+  @return maximum data size in bytes */
+  ulint get_max_size() const {
+    ulint size = 0;
+    for (unsigned i = 0; i < n_fields; i++) {
+      size += get_col(i)->get_max_size();
+    }
+    return (size);
+  }
+
   /** Check whether index can be used by transaction
   @param[in] trx                transaction*/
   bool is_usable(const trx_t *trx) const;

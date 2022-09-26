@@ -1138,6 +1138,23 @@ static MYSQL_THDVAR_ULONG(ddl_threads, PLUGIN_VAR_RQCMDARG,
                           1,          /* Minimum. */
                           64, 0);     /* Maximum. */
 
+/* Following three params is required by TXSQL Parallel DDL*/
+static MYSQL_THDVAR_ULONG(txsql_ddl_buffer_size, PLUGIN_VAR_RQCMDARG,
+                          "Maximum size of memory to use (in bytes) for DDL.",
+                          nullptr, nullptr, 104857600, /* Default. */
+                          10485760,                     /* Minimum. */
+                          4294967295, 0);            /* Maximum. */
+
+static MYSQL_THDVAR_ULONG(txsql_ddl_threads, PLUGIN_VAR_RQCMDARG,
+                          "Maximum number of threads to use for DDL.", nullptr,
+                          nullptr, 4, /* Default. */
+                          1,          /* Minimum. */
+                          256, 0);    /* Maximum. */
+
+static MYSQL_THDVAR_BOOL(txsql_parallel_ddl, PLUGIN_VAR_OPCMDARG,
+                         "Enable parallel ddl. Default is FALSE.", nullptr, nullptr,
+                         /* default */ false);
+
 static SHOW_VAR innodb_status_variables[] = {
     {"buffer_pool_dump_status",
      (char *)&export_vars.innodb_buffer_pool_dump_status, SHOW_CHAR,
@@ -2090,6 +2107,12 @@ ulong thd_parallel_read_threads(THD *thd) {
 ulong thd_ddl_buffer_size(THD *thd) { return THDVAR(thd, ddl_buffer_size); }
 
 size_t thd_ddl_threads(THD *thd) noexcept { return THDVAR(thd, ddl_threads); }
+
+ulong thd_txsql_ddl_buffer_size(THD *thd) { return THDVAR(thd, txsql_ddl_buffer_size); }
+
+size_t thd_txsql_ddl_threads(THD *thd) noexcept { return THDVAR(thd, txsql_ddl_threads); }
+
+bool thd_txsql_parallel_ddl(THD *thd) noexcept { return THDVAR(thd, txsql_parallel_ddl); }
 
 /** Check if statement is of type INSERT .... SELECT that involves
 use of intrinsic tables.
@@ -3204,10 +3227,17 @@ void innobase_format_name(char *buf, ulint buflen, const char *name) {
   buf[bufend - buf] = '\0';
 }
 
+#ifdef UNIV_DEBUG
+extern thread_local bool inject_trx_interrupted;
+#endif
+
 /** Determines if the currently running transaction has been interrupted.
  @return true if interrupted */
 bool trx_is_interrupted(const trx_t *trx) /*!< in: transaction */
 {
+  DBUG_EXECUTE_IF("trx_is_interrupted_yes",
+      DBUG_SET("-d,trx_is_interrupted_yes");
+      return inject_trx_interrupted; );
   return ((trx && trx->mysql_thd && thd_killed(trx->mysql_thd))
       || (trx && trx->connect_broken));
 }
@@ -23849,6 +23879,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(compression_level),
     MYSQL_SYSVAR(ddl_buffer_size),
     MYSQL_SYSVAR(ddl_threads),
+    MYSQL_SYSVAR(txsql_ddl_buffer_size),
+    MYSQL_SYSVAR(txsql_ddl_threads),
+    MYSQL_SYSVAR(txsql_parallel_ddl),
     MYSQL_SYSVAR(data_file_path),
     MYSQL_SYSVAR(temp_data_file_path),
     MYSQL_SYSVAR(data_home_dir),

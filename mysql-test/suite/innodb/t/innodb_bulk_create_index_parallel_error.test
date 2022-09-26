@@ -1,0 +1,83 @@
+######## suite/innodb/t/innodb_bulk_create_index.test            #####
+#                                                                    #
+# Testcase Bulk Load with parallel merge sort enhancement            #
+#  The basic idea of bulk load is to build an index from bottom up   #
+#  (also known as sorted index build).                               #
+# Earlier index was create by repeatedly inserting records           #
+# Test scenario :                                                    #
+# - Run bulk create index on 10K rows                                #
+# - Run bulk create index on table with various row types            #
+# - Run DML and SELECT after bulk index creation                     #
+# Creation:                                                          #
+# 2014-06-19 Implemented this test as part of WL#7277                #
+#                                                                    #
+######################################################################
+
+-- source include/have_innodb_max_16k.inc
+-- source include/have_debug.inc
+-- source include/big_test.inc
+
+SET @old_innodb_txsql_parallel_ddl = @@innodb_txsql_parallel_ddl;
+SET GLOBAL innodb_txsql_parallel_ddl = ON;
+
+# Test Row Format: REDUNDANT.
+let $row_format = REDUNDANT;
+let $row_count = 200000;
+
+# Create Insert Procedure
+DELIMITER |;
+CREATE PROCEDURE populate_t1(load_even INT, n INT)
+BEGIN
+	DECLARE i int DEFAULT 1;
+	DECLARE j int DEFAULT 1;
+	START TRANSACTION;
+	WHILE (i <= n) DO
+		SET j = FLOOR(RAND() * n);
+		IF i%2 = 0 AND load_even = 1 THEN
+		    INSERT INTO t1 VALUES (i, j, CONCAT('a', j));
+		END IF;
+		IF i%2 != 0 AND load_even != 1 THEN
+		    INSERT INTO t1 VALUES (i, j, CONCAT('a', j));
+		END IF;
+		SET i = i + 1;
+	END WHILE;
+	COMMIT;
+END|
+DELIMITER ;|
+
+SELECT @@innodb_fill_factor;
+
+eval CREATE TABLE t1(
+class	INT,
+id	INT,
+title	VARCHAR(100)
+) ENGINE=InnoDB ROW_FORMAT=$row_format;
+
+
+-- disable_query_log
+# Load half records
+--eval CALL populate_t1(1, $row_count);
+-- enable_query_log
+
+SELECT COUNT(*) FROM t1;
+
+/* Check table. */
+CHECK TABLE t1;
+
+/* Check table. */
+CHECK TABLE t1;
+
+
+CREATE INDEX idx_id ON t1(id);
+
+CREATE INDEX idx_title ON t1(title);
+
+/* Check table. */
+CHECK TABLE t1;
+
+DROP TABLE t1;
+DROP PROCEDURE populate_t1;
+
+# Restore global variables
+SET GLOBAL innodb_fill_factor=default;
+SET GLOBAL innodb_txsql_parallel_ddl = @old_innodb_txsql_parallel_ddl;

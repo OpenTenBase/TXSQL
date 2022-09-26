@@ -430,9 +430,10 @@ static void page_zip_dir_encode(
     const page_t *page, /*!< in: compact page */
     byte *buf,          /*!< in: pointer to dense page directory[-1];
                         out: dense directory on compressed page */
-    const rec_t **recs) /*!< in: pointer to an array of 0, or NULL;
+    const rec_t **recs, /*!< in: pointer to an array of 0, or NULL;
                         out: dense page directory sorted by ascending
                         address (and heap_no) */
+    bool check_min_rec_flag)
 {
   const byte *rec;
   ulint status;
@@ -448,7 +449,7 @@ static void page_zip_dir_encode(
     status = REC_STATUS_ORDINARY;
   } else {
     status = REC_STATUS_NODE_PTR;
-    if (UNIV_UNLIKELY(mach_read_from_4(page + FIL_PAGE_PREV) == FIL_NULL)) {
+    if (check_min_rec_flag && UNIV_UNLIKELY(mach_read_from_4(page + FIL_PAGE_PREV) == FIL_NULL)) {
       min_mark = REC_INFO_MIN_REC_FLAG;
     }
   }
@@ -915,6 +916,7 @@ func_exit:
 }
 
 /** Compress a page.
+ * @param[in] check_min_rec_flag, if page is from a subtree, then do not check min flag
  @return true on success, false on failure; page_zip will be left
  intact on failure. */
 bool page_zip_compress(page_zip_des_t *page_zip, /*!< in: size; out: data,
@@ -923,8 +925,9 @@ bool page_zip_compress(page_zip_des_t *page_zip, /*!< in: size; out: data,
                        const page_t *page,       /*!< in: uncompressed page */
                        dict_index_t *index,      /*!< in: index tree */
                        ulint level,              /*!< in: commpression level */
-                       mtr_t *mtr)               /*!< in/out: mini-transaction,
+                       mtr_t *mtr,               /*!< in/out: mini-transaction,
                                                  or NULL */
+                       bool check_min_rec_flag)
 {
   z_stream c_stream;
   int err;
@@ -1110,7 +1113,7 @@ bool page_zip_compress(page_zip_des_t *page_zip, /*!< in: size; out: data,
 
   ut_ad(!c_stream.avail_in);
 
-  page_zip_dir_encode(page, buf_end, recs);
+  page_zip_dir_encode(page, buf_end, recs, check_min_rec_flag);
 
   c_stream.next_in = (byte *)page + PAGE_ZIP_START;
 
