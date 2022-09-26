@@ -1,0 +1,176 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+call mtr.add_suppression("no enough space in index root page to merge subtree when parallel ddl enable");  
+
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=INNODB;
+let row_count=1000;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+--let $checksum_origin = query_get_value(CHECKSUM TABLE t1 EXTENDED, Checksum, 1)
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+#
+# test different subtree level
+#
+--echo 
+--echo 
+--echo #TEST DIFFERENT SUBTREE LEVEL
+SET @old_debug= @@session.debug;
+set debug= '+d,different_subtree_level_inject';
+
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
+SET session debug= @old_debug;
+
+
+#
+# test crash recovery
+#
+--echo 
+--echo 
+--echo #TEST CRASH RECOVERY
+SET @old_debug= @@session.debug;
+set debug= '+d,crash_after_partition_before_merge_sort';
+--source innodb-parallel-create-index-debug.inc
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+set debug= '+d,crash_after_merge_sort_before_build_btree';
+--source innodb-parallel-create-index-debug.inc
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+set debug= '+d,crash_after_build_subtree_before_merge_subtree';
+--source innodb-parallel-create-index-debug.inc
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+set debug= '+d,crash_after_merge_subtree_before_compress_tree';
+--source innodb-parallel-create-index-debug.inc
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+set debug= '+d,crash_after_compress_tree';
+--source innodb-parallel-create-index-debug.inc
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+set debug= '+d,crash_during_compress_tree';
+--source innodb-parallel-create-index-debug.inc
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET session debug= @old_debug;
+
+set debug = '+d,get_child_page_id_failed';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set SESSION debug = '+d,get_rightmost_child_page_id_failed';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+SET SESSION innodb_txsql_ddl_threads=1;
+set SESSION debug = '+d,row_merge_sort_failed';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+SET SESSION innodb_txsql_ddl_threads=4;
+
+# ib_row_merge_buf_readd_failure
+--echo 
+--echo 
+--echo #TEST RE-ADD BUF FAILURE AND SCAN_THREAD=1 AND DDL_THREAD>1
+SET SESSION innodb_parallel_read_threads=1;
+SET SESSION debug="+d,ib_row_merge_buf_readd_failure";
+ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
+SET SESSION debug="-d,ib_row_merge_buf_readd_failure";
+ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
+SET SESSION debug= @old_debug;
+SET SESSION innodb_parallel_read_threads=4;
+
+set debug = '+d,parallel_merge_sort_fail';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,compress_tree_get_cursor_by_page_no_failed';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,build_btr_worker_fail';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,merge_to_index_root_failed';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,link_adjacent_paths_trx_interrupted';
+--error 1317
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,merge_to_index_root_trx_interrupted';
+--error 1317
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,compress_tree_trx_interrupted';
+--error 1317
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,compress_tree_trx_interrupted1';
+--error 1317
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,build_btr_worker_init_failed';
+--error 1041
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,merge_to_index_root_no_enough_space';
+--error 1030
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+set debug = '+d,force_parallel';
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
+SET session debug= @old_debug;
+
+#
+# test partition files corruption during parallel ddl
+#
+--echo 
+--echo 
+--echo TEST PARTITION FILES CORRUPTION
+set debug = '+d,parallel_partition_files_corruption';
+--error 1034
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+SHOW INDEX FROM t1;
+SET session debug= @old_debug;
+
+DROP TABLE t1;

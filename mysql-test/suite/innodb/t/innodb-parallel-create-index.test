@@ -1,0 +1,379 @@
+
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) ENGINE=INNODB;
+let row_count=5000;
+--disable_query_log
+while ($row_count)
+{
+  --let $c2=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), $c2, LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+--let $checksum_before = query_get_value(CHECKSUM TABLE t1 EXTENDED, Checksum, 1)
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+
+--echo 
+--echo 
+--echo #TEST THE CHECKSUM OF PARALLEL CREATE INDEX
+CREATE TEMPORARY TABLE t1_temp_on like t1;
+CREATE TEMPORARY TABLE t1_temp_off like t1;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+ALTER TABLE t1 ADD INDEX k_c2_on(c2);
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+
+INSERT INTO t1_temp_on SELECT * from t1 force index(k_c2_on);
+--let $checksum_temp_on = query_get_value(CHECKSUM TABLE t1_temp_on EXTENDED, Checksum, 1)
+drop table t1_temp_on;
+ALTER TABLE t1 DROP INDEX k_c2_on;
+
+SET SESSION innodb_txsql_parallel_ddl=OFF;
+ALTER TABLE t1 ADD INDEX k_c2_off(c2);
+INSERT INTO t1_temp_off SELECT * from t1 force index(k_c2_off);
+--let $checksum_temp_off = query_get_value(CHECKSUM TABLE t1_temp_off EXTENDED, Checksum, 1)
+
+assert($count_before == $count_after);
+assert($checksum_temp_on == $checksum_temp_off);
+assert($checksum_temp_on == $checksum_before);
+
+--echo 
+--echo 
+--echo #TEST SCAN_THREAD=1 AND DDL_THREAD>1
+CREATE TEMPORARY TABLE t1_temp_on like t1;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_parallel_read_threads=1;
+ALTER TABLE t1 ADD INDEX k_c2_on(c2);
+INSERT INTO t1_temp_on SELECT * from t1 force index(k_c2_on);
+--let $checksum_temp_on = query_get_value(CHECKSUM TABLE t1_temp_on EXTENDED, Checksum, 1)
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+drop table t1_temp_on;
+ALTER TABLE t1 DROP INDEX k_c2_on;
+
+assert($count_before == $count_after);
+assert($checksum_temp_on == $checksum_temp_off);
+assert($checksum_temp_on == $checksum_before);
+
+drop table t1_temp_off;
+ALTER TABLE t1 DROP INDEX k_c2_off;
+
+--echo 
+--echo 
+--echo #TEST INVALID USE OF NULL VALUES
+ALTER TABLE t1 drop primary key, add primary key(c1, c3);
+ALTER TABLE t1 drop column c1;
+ALTER TABLE t1 add column c1 int;
+
+--error 1138
+ALTER TABLE t1 drop primary key, add primary key(c1, c3), add index(c3);
+
+drop table t1;
+
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127), c4 char(127)) ENGINE=INNODB;
+let row_count=1000;
+--disable_query_log
+while ($row_count)
+{
+  --let $c2=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), $c2, LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+
+# test add primary key
+--echo 
+--echo 
+--echo #TEST ADD PRIMARY KEY
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_txsql_ddl_threads=4;
+SET SESSION innodb_parallel_read_threads=4;
+
+ALTER TABLE t1 drop primary key, add primary key(c3);
+select count(*) from t1;
+ALTER TABLE t1 drop primary key, add primary key(c1);
+
+DROP TABLE t1;
+
+
+#
+# test partition range table
+#
+--echo 
+--echo 
+--echo #TEST PARATITION RANGE TABLE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_txsql_ddl_threads=4;
+SET SESSION innodb_parallel_read_threads=4;
+
+CREATE TABLE t1
+(a INT PRIMARY KEY, b int, c char(127), d char(127)) ENGINE=InnoDB
+PARTITION BY RANGE(a) PARTITIONS 5
+(PARTITION p0 VALUES LESS THAN (1001) TABLESPACE innodb_file_per_table,
+PARTITION p1 VALUES LESS THAN (2001) TABLESPACE innodb_file_per_table,
+PARTITION p2 VALUES LESS THAN (3001) TABLESPACE innodb_file_per_table,
+PARTITION p3 VALUES LESS THAN (4001) TABLESPACE innodb_file_per_table,
+PARTITION p4 VALUES LESS THAN (5001) TABLESPACE innodb_file_per_table);
+let row_count=5000;
+--disable_query_log
+while ($row_count)
+{
+  --let $b=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES ($row_count, $b, LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE b < 1000, COUNT(*), 1)
+
+ALTER TABLE t1 ADD INDEX k_b(b);
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE b < 1000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+CREATE TEMPORARY TABLE t1_temp (a INT PRIMARY KEY, b int, c char(127), d char(127)) ENGINE=InnoDB;
+INSERT INTO t1_temp SELECT * from t1 force index(k_b);
+--let $checksum_temp = query_get_value(CHECKSUM TABLE t1_temp EXTENDED, Checksum, 1)
+--let $checksum_origin = query_get_value(CHECKSUM TABLE t1 EXTENDED, Checksum, 1)
+assert($checksum_temp == $checksum_origin);
+ALTER TABLE t1 DROP INDEX k_b;
+DROP TABLE t1_temp;
+
+# test optimize table
+--echo 
+--echo 
+--echo #TEST OPTIMIZE TABLE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+ALTER TABLE t1 ADD INDEX k_b(b);
+DELETE FROM t1 where a % 2 = 0;
+--let $checksum_origin = query_get_value(CHECKSUM TABLE t1 EXTENDED, Checksum, 1)
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE b < 3000, COUNT(*), 1)
+
+ANALYZE TABLE t1;
+OPTIMIZE TABLE t1;
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE b < 3000, COUNT(*), 1)
+--let $checksum_origin1 = query_get_value(CHECKSUM TABLE t1 EXTENDED, Checksum, 1)
+CREATE TEMPORARY TABLE t1_temp (a INT PRIMARY KEY, b int, c char(127), d char(127)) ENGINE=InnoDB;
+INSERT INTO t1_temp SELECT * from t1 force index(k_b);
+--let $checksum_temp = query_get_value(CHECKSUM TABLE t1_temp EXTENDED, Checksum, 1)
+
+assert($count_before == $count_after);
+assert($checksum_origin == $checksum_origin1);
+assert($checksum_temp == $checksum_origin);
+DROP TABLE t1;
+DROP TABLE t1_temp;
+
+#
+# test add multiple indexes with different column types
+#
+CREATE TABLE t2 (c1 char(127) PRIMARY KEY, c2 char(127), c3 int) ENGINE=INNODB;
+let row_count=1000;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t2 VALUES (LPAD($row_count, 127, 0), LPAD($row_count, 127, 0), $row_count);
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t2;
+--let $checksum_origin = query_get_value(CHECKSUM TABLE t2 EXTENDED, Checksum, 1)
+
+CREATE TEMPORARY TABLE t2_temp_on  like t2;
+CREATE TEMPORARY TABLE t2_temp_off like t2;
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+ALTER TABLE t2 ADD INDEX k_c2_on(c2), ADD INDEX k_c3_on(c3);
+SHOW CREATE TABLE t2;
+
+INSERT INTO t2_temp_on SELECT * from t2 force index(k_c2_on);
+--let $checksum_temp_on = query_get_value(CHECKSUM TABLE t2_temp_on EXTENDED, Checksum, 1)
+drop table t2_temp_on;
+ALTER TABLE t2 DROP INDEX k_c2_on, DROP INDEX k_c3_on;
+
+SET SESSION innodb_txsql_parallel_ddl=OFF;
+ALTER TABLE t2 ADD INDEX k_c2_off(c2), ADD INDEX k_c3_off(c3);
+SHOW CREATE TABLE t2;
+
+INSERT INTO t2_temp_off SELECT * from t2 force index(k_c2_off);
+--let $checksum_temp_off = query_get_value(CHECKSUM TABLE t2_temp_off EXTENDED, Checksum, 1)
+drop table t2_temp_off;
+ALTER TABLE t2 DROP INDEX k_c2_off, DROP INDEX k_c3_off;
+
+assert($checksum_origin == $checksum_temp_on);
+assert($checksum_origin == $checksum_temp_off);
+
+DROP TABLE t2;
+
+#
+# test cases with TEXT columns
+#
+--echo 
+--echo 
+--echo #TEST TEXT columns
+CREATE TABLE `help_topic1` (
+  `help_topic_id` int unsigned NOT NULL,
+  `name` char(64) NOT NULL,
+  `help_category_id` smallint unsigned NOT NULL,
+  `description` text NOT NULL,
+  `example` text NOT NULL,
+  `url` text NOT NULL,
+  PRIMARY KEY (`help_topic_id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 STATS_PERSISTENT=0;
+
+INSERT INTO help_topic1 SELECT * FROM mysql.help_topic;
+
+--let $checksum_origin = query_get_value(CHECKSUM TABLE mysql.help_topic EXTENDED, Checksum, 1)
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+ALTER TABLE help_topic1 ENGINE=InnoDB;
+
+--let $checksum_temp_on = query_get_value(CHECKSUM TABLE help_topic1 EXTENDED, Checksum, 1)
+
+assert($checksum_origin == $checksum_temp_on);
+
+DROP TABLE help_topic1;
+
+--echo 
+--echo 
+--echo #TEST SCAN_THREAD>1 AND DDL_THREAD=1
+
+CREATE TABLE t1 (id int PRIMARY KEY, val1 int, val2 char(127), val3 char(127)) ENGINE=INNODB;
+
+let row_count=5000;
+--disable_query_log
+while ($row_count)
+{
+  --let $val1=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES ($row_count, $val1, LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+
+--let $count_before_create_index = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_parallel_read_threads=4;
+SET SESSION innodb_txsql_ddl_threads=1;
+
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+
+--let $count_after_create_index = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+
+ALTER TABLE t1 DROP INDEX k_val1;
+
+assert($count_before_create_index == $count_after_create_index);
+
+SET SESSION innodb_parallel_read_threads=1;
+SET SESSION innodb_txsql_ddl_threads=4;
+
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+
+--let $count_after_create_index_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+
+ALTER TABLE t1 DROP INDEX k_val1;
+
+assert($count_before_create_index == $count_after_create_index_after);
+
+--echo 
+--echo 
+--echo #TEST SCAN_THREAD AND DDL_THREAD from 1 to 16
+
+let parallel_thread_cnt=1;
+
+while ($parallel_thread_cnt <= 16)
+{
+  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
+  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
+  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
+  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --inc $parallel_thread_cnt
+}
+
+assert($count_before_create_index == $count_after);
+
+
+--echo 
+--echo 
+--echo #TEST SCAN_THREAD AND DDL_THREAD from 1 to 16 with k-ways merge sort
+--error 1193
+select @@global.txsql_parallel_ddl_merge_sort_k_value;
+
+--let $restart_parameters=restart:--tencent-root-cnf=tmy.conf
+--source include/restart_mysqld.inc
+connect (con_tencentroot, localhost, tencentroot,'', );
+--connection con_tencentroot
+select @@global.txsql_parallel_ddl_merge_sort_k_value;
+
+SET @old_k_value= @@global.txsql_parallel_ddl_merge_sort_k_value;
+
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 64;
+let parallel_thread_cnt=4;
+
+while ($parallel_thread_cnt <= 16)
+{
+  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
+  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
+  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
+  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --inc $parallel_thread_cnt
+}
+
+assert($count_before_create_index == $count_after);
+
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;
+let parallel_thread_cnt=4;
+
+while ($parallel_thread_cnt <= 16)
+{
+  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
+  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
+  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
+  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --inc $parallel_thread_cnt
+}
+
+assert($count_before_create_index == $count_after);
+
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 8;
+let parallel_thread_cnt=4;
+
+while ($parallel_thread_cnt <= 16)
+{
+  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
+  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
+  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
+  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --inc $parallel_thread_cnt
+}
+
+assert($count_before_create_index == $count_after);
+
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;
+let parallel_thread_cnt=4;
+
+while ($parallel_thread_cnt <= 16)
+{
+  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
+  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
+  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
+  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
+  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --inc $parallel_thread_cnt
+}
+
+assert($count_before_create_index == $count_after);
+
+SET @@global.txsql_parallel_ddl_merge_sort_k_value= @old_k_value;
+
+
+DROP TABLE t1;
+

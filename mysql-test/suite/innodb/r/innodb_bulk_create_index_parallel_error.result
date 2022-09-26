@@ -1,0 +1,48 @@
+SET @old_innodb_txsql_parallel_ddl = @@innodb_txsql_parallel_ddl;
+SET GLOBAL innodb_txsql_parallel_ddl = ON;
+CREATE PROCEDURE populate_t1(load_even INT, n INT)
+BEGIN
+DECLARE i int DEFAULT 1;
+DECLARE j int DEFAULT 1;
+START TRANSACTION;
+WHILE (i <= n) DO
+SET j = FLOOR(RAND() * n);
+IF i%2 = 0 AND load_even = 1 THEN
+INSERT INTO t1 VALUES (i, j, CONCAT('a', j));
+END IF;
+IF i%2 != 0 AND load_even != 1 THEN
+INSERT INTO t1 VALUES (i, j, CONCAT('a', j));
+END IF;
+SET i = i + 1;
+END WHILE;
+COMMIT;
+END|
+SELECT @@innodb_fill_factor;
+@@innodb_fill_factor
+100
+CREATE TABLE t1(
+class	INT,
+id	INT,
+title	VARCHAR(100)
+) ENGINE=InnoDB ROW_FORMAT=REDUNDANT;
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+100000
+/* Check table. */
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+/* Check table. */
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+CREATE INDEX idx_id ON t1(id);
+CREATE INDEX idx_title ON t1(title);
+/* Check table. */
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+DROP TABLE t1;
+DROP PROCEDURE populate_t1;
+SET GLOBAL innodb_fill_factor=default;
+SET GLOBAL innodb_txsql_parallel_ddl = @old_innodb_txsql_parallel_ddl;

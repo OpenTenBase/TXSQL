@@ -1,0 +1,441 @@
+
+--source include/have_debug.inc
+
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=INNODB;
+let row_count=500;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+
+--echo 
+--echo 
+--echo #TEST PARALLEL CASE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+
+let $check_secondary_index__table_name=t1;
+let $check_secondary_index__pk_name=c1;
+let $check_secondary_index__idx_col_name=c2;
+let $check_secondary_index__idx_name=k_c2;
+--source include/check_secondary_index.inc
+
+let $check_secondary_index__idx_col_name=c3;
+let $check_secondary_index__idx_name=k_c3;
+--source include/check_secondary_index.inc
+
+ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
+
+
+
+# test innodb_txsql_ddl_threads=1 or 0
+--echo 
+--echo 
+--echo #TEST NON-PARALLEL CASE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=1;
+ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+
+let $check_secondary_index__table_name=t1;
+let $check_secondary_index__pk_name=c1;
+let $check_secondary_index__idx_col_name=c2;
+let $check_secondary_index__idx_name=k_c2;
+--source include/check_secondary_index.inc
+
+let $check_secondary_index__idx_col_name=c3;
+let $check_secondary_index__idx_name=k_c3;
+--source include/check_secondary_index.inc
+
+ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
+
+       
+       
+# row_merge_write_failure
+--echo 
+--echo 
+--echo #TEST WRITE TMP FILE FAILURE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug='+d,row_merge_write_failure';
+--error 1878
+ALTER TABLE t1 ADD INDEX k_c2(c2), add index k_c3(c3);
+SET GLOBAL debug='-d,row_merge_write_failure';
+       
+       
+# row_merge_file_create_if_needed_INJECT_ERR
+--echo 
+--echo 
+--echo #TEST CREATE TMP FILE FAILURE
+SET session innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_txsql_ddl_threads=2;
+SET SESSION innodb_parallel_read_threads=2;
+SET GLOBAL debug="+d,row_merge_file_create_if_needed_INJECT_ERR";
+--error 1041
+ALTER TABLE t1 ADD INDEX k_c2(c2), add index k_c3(c3);
+SET GLOBAL debug="-d,row_merge_file_create_if_needed_INJECT_ERR";
+
+
+# fts
+--echo 
+--echo 
+--echo #TEST CREATE FTS
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+ANALYZE TABLE t1;
+SET GLOBAL debug="+d,force_parallel";
+ALTER TABLE t1 ADD FULLTEXT INDEX fts_c2(c2);
+CHECK TABLE t1;
+SET GLOBAL debug="-d,force_parallel";
+ALTER TABLE t1 DROP INDEX fts_c2;
+
+
+# clustered_index
+--echo 
+--echo 
+--echo #TEST CREATE CLUSTERED INDEX
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+ANALYZE TABLE t1;
+SET GLOBAL debug="+d,force_parallel";
+CREATE FULLTEXT INDEX c_c2 ON t1(c2);
+CHECK TABLE t1;
+SET GLOBAL debug="-d,force_parallel";
+ALTER TABLE t1 DROP INDEX c_c2;
+
+
+# vfield
+--echo 
+--echo 
+--echo #TEST CREATE INDEX ON VFIELD
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+CREATE TABLE t_vf (c1 INT PRIMARY KEY, c2 INT, c3 INT  GENERATED ALWAYS AS (c2));
+SET GLOBAL debug="+d,force_parallel";
+ALTER TABLE t_vf ADD INDEX k_c3 (c3);
+CHECK TABLE t1;
+SET GLOBAL debug="-d,force_parallel";
+DROP TABLE t_vf;
+
+
+# sort_merge_buf_failure
+--echo 
+--echo 
+--echo #TEST SORT BUF FAILURE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=1;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="+d,sort_merge_buf_failure";
+SET GLOBAL debug="+d,ib_row_merge_buf_add_two";
+--error 1878
+ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
+SET GLOBAL debug="-d,sort_merge_buf_failure";
+SET GLOBAL debug="-d,ib_row_merge_buf_add_two";
+
+
+# ib_row_merge_buf_add_failure
+--echo 
+--echo 
+--echo #TEST ADD BUF FAILURE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="+d,ib_row_merge_buf_add_failure";
+--error 1030
+ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
+SET GLOBAL debug="-d,sort_merge_buf_failure";
+
+
+# ib_row_merge_buf_readd_failure
+--echo 
+--echo 
+--echo #TEST RE-ADD BUF FAILURE
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="";
+SET GLOBAL debug="+d,ib_row_merge_buf_add_two";
+SET GLOBAL debug="+d,ib_row_merge_buf_readd_failure";
+--error 1030
+ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
+SET GLOBAL debug="-d,ib_row_merge_buf_add_two";
+SET GLOBAL debug="-d,ib_row_merge_buf_readd_failure";
+SET GLOBAL debug="";
+
+
+# trx_is_interrupted_yes
+--echo 
+--echo 
+--echo #TEST TRX INTERRUPTED
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="";
+SET GLOBAL debug="+d,trx_is_interrupted_yes";
+SET GLOBAL debug="+d,ib_row_merge_buf_add_two";
+--error 1317
+ALTER TABLE t1 ADD INDEX k_c2(c2);
+SET GLOBAL debug="-d,trx_is_interrupted_yes";
+SET GLOBAL debug="-d,ib_row_merge_buf_add_two";
+SET GLOBAL debug="";
+
+
+# write_merge_buf_to_file_failure
+--echo 
+--echo 
+--echo #TEST WRITE MERGE BUF FAIL WITH ADD INJECT
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="";
+SET GLOBAL debug="+d,write_merge_buf_to_file_failure";
+SET GLOBAL debug="+d,ib_row_merge_buf_add_two";
+--error 1878
+ALTER TABLE t1 ADD INDEX k_c2(c2);
+SET GLOBAL debug="-d,write_merge_buf_to_file_failure";
+SET GLOBAL debug="-d,ib_row_merge_buf_add_two";
+SET GLOBAL debug="";
+
+
+# set_global_err
+--echo 
+--echo 
+--echo #TEST GLOBAL_ERROR FLAG SET
+SET SESSION innodb_txsql_parallel_ddl=on;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+set session innodb_parallel_read_threads=16;
+SET GLOBAL debug="+d,set_global_err";
+--error 1030
+ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
+SET GLOBAL debug="-d,set_global_err";
+
+
+# nornal non-parallel
+--echo 
+--echo 
+--echo #TEST NON-PARALLEL SINCE parallel param is off
+SET GLOBAL innodb_txsql_parallel_ddl=OFF;
+
+SET GLOBAL debug="";
+ALTER TABLE t1 ADD INDEX k_c2(c2), add index k_c3(c3);
+
+let $check_secondary_index__table_name=t1;
+let $check_secondary_index__pk_name=c1;
+let $check_secondary_index__idx_col_name=c2;
+let $check_secondary_index__idx_name=k_c2;
+--source include/check_secondary_index.inc
+
+let $check_secondary_index__idx_col_name=c3;
+let $check_secondary_index__idx_name=k_c3;
+--source include/check_secondary_index.inc
+
+ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
+DROP TABLE t1;
+ 
+  
+# geom
+--echo 
+--echo 
+--echo #TEST GEOM TABLE
+CREATE TABLE geom (g GEOMETRY NOT NULL);
+let row_count=128;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO geom VALUES (ST_PointFromText('POINT(1 1)'));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE geom;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="+d,force_parallel";
+ALTER TABLE geom ADD SPATIAL INDEX(g);
+CHECK TABLE geom;
+SET GLOBAL debug="-d,force_parallel";
+DROP TABLE geom;
+
+
+
+# multi-value
+--echo 
+--echo 
+--echo #TEST TABLE WITH MULTI-VALUE COLUMN TYPE
+CREATE TABLE customers (id int primary key, custinfo JSON);
+let row_count=500;
+--disable_query_log
+while ($row_count)
+{
+  #SET @g = '{"zipcode":[' $row_count + 10000 ',' $row_count + 20000 ']}';
+  --eval INSERT INTO customers VALUES ($row_count, '{"zipcode":[1, 2]}');
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE customers;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="+d,force_parallel";
+CREATE INDEX zips ON customers ( (CAST(custinfo->'$.zipcode' AS UNSIGNED ARRAY)) );
+CHECK TABLE customers;
+SET GLOBAL debug="-d,force_parallel";
+DROP TABLE customers;
+
+
+
+# CREATE TABLE autoinc_table (c1 int primary key, c2 int AUTO_INCREMENT);
+# let row_count=500;
+# --disable_query_log
+# while ($row_count)
+# {
+#   --eval INSERT INTO autoinc_table VALUES ($row_count);
+#   dec $row_count;
+# }
+# --enable_query_log
+# ANALYZE TABLE autoinc_table;
+# ALTER TABLE autoinc_table ADD INDEX k_c2(c2);
+# DROP TABLE autoinc_table;
+
+
+
+
+
+# data amount is small, do not use parallel scan
+--echo 
+--echo 
+--echo #TEST TABLE WITH NOT ENOUGHT RECORDS
+CREATE TABLE t2 (c1 int primary key, c2 int) ENGINE=INNODB;
+INSERT INTO t2 VALUES(1,1);
+INSERT INTO t2 VALUES(2,2);
+INSERT INTO t2 VALUES(3,3);
+INSERT INTO t2 VALUES(4,4);
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+SET GLOBAL debug="";
+ALTER TABLE t2 ADD INDEX k_c2(c2);
+
+let $check_secondary_index__table_name=t2;
+let $check_secondary_index__pk_name=c1;
+let $check_secondary_index__idx_col_name=c2;
+let $check_secondary_index__idx_name=k_c2;
+--source include/check_secondary_index.inc
+
+CHECK TABLE t2;
+DROP TABLE t2;
+
+
+# create unique index on table with dup record
+--echo 
+--echo 
+--echo #TEST TABLE WITH DUP RECORDS
+CREATE TABLE t3 (c1 char(127) PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=INNODB;
+let row_count=500;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t3 VALUES (LPAD($row_count, 127, 0), LPAD(1, 127, 0), LPAD(1, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+--error 1062 # dup
+ALTER TABLE t3 ADD UNIQUE INDEX k_c2(c2);
+DROP TABLE t3;
+
+
+
+--echo 
+--echo 
+--echo #TEST TABLE WITH COMPACT ROW FORMAT
+CREATE TABLE t4 (c1 char(127) PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=INNODB ROW_FORMAT=COMPACT;
+let row_count=500;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t4 VALUES (LPAD($row_count, 127, 0), LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t4;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+
+SET SESSION innodb_txsql_ddl_threads=16;
+SET SESSION innodb_parallel_read_threads=16;
+ALTER TABLE t4 ADD INDEX k_c2(c2), add unique index k_c3(c3);
+
+let $check_secondary_index__table_name=t4;
+let $check_secondary_index__pk_name=c1;
+let $check_secondary_index__idx_col_name=c2;
+let $check_secondary_index__idx_name=k_c2;
+--source include/check_secondary_index.inc
+
+let $check_secondary_index__idx_col_name=c3;
+let $check_secondary_index__idx_name=k_c3;
+--source include/check_secondary_index.inc
+
+ALTER TABLE t4 DROP INDEX k_c2, DROP INDEX k_c3;
+DROP TABLE t4;
+
+
+--echo 
+--echo 
+--echo #TEST AUTOINC
+CREATE TABLE t_ai (c1 INT PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=INNODB;
+let row_count=500;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t_ai VALUES ($row_count, LPAD($row_count, 127, 0), LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t_ai;
+ALTER TABLE t_ai ADD INDEX k_c2(c2), add unique index k_c3(c3);
+let $check_secondary_index__table_name=t_ai;
+let $check_secondary_index__pk_name=c1;
+let $check_secondary_index__idx_col_name=c2;
+let $check_secondary_index__idx_name=k_c2;
+--source include/check_secondary_index.inc
+
+let $check_secondary_index__idx_col_name=c3;
+let $check_secondary_index__idx_name=k_c3;
+--source include/check_secondary_index.inc
+
+DROP TABLE t_ai;
+
+
+# restore test env
+SET GLOBAL innodb_txsql_ddl_threads=4;
+
+
+

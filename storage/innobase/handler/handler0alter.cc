@@ -100,6 +100,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0trx.h"
 #include "ut0new.h"
 #include "ut0stage.h"
+#include "row0merge.h"
 
 /* For supporting Native InnoDB Partitioning. */
 #include "ha_innopart.h"
@@ -6216,9 +6217,56 @@ static const char *get_error_key_name(ulint error_key_num,
   }
 }
 
+/* return true if we use TXSQL Parallel DDL */
+static bool check_if_can_use_txsql_parallel_ddl(trx_t *trx, dict_index_t **indexes, ulint n_indexes,
+    dict_table_t *old_table, dict_table_t *new_table, struct TABLE *eval_table, ulint add_autoinc) {
+
+  /* TXSQL Parallel ddl should not be used in the following situations:
+   1. disabled by user config/sysvar
+   2. clustered index has a small table size
+   3. Parallel_reader has no enough available threads
+   4. create spatial index
+   5. create fts index
+   6. create index using auto_increment
+   7. index has multi-value column
+   8. index has virtual generated columns, which require same thd to do err_handle
+   */
+
+  if (!thd_txsql_parallel_ddl(trx->mysql_thd)) {
+    /* configured as disabled */
+    return false;
+  }
+
+  static ulint CLUSTER_INDEX_SIZE_THRESHOLD = 8;
+  DBUG_EXECUTE_IF("force_parallel", CLUSTER_INDEX_SIZE_THRESHOLD=0;);
+  if (old_table->stat_clustered_index_size < CLUSTER_INDEX_SIZE_THRESHOLD) {
+    /* the clustered index has a small table size */
+    DBUG_EXECUTE_IF("force_parallel", CLUSTER_INDEX_SIZE_THRESHOLD=8;);
+    return false;
+  }
+
+  for (ulint i = 0; i < n_indexes; i++) {
+    if ((indexes[i]->type & DICT_FTS) ||
+        (dict_index_is_spatial(indexes[i])) ||
+        (add_autoinc != ULINT_UNDEFINED) ||
+        (indexes[i]->is_multi_value()) ||
+        (eval_table->vfield != nullptr)) {
+      return false;
+    }
+  }
+
+  auto parallel_sort_threads = thd_txsql_ddl_threads(trx->mysql_thd);
+  if (parallel_sort_threads == 1) {
+    return false;
+  }
+
+  return true;
+}
+
 template <typename Table>
 bool ha_innobase::inplace_alter_table_impl(TABLE *altered_table,
                                            Alter_inplace_info *ha_alter_info) {
+  dberr_t error;
   dict_add_v_col_t *add_v = nullptr;
   dict_vcol_templ_t *s_templ = nullptr;
   dict_vcol_templ_t *old_templ = nullptr;
@@ -6446,18 +6494,30 @@ bool ha_innobase::inplace_alter_table_impl(TABLE *altered_table,
     trx->isolation_level = trx_t::isolation_level_t::REPEATABLE_READ;
   }
 
-  ddl::Context ddl(trx, m_prebuilt->table, ctx->new_table, ctx->online,
-                   ctx->add_index, ctx->add_key_numbers, ctx->num_to_add_index,
-                   altered_table, ctx->add_cols, ctx->col_map, ctx->add_autoinc,
-                   ctx->sequence, ctx->skip_pk_sort, ctx->m_stage, add_v,
-                   eval_table, thd_ddl_buffer_size(m_prebuilt->trx->mysql_thd),
-                   thd_ddl_threads(m_prebuilt->trx->mysql_thd));
+  if (!check_if_can_use_txsql_parallel_ddl(trx, ctx->add_index, ctx->num_to_add_index,
+            m_prebuilt->table, ctx->new_table, eval_table, ctx->add_autoinc)) {
+    ddl::Context ddl(trx, m_prebuilt->table, ctx->new_table, ctx->online,
+                    ctx->add_index, ctx->add_key_numbers, ctx->num_to_add_index,
+                    altered_table, ctx->add_cols, ctx->col_map, ctx->add_autoinc,
+                    ctx->sequence, ctx->skip_pk_sort, ctx->m_stage, add_v,
+                    eval_table, thd_ddl_buffer_size(m_prebuilt->trx->mysql_thd),
+                    thd_ddl_threads(m_prebuilt->trx->mysql_thd));
 
-  const auto err = clean_up(ddl.build());
+    error = ddl.build();
+  } else {
+    /* [TXSQL PARALLEL DDL] if we turn on innodb_txsql_parallel_ddl, run txsql parallel ddl.*/
+    error = row_merge_build_indexes(
+        trx, m_prebuilt->table, ctx->new_table, ctx->online,
+        ctx->add_index, ctx->add_key_numbers, ctx->num_to_add_index,
+        altered_table, ctx->add_cols, ctx->col_map, ctx->add_autoinc,
+        ctx->sequence, ctx->skip_pk_sort, ctx->m_stage, add_v, eval_table);
+  }
+
+  const auto res = clean_up(error);
 
   trx->isolation_level = old_isolation_level;
 
-  return err;
+  return res;
 }
 
 /** Free the modification log for online table rebuild.

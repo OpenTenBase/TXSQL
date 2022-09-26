@@ -79,6 +79,7 @@ SET(INNOBASE_SOURCES
   btr/btr0cur.cc
   btr/btr0pcur.cc
   btr/btr0sea.cc
+  btr/btr0bulk.cc
   buf/buf0block_hint.cc
   buf/buf0buddy.cc
   buf/buf0buf.cc
@@ -210,6 +211,7 @@ SET(INNOBASE_SOURCES
   row/row0ext.cc
   row/row0import.cc
   row/row0ins.cc
+  row/row0merge.cc
   row/row0mysql.cc
   row/row0log.cc
   row/row0pread.cc
