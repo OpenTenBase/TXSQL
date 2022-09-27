@@ -5527,7 +5527,30 @@ bool os_file_set_size_fast(const char *name, pfs_os_file_t pfs_file,
   }
 #endif /* !NO_FALLOCATE && UNIV_LINUX && HAVE_FALLOC_FL_ZERO_RANGE */
 
-  return os_file_set_size(name, pfs_file, offset, size, flush);
+  if (offset == 0) /* ftruncate can only handle overwrite the whole file */
+    return os_file_set_size_txsql(name, pfs_file, offset, size, flush);
+  else
+    return os_file_set_size(name, pfs_file, offset, size, flush);
+}
+
+bool os_file_set_size_txsql(const char *name, pfs_os_file_t file,
+                            os_offset_t offset, os_offset_t size, bool flush) {
+  if (os_file_truncate(name, file, 0) != 0) {
+    ib::info(ER_IB_MSG_1359) << "ftruncate() failed with errno " << errno
+                             << " - falling back to writing NULLs.";
+    return os_file_set_size(name, file, offset, size, flush);
+  }
+  if (os_file_truncate(name, file, size) != 0) {
+    ib::info(ER_IB_MSG_1359) << "ftruncate() failed with errno " << errno
+                             << " - falling back to writing NULLs.";
+    return os_file_set_size(name, file, offset, size, flush);
+  }
+  ib::info() << "Setting file " << name << " size to " << size
+             << " bytes using ftuncate()";
+  if (flush) {
+    return (os_file_flush(file));
+  }
+  return true;
 }
 
 bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
