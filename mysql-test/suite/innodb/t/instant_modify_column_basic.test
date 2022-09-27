@@ -1,0 +1,15 @@
+#--disable_query_log
+#SET @@global.innodb_alter_table_default_algorithm=instant;
+#--enable_query_log
+
+--echo ############################################
+--echo # Test instant MODIFY COLUMN for DYNAMIC format
+--echo ############################################
+let $row_format = DYNAMIC;
+--source suite/innodb/include/instant_modify_column_basic.inc
+
+--echo ############################################
+--echo # Test instant MODIFY COLUMN for COMPACT format
+--echo ############################################
+let $row_format = COMPACT;
+--source suite/innodb/include/instant_modify_column_basic.inc

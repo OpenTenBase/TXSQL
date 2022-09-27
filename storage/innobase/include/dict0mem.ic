@@ -99,3 +99,10 @@ inline uint32_t dict_index_t::get_instant_fields() const {
 
   return n_instant_fields;
 }
+
+/** Check whether index has any instantly modified columns,
+seconddary index don't have instant modified coulmns
+@return true if this is instant affected, otherwise false */
+inline bool dict_index_t::has_instant_modified_cols() const {
+  return ((type & DICT_CLUSTERED) && table->has_instant_modified_cols());
+}

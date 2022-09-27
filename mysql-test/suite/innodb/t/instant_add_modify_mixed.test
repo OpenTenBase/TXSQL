@@ -1,0 +1,124 @@
+--echo #
+--echo # first instant modify then instant add
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10));
+
+INSERT INTO t1 VALUES(1, repeat('a', 10), repeat('b', 10));
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 20), repeat('b', 10));
+
+alter table t1 add c int, algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 20), repeat('b', 10), 3);
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 20), repeat('b', 20), 4);
+
+alter table t1 add d char(10) not null default 'xy', algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 20), repeat('b', 20), 5, 'ab');
+
+select VERSION,POS,MTYPE,PRTYPE,LEN from information_schema.innodb_instant_modified_cols;
+
+select * from t1;
+drop table t1;
+
+
+--echo #
+--echo # first instant add then instant modify
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10));
+
+INSERT INTO t1 VALUES(1, repeat('a', 10), repeat('b', 10));
+
+alter table t1 add c int, algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 10), repeat('b', 10), 2);
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 20), repeat('b', 10), 3);
+
+alter table t1 add d char(10) not null default 'xy', algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 20), repeat('b', 10), 4, 'ab');
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 20), repeat('b', 20), 5, 'cd');
+
+select VERSION,POS,MTYPE,PRTYPE,LEN from information_schema.innodb_instant_modified_cols;
+
+select * from t1;
+drop table t1;
+
+
+--echo #
+--echo # test change column rename and type, it should not be instant;
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+		 a char(10),
+		 b varchar(10),
+		 c char(10),
+		 d varchar(10),
+		 e int) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+alter table t1 change column  a a1 char(20);
+select * from t1;
+select VERSION,POS,MTYPE,PRTYPE,LEN from information_schema.innodb_instant_modified_cols;
+show create table t1;
+
+alter table t1 change column  d d1 char(20);
+select * from t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+show create table t1;
+
+insert into t1 values(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 16), 10000);
+
+checksum table t1;
+drop table t1;
+
+--echo #
+--echo # first instant add then instant modify on partition table
+--echo #
+
+CREATE TABLE client_firms1 (
+    id   INT,
+    name VARCHAR(35),
+    part binary(10)
+) PARTITION BY LIST (id) (
+    PARTITION r0 VALUES IN (1, 5, 9, 13, 17, 21),
+    PARTITION r1 VALUES IN (2, 6, 10, 14, 18, 22),
+    PARTITION r2 VALUES IN (3, 7, 11, 15, 19, 23),
+    PARTITION r3 VALUES IN (4, 8, 12, 16, 20, 24)
+);
+
+insert into client_firms1
+values(1,'a',1),(2,'a',1),(3,'bbb',2),(4,'jak',2),(5,'jone',343);
+alter table client_firms1 modify id bigint ,algorithm=instant;
+insert into client_firms1 values(6,'jek',44),(7,'jane',343);
+checksum table client_firms1;
+truncate table  client_firms1;
+insert into client_firms1
+values(1,'a',1),(2,'a',1),(3,'bbb',2),(4,'jak',2),(5,'jone',343);
+
+alter table client_firms1 add pos char(20) ,algorithm=instant;
+insert into client_firms1 values(6,'jek',44,'aa'),(7,'jane',343,'bb');
+alter table client_firms1 modify name varchar(60) ,algorithm=instant;
+insert into client_firms1 values(6,'jek',44,'aa'),(7,'jane',343,'bb');
+
+select * from client_firms1;
+
+drop table client_firms1;
+
+# test for instant add, drop, modify
+create table t1(id int,c1 char(2),c2 char(10), c3 varchar(20), c4 varchar(10),c5 int) default character set=latin1;
+insert into t1 values(1,'aa','bb','cc','dd',1);
+alter table t1 add column c6 int default 1,algorithm=instant;
+alter table t1 modify column c5 bigint,algorithm=instant;
+alter table t1 modify column id bigint,algorithm=instant;
+select * from t1;
+error ER_CDB_INSTANT_DROP_NOT_SUPPORTED;
+alter table t1 drop column id,algorithm=instant;
+alter table t1 drop column c1,algorithm=instant;
+select * from t1;
+drop table t1;

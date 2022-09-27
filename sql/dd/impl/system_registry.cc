@@ -40,6 +40,7 @@
 #include "sql/dd/impl/system_views/innodb_foreign.h"       // Innodb_foreign
 #include "sql/dd/impl/system_views/innodb_foreign_cols.h"  // Innodb_foreign_cols
 #include "sql/dd/impl/system_views/innodb_tablespaces_brief.h"  // Innodb_tablespace_brief
+#include "sql/dd/impl/system_views/innodb_instant_modified_cols.h"  // Innodb_instant_modified_cols
 #include "sql/dd/impl/system_views/key_column_usage.h"  // key_column_usage
 #include "sql/dd/impl/system_views/keywords.h"          // keywords
 #include "sql/dd/impl/system_views/parameters.h"        // Parameters
@@ -281,6 +282,7 @@ void System_views::init() {
   register_view<dd::system_views::Innodb_foreign_cols>(is);
   register_view<dd::system_views::Innodb_fields>(is);
   register_view<dd::system_views::Innodb_tablespaces_brief>(is);
+  register_view<dd::system_views::Innodb_instant_modified_cols>(is);
   register_view<dd::system_views::Key_column_usage>(is);
   register_view<dd::system_views::Keywords>(is);
   register_view<dd::system_views::Parameters>(is);

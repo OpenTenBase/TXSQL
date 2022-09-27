@@ -5920,3 +5920,91 @@ bool Item_func_sm3_digest::resolve_type(THD *thd) {
   set_data_type_string((uint32)MY_SM3_DIGEST_SIZE);
   return false;
 }
+
+/**
+  @brief
+    This function prepares string representing se_private_data for columns.
+    This is required for IS implementation which uses views on DD columns.
+
+    Syntax:
+      string get_dd_column_private_data(dd.columns.se_private_data)
+
+    The arguments accept values from se_private_data from 'columns'
+    DD table.
+
+ */
+String *Item_func_get_dd_column_private_data::val_str(String *str) {
+  DBUG_TRACE;
+
+  // Read columns.se_private_data
+  String option;
+  String *option_ptr;
+  std::ostringstream oss("");
+  if ((option_ptr = args[0]->val_str(&option)) == nullptr) {
+    str->copy(oss.str().c_str(), oss.str().length(), system_charset_info);
+    return str;
+  }
+
+  // Read required values from properties
+  std::unique_ptr<dd::Properties> p(
+      dd::Properties::parse_properties(option_ptr->c_ptr_safe()));
+
+  // Warn if the property string is corrupt.
+  if (!p.get()) {
+    LogErr(WARNING_LEVEL, ER_WARN_PROPERTY_STRING_PARSE_FAILED,
+           option_ptr->c_ptr_safe());
+    assert(false);
+    str->copy(oss.str().c_str(), oss.str().length(), system_charset_info);
+    return str;
+  }
+
+  // Read items.
+  uint opt_value = 0;
+  char option_buff[350], *ptr;
+  ptr = option_buff;
+
+  if (strcmp(args[1]->val_str(&option)->ptr(), "table_id") == 0) {
+    if (p->exists("table_id")) {
+      p->get("table_id", &opt_value);
+      ptr = longlong10_to_str(opt_value, ptr, 10);
+    }
+  }
+
+  if (strcmp(args[1]->val_str(&option)->ptr(), "version") == 0) {
+    if (p->exists("modified_version")) {
+      p->get("modified_version", &opt_value);
+      ptr = longlong10_to_str(opt_value, ptr, 10);
+    }
+  }
+
+  if (strcmp(args[1]->val_str(&option)->ptr(), "mtype") == 0) {
+    if (p->exists("modified_mtype")) {
+      p->get("modified_mtype", &opt_value);
+      ptr = longlong10_to_str(opt_value, ptr, 10);
+    }
+  }
+
+  if (strcmp(args[1]->val_str(&option)->ptr(), "prtype") == 0) {
+    if (p->exists("modified_prtype")) {
+      p->get("modified_prtype", &opt_value);
+      ptr = longlong10_to_str(opt_value, ptr, 10);
+    }
+  }
+
+  if (strcmp(args[1]->val_str(&option)->ptr(), "len") == 0) {
+    if (p->exists("modified_len")) {
+      p->get("modified_len", &opt_value);
+      ptr = longlong10_to_str(opt_value, ptr, 10);
+    }
+  }
+
+  if (ptr == option_buff)
+    oss << "";
+  else
+    oss << option_buff;
+
+  str->copy(oss.str().c_str(), oss.str().length(), system_charset_info);
+
+  return str;
+}
+/* Changes from TXSQL end. */

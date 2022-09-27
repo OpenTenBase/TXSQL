@@ -1,0 +1,161 @@
+--echo #
+--echo # test add index on instant modified column  - char
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10));
+
+INSERT INTO t1 VALUES(1, repeat('ax', 4), repeat('b', 8));
+INSERT INTO t1 VALUES(2, repeat('xa', 4), repeat('b', 8));
+INSERT INTO t1 VALUES(3, repeat('ac', 4), repeat('b', 8));
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('ab', 8), repeat('b', 8));
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 8));
+select count(*) from information_schema.innodb_instant_modified_cols;
+select * from t1;
+
+alter table t1 add index idx(a);
+INSERT INTO t1 VALUES(6, repeat('x', 16), repeat('x', 8));
+select count(*) from information_schema.innodb_instant_modified_cols;
+select * from t1;
+
+alter table t1 modify b char(20), algorithm=instant;
+INSERT INTO t1 VALUES(7, repeat('y', 16), repeat('y', 16));
+select count(*) from information_schema.innodb_instant_modified_cols;
+select * from t1;
+
+select a from t1 force index(idx);
+select a from t1 order by a;
+
+checksum table t1;
+
+drop table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo #
+--echo # test add index on instant modified column  - varchar
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a varchar(10), b varchar(10));
+
+INSERT INTO t1 VALUES(1, repeat('ax', 4), repeat('b', 8));
+INSERT INTO t1 VALUES(2, repeat('xa', 4), repeat('b', 8));
+INSERT INTO t1 VALUES(3, repeat('ac', 4), repeat('b', 8));
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('ab', 8), repeat('b', 8));
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 8));
+select count(*) from information_schema.innodb_instant_modified_cols;
+select * from t1;
+
+alter table t1 add index idx(a);
+INSERT INTO t1 VALUES(6, repeat('x', 16), repeat('x', 8));
+select count(*) from information_schema.innodb_instant_modified_cols;
+select * from t1;
+
+alter table t1 modify b char(20), algorithm=instant;
+INSERT INTO t1 VALUES(7, repeat('y', 16), repeat('y', 16));
+select count(*) from information_schema.innodb_instant_modified_cols;
+select * from t1;
+
+select a from t1 force index(idx);
+select a from t1 order by a;
+
+checksum table t1;
+
+drop table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo #
+--echo # test add index on instant modified column  - int
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a int);
+
+INSERT INTO t1(a) VALUES(5);
+INSERT INTO t1(a) VALUES(1);
+INSERT INTO t1(a) VALUES(1000);
+INSERT INTO t1(a) VALUES(-1);
+INSERT INTO t1(a) VALUES(0);
+INSERT INTO t1(a) VALUES(-100);
+
+alter table t1 modify a bigint, algorithm=instant;
+SELECT * FROM t1;
+
+INSERT INTO t1(a) VALUES(2);
+INSERT INTO t1(a) VALUES(pow(2, 40));
+INSERT INTO t1(a) VALUES(pow(2, 60));
+
+alter table t1 add key idx(a);
+
+INSERT INTO t1(a) VALUES(10);
+
+
+select * from t1 where a=-1;
+select * from t1 where a=5;
+
+select a from t1 force index(idx);
+
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+drop table t1;
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a mediumint);
+
+INSERT INTO t1(a) VALUES(5);
+INSERT INTO t1(a) VALUES(1);
+INSERT INTO t1(a) VALUES(1000);
+INSERT INTO t1(a) VALUES(-1);
+INSERT INTO t1(a) VALUES(0);
+INSERT INTO t1(a) VALUES(-100);
+
+alter table t1 modify a bigint, algorithm=instant;
+SELECT * FROM t1;
+
+INSERT INTO t1(a) VALUES(2);
+INSERT INTO t1(a) VALUES(pow(2, 40));
+INSERT INTO t1(a) VALUES(pow(2, 60));
+
+alter table t1 add key idx(a);
+
+INSERT INTO t1(a) VALUES(10);
+
+
+select * from t1 where a=-1;
+select * from t1 where a=5;
+
+select a from t1 force index(idx);
+
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+drop table t1;
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a tinyint);
+
+INSERT INTO t1(a) VALUES(5);
+INSERT INTO t1(a) VALUES(1);
+INSERT INTO t1(a) VALUES(10);
+INSERT INTO t1(a) VALUES(-1);
+INSERT INTO t1(a) VALUES(0);
+INSERT INTO t1(a) VALUES(-10);
+
+alter table t1 modify a int, algorithm=instant;
+SELECT * FROM t1;
+
+INSERT INTO t1(a) VALUES(2);
+INSERT INTO t1(a) VALUES(pow(2, 30));
+INSERT INTO t1(a) VALUES(pow(2, 20));
+
+alter table t1 add key idx(a);
+
+INSERT INTO t1(a) VALUES(10);
+
+
+select * from t1 where a=-1;
+select * from t1 where a=5;
+
+select a from t1 force index(idx);
+
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+drop table t1;

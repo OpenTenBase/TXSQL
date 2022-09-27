@@ -924,3 +924,33 @@ std::ostream &operator<<(std::ostream &out, const dict_foreign_set &fk_set) {
 page_size_t dict_index_t::get_page_size() const {
   return (dict_table_page_size(table));
 }
+
+/* Changes from txsql start. */
+
+ulint dict_col_t::get_old_fixed_len_for_log(bool comp) const {
+  /* now we only support instant modify for compact page format. */
+  ut_ad(comp);
+  dict_col_t old_col;
+
+  old_col.mtype = this->old_mtype;
+  old_col.prtype = this->old_prtype;
+  old_col.len = this->old_len;
+  old_col.mbminmaxlen = this->old_mbminmaxlen;
+
+  ulint old_fixed_len = old_col.get_fixed_size(comp);
+  if (old_fixed_len > DICT_MAX_FIXED_COL_LEN) {
+    old_fixed_len = 0;
+  }
+
+  if (old_fixed_len == 0 && (DATA_BIG_COL(&old_col))) {
+    /* variable-length field with maximum length > 255 */
+    old_fixed_len = 0x7fff;
+  }
+
+  if (old_col.prtype & DATA_NOT_NULL) {
+    old_fixed_len |= 0x8000;
+  }
+  return old_fixed_len;
+}
+
+/* Changes from txsql end. */

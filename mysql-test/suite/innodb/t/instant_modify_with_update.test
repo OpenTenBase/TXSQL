@@ -1,0 +1,1043 @@
+--echo #
+--echo # 0. simple test
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+
+alter table t1 modify a char(20), algorithm=instant;
+alter table t1 modify b varchar(20), algorithm=instant;
+alter table t1 modify c varchar(20), algorithm=instant;
+# test not update in place
+update t1 set c=repeat('c', 10);
+select * from t1;
+alter table t1 modify d char(20), algorithm=instant;
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 1023);
+
+select * from t1;
+
+update t1 set a=repeat('f', 15);
+select * from t1;
+checksum table t1;
+drop table t1;
+
+
+--echo #
+--echo # 1. test int to bigint
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, e int);
+
+INSERT INTO t1 VALUES(1, -1);
+INSERT INTO t1 VALUES(2, 1);
+INSERT INTO t1 VALUES(3, -2);
+INSERT INTO t1 VALUES(4, -2147483648);
+INSERT INTO t1 VALUES(5, 2147483647);
+INSERT INTO t1 VALUES(6, 0);
+select * from t1;
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(7, -1);
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+
+--echo #
+--echo # 2. test update after char(10) -> char(20)
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+select * from t1;
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 8), -1);
+select * from t1;
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 16), repeat('b', 16), repeat('c', 8), repeat('d', 8), 0);
+select * from t1;
+
+alter table t1 modify c varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 8), -2147483648);
+select * from t1;
+
+alter table t1 modify d char(20), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 2147483647);
+select * from t1;
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 1023);
+
+show create table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+select * from t1;
+select * from t1 where a=repeat('a', 16);
+select * from t1 where a=repeat('a', 8);
+select * from t1 where b=repeat('b', 16);
+select * from t1 where b=repeat('b', 8);
+select * from t1 where c=repeat('c', 16);
+select * from t1 where c=repeat('c', 8);
+select * from t1 where e=-1;
+select id, e+1 from t1;
+checksum table t1;
+
+update t1 set a=repeat('f', 15);
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+--echo #
+--echo # 3. test update after varchar(10) -> varchar(20)
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 8), -1);
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 16), repeat('b', 16), repeat('c', 8), repeat('d', 8), 0);
+
+alter table t1 modify c varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 8), -2147483648);
+
+alter table t1 modify d char(20), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 1023);
+
+
+select * from t1;
+
+update t1 set b=repeat('f', 15);
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+--echo #
+--echo # 4. test update after char(10) -> varchar(20)
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 8), -1);
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 16), repeat('b', 16), repeat('c', 8), repeat('d', 8), 0);
+
+alter table t1 modify c varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 8), -2147483648);
+
+alter table t1 modify d char(20), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 1023);
+
+
+select * from t1;
+
+update t1 set c=repeat('f', 15);
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+--echo #
+--echo # 5. test update after varchar(10) -> char(20)
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 8), -1);
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 16), repeat('b', 16), repeat('c', 8), repeat('d', 8), 0);
+
+alter table t1 modify c varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 8), -2147483648);
+
+alter table t1 modify d char(20), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 1023);
+
+select * from t1;
+
+update t1 set d=repeat('f', 15);
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+--echo #
+--echo # 6. test update after int -> bigint
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+
+alter table t1 modify a char(20), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 8), -1);
+
+alter table t1 modify b varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 16), repeat('b', 16), repeat('c', 8), repeat('d', 8), 0);
+
+alter table t1 modify c varchar(20), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 8), -2147483648);
+
+alter table t1 modify d char(20), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 16), repeat('b', 16), repeat('c', 16), repeat('d', 16), 1023);
+
+select * from t1;
+
+update t1 set e=-1;
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+--echo #
+--echo # 7. test modify small lenght(<128) to  big lengh( > 128)
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10),
+		 c char(10), d varchar(10), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+
+
+alter table t1 modify a char(251), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 8), repeat('c', 8), repeat('d', 8), -1);
+
+alter table t1 modify b varchar(251), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 8), repeat('d', 8), 0);
+
+alter table t1 modify c varchar(251), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 8), -2147483648);
+
+alter table t1 modify d char(251), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+
+--echo #
+--echo # 8. test modify big lenght(<128) to  big lengh( > 128)
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(150), b varchar(150),
+		 c char(150), d varchar(150), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a char(251), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+
+alter table t1 modify b varchar(251), algorithm=instant;
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varchar(251), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+
+alter table t1 modify d char(251), algorithm=instant;
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+checksum table t1;
+
+drop table t1;
+
+--echo #
+--echo # 9. test modify multiple columns
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(150), b varchar(150),
+		 c char(150), d varchar(150), e int);
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a char(251), modify b varchar(251), algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varchar(251), modify d char(251), algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+--echo #
+--echo # 10. test charset latin1
+--echo #
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(150), b varchar(150),
+		 c char(150), d varchar(150), e int) DEFAULT CHARACTER SET latin1;
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a char(251), modify b varchar(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varchar(251), modify d char(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+--echo #
+--echo # 11. test charset utf8
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(150), b varchar(150),
+		 c char(150), d varchar(150), e int) DEFAULT CHARACTER SET utf8;
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a char(251), modify b varchar(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varchar(251), modify d char(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+--echo #
+--echo # 12. test charset utf8mb4
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(150), b varchar(150),
+		 c char(150), d varchar(150), e int) DEFAULT CHARACTER SET utf8mb4;
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a char(251), modify b varchar(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varchar(251), modify d char(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+update t1 set d='xx';
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+--echo #
+--echo # 13. test partition table
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(150), b varchar(150),
+		 c char(150), d varchar(150), e int) DEFAULT CHARACTER SET utf8mb4
+                 PARTITION BY HASH(id) PARTITIONS 3;
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a char(251), modify b varchar(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varchar(251), modify d char(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+update t1 set d='xx';
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+--echo #
+--echo # 14. test not support temporary table
+--echo #
+create  temporary table t1 (id int not null auto_increment primary key,
+                 a char(10),
+                 b varchar(10),
+                 c char(10),
+                 d varchar(10), e int) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+--error 1845
+alter table t1 modify a char(20), algorithm=instant;
+alter table t1 modify a char(20);
+select * from t1;
+alter table t1 modify d char(20);
+select * from t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+insert into t1 values(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 16), 10000);
+
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+checksum table t1;
+
+drop table t1;
+
+
+
+--echo #
+--echo # 15. test 中文
+--echo #
+create  table t1 (id int not null auto_increment primary key,
+                 a char(10),
+                 b varchar(10),
+                 c char(10),
+                 d varchar(10), e int) default character set utf8;
+insert into t1 values(1, '中文', '武汉', '上海', '杭州', 10000);
+alter table t1 modify a char(20), algorithm=instant;
+select * from t1;
+alter table t1 modify d char(20), algorithm=instant;
+select * from t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+insert into t1 values(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 16), 10000);
+
+alter table t1 add f varchar(251), algorithm=instant;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+update t1 set d=repeat('你好', 2);
+
+checksum table t1;
+
+drop table t1;
+
+
+
+--echo #
+--echo # 16. test binary/varbinary - latin1
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a binary(150), b varbinary(150),
+		 c binary(150), d varbinary(150), e int) DEFAULT CHARACTER SET latin1;
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a binary(251), modify b varbinary(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varbinary(251), modify d binary(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+update t1 set d='xx';
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+--echo #
+--echo # 17. test binary/varbinary - utf8mb4
+--echo #
+
+
+CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a binary(150), b varbinary(150),
+		 c binary(150), d varbinary(150), e int) DEFAULT CHARACTER SET utf8mb4;
+
+INSERT INTO t1 VALUES(1, repeat('a', 130), repeat('b', 130), repeat('c', 130), repeat('d', 130), 10000);
+
+
+alter table t1 modify a binary(251), modify b varbinary(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(2, repeat('a', 200), repeat('b', 130), repeat('c', 130), repeat('d', 130), -1);
+INSERT INTO t1 VALUES(3, repeat('a', 200), repeat('b', 200), repeat('c', 130), repeat('d', 130), 0);
+
+alter table t1 modify c varbinary(251), modify d binary(251),
+algorithm=instant;
+INSERT INTO t1 VALUES(4, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 130), -2147483648);
+INSERT INTO t1 VALUES(5, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 2147483647);
+
+alter table t1 modify e bigint, algorithm=instant;
+INSERT INTO t1 VALUES(6, repeat('a', 200), repeat('b', 200), repeat('c', 200), repeat('d', 200), 1023);
+
+select * from t1;
+
+update t1 set e=e+1;
+select * from t1;
+update t1 set d='xx';
+checksum table t1;
+select pos, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+
+--echo #
+--echo # 18. test binary/varbinary
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+                 a binary(10),
+                 b varbinary(10),
+                 c binary(10),
+                 d varbinary(10), e int) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), 10000);
+select * from t1;
+alter table t1 modify a binary(20), algorithm=instant;
+select * from t1;
+alter table t1 modify b binary(20), algorithm=instant;
+select * from t1;
+update t1 set d='ab';
+select * from t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+alter table t1 modify c varbinary(20), algorithm=instant;
+alter table t1 modify d varbinary(20), algorithm=instant;
+
+insert into t1 values(2, repeat('a', 16), repeat('b', 8), repeat('c', 8), repeat('d', 16), 10000);
+select * from t1;
+
+
+checksum table t1;
+
+drop table t1;
+
+
+
+--echo #
+--echo # 19. test smallint/tinyint/mediumint
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+		 a TINYINT,
+		 b smallint,
+		 c mediumint,
+		 d int(3),
+		 e bigint, f varchar(10)) default character set utf8;
+insert into t1 values(1, 1, 1, 1, 1, 1, 'a');
+insert into t1 values(2, -1, -1, -1, -1, -1,'b');
+select * from t1;
+alter table t1 modify a int(20), algorithm=instant;
+alter table t1 modify b int(20), algorithm=instant;
+alter table t1 modify c int(20), algorithm=instant;
+alter table t1 modify d int(20), algorithm=instant;
+select * from t1;
+update t1 set f='ab';
+select * from t1;
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+drop table t1;
+
+
+create table t1 (id int not null auto_increment primary key,
+		 a TINYINT,
+		 b smallint,
+		 c mediumint,
+		 d int(3),
+		 e bigint, f varchar(10)) default character set utf8;
+insert into t1 values(1, 127, 32767, 8388607, 2147483647, 2147483648, 'a');
+insert into t1 values(2, -1, -1, -1, -1, -1,'b');
+select * from t1;
+alter table t1 modify a bigint, algorithm=instant;
+alter table t1 modify b bigint, algorithm=instant;
+alter table t1 modify c bigint, algorithm=instant;
+alter table t1 modify d bigint, algorithm=instant;
+select * from t1;
+update t1 set f='ab';
+select * from t1;
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+
+create table t1 (id int not null auto_increment primary key,
+		 a TINYINT,
+		 b smallint,
+		 c mediumint,
+		 d int(3),
+		 e bigint, f varchar(10)) default character set utf8;
+insert into t1 values(1, 127, 32767, 8388607, 2147483647, 2147483648, 'a');
+insert into t1 values(2, -1, -1, -1, -1, -1,'b');
+select * from t1;
+alter table t1 modify a smallint, algorithm=instant;
+alter table t1 modify b mediumint, algorithm=instant;
+alter table t1 modify c int, algorithm=instant;
+alter table t1 modify d bigint, algorithm=instant;
+select * from t1;
+update t1 set f='ab';
+select * from t1;
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+
+create table t1 (id int not null auto_increment primary key,
+		 a TINYINT unsigned,
+		 b smallint unsigned,
+		 c mediumint unsigned,
+		 d int(3) unsigned,
+		 e bigint, f varchar(10)) default character set utf8;
+insert into t1 values(1, 127, 32767, 8388607, 2147483647, 2147483648, 'a');
+insert into t1 values(2, 1, 1, 1, 1, 1,'b');
+select * from t1;
+alter table t1 modify a smallint unsigned, algorithm=instant;
+alter table t1 modify b mediumint unsigned, algorithm=instant;
+alter table t1 modify c int unsigned, algorithm=instant;
+alter table t1 modify d bigint unsigned, algorithm=instant;
+select * from t1;
+update t1 set f='ab';
+select * from t1;
+checksum table t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+
+
+
+--echo #
+--echo # 20. test rollback
+--echo #
+
+# test update
+create table t1 (id int not null auto_increment primary key,
+                 a binary(10),
+                 b varbinary(10));
+insert into t1 values(1, repeat('a', 8), repeat('b', 8));
+alter table t1 modify a binary(20), algorithm=instant;
+select * from t1;
+alter table t1 modify b binary(20), algorithm=instant;
+select * from t1;
+
+begin;
+update t1 set a='ab';
+select * from t1;
+rollback;
+select * from t1;
+
+begin;
+update t1 set b='cd';
+select * from t1;
+rollback;
+select * from t1;
+select count(*) from information_schema.innodb_instant_modified_cols;
+let $checksum_v1 = query_get_value(checksum table t1, Checksum, 1);
+optimize table t1;
+let $checksum_v2 = query_get_value(checksum table t1, Checksum, 1);
+--let $assert_text= 'checksum matched'
+--let $assert_cond= $checksum_v2 = $checksum_v1
+--source include/assert.inc
+drop table t1;
+
+# test update
+create table t1 (id int not null auto_increment primary key,
+                 a char(10),
+                 b varchar(10),
+		 c int);
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), -1);
+
+alter table t1 modify a char(20),
+	       modify b varchar(20),
+	       modify c bigint(20), algorithm=instant;
+select * from t1;
+
+begin;
+update t1 set a='ab', b='cd', c=100;
+select * from t1;
+rollback;
+select * from t1;
+
+insert into t1 values(2, repeat('a', 8), repeat('b', 8), 2);
+select * from t1;
+
+
+select count(*) from information_schema.innodb_instant_modified_cols;
+checksum table t1;
+drop table t1;
+
+# test delete
+create table t1 (id int not null auto_increment primary key,
+                 a char(10),
+                 b varchar(10),
+		 c int);
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), -1);
+
+alter table t1 modify a char(20),
+	       modify b varchar(20),
+	       modify c bigint(20), algorithm=instant;
+select * from t1;
+
+begin;
+delete from t1;
+select * from t1;
+rollback;
+select * from t1;
+
+begin;
+insert into t1 values(2, repeat('a', 8), repeat('b', 8), 2);
+select * from t1;
+rollback;
+select * from t1;
+
+insert into t1 values(2, repeat('a', 8), repeat('b', 8), 2);
+select * from t1;
+
+select count(*) from information_schema.innodb_instant_modified_cols;
+checksum table t1;
+drop table t1;
+
+
+
+--echo #
+--echo # 21. test external data
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+                  a char(10),
+                  b varchar(1024),
+                  c int);
+insert into t1 values(1, repeat('a', 8), repeat('b', 800), -1);
+
+alter table t1 modify a char(20),
+                modify b varchar(2048),
+                modify c bigint, algorithm=instant;
+select * from t1;
+
+update t1 set a=repeat('a', 16);
+
+select * from t1;
+
+begin;
+update t1 set a='ab', b='cd', c=100;
+select * from t1;
+rollback;
+select * from t1;
+
+insert into t1 values(2, repeat('a', 8), repeat('b', 8), 2);
+select * from t1;
+
+
+select count(*) from information_schema.innodb_instant_modified_cols;
+checksum table t1;
+drop table t1;
+
+
+--echo #
+--echo # 21. test support modify default value
+--echo #
+
+create table t1 (id int not null auto_increment primary key, a char(150) default 'a', b varchar(150));
+insert into t1 values(1, repeat('a', 130), repeat('b', 130));
+alter table t1 modify a char(251), algorithm=instant;
+show create table t1;
+insert into t1(id,b) values(2, 'b');
+alter table t1 modify b char(251) default 'abc', algorithm=instant;
+show create table t1;
+insert into t1(id,a) values(3, null);
+select count(*) from information_schema.innodb_instant_modified_cols;
+checksum table t1;
+drop table t1;
+
+--echo #
+--echo # 22. test support modify partition table with update
+--echo #
+
+CREATE TABLE client_firms (
+    id   INT,
+    name VARCHAR(35),
+    part binary(10),
+    pos  INT
+)
+PARTITION BY LIST (id) (
+    PARTITION r0 VALUES IN (1, 5, 9, 13, 17, 21),
+    PARTITION r1 VALUES IN (2, 6, 10, 14, 18, 22),
+    PARTITION r2 VALUES IN (3, 7, 11, 15, 19, 23),
+    PARTITION r3 VALUES IN (4, 8, 12, 16, 20, 24)
+);
+
+--disable_warnings
+insert into client_firms
+values(1,'a',1, 2),(2,'a',1, 3),(3,'bbb',2, 4),(4,'jak',2,
+5),(5,'jone',343, 6);
+select id, name, cast(part as unsigned), pos from client_firms order by id;
+alter table client_firms modify id bigint ,algorithm=instant;
+update client_firms set name = "ccc" where id = 3;
+select id, name, cast(part as unsigned), pos from client_firms order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+checksum table client_firms;
+alter table client_firms modify name varchar(60) ,algorithm=instant;
+update client_firms set name = "jak4" where id = 4;
+select id, name, cast(part as unsigned), pos from client_firms order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+alter table client_firms modify part varbinary(12) ,algorithm=instant;
+select id, name, cast(part as unsigned), pos from client_firms order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+checksum table client_firms;
+insert into client_firms values(6,'jek',44, 8),(7,'jane',343, 9);
+update client_firms set name = "aaa" where id = 2;
+select id, name, cast(part as unsigned), pos from client_firms order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+checksum table client_firms;
+alter table client_firms modify pos bigint ,algorithm=instant;
+insert into client_firms values(8,'jek8',55, 10),(9,'jane9',66, 11);
+select id, name, cast(part as unsigned), pos from client_firms order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+checksum table client_firms;
+--enable_warnings
+
+drop table client_firms;
+
+--echo #
+--echo # 23. test support modify table with truncate
+--echo #
+
+
+create table t1 (id int not null auto_increment primary key, a char(150), b varchar(150), c int);
+insert into t1 values(1, repeat('a', 130), repeat('b', 130), 100);
+select * from t1 order by id;
+alter table t1 modify a char(251), algorithm=instant;
+select * from t1 order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+show create table t1;
+alter table t1 modify c bigint, algorithm=instant;
+select * from t1 order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+show create table t1;
+insert into t1(id,b) values(2, 'b');
+select * from t1 order by id;
+truncate table t1;
+insert into t1 values(3, 'aboc', 'bbb', 10000);
+select * from t1 order by id;
+alter table t1 modify b char(251) default 'abc', algorithm=instant;
+select * from t1 order by id;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+show create table t1;
+select name, pos, version, mtype, prtype, len
+from information_schema.innodb_instant_modified_cols order by name;
+drop table t1;
+
+--echo #
+--echo # 24. test rollback update
+--echo #
+
+CREATE TABLE `t13` (id int primary key, value blob, c int);
+
+select ROW_FORMAT,DATA_LENGTH from information_schema.TABLES where table_name like "t13";
+
+insert into t13 values(1, repeat('A', 8092), 1);
+
+alter table t13 modify c bigint, ALGORITHM = INSTANT;
+
+begin;
+
+update t13 set value = repeat('E', 8101) where id = 1;
+
+# should be crash if bug not fixed
+rollback;
+
+select * from t13;
+check table t13;
+
+begin;
+
+update t13 set value = repeat('E', 8101) where id = 1;
+
+# should be crash if bug not fixed
+rollback;
+
+select * from t13;
+check table t13;
+
+update t13 set value = repeat('E', 8101) where id = 1;
+select * from t13;
+check table t13;
+
+drop table t13;
+
+--echo #
+--echo # 25. test add/truncate partition
+--echo #
+
+CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `c1_char` char(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT 'abc',
+  `c2_varchar` varchar(10) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
+  `c3_binary` binary(10) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+/*!50100 PARTITION BY RANGE (`id`)
+(PARTITION p0 VALUES LESS THAN (100) ENGINE = InnoDB,
+ PARTITION p1 VALUES LESS THAN (200) ENGINE = InnoDB,
+ PARTITION p2 VALUES LESS THAN (1500) ENGINE = InnoDB) */;
+
+INSERT INTO `t1` VALUES (1,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii'),(2,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii'),(3,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii');
+
+insert into t1 values (192,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii');
+
+alter table t1 modify c1_char char(20) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT 'abc', modify id bigint not null,algorithm=instant;
+
+alter table t1 add partition (partition p3 values less than (2000));
+insert into t1 values (1998,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii');
+select * from t1;
+
+alter table t1 reorganize partition p0 into (partition p4 values less than (50), partition p5 values less than (100));
+
+select * from t1;
+
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+--source include/restart_mysqld.inc
+
+select * from test.t1;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+alter table t1 truncate partition p4;
+select * from t1;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+INSERT INTO `t1` VALUES (1,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii'),(2,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii'),(3,'SSSSSSSSSS','aaaaaaaaaa','iiiiiiiiii');
+select * from t1;
+
+truncate table t1;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+--source include/restart_mysqld.inc
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+alter table t1 modify c1_char char(30) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT 'abc', algorithm=instant;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+alter table t1 drop partition p5;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+alter table t1 truncate partition p1,p2,p3,p4;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+drop table t1;

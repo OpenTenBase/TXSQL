@@ -1,0 +1,89 @@
+create table test1 (id int not null AUTO_INCREMENT,
+c1_char char(10) CHARACTER SET latin1 default 'abc',
+c2_varchar varchar(10) CHARACTER SET utf8 not null,
+c3_binary binary(10),
+c4_varbinary varbinary(10) not null default b'111',
+c5_tint tinyint default 0,
+c6_sint smallint,
+c7_mint mediumint signed not null,
+c8_int int unsigned unique,
+c9_bint bigint,
+PRIMARY KEY (id),
+KEY test1_key (c9_bint));
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('ddd', 10, 20, 30, 40);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 31, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 32, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 33, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 34, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 35, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 36, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 37, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 38, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 39, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 40, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 41, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 42, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 43, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 44, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 45, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 46, 80);
+alter table test1 modify c7_mint int signed not null, modify c5_tint smallint default 1, modify c6_sint int default 100, modify c1_char varchar(20) CHARACTER SET latin1 default 'abc', algorithm=instant;
+alter table test1 add column i int,  add column j char(30) default 'abc',add column n int default 1, algorithm=instant;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+NAME	POS	VERSION	MTYPE	PRTYPE	LEN
+c1_char	2	1	2	524542	10
+c5_tint	6	1	6	1025	1
+c6_sint	7	1	6	1026	2
+c7_mint	8	1	6	1289	3
+SET DEBUG_SYNC = 'RESET';
+SET DEBUG_SYNC='row_log_table_apply1_before SIGNAL do_update WAIT_FOR do_log';
+alter table test1 drop primary key, add primary key(id, c6_sint);
+SET DEBUG_SYNC='now WAIT_FOR do_update';
+update test1 set c8_int=55 where id=1;
+SET DEBUG_SYNC='now SIGNAL do_log';
+con1 disconnected
+SET DEBUG_SYNC = 'RESET';
+show create table test1;
+Table	Create Table
+test1	CREATE TABLE `test1` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `c1_char` varchar(20) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT 'abc',
+  `c2_varchar` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
+  `c3_binary` binary(10) DEFAULT NULL,
+  `c4_varbinary` varbinary(10) NOT NULL DEFAULT '',
+  `c5_tint` smallint DEFAULT '1',
+  `c6_sint` int NOT NULL DEFAULT '100',
+  `c7_mint` int NOT NULL,
+  `c8_int` int unsigned DEFAULT NULL,
+  `c9_bint` bigint DEFAULT NULL,
+  `i` int DEFAULT NULL,
+  `j` char(30) DEFAULT 'abc',
+  `n` int DEFAULT '1',
+  PRIMARY KEY (`id`,`c6_sint`),
+  UNIQUE KEY `c8_int` (`c8_int`),
+  KEY `test1_key` (`c9_bint`)
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+select * from test1;
+id	c1_char	c2_varchar	c3_binary	c4_varbinary	c5_tint	c6_sint	c7_mint	c8_int	c9_bint	i	j	n
+1	abc	ddd	NULL		0	10	20	55	40	NULL	abc	1
+2	abc	eee	NULL		0	50	60	31	80	NULL	abc	1
+3	abc	eee	NULL		0	50	60	32	80	NULL	abc	1
+4	abc	eee	NULL		0	50	60	33	80	NULL	abc	1
+5	abc	eee	NULL		0	50	60	34	80	NULL	abc	1
+6	abc	eee	NULL		0	50	60	35	80	NULL	abc	1
+7	abc	eee	NULL		0	50	60	36	80	NULL	abc	1
+8	abc	eee	NULL		0	50	60	37	80	NULL	abc	1
+9	abc	eee	NULL		0	50	60	38	80	NULL	abc	1
+10	abc	eee	NULL		0	50	60	39	80	NULL	abc	1
+11	abc	eee	NULL		0	50	60	40	80	NULL	abc	1
+12	abc	eee	NULL		0	50	60	41	80	NULL	abc	1
+13	abc	eee	NULL		0	50	60	42	80	NULL	abc	1
+14	abc	eee	NULL		0	50	60	43	80	NULL	abc	1
+15	abc	eee	NULL		0	50	60	44	80	NULL	abc	1
+16	abc	eee	NULL		0	50	60	45	80	NULL	abc	1
+17	abc	eee	NULL		0	50	60	46	80	NULL	abc	1
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+NAME	POS	VERSION	MTYPE	PRTYPE	LEN
+DROP TABLE test1;

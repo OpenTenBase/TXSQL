@@ -268,6 +268,8 @@ dict_table_t *dict_mem_table_create(const char *name, space_id_t space,
   table->is_dd_table = false;
   table->explicitly_non_lru = false;
 
+  table->instant_modified_cols_cnt = 0;
+
   return (table);
 }
 
@@ -390,6 +392,11 @@ void dict_mem_fill_column_struct(dict_col_t *column, ulint col_pos, ulint mtype,
   column->mtype = (unsigned int)mtype;
   column->prtype = (unsigned int)prtype;
   column->len = (unsigned int)col_len;
+  column->modified_version = 0;
+  column->old_mtype = DATA_MTYPE_MAX;
+  column->old_prtype = 0;
+  column->old_len = 0;
+  column->old_mbminmaxlen = 0;
   column->instant_default = nullptr;
   column->is_visible = is_visible;
   column->set_phy_pos(phy_pos);

@@ -2210,7 +2210,7 @@ out if this is violated for records of maximum possible length of this index.
 @param[in]   strict        true=report error if records could be too big to fit
                            in a B-tree page
 @return true if the index record could become too big */
-static bool dict_index_too_big_for_tree(const dict_table_t *table,
+bool dict_index_too_big_for_tree(const dict_table_t *table,
                                         const dict_index_t *new_index,
                                         bool strict) {
   /* FTS index consists of auxiliary tables, they shall be excluded from index
@@ -2873,7 +2873,7 @@ static bool dict_index_find_and_set_cols(const dict_table_t *table,
 }
 
 /** Copies fields contained in index2 to index1. */
-static void dict_index_copy(dict_index_t *index1, /*!< in: index to copy to */
+void dict_index_copy(dict_index_t *index1, /*!< in: index to copy to */
                             dict_index_t *index2, /*!< in: index to copy from */
                             const dict_table_t *table, /*!< in: table */
                             ulint start, /*!< in: first position to copy */

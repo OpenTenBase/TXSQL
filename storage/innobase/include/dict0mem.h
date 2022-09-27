@@ -787,6 +787,28 @@ struct dict_col_t {
     return true;
   }
 #endif /* UNIV_DEBUG */
+
+  /* Changes from txsql start. */
+ public:
+  /* for instant modified cols */
+  unsigned modified_version : 10;
+  unsigned old_prtype : 32;
+  unsigned old_mtype : 8;
+  unsigned old_len : 16;
+  unsigned old_mbminmaxlen : 5;
+  /* Changes from txsql end. */
+  bool is_instant_modified() const {
+    return (modified_version > 0 && old_mtype != DATA_MTYPE_MAX);
+  }
+  uint8_t get_version_modified() const { return modified_version; }
+  void set_version_modified(uint8_t version) { modified_version = version; }
+  ulint get_old_fixed_len_for_log(bool comp) const;
+  void set_old_type_from_log(ulint old_fixed_len) {
+    this->old_mtype =
+        ((old_fixed_len + 1) & 0x7fff) <= 1 ? DATA_BINARY : DATA_FIXBINARY;
+    this->old_prtype = (old_fixed_len & 0x8000 ? DATA_NOT_NULL : 0);
+    this->old_len = (old_fixed_len & 0x3fff);
+  }
 };
 
 /** Index information put in a list of virtual column structure. Index
@@ -1606,6 +1628,14 @@ struct dict_index_t {
   /** Get the space id of the tablespace to which this index belongs.
   @return the space id. */
   space_id_t space_id() const { return space; }
+
+  /* Changes from txsql start. */
+
+ public:
+  /** Check whether index has any instantly modified columns
+  @return true if this is instant affected, otherwise false */
+  bool has_instant_modified_cols() const;
+  /* Changes from txsql end. */
 };
 
 /** The status of online index creation */
@@ -2446,7 +2476,8 @@ detect this and will eventually quit sooner. */
   /** @returns true if the table has row versions.. */
   bool has_row_versions() const {
     if (current_row_version > 0) {
-      ut_ad(has_instant_add_cols() || has_instant_drop_cols());
+      ut_ad(has_instant_add_cols() || has_instant_drop_cols() ||
+            has_instant_modified_cols());
       return (true);
     }
 
@@ -2678,6 +2709,18 @@ detect this and will eventually quit sooner. */
 
   /** Determine if the table can support instant ADD/DROP COLUMN */
   inline bool support_instant_add_drop() const;
+
+  /* Changes from txsql start. */
+ public:
+  int instant_modified_cols_cnt{0};
+  /** @return true if there was any instantly modified column.
+  This will be true after one or more instant modified COLUMN, however,
+  it would become false after ALTER TABLE which rebuilds or copies
+  the old table. */
+  bool has_instant_modified_cols() const {
+    return (instant_modified_cols_cnt != 0);
+  }
+  /* Changes from txsql end. */
 };
 
 static inline void DICT_TF2_FLAG_SET(dict_table_t *table, uint32_t flag) {

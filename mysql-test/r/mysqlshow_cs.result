@@ -118,6 +118,7 @@ Database: information_schema
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_FT_INDEX_TABLE                 |
 | INNODB_INDEXES                        |
+| INNODB_INSTANT_MODIFIED_COLS          |
 | INNODB_METRICS                        |
 | INNODB_SESSION_TEMP_TABLESPACES       |
 | INNODB_TABLES                         |
@@ -206,6 +207,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_FT_INDEX_TABLE                 |
 | INNODB_INDEXES                        |
+| INNODB_INSTANT_MODIFIED_COLS          |
 | INNODB_METRICS                        |
 | INNODB_SESSION_TEMP_TABLESPACES       |
 | INNODB_TABLES                         |

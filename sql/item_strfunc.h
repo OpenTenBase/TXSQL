@@ -1902,4 +1902,28 @@ class Item_func_sm4_cbc_decrypt : public Item_str_func {
   const char *func_name() const override { return "sm4_decrypt"; }
 };
 
+class Item_func_get_dd_column_private_data final : public Item_str_func {
+ public:
+  Item_func_get_dd_column_private_data(const POS &pos, Item *a, Item *b)
+      : Item_str_func(pos, a, b) {}
+
+  enum Functype functype() const override { return DD_INTERNAL_FUNC; }
+  bool resolve_type(THD *) override {
+    /* maximum string length of the property value is expected
+    to be less than 256 characters. */
+    set_data_type_string(256U);
+    set_nullable(false);
+    null_on_null = false;
+
+    return false;
+  }
+
+  const char *func_name() const override {
+    return "get_dd_column_private_data";
+  }
+
+  String *val_str(String *) override;
+};
+
+/* Changes from TXSQL end. */
 #endif /* ITEM_STRFUNC_INCLUDED */

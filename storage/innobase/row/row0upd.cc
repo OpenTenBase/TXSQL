@@ -427,6 +427,17 @@ bool row_upd_changes_field_size_or_external(
         rec_offs_nth_extern(index, offsets, upd_field->field_no)) {
       return true;
     }
+
+    /* after instant modify char(2) -> vachar(4), old row have 'aa',
+    update 'aa' to 'bb' can not be inplace, because varchar(4) 'bb' should
+    have lens in record header */
+    if (old_len == new_len) {
+      const dict_col_t *col = index->get_col(upd_field->field_no);
+      if (!col->is_virtual() && col->old_mtype != DATA_MTYPE_MAX &&
+          col->old_mtype != col->mtype) {
+        return true;
+      }
+    }
   }
 
   return false;
@@ -1007,9 +1018,9 @@ the new value
 @param[in]      is_sdi          true for SDI indexes
 @param[in]      page_size       page size */
 static void row_upd_index_replace_new_col_val_func(
-    const dict_index_t *index, dfield_t *dfield, const dict_field_t *field,
-    const dict_col_t *col, const upd_field_t *uf, mem_heap_t *heap,
-    IF_DEBUG(bool is_sdi, ) const page_size_t &page_size) {
+    const dict_index_t *index, dtuple_t *entry, dfield_t *dfield,
+    const dict_field_t *field, const dict_col_t *col, const upd_field_t *uf,
+    mem_heap_t *heap, IF_DEBUG(bool is_sdi, ) const page_size_t &page_size) {
   DBUG_TRACE;
 
   ulint len;
@@ -1090,11 +1101,12 @@ static void row_upd_index_replace_new_col_val_func(
 }
 
 static inline void row_upd_index_replace_new_col_val(
-    const dict_index_t *index, dfield_t *dfield, const dict_field_t *field,
-    const dict_col_t *col, const upd_field_t *uf, mem_heap_t *heap,
-    bool is_sdi [[maybe_unused]], const page_size_t &page_size) {
-  row_upd_index_replace_new_col_val_func(index, dfield, field, col, uf, heap,
-                                         IF_DEBUG(is_sdi, ) page_size);
+    const dict_index_t *index, dtuple_t *entry, dfield_t *dfield,
+    const dict_field_t *field, const dict_col_t *col, const upd_field_t *uf,
+    mem_heap_t *heap, bool is_sdi [[maybe_unused]],
+    const page_size_t &page_size) {
+  row_upd_index_replace_new_col_val_func(index, entry, dfield, field, col, uf,
+                                         heap, IF_DEBUG(is_sdi, ) page_size);
 }
 
 /** Replaces the new column values stored in the update vector to the index
@@ -1152,8 +1164,9 @@ void row_upd_index_replace_new_col_vals_index_pos(dtuple_t *entry,
 
       dfield_copy(&tmp->old_val, dfield);
 
-      row_upd_index_replace_new_col_val(index, dfield, field, col, uf, heap,
-                                        dict_index_is_sdi(index), page_size);
+      row_upd_index_replace_new_col_val(index, entry, dfield, field, col, uf,
+                                        heap, dict_index_is_sdi(index),
+                                        page_size);
     }
   }
 }
@@ -1194,9 +1207,9 @@ void row_upd_index_replace_new_col_vals(dtuple_t *entry,
     }
 
     if (uf) {
-      row_upd_index_replace_new_col_val(index, dtuple_get_nth_field(entry, i),
-                                        field, col, uf, heap,
-                                        dict_index_is_sdi(index), page_size);
+      row_upd_index_replace_new_col_val(
+          index, entry, dtuple_get_nth_field(entry, i), field, col, uf, heap,
+          dict_index_is_sdi(index), page_size);
     }
   }
 }

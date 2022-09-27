@@ -92,6 +92,10 @@ uint32_t dd_column_get_version_added(const dd::Column *dd_col);
 /** Get the row version in which column is INSTANT DROP */
 uint32_t dd_column_get_version_dropped(const dd::Column *dd_col);
 
+bool dd_column_is_modified(const dd::Column *dd_col);
+
+uint32_t dd_column_get_version_modified(const dd::Column *dd_col);
+
 /** Maximum hardcoded data dictionary tables. */
 constexpr uint32_t DICT_MAX_DD_TABLES = 1024;
 
@@ -138,6 +142,14 @@ enum dd_column_keys {
   DD_COLUMN_ENCRYPTION_KEY,
   /** column encryption iv */
   DD_COLUMN_ENCRYPTION_IV,
+  /** Instant modifed column version */
+  DD_INSTANT_MODIFIED_COLUMN_VERSION,
+  /** Instant modifed column mtype */
+  DD_INSTANT_MODIFIED_COLUMN_MTYPE,
+  /** Instant modifed column prtype */
+  DD_INSTANT_MODIFIED_COLUMN_PRTYPE,
+  /** Instant modifed column len */
+  DD_INSTANT_MODIFIED_COLUMN_LEN,
   /** Sentinel */
   DD_COLUMN__LAST
 };
@@ -167,6 +179,8 @@ enum dd_partition_keys {
   The functions will choose right implementation for you, depending on
   whether the argument is dd::Table or dd::Partition. */
   DD_PARTITION_DISCARD,
+  /** Version of instant MODIFY COLUMN */
+  DD_PARTITION_INSTANT_MODIFY_VERSION,
   /** Sentinel */
   DD_PARTITION__LAST
 };
@@ -234,16 +248,18 @@ const char *const dd_space_state_values[DD_SPACE_STATE__LAST + 1] = {
 
 /** InnoDB private key strings for dd::Table. @see dd_table_keys */
 const char *const dd_table_key_strings[DD_TABLE__LAST] = {
-    "autoinc", "data_directory", "version", "discard", "instant_col"};
+    "autoinc", "data_directory", "version",
+    "discard", "instant_col"};
 
 /** InnoDB private key strings for dd::Column, @see dd_column_keys */
 const char *const dd_column_key_strings[DD_COLUMN__LAST] = {
-    "default", "default_null", "version_added", "version_dropped",
-    "physical_pos", "encryption_key", "encryption_iv"};
+    "default",        "default_null",    "version_added", "version_dropped",
+    "physical_pos",   "encryption_key",  "encryption_iv", "modified_version",
+    "modified_mtype", "modified_prtype", "modified_len"};
 
 /** InnoDB private key strings for dd::Partition. @see dd_partition_keys */
 const char *const dd_partition_key_strings[DD_PARTITION__LAST] = {
-    "format", "instant_col", "discard"};
+    "format", "instant_col", "discard", "instant_modified_version"};
 
 /** InnoDB private keys for dd::Index or dd::Partition_index */
 enum dd_index_keys {
@@ -468,15 +484,24 @@ static inline bool is_system_column(const char *col_name) {
 @param[in]   current_row_version  current row version */
 inline void dd_table_get_column_counters(const dd::Table &table, uint32_t &i_c,
                                          uint32_t &c_c, uint32_t &t_c,
-                                         uint32_t &current_row_version) {
+                                         uint32_t &current_row_version,
+                                         uint32_t &m_c) {
   size_t n_dropped_cols = 0;
   size_t n_added_cols = 0;
   size_t n_added_and_dropped_cols = 0;
   size_t n_current_cols = 0;
+  size_t n_modified_cols = 0;
 
   for (const auto column : table.columns()) {
     if (is_system_column(column->name().c_str()) || column->is_virtual()) {
       continue;
+    }
+
+    if (dd_column_is_modified(column)) {
+      uint32_t v_modified = dd_column_get_version_modified(column);
+      ut_ad(dd_is_valid_row_version(v_modified));
+      current_row_version = std::max(current_row_version, v_modified);
+      n_modified_cols++;
     }
 
     if (dd_column_is_dropped(column)) {
@@ -508,6 +533,7 @@ inline void dd_table_get_column_counters(const dd::Table &table, uint32_t &i_c,
   c_c = n_current_cols;
   i_c = (n_current_cols - n_added_cols) + n_orig_dropped_cols;
   t_c = n_current_cols + n_dropped_cols;
+  m_c = n_modified_cols;
 }
 
 /** Determine if a dd::Table has row versions
@@ -534,17 +560,32 @@ inline bool dd_table_has_row_versions(const dd::Table &table) {
     /* Checking only for one column is enough. */
     break;
   }
-
-#ifdef UNIV_DEBUG
-  if (has_row_version) {
-    bool found_inst_add_or_drop_col = false;
+  if (!has_row_version) {
+    /* no column is instant added/dropped, we should check all columns for
+    instant modify */
     for (const auto column : table.columns()) {
-      if (dd_column_is_dropped(column) || dd_column_is_added(column)) {
-        found_inst_add_or_drop_col = true;
+      if (column->is_virtual()) {
+        continue;
+      }
+      if (column->se_private_data().exists(
+              dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION])) {
+        has_row_version = true;
         break;
       }
     }
-    ut_ad(found_inst_add_or_drop_col);
+  }
+
+#ifdef UNIV_DEBUG
+  if (has_row_version) {
+    bool found_inst_add_or_drop_or_modify_col = false;
+    for (const auto column : table.columns()) {
+      if (dd_column_is_dropped(column) || dd_column_is_added(column) ||
+          dd_column_is_modified(column)) {
+        found_inst_add_or_drop_or_modify_col = true;
+        break;
+      }
+    }
+    ut_ad(found_inst_add_or_drop_or_modify_col);
   }
 #endif
 
@@ -1598,6 +1639,28 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
                      const Field *field, ulint &col_len, ulint &mtype,
                      ulint &prtype);
 #endif
+
+/* Changes from txsql start. */
+
+/** Set column information (datatype, length) for instantly modified columns
+@param[in]	old_table	MySQL table as it is before the ALTER operation
+@param[in]	altered_table	MySQL table that is being altered
+@param[in,out]	new_dd_table	New dd::Table
+@param[in]	new_table	New InnoDB table object */
+void dd_modify_instant_columns(const TABLE *old_table,
+                               const TABLE *altered_table,
+                               dd::Table *new_dd_table,
+                               const dict_table_t *new_table);
+
+/** Write modified column to dd::Column
+@param[in]	col	default value of this column to write
+@param[in,out]	dd_col	where to store the default value */
+void dd_write_modified_column(const dict_table_t *table, const dict_col_t *col,
+                              dd::Column *dd_col);
+
+bool is_modified(Field *old_field, Field *new_field);
+
+/* Changes from txsql end. */
 
 #include "dict0dd.ic"
 #endif

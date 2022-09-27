@@ -448,8 +448,8 @@ static inline void row_sel_field_store_in_mysql_format(
     byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
     const dict_index_t *idx, ulint field, const byte *src, ulint len,
     row_prebuilt_t *prebuilt, ulint sec) {
-  row_sel_field_store_in_mysql_format_func(
-      dest, templ, instant_default, idx, field, src, len, prebuilt, sec);
+  row_sel_field_store_in_mysql_format_func(dest, templ, instant_default, idx,
+                                           field, src, len, prebuilt, sec);
 }
 
 /** Search the record present in innodb_table_stats table using

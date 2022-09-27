@@ -1762,6 +1762,12 @@ dberr_t dd_clear_instant_table(dd::Table &dd_table, bool clear_version) {
       fn(dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT_NULL]);
       fn(dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT]);
     } else {
+      /* always clear instant modfiy information if necessary. */
+      fn(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION]);
+      fn(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE]);
+      fn(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE]);
+      fn(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN]);
+
       /* Possibly an INSTANT ADD/DROP column with a version */
       if (dd_column_is_dropped(col)) {
         cols_to_drop.push_back(col->name().c_str());
@@ -2697,6 +2703,18 @@ void dd_write_table(dd::Object_id dd_space_id, Table *dd_table,
             s = dd_column_key_strings[DD_INSTANT_VERSION_DROPPED];
             dd_column->se_private_data().set(
                 s, (uint32_t)col->get_version_dropped());
+          }
+
+          if (col->is_instant_modified()) {
+            s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION];
+            dd_column->se_private_data().set(
+                s, (uint32_t)col->get_version_modified());
+            s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE];
+            dd_column->se_private_data().set(s, (uint32_t)col->old_mtype);
+            s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE];
+            dd_column->se_private_data().set(s, (uint32_t)col->old_prtype);
+            s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN];
+            dd_column->se_private_data().set(s, (uint32_t)col->old_len);
           }
         } else {
           /* Table has instant col added/dropped. Each column shall have
@@ -3653,6 +3671,35 @@ static inline void fill_dict_existing_column(
         dict_sys->size += new_size - old_size;
         dict_sys_mutex_exit();
     }
+
+    if (dd_column_is_modified(column)) {
+      const dd::Properties &p = column->se_private_data();
+      uint32_t modified_version;
+      uint32_t old_prtype;
+      uint32_t old_mtype;
+      uint32_t old_len;
+      ulint mbminlen;
+      ulint mbmaxlen;
+      p.get(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION],
+            &modified_version);
+      p.get(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE],
+            &old_mtype);
+      p.get(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE],
+            &old_prtype);
+      p.get(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN], &old_len);
+      dict_col_t *col = m_table->get_col(m_table->n_def - 1);
+      ut_ad(strcmp(field->field_name,
+                   m_table->get_col_name(dict_col_get_no(col))) == 0);
+      col->modified_version = modified_version;
+      col->old_mtype = old_mtype;
+      col->old_prtype = old_prtype;
+      col->old_len = old_len;
+      dtype_get_mblen(col->old_mtype, col->old_prtype, &mbminlen, &mbmaxlen);
+      col->old_mbminmaxlen = DATA_MBMINMAXLEN(mbminlen, mbmaxlen);
+#ifdef UNIV_DEBUG
+      crv = std::max(modified_version, crv);
+#endif
+    }
   } else {
     dict_mem_table_add_v_col(m_table, heap, field->field_name, mtype, prtype,
                              col_len, pos,
@@ -3909,8 +3956,9 @@ static inline dict_table_t *dd_fill_dict_table(const Table *dd_tab,
   uint32_t c_c = 0;
   uint32_t t_c = 0;
   uint32_t c_r_v = 0;
+  uint32_t m_c = 0;
 
-  dd_table_get_column_counters(dd_tab->table(), i_c, c_c, t_c, c_r_v);
+  dd_table_get_column_counters(dd_tab->table(), i_c, c_c, t_c, c_r_v, m_c);
   /* Create the dict_table_t */
   dict_table_t *m_table = dict_mem_table_create(norm_name, 0, n_cols, n_v_cols,
                                                 n_m_v_cols, 0, 0, t_c - c_c);
@@ -3920,6 +3968,7 @@ static inline dict_table_t *dd_fill_dict_table(const Table *dd_tab,
   m_table->current_col_count = c_c;
   m_table->total_col_count = t_c;
   m_table->current_row_version = c_r_v;
+  m_table->instant_modified_cols_cnt = m_c;
 
   /* Set up the field in the newly allocated dict_table_t */
   m_table->id = dd_tab->se_private_id();
@@ -7870,4 +7919,129 @@ void rebuild(std::string &dict_name) {
 }
 
 }  // namespace dict_name
+
+/* Changes from txsql start. */
+
+/** Set column information (datatype, length) for instantly modified columns
+@param[in]	old_table	MySQL table as it is before the ALTER operation
+@param[in]	altered_table	MySQL table that is being altered
+@param[in,out]	new_dd_table	New dd::Table
+@param[in]	new_table	New InnoDB table object */
+void dd_modify_instant_columns(const TABLE *old_table,
+                               const TABLE *altered_table,
+                               dd::Table *new_dd_table,
+                               const dict_table_t *new_table) {
+#ifdef UNIV_DEBUG
+  int num_modified_cols = 0;
+#endif
+  for (uint32_t i = 0; i < altered_table->s->fields; ++i) {
+    Field *field = altered_table->field[i];
+    Field *old_field = old_table->s->field[i];
+    /* Skip virtual columns and un-modified columns. */
+    if (innobase_is_v_fld(field) ||
+        (old_field->type() == field->type() &&
+         old_field->pack_length() == field->pack_length())) {
+      continue;
+    }
+    dd::Column *column = const_cast<dd::Column *>(
+        dd_find_column(new_dd_table, field->field_name));
+    ut_ad(column != nullptr);
+    dd::Properties &se_private = column->se_private_data();
+    ut_d(++num_modified_cols);
+    /* Get the mtype and prtype of the old field. Keep this same
+    with the code in dd_fill_dict_table(), except FTS check */
+    ulint prtype = 0;
+    unsigned col_len = old_field->pack_length();
+    ulint nulls_allowed;
+    ulint unsigned_type;
+    ulint binary_type;
+    ulint long_true_varchar;
+    ulint charset_no;
+    ulint mtype = get_innobase_type_from_mysql_type(&unsigned_type, old_field);
+    nulls_allowed = old_field->is_nullable() ? 0 : DATA_NOT_NULL;
+    binary_type = old_field->binary() ? DATA_BINARY_TYPE : 0;
+    charset_no = 0;
+    if (dtype_is_string_type(mtype)) {
+      charset_no = static_cast<ulint>(old_field->charset()->number);
+    }
+    long_true_varchar = 0;
+    if (old_field->type() == MYSQL_TYPE_VARCHAR) {
+      col_len -= old_field->get_length_bytes();
+      if (old_field->get_length_bytes() == 2) {
+        long_true_varchar = DATA_LONG_TRUE_VARCHAR;
+      }
+    }
+    prtype =
+        dtype_form_prtype((ulint)old_field->type() | nulls_allowed |
+                              unsigned_type | binary_type | long_true_varchar,
+                          charset_no);
+    se_private.set(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION],
+                   new_table->current_row_version + 1);
+    se_private.set(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE],
+                   mtype);
+    se_private.set(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE],
+                   prtype);
+    se_private.set(dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN],
+                   col_len);
+  }
+  ut_ad(num_modified_cols > 0);
+}
+
+/** Write modified column to dd::Column
+@param[in]	col	default value of this column to write
+@param[in,out]	dd_col	where to store the default value */
+void dd_write_modified_column(const dict_table_t *table, const dict_col_t *col,
+                              dd::Column *dd_col) {
+  dd_col->se_private_data().set(
+      dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION],
+      col->modified_version);
+  dd_col->se_private_data().set(
+      dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE], col->old_mtype);
+  dd_col->se_private_data().set(
+      dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE],
+      col->old_prtype);
+  dd_col->se_private_data().set(
+      dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN], col->old_len);
+}
+
+bool dd_column_is_modified(const dd::Column *dd_col) {
+  const char *s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION];
+  if (!dd_col->se_private_data().exists(s)) {
+    return false;
+  }
+
+#ifdef UNIV_DEBUG
+  uint32_t version = UINT32_UNDEFINED;
+  dd_col->se_private_data().get(s, &version);
+  ut_ad(dd_is_valid_row_version(version));
+#endif
+
+  return true;
+}
+
+uint32_t dd_column_get_version_modified(const dd::Column *dd_col) {
+  if (!dd_column_is_modified(dd_col)) {
+    return UINT32_UNDEFINED;
+  }
+
+  uint32_t version = UINT32_UNDEFINED;
+  dd_col->se_private_data().get(
+      dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION], &version);
+  ut_a(dd_is_valid_row_version(version));
+  return (version);
+}
+
+bool is_modified(Field *old_field, Field *new_field) {
+  if (innobase_is_v_fld(old_field) || innobase_is_v_fld(new_field)) {
+    return false;
+  }
+  if (old_field->type() != new_field->type() ||
+      old_field->pack_length() != new_field->pack_length()) {
+    return true;
+  }
+  return false;
+}
+
+/* Changes from txsql end. */
+
 #endif /* !UNIV_HOTBACKUP */

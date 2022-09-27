@@ -1766,4 +1766,13 @@ extern uint64_t innobase_page_reserve_factor;
 
 #include "dict0dict.ic"
 
+/* Changes from txsql start */
+
+bool dict_index_too_big_for_tree(const dict_table_t *table,
+                                 const dict_index_t *new_index, bool strict);
+void dict_index_copy(dict_index_t *index1, dict_index_t *index2,
+                     const dict_table_t *table, ulint start, ulint end);
+
+/* Changes from txsql end */
+
 #endif

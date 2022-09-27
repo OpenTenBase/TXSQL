@@ -1727,6 +1727,7 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
   bool first_v_col = true;
   bool is_undo_log = true;
   ulint n_skip_field = 0;
+  const dict_field_t *ifield = nullptr;
 
   ut_a(index->is_clustered());
 
@@ -1843,7 +1844,17 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
       if (len == UNIV_SQL_NULL) {
         dfield_set_null(&upd_field->new_val);
       } else if (len < UNIV_EXTERN_STORAGE_FIELD) {
-        dfield_set_data(&upd_field->new_val, field, len);
+        if (!is_virtual) {
+          ifield = index->get_field(upd_field->field_no);
+          if (ifield->col->old_mtype != DATA_MTYPE_MAX) {
+            dfield_set_data_instant(ifield, &upd_field->new_val, field, len,
+                                    heap);
+          } else {
+            dfield_set_data(&upd_field->new_val, field, len);
+          }
+        } else {
+          dfield_set_data(&upd_field->new_val, field, len);
+        }
       } else {
         len -= UNIV_EXTERN_STORAGE_FIELD;
 
@@ -2013,6 +2024,8 @@ byte *trx_undo_rec_get_partial_row(
       dfield = dtuple_get_nth_field(*row, col_no);
       index->table->get_col(col_no)->copy_type(dfield_get_type(dfield));
     }
+
+    ut_ad(col->old_mtype == DATA_MTYPE_MAX);
 
     dfield_set_data(dfield, field, len);
 
