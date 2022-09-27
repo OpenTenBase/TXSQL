@@ -590,9 +590,26 @@ struct upd_t {
   /** Array of update fields. */
   upd_field_t *fields;
 
+  /* allocated length of update fields. */
+  ulint n_allocated_fields;
+
   /** Append an update field to the end of array
   @param[in]    field   an update field */
-  void append(const upd_field_t &field) { fields[n_fields++] = field; }
+  void append(const upd_field_t &field) {
+    if (n_fields >= n_allocated_fields) {
+      /* we should allocate a new array of fields */
+      ulint new_fields_count = n_allocated_fields * 2;
+      upd_field_t *new_fields = reinterpret_cast<upd_field_t *>(
+          mem_heap_zalloc(heap, sizeof(upd_field_t) * new_fields_count));
+      for (ulint i = 0; i < n_fields; i++) {
+        new_fields[i] = fields[i];
+      }
+      fields = new_fields;
+      n_allocated_fields = new_fields_count;
+    }
+    ut_ad(n_fields < n_allocated_fields);
+    fields[n_fields++] = field;
+  }
 
   /** Determine if the given field_no is modified.
   @return true if modified, false otherwise.  */

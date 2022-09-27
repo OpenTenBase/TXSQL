@@ -3918,7 +3918,7 @@ bool btr_index_rec_validate(const rec_t *rec,          /*!< in: index record */
     }
 
     if ((field->prefix_len == 0 && rec_field_not_null_not_add_col_def(len) &&
-         fixed_size && len != fixed_size) ||
+         fixed_size && len != fixed_size && len != field->col->old_len) ||
         (field->prefix_len > 0 && rec_field_not_null_not_add_col_def(len) &&
          len > field->prefix_len)) {
       btr_index_rec_validate_report(page, rec, index);

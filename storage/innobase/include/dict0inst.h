@@ -51,7 +51,9 @@ enum class Instant_Type : uint16_t {
   INSTANT_ADD_DROP_COLUMN,
 
   /** Column rename */
-  INSTANT_COLUMN_RENAME
+  INSTANT_COLUMN_RENAME,
+  /** MODIFY COLUMN which can be done instantly */
+  INSTANT_MODIFY_COLUMN
 };
 
 using Columns = std::vector<Field *>;
@@ -83,7 +85,8 @@ class Instant_ddl_impl {
         m_altered_table(altered_table),
         m_old_dd_tab(old_dd_tab),
         m_new_dd_tab(new_dd_tab),
-        m_autoinc(autoinc) {}
+        m_autoinc(autoinc),
+        m_cols_to_modify(false) {}
 
   /** Destructor */
   ~Instant_ddl_impl() {}
@@ -96,11 +99,12 @@ class Instant_ddl_impl {
   @param[in]  table         MySQL table before ALTER
   @param[in]  altered_table MySQL table after ALTER
   @param[in]  dict_table    InnoDB table definition cache
+  @param[out] is_add_error  true if instant add is not possible
   @return true if INSTANT ADD can be done, false otherwise. */
-  static bool is_instant_add_possible(const Alter_inplace_info *ha_alter_info,
-                                      const TABLE *table,
-                                      const TABLE *altered_table,
-                                      const dict_table_t *dict_table);
+  static bool is_instant_add_drop_possible(
+      const Alter_inplace_info *ha_alter_info, const TABLE *table,
+      const TABLE *altered_table, const dict_table_t *dict_table,
+      bool &is_add_error);
 
  private:
   /** Add column instantly */
@@ -155,6 +159,19 @@ class Instant_ddl_impl {
   Table *m_new_dd_tab;
 
   uint64_t *m_autoinc;
+
+  /* Changes from txsql start */
+  bool m_cols_to_modify;
+
+  void commit_instant_modify_column();
+
+  void commit_instant_modify_col_low();
+
+ public:
+  static bool is_instant_modify_possible(
+      const Alter_inplace_info *ha_alter_info, const TABLE *old_table,
+      const TABLE *altered_table, dict_table_t *dict_table);
+  /* Changes from txsql end */
 };
 
 #endif /* dict0inst_h */

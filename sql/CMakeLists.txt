@@ -177,6 +177,7 @@ SET(DD_SOURCES
   dd/impl/system_views/innodb_foreign_cols.cc
   dd/impl/system_views/innodb_fields.cc
   dd/impl/system_views/innodb_tablespaces_brief.cc
+  dd/impl/system_views/innodb_instant_modified_cols.cc
   dd/impl/system_views/key_column_usage.cc
   dd/impl/system_views/keywords.cc
   dd/impl/system_views/parameters.cc

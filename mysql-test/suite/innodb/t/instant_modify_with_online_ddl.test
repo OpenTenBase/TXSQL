@@ -1,0 +1,75 @@
+--source include/have_debug_sync.inc
+
+# Save the initial number of concurrent sessions.
+--source include/count_sessions.inc
+
+connection default;
+
+disable_query_log;
+disable_warnings;
+drop table if exists test1;
+enable_warnings;
+enable_query_log;
+
+create table test1 (id int not null AUTO_INCREMENT,
+     c1_char char(10) CHARACTER SET latin1 default 'abc',
+     c2_varchar varchar(10) CHARACTER SET utf8 not null,
+     c3_binary binary(10),
+     c4_varbinary varbinary(10) not null default b'111',
+     c5_tint tinyint default 0,
+     c6_sint smallint,
+     c7_mint mediumint signed not null,
+     c8_int int unsigned unique,
+     c9_bint bigint,
+     PRIMARY KEY (id),
+     KEY test1_key (c9_bint));
+
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('ddd', 10, 20, 30, 40);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 31, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 32, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 33, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 34, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 35, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 36, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 37, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 38, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 39, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 40, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 41, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 42, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 43, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 44, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 45, 80);
+insert into test1 (c2_varchar, c6_sint, c7_mint, c8_int, c9_bint) values('eee', 50, 60, 46, 80);
+
+alter table test1 modify c7_mint int signed not null, modify c5_tint smallint default 1, modify c6_sint int default 100, modify c1_char varchar(20) CHARACTER SET latin1 default 'abc', algorithm=instant;
+
+alter table test1 add column i int,  add column j char(30) default 'abc',add column n int default 1, algorithm=instant;
+
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+
+SET DEBUG_SYNC = 'RESET';
+SET DEBUG_SYNC='row_log_table_apply1_before SIGNAL do_update WAIT_FOR do_log';
+--send
+alter table test1 drop primary key, add primary key(id, c6_sint);
+
+connect (con1,localhost,root,,);
+connection con1;
+SET DEBUG_SYNC='now WAIT_FOR do_update';
+update test1 set c8_int=55 where id=1;
+--sleep 2
+SET DEBUG_SYNC='now SIGNAL do_log';
+disconnect con1;
+--echo con1 disconnected
+
+connection default;
+reap;
+SET DEBUG_SYNC = 'RESET';
+show create table test1;
+select * from test1;
+select name, pos, version, mtype, prtype, len from information_schema.innodb_instant_modified_cols;
+DROP TABLE test1;
+
+# Check that all connections opened by test1 cases in this file are really
+# gone so execution of other test1s won't be affected by their presence.
+--source include/wait_until_count_sessions.inc

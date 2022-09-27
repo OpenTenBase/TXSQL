@@ -557,9 +557,16 @@ static void log_index_get_size_needed(const dict_index_t *index, size_t size,
 
     size_t n_versioned_fields = ind->table->get_n_instant_add_cols() +
                                 ind->table->get_n_instant_drop_cols();
-    ut_ad(n_versioned_fields != 0);
+    ut_ad(n_versioned_fields != 0 ||
+          ind->table->instant_modified_cols_cnt != 0);
 
     _size += n_versioned_fields * inst_col_info_size;
+    if (ind->table->instant_modified_cols_cnt != 0) {
+      /* instant modified column can't be instant added or dropped, we need 2
+      bytes for physical pos, 2 bytes for logical pos, 2 bytes for
+      old_fixed_size, 1 bytes for v_modified. */
+      _size += ind->table->instant_modified_cols_cnt * 7;
+    }
     return (_size);
   };
 
@@ -727,7 +734,8 @@ static bool log_index_fields(const dict_index_t *index, uint16_t n,
     log_ptr += 2;
 
     if (is_versioned) {
-      if (col->is_instant_added() || col->is_instant_dropped()) {
+      if (col->is_instant_added() || col->is_instant_dropped() ||
+          col->is_instant_modified()) {
         f.push_back(field);
       }
     }
@@ -769,7 +777,8 @@ static bool log_index_versioned_fields(const std::vector<dict_field_t *> &f,
            | 16th bit indicates add version info follows. */
     uint16_t phy_pos = field->get_phy_pos();
 
-    ut_ad(field->col->is_instant_added() || field->col->is_instant_dropped());
+    ut_ad(field->col->is_instant_added() || field->col->is_instant_dropped() ||
+          field->col->is_instant_modified());
 
     if (field->col->is_instant_added()) {
       /* Set 16th bit in phy_pos to indicate presence of version added */
@@ -781,7 +790,18 @@ static bool log_index_versioned_fields(const std::vector<dict_field_t *> &f,
       phy_pos |= 0x4000;
     }
 
-    if (!func(6)) {
+    ulint needed_bytes = 6;
+    if (field->col->is_instant_modified()) {
+      /* Set 14th bit in phy_pos to indicate presence of version modified */
+      phy_pos |= 0x2000;
+      /* 2 for logical_pos, 2 for phy_pos, 2 for old_fixed_len, 1 for
+       * modified_version */
+      needed_bytes = 7;
+      ut_ad(!field->col->is_instant_dropped() &&
+            !field->col->is_instant_added());
+    }
+
+    if (!func(needed_bytes)) {
       return false;
     }
 
@@ -795,12 +815,25 @@ static bool log_index_versioned_fields(const std::vector<dict_field_t *> &f,
       uint8_t v = field->col->get_version_added();
       mach_write_to_1(log_ptr, v);
       log_ptr += 1;
+      ut_ad(needed_bytes == 6 && !field->col->is_instant_modified());
     }
 
     if (field->col->is_instant_dropped()) {
       uint8_t v = field->col->get_version_dropped();
       mach_write_to_1(log_ptr, v);
       log_ptr += 1;
+      ut_ad(needed_bytes == 6 && !field->col->is_instant_modified());
+    }
+
+    if (field->col->is_instant_modified()) {
+      uint8_t v = field->col->get_version_modified();
+      uint16_t old_fixed_len = field->col->get_old_fixed_len_for_log(
+          dict_table_is_comp(index->table));
+      mach_write_to_2(log_ptr, old_fixed_len);
+      log_ptr += 2;
+      mach_write_to_1(log_ptr, v);
+      log_ptr += 1;
+      ut_ad(needed_bytes == 7);
     }
   }
   return true;
@@ -1050,6 +1083,8 @@ struct Field_instant_info {
   uint16_t phy_pos{UINT16_UNDEFINED};
   uint8_t v_added{UINT8_UNDEFINED};
   uint8_t v_dropped{UINT8_UNDEFINED};
+  uint16_t old_fixed_len{0};
+  uint8_t v_modified{0};
 };
 
 using instant_fields_list_t = std::vector<Field_instant_info>;
@@ -1098,6 +1133,18 @@ static byte *parse_index_versioned_fields(byte *ptr, const byte *end_ptr,
       n_dropped++;
     }
 
+    if ((info.phy_pos & 0x2000) != 0) {
+      info.phy_pos &= ~0x2000;
+      /* Read old_fixed_len */
+      ptr = read_2_bytes(ptr, end_ptr, info.old_fixed_len);
+      if (ptr == nullptr) return (nullptr);
+      /* Read v_modified */
+      ptr = read_1_bytes(ptr, end_ptr, info.v_modified);
+      if (ptr == nullptr) return (nullptr);
+      ut_ad(info.v_modified != UINT8_UNDEFINED && info.v_modified != 0);
+      crv = std::max(crv, (uint16_t)info.v_modified);
+    }
+
     ut_ad((info.phy_pos & 0xC000) == 0);
 
     f.push_back(info);
@@ -1122,7 +1169,8 @@ static void update_instant_info(instant_fields_list_t f, dict_index_t *index) {
   for (auto field : f) {
     bool is_added = field.v_added != UINT8_UNDEFINED;
     bool is_dropped = field.v_dropped != UINT8_UNDEFINED;
-    ut_ad(is_added || is_dropped);
+    bool is_modified = (field.v_modified != 0);
+    ut_ad(is_added || is_dropped || is_modified);
 
     dict_col_t *col = index->fields[field.logical_pos].col;
 
@@ -1134,6 +1182,11 @@ static void update_instant_info(instant_fields_list_t f, dict_index_t *index) {
     if (is_added) {
       col->set_version_added(field.v_added);
       n_added++;
+    }
+
+    if (is_modified) {
+      col->set_version_modified(field.v_modified);
+      col->set_old_type_from_log(field.old_fixed_len);
     }
 
     col->set_phy_pos(field.phy_pos);
@@ -1289,7 +1342,8 @@ byte *mlog_parse_index(byte *ptr, const byte *end_ptr, dict_index_t **index) {
         phy_pos_bitmap[phy_pos] = true;
       } else {
         ut_ad(field->col->is_instant_added() ||
-              field->col->is_instant_dropped());
+              field->col->is_instant_dropped() ||
+              field->col->is_instant_modified());
 
         if (field->col->is_instant_added() &&
             !field->col->is_instant_dropped()) {

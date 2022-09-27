@@ -12902,3 +12902,4 @@ bool cdb_hash_scan_index_selection_enabled = false;
 bool g_txsql_load_data_local_strict_mode = false;
 bool g_tdsql_compat_oracle_mode = false;
 bool cdb_compressed_histogram_enabled = false;
+bool cdb_instant_modify_column_enabled = false;

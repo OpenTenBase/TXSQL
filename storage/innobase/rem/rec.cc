@@ -586,6 +586,8 @@ void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
     const dict_field_t *field = index->get_physical_field(i);
     const dict_col_t *col = field->col;
     uint64_t len;
+    dict_col_t old_col;
+    dict_field_t old_field;
 
     if (index->has_instant_cols_or_row_versions()) {
       if (non_default_fields > 0) { /* Record is in V1 */
@@ -627,6 +629,26 @@ void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
           len = rec_get_instant_offset(index, i, offs);
 
           goto resolved;
+        } else if (!col->is_virtual() && index->is_clustered() &&
+                   col->old_mtype != DATA_MTYPE_MAX &&
+                   row_version < col->modified_version) {
+          /* This column is instant modified, we should use old type for old
+          column */
+          old_col.mtype = col->old_mtype;
+          old_col.prtype = col->old_prtype;
+          old_col.len = col->old_len;
+          old_col.mbminmaxlen = col->old_mbminmaxlen;
+          col = &old_col;
+
+          old_field.prefix_len = 0;
+          /* see more dict_index_add_col */
+          old_field.fixed_len = static_cast<unsigned int>(
+              col->get_fixed_size(dict_table_is_comp(index->table)));
+
+          if (old_field.fixed_len > DICT_MAX_FIXED_COL_LEN) {
+            old_field.fixed_len = 0;
+          }
+          field = &old_field;
         }
       }
     }

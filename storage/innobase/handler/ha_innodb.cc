@@ -11523,6 +11523,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
   uint32_t c_c = 0;
   uint32_t t_c = 0;
   uint32_t c_r_v = 0;
+  uint32_t m_c = 0;
 
   DBUG_TRACE;
   DBUG_PRINT("enter", ("table_name: %s", m_table_name));
@@ -11604,7 +11605,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
   }
 
   if (part_table_with_instant_cols) {
-    dd_table_get_column_counters(*old_part_table, i_c, c_c, t_c, c_r_v);
+    dd_table_get_column_counters(*old_part_table, i_c, c_c, t_c, c_r_v, m_c);
   }
 
   table = dict_mem_table_create(m_table_name, space_id, actual_n_cols, num_v,
@@ -11640,6 +11641,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
     table->initial_col_count = n_cols - num_v;
     table->current_col_count = table->initial_col_count;
     table->total_col_count = table->initial_col_count;
+    table->instant_modified_cols_cnt = 0;
   } else {
     /* This is a new partition getting created. We need to inherit INSTANT
     instant metadata from old partition table */
@@ -11648,6 +11650,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
     table->total_col_count = t_c;
     table->current_row_version = c_r_v;
     table->discard_after_ddl = true;
+    table->instant_modified_cols_cnt = m_c;
 
 #ifdef UNIV_DEBUG
     /* Get and set current row version for table */
@@ -11663,6 +11666,14 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
         uint32_t value = dd_column_get_version_added(col);
         v = std::max(v, value);
         continue;
+      }
+
+      if (dd_column_is_modified(col)) {
+        /* Note: an added or dropped column can not be modified. So if
+        a column is added or dropped, we do not need to check if it's modified
+        */
+        uint32_t v_modified = dd_column_get_version_modified(col);
+        v = std::max(v_modified, v);
       }
     }
     ut_ad(dd_is_valid_row_version(v));
@@ -11791,6 +11802,10 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
       uint32_t v_added = UINT32_UNDEFINED;
       uint32_t v_dropped = UINT32_UNDEFINED;
       uint32_t phy_pos = UINT32_UNDEFINED;
+      uint32_t v_modified = UINT32_UNDEFINED;
+      uint32_t old_mtype = UINT32_UNDEFINED;
+      uint32_t old_prtype = UINT32_UNDEFINED;
+      uint32_t old_len = UINT32_UNDEFINED;
 
       if (part_table_with_instant_cols) {
         const dd::Column *old_part_col =
@@ -11807,6 +11822,26 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
         const char *s = dd_column_key_strings[DD_INSTANT_PHYSICAL_POS];
         ut_ad(old_part_col->se_private_data().exists(s));
         old_part_col->se_private_data().get(s, &phy_pos);
+
+        /* get version modified */
+        s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION];
+        if (old_part_col->se_private_data().exists(s)) {
+          old_part_col->se_private_data().get(s, &v_modified);
+          ut_a(v_modified > 0 && v_modified != UINT32_UNDEFINED);
+          /* get old_mtype */
+          s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE];
+          ut_ad(old_part_col->se_private_data().exists(s));
+          old_part_col->se_private_data().get(s, &old_mtype);
+          ut_a(old_mtype != DATA_MTYPE_MAX && old_mtype != UINT32_UNDEFINED);
+          /* get old_prtype */
+          s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE];
+          ut_ad(old_part_col->se_private_data().exists(s));
+          old_part_col->se_private_data().get(s, &old_prtype);
+          /* get old_len */
+          s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN];
+          ut_ad(old_part_col->se_private_data().exists(s));
+          old_part_col->se_private_data().get(s, &old_len);
+        }
       }
 
       dict_mem_table_add_col(
@@ -11828,6 +11863,21 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
           dict_sys_mutex_enter();
           dict_sys->size += new_size - old_size;
           dict_sys_mutex_exit();
+      }
+
+      if (v_modified != UINT32_UNDEFINED && v_modified > 0) {
+        /* instant modified */
+        ulint mbminlen;
+        ulint mbmaxlen;
+        dict_col_t *col = table->get_col(table->n_def - 1);
+        ut_a(strcmp(field_name, table->get_col_name(dict_col_get_no(col))) ==
+             0);
+        col->modified_version = v_modified;
+        col->old_mtype = old_mtype;
+        col->old_prtype = old_prtype;
+        col->old_len = old_len;
+        dtype_get_mblen(col->old_mtype, col->old_prtype, &mbminlen, &mbmaxlen);
+        col->old_mbminmaxlen = DATA_MBMINMAXLEN(mbminlen, mbmaxlen);
       }
 
       if (dd_is_valid_row_version(v_added)) {
@@ -18873,6 +18923,11 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
                       ER_TABLESPACE_DISCARDED, table->s->table_name.str);
 
           return HA_ERR_NO_SUCH_TABLE;
+        }
+
+        if (m_prebuilt->table->has_instant_modified_cols()) {
+          ib::error() << "Export is not supported for instant modified table";
+          return HA_ERR_WRONG_COMMAND;
         }
 
         row_quiesce_table_start(m_prebuilt->table, trx);

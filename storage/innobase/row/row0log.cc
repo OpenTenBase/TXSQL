@@ -1065,7 +1065,17 @@ static dberr_t row_log_table_get_pk_col(dict_index_t *index,
 
     dfield_set_data(dfield, blob_field, len);
   } else {
-    dfield_set_data(dfield, mem_heap_dup(heap, field, len), len);
+    dict_field_t *old_ifield = index->get_field(i);
+    if (old_ifield->col->old_mtype != DATA_MTYPE_MAX) {
+      /* For instant modified colum, it need to get the old field
+      from old index for converting it to newest type, since new
+      index has no any modified type information. */
+      dfield_set_data_instant(old_ifield, dfield,
+                              (const byte *)mem_heap_dup(heap, field, len), len,
+                              heap);
+    } else {
+      dfield_set_data(dfield, mem_heap_dup(heap, field, len), len);
+    }
   }
 
   return (DB_SUCCESS);
@@ -1418,7 +1428,11 @@ void row_log_table_blob_alloc(
       rw_lock_x_unlock(dict_index_get_lock(index));
     } else {
       data = rec_get_nth_field_instant(mrec, offsets, i, index, &len);
-      dfield_set_data(dfield, data, len);
+      if (ind_field->col->old_mtype != DATA_MTYPE_MAX) {
+        dfield_set_data_instant(ind_field, dfield, data, len, heap);
+      } else {
+        dfield_set_data(dfield, data, len);
+      }
     }
 
     if (len != UNIV_SQL_NULL && col->mtype == DATA_MYSQL && col->len != len &&
@@ -2557,9 +2571,10 @@ flag_ok:
         }
 
         for (ulint i = 0; i < dict_index_get_n_unique(new_index) + 2; i++) {
-          const void *field;
+          const byte *field;
           ulint len;
           dfield_t *dfield;
+          const dict_field_t *ifield = new_index->get_field(i);
 
           ut_ad(!rec_offs_nth_extern(new_index, offsets, i));
 
@@ -2567,7 +2582,11 @@ flag_ok:
           ut_ad(rec_field_not_null_not_add_col_def(len));
 
           dfield = dtuple_get_nth_field(old_pk, i);
-          dfield_set_data(dfield, field, len);
+          if (ifield->col->old_mtype != DATA_MTYPE_MAX) {
+            dfield_set_data_instant(ifield, dfield, field, len, heap);
+          } else {
+            dfield_set_data(dfield, field, len);
+          }
         }
 
         mrec = next_mrec;

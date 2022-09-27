@@ -35,90 +35,120 @@ Created 2020-04-24 by Mayank Prasad */
 
 static void populate_to_be_instant_columns_low(
     const Alter_inplace_info *ha_alter_info, const TABLE *old_table,
-    const TABLE *new_table, Columns &cols_to_add, Columns &cols_to_drop);
+    const TABLE *new_table, Columns &cols_to_add, Columns &cols_to_drop,
+    bool &cols_to_modify);
 
 template <typename Table>
-bool Instant_ddl_impl<Table>::is_instant_add_possible(
+bool Instant_ddl_impl<Table>::is_instant_add_drop_possible(
     const Alter_inplace_info *ha_alter_info, const TABLE *table,
-    const TABLE *altered_table, const dict_table_t *dict_table) {
+    const TABLE *altered_table, const dict_table_t *dict_table,
+    bool &is_add_error) {
   Columns cols_to_add;
   Columns cols_to_drop;
+  bool cols_to_modify;
   populate_to_be_instant_columns_low(ha_alter_info, table, altered_table,
-                                     cols_to_add, cols_to_drop);
+                                     cols_to_add, cols_to_drop, cols_to_modify);
 
-  if (cols_to_add.empty()) {
-    return true;
-  }
-
-  const dict_index_t *index = dict_table->first_index();
-
-  /* Get maximum permissible size on page */
-  size_t page_rec_max;
-  size_t page_ptr_max;
-  get_permissible_max_size(dict_table, index, page_rec_max, page_ptr_max);
-
-  /* Get the maximum size of a valid rec in current table */
-  size_t current_max_size;
-  bool res = dict_index_validate_max_rec_size(
-      dict_table, index, true, page_rec_max, page_ptr_max, current_max_size);
-
-  if (res) {
-    /* Table is already in a state where possible row size can go beyond
-    permissible size limit. Don't allow INSTANT ADD */
-    return false;
-  }
-
-  for (auto field : cols_to_add) {
-    if (innobase_is_v_fld(field)) {
-      continue;
+  auto check_instant_add_possible = [&cols_to_add, &dict_table]() -> bool {
+    if (cols_to_add.empty()) {
+      return true;
     }
 
-    /* Get the maximum possible size needed for this field */
-    size_t field_max_size = 0;
-    {
-      ulint col_len;
-      ulint mtype;
-      ulint prtype;
-      get_field_types(nullptr, dict_table, field, col_len, mtype, prtype);
+    const dict_index_t *index = dict_table->first_index();
 
-      /* Create a dummy dict_cot_t and dict_field_t just to calculate size */
-      dict_col_t dummy_col;
-      dummy_col.mtype = (unsigned int)mtype;
-      dummy_col.prtype = (unsigned int)prtype;
-      dummy_col.len = (unsigned int)col_len;
-      ulint mbminlen;
-      ulint mbmaxlen;
-      dtype_get_mblen(mtype, prtype, &mbminlen, &mbmaxlen);
-      dummy_col.set_mbminmaxlen(mbminlen, mbmaxlen);
-      dict_field_t dummy_field;
-      dummy_field.col = &dummy_col;
-      get_field_max_size(dict_table, index, &dummy_field, field_max_size);
-    }
+    /* Get maximum permissible size on page */
+    size_t page_rec_max;
+    size_t page_ptr_max;
+    get_permissible_max_size(dict_table, index, page_rec_max, page_ptr_max);
 
-    current_max_size += field_max_size;
-    if (current_max_size > page_rec_max) {
-      /* Don't allow INSTANT ADD */
+    /* Get the maximum size of a valid rec in current table */
+    size_t current_max_size;
+    bool res = dict_index_validate_max_rec_size(
+        dict_table, index, true, page_rec_max, page_ptr_max, current_max_size);
+
+    if (res) {
+      /* Table is already in a state where possible row size can go beyond
+      permissible size limit. Don't allow INSTANT ADD */
       return false;
     }
+
+    for (auto field : cols_to_add) {
+      if (innobase_is_v_fld(field)) {
+        continue;
+      }
+
+      /* Get the maximum possible size needed for this field */
+      size_t field_max_size = 0;
+      {
+        ulint col_len;
+        ulint mtype;
+        ulint prtype;
+        get_field_types(nullptr, dict_table, field, col_len, mtype, prtype);
+
+        /* Create a dummy dict_cot_t and dict_field_t just to calculate size */
+        dict_col_t dummy_col;
+        dummy_col.mtype = (unsigned int)mtype;
+        dummy_col.prtype = (unsigned int)prtype;
+        dummy_col.len = (unsigned int)col_len;
+        ulint mbminlen;
+        ulint mbmaxlen;
+        dtype_get_mblen(mtype, prtype, &mbminlen, &mbmaxlen);
+        dummy_col.set_mbminmaxlen(mbminlen, mbmaxlen);
+        dict_field_t dummy_field;
+        dummy_field.col = &dummy_col;
+        get_field_max_size(dict_table, index, &dummy_field, field_max_size);
+      }
+
+      current_max_size += field_max_size;
+      if (current_max_size > page_rec_max) {
+        /* Don't allow INSTANT ADD */
+        return false;
+      }
+    }
+    return true;
+  };
+  is_add_error = false;
+  if (!check_instant_add_possible()) {
+    is_add_error = true;
+    return false;
+  }
+  auto check_instant_drop_possible = [&cols_to_drop, &dict_table]() -> bool {
+    if (cols_to_drop.empty()) {
+      return true;
+    }
+    for (auto field : cols_to_drop) {
+      auto col = dict_table->get_col_by_name(field->field_name);
+      if (col && col->is_instant_modified()) {
+        return false;
+      }
+    }
+    return true;
+  };
+  if (!check_instant_drop_possible()) {
+    return false;
   }
 
   return true;
 }
 
-template bool Instant_ddl_impl<dd::Table>::is_instant_add_possible(
+template bool Instant_ddl_impl<dd::Table>::is_instant_add_drop_possible(
     const Alter_inplace_info *ha_alter_info, const TABLE *table,
-    const TABLE *altered_table, const dict_table_t *dict_table);
+    const TABLE *altered_table, const dict_table_t *dict_table,
+    bool &is_add_error);
 
-template bool Instant_ddl_impl<dd::Partition>::is_instant_add_possible(
+template bool Instant_ddl_impl<dd::Partition>::is_instant_add_drop_possible(
     const Alter_inplace_info *ha_alter_info, const TABLE *table,
-    const TABLE *altered_table, const dict_table_t *dict_table);
+    const TABLE *altered_table, const dict_table_t *dict_table,
+    bool &is_add_error);
 
 template <typename Table>
 void Instant_ddl_impl<Table>::commit_instant_add_col_low() {
   ut_ad(!m_dict_table->is_temporary());
 
-  ut_ad(is_instant_add_possible(m_ha_alter_info, m_old_table, m_altered_table,
-                                m_dict_table));
+  ut_d(bool is_add_error = false;);
+  ut_ad(is_instant_add_drop_possible(m_ha_alter_info, m_old_table,
+                                     m_altered_table, m_dict_table,
+                                     is_add_error));
 
   /* To remember old default values if exist */
   dd_copy_table_columns(m_ha_alter_info, m_new_dd_tab->table(),
@@ -180,6 +210,25 @@ void Instant_ddl_impl<dd::Partition>::commit_instant_drop_col() {
   }
 }
 
+/* Changes from txsql start. */
+
+template void Instant_ddl_impl<dd::Table>::commit_instant_modify_col_low();
+template void Instant_ddl_impl<dd::Partition>::commit_instant_modify_col_low();
+
+template <>
+void Instant_ddl_impl<dd::Partition>::commit_instant_modify_column() {
+  if (dd_part_is_first(m_new_dd_tab)) {
+    commit_instant_modify_col_low();
+  }
+}
+
+template <>
+void Instant_ddl_impl<dd::Table>::commit_instant_modify_column() {
+  commit_instant_modify_col_low();
+}
+
+/* Changes from txsql end. */
+
 template <typename Table>
 void Instant_ddl_impl<Table>::commit_instant_ddl() {
   Instant_Type type =
@@ -222,12 +271,14 @@ void Instant_ddl_impl<Table>::commit_instant_ddl() {
       row_mysql_unlock_data_dictionary(m_trx);
       break;
     case Instant_Type::INSTANT_ADD_DROP_COLUMN:
+    case Instant_Type::INSTANT_MODIFY_COLUMN:
       dd_copy_private(*m_new_dd_tab, *m_old_dd_tab);
 
       /* Fetch the columns which are to be added or dropped */
       populate_to_be_instant_columns();
 
-      ut_ad(!m_cols_to_add.empty() || !m_cols_to_drop.empty());
+      ut_ad(!m_cols_to_add.empty() || !m_cols_to_drop.empty() ||
+            m_cols_to_modify);
 
       if (!m_cols_to_drop.empty()) {
         /* INSTANT DROP */
@@ -237,6 +288,13 @@ void Instant_ddl_impl<Table>::commit_instant_ddl() {
       if (!m_cols_to_add.empty()) {
         /* INSTANT ADD */
         commit_instant_add_col();
+      }
+
+      if (m_cols_to_modify) {
+        /* We don't support modify column and add/drop column in one
+        statement. */
+        ut_a(m_cols_to_add.empty() && m_cols_to_drop.empty());
+        commit_instant_modify_column();
       }
 
       /* Update the current row version in dictionary cache */
@@ -267,7 +325,8 @@ template void Instant_ddl_impl<dd::Partition>::commit_instant_ddl();
 
 static void populate_to_be_instant_columns_low(
     const Alter_inplace_info *ha_alter_info, const TABLE *old_table,
-    const TABLE *altered_table, Columns &cols_to_add, Columns &cols_to_drop) {
+    const TABLE *altered_table, Columns &cols_to_add, Columns &cols_to_drop,
+    bool &cols_to_modify) {
   /* Collect all renamed columns */
   using renamed_fields_t = std::pair<std::string, std::string>;
   std::vector<renamed_fields_t> renamed_fields;
@@ -331,6 +390,8 @@ static void populate_to_be_instant_columns_low(
             /* Not renamed, so must be being added */
             cols_to_add.push_back(new_table_field);
           }
+        } else if (is_modified(old_table_field, new_table_field)) {
+          cols_to_modify = true;
         }
 
         found = true;
@@ -405,7 +466,7 @@ template <typename Table>
 void Instant_ddl_impl<Table>::populate_to_be_instant_columns() {
   populate_to_be_instant_columns_low(m_ha_alter_info, m_old_table,
                                      m_altered_table, m_cols_to_add,
-                                     m_cols_to_drop);
+                                     m_cols_to_drop, m_cols_to_modify);
 }
 
 template <typename Table>
@@ -428,3 +489,175 @@ void Instant_ddl_impl<Table>::dd_commit_inplace_no_change(bool ignore_fts) {
                   m_old_dd_tab->table());
   }
 }
+
+/* Changes from txsql start */
+
+template <typename Table>
+void Instant_ddl_impl<Table>::commit_instant_modify_col_low() {
+  ut_ad(!m_dict_table->is_temporary());
+
+  /* To remember old default values if exist */
+  dd_copy_table_columns(m_ha_alter_info, m_new_dd_tab->table(),
+                        m_old_dd_tab->table(), m_dict_table);
+
+  if (dd_table_has_instant_drop_cols(m_old_dd_tab->table())) {
+    /* Copy metadata of already dropped columns */
+    copy_dropped_columns(&m_old_dd_tab->table(), &m_new_dd_tab->table(),
+                         m_dict_table->current_row_version);
+  }
+
+  /* Set old types and length of new columns. */
+  dd_modify_instant_columns(m_old_table, m_altered_table,
+                            &m_new_dd_tab->table(), m_dict_table);
+}
+
+template <typename Table>
+bool Instant_ddl_impl<Table>::is_instant_modify_possible(
+    const Alter_inplace_info *ha_alter_info, const TABLE *old_table,
+    const TABLE *altered_table, dict_table_t *table) {
+  const Create_field *new_field;
+  ulint i = 0;
+  dict_col_t *col = NULL;
+  ut_ad(dict_table_is_comp(table));
+
+  std::map<unsigned int, dict_col_t> new_columns;
+  auto save_new_column_info =
+      [](const Field *new_field, const dict_col_t *old_col,
+         std::map<unsigned int, dict_col_t> &new_columns) {
+        /* Get the mtype and prtype of the old field. Keep this same
+        with the code in dd_fill_dict_table(), except FTS check */
+        ulint prtype = 0;
+        ulint col_len = new_field->pack_length();
+        ulint nulls_allowed;
+        ulint unsigned_type;
+        ulint binary_type;
+        ulint long_true_varchar;
+        ulint charset_no;
+        ulint mbminlen;
+        ulint mbmaxlen;
+        ulint mtype =
+            get_innobase_type_from_mysql_type(&unsigned_type, new_field);
+        nulls_allowed = new_field->is_nullable() ? 0 : DATA_NOT_NULL;
+        binary_type = new_field->binary() ? DATA_BINARY_TYPE : 0;
+        charset_no = 0;
+        if (dtype_is_string_type(mtype)) {
+          charset_no = static_cast<ulint>(new_field->charset()->number);
+        }
+        /* see dd_add_instant_columns */
+        long_true_varchar = 0;
+        if (new_field->type() == MYSQL_TYPE_VARCHAR) {
+          col_len -= new_field->get_length_bytes();
+          if (new_field->get_length_bytes() == 2) {
+            long_true_varchar = DATA_LONG_TRUE_VARCHAR;
+          }
+        }
+        prtype = dtype_form_prtype((ulint)new_field->type() | nulls_allowed |
+                                       unsigned_type | binary_type |
+                                       long_true_varchar,
+                                   charset_no);
+        dtype_get_mblen(mtype, prtype, &mbminlen, &mbmaxlen);
+        dict_col_t new_col = *old_col;
+        new_col.mtype = mtype;
+        new_col.prtype = prtype;
+        new_col.len = col_len;
+        new_col.set_mbminmaxlen(mbminlen, mbmaxlen);
+        unsigned int col_ind = new_col.ind;
+        new_columns.insert({col_ind, new_col});
+      };
+  List_iterator_fast<Create_field> cf_it(
+      ha_alter_info->alter_info->create_list);
+  while ((new_field = (cf_it++)) != NULL) {
+    const Field *field = new_field->field;
+    ulint is_virtual;
+    ulint n_vcols = 0;
+    ulint old_i;
+    i++;
+    is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
+    if (is_virtual) {
+      n_vcols++;
+    }
+    /* Skip unchanged columns. */
+    if (!new_field->change) {
+      continue;
+    }
+    for (old_i = 0; old_table->field[old_i]; old_i++) {
+      const Field *n_field = old_table->field[old_i];
+      if (field == n_field) {
+        break;
+      }
+    }
+    if (is_virtual) {
+      return (false);
+    }
+    field = altered_table->field[i - 1];
+    /* check if modified one column more the one time */
+    col = table->get_col(i - 1 - n_vcols);
+    ut_ad(!col->is_instant_modified());
+    ut_ad(!col->is_instant_added());
+    ut_ad(!col->is_instant_dropped());
+    ut_ad(!table->is_upgraded_instant());
+    save_new_column_info(field, col, new_columns);
+  }
+
+  auto check_clust_index_size =
+      [](std::map<unsigned int, dict_col_t> &new_columns,
+         dict_table_t *table) -> bool {
+    dict_index_t *old_clust = table->first_index();
+    ut_a(old_clust->is_clustered());
+    ut_a(old_clust->type != DICT_FTS);
+    dict_index_t *new_index =
+        dict_mem_index_create(table->name.m_name, old_clust->name, table->space,
+                              old_clust->type, old_clust->n_fields);
+    ut_a(new_index != nullptr);
+    /* Copy the fields of index */
+    dict_index_copy(new_index, old_clust, table, 0, old_clust->n_fields);
+    new_index->n_fields = old_clust->n_fields;
+    new_index->id = old_clust->id;
+    new_index->n_uniq = old_clust->n_uniq;
+    new_index->cached = old_clust->cached;
+    /* replace old column with new column info. */
+    for (ulint i = 0; i < new_index->n_fields; i++) {
+      auto field = new_index->get_field(i);
+      if (field->col->is_virtual()) {
+        continue;
+      }
+      auto it = new_columns.find(field->col->ind);
+      if (it == new_columns.end()) {
+        continue;
+      }
+      auto new_col = &it->second;
+      field->col = new_col;
+      /* see dict_index_add_col. */
+      field->fixed_len = static_cast<unsigned int>(
+          new_col->get_fixed_size(dict_table_is_comp(table)));
+      if (field->fixed_len > DICT_MAX_FIXED_COL_LEN) {
+        field->fixed_len = 0;
+      }
+      field->prefix_len = 0;
+    }
+    bool ret = true;
+    /* param strict is always true for instant modify. */
+    if (dict_index_too_big_for_tree(table, new_index, true)) {
+      ret = false;
+      sql_print_information(
+          "Row size too large, instant modify column is not supported!");
+    }
+    dict_mem_index_free(new_index);
+    return ret;
+  };
+
+  if (!check_clust_index_size(new_columns, table)) {
+    return false;
+  }
+  return true;
+}
+
+template bool Instant_ddl_impl<dd::Table>::is_instant_modify_possible(
+    const Alter_inplace_info *ha_alter_info, const TABLE *old_table,
+    const TABLE *altered_table, dict_table_t *table);
+
+template bool Instant_ddl_impl<dd::Partition>::is_instant_modify_possible(
+    const Alter_inplace_info *ha_alter_info, const TABLE *old_table,
+    const TABLE *altered_table, dict_table_t *table);
+
+/* Changes from txsql end */

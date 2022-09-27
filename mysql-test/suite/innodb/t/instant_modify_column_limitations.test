@@ -1,0 +1,336 @@
+# Support Instant modify Column
+# test some error conditions
+
+# InnoDB does not support compressed tables for page sizes=32k,64k
+--source include/have_innodb_max_16k.inc
+
+--echo #
+--echo # Scenario 1:
+--echo # Create a small table with row_format compressed and modify instant column should fail
+--echo #
+
+CREATE TABLE t1 (a INT, b INT) ROW_FORMAT=COMPRESSED;
+
+INSERT INTO t1 VALUES(1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+
+# Try to instant modify column
+--error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON
+ALTER TABLE t1 modify b bigint, ALGORITHM=INSTANT;
+
+DROP TABLE t1;
+
+
+--echo #
+--echo # Scenario 2:
+--echo # Create a temporary table and adding instant column should fail
+--echo #
+
+CREATE TEMPORARY TABLE tmp1(a int, b int);
+
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE tmp1 modify b int, ALGORITHM=INSTANT;
+
+DROP TABLE tmp1;
+
+--echo #
+--echo # Scenario 3:
+--echo # not support change to a larger length
+--echo #
+
+CREATE TABLE t1(id int primary key, b int);
+
+INSERT INTO t1 VALUES(1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+ALTER TABLE t1 modify b smallint, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Scenario 4:
+--echo # not support change to a smaller length
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+                 a binary(10),
+                 b varbinary(10),
+                 c binary(10),
+                 d varbinary(10),
+                 e bit(10),
+                 f int,
+                 g decimal(5,2)) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+
+alter table t1 modify a binary(20), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change to smaller length
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify b binary(8), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change to smaller length
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify c varbinary(8), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change to smaller length
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify d varbinary(8), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support bit
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify e binary(20), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support decimal
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify g decimal(10,3), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+
+drop table t1;
+
+
+--echo #
+--echo # Scenario 5:
+--echo # not support change to different types
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+                 a binary(10),
+                 b varbinary(10),
+                 c binary(10),
+                 d varbinary(10),
+                 e bit(10),
+                 f int,
+                 g decimal(5,2)) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+
+--echo # not support binary->varchar
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify a varchar(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support varbinary->varchar
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify b varchar(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support binary->char
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify c char(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support varbinary->char
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify d char(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+drop table t1;
+
+create table t1 (id int not null auto_increment primary key,
+                 a char(10),
+                 b varchar(10),
+                 c char(10),
+                 d varchar(10),
+                 e bit(10),
+                 f int,
+                 g decimal(5,2)) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+
+--echo # not support char->varbinary
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify a varbinary(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support varchar->varbinary
+error ER_ALTER_OPERATION_NOT_SUPPORTED;
+alter table t1 modify b varbinary(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support char->binary
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify c binary(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support varchar->binary
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify d binary(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support int->char
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify f char(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support char->int
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify f char(100), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+
+drop table t1;
+
+
+--echo #
+--echo # Scenario 6:
+--echo # not support change nullable, charset, default
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+                 a binary(10) not null,
+                 b varbinary(10),
+                 c char(10) CHARACTER SET utf8,
+                 d varchar(10) CHARACTER SET latin1,
+                 e bit(10),
+                 f int,
+                 g decimal(5,2)) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+
+--echo # not support change nullable
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify a binary(100) null, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change nullable
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify b binary (100) not null, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change charset
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify c char(100) CHARACTER SET latin1, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change charset
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify d char(100) CHARACTER SET utf8, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support signed
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify f bigint unsigned, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+
+drop table t1;
+
+--echo #
+--echo # Scenario 7:
+--echo # not support change one column mutiple times
+--echo #
+
+create table t1 (id int not null auto_increment primary key,
+                 a binary(10) not null,
+                 b varbinary(10),
+                 c char(10) CHARACTER SET utf8,
+                 d varchar(10) CHARACTER SET latin1,
+                 e bit(10),
+                 f int,
+                 g decimal(5,2)) default character set utf8;
+insert into t1 values(1, repeat('a', 8), repeat('b', 8), repeat('c', 8), repeat('d', 8), b'1110', 10000, 3.2);
+
+--echo # support change first time
+alter table t1 modify a binary(100) not null, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change second time
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify a binary(200) not null, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # support change first time
+alter table t1 modify b binary(20), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # not support change second time
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify b varbinary(30), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # support change default
+alter table t1 modify f bigint default 100, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+--echo # support change default
+alter table t1 modify f bigint default 10, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+
+
+drop table t1;
+
+
+--echo #
+--echo # Scenario 8:
+--echo # not support change indexed columns
+--echo #
+
+CREATE TABLE t1(a int primary key, b int, c char(10) unique);
+
+INSERT INTO t1 VALUES(1, 1, 'a'), (2, 2, 'b'), (3, 3, 'c'), (4, 4, 'd'), (5, 5, 'e');
+
+ALTER TABLE t1 modify b bigint, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+# not support
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+ALTER TABLE t1 modify a bigint, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+# not support
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+ALTER TABLE t1 modify c char(12), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+select * from t1;
+
+
+DROP TABLE t1;
+
+
+
+--echo #
+--echo # Scenario 9:
+--echo # only support instant modify column, other the drop, add col, add/drop index
+--echo #
+
+
+create table t1 (id int,
+                 a binary(10),
+                 b varbinary(10),
+                 c int);
+insert into t1 values(1, 'a', 'b', 1);
+
+#no support
+alter table t1 modify c bigint, add d int;
+select count(*) from information_schema.innodb_instant_modified_cols;
+insert into t1 values(2, null, null, -1, 1);
+select * from t1;
+
+#no support
+alter table t1 modify a binary(20), drop d;
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+#no support
+alter table t1 modify b binary(20), add index idx(a);
+select count(*) from information_schema.innodb_instant_modified_cols;
+
+#no support instant add c1 then instant modify c1
+show create table t1;
+alter table t1 add column c1 int, ALGORITHM=INSTANT;
+select count(*) from information_schema.innodb_tables where instant_cols <> 0;
+insert into t1 values(3, null, null, -1, -1);
+
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify column c1 bigint, algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+insert into t1 values(2, null, null, -1, 1);
+select * from t1;
+
+
+show create table t1;
+drop table t1;

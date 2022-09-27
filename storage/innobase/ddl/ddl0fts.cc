@@ -453,6 +453,7 @@ dict_index_t *FTS::create_index(dict_index_t *index, dict_table_t *table,
   field->col = static_cast<dict_col_t *>(
       mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
 
+  field->col->old_mtype = DATA_MTYPE_MAX;
   field->col->len = FTS_MAX_WORD_LEN;
 
   field->col->mtype =
@@ -475,6 +476,7 @@ dict_index_t *FTS::create_index(dict_index_t *index, dict_table_t *table,
       mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
 
   field->col->mtype = DATA_INT;
+  field->col->old_mtype = DATA_MTYPE_MAX;
   *doc_id_32_bit = false;
 
   /* Check whether we can use 4 bytes instead of 8 bytes integer
@@ -522,6 +524,8 @@ dict_index_t *FTS::create_index(dict_index_t *index, dict_table_t *table,
       mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
 
   field->col->mtype = DATA_INT;
+  field->col->old_mtype = DATA_MTYPE_MAX;
+
   field->col->len = 4;
   field->fixed_len = 4;
   field->col->prtype = DATA_NOT_NULL;

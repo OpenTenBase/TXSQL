@@ -4066,6 +4066,11 @@ int ha_innopart::external_lock(THD *thd, int lock_type) {
             return (HA_ERR_NO_SUCH_TABLE);
           }
 
+          if (m_prebuilt->table->has_instant_modified_cols()) {
+            ib::error() << "Export is not supported for instant modified table";
+            return HA_ERR_WRONG_COMMAND;
+          }
+
           row_quiesce_table_start(table, m_prebuilt->trx);
 
           /* Use the transaction instance to track

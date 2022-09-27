@@ -470,9 +470,14 @@ static inline dtuple_t *row_build_low(ulint type, const dict_index_t *index,
 
     field = rec_get_nth_field_instant(copy, offsets, i, index, &len);
 
-    dfield_set_data(dfield, field, len);
+    bool ext_field = rec_offs_nth_extern(index, offsets, i);
+    if (col->old_mtype != DATA_MTYPE_MAX && !ext_field) {
+      dfield_set_data_instant(ind_field, dfield, field, len, heap);
+    } else {
+      dfield_set_data(dfield, field, len);
+    }
 
-    if (rec_offs_nth_extern(index, offsets, i)) {
+    if (ext_field) {
       dfield_set_ext(dfield);
 
       col = col_table->get_col(col_no);
@@ -572,6 +577,7 @@ dtuple_t *row_rec_to_index_entry_low(
   const byte *field;
   ulint len;
   ulint rec_len;
+  const dict_field_t *ifield;
 
   ut_ad(rec != nullptr);
   ut_ad(heap != nullptr);
@@ -599,12 +605,18 @@ dtuple_t *row_rec_to_index_entry_low(
 
   for (i = 0; i < rec_len; i++) {
     dfield = dtuple_get_nth_field(entry, i);
+    ifield = index->get_field(i);
 
     field = rec_get_nth_field_instant(rec, offsets, i, index, &len);
 
-    dfield_set_data(dfield, field, len);
+    bool ext_field = rec_offs_nth_extern(index, offsets, i);
+    if (ifield->col->old_mtype != DATA_MTYPE_MAX && !ext_field) {
+      dfield_set_data_instant(ifield, dfield, field, len, heap);
+    } else {
+      dfield_set_data(dfield, field, len);
+    }
 
-    if (rec_offs_nth_extern(index, offsets, i)) {
+    if (ext_field) {
       dfield_set_ext(dfield);
     }
   }
@@ -1346,3 +1358,140 @@ void test_row_raw_format_int() {
 #endif /* HAVE_UT_CHRONO_T */
 
 #endif /* UNIV_ENABLE_UNIT_TEST_ROW_RAW_FORMAT_INT */
+
+/* Changes from txsql start. */
+
+/*******************************************************************/ /**
+ set data for instant old version record */
+void dfield_set_data_instant(const dict_field_t *ind_field, dfield_t *dfield,
+                             const byte *field, ulint len, mem_heap_t *heap) {
+  ulint fixed_len = ind_field->fixed_len;
+  const dict_col_t *col = ind_field->col;
+
+  /* char convert to varchar need trim */
+  if ((col->len > len && col->mtype == DATA_VARCHAR &&
+       col->old_mtype == DATA_CHAR && col->old_len == len) ||
+      (col->len > len && col->mtype == DATA_BINARY &&
+       col->old_mtype == DATA_FIXBINARY && col->old_len >= len) ||
+      (col->len > len && col->mtype == DATA_VARMYSQL &&
+       col->old_mtype == DATA_MYSQL && col->old_len >= len)) {
+    const byte *data = field;
+    ulint mbminlen;
+    ulint mbmaxlen;
+
+    dtype_get_mblen(col->old_mtype, col->old_prtype, &mbminlen, &mbmaxlen);
+
+    switch (mbminlen) {
+      default:
+        ut_error;
+      case 4:
+        /* space=0x00000020 */
+        /* Trim "half-chars", just in case. */
+        len &= ~3;
+
+        while (len >= 4 && data[len - 4] == 0x00 && data[len - 3] == 0x00 &&
+               data[len - 2] == 0x00 && data[len - 1] == 0x20) {
+          len -= 4;
+        }
+        break;
+      case 2:
+        /* space=0x0020 */
+        /* Trim "half-chars", just in case. */
+        len &= ~1;
+
+        while (len >= 2 && data[len - 2] == 0x00 && data[len - 1] == 0x20) {
+          len -= 2;
+        }
+        break;
+      case 1:
+        /* space=0x20 */
+        while (len > 0 && data[len - 1] == 0x20) {
+          len--;
+        }
+    }
+  }
+
+  dfield_set_data(dfield, field, len);
+
+  /* char/varchar to char need pad */
+  if (fixed_len > 0 && col->old_mtype != DATA_MTYPE_MAX && len < fixed_len) {
+    byte *new_field = (byte *)mem_heap_alloc(heap, fixed_len);
+    /* char/varchar to char need pad */
+    if (col->old_mtype != DATA_INT) {
+      ut_ad(col->old_mtype == DATA_VARCHAR || col->old_mtype == DATA_CHAR ||
+            col->old_mtype == DATA_BINARY || col->old_mtype == DATA_FIXBINARY);
+      ut_ad(col->mtype == DATA_CHAR || col->mtype == DATA_FIXBINARY);
+      ut_ad(col->old_len <= fixed_len);
+
+      memcpy(new_field, field, len);
+
+      if (col->mtype == DATA_CHAR &&
+          (col->old_mtype == DATA_CHAR || col->old_mtype == DATA_VARCHAR)) {
+        row_mysql_pad_col(DATA_MBMINLEN(col->mbminmaxlen), new_field + len,
+                          fixed_len - len);
+      } else if (col->mtype == DATA_FIXBINARY &&
+                 (col->old_mtype == DATA_BINARY ||
+                  col->old_mtype == DATA_FIXBINARY)) {
+        memset(new_field + len, 0x0, fixed_len - len);
+      }
+
+    } else { /* int to bigint */
+      ut_ad(col->mtype == DATA_INT && col->old_mtype == DATA_INT);
+      ut_ad(col->len > col->old_len && fixed_len == col->len &&
+            len == col->old_len);
+
+      byte *end = new_field;
+
+      /* 1: 0x80, 0x0, 0x0, 0x1 -->
+        0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1 */
+      if (col->prtype & DATA_UNSIGNED) {
+        memset(end, 0x0, fixed_len - len);
+        end += fixed_len - len;
+        memcpy(end, field, len);
+        end += len;
+      } else if (field[0] & 0x80) {
+        memset(end, 0x0, fixed_len - len);
+        *end |= 0x80;
+        end += fixed_len - len;
+        memcpy(end, field, len);
+        *end &= 0x7F;
+        end += len;
+      } else {
+        /* -1: 0x7f, 0xff, 0xff, 0xff -->
+          0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff */
+        memset(end, 0xFF, fixed_len - len);
+        *end &= 0x7F;
+        end += fixed_len - len;
+        memcpy(end, field, len);
+        *end |= 0x80;
+        end += len;
+      }
+    }
+
+    dfield_set_data(dfield, new_field, fixed_len);
+  } else if (len < col->len && col->mtype == DATA_MYSQL &&
+             (col->old_mtype == DATA_MYSQL ||
+              col->old_mtype == DATA_VARMYSQL)) {
+    ulint n_chars = col->len / DATA_MBMAXLEN(col->mbminmaxlen);
+
+    /* see row_mysql_store_col_in_innobase_format */
+    if (DATA_MBMINLEN(col->mbminmaxlen) == 1 &&
+        DATA_MBMAXLEN(col->mbminmaxlen) > 1 && len <= n_chars) {
+      if (len < n_chars) {
+        byte *new_field = (byte *)mem_heap_alloc(heap, n_chars);
+        memcpy(new_field, field, len);
+        row_mysql_pad_col(DATA_MBMINLEN(col->mbminmaxlen), new_field + len,
+                          n_chars - len);
+        dfield_set_data(dfield, new_field, n_chars);
+      }
+    } else {
+      byte *new_field = (byte *)mem_heap_alloc(heap, col->len);
+      memcpy(new_field, field, len);
+      row_mysql_pad_col(DATA_MBMINLEN(col->mbminmaxlen), new_field + len,
+                        col->len - len);
+      dfield_set_data(dfield, new_field, col->len);
+    }
+  }
+}
+
+/* Changes from txsql end. */

@@ -557,6 +557,28 @@ static void dd_inplace_alter_copy_instant_metadata(
         ut_ad(v_added == UINT32_UNDEFINED);
       }
     }
+
+    /* Copy info for instant modify. */
+    s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION];
+    if (old_dd_column->se_private_data().exists(s)) {
+      /* copy modified version */
+      uint32_t v_modified = UINT32_UNDEFINED;
+      fn(s, v_modified);
+      ut_a(v_modified > 0);
+      /* copy old_mtype */
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE];
+      uint32_t v_old_mtype = UINT32_UNDEFINED;
+      fn(s, v_old_mtype);
+      ut_a(v_old_mtype != DATA_MTYPE_MAX);
+      /* copy old_prtype */
+      uint32_t v_old_prtype = UINT32_UNDEFINED;
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE];
+      fn(s, v_old_prtype);
+      /* copy old_len */
+      uint32_t v_old_len = UINT32_UNDEFINED;
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN];
+      fn(s, v_old_len);
+    }
   }
 
   if (dd_table_has_instant_drop_cols(*old_dd_tab)) {
@@ -823,6 +845,18 @@ static bool ok_to_rename_column(const Alter_inplace_info *ha_alter_info,
   return true;
 }
 
+extern bool cdb_instant_modify_column_enabled;
+/** Determine if one ALTER TABLE MODIFY COLUMN can be done instantly
+on the table
+@param[in]  ha_alter_info  The DDL operation
+@param[in]  table    InnoDB table
+@param[in]  old_table  old TABLE
+@param[in]  altered_table  new TABLE
+@return true if supported */
+static inline bool innobase_support_modify_instant(
+    const Alter_inplace_info *ha_alter_info, const dict_table_t *table,
+    const TABLE *old_table, const TABLE *altered_table);
+
 /** Determine if one ALTER TABLE can be done instantly on the table
 @param[in]      ha_alter_info   The DDL operation
 @param[in]      table           InnoDB table
@@ -839,8 +873,20 @@ static inline Instant_Type innobase_support_instant(
   Alter_inplace_info::HA_ALTER_FLAGS alter_inplace_flags =
       ha_alter_info->handler_flags & ~INNOBASE_INPLACE_IGNORE;
 
+  bool try_instant_modify = false;
+  if ((alter_inplace_flags == Alter_inplace_info::ALTER_STORED_COLUMN_TYPE ||
+       alter_inplace_flags ==
+           Alter_inplace_info::ALTER_COLUMN_EQUAL_PACK_LENGTH ||
+       alter_inplace_flags ==
+           (Alter_inplace_info::ALTER_STORED_COLUMN_TYPE |
+            Alter_inplace_info::ALTER_COLUMN_EQUAL_PACK_LENGTH))) {
+    try_instant_modify = true;
+  }
+
   if (alter_inplace_flags & ~INNOBASE_INSTANT_ALLOWED) {
-    return (Instant_Type::INSTANT_IMPOSSIBLE);
+    if (!try_instant_modify) {
+      return (Instant_Type::INSTANT_IMPOSSIBLE);
+    }
   }
 
   /* During upgrade, if columns are added in system tables, avoid instant */
@@ -860,6 +906,7 @@ static inline Instant_Type innobase_support_instant(
                      column RENAME */
     INSTANT_DROP, /*|< INSTANT DROP possibly with virtual column ADD/DROP and
                     column RENAME */
+    INSTANT_MODIFY,
     NONE
   };
 
@@ -881,6 +928,8 @@ static inline Instant_Type innobase_support_instant(
     op = INSTANT_OPERATION::INSTANT_ADD;
   } else if (alter_inplace_flags & Alter_inplace_info::DROP_STORED_COLUMN) {
     op = INSTANT_OPERATION::INSTANT_DROP;
+  } else if (try_instant_modify) {
+    op = INSTANT_OPERATION::INSTANT_MODIFY;
   }
 
   switch (op) {
@@ -913,6 +962,20 @@ static inline Instant_Type innobase_support_instant(
       if (table->support_instant_add_drop()) {
         return (Instant_Type::INSTANT_ADD_DROP_COLUMN);
       }
+      break;
+    case INSTANT_OPERATION::INSTANT_MODIFY:
+      if (!cdb_instant_modify_column_enabled) {
+        return (Instant_Type::INSTANT_IMPOSSIBLE);
+      }
+      /* We also use this function to check if instant modify is supported. */
+      if (!table->support_instant_add_drop()) {
+        return (Instant_Type::INSTANT_IMPOSSIBLE);
+      }
+      if (!innobase_support_modify_instant(ha_alter_info, table, old_table,
+                                           altered_table)) {
+        return (Instant_Type::INSTANT_IMPOSSIBLE);
+      }
+      return (Instant_Type::INSTANT_MODIFY_COLUMN);
       break;
     case INSTANT_OPERATION::NONE:
       break;
@@ -1010,21 +1073,22 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
 
   update_thd();
 
+  bool check_instant = false;
   if (ha_alter_info->handler_flags &
       ~(INNOBASE_INPLACE_IGNORE | INNOBASE_ALTER_NOREBUILD |
         INNOBASE_ALTER_REBUILD)) {
     if (ha_alter_info->handler_flags &
         Alter_inplace_info::ALTER_STORED_COLUMN_TYPE) {
-      if (ha_alter_info->alter_info->requested_algorithm ==
-          Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
-        ha_alter_info->unsupported_reason = innobase_get_err_msg(
-            ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_COLUMN_TYPE_INSTANT);
-      } else {
+      if (!(ha_alter_info->alter_info->requested_algorithm ==
+            Alter_info::ALTER_TABLE_ALGORITHM_INSTANT)) {
         ha_alter_info->unsupported_reason = innobase_get_err_msg(
             ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_COLUMN_TYPE);
+        return HA_ALTER_INPLACE_NOT_SUPPORTED;
       }
+      check_instant = true;
+    } else {
+      return HA_ALTER_INPLACE_NOT_SUPPORTED;
     }
-    return HA_ALTER_INPLACE_NOT_SUPPORTED;
   }
 
   /* Only support online add foreign key constraint when check_foreigns is
@@ -1045,14 +1109,22 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
   Instant_Type instant_type = innobase_support_instant(
       ha_alter_info, m_prebuilt->table, this->table, altered_table);
 
+  if (check_instant && instant_type == Instant_Type::INSTANT_IMPOSSIBLE) {
+    ha_alter_info->unsupported_reason = innobase_get_err_msg(
+        ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_COLUMN_TYPE_INSTANT);
+    return HA_ALTER_INPLACE_NOT_SUPPORTED;
+  }
+
   ha_alter_info->handler_trivial_ctx =
       instant_type_to_int(Instant_Type::INSTANT_IMPOSSIBLE);
 
   if (!dict_table_is_partition(m_prebuilt->table)) {
+    bool is_add_error = false;
     switch (instant_type) {
       case Instant_Type::INSTANT_IMPOSSIBLE:
         break;
       case Instant_Type::INSTANT_ADD_DROP_COLUMN:
+      case Instant_Type::INSTANT_MODIFY_COLUMN:
         if (ha_alter_info->alter_info->requested_algorithm ==
             Alter_info::ALTER_TABLE_ALGORITHM_INPLACE) {
           /* Still fall back to INPLACE since the behaviour is different */
@@ -1067,14 +1139,20 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
 
           /* INSTANT can't be done any more. Fall back to INPLACE. */
           break;
-        } else if (!Instant_ddl_impl<dd::Table>::is_instant_add_possible(
+        } else if (instant_type == Instant_Type::INSTANT_ADD_DROP_COLUMN &&
+                   !Instant_ddl_impl<dd::Table>::is_instant_add_drop_possible(
                        ha_alter_info, table, altered_table,
-                       m_prebuilt->table)) {
+                       m_prebuilt->table, is_add_error)) {
           if (ha_alter_info->alter_info->requested_algorithm ==
               Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
-            /* Try to find if after adding columns, any possible row stays
-            within permissible limit. If it doesn't, return error. */
-            my_error(ER_INNODB_INSTANT_ADD_NOT_SUPPORTED_MAX_SIZE, MYF(0));
+            if (is_add_error) {
+              /* Try to find if after adding columns, any possible row stays
+              within permissible limit. If it doesn't, return error. */
+              my_error(ER_INNODB_INSTANT_ADD_NOT_SUPPORTED_MAX_SIZE, MYF(0));
+            } else {
+              /* error caused by instant drop */
+              my_error(ER_CDB_INSTANT_DROP_NOT_SUPPORTED, MYF(0));
+            }
             return HA_ALTER_ERROR;
           }
 
@@ -1084,6 +1162,15 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
           /* In this case, it can't be instant because the table
           may not be empty. Have to fall back to INPLACE */
           break;
+        } else if (instant_type == Instant_Type::INSTANT_MODIFY_COLUMN &&
+                   !Instant_ddl_impl<dd::Table>::is_instant_modify_possible(
+                       ha_alter_info, table, altered_table,
+                       m_prebuilt->table)) {
+          if (ha_alter_info->alter_info->requested_algorithm ==
+              Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
+            my_error(ER_CDB_INSTANT_MODIFY_NOT_SUPPORTED_MAX_SIZE, MYF(0));
+            return HA_ALTER_ERROR;
+          }
         }
         [[fallthrough]];
       case Instant_Type::INSTANT_NO_CHANGE:
@@ -4218,7 +4305,7 @@ static void dd_commit_inplace_update_instant_meta(const dict_table_t *table,
   for (uint16_t i = 0; i < table->get_n_user_cols(); ++i) {
     const dict_col_t *col = table->get_col(i);
 
-    if (col->instant_default == nullptr) {
+    if (col->instant_default == nullptr && col->old_mtype == DATA_MTYPE_MAX) {
       continue;
     }
 
@@ -4226,7 +4313,12 @@ static void dd_commit_inplace_update_instant_meta(const dict_table_t *table,
         dd_find_column(new_dd_tab, table->get_col_name(i)));
     ut_ad(dd_col != nullptr);
 
-    dd_write_default_value(col, dd_col);
+    if (col->instant_default != nullptr) {
+      dd_write_default_value(col, dd_col);
+    }
+    if (col->old_mtype != DATA_MTYPE_MAX) {
+      dd_write_modified_column(table, col, dd_col);
+    }
   }
 }
 
@@ -8964,6 +9056,28 @@ void alter_part_add::inherit_instant_metadata(const dd::Table *source,
         ut_ad(v_added == UINT32_UNDEFINED || v_dropped > 0);
       }
     }
+
+    /* Copy info for instant modify. */
+    if (dd_column_is_modified(src_col)) {
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_VERSION];
+      /* copy modified version */
+      uint32_t v_modified = 0;
+      fn(s, v_modified);
+      ut_a(v_modified > 0);
+      /* copy old_mtype */
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_MTYPE];
+      uint32_t v_old_mtype = UINT32_UNDEFINED;
+      fn(s, v_old_mtype);
+      ut_a(v_old_mtype != DATA_MTYPE_MAX && v_old_mtype != UINT32_UNDEFINED);
+      /* copy old_prtype */
+      uint32_t v_old_prtype = UINT32_UNDEFINED;
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_PRTYPE];
+      fn(s, v_old_prtype);
+      /* copy old_len */
+      uint32_t v_old_len = UINT32_UNDEFINED;
+      s = dd_column_key_strings[DD_INSTANT_MODIFIED_COLUMN_LEN];
+      fn(s, v_old_len);
+    }
   }
 }
 
@@ -10197,10 +10311,12 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
   ha_alter_info->handler_trivial_ctx =
       instant_type_to_int(Instant_Type::INSTANT_IMPOSSIBLE);
 
+  bool is_add_error = false;
   switch (instant_type) {
     case Instant_Type::INSTANT_IMPOSSIBLE:
       break;
     case Instant_Type::INSTANT_ADD_DROP_COLUMN:
+    case Instant_Type::INSTANT_MODIFY_COLUMN:
       if (ha_alter_info->alter_info->requested_algorithm ==
           Alter_info::ALTER_TABLE_ALGORITHM_INPLACE) {
         break;
@@ -10213,13 +10329,20 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
         }
         /* INSTANT can't be done any more. Fall back to INPLACE. */
         break;
-      } else if (!Instant_ddl_impl<dd::Table>::is_instant_add_possible(
-                     ha_alter_info, table, altered_table, m_prebuilt->table)) {
+      } else if (instant_type == Instant_Type::INSTANT_ADD_DROP_COLUMN &&
+                 !Instant_ddl_impl<dd::Table>::is_instant_add_drop_possible(
+                     ha_alter_info, table, altered_table, m_prebuilt->table,
+                     is_add_error)) {
         if (ha_alter_info->alter_info->requested_algorithm ==
             Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
-          /* Try to find if after adding columns, any possible row stays
-          within permissible limit. If it doesn't, return error. */
-          my_error(ER_INNODB_INSTANT_ADD_NOT_SUPPORTED_MAX_SIZE, MYF(0));
+          if (is_add_error) {
+            /* Try to find if after adding columns, any possible row stays
+            within permissible limit. If it doesn't, return error. */
+            my_error(ER_INNODB_INSTANT_ADD_NOT_SUPPORTED_MAX_SIZE, MYF(0));
+          } else {
+            /* error caused by instant drop */
+            my_error(ER_CDB_INSTANT_DROP_NOT_SUPPORTED, MYF(0));
+          }
           return HA_ALTER_ERROR;
         }
 
@@ -10229,6 +10352,14 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
         /* In this case, it can't be instant because the table
         may not be empty. Have to fall back to INPLACE */
         break;
+      } else if (instant_type == Instant_Type::INSTANT_MODIFY_COLUMN &&
+                 !Instant_ddl_impl<dd::Table>::is_instant_modify_possible(
+                     ha_alter_info, table, altered_table, m_prebuilt->table)) {
+        if (ha_alter_info->alter_info->requested_algorithm ==
+            Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
+          my_error(ER_CDB_INSTANT_MODIFY_NOT_SUPPORTED_MAX_SIZE, MYF(0));
+          return HA_ALTER_ERROR;
+        }
       }
       [[fallthrough]];
     case Instant_Type::INSTANT_NO_CHANGE:
@@ -11075,4 +11206,189 @@ func_exit:
   free(part_name);
 
   return error;
+}
+
+/** Determine if one ALTER TABLE MODIFY COLUMN can be done instantly
+on the table
+@param[in]  ha_alter_info  The DDL operation
+@param[in]  table    InnoDB table
+@param[in]  old_table  old TABLE
+@param[in]  altered_table  new TABLE
+@return true if supported */
+static inline bool innobase_support_modify_instant(
+    const Alter_inplace_info *ha_alter_info, const dict_table_t *table,
+    const TABLE *old_table, const TABLE *altered_table) {
+  const Create_field *new_field;
+  ulint i = 0;
+  dict_col_t *col = NULL;
+  if (!dict_table_is_comp(table)) {
+    return (false);
+  }
+  List_iterator_fast<Create_field> cf_it(
+      ha_alter_info->alter_info->create_list);
+  while ((new_field = (cf_it++)) != NULL) {
+    const Field *field = new_field->field;
+    const Field *old_field = NULL;
+    ulint is_virtual;
+    ulint n_vcols = 0;
+    ulint old_i;
+    i++;
+    is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
+    if (is_virtual) {
+      n_vcols++;
+    }
+    /* Skip unchanged columns. */
+    if (!new_field->change) {
+      continue;
+    }
+    /* Check if the column is in index, if yes, not supported. */
+    for (KEY *new_key = ha_alter_info->key_info_buffer;
+         new_key < ha_alter_info->key_info_buffer + ha_alter_info->key_count;
+         new_key++) {
+      for (KEY_PART_INFO *key_part = new_key->key_part;
+           key_part < new_key->key_part + new_key->user_defined_key_parts;
+           key_part++) {
+        const Field *table_field = altered_table->field[key_part->fieldnr];
+        if (my_strcasecmp(system_charset_info, field->field_name,
+                          table_field->field_name) == 0) {
+          return (false);
+        }
+      }
+    }
+    for (old_i = 0; old_table->field[old_i]; old_i++) {
+      const Field *n_field = old_table->field[old_i];
+      if (field == n_field) {
+        break;
+      }
+    }
+    if (is_virtual) {
+      return (false);
+    }
+    field = altered_table->field[i - 1];
+    old_field = old_table->field[old_i];
+    /* check if modified one column more the one time */
+    col = table->get_col(i - 1 - n_vcols);
+    if (col->is_instant_modified()) {
+      return (false);
+    }
+    if (table->is_upgraded_instant()) {
+      /* For convenience, we do not support instant modify table which has
+      instant added column in V1. */
+      sql_print_information(
+          "can not instant modify table with instant added column in V1");
+      return false;
+    }
+    if (col->is_instant_added() || col->is_instant_dropped()) {
+      /* Modifying column which is instant added or dropped is not supported. */
+      return false;
+    }
+    if (field->charset() != old_field->charset() ||
+        field->key_length() < old_field->key_length() ||
+        field->binary() != old_field->binary()) {
+      return (false);
+    }
+    if (old_field->type() == MYSQL_TYPE_TINY) {
+      /* check type */
+      if (field->type() != MYSQL_TYPE_SHORT &&
+          field->type() != MYSQL_TYPE_INT24 &&
+          field->type() != MYSQL_TYPE_LONG &&
+          field->type() != MYSQL_TYPE_LONGLONG) {
+        return (false);
+      }
+      /* check unsigned */
+      if (old_field->key_type() == HA_KEYTYPE_BINARY           /* tinyint */
+          && (field->key_type() != HA_KEYTYPE_USHORT_INT       /* smallint */
+              && field->key_type() != HA_KEYTYPE_UINT24        /* mediumint */
+              && field->key_type() != HA_KEYTYPE_ULONG_INT     /* int */
+              && field->key_type() != HA_KEYTYPE_ULONGLONG)) { /* bigint */
+        return (false);
+      }
+      /* check signed */
+      if (old_field->key_type() == HA_KEYTYPE_INT8            /* tinyint */
+          && (field->key_type() != HA_KEYTYPE_SHORT_INT       /* smallint */
+              && field->key_type() != HA_KEYTYPE_INT24        /* mediumint */
+              && field->key_type() != HA_KEYTYPE_LONG_INT     /* int */
+              && field->key_type() != HA_KEYTYPE_LONGLONG)) { /* bigint */
+        return (false);
+      }
+    } else if (old_field->type() == MYSQL_TYPE_SHORT) {
+      /* check type */
+      if (field->type() != MYSQL_TYPE_INT24 &&
+          field->type() != MYSQL_TYPE_LONG &&
+          field->type() != MYSQL_TYPE_LONGLONG) {
+        return (false);
+      }
+      /* check unsigned */
+      if (old_field->key_type() == HA_KEYTYPE_USHORT_INT       /* smallint */
+          && (field->key_type() != HA_KEYTYPE_UINT24           /* mediumint */
+              && field->key_type() != HA_KEYTYPE_ULONG_INT     /* int */
+              && field->key_type() != HA_KEYTYPE_ULONGLONG)) { /* bigint */
+        return (false);
+      }
+      /* check signed */
+      if (old_field->key_type() == HA_KEYTYPE_SHORT_INT       /* tinyint */
+          && (field->key_type() != HA_KEYTYPE_INT24           /* mediumint */
+              && field->key_type() != HA_KEYTYPE_LONG_INT     /* int */
+              && field->key_type() != HA_KEYTYPE_LONGLONG)) { /* bigint */
+        return (false);
+      }
+    } else if (old_field->type() == MYSQL_TYPE_INT24) {
+      /* check type */
+      if (field->type() != MYSQL_TYPE_LONG &&
+          field->type() != MYSQL_TYPE_LONGLONG) {
+        return (false);
+      }
+      /* check unsigned */
+      if (old_field->key_type() == HA_KEYTYPE_UINT24           /* mediumint */
+          && (field->key_type() != HA_KEYTYPE_ULONG_INT        /* int */
+              && field->key_type() != HA_KEYTYPE_ULONGLONG)) { /* bigint */
+        return (false);
+      }
+      /* check signed */
+      if (old_field->key_type() == HA_KEYTYPE_INT24           /* mediumint */
+          && (field->key_type() != HA_KEYTYPE_LONG_INT        /* int */
+              && field->key_type() != HA_KEYTYPE_LONGLONG)) { /* bigint */
+        return (false);
+      }
+    } else if (old_field->type() == MYSQL_TYPE_LONG) {
+      /* check type */
+      if (field->type() != MYSQL_TYPE_LONGLONG) {
+        return (false);
+      }
+      /* check unsigned */
+      if (old_field->key_type() == HA_KEYTYPE_ULONG_INT   /* int*/
+          && field->key_type() != HA_KEYTYPE_ULONGLONG) { /* bigint */
+        return (false);
+      }
+      /* check signed */
+      if (old_field->key_type() == HA_KEYTYPE_LONG_INT   /* mediumint */
+          && field->key_type() != HA_KEYTYPE_LONGLONG) { /* bigint */
+        return (false);
+      }
+    } else if (old_field->type() == MYSQL_TYPE_VAR_STRING) {
+      if (field->type() != MYSQL_TYPE_VAR_STRING &&
+          field->type() != MYSQL_TYPE_VARCHAR
+          //&& field->type() != MYSQL_TYPE_BIT
+          && field->type() != MYSQL_TYPE_STRING) {
+        return (false);
+      }
+    } else if (old_field->type() == MYSQL_TYPE_VARCHAR) {
+      if (field->type() != MYSQL_TYPE_VAR_STRING &&
+          field->type() != MYSQL_TYPE_VARCHAR
+          //&& field->type() != MYSQL_TYPE_BIT
+          && field->type() != MYSQL_TYPE_STRING) {
+        return (false);
+      }
+    } else if (old_field->type() == MYSQL_TYPE_STRING) {
+      if (field->type() != MYSQL_TYPE_VAR_STRING &&
+          field->type() != MYSQL_TYPE_VARCHAR
+          //&& field->type() != MYSQL_TYPE_BIT
+          && field->type() != MYSQL_TYPE_STRING) {
+        return (false);
+      }
+    } else {
+      return (false);
+    }
+  }
+  return (true);
 }

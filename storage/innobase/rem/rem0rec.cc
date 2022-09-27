@@ -854,6 +854,21 @@ static inline bool rec_convert_dtuple_to_rec_comp(
         ut_ad(len <= fixed_len);
         ut_ad(!mbmaxlen || len >= mbminlen * (fixed_len / mbmaxlen));
         ut_ad(!dfield_is_ext(field));
+
+        /* adjust old version record len when update this row */
+        if (col->old_mtype != DATA_MTYPE_MAX && len < fixed_len) {
+          if (col->old_mtype != DATA_INT) {
+            ut_ad(col->old_mtype == DATA_VARCHAR ||
+                  col->old_mtype == DATA_CHAR);
+            ut_ad(col->mtype == DATA_VARCHAR || col->mtype == DATA_CHAR);
+            ut_ad(col->old_len <= fixed_len);
+          } else {
+            ut_ad(col->mtype == DATA_INT && col->len == 8);
+            ut_ad(col->old_mtype == DATA_INT && col->old_len == 4);
+            ut_ad(fixed_len - len == 4);
+          }
+          ut_ad(0);
+        }
 #endif /* UNIV_DEBUG */
       } else if (dfield_is_ext(field)) {
         ut_ad(DATA_BIG_COL(col));

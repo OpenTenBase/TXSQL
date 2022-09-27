@@ -94,6 +94,11 @@ let $str = `$SELECT_CMD $WHERE_COND`;
 echo $str;
 eval INSERT INTO I_S_check_table(t) VALUES ("$str");
 
+let $WHERE_COND = AND TABLE_NAME='INNODB_INSTANT_MODIFIED_COLS';
+let $str = `$SELECT_CMD $WHERE_COND`;
+echo $str;
+eval INSERT INTO I_S_check_table(t) VALUES ("$str");
+
 let $WHERE_COND = AND TABLE_NAME='INNODB_TABLESPACES_BRIEF';
 let $str = `$SELECT_CMD $WHERE_COND`;
 echo $str;

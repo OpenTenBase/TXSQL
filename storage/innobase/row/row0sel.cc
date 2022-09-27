@@ -516,6 +516,7 @@ static void row_sel_fetch_columns(trx_t *trx, dict_index_t *index,
       if (needs_copy) {
         eval_node_copy_and_alloc_val(column, data, len);
       } else {
+        ut_ad(index->get_field(field_no)->col->old_mtype == DATA_MTYPE_MAX);
         val = que_node_get_val(column);
         dfield_set_data(val, data, len);
       }
@@ -2534,9 +2535,9 @@ void row_sel_field_store_in_mysql_format_func(
     const dict_index_t *index, ulint field_no, const byte *data, ulint len,
     row_prebuilt_t *prebuilt, ulint sec_field) {
   byte *ptr;
-
   const dict_field_t *field =
       templ->is_virtual ? nullptr : index->get_field(field_no);
+
 #ifdef UNIV_DEBUG
   bool clust_templ_for_sec = (sec_field != ULINT_UNDEFINED);
 #endif /* UNIV_DEBUG */
@@ -2563,7 +2564,39 @@ void row_sel_field_store_in_mysql_format_func(
       /* Convert integer data from Innobase to a little-endian
       format, sign bit restored to normal */
 
+      /* 1: 0x80, 0x0, 0x0, 0x1 -->
+            0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x80
+        -1: 0x7f, 0xff, 0xff, 0xff -->
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f
+        -2: 0x7f, 0xff, 0xff, 0xfe -->
+            0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f */
+
       ptr = dest + len;
+
+      /* pad and set thd new signed bit */
+      if (field != nullptr) {
+        if (templ->mysql_col_len != len) {
+          ulint pad_len = templ->mysql_col_len - len;
+          ut_ad(templ->mysql_col_len > len);
+          ut_ad(templ->mysql_col_len == field->col->len);
+          ut_ad(field->col->old_len < field->col->len &&
+                field->col->old_mtype == DATA_INT);
+
+          ptr = dest + templ->mysql_col_len;
+          if (templ->is_unsigned) {
+            memset(ptr - pad_len, 0x0, pad_len);
+            ptr -= pad_len;
+          } else if (data[0] & 0x80) {
+            memset(ptr - pad_len, 0x0, pad_len);
+            *(ptr - 1) |= 0x80;
+            ptr -= pad_len;
+          } else {
+            memset(ptr - pad_len, 0xFF, pad_len);
+            *(ptr - 1) &= 0x7F;
+            ptr -= pad_len;
+          }
+        }
+      }
 
       for (;;) {
         ptr--;
@@ -2574,17 +2607,36 @@ void row_sel_field_store_in_mysql_format_func(
         data++;
       }
 
+      /* reset the old signed bit */
+      if (field != nullptr) {
+        if (templ->mysql_col_len != len && !templ->is_unsigned) {
+          ut_ad(templ->mysql_col_len > len);
+          ut_ad(templ->mysql_col_len == field->col->len);
+          ut_ad(field->col->old_len < field->col->len &&
+                field->col->old_mtype == DATA_INT);
+
+          if (ptr[templ->mysql_col_len - 1] & 0x80) {
+            *(ptr + len - 1) &= 0x7f;
+          } else {
+            *(ptr + len - 1) |= 0x80;
+          }
+        }
+      }
+
       if (!templ->is_unsigned) {
-        dest[len - 1] = (byte)(dest[len - 1] ^ 128);
+        dest[templ->mysql_col_len - 1] =
+            (byte)(dest[templ->mysql_col_len - 1] ^ 128);
       }
 
       if (is_mask) {
         /* First byte is convert to zero, then we set data
         to zero directly. */
-        memset(dest, '\0', len); 
+        memset(dest, '\0', len);
       }
 
-      ut_ad(mysql_col_len == len);
+      ut_ad(templ->mysql_col_len == len ||
+            (field == nullptr ||
+             (field && field->col->old_mtype != DATA_MTYPE_MAX)));
 
       break;
     case DATA_VARCHAR:
@@ -2610,6 +2662,43 @@ void row_sel_field_store_in_mysql_format_func(
       }
 
       if (templ->mysql_type == DATA_MYSQL_TRUE_VARCHAR) {
+        if (field && ((templ->mysql_col_len > len &&
+                       field->col->old_mtype == DATA_CHAR &&
+                       field->col->old_len == len) ||
+                      (templ->mysql_col_len > len &&
+                       field->col->old_mtype == DATA_MYSQL &&
+                       field->col->old_len >= len))) {
+          switch (templ->mbminlen) {
+            default:
+              ut_error;
+            case 4:
+              /* space=0x00000020 */
+              /* Trim "half-chars", just in case. */
+              len &= ~3;
+
+              while (len >= 4 && data[len - 4] == 0x00 &&
+                     data[len - 3] == 0x00 && data[len - 2] == 0x00 &&
+                     data[len - 1] == 0x20) {
+                len -= 4;
+              }
+              break;
+            case 2:
+              /* space=0x0020 */
+              /* Trim "half-chars", just in case. */
+              len &= ~1;
+
+              while (len >= 2 && data[len - 2] == 0x00 &&
+                     data[len - 1] == 0x20) {
+                len -= 2;
+              }
+              break;
+            case 1:
+              /* space=0x20 */
+              while (len > 0 && data[len - 1] == 0x20) {
+                len--;
+              }
+          }
+        }
         /* This is a >= 5.0.3 type true VARCHAR. Store the
         length of the data to the first byte or the first
         two bytes of dest. */
@@ -2722,10 +2811,14 @@ void row_sel_field_store_in_mysql_format_func(
       /* Length of the record will be less in case of
       clust_templ_for_sec is true or if it is fetched
       from prefix virtual column in virtual index. */
-      ut_ad(templ->is_virtual || clust_templ_for_sec ||
-            len * templ->mbmaxlen >= mysql_col_len ||
-            index->has_row_versions() ||
-            (field_no == templ->icp_rec_field_no && field->prefix_len > 0) || is_mask);
+      ut_ad(
+          templ->is_virtual || clust_templ_for_sec ||
+          (field->col->old_mtype == DATA_MYSQL && field->col->old_len >= len) ||
+          (field->col->old_mtype == DATA_VARMYSQL &&
+           field->col->old_len >= len) ||
+          len * templ->mbmaxlen >= mysql_col_len ||
+          (field_no == templ->icp_rec_field_no && field->prefix_len > 0) ||
+          is_mask);
       ut_ad(templ->is_virtual || !(field->prefix_len % templ->mbmaxlen));
 
       /* Pad with spaces. This undoes the stripping
@@ -2743,6 +2836,13 @@ void row_sel_field_store_in_mysql_format_func(
         string, because at least in this case,server should know it's a prefix
         index search and no complete value would be got. */
         memset(dest + len, 0x20, mysql_col_len - len);
+      } else if (templ->mysql_col_len > len && field &&
+                 field->col->old_mtype != DATA_MTYPE_MAX) {
+        ut_ad(field->col->old_mtype == DATA_CHAR ||
+              field->col->old_mtype == DATA_VARCHAR);
+
+        row_mysql_pad_col(templ->mbminlen, dest + len,
+                          templ->mysql_col_len - len);
       }
       break;
 
@@ -2767,14 +2867,33 @@ void row_sel_field_store_in_mysql_format_func(
       happens for end range comparison. So length can
       vary according to secondary index record length. */
       ut_ad((templ->is_virtual && !field) ||
-            (field && field->prefix_len
-                 ? field->prefix_len == len
-                 : clust_templ_for_sec ? 1 : mysql_col_len == len));
+            (field && field->prefix_len ? field->prefix_len == len
+             : clust_templ_for_sec
+                 ? 1
+                 : (templ->mysql_col_len == len ||
+                    field->col->old_mtype != DATA_MTYPE_MAX)));
       if (is_mask) {
         /* For masked value, print zero */
         memcpy(dest, "\0", 1);
       } else {
         memcpy(dest, data, len);
+        if (templ->mysql_col_len > len && field &&
+            field->col->old_mtype != DATA_MTYPE_MAX) {
+          ut_ad(field->col->old_mtype == DATA_CHAR ||
+                field->col->old_mtype == DATA_VARCHAR ||
+                field->col->old_mtype == DATA_BINARY ||
+                field->col->old_mtype == DATA_FIXBINARY);
+          if (field->col->mtype == DATA_CHAR &&
+              (field->col->old_mtype == DATA_CHAR ||
+               field->col->old_mtype == DATA_VARCHAR)) {
+            row_mysql_pad_col(templ->mbminlen, dest + len,
+                              templ->mysql_col_len - len);
+          } else if (field->col->mtype == DATA_FIXBINARY &&
+                     (field->col->old_mtype == DATA_BINARY ||
+                      field->col->old_mtype == DATA_FIXBINARY)) {
+            memset(dest + len, 0x0, templ->mysql_col_len - len);
+          }
+        }
       }
   }
 }

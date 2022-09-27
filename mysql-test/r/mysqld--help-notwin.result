@@ -289,6 +289,20 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-cdb-enable-resource-statistics to disable.)
  --cdb-fire-wall-enabled 
  CDB fire wall switch. Can be ON/OFF.
+ --cdb-forbid-mysql-write 
+ only tencentroot can modify mysql schema when this value
+ is true
+ --cdb-forbid-system-database-write 
+ only tencentroot can modify information_schema,
+ performance_schema and sys database when this value is
+ true 
+ --cdb-hash-scan-index-selection-enabled 
+ Enalbe hash_scan_index_selection
+ --cdb-hash-scan-max-agg-event-size[=#] 
+ Maximum event size allowed after aggregation. Default is
+ 0 and if variable is 0, the event aggregation never work
+ --cdb-instant-modify-column-enabled 
+ Enable instant modify column. Default is FALSE
  --cdb-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
@@ -1898,9 +1912,11 @@ cdb-enable-lock-statistics FALSE
 cdb-enable-precise-memory-usage TRUE
 cdb-enable-resource-statistics TRUE
 cdb-fire-wall-enabled FALSE
+cdb-forbid-mysql-write FALSE
+cdb-hash-scan-max-agg-event-size 0
+cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
 cdb-kill-user-extra (No default value)
-cdb-lock-connect-detect-enabled TRUE
 cdb-max-prefetch-rows 0
 cdb-pt-filter TRUE
 cdb-pt-table-checksum FALSE

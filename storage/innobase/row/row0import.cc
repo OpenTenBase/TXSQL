@@ -1276,6 +1276,13 @@ dberr_t row_import::match_table_columns(THD *thd) UNIV_NOTHROW {
       return (DB_ERROR);
     }
 
+    if (m_table->has_instant_modified_cols()) {
+      /* Now instant modified table doesn't support import. */
+      ib_errf(thd, IB_LOG_LEVEL_ERROR, ER_TABLE_SCHEMA_MISMATCH,
+              "Import is not supported for instant modified table");
+      return (DB_ERROR);
+    }
+
     if ((m_table->initial_col_count != m_initial_column_count) ||
         (m_table->current_col_count != m_current_column_count) ||
         (m_table->total_col_count != m_total_column_count)) {

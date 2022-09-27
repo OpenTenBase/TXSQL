@@ -548,6 +548,12 @@ class Multi_value_entry_builder_insert : public Multi_value_entry_builder {
   }
 };
 
+/* Changes from txsql start. */
+/** set data for instant old version record */
+void dfield_set_data_instant(const dict_field_t *ind_field, dfield_t *dfield,
+                             const byte *field, ulint len, mem_heap_t *heap);
+/* Changes from txsql end. */
+
 #include "row0row.ic"
 
 #endif
