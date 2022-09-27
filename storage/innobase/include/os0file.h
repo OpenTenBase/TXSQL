@@ -2010,6 +2010,11 @@ dberr_t os_file_write_retry(IORequest &type, const char *name,
                             pfs_os_file_t file, const void *buf,
                             os_offset_t offset, ulint n);
 
+/* Changes from TXSQL start. */
+[[nodiscard]] bool os_file_set_size_txsql(const char *name, pfs_os_file_t file,
+                                          os_offset_t offset, os_offset_t size,
+                                          bool flush);
+/* Changes from TXSQL end. */
 #include "os0file.ic"
 #endif /* UNIV_NONINL */
 
