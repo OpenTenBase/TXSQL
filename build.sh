@@ -47,6 +47,8 @@ Usage: `basename $0` [-b <boost_dir>] [-d <dest_dir>] [-s <server_suffix>] [-t d
 
   --rocksdb               Turn on Rocksdb Engin
 
+  -i                      Set git commit
+
   -h, --help              Show this help message.
 
 Note: this script is intended for internal use by MySQL developers.
@@ -165,6 +167,13 @@ parse_options() {
     ;;
     --rocksdb)
       with_rocksdb=1
+    ;;
+    -i=*)
+	  commit_input=`get_key_value "$1"`
+    ;;
+	  -i)
+	  shift
+	  commit_input=`get_key_value "$1"`
     ;;
     -h | --help)
       usage
@@ -323,6 +332,12 @@ else
   rm -f CMakeCache.txt
 fi
 
+if [ ! -n "$commit_input" ]; then
+  git_log=`git log -1 |head -n 1| awk '{print $2}'`
+else
+  git_log=$commit_input
+fi
+
 cd "$pwd/$build_dir"
 check_error
 
@@ -348,6 +363,7 @@ then
 else
   cmk="cmake"
 fi
+
 
 if [ $optimize -eq 0 ];then
   # normal compile.
@@ -387,6 +403,7 @@ if [ $optimize -eq 0 ];then
     -DTXSQL_MODE="txsql"                        \
     -DWITH_JEMALLOC=$jemalloc                   \
     -DLOCAL_GMOCK_ZIP="${gmock_zip}" \
+    -DGIT_COMMIT="$git_log"\
     -DCOMPILATION_COMMENT_SERVER="20221230"
 else 
   # optimize compilation with lto + pgo + bolt.
@@ -441,6 +458,7 @@ else
     -DCMAKE_CXX_COMPILER=${cmake_cxx_compiler}  \
     -DCMAKE_C_COMPILER=${cmake_c_compiler}      \
     -DWITH_JEMALLOC=$jemalloc                   \
+    -DGIT_COMMIT="$git_log"\
     -DCOMPILATION_COMMENT_SERVER="20221230"
 fi
 
