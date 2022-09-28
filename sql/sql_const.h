@@ -332,4 +332,7 @@ enum class enum_condition_context {
 
 /// Used to uniquely name expressions in derived tables
 #define SYNTHETIC_FIELD_NAME "Name_exp_"
+
+#define AUTO_STATS_INTERVAL_BEGIN_DEFAULT_VALUE "03:00"
+#define AUTO_STATS_LONG_QUERY_DEFAULT_VALUE 65536
 #endif /* SQL_CONST_INCLUDED */

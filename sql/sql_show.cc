@@ -148,6 +148,7 @@
 #include "cdb_sql_filter.h"
 #include "sql/deadlock_history.h"
 #include "opt_statistics.h"
+#include "statistics_manager.h"
 
 /* @see dynamic_privileges_table.cc */
 bool iterate_all_dynamic_privileges(THD *thd,
@@ -2868,6 +2869,11 @@ static const char *thread_state_info(THD *invoking_thd, THD *inspected_thd) {
     if (inspected_thd->get_protocol()->get_rw_status() == 2)
       return "Sending to client";
     if (inspected_thd->get_command() == COM_SLEEP) return "";
+    if (inspected_thd->system_thread == SYSTEM_THREAD_STATISTICS_MANAGER &&
+        !Statistics_manager::is_running())
+      return "waiting for start auto statistics";
+    if (inspected_thd->system_thread == SYSTEM_THREAD_STATISTICS_WORKER)
+      return "executing auto statistic tasks";
     return "Receiving from client";
   } else {
     MUTEX_LOCK(lock, &inspected_thd->LOCK_current_cond);
@@ -3310,6 +3316,33 @@ void mysqld_list_cdb_sql_filters(THD *thd) {
   DBUG_VOID_RETURN;
 }
 
+void mysqld_list_stats_node(THD *thd)
+{
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  Protocol *protocol= thd->get_protocol();
+  DBUG_ENTER("mysqld_list_stats_node");
+  field_list.push_back(new Item_empty_string("Host", NAME_CHAR_LEN));
+  field_list.push_back(new Item_return_int("Port", 10, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(new Item_empty_string("Status", NAME_CHAR_LEN));
+ 
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    DBUG_VOID_RETURN;
+  {
+    protocol->start_row();
+    protocol->store(cdb_statistics_host, system_charset_info);
+    protocol->store((longlong) cdb_statistics_port);
+    if (Statistics_manager::errmsg != nullptr)
+      protocol->store(Statistics_manager::errmsg, system_charset_info);
+    else
+      protocol->store_null();
+    protocol->end_row();
+  }
+
+  my_eof(thd);
+  DBUG_VOID_RETURN;
+}
+
 int fill_cdb_sql_filter_info(THD *thd, TABLE_LIST *tables,
                              Item *__attribute__((unused))) {
   DBUG_ENTER("fill_cdb_sql_filter_info");
@@ -3666,6 +3699,35 @@ int fill_deadlock_fields_info(THD* thd, TABLE_LIST* tables, Item* __attribute__(
   TABLE *table= tables->table;
 
   return deadlock_history_fill_i_s(thd, table);
+}
+
+int fill_stats_task_fields_info(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)))
+{
+  DBUG_TRACE;
+  assert((thd != NULL) && (tables != NULL));
+  
+  TABLE *table= tables->table;
+  return Statistics_manager::stats_task_fill_i_s(thd, table);
+}
+
+int fill_stats_node_fields_info(THD* thd, TABLE_LIST* tables, Item* __attribute__((unused)))
+{
+  DBUG_ENTER("fill_stats_node_fields_info");
+  assert((thd != NULL) && (tables != NULL));
+  TABLE *table= tables->table;
+  table->field[0]->store(cdb_statistics_host, strlen(cdb_statistics_host), system_charset_info);
+  table->field[1]->store((longlong) cdb_statistics_port, true);
+  
+  if (Statistics_manager::errmsg != nullptr) {
+    table->field[2]->store(Statistics_manager::errmsg, strlen(Statistics_manager::errmsg), system_charset_info); 
+  } else {
+    table->field[2]->set_null(); 
+  }
+  if (schema_table_store_record(thd, table))
+  {
+    DBUG_RETURN(1);
+  }
+  DBUG_RETURN(0);
 }
 
 /* changes from txsql end. */
@@ -5547,6 +5609,26 @@ ST_FIELD_INFO deadlock_fields_info[] = {
   {nullptr, 0, MYSQL_TYPE_STRING, 0, 0, nullptr, 0}
 };
 
+ST_FIELD_INFO auto_stats_task_fields_info[] =
+{
+  {"TABLE_SCHEMA", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
+  {"TABLE_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
+  {"COLUMN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
+  {"CREATED_TIME", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"EXECUTE_TIME", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"LAST_EXECUTE_TIME", 21, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"ATTEMPTS", 4, MYSQL_TYPE_LONGLONG, 0, 0, 0, 0},
+  {"STATUS", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}
+};
+
+ST_FIELD_INFO auto_stats_node_fields_info[] =
+{
+  {"HOST", HOSTNAME_LENGTH, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
+  {"PORT", 6, MYSQL_TYPE_LONGLONG, 0, 0, nullptr, 0},
+  {"STATUS", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "", 0},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}
+};
 /* changes from txsql end. */
 
 ST_FIELD_INFO sql_statistics_fields_info[] =
@@ -5611,6 +5693,10 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_old_format, nullptr, false},
     {"CDB_SQL_STATISTICS", sql_statistics_fields_info,
      fill_sql_statistics_fields_info, make_old_format, nullptr, false},
+    {"CDB_AUTO_STATS_TASK_STATUS", auto_stats_task_fields_info,
+     fill_stats_task_fields_info, make_old_format, nullptr, false},
+    {"CDB_AUTO_STATS_NODE_STATUS", auto_stats_node_fields_info,
+     fill_stats_node_fields_info, make_old_format, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
 int initialize_schema_table(st_plugin_int *plugin) {

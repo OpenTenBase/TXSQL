@@ -446,6 +446,24 @@ enum enum_cdb_role {
 };
 extern bool cdb_replica_host_detection;
 extern const char *cdb_role_names[];
+// vars for auto statistics
+extern std::atomic<ulong> cdb_statistics_thread_monitor_interval;
+extern std::atomic<uint32> histogram_statistics_concurrency;
+extern std::atomic<bool> cdb_auto_statistics_enabled;
+extern char *auto_stats_interval_begin;
+extern int32 auto_stats_interval_duration;
+extern std::atomic<bool> statistics_node_online;
+extern ulong auto_stats_node_selection;
+enum enum_auto_stats_node_selection{
+  LOCAL = 0,
+  DEDICATED = 1,
+  RO = 2
+};
+extern std::atomic<int32> auto_perf_node_state;
+extern std::atomic<long> auto_stats_thread_monitor_interval;
+extern bool auto_perf_node_request;
+extern char cdb_statistics_host[HOSTNAME_LENGTH + 1];
+extern uint cdb_statistics_port;
 /**
   Variable to check if connection related options are set
   as part of keyring migration.
@@ -764,6 +782,7 @@ extern mysql_mutex_t LOCK_rotate_binlog_master_key;
 extern mysql_mutex_t LOCK_partial_revokes;
 extern mysql_mutex_t LOCK_authentication_policy;
 extern mysql_mutex_t LOCK_global_conn_mem_limit;
+extern mysql_mutex_t LOCK_stats_manager;
 
 extern mysql_cond_t COND_server_started;
 extern mysql_cond_t COND_compress_gtid_table;

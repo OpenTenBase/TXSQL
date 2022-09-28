@@ -575,6 +575,7 @@ SET(SQL_SHARED_SOURCES
   sql_load.cc
   sql_locale.cc
   sql_manager.cc
+  statistics_manager.cc
   sql_optimizer.cc
   sql_parse.cc
   sql_partition.cc

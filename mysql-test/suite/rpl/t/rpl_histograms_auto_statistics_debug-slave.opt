@@ -1,0 +1,2 @@
+--cdb_role=2
+--tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf

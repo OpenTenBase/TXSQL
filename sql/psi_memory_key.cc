@@ -146,6 +146,8 @@ PSI_memory_key key_memory_sp_cache;
 PSI_memory_key key_memory_write_set_extraction;
 PSI_memory_key key_memory_thread_pool_connection;
 PSI_memory_key key_memory_hot_update_metadata;
+PSI_memory_key key_memory_statistics_manager;
+PSI_memory_key key_memory_statistics_task;
 
 #ifdef HAVE_PSI_INTERFACE
 
@@ -391,7 +393,12 @@ static PSI_memory_info all_server_memory[] = {
      "Memory allocated for in-memory sets for persisted variables"},
     {&key_memory_thread_pool_connection, "thread_pool_connection", 0, 0,
      PSI_DOCUMENT_ME},
-    {&key_memory_hot_update_metadata, "hot_update_metadata", 0, 0, PSI_DOCUMENT_ME}};
+    {&key_memory_hot_update_metadata, "hot_update_metadata", 0, 0, 
+     PSI_DOCUMENT_ME},
+    {&key_memory_statistics_manager,"statistics_manager", 0, 0,
+     PSI_DOCUMENT_ME},
+    {&key_memory_statistics_task,"statistics_manager_task", 0, 0,
+     PSI_DOCUMENT_ME}};
 
 void register_server_memory_keys() {
   const char *category = "sql";

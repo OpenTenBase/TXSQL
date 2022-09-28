@@ -9894,6 +9894,8 @@ ER_CDB_INSTANT_MODIFY_NOT_SUPPORTED_MAX_SIZE
 
 ER_CDB_INSTANT_DROP_NOT_SUPPORTED
   eng "Cannot drop instant modified column with ALGORITHM=INSTANT. Try ALGORITHM=INPLACE/COPY."
+ER_CDB_SLAVE_BINLOG_TOO_SLOW_TO_DO_AUTO_STATS
+  eng "SBM exceeds the threshold and cannot perform the statistics task"
 
 ER_NOT_FOUND_RECYCLE_BIN
   eng "The %s database was not found."

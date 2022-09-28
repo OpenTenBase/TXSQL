@@ -1,0 +1,168 @@
+###############################################################################
+#                                                                             #
+# File containing basic tests for auto statistics concurrency variable        #
+#                                                                             #
+###############################################################################
+
+--echo #
+--echo # Variable name : histogram_statistics_concurrency
+--echo # Scope         : Global
+--echo #
+
+###################################################################
+#        START OF histogram_statistics_concurrency TESTS          #
+###################################################################
+
+
+#############################################################
+#                 Save initial value                        #
+#############################################################
+
+SET @start_global_value = @@global.histogram_statistics_concurrency;
+SELECT @start_global_value;
+
+--echo
+##########################################################################
+#     Display the DEFAULT value of histogram_statistics_concurrency      #
+##########################################################################
+
+SET @@global.histogram_statistics_concurrency = 16;
+SET @@global.histogram_statistics_concurrency = DEFAULT;
+SELECT @@global.histogram_statistics_concurrency;
+
+--echo
+###########################################################################
+#     Check the DEFAULT value of histogram_statistics_concurrency         #
+###########################################################################
+
+SET @@global.histogram_statistics_concurrency = DEFAULT;
+SELECT @@global.histogram_statistics_concurrency = 10;
+
+--echo
+##########################################################################################
+# Change the value of histogram_statistics_concurrency to a valid value for GLOBAL Scope #
+##########################################################################################
+
+SET @@global.histogram_statistics_concurrency = 1;
+SELECT @@global.histogram_statistics_concurrency;
+SET @@global.histogram_statistics_concurrency = 25;
+SELECT @@global.histogram_statistics_concurrency;
+SET @@global.histogram_statistics_concurrency = 50;
+SELECT @@global.histogram_statistics_concurrency;
+SET @@global.histogram_statistics_concurrency = 75;
+SELECT @@global.histogram_statistics_concurrency;
+SET @@global.histogram_statistics_concurrency = 100;
+SELECT @@global.histogram_statistics_concurrency;
+
+
+--echo
+#################################################################################
+#           Check if variable can be access with session scope                  #
+#################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@histogram_statistics_concurrency = 2;
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.histogram_statistics_concurrency = 3;
+
+--Error ER_GLOBAL_VARIABLE
+SET @@local.histogram_statistics_concurrency = 4;
+
+
+
+--echo
+############################################################################
+# Change the value of histogram_statistics_concurrency to an invalid value #
+############################################################################
+
+SET @@global.histogram_statistics_concurrency = -1;
+SELECT @@global.histogram_statistics_concurrency;
+
+SET @@global.histogram_statistics_concurrency = -2147483648;
+SELECT @@global.histogram_statistics_concurrency;
+
+SET @@global.histogram_statistics_concurrency = 2147483649*2;
+SELECT @@global.histogram_statistics_concurrency;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.histogram_statistics_concurrency = 65530.34;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.histogram_statistics_concurrency = '125';
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.histogram_statistics_concurrency = 7483649.56;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.histogram_statistics_concurrency = 1G;
+
+--echo
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+SET @@global.histogram_statistics_concurrency = 12;
+--disable_warnings
+SELECT @@global.histogram_statistics_concurrency = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='histogram_statistics_concurrency';
+--enable_warnings
+
+
+--echo
+###########################################################################
+#  Check if the value is present in performance_schema.session_variables  #
+###########################################################################
+
+--disable_warnings
+SELECT count(VARIABLE_VALUE)
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='histogram_statistics_concurrency';
+--enable_warnings
+
+
+--echo
+####################################################################
+#     Check if TRUE and FALSE values can be used on variable       #
+####################################################################
+
+SET @@global.histogram_statistics_concurrency = TRUE;
+SELECT @@global.histogram_statistics_concurrency;
+SET @@global.histogram_statistics_concurrency = FALSE;
+SELECT @@global.histogram_statistics_concurrency;
+
+
+--echo
+#################################################################################
+#  Check if accessing variable with and without GLOBAL point to same variable   #
+#################################################################################
+
+
+SET @@global.histogram_statistics_concurrency = 19;
+SELECT @@histogram_statistics_concurrency = @@global.histogram_statistics_concurrency;
+
+
+--echo
+#########################################################################################
+#   Check if histogram_statistics_concurrency can be accessed without @@ sign and scope #
+#########################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET histogram_statistics_concurrency = 2048;
+--Error ER_BAD_FIELD_ERROR
+SELECT histogram_statistics_concurrency;
+
+SELECT @@histogram_statistics_concurrency;
+
+#verifying another another syntax for setting value
+SET global histogram_statistics_concurrency = 20;
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.histogram_statistics_concurrency = @start_global_value;
+SELECT @@global.histogram_statistics_concurrency;
+
+########################################################
+#     END OF histogram_statistics_concurrency TESTS    #
+########################################################
+

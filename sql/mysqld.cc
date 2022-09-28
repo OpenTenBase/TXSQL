@@ -781,6 +781,7 @@ MySQL clients support the protocol:
 #include "sql/derror.h"
 #include "sql/event_data_objects.h"  // init_scheduler_psi_keys
 #include "sql/events.h"              // Events
+#include "sql/statistics_manager.h"  // statistics_manager_init()
 #include "sql/handler.h"
 #include "sql/hostname_cache.h"  // hostname_cache_init
 #include "sql/init.h"            // unireg_init
@@ -1135,6 +1136,7 @@ static PSI_thread_key key_thread_signal_hand;
 static PSI_thread_key key_thread_main;
 static PSI_file_key key_file_casetest;
 static PSI_file_key key_file_pid;
+static PSI_mutex_key key_LOCK_statistics_tasks_pool;
 #if defined(_WIN32)
 static PSI_thread_key key_thread_handle_con_namedpipes;
 static PSI_thread_key key_thread_handle_con_sharedmem;
@@ -1639,6 +1641,7 @@ mysql_mutex_t LOCK_socket_listener_active;
 mysql_cond_t COND_socket_listener_active;
 mysql_mutex_t LOCK_start_signal_handler;
 mysql_cond_t COND_start_signal_handler;
+mysql_mutex_t LOCK_stats_manager;
 #endif
 
 /*
@@ -2703,6 +2706,9 @@ static void clean_up(bool print_message) {
   dd::shutdown();
 
   Events::deinit();
+
+  Statistics_manager::deinit();
+
   stop_handle_manager();
 
   memcached_shutdown();
@@ -2878,7 +2884,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_password_reuse_interval);
   mysql_cond_destroy(&COND_manager);
   mysql_mutex_destroy(&LOCK_transmit_client_access);
-
+  mysql_mutex_destroy(&LOCK_stats_manager);
 #ifdef _WIN32
   mysql_cond_destroy(&COND_handler_count);
   mysql_mutex_destroy(&LOCK_handler_count);
@@ -4555,6 +4561,14 @@ SHOW_VAR com_status_vars[] = {
      (char*) offsetof(System_status_var, 
                       com_stat[(uint) SQLCOM_SHOW_OUTLINE_INFO]),       
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_auto_stats_task_status",
+     (char*) offsetof(System_status_var,
+                      com_stat[(uint) SQLCOM_SHOW_STATS_TASKS]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_auto_stats_node_status",
+     (char*) offsetof(System_status_var,
+                      com_stat[(uint) SQLCOM_SHOW_STATS_NODE]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL}, 
     {"shutdown",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHUTDOWN]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
@@ -5614,6 +5628,8 @@ static int init_thread_environment() {
   mysql_cond_init(key_COND_compress_gtid_table, &COND_compress_gtid_table);
   mysql_mutex_init(key_LOCK_transmit_client_access,
                    &LOCK_transmit_client_access, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_statistics_tasks_pool,
+                   &LOCK_stats_manager, MY_MUTEX_INIT_FAST);
   Events::init_mutexes();
 #if defined(_WIN32)
   mysql_mutex_init(key_LOCK_handler_count, &LOCK_handler_count,
@@ -5651,6 +5667,7 @@ static int init_thread_environment() {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_conn_mem_limit, &LOCK_global_conn_mem_limit,
                    MY_MUTEX_INIT_FAST);
+  Statistics_manager::init_mutexes();
   return 0;
 }
 
@@ -8590,6 +8607,9 @@ int mysqld_main(int argc, char **argv)
 
   start_cdb_sql_statistics_clear_expired_info_thread();
 
+  Statistics_manager::state = Statistics_manager::UNINITIALIZED;
+  if (Statistics_manager::init()) unireg_abort(MYSQLD_ABORT_EXIT);
+
   create_compress_gtid_table_thread();
 
   LogEvent()
@@ -10408,6 +10428,8 @@ SHOW_VAR status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Total_pfs_memory_used", (char *)&show_total_pfs_memory_used, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Auto_perf_node_state", (char*) &auto_perf_node_state, SHOW_INT,
+     SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {
@@ -10564,10 +10586,12 @@ static int mysql_init_variables() {
   memset(&global_status_var, 0, sizeof(global_status_var));
   opt_large_pages = false;
   opt_super_large_pages = false;
+  auto_perf_node_state = 0;
 #if defined(ENABLED_DEBUG_SYNC)
   opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */
   server_uuid[0] = 0;
+  cdb_statistics_host[0] = 0;
 
   /* Character sets */
   system_charset_info = &my_charset_utf8_general_ci;
@@ -10591,6 +10615,7 @@ static int mysql_init_variables() {
   }
   /* set key_cache_hash.default_value = dflt_key_cache */
   multi_keycache_init();
+  auto_perf_node_request = 0;
 
   /* Replication parameters */
   master_info_file = "master.info";
@@ -12351,7 +12376,8 @@ static PSI_mutex_info all_server_mutexes[]=
 { &key_LOCK_authentication_policy, "LOCK_authentication_policy", PSI_FLAG_SINGLETON, 0, "A lock to ensure execution of CREATE USER or ALTER USER sql and SET @@global.authentication_policy variable are serialized"},
   { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME},
-  { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME}
+  { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_statistics_tasks_pool, "LOCK_stats_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -13065,3 +13091,18 @@ ulong cdb_node_role;
 bool cdb_replica_host_detection = true;
 const char *cdb_role_names[] = {"CDB_ROLE_UNKNOWN", "CDB_ROLE_MASTER",
                                 "CDB_ROLE_SLAVE", "CDB_ROLE_RO", NullS};
+
+// vars for auto statistics
+std::atomic<ulong> cdb_statistics_thread_monitor_interval;
+std::atomic<uint32> histogram_statistics_concurrency{0};
+std::atomic<bool> cdb_auto_statistics_enabled{false};
+char *auto_stats_interval_begin;
+int32 auto_stats_interval_duration;
+ulong auto_stats_node_selection;
+std::atomic<bool> statistics_node_online{false};
+std::atomic<int8> auto_stats_node_state;
+std::atomic<long> auto_stats_thread_monitor_interval;
+bool auto_perf_node_request;
+char cdb_statistics_host[HOSTNAME_LENGTH + 1];
+uint cdb_statistics_port = 0;
+std::atomic<int32> auto_perf_node_state;

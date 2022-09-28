@@ -800,31 +800,4 @@ private:
   }
 };
 
-extern PolyLock_rwlock tencent_root_all_lock;
-
-extern Tencentroot_config_password tencent_root_password_config;
-
-extern bool in_tencent_root_whitelist(const char *ip);
-
-extern bool is_tencent_root_array_var(const char *var_name);
-
-extern bool reload_tencent_root_cnf(void);
-
-extern bool flush_tencent_root_cnf(THD *thd);
-
-extern const char *get_tencent_root_login_user(THD *thd);
-
-extern bool init_tencent_root();
-
-extern bool check_tencent_root_user_and_ip(THD *thd,
-                                           NET *net,
-                                           const char *user_name);
-
-extern bool inc_tencent_root_count(THD *thd);
-
-extern void dec_tencent_root_count(THD *thd);
-
-extern void mysqld_show_tencent_root(THD *thd,
-                                     const LEX_STRING tencent_root_user);
-
 #endif

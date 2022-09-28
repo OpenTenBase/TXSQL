@@ -290,4 +290,16 @@ bool thd_is_bootstrap_thread(THD *thd);
 bool thd_is_dd_update_stmt(const THD *thd);
 
 my_thread_id thd_thread_id(const THD *thd);
+
+/**
+  Check whether the auto statistics module is running.
+*/
+bool auto_statistics_is_running();
+
+/**
+  add a new statistics task to thd statistics manager.
+*/
+bool add_auto_statistics_task(const char* db_name,
+    const int db_name_length, const char* table_name,
+    const int table_name_length, const std::vector<std::string> &columns);
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

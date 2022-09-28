@@ -159,6 +159,9 @@ int register_replica(THD *thd, uchar *packet, size_t packet_length) {
   unregister_replica(thd, false, false /*need_lock_slave_list=false*/);
   res = !slave_list.emplace(si->server_id, std::move(si)).second;
   mysql_mutex_unlock(&LOCK_replica_list);
+  if (cdb_auto_statistics_enabled) {
+    refresh_auto_stats_node(true /*need_lock_slave_list=true*/);
+  }
   return res;
 
 err:
@@ -179,6 +182,9 @@ void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list) {
       slave_list.erase(it);
 
     if (need_lock_slave_list) mysql_mutex_unlock(&LOCK_replica_list);
+    if (cdb_auto_statistics_enabled) {
+      refresh_auto_stats_node(need_lock_slave_list);
+    }
   }
 }
 
@@ -196,7 +202,7 @@ void report_slave_role(THD *thd, ulong role) {
       }
 
       it->second->role = role;
-      // auto_perf_node_state &=~2;
+
       if (cdb_replica_host_detection && strlen(it->second->host) == 0) {
         Security_context *inspect_sctx = thd->security_context();
         LEX_CSTRING inspect_sctx_host = inspect_sctx->host();
@@ -208,6 +214,29 @@ void report_slave_role(THD *thd, ulong role) {
                   HOSTNAME_LENGTH);
         }
       }
+
+      if (auto_stats_node_selection != LOCAL) {
+        if (strlen(it->second->host) == 0) {
+          Security_context *inspect_sctx = thd->security_context();
+          LEX_CSTRING inspect_sctx_host = inspect_sctx->host();
+          LEX_CSTRING inspect_sctx_host_or_ip = inspect_sctx->host_or_ip();
+
+          if ((inspect_sctx_host.length || inspect_sctx->ip().length) &&
+              thd->security_context()->host_or_ip().str[0]) {
+            strncpy(it->second->host, inspect_sctx_host_or_ip.str,
+                    HOSTNAME_LENGTH);
+          }
+        }
+        if ((auto_stats_node_selection == DEDICATED &&
+            role == CDB_ROLE_SLAVE) ||
+            (auto_stats_node_selection == RO &&
+            role == CDB_ROLE_RO) ) {
+          auto_perf_node_state &=~2;
+        }
+      }
+
+      // refresh status node info after setting role
+      refresh_auto_stats_node(false /*need_lock_slave_list=true*/);
     }
     mysql_mutex_unlock(&LOCK_replica_list);
   }
@@ -273,6 +302,33 @@ bool show_replicas(THD *thd) {
   }
   mysql_mutex_unlock(&LOCK_replica_list);
   my_eof(thd);
+  return false;
+}
+
+bool refresh_auto_stats_node(bool need_lock_slave_list) {
+  // reset host & port
+  cdb_statistics_port = 0;
+  cdb_statistics_host[0] = '\0';
+
+  if (need_lock_slave_list)
+    mysql_mutex_lock(&LOCK_replica_list);
+  else
+    mysql_mutex_assert_owner(&LOCK_replica_list);
+
+  for (const auto &key_and_value : slave_list) {
+    REPLICA_INFO *si = key_and_value.second.get();
+    if ((auto_stats_node_selection == DEDICATED &&
+            si->role == CDB_ROLE_SLAVE) ||
+        (auto_stats_node_selection == RO &&
+            si->role == CDB_ROLE_RO) ) {
+      strncpy(cdb_statistics_host, si->host, HOSTNAME_LENGTH);
+      cdb_statistics_host[HOSTNAME_LENGTH] = '\0';
+      cdb_statistics_port = (uint32)si->port;
+    }
+  }
+
+  if (need_lock_slave_list)
+    mysql_mutex_unlock(&LOCK_replica_list);
   return false;
 }
 

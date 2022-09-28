@@ -88,6 +88,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "current_thd.h"
 #include "my_dbug.h"
 #include "my_io.h"
+#include "sql/sql_thd_internal_api.h" // auto statistics
 
 static const char *MODIFICATIONS_NOT_ALLOWED_MSG_FORCE_RECOVERY =
     "innodb_force_recovery is on. We do not allow database modifications"
@@ -1494,6 +1495,38 @@ static inline void row_update_statistics_if_needed(
         && dict_stats_auto_recalc_is_enabled(table)) {
       dict_stats_recalc_pool_add(table);
       table->stat_modified_counter = 0;
+
+      // add a new histogram statistics for auto statistics
+      if (!table->is_system_table && srv_stats_recalc_with_histogram
+          && auto_statistics_is_running()) {
+        std::string db_name;
+        std::string tbl_name;
+        dict_name::get_table(table->name.m_name, db_name, tbl_name);
+
+        std::vector<std::string> columns;
+        dict_col_t *col = table->cols;
+
+        for (ulint i = 0; i < table->n_cols; ++i, ++col) {
+          // block unsupported column type of histogram
+          // see: histograms::field_type_to_value_map_type and
+          //      get_innobase_type_from_mysql_type (innodb)
+          if (col->is_visible && col->mtype != DATA_GEOMETRY &&
+              col->mtype != DATA_POINT && col->mtype != DATA_VAR_POINT) {
+            const char *col_name;
+            col_name = table->get_col_name(dict_col_get_no(col));
+
+            char c_col_name[NAME_CHAR_LEN + 1];
+            memcpy(c_col_name, col_name, strlen(col_name));
+            c_col_name[strlen(col_name)] = '\0';
+
+            columns.emplace_back(std::move(c_col_name));
+          }
+        }
+
+        if (!columns.empty())
+          add_auto_statistics_task(db_name.c_str(), db_name.length(),
+                                   tbl_name.c_str(), tbl_name.length(), columns);
+      }
     }
     return;
   }

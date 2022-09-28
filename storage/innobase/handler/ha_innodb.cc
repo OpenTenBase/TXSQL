@@ -22481,6 +22481,14 @@ static MYSQL_SYSVAR_BOOL(
     " new statistics)",
     nullptr, nullptr, true);
 
+static MYSQL_SYSVAR_BOOL(
+    stats_recalc_with_histogram, srv_stats_recalc_with_histogram, PLUGIN_VAR_OPCMDARG,
+    "Under the premise of enabled InnoDB automatic recalculation of persistent"
+    "statistics and auto statistics for histogram (cdb_auto_statistics_enabled), "
+    "automatic histogram recalculation is triggered when InnoDB decides"
+    "that the table has changed too much and needs a new statistics.",
+    nullptr, nullptr, false);
+
 static MYSQL_SYSVAR_ULONGLONG(
     stats_persistent_sample_pages, srv_stats_persistent_sample_pages,
     PLUGIN_VAR_RQCMDARG,
@@ -24034,6 +24042,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(stats_persistent),
     MYSQL_SYSVAR(stats_persistent_sample_pages),
     MYSQL_SYSVAR(stats_auto_recalc),
+    MYSQL_SYSVAR(stats_recalc_with_histogram),
     MYSQL_SYSVAR(adaptive_hash_index),
     MYSQL_SYSVAR(adaptive_hash_index_parts),
     MYSQL_SYSVAR(fast_ahi_cleanup_for_drop_table),

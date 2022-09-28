@@ -122,6 +122,8 @@ enum class Message {
   HISTOGRAM_HISTORY_VERSION_LOAD_FAILURE,
   HISTOGRAM_HISTORY_VERSION_CREATED,
   HISTOGRAM_HISTORY_VERSION_CREATE_FAILURE,
+  HISTOGRAM_AUTO_STATS_CREATED,
+  HISTOGRAM_AUTO_STATS_CREATE_FAILURE,
 };
 
 struct Histogram_psi_key_alloc {
@@ -260,6 +262,8 @@ class Error_context {
     @return true for binary JSON, false otherwise
    */
   bool binary() const { return m_binary; }
+
+  void set_not_binary_format() { m_binary = false; }
 
  private:
   /// Thread context for error handlers
@@ -625,6 +629,15 @@ class Histogram {
     @return false on success, true on error.
   */
   bool store_histogram(THD *thd) const;
+
+  /**
+    Store this histogram to persistent storage for auto stats
+
+    @param thd Thread handler.
+
+    @return false on success, true on error.
+  */
+  bool store_histogram_worker(THD *thd) const;
 
   /**
     Get selectivity estimation.
