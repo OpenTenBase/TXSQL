@@ -8129,4 +8129,12 @@ static Sys_var_bool Sys_txsql_load_data_local_strict_mode(
     "statement",
     GLOBAL_VAR(g_txsql_load_data_local_strict_mode), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+#ifdef SHOW_GIT_COMMIT
+static char *server_git_commit_ptr;
+static Sys_var_charptr Sys_git_commit(
+    "git_commit", "git_commit",
+    READ_ONLY GLOBAL_VAR(server_git_commit_ptr), NO_CMD_LINE,
+    IN_SYSTEM_CHARSET, SHOW_GIT_COMMIT);
+#endif
 /* Changes from txsql end. */
