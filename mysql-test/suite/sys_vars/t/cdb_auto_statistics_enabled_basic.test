@@ -1,0 +1,75 @@
+###############################################################################
+#                                                                             #
+# File containing basic tests for auto statistics                             #
+#                                                                             #
+###############################################################################
+
+--echo #
+--echo # Variable name : cdb_auto_statistics_enabled
+--echo # Scope         : Global
+--echo #
+
+# Save the global value to be used to restore the original value.
+SET @global_saved_tmp =  @@global.cdb_auto_statistics_enabled;
+--echo
+
+--echo # Global - default
+SELECT @@global.cdb_auto_statistics_enabled;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.cdb_auto_statistics_enabled;
+--echo
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.cdb_auto_statistics_enabled= 'true';
+--echo
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.cdb_auto_statistics_enabled= 100;
+--echo
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.cdb_auto_statistics_enabled= WRONGVALUE;
+--echo
+
+--echo # via performance_schema.global_variables
+--disable_warnings
+SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME LIKE 'cdb_auto_statistics_enabled';
+--enable_warnings
+
+# Altering global variable's value
+SET @@global.cdb_auto_statistics_enabled = 0;
+SELECT @@global.cdb_auto_statistics_enabled;
+
+SET @@global.cdb_auto_statistics_enabled = TrUe;
+SELECT @@global.cdb_auto_statistics_enabled;
+
+SET @@global.cdb_auto_statistics_enabled = FaLsE;
+SELECT @@global.cdb_auto_statistics_enabled;
+--echo
+
+--echo # Variables' values in a new session.
+connect (con1,"127.0.0.1",root,,test,$MASTER_MYPORT,);
+
+--echo # Global - expect 0
+SELECT @@global.cdb_auto_statistics_enabled;
+--echo
+
+--echo # Switching to the default connection.
+connection default;
+
+SELECT @@global.cdb_auto_statistics_enabled;
+--echo
+
+--echo # Test if DEFAULT is working as expected.
+SET @@global.cdb_auto_statistics_enabled = DEFAULT;
+--echo
+
+--echo # Global - expect 0
+SELECT @@global.cdb_auto_statistics_enabled;
+--echo
+
+--echo # Restoring the original values.
+SET @@global.cdb_auto_statistics_enabled = @global_saved_tmp;
+
+--echo # End of tests.
+

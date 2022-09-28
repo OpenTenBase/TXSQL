@@ -156,7 +156,9 @@
 
 /* Changes from txsql start. */
 #include "mysqld_error.h"
-#include "sql/threadpool.h"
+#include "sql/rpl_source.h"
+#include "sql/statistics_manager.h"
+
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_histogram.h"  // MAX_NUMBER_OF_BUCKETS
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
@@ -8002,6 +8004,13 @@ static Sys_var_enum Sys_cdb_role(
     GLOBAL_VAR(cdb_node_role), CMD_LINE(REQUIRED_ARG),
     cdb_role_names, DEFAULT(CDB_ROLE_UNKNOWN));
 
+static Sys_var_int32 Sys_histogram_statistics_concurrency(
+    "histogram_statistics_concurrency",
+    "limitation of concurrency of the histogram statistics."
+    "It takes effect only when the slave host and port are set.",
+    GLOBAL_VAR(histogram_statistics_concurrency), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 1000), DEFAULT(10), BLOCK_SIZE(1));
+
 static Sys_var_bool Sys_cdb_replica_host_detection(
     "cdb_replica_host_detection",
     "Autocomplete the Hostname or IP of the slave if the option "
@@ -8255,6 +8264,113 @@ static Sys_var_bool Sys_tdsql_compat_oracle_mode(
     "tdsql_compat_oracle_mode",
     "Keep tdsql compatible with oracle if it's set.",
     GLOBAL_VAR(g_tdsql_compat_oracle_mode), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static bool refresh_auto_stats_status(sys_var *, THD *, enum_var_type) {
+  bool ret;
+  if (!cdb_auto_statistics_enabled) {
+    ret = Statistics_manager::stop();
+  } else {
+    refresh_auto_stats_node(true /*need_lock_slave_list=true*/);
+    mysql_mutex_unlock(&LOCK_global_system_variables);
+    ret = Statistics_manager::start();
+    mysql_mutex_lock(&LOCK_global_system_variables);
+  }
+  return ret;
+}
+
+static Sys_var_bool Sys_cdb_auto_statistics_enabled(
+    "cdb_auto_statistics_enabled",
+    "Enable auto statistics for histogram.",
+    GLOBAL_VAR(cdb_auto_statistics_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(refresh_auto_stats_status));
+
+static bool check_auto_stats_interval_begin_format(
+    sys_var *, THD *thd, set_var *var) {
+  if (!var || var->value->result_type() != STRING_RESULT ||
+      !var->save_result.string_value.str ||
+      strlen(var->save_result.string_value.str) != 5)
+    return true;
+  for (int i=0; i < 5; i++) {
+    if (i == 2) continue;
+    if (var->save_result.string_value.str[i] < '0' ||
+        var->save_result.string_value.str[i] > '9')
+      return true;
+  }
+  int hh,mm;
+  hh = (var->save_result.string_value.str[0] - '0') * 10 +
+      (var->save_result.string_value.str[1] - '0');
+  mm = (var->save_result.string_value.str[3] - '0') * 10 +
+      (var->save_result.string_value.str[4] - '0');
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59)
+    return true;
+  return false;
+}
+
+static Sys_var_charptr Sys_auto_stats_interval_begin(
+    "auto_stats_interval_begin",
+    "start time of auto statistic. This var need to be set "
+    "together with auto_stats_interval_duration, otherwise "
+    "this will not take effect.",
+    GLOBAL_VAR(auto_stats_interval_begin), CMD_LINE(OPT_ARG),
+    IN_FS_CHARSET,
+    DEFAULT(const_cast<char *>(AUTO_STATS_INTERVAL_BEGIN_DEFAULT_VALUE)),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_auto_stats_interval_begin_format), ON_UPDATE(nullptr));
+
+static Sys_var_int32 Sys_auto_stats_interval_duration(
+    "auto_stats_interval_duration",
+    "Set the duration of auto statistic in hours. This var need "
+    "to be set together with auto_stats_interval_begin, otherwise "
+    "this will not take effect.",
+    GLOBAL_VAR(auto_stats_interval_duration), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 23), DEFAULT(1), BLOCK_SIZE(1));
+static bool refresh_auto_stats_node_status(sys_var *, THD *, enum_var_type) {
+  mysql_mutex_unlock(&LOCK_global_system_variables);
+  refresh_auto_stats_node(true /*need_lock_slave_list=true*/);
+  if (cdb_auto_statistics_enabled) {
+    bool ret = Statistics_manager::start();
+    mysql_mutex_lock(&LOCK_global_system_variables);
+    return ret;
+  }
+  mysql_mutex_lock(&LOCK_global_system_variables);
+  return false;
+}
+
+const char *auto_stats_node_selection_names[] = {"LOCAL",
+    "DEDICATED", "RO", NullS};
+static Sys_var_enum Sys_auto_stats_node_selection(
+    "auto_stats_node_selection",
+    "cdb node_role value to assign when mysqld startup. "
+    "SLAVE means backup node, "
+    "STANDBY means read-only node.",
+    GLOBAL_VAR(auto_stats_node_selection), CMD_LINE(OPT_ARG),
+    auto_stats_node_selection_names, DEFAULT(DEDICATED), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(refresh_auto_stats_node_status));
+
+/** Sets the changed value to the corresponding auto_perf_node_state */
+static bool auto_perf_node_state_update(sys_var *, THD *thd, enum_var_type) {
+  if (auto_perf_node_request) {
+    auto_perf_node_state |= 2;
+    auto_perf_node_request = false;
+  }
+  return false;
+}
+
+static Sys_var_bool Sys_auto_perf_node_request(
+    "auto_perf_node_request",
+    "start a new RO node as statistic node.",
+    GLOBAL_VAR(auto_perf_node_request), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(auto_perf_node_state_update));
+
+static Sys_var_long Sys_auto_stats_thread_monitor_interval(
+    "auto_stats_thread_monitor_interval",
+    "Interval to monitor from master to slave.",
+    GLOBAL_VAR(auto_stats_thread_monitor_interval), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, LONG_MAX), DEFAULT(10), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+/* Changes from txsql end. */
 
 static Sys_var_charptr Sys_cdb_column_encryption_whitelist(
     "cdb_column_encryption_whitelist", "allows user to access column encryption data,"

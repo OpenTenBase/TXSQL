@@ -634,5 +634,14 @@ extern uint32_t iothreadreadtime;
 extern "C" void *handle_slave_transmit(void *arg);
 
 void get_current_timestamp(char *buf);
+
+/**
+  Return seconds_behind_master based on current time
+
+    @param[in]     thd         client thread
+    @retval        current SBM value
+*/
+longlong get_seconds_behind_master(THD *thd);
+
 /* Changes from txsql end. */
 #endif

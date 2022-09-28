@@ -35,6 +35,7 @@
 #include "sql/sql_cmd.h"            // Sql_cmd
 #include "sql/sql_cmd_ddl_table.h"  // Sql_cmd_ddl_table
 #include "sql/sql_plugin_ref.h"
+#include "mysql.h"
 
 class Clone_handler;
 class String;

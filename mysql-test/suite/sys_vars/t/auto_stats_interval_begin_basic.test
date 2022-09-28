@@ -1,0 +1,139 @@
+###### mysql-test\suite\sys_vars\t\auto_stats_interval_begin_basic.test  ######
+#                                                                             #
+# Variable Name: auto_stats_interval_begin                                    #
+# Scope: Global                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: string                                                           #
+#                                                                             #
+# Description: Testing the parsing of the time.                               #
+#                                                                             #
+###############################################################################
+
+SELECT @@global.auto_stats_interval_begin INTO @old_begin;
+
+--echo # NULL: forbidden
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="";
+--echo # NULL: forbidden
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin=NULL;
+--echo # client-range: forbidden
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="1234";
+# core SET @@global.auto_stats_interval_begin=DEFAULT;
+SELECT @@global.auto_stats_interval_begin;
+--echo # various legal values
+SET @@global.auto_stats_interval_begin="01:00";
+SET @@global.auto_stats_interval_begin="01:59";
+SET @@global.auto_stats_interval_begin="23:59";
+--echo # lists containing illegal values. warning should flag first problem.
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="00:60";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="01:-1";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="01:99";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="00:+1";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="0:012";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="00:60";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin=",";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin="10000 10001";
+SHOW WARNINGS;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin='10000.123';
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin='MY-10000#$%';
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.auto_stats_interval_begin='MY-31';
+
+# scope check
+--error ER_GLOBAL_VARIABLE
+SET SESSION auto_stats_interval_begin='01:00';
+SELECT @@auto_stats_interval_begin;
+
+--error ER_GLOBAL_VARIABLE
+SET @@auto_stats_interval_begin='01:00';
+SELECT @@auto_stats_interval_begin;
+
+# variable visibility
+SET GLOBAL auto_stats_interval_begin="01:00";
+SHOW VARIABLES LIKE 'auto%stats%';
+SELECT * FROM performance_schema.global_variables
+  WHERE VARIABLE_NAME = 'auto_stats_interval_begin';
+--replace_column 6 #
+SELECT * FROM performance_schema.variables_info
+  WHERE VARIABLE_NAME = 'auto_stats_interval_begin';
+
+# list specification with/without quotes
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=10000;
+SELECT @@global.auto_stats_interval_begin;
+
+SET GLOBAL auto_stats_interval_begin=`01:01`;
+SELECT @@global.auto_stats_interval_begin;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=12345.124;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='12345.124';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='12345e5';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=abcd;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='abcd';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=',';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=',10000,';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='10000,';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=',10000';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='10000,,10001';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin="'10000'";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin=CONCAT("'",CONCAT('10000',"'"));
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='0000000000000010000';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL auto_stats_interval_begin='MY-010000';
+SELECT @@global.auto_stats_interval_begin;
+
+# clean up
+SET @@global.auto_stats_interval_begin=@old_begin;

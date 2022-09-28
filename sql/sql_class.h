@@ -111,6 +111,7 @@
 #include "thr_lock.h"
 #include "violite.h"
 #include "sql/opt_statistics.h"
+#include "sql/rpl_replica.h" // get_seconds_behind_master
 
 /* Changes from TXSQL start. */
 #include "sql/sql_seq.h"
@@ -771,6 +772,7 @@ inline char const *show_system_thread(enum_thread_type thread) {
     RETURN_NAME_AS_STRING(SYSTEM_THREAD_DD_RESTART);
     RETURN_NAME_AS_STRING(SYSTEM_THREAD_SERVER_INITIALIZE);
     RETURN_NAME_AS_STRING(SYSTEM_THREAD_INIT_FILE);
+    RETURN_NAME_AS_STRING(SYSTEM_THREAD_STATISTICS_WORKER);
     default:
       sprintf(buf, "<UNKNOWN SYSTEM THREAD: %d>", thread);
       return buf;
@@ -4864,7 +4866,16 @@ private:
     @return time_t timestamp
    */
   time_t get_backquery_timestamp(const std::string &key);
-
+  /**
+    if SBM exceeds the threshold, we cannot perform the statistics task
+  */
+  bool check_sbm_threshold() {
+    if (get_seconds_behind_master(this) - 60 > auto_stats_thread_monitor_interval) {
+      my_error(ER_CDB_SLAVE_BINLOG_TOO_SLOW_TO_DO_AUTO_STATS, MYF(0));
+      return true;
+    }
+    return false;
+  }
   unsigned long m_select_lock_n_sec = 0;
   unsigned long get_select_lock_n_sec() const { return m_select_lock_n_sec; }
   void set_select_lock_n_sec(unsigned long select_lock_n_sec) {

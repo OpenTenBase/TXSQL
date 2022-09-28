@@ -11999,6 +11999,35 @@ ER_CDB_SYS_RECYCLE_BIN_ALREADY_EXIST
 ER_CDB_WARN_UNRECOGNIZED_REPLICA_ROLE
   eng "Unrecognized role '%lu' reported for replica (server id %lu), set to CDB_ROLE_UNKNOWN."
 
+ER_CDB_FAILED_TO_NEW_STATISTICS_CLIENT
+  eng "CDB: cannot initialize statistics node for histogram statistics"
+
+ER_CDB_FAILED_TO_CONNECT_STATISTICS_CLIENT
+  eng "CDB: cannot connect to statistics node '%s'@'%s':'%u'"
+
+ER_CDB_MASTER_CONNECTED_TO_STATISTICS_NODE_STARTED
+  eng "CDB: master connected to statistics node '%s'@'%s':'%u'"
+
+ER_CDB_STATISTICS_WORKER_FAILURE
+  eng "CDB: %s"
+
+ER_CDB_STATISTICS_THREAD_STARTED
+  eng "CDB: statistics manager thread started with id %u"
+
+ER_CDB_STATISTICS_CANT_INIT_MANAGER
+  eng "CDB: init statistics manager failed '%d'"
+
+ER_CDB_STATISTICS_STOPPING
+  eng "CDB: statistics %s stopping"
+
+ER_CDB_STATISTICS_MANAGER_FAILED_TO_CREATE_WORKER
+  eng "CDB:: create worker: Can not create worker thread (errno=%d)."
+
+ER_CDB_STATISTICS_CANT_INIT_POOL
+  eng "CDB: init histogram statistics pool failed"
+
+ER_CDB_STATISTICS_TRY_TO_KILL
+  eng "CDB: try to kill executing %s, manager status:%s (thread id %u)."
 #
 # End of server-to-error-log message for CDB 8.0.
 #

@@ -1,0 +1,321 @@
+--echo ##################
+--echo # auto stats of rpl
+--echo ##################
+source include/master-slave.inc;
+--source include/have_binlog_format_row.inc
+
+connection slave;
+--echo # Auto statistics depends on the host:port info reported by the slave
+query_vertical show global variables like 'report_host';
+--replace_column 2 CURRENT_PORT
+query_vertical show global variables like 'report_port';
+
+connect (tencent_conn, localhost, tencentroot,'', );
+connection tencent_conn;
+show variables like '%cdb_statistics%';
+
+SET GLOBAL cdb_auto_statistics_enabled=1;
+
+connection master;
+--echo # check host:port of statistics node on master node
+--replace_column 2 CURRENT_PORT
+show cdb_statistics_node;
+
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+--echo #
+--echo # check status
+--echo #
+SELECT @@cdb_auto_statistics_enabled;
+
+SELECT @@histogram_history_enabled;
+
+SELECT @@histogram_statistics_concurrency;
+
+SELECT @@auto_stats_thread_monitor_interval;
+
+SELECT @@auto_stats_interval_duration;
+
+# the status of HISTOGRAM_HISTORY_ENABLED not effect of auto statistics
+let $SAVED_OPTION_ENABLED= `SELECT @@HISTOGRAM_HISTORY_ENABLED;`;
+SET GLOBAL HISTOGRAM_HISTORY_ENABLED= 1;
+
+let $SAVED_OPTION_VERSIONS= `SELECT @@HISTOGRAM_HISTORY_VERSIONS_LIMIT;`;
+SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= 3;
+
+sleep 3;
+
+SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_manager';
+SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
+
+--echo #
+--echo # General test auto statistics
+--echo #
+
+--echo # Note: Histogram data is identified (hid) by '$."number-of-buckets-specified"' by design.
+let $check_online= SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+let $check_history= SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+
+set global innodb_stats_recalc_with_histogram = on;
+
+--echo # empty
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+CREATE TABLE tbl1(c1 INT);
+
+INSERT INTO tbl1(c1) VALUES (1),(1),(2),(3),(5);
+
+INSERT INTO tbl1(c1) VALUES (1),(1),(2),(3),(5);
+
+--echo # test automatic histogram recalculation is triggered by INNODB
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+sleep 3;
+
+eval $check_history;
+eval $check_online;
+
+set global innodb_stats_recalc_with_histogram = default;
+
+delete from mysql.column_statistics_history;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
+
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+sleep 3;
+
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+eval $check_history;
+
+--echo #
+--echo # Test AUTO histogram apply
+--echo #
+let $histogram_before_apply= `SELECT JSON_REMOVE(HISTOGRAM, '$."last-updated"') AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";`;
+SELECT JSON_REMOVE(HISTOGRAM, '$."last-updated"') AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+assert($histogram_before_apply);
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 USING HISTORY -1;
+
+let $histogram_after_apply= `SELECT JSON_REMOVE(HISTOGRAM, '$."last-updated"') AS HISTOGRAM FROM information_schema.COLUMN_STATISTICS WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";`;
+SELECT JSON_REMOVE(HISTOGRAM, '$."last-updated"') AS HISTOGRAM FROM information_schema.COLUMN_STATISTICS WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+assert($histogram_after_apply);
+
+--echo # Check auto apply the latest version (-1)
+--echo # Without 'ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 USING HISTORY -1;'
+assert($histogram_before_apply == $histogram_after_apply);
+
+eval $check_online;
+eval $check_history;
+
+--echo # Test HISTOGRAM_HISTORY_ENABLED not effect auto statistics
+SET GLOBAL HISTOGRAM_HISTORY_ENABLED= 0;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 4 BUCKETS;
+
+sleep 3;
+
+eval $check_online;
+eval $check_history;
+
+DROP TABLE tbl1;
+
+--echo #
+--echo # test auto statistics work status
+--echo #
+
+CREATE TABLE tbl1(c1 INT, c2 int, c3 int);
+
+--echo # auto statistics: on
+--echo # creation pending status
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1,c2,c3;
+
+--echo # auto statistics: off
+set global cdb_auto_statistics_enabled = off;
+sleep 3;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1,c2,c3;
+
+--echo # auto statistics: off
+set global cdb_auto_statistics_enabled = on;
+set global auto_stats_node_selection = 'LOCAL';
+sleep 3;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1,c2,c3;
+
+DROP TABLE tbl1;
+
+# start auto statistics
+set global cdb_auto_statistics_enabled = on;
+set global auto_stats_node_selection = 'DEDICATED';
+
+sleep 3;
+
+--echo # empty
+SELECT * FROM mysql.column_statistics_history;
+SELECT * FROM information_schema.column_statistics;
+
+--echo #
+--echo # Test RENAME COLUMN (before apply)
+--echo #
+
+CREATE TABLE tbl1(c1 INT);
+INSERT INTO tbl1(c1) VALUES(1);
+
+--echo # Create HISTOGRAM for tbl1
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+
+--echo # Rename c1 to c2
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1";
+
+ALTER TABLE tbl1 RENAME COLUMN c1 to c2;
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c2";
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1";
+
+DROP TABLE tbl1;
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1";
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1";
+
+--echo #
+--echo # Test RENAME COLUMN (after apply)
+--echo #
+
+CREATE TABLE tbl1(c1 INT);
+INSERT INTO tbl1(c1) VALUES(1);
+
+--echo # Create HISTOGRAM for tbl1
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
+
+sleep 4;
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+
+--echo # Rename c1 to c2
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1";
+
+ALTER TABLE tbl1 RENAME COLUMN c1 to c2;
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c2";
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1";
+
+--replace_column 2 TIMESTAMP
+select * from performance_schema.mutex_instances where name like '%statistics%';
+
+DROP TABLE tbl1;
+
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1";
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1";
+
+--echo #
+--echo # Test RENAME/DROP TABLE
+--echo #
+
+CREATE TABLE tbl1(c1 INT);
+INSERT INTO tbl1(c1) VALUES(1),(1),(2),(3),(5);
+
+--echo # Create 3 history records for tbl1
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
+
+--echo #
+--echo # check information_schema
+--echo #
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+
+--replace_column 2 CURRENT_PORT
+select * from information_schema.CDB_AUTO_STATS_NODE_STATUS;
+
+sleep 2;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 2 BUCKETS;
+
+sleep 2;
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+
+--echo # Rename tbl1 to tbl1_renamed
+RENAME TABLE tbl1 TO tbl1_renamed;
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1_renamed" AND COLUMN_NAME="c1";
+
+--echo # DROP TABLE tbl1_renamed
+DROP TABLE tbl1_renamed;
+
+SELECT COUNT(*) AS HISTOGRAM FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1_renamed" AND COLUMN_NAME="c1";
+SELECT COUNT(*) AS HISTOGRAM FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1_renamed";
+
+--echo #
+--echo # test less function of Priority_queue (multiple tables with multiple columns)
+--echo #
+
+set global auto_stats_thread_monitor_interval = 5;
+sleep 1;
+
+CREATE TABLE tbl1(c1 INT, c2 int);
+CREATE TABLE tbl2(c1 INT, c2 int);
+
+INSERT INTO tbl1(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
+INSERT INTO tbl2(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
+
+--echo #
+--echo # add multiple tasks
+--echo #
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1;
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c2;
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c2;
+
+ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1,c2;
+ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1,c2;
+
+--sorted_result
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
+
+sleep 3;
+
+--sorted_result
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+set global auto_stats_thread_monitor_interval = 1;
+
+sleep 4;
+
+--sorted_result
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+drop table tbl1,tbl2;
+
+# empty column_statistics_history
+SELECT * FROM mysql.column_statistics_history;
+
+--replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
+show cdb_statistics_tasks;
+
+eval SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= $SAVED_OPTION_VERSIONS;
+eval SET GLOBAL HISTOGRAM_HISTORY_ENABLED= $SAVED_OPTION_ENABLED;
+
+--source include/rpl_end.inc

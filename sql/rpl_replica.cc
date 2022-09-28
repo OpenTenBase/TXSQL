@@ -11361,6 +11361,55 @@ static void group_replication_cleanup_after_clone() {
 }
 
 /**
+  Return seconds_behind_master based on current time
+    @param[in]     thd         client thread
+    @retval        current SBM value
+*/
+longlong get_seconds_behind_master(THD *thd) {
+  DBUG_TRACE;
+  Master_info *mi = nullptr;
+  longlong sbm = (0LL);
+  channel_map.rdlock();
+  for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
+       it++) {
+    mi = it->second;
+    if (Master_info::is_configured(mi)) {
+      /*
+        slave_running can be accessed without run_lock but not other
+        non-volatile members like mi->info_thd or rli->info_thd, for
+        them either info_thd_lock or run_lock hold is required.
+      */
+      mysql_mutex_lock(&mi->data_lock);
+      if (mi->rli != nullptr) {
+        DBUG_PRINT("info", ("auto stats from host: '%s'", mi->host));
+        mysql_mutex_lock(&mi->rli->data_lock);
+        if (mi->rli->slave_running) {
+          /*
+            Check if SQL thread is at the end of relay log
+            Checking should be done using two conditions
+            condition1: compare the log positions and
+            condition2: compare the file names (to handle rotation case)
+          */
+          if ((mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
+              (!strcmp(mi->get_master_log_name(),
+                      mi->rli->get_group_master_log_name()))) {
+            sbm = (0LL);
+          } else {
+            long time_diff = ((long)(time(nullptr) - mi->rli->last_master_timestamp) -
+                              mi->clock_diff_with_master);
+            sbm = (longlong)(mi->rli->last_master_timestamp ? max(0L, time_diff) : 0);
+          }
+        }
+        mysql_mutex_unlock(&mi->rli->data_lock);
+      }
+      mysql_mutex_unlock(&mi->data_lock);
+    }
+  }
+  channel_map.unlock();
+  return sbm;
+}
+
+/**
   @} (end of group Replication)
 */
 

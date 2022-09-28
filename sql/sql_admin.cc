@@ -613,6 +613,18 @@ bool Sql_cmd_analyze_table::send_histogram_results(
         message.append(pair.first.begin(), pair.first.end() - 1);
         message.append("'.");
         break;
+      case histograms::Message::HISTOGRAM_AUTO_STATS_CREATED:
+        message_type.assign("Pending");
+        message.assign("Histogram statistics creation pending for column '");
+        message.append(pair.first);
+        message.append("'.");
+        break;
+      case histograms::Message::HISTOGRAM_AUTO_STATS_CREATE_FAILURE:
+        message_type.assign("Error");
+        message.assign("Histogram statistics creation for column '");
+        message.append(pair.first);
+        message.append("' failed.");
+        break;
     }
 
     protocol->start_row();

@@ -1409,6 +1409,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> SEQUENCE_SYM 1293
 %token<lexer.keyword> TDSQL_SETVAL_SYM 1294 /*TDSQL*/
 %token<lexer.keyword> CLEAR_SYM 1295
+%token<lexer.keyword> STATISTICS_TASKS_SYM 1296
+%token<lexer.keyword> STATISTICS_NODE_SYM 1297
 /* Changes from txsql end. */
 
 /*
@@ -11503,6 +11505,11 @@ sum_expr:
           }
         | HISTOGRAM_SYM '(' in_sum_expr ')' opt_windowing_clause
           {
+            if (YYTHD->check_sbm_threshold())
+            {
+              my_error(ER_CDB_SLAVE_BINLOG_TOO_SLOW_TO_DO_AUTO_STATS, MYF(0));
+              MYSQL_YYABORT;
+            }
             if ($5 != NULL) {
               my_error(ER_NOT_SUPPORTED_YET, MYF(0), "histogram as window function");
               MYSQL_YYABORT;
@@ -11516,6 +11523,11 @@ sum_expr:
           }
         | HISTOGRAM_SYM '(' in_sum_expr ',' NUM ')' opt_windowing_clause
           {
+            if (YYTHD->check_sbm_threshold())
+            {
+              my_error(ER_CDB_SLAVE_BINLOG_TOO_SLOW_TO_DO_AUTO_STATS, MYF(0));
+              MYSQL_YYABORT;
+            }
             if ($7 != NULL) {
               my_error(ER_NOT_SUPPORTED_YET, MYF(0), "histogram as window function");
               MYSQL_YYABORT;
@@ -11539,6 +11551,11 @@ sum_expr:
           }
         | HISTOGRAM_SYM '(' in_sum_expr ',' NUM, ',' NUM ')' opt_windowing_clause
           {
+            if (YYTHD->check_sbm_threshold())
+            {
+              my_error(ER_CDB_SLAVE_BINLOG_TOO_SLOW_TO_DO_AUTO_STATS, MYF(0));
+              MYSQL_YYABORT;
+            }
             if ($9 != NULL) {
               my_error(ER_NOT_SUPPORTED_YET, MYF(0), "histogram as window function");
               MYSQL_YYABORT;
@@ -14490,6 +14507,14 @@ show_processlist_stmt:
           {
             Lex->sql_command = SQLCOM_SHOW_CDB_SQL_FILTERS;
           }
+        | SHOW STATISTICS_TASKS_SYM
+          { 
+            Lex->sql_command = SQLCOM_SHOW_STATS_TASKS;
+          }
+        | SHOW STATISTICS_NODE_SYM
+          { 
+            Lex->sql_command = SQLCOM_SHOW_STATS_NODE;
+          }
         ;
 
 show_variables_stmt:
@@ -16309,6 +16334,8 @@ ident_keywords_unambiguous:
         | SQL_NO_CACHE_SYM
         | SQL_THREAD
         | SQL_CDB_FILTER_SYM
+        | STATISTICS_TASKS_SYM
+        | STATISTICS_NODE_SYM
         | SRID_SYM
         | STACKED_SYM
         | STARTS_SYM

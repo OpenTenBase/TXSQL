@@ -178,10 +178,7 @@
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "violite.h"
-
-/**
-  Changes from txsql start.
-*/
+#include "sql/statistics_manager.h" // get_all_tasks_for_display
 #include "sql/threadpool.h"
 #include "cdb_sql_filter.h"
 #include "sql/sql_cdb_firewall.h"
@@ -823,6 +820,8 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_GRANTS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CDB_SQL_FILTERS]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_OUTLINE_INFO] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_STATS_TASKS]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_STATS_NODE]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_STAT] = CF_STATUS_COMMAND;
@@ -5318,6 +5317,20 @@ int mysql_execute_command(THD *thd, bool first_level) {
       if (check_global_access(thd, SUPER_ACL))
         break;
       res = mysqld_list_outline_rules(thd);
+      break;
+    }
+    case SQLCOM_SHOW_STATS_TASKS:
+    {
+      if (check_global_access(thd, SUPER_ACL))
+        break;
+      Statistics_manager::get_all_tasks_for_display(thd);
+      break;
+    }
+    case SQLCOM_SHOW_STATS_NODE:
+    {
+      if (check_global_access(thd, SUPER_ACL))
+        break;
+      mysqld_list_stats_node(thd);
       break;
     }
     default:

@@ -24,6 +24,7 @@ innodb_stats_method	nulls_equal
 innodb_stats_on_metadata	OFF
 innodb_stats_persistent	ON
 innodb_stats_persistent_sample_pages	20
+innodb_stats_recalc_with_histogram	OFF
 innodb_stats_skip_adjustment_for_primary_key	OFF
 innodb_stats_transient_sample_pages	8
 # construct data

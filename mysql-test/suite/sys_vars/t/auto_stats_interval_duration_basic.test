@@ -1,0 +1,168 @@
+###############################################################################
+#                                                                             #
+# File containing basic tests for auto statistics concurrency variable        #
+#                                                                             #
+###############################################################################
+
+--echo #
+--echo # Variable name : auto_stats_interval_duration
+--echo # Scope         : Global
+--echo #
+
+###################################################################
+#        START OF auto_stats_interval_duration TESTS          #
+###################################################################
+
+
+#############################################################
+#                 Save initial value                        #
+#############################################################
+
+SET @start_global_value = @@global.auto_stats_interval_duration;
+SELECT @start_global_value;
+
+--echo
+##########################################################################
+#     Display the DEFAULT value of auto_stats_interval_duration      #
+##########################################################################
+
+SET @@global.auto_stats_interval_duration = 16;
+SET @@global.auto_stats_interval_duration = DEFAULT;
+SELECT @@global.auto_stats_interval_duration;
+
+--echo
+###########################################################################
+#     Check the DEFAULT value of auto_stats_interval_duration         #
+###########################################################################
+
+SET @@global.auto_stats_interval_duration = DEFAULT;
+SELECT @@global.auto_stats_interval_duration = 1;
+
+--echo
+##########################################################################################
+# Change the value of auto_stats_interval_duration to a valid value for GLOBAL Scope #
+##########################################################################################
+
+SET @@global.auto_stats_interval_duration = 1;
+SELECT @@global.auto_stats_interval_duration;
+SET @@global.auto_stats_interval_duration = 2;
+SELECT @@global.auto_stats_interval_duration;
+SET @@global.auto_stats_interval_duration = 5;
+SELECT @@global.auto_stats_interval_duration;
+SET @@global.auto_stats_interval_duration = 7;
+SELECT @@global.auto_stats_interval_duration;
+SET @@global.auto_stats_interval_duration = 10;
+SELECT @@global.auto_stats_interval_duration;
+
+
+--echo
+#################################################################################
+#           Check if variable can be access with session scope                  #
+#################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@auto_stats_interval_duration = 2;
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.auto_stats_interval_duration = 3;
+
+--Error ER_GLOBAL_VARIABLE
+SET @@local.auto_stats_interval_duration = 4;
+
+
+
+--echo
+############################################################################
+# Change the value of auto_stats_interval_duration to an invalid value #
+############################################################################
+
+SET @@global.auto_stats_interval_duration = -1;
+SELECT @@global.auto_stats_interval_duration;
+
+SET @@global.auto_stats_interval_duration = -2147483648;
+SELECT @@global.auto_stats_interval_duration;
+
+SET @@global.auto_stats_interval_duration = 2147483649*2;
+SELECT @@global.auto_stats_interval_duration;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.auto_stats_interval_duration = 65530.34;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.auto_stats_interval_duration = '125';
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.auto_stats_interval_duration = 7483649.56;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.auto_stats_interval_duration = 1G;
+
+--echo
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+SET @@global.auto_stats_interval_duration = 12;
+--disable_warnings
+SELECT @@global.auto_stats_interval_duration = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='auto_stats_interval_duration';
+--enable_warnings
+
+
+--echo
+###########################################################################
+#  Check if the value is present in performance_schema.session_variables  #
+###########################################################################
+
+--disable_warnings
+SELECT count(VARIABLE_VALUE)
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='auto_stats_interval_duration';
+--enable_warnings
+
+
+--echo
+####################################################################
+#     Check if TRUE and FALSE values can be used on variable       #
+####################################################################
+
+SET @@global.auto_stats_interval_duration = TRUE;
+SELECT @@global.auto_stats_interval_duration;
+SET @@global.auto_stats_interval_duration = FALSE;
+SELECT @@global.auto_stats_interval_duration;
+
+
+--echo
+#################################################################################
+#  Check if accessing variable with and without GLOBAL point to same variable   #
+#################################################################################
+
+
+SET @@global.auto_stats_interval_duration = 19;
+SELECT @@auto_stats_interval_duration = @@global.auto_stats_interval_duration;
+
+
+--echo
+#########################################################################################
+#   Check if auto_stats_interval_duration can be accessed without @@ sign and scope #
+#########################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET auto_stats_interval_duration = 20;
+--Error ER_BAD_FIELD_ERROR
+SELECT auto_stats_interval_duration;
+
+SELECT @@auto_stats_interval_duration;
+
+#verifying another another syntax for setting value
+SET global auto_stats_interval_duration = 20;
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.auto_stats_interval_duration = @start_global_value;
+SELECT @@global.auto_stats_interval_duration;
+
+########################################################
+#     END OF auto_stats_interval_duration TESTS    #
+########################################################
+

@@ -1,0 +1,18 @@
+!include ../my.cnf
+
+# cdb_role
+
+[mysqld.1]
+cdb_auto_statistics_enabled=1
+auto_stats_interval_duration=23
+auto_stats_thread_monitor_interval=1
+auto_stats_node_selection='DEDICATED'
+
+[mysqld.2]
+report_host=127.0.0.1
+cdb_role=2
+
+[ENV]
+SERVER_MYPORT_2=                @mysqld.2.port
+SERVER_MYSOCK_2=                @mysqld.2.socket
+

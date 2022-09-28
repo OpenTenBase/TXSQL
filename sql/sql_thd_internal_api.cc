@@ -59,6 +59,7 @@
 #include "sql/sql_parse.h"  // sqlcom_can_generate_row_events
 #include "sql/system_variables.h"
 #include "sql/transaction_info.h"
+#include "sql/statistics_manager.h" // Statistics_manager
 #include "violite.h"
 
 struct mysql_cond_t;
@@ -375,3 +376,18 @@ bool thd_is_dd_update_stmt(const THD *thd) {
 }
 
 my_thread_id thd_thread_id(const THD *thd) { return (thd->thread_id()); }
+
+bool auto_statistics_is_running() {
+  return Statistics_manager::is_running();
+}
+
+bool add_auto_statistics_task(const char* db_name,
+    const int db_name_length, const char* table_name,
+    const int table_name_length, const std::vector<std::string> &columns) {
+  my_time_t time_now = (my_time_t)time(0);
+  const int num_buckets = 100;
+  return Statistics_manager::auto_add_statistics_task(
+                                db_name, db_name_length,
+                                table_name, table_name_length,
+                                columns, num_buckets, time_now);
+}

@@ -78,6 +78,7 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
 void mysqld_list_cdb_sql_filters(THD *thd);
 bool mysqld_list_outline_rules(THD *thd);
 
+void mysqld_list_stats_node(THD *thd);
 bool mysqld_show_privileges(THD *thd);
 void calc_sum_of_all_status(System_status_var *to);
 void append_definer(const THD *thd, String *buffer,
