@@ -230,6 +230,8 @@ sql_slave_skip_counter
 sql_slave_skip_counter
 sync_master_info
 sync_master_info
+tdsql_compat_oracle_mode
+tdsql_compat_oracle_mode
 tdsql_hide_partitions
 tdsql_hide_partitions
 temptable_max_mmap

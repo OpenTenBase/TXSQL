@@ -26,7 +26,7 @@ VARIABLE_NAME LIKE '%source%') AND
 'innodb_master_thread_disabled_debug', 'innodb_replication_delay'))
 ORDER BY VARIABLE_NAME;
 
-include/assert.inc [Expect 114 variables in the table.]
+include/assert.inc [Expect 120 variables in the table.]
 
 # Test SET PERSIST
 SET PERSIST binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -59,7 +59,11 @@ SET PERSIST binlog_transaction_compression = @@GLOBAL.binlog_transaction_compres
 SET PERSIST binlog_transaction_compression_level_zstd = @@GLOBAL.binlog_transaction_compression_level_zstd;
 SET PERSIST binlog_transaction_dependency_history_size = @@GLOBAL.binlog_transaction_dependency_history_size;
 SET PERSIST binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transaction_dependency_tracking;
+SET PERSIST binlog_write_threshold = @@GLOBAL.binlog_write_threshold;
+SET PERSIST cdb_enable_resource_statistics = @@GLOBAL.cdb_enable_resource_statistics;
 SET PERSIST enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
+SET PERSIST forbid_remote_change_master = @@GLOBAL.forbid_remote_change_master;
+SET PERSIST forbid_remote_change_sql_log_bin = @@GLOBAL.forbid_remote_change_sql_log_bin;
 SET PERSIST group_replication_consistency = @@GLOBAL.group_replication_consistency;
 SET PERSIST gtid_executed = @@GLOBAL.gtid_executed;
 ERROR HY000: Variable 'gtid_executed' is a read only variable
@@ -105,6 +109,7 @@ SET PERSIST max_binlog_cache_size = @@GLOBAL.max_binlog_cache_size;
 SET PERSIST max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST max_relay_log_size = @@GLOBAL.max_relay_log_size;
+SET PERSIST new_connection_action_when_resource_group_overrun = @@GLOBAL.new_connection_action_when_resource_group_overrun;
 SET PERSIST relay_log = @@GLOBAL.relay_log;
 ERROR HY000: Variable 'relay_log' is a read only variable
 SET PERSIST relay_log_basename = @@GLOBAL.relay_log_basename;
@@ -242,17 +247,18 @@ Warning	1287	'@@sync_master_info' is deprecated and will be removed in a future 
 SET PERSIST sync_relay_log = @@GLOBAL.sync_relay_log;
 SET PERSIST sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 SET PERSIST sync_source_info = @@GLOBAL.sync_source_info;
+SET PERSIST txsql_slave_wait_group_done = @@GLOBAL.txsql_slave_wait_group_done;
 
-include/assert.inc [Expect 90 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 96 persisted variables in persisted_variables table.]
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
-include/assert.inc [Expect 90 persisted variables in persisted_variables table.']
-include/assert.inc [Expect 90 persisted variables shown as PERSISTED in variables_info table.']
-include/assert.inc [Expect 90 persisted variables with matching persisted and global values.]
+include/assert.inc [Expect 96 persisted variables in persisted_variables table.']
+include/assert.inc [Expect 96 persisted variables shown as PERSISTED in variables_info table.']
+include/assert.inc [Expect 96 persisted variables with matching persisted and global values.]
 
 ############################################################
 # 3. Test RESET PERSIST IF EXISTS. Verify persisted variable
@@ -287,7 +293,11 @@ RESET PERSIST IF EXISTS binlog_transaction_compression;
 RESET PERSIST IF EXISTS binlog_transaction_compression_level_zstd;
 RESET PERSIST IF EXISTS binlog_transaction_dependency_history_size;
 RESET PERSIST IF EXISTS binlog_transaction_dependency_tracking;
+RESET PERSIST IF EXISTS binlog_write_threshold;
+RESET PERSIST IF EXISTS cdb_enable_resource_statistics;
 RESET PERSIST IF EXISTS enforce_gtid_consistency;
+RESET PERSIST IF EXISTS forbid_remote_change_master;
+RESET PERSIST IF EXISTS forbid_remote_change_sql_log_bin;
 RESET PERSIST IF EXISTS group_replication_consistency;
 RESET PERSIST IF EXISTS gtid_executed;
 Warnings:
@@ -334,6 +344,7 @@ RESET PERSIST IF EXISTS max_binlog_cache_size;
 RESET PERSIST IF EXISTS max_binlog_size;
 RESET PERSIST IF EXISTS max_binlog_stmt_cache_size;
 RESET PERSIST IF EXISTS max_relay_log_size;
+RESET PERSIST IF EXISTS new_connection_action_when_resource_group_overrun;
 RESET PERSIST IF EXISTS relay_log;
 Warnings:
 Warning	3615	Variable relay_log does not exist in persisted config file
@@ -459,6 +470,7 @@ RESET PERSIST IF EXISTS sync_relay_log_info;
 RESET PERSIST IF EXISTS sync_source_info;
 Warnings:
 Warning	3615	Variable sync_source_info does not exist in persisted config file
+RESET PERSIST IF EXISTS txsql_slave_wait_group_done;
 
 include/assert.inc [Expect 0 persisted variables.]
 
