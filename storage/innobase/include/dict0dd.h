@@ -135,6 +135,9 @@ enum dd_column_keys {
   DD_INSTANT_VERSION_DROPPED,
   /** Column physical position on row when it was created */
   DD_INSTANT_PHYSICAL_POS,
+  DD_COLUMN_ENCRYPTION_KEY,
+  /** column encryption iv */
+  DD_COLUMN_ENCRYPTION_IV,
   /** Sentinel */
   DD_COLUMN__LAST
 };
@@ -236,7 +239,7 @@ const char *const dd_table_key_strings[DD_TABLE__LAST] = {
 /** InnoDB private key strings for dd::Column, @see dd_column_keys */
 const char *const dd_column_key_strings[DD_COLUMN__LAST] = {
     "default", "default_null", "version_added", "version_dropped",
-    "physical_pos"};
+    "physical_pos", "encryption_key", "encryption_iv"};
 
 /** InnoDB private key strings for dd::Partition. @see dd_partition_keys */
 const char *const dd_partition_key_strings[DD_PARTITION__LAST] = {
@@ -815,6 +818,14 @@ in the column defined in server, since it can be filled in later.
 @retval false   Not match */
 bool dd_match_default_value(const dd::Column *dd_col, const dict_col_t *col);
 
+bool decrypt_column_key(const char *value, uint32 len, byte *dst);
+
+bool dd_parse_encrypted_key_value(const dd::Properties &se_private_data,
+                                   dict_col_t *col, mem_heap_t *heap);
+
+bool dd_parse_encrypted_key_value(const char *key, uint32 key_len, 
+                               const char *iv,  uint32 iv_len,
+                               dict_col_t *col, mem_heap_t *heap);
 /** Write default value of a column to dd::Column
 @param[in]      col     default value of this column to write
 @param[in,out]  dd_col  where to store the default value */
@@ -1584,7 +1595,7 @@ bool is_dropped(const Alter_inplace_info *ha_alter_info,
 @param[out]  mtype   mtype
 @param[out]  prtype  prtype */
 void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
-                     const Field *field, unsigned &col_len, ulint &mtype,
+                     const Field *field, ulint &col_len, ulint &mtype,
                      ulint &prtype);
 #endif
 

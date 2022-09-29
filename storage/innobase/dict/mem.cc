@@ -314,6 +314,34 @@ dict_index_t *dict_mem_index_create(
   return (index);
 }
 
+
+/* before do dict_fix_string_to_varchar_for_encryption, we must have call 
+function get_innobase_type_from_mysql_type to process mtype */
+void dict_fix_string_to_varchar_for_encryption(bool is_encryption, 
+                                               ulint *field_type, 
+                                               ulint *col_len) {
+  /* let innodb row format use 2 byte record length */
+  if (is_encryption && *field_type == MYSQL_TYPE_VARCHAR &&
+      *col_len < 256) {
+
+    *col_len = 256;
+  }
+
+/*
+  if (is_encryption) {
+    if (*col_len < 256 && (*field_type == MYSQL_TYPE_STRING ||
+                           *field_type == MYSQL_TYPE_VARCHAR)) {
+      *col_len = 256;
+    }
+
+    // convert char/binary to varchar/varbinary 
+    if (*field_type == MYSQL_TYPE_STRING) {
+      *field_type = MYSQL_TYPE_VARCHAR;
+    }
+  }
+  */
+}
+
 /** Adds a column definition to a table. */
 void dict_mem_table_add_col(dict_table_t *table, mem_heap_t *heap,
                             const char *name, ulint mtype, ulint prtype,

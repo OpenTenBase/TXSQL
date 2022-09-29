@@ -692,6 +692,35 @@ void innobase_discard_table(THD *thd, dict_table_t *table) {
   table->discard_after_ddl = true;
 }
 
+static inline bool innobase_is_add_encryption_column(
+    const Alter_inplace_info *ha_alter_info, const TABLE *old_table) {
+
+  const Create_field* new_field;
+
+  List_iterator_fast<Create_field> cf_it(
+  ha_alter_info->alter_info->create_list);
+
+  while ((new_field = (cf_it++)) != NULL) {
+    const Field* field = new_field->field;
+    bool new_flag = true;
+
+    for (ulint old_i = 0; old_table->field[old_i]; old_i++) {
+      const Field* n_field = old_table->field[old_i];
+      if (field == n_field) {
+        new_flag = false;
+        break;
+      }
+    }
+
+    /* new field is encryption field */
+    if (new_flag && 
+        (new_field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION))
+        return true;
+
+  }
+  return false;
+}
+
 /* To check if renaming a column is ok.
 @return true if Ok, false otherwise */
 static bool ok_to_rename_column(const Alter_inplace_info *ha_alter_info,
@@ -816,6 +845,10 @@ static inline Instant_Type innobase_support_instant(
 
   /* During upgrade, if columns are added in system tables, avoid instant */
   if (current_thd->is_server_upgrade_thread()) {
+    return (Instant_Type::INSTANT_IMPOSSIBLE);
+  }
+
+  if(innobase_is_add_encryption_column(ha_alter_info, old_table)) {
     return (Instant_Type::INSTANT_IMPOSSIBLE);
   }
 
@@ -3251,7 +3284,8 @@ static void online_retry_drop_dict_indexes(dict_table_t *table, bool locked) {
 @param field MySQL value for the column
 @param comp nonzero if in compact format */
 static void innobase_build_col_map_add(mem_heap_t *heap, dfield_t *dfield,
-                                       const Field *field, ulint comp) {
+                                       const Field *field, ulint comp,
+                                       row_prebuilt_t *prebuilt) {
   if (field->is_real_null()) {
     dfield_set_null(dfield);
     return;
@@ -3263,8 +3297,32 @@ static void innobase_build_col_map_add(mem_heap_t *heap, dfield_t *dfield,
 
   const byte *mysql_data = field->field_ptr();
 
-  row_mysql_store_col_in_innobase_format(dfield, buf, true, mysql_data, size,
-                                         comp);
+  if (field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+
+      byte *encryption_key = static_cast<byte *>(mem_heap_alloc(heap, Encryption::KEY_LEN));
+      byte *encryption_iv = static_cast<byte *>(mem_heap_alloc(heap, Encryption::KEY_LEN));
+
+      if(!decrypt_column_key(field->encryption_key.str, field->encryption_key.length, encryption_key)) {
+        encryption_key = nullptr;
+        ut_ad(0);
+      }
+
+      if(!decrypt_column_key(field->encryption_iv.str, field->encryption_iv.length, encryption_iv)) {
+        encryption_iv = nullptr;
+        ut_ad(0);
+      }
+      row_mysql_store_col_in_innobase_format(
+      dfield, buf, true, mysql_data, size, comp,
+      field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION,
+      field->encryption_col_algo,
+      encryption_key,
+      encryption_iv,
+      prebuilt);
+  } else {
+    row_mysql_store_col_in_innobase_format(
+        dfield, buf, true, mysql_data, size, comp,
+        false, 0, nullptr, nullptr, nullptr);
+  }
 }
 
 /** Construct the translation table for reordering, dropping or
@@ -3282,7 +3340,8 @@ to column numbers in altered_table */
 [[nodiscard]] static const ulint *innobase_build_col_map(
     Alter_inplace_info *ha_alter_info, const TABLE *altered_table,
     const TABLE *table, const dict_table_t *new_table,
-    const dict_table_t *old_table, dtuple_t *add_cols, mem_heap_t *heap) {
+    const dict_table_t *old_table, dtuple_t *add_cols, mem_heap_t *heap,
+    row_prebuilt_t *prebuilt) {
   DBUG_TRACE;
   assert(altered_table != table);
   assert(new_table != old_table);
@@ -3341,7 +3400,7 @@ to column numbers in altered_table */
     ut_ad(!is_v);
     innobase_build_col_map_add(heap, dtuple_get_nth_field(add_cols, i),
                                altered_table->field[i + num_v],
-                               dict_table_is_comp(new_table));
+                               dict_table_is_comp(new_table), prebuilt);
   found_col:
     if (is_v) {
       num_v++;
@@ -3780,6 +3839,10 @@ static bool prepare_inplace_add_virtual(Alter_inplace_info *ha_alter_info,
 
     if (is_unsigned) {
       field_type |= DATA_UNSIGNED;
+    }
+
+    if (field->is_column_encrypted()) {
+      field_type |= DATA_ENCRYPTION;
     }
 
     if (dtype_is_string_type(col_type)) {
@@ -4314,7 +4377,8 @@ template <typename Table>
     Alter_inplace_info *ha_alter_info, const TABLE *altered_table,
     const TABLE *old_table, const Table *old_dd_tab, Table *new_dd_tab,
     const char *table_name, uint32_t flags, uint32_t flags2,
-    ulint fts_doc_id_col, bool add_fts_doc_id, bool add_fts_doc_id_idx) {
+    ulint fts_doc_id_col, bool add_fts_doc_id, bool add_fts_doc_id_idx,
+    row_prebuilt_t *prebuilt) {
   bool dict_locked = false;
   ulint *add_key_nums;         /* MySQL key numbers */
   ddl::Index_defn *index_defs; /* index definitions */
@@ -4584,8 +4648,10 @@ template <typename Table>
       ulint col_type = get_innobase_type_from_mysql_type(&is_unsigned, field);
       ulint charset_no;
       ulint col_len;
+      ulint is_encryption;
       bool is_virtual = innobase_is_v_fld(field);
       bool is_multi_value = innobase_is_multi_value_fld(field);
+      ulint prtype = 0;
 
       /* we assume in dtype_form_prtype() that this
       fits in two bytes */
@@ -4602,6 +4668,8 @@ template <typename Table>
       if (is_unsigned) {
         field_type |= DATA_UNSIGNED;
       }
+
+      is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
 
       if (dtype_is_string_type(col_type)) {
         charset_no = (ulint)field->charset()->number;
@@ -4660,11 +4728,25 @@ template <typename Table>
             field->gcol_info->non_virtual_base_columns(),
             !field->is_hidden_by_system());
       } else {
+
+        dict_fix_string_to_varchar_for_encryption(is_encryption, &field_type, &col_len);
+        prtype = dtype_form_prtype(field_type | is_encryption, charset_no);
+
         dict_mem_table_add_col(
             ctx->new_table, ctx->heap, field->field_name, col_type,
-            dtype_form_prtype(field_type, charset_no), col_len,
-            !field->is_hidden_by_system(), UINT32_UNDEFINED, UINT8_UNDEFINED,
-            UINT8_UNDEFINED);
+            prtype, col_len, !field->is_hidden_by_system(), UINT32_UNDEFINED,
+            UINT8_UNDEFINED, UINT8_UNDEFINED);
+        
+        if (is_encryption) {
+          uint64_t new_size;
+          uint64_t old_size = mem_heap_get_size(ctx->new_table->heap);
+          dict_col_t *col = ctx->new_table->get_col(ctx->new_table->n_def-1);
+          dd_parse_encrypted_key_value(field->encryption_key.str, field->encryption_key.length, 
+                                       field->encryption_iv.str, field->encryption_iv.length, 
+                                       col, ctx->new_table->heap);
+          new_size = mem_heap_get_size(ctx->new_table->heap);
+          dict_sys->size += new_size - old_size;
+        }
       }
     }
 
@@ -4787,7 +4869,8 @@ template <typename Table>
 
     ctx->col_map =
         innobase_build_col_map(ha_alter_info, altered_table, old_table,
-                               ctx->new_table, user_table, add_cols, ctx->heap);
+                               ctx->new_table, user_table, add_cols, ctx->heap,
+                               prebuilt);
     ctx->add_cols = add_cols;
   } else {
     assert(!innobase_need_rebuild(ha_alter_info));
@@ -5968,7 +6051,7 @@ bool ha_innobase::prepare_inplace_alter_table_impl(
   return prepare_inplace_alter_table_dict(
       ha_alter_info, altered_table, table, old_dd_tab, new_dd_tab,
       table_share->table_name.str, info.flags(), info.flags2(), fts_doc_col_no,
-      add_fts_doc_id, add_fts_doc_id_idx);
+      add_fts_doc_id, add_fts_doc_id_idx, m_prebuilt);
 }
 
 /** Check that the column is part of a virtual index(index contains

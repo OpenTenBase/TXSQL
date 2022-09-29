@@ -378,7 +378,8 @@ bool is_store_version(const dict_index_t *index, size_t n_tuple_fields) {
 
     ut_ad(len <= col->len || DATA_LARGE_MTYPE(col->mtype) ||
           (DATA_POINT_MTYPE(col->mtype) && len == DATA_MBR_LEN) ||
-          (col->len == 0 && col->mtype == DATA_VARCHAR));
+          (col->len == 0 && col->mtype == DATA_VARCHAR) ||
+          dict_col_is_encrypted(col));
 
     fixed_len = field->fixed_len;
     if (temp && fixed_len && !col->get_fixed_size(temp)) {
@@ -396,18 +397,18 @@ bool is_store_version(const dict_index_t *index, size_t n_tuple_fields) {
       ulint mbminlen = DATA_MBMINLEN(col->mbminmaxlen);
       ulint mbmaxlen = DATA_MBMAXLEN(col->mbminmaxlen);
 
-      ut_ad(len <= fixed_len);
+      ut_ad(len <= fixed_len || dict_col_is_encrypted(col));
 
       if (dict_index_is_spatial(index)) {
         ut_ad(type->mtype == DATA_SYS_CHILD || !mbmaxlen ||
               len >= mbminlen * (fixed_len / mbmaxlen));
       } else {
         ut_ad(type->mtype != DATA_SYS_CHILD);
-        ut_ad(!mbmaxlen || len >= mbminlen * (fixed_len / mbmaxlen));
+        ut_ad(!mbmaxlen || len >= mbminlen * (fixed_len / mbmaxlen) || dict_col_is_encrypted(col));
       }
 
       /* dict_index_add_col() should guarantee this */
-      ut_ad(!field->prefix_len || fixed_len == field->prefix_len);
+      ut_ad(!field->prefix_len || fixed_len == field->prefix_len || dict_col_is_encrypted(col));
 #endif /* UNIV_DEBUG */
     } else if (dfield_is_ext(&fields[i])) {
       ut_ad(DATA_BIG_COL(col));
@@ -868,7 +869,8 @@ static inline bool rec_convert_dtuple_to_rec_comp(
 #ifndef UNIV_HOTBACKUP
         ut_ad(len <= dtype_get_len(type) ||
               DATA_LARGE_MTYPE(dtype_get_mtype(type)) ||
-              !strcmp(index->name, FTS_INDEX_TABLE_IND_NAME));
+              !strcmp(index->name, FTS_INDEX_TABLE_IND_NAME) ||
+              dict_col_is_encrypted(col));
 #endif /* !UNIV_HOTBACKUP */
         if (len < 128 ||
             !DATA_BIG_LEN_MTYPE(dtype_get_len(type), dtype_get_mtype(type))) {

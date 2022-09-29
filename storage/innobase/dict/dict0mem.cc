@@ -544,6 +544,36 @@ void dict_mem_table_free_foreign_vcol_set(dict_table_t *table) {
   }
 }
 
+/** Set encryption key
+@param[in]	value	Default value
+@param[in]	length	Default value length
+@param[in,out]	heap	Heap to allocate memory */
+void dict_col_t::set_encryption_key(const byte *value, size_t length,
+                                    mem_heap_t *heap) {
+  ut_ad((value == nullptr && length == 0) || (value != nullptr && length > 0));
+  if (value == nullptr) {
+    encryption_key = nullptr;
+  } else {
+    encryption_key = static_cast<byte *>(mem_heap_alloc(heap, length));
+    memcpy(encryption_key, value, length);
+  }
+}
+
+/** Set encryption iv
+@param[in]	value	Default value
+@param[in]	length	Default value length
+@param[in,out]	heap	Heap to allocate memory */
+void dict_col_t::set_encryption_iv(const byte *value, size_t length,
+                                    mem_heap_t *heap) {
+  ut_ad((value == nullptr && length == 0) || (value != nullptr && length > 0));
+  if (value == nullptr) {
+    encryption_iv = nullptr;
+  } else {
+    encryption_iv = static_cast<byte *>(mem_heap_alloc(heap, length));
+    memcpy(encryption_iv, value, length);
+  }
+}
+
 /** Set default value
 @param[in]      value   Default value
 @param[in]      length  Default value length

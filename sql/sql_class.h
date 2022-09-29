@@ -1051,6 +1051,8 @@ class THD : public MDL_context_owner,
     return m_dd_client.get();
   }
 
+  bool is_legal_column_encrypt_read;
+
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
 

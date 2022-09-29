@@ -1,0 +1,91 @@
+--source include/no_valgrind_without_big.inc
+
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Can't generate new master key for tablespace encryption, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Encryption can't find master key, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Function 'keyring_file' already exists");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Couldn't load plugin named 'keyring_file' with soname 'keyring_file.*'.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* illegal user or without master key can only read encrypted data of the encrypted .*");
+call mtr.add_suppression("Plugin keyring_file reported");
+
+
+# column type limit 
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 int encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 char(128) encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 float encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 binary(128) encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 varbinary(128) encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 json encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 blob encryption);
+
+--error ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE
+create table t1(c1 text encryption);
+
+--error ER_CDB_TOO_BIG_ENCRYPTION_FIELDLENGTH
+create table t1(c1 varchar(1025) encryption);
+
+# engine limit 
+--error ER_ILLEGAL_HA_CREATE_OPTION
+create table t1(c1 varchar(255) encryption) engine = myisam;
+
+--error ER_ILLEGAL_HA_CREATE_OPTION
+create table t1(c1 varchar(255) encryption) engine = memory;
+
+# index limit
+create table t1(c1 int primary key, c2 int );
+alter table t1 add c3 varchar(32) encryption;
+--error ER_CDB_ENCRYPTION_COLUMN_USED_AS_KEY
+alter table t1 add index k1(c3);
+--error ER_CDB_ENCRYPTION_COLUMN_USED_AS_KEY
+alter table t1 add index k2(c2, c3);
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+alter table t1 add i1 varchar(255) encryption algorithm=SM4 default '天', ALGORITHM=instant;
+drop table t1;
+
+# foreign key limit 
+create table t1(c1 int primary key, c2 varchar(32));
+--error ER_CDB_ENCRYPTION_COLUMN_USED_AS_KEY
+create table t2(c1 int primary key, c2 varchar(32) encryption, foreign key(c2) references t1(c2));
+create table t2(c1 int primary key, c2 varchar(32) encryption);
+--error ER_FK_NO_INDEX_PARENT
+create table t3(c1 int primary key, c2 varchar(32), foreign key(c2) references t2(c2));
+drop table t1, t2;
+
+# virtual column limit
+--error ER_CDB_UNSUPPORTED_MIXED_USE_OF_STORED_AND_ENCYRPTION
+create table t1(c1 int primary key, c2 varchar(255) encryption default 'abc', c3 varchar(255) generated always as (left(c2,100)) stored);
+
+# cdb_column_encryption_whitelist limit 
+create table t1(c1 int primary key, c2 varchar(255) default 'abc' encryption algorithm=SM4);
+insert into t1 values(1,'a'),(2,'b'),(3,'c');
+connect (con_tencentroot, localhost, tencentroot,'', );
+--connection con_tencentroot
+set global cdb_column_encryption_whitelist = 'invalid';
+--error ER_CDB_ILLEGAL_USER_UPDATE_COLUMN_ENCRYPTION
+insert into t1 values(4,'d');
+update t1 set c1=c1+10 where c1=1;
+--error ER_CDB_ILLEGAL_USER_UPDATE_COLUMN_ENCRYPTION
+update t1 set c2='d' where c1=1;
+--error ER_CDB_ILLEGAL_USER_UPDATE_COLUMN_ENCRYPTION
+update t1 set c2='d' where c1=2;
+delete from t1 where c1=1;
+delete from t1 where c2='a';
+set global cdb_column_encryption_whitelist = '';
+
+# rotate innodb master key
+--error ER_CDB_UNSUPPORTED_MASTER_KEY_ROTATE
+alter instance rotate innodb master key;
+drop table t1;
+alter instance rotate innodb master key;

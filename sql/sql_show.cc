@@ -2120,6 +2120,25 @@ bool store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       case COLUMN_FORMAT_TYPE_DYNAMIC:
         packet->append(STRING_WITH_LEN(" /*!50606 COLUMN_FORMAT DYNAMIC */"));
         break;
+      case COLUMN_FORMAT_TYPE_ENCRYPTION:
+        packet->append(STRING_WITH_LEN(" /*!80022 ENCRYPTION "));
+        if (ENCRYPTION_COL_ALGO_TYPE_AES128 == field->encryption_col_algo) {
+          packet->append(STRING_WITH_LEN("ALGORITHM = AES128"));
+        }
+        else if (ENCRYPTION_COL_ALGO_TYPE_AES192 == field->encryption_col_algo) {
+          packet->append(STRING_WITH_LEN("ALGORITHM = AES192"));
+        }
+        else if (ENCRYPTION_COL_ALGO_TYPE_AES256 == field->encryption_col_algo) {
+          packet->append(STRING_WITH_LEN("ALGORITHM = AES256"));
+        }
+        else if (ENCRYPTION_COL_ALGO_TYPE_SM4 == field->encryption_col_algo) {
+          packet->append(STRING_WITH_LEN("ALGORITHM = SM4"));
+        }
+        else {
+          assert(0);
+        }
+        packet->append(STRING_WITH_LEN(" */"));
+        break;
       default:
         assert(0);
         break;

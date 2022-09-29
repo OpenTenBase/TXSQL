@@ -47,6 +47,12 @@ static inline ulint dict_col_get_no(const dict_col_t *col) /*!< in: column */
   return (col->ind);
 }
 
+inline bool dict_col_is_encrypted(
+	const dict_col_t*	col)	/*!< in: column */
+{
+  return (col->prtype & DATA_ENCRYPTION) ? 1: 0;
+}
+
 static inline ulint dict_col_get_clust_pos(const dict_col_t *col,
                                            const dict_index_t *clust_index) {
   ulint i;

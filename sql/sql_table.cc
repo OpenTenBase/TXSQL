@@ -441,7 +441,8 @@ static int copy_data_between_tables(
 static bool prepare_blob_field(THD *thd, Create_field *sql_field,
                                bool convert_character_set);
 static bool check_engine(const char *db_name, const char *table_name,
-                         HA_CREATE_INFO *create_info);
+                         HA_CREATE_INFO *create_info,
+                         const Alter_info *alter_info);
 
 static bool prepare_set_field(THD *thd, Create_field *sql_field);
 static bool prepare_enum_field(THD *thd, Create_field *sql_field);
@@ -4672,6 +4673,7 @@ bool prepare_create_field(THD *thd, const char *error_schema_name,
         if (!(sql_field->flags & NOT_NULL_FLAG)) create_info->null_bits--;
 
         sql_field->flags = dup_field->flags;
+        sql_field->flags2 = dup_field->flags2;
         sql_field->interval = dup_field->interval;
         sql_field->gcol_info = dup_field->gcol_info;
         sql_field->m_default_val_expr = dup_field->m_default_val_expr;
@@ -4906,6 +4908,13 @@ static bool prepare_key_column(THD *thd, HA_CREATE_INFO *create_info,
       my_error(ER_DUP_FIELDNAME, MYF(0), column->get_field_name());
       return true;
     }
+  }
+
+  /* encryption column is not allowed to be defined as a key part */
+  if (sql_field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+    my_error(ER_CDB_ENCRYPTION_COLUMN_USED_AS_KEY, MYF(0),
+             column->get_field_name());
+    return true;
   }
 
   uint column_length;
@@ -8039,8 +8048,39 @@ bool mysql_prepare_create_table(
   */
   int auto_increment = 0;
   int blob_columns = 0;
+  bool has_encryption_column = false;
+  bool has_stored_virtual_column = false;
   it.rewind();
   while ((sql_field = it++)) {
+    /*
+      Check if the column is encryptable.
+      VIRTUAL generated columns cannot have encryption attribute.
+      currently only support varchar
+    */
+    if (sql_field->sql_type == MYSQL_TYPE_VARCHAR &&
+        sql_field->charset != &my_charset_bin &&
+        sql_field->gcol_info == nullptr) {
+      // this is a valid column type to set encrypted
+      if (sql_field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+        if (sql_field->max_display_width_in_codepoints() > MAX_ENCRYPTION_FIELD_CHARLENGTH) {
+          my_error(ER_CDB_TOO_BIG_ENCRYPTION_FIELDLENGTH, MYF(0), sql_field->field_name,
+                   static_cast<ulong>(MAX_ENCRYPTION_FIELD_CHARLENGTH));
+          return true;
+        }
+        has_encryption_column = true;
+      }
+    } else {
+      if (sql_field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+        my_error(ER_CDB_UNSUPPORTED_ENCRYPTION_COLUMN_TYPE, MYF(0),
+                 sql_field->field_name);
+        return true;
+      }
+    }
+
+    if (sql_field->gcol_info != nullptr && !sql_field->is_virtual_gcol()) {
+      has_stored_virtual_column = true;
+    }
+
     if (sql_field->auto_flags & Field::NEXT_NUMBER) auto_increment++;
     switch (sql_field->sql_type) {
       case MYSQL_TYPE_GEOMETRY:
@@ -8056,6 +8096,12 @@ bool mysql_prepare_create_table(
         break;
     }
   }
+
+  if (has_encryption_column && has_stored_virtual_column) {
+        my_error(ER_CDB_UNSUPPORTED_MIXED_USE_OF_STORED_AND_ENCYRPTION, MYF(0));
+        return true;
+  }
+
   if (auto_increment > 1) {
     my_error(ER_WRONG_AUTO_KEY, MYF(0));
     return true;
@@ -8681,7 +8727,7 @@ static bool create_table_impl(
     return true;
   }
 
-  if (check_engine(db, table_name, create_info)) return true;
+  if (check_engine(db, table_name, create_info, alter_info)) return true;
 
   // Secondary engine cannot be defined for temporary tables.
   if (create_info->secondary_engine.str != nullptr &&
@@ -8836,6 +8882,14 @@ static bool create_table_impl(
         return true;
       }
       create_info->db_type = engine_type;
+    }
+    if (alter_info->has_encryption_columns() &&
+        !ha_check_storage_engine_flag(part_info->default_engine_type,
+                                      HTON_SUPPORTS_COLUMN_ENCRYPTION)) {
+      my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+               ha_resolve_storage_engine_name(part_info->default_engine_type),
+               "ENCRYPTION COLUMNS");
+      return true;
     }
   }
 
@@ -14031,7 +14085,7 @@ static bool upgrade_old_temporal_types(THD *thd, Alter_info *alter_info) {
     Create_field *temporal_field = nullptr;
     if (!(temporal_field = new (thd->mem_root) Create_field()) ||
         temporal_field->init(thd, def->field_name, sql_type, nullptr, nullptr,
-                             (def->flags & NOT_NULL_FLAG), default_value,
+                             (def->flags & NOT_NULL_FLAG), def->flags2, default_value,
                              update_value, &def->comment, def->change, nullptr,
                              nullptr, false, 0, nullptr, nullptr, def->m_srid,
                              def->hidden, def->is_array))
@@ -16721,7 +16775,7 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       create_info->db_type = table->s->db_type();
   }
 
-  if (check_engine(alter_ctx.new_db, alter_ctx.new_name, create_info))
+  if (check_engine(alter_ctx.new_db, alter_ctx.new_name, create_info, alter_info))
     return true;
 
   /*
@@ -16951,6 +17005,15 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
                               &partition_changed, &new_part_info)) {
       return true;
     }
+  }
+
+  if (new_part_info != nullptr && alter_info->has_encryption_columns() &&
+      !ha_check_storage_engine_flag(new_part_info->default_engine_type,
+                                    HTON_SUPPORTS_COLUMN_ENCRYPTION)) {
+        my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+            ha_resolve_storage_engine_name(new_part_info->default_engine_type),
+            "ENCRYPTION COLUMNS");
+    return true;
   }
 
   /*
@@ -19003,7 +19066,8 @@ err:
   @retval false Engine available/supported.
 */
 static bool check_engine(const char *db_name, const char *table_name,
-                         HA_CREATE_INFO *create_info) {
+                         HA_CREATE_INFO *create_info,
+                         const Alter_info *alter_info) {
   DBUG_TRACE;
   handlerton **new_engine = &create_info->db_type;
 
@@ -19038,6 +19102,20 @@ static bool check_engine(const char *db_name, const char *table_name,
       my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "ENCRYPTION");
       return true;
     }
+  }
+
+
+  /*
+    Check if the given table has encryption columns, and if the storage engine
+    does support it.
+  */
+  if (alter_info->has_encryption_columns() &&
+      !ha_check_storage_engine_flag(*new_engine,
+                                    HTON_SUPPORTS_COLUMN_ENCRYPTION)) {
+    my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+             ha_resolve_storage_engine_name(*new_engine), "ENCRYPTION COLUMNS");
+    *new_engine = 0;
+    return true;
   }
 
   return false;

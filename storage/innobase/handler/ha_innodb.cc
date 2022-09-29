@@ -4268,6 +4268,16 @@ static bool innobase_dict_set_server_version() {
   return (upgrade_space_version(dict_sys_t::s_dict_space_id, true));
 }
 
+/**
+  Support call the get_master_key via handlerton
+*/
+static void innobase_get_keyring_master_key(uint32_t *master_key_id,
+                                            byte **master_key,
+                                            uint32_t *master_key_len) {
+  Encryption::get_master_key(master_key_id, master_key);
+  *master_key_len = Encryption::KEY_LEN;
+}
+
 /** Start page tracking.
 @param[out]    start_id      LSN indicating when the tracking was started
 @return Operation status.
@@ -5278,7 +5288,8 @@ static int innodb_init(void *p) {
                          HTON_SUPPORTS_FOREIGN_KEYS | HTON_SUPPORTS_ATOMIC_DDL |
                          HTON_CAN_RECREATE | HTON_SUPPORTS_SECONDARY_ENGINE |
                          HTON_SUPPORTS_TABLE_ENCRYPTION |
-                         HTON_SUPPORTS_GENERATED_INVISIBLE_PK;
+                         HTON_SUPPORTS_GENERATED_INVISIBLE_PK |
+                         HTON_SUPPORTS_COLUMN_ENCRYPTION;
 
   innobase_hton->replace_native_transaction_in_thd = innodb_replace_trx_in_thd;
   innobase_hton->file_extensions = ha_innobase_exts;
@@ -5295,6 +5306,8 @@ static int innodb_init(void *p) {
   innobase_hton->dict_recover = innobase_dict_recover;
   innobase_hton->dict_get_server_version = innobase_dict_get_server_version;
   innobase_hton->dict_set_server_version = innobase_dict_set_server_version;
+
+  innobase_hton->get_keyring_master_key = innobase_get_keyring_master_key;
 
   innobase_hton->post_recover = innobase_post_recover;
 
@@ -6867,6 +6880,8 @@ static void innobase_vcol_build_templ(const TABLE *table,
   templ->is_mask = field->is_mask;
   templ->mask_start_pos = field->mask_start_pos;
   templ->mask_end_pos = field->mask_end_pos;
+  templ->col_encryption_algorithm = field->encryption_col_algo;
+  templ->is_encryption = (field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION);
 }
 
 /** Callback used by MySQL server layer to initialize
@@ -8404,6 +8419,8 @@ static mysql_row_templ_t *build_template_field(
     templ->mysql_mvidx_len = 0;
     templ->is_multi_val = false;
   }
+  templ->is_encryption = (field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION);
+
   templ->type = col->mtype;
   templ->mysql_type = (ulint)field->type();
 
@@ -8420,6 +8437,7 @@ static mysql_row_templ_t *build_template_field(
   templ->is_mask = field->is_mask;
   templ->mask_start_pos = field->mask_start_pos;
   templ->mask_end_pos = field->mask_end_pos;
+  templ->col_encryption_algorithm = field->encryption_col_algo;
 
   if (!index->is_clustered() && templ->rec_field_no == ULINT_UNDEFINED) {
     prebuilt->need_to_access_clustered = true;
@@ -8973,7 +8991,8 @@ static void innobase_store_multi_value_low(json_binary::Value *bv,
         mysql_data = data;
       }
       row_mysql_store_col_in_innobase_format(dfield, buf, true, mysql_data,
-                                             col_len, comp);
+                                             col_len, comp, false, 0,
+                                             nullptr, nullptr, nullptr);
     } else if (type == DATA_CHAR || type == DATA_VARCHAR ||
                type == DATA_VARMYSQL) {
       mysql_data = (byte *)elt.get_data();
@@ -9326,7 +9345,7 @@ static byte *innodb_fill_old_vcol_val(row_prebuilt_t *prebuilt,
   if (o_len != UNIV_SQL_NULL) {
     buf = row_mysql_store_col_in_innobase_format(
         vfield, buf, true, old_mysql_row_col, col_pack_len,
-        dict_table_is_comp(prebuilt->table));
+        dict_table_is_comp(prebuilt->table), false, 0, nullptr, nullptr, nullptr);
   } else {
     dfield_set_null(vfield);
   }
@@ -9655,7 +9674,12 @@ static dberr_t calc_row_difference(
         } else {
           buf = row_mysql_store_col_in_innobase_format(&dfield, (byte *)buf,
                                                        true, new_mysql_row_col,
-                                                       col_pack_len, comp);
+                                                       col_pack_len, comp, 
+                                                       field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION,
+                                                       field->encryption_col_algo,
+                                                       col->encryption_key,
+                                                       col->encryption_iv,
+                                                       prebuilt);
         }
 
         if (multi_value_calc_by_diff) {
@@ -9700,7 +9724,7 @@ static dberr_t calc_row_difference(
           } else {
             buf = row_mysql_store_col_in_innobase_format(
                 &dfield, (byte *)buf, true, old_mysql_row_col, col_pack_len,
-                comp);
+                comp, false, 0, nullptr, nullptr, nullptr);
           }
 
           if (multi_value_calc_by_diff) {
@@ -11656,6 +11680,8 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
     ulint charset_no;
     ulint is_virtual;
     ulint is_multi_val;
+    ulint is_encryption;
+    ulint field_type;
     bool is_stored = false;
 
     Field *field = m_form->field[i];
@@ -11675,6 +11701,10 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
     } else {
       snprintf(field_name, sizeof(field_name), "%s", field->field_name);
     }
+
+    is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
+
+    field_type = field->type();
 
     col_type = get_innobase_type_from_mysql_type(&unsigned_type, field);
 
@@ -11734,6 +11764,8 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
       }
     }
 
+    dict_fix_string_to_varchar_for_encryption(is_encryption, &field_type, &col_len);
+
     if (col_type == DATA_POINT) {
       col_len = DATA_POINT_LEN;
     }
@@ -11780,9 +11812,23 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
       dict_mem_table_add_col(
           table, heap, field_name, col_type,
           dtype_form_prtype((ulint)field->type() | nulls_allowed |
-                                unsigned_type | binary_type | long_true_varchar,
+                                unsigned_type | binary_type | long_true_varchar |
+                                is_encryption,
                             charset_no),
           col_len, !field->is_hidden_by_system(), phy_pos, v_added, v_dropped);
+
+      if(is_encryption) {
+          uint64_t new_size;
+          uint64_t old_size = mem_heap_get_size(table->heap);
+          dict_col_t *col = table->get_col(table->n_def-1);
+          dd_parse_encrypted_key_value(field->encryption_key.str, field->encryption_key.length, 
+                                  field->encryption_iv.str, field->encryption_iv.length, 
+                                  col, table->heap);
+          new_size = mem_heap_get_size(table->heap);
+          dict_sys_mutex_enter();
+          dict_sys->size += new_size - old_size;
+          dict_sys_mutex_exit();
+      }
 
       if (dd_is_valid_row_version(v_added)) {
         mem_heap_t *instant_heap = mem_heap_create(1000, UT_LOCATION_HERE);
@@ -11801,7 +11847,8 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
           table, heap, field_name, col_type,
           dtype_form_prtype((ulint)field->type() | nulls_allowed |
                                 unsigned_type | binary_type |
-                                long_true_varchar | is_virtual | is_multi_val,
+                                long_true_varchar | is_virtual | is_multi_val |
+                                is_encryption,
                             charset_no),
           col_len, i, field->gcol_info->non_virtual_base_columns(),
           !field->is_hidden_by_system());
@@ -24244,8 +24291,8 @@ dfield_t *innobase_get_computed_value(
              templ->mysql_col_len);
     } else {
       row_sel_field_store_in_mysql_format(
-          mysql_rec + templ->mysql_col_offset, templ, index,
-          templ->clust_rec_field_no, (const byte *)data, prebuilt, len, ULINT_UNDEFINED);
+          mysql_rec + templ->mysql_col_offset, templ, 0, index,
+          templ->clust_rec_field_no, (const byte *)data, len, prebuilt, ULINT_UNDEFINED);
 
       if (templ->mysql_null_bit_mask) {
         /* It is a nullable column with a
@@ -24337,7 +24384,8 @@ dfield_t *innobase_get_computed_value(
   } else {
     row_mysql_store_col_in_innobase_format(
         field, buf, true, mysql_rec + vctempl->mysql_col_offset,
-        vctempl->mysql_col_len, dict_table_is_comp(index->table));
+        vctempl->mysql_col_len, dict_table_is_comp(index->table), false,
+        0, nullptr, nullptr, nullptr);
   }
   field->type.prtype |= DATA_VIRTUAL;
 

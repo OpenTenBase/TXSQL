@@ -53,6 +53,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "dict0stats.h"
 #include "dict0stats_bg.h"
 #include "fil0fil.h"
+#include "field.h"
 #include "fsp0file.h"
 #include "fsp0sysspace.h"
 #include "fts0fts.h"
@@ -62,6 +63,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lock0lock.h"
 #include "log0buf.h"
 #include "log0chkp.h"
+#include "log0log.h"
+#include "my_aes.h"
+#include "my_sm4.h"
 #include "pars0pars.h"
 #include "que0que.h"
 #include "rem0cmp.h"
@@ -73,6 +77,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0row.h"
 #include "row0sel.h"
 #include "row0upd.h"
+#include "sm_encrypt.h"
 #include "trx0purge.h"
 #include "trx0rec.h"
 #include "trx0roll.h"
@@ -171,6 +176,322 @@ void row_mysql_prebuilt_free_blob_heap(row_prebuilt_t *prebuilt) {
 
   mem_heap_free(prebuilt->blob_heap);
   prebuilt->blob_heap = nullptr;
+}
+
+/** Frees the encryption heap in prebuilt when no longer needed.
+@param[in]      prebuilt        prebuilt struct of a ha_innobase::table handle  */
+void row_mysql_prebuilt_free_encryption_heap(row_prebuilt_t *prebuilt) noexcept {
+  mem_heap_free(prebuilt->encryption_heap);
+  prebuilt->encryption_heap = nullptr;
+}
+
+static constexpr size_t column_encyrption_header_length = 1;
+
+/* 4 mean using 4 byte to store data length */
+static constexpr size_t column_encryption_prefix_max_length =
+    column_encyrption_header_length + 4;
+
+/* 'encryption flag', bit 0 */
+static constexpr uint column_encyrption = 0;
+/* 0000 0001 */
+static constexpr uint column_encryption_mask = 0x01;
+
+/* 'algorithm', bit 1,2,3 */
+static constexpr uint column_encryption_algorithm = 1;
+/* 0000 1110 */
+static constexpr uint column_encryption_algorithm_mask = 0x0E;
+
+/* 'len-len', bit 5,6,7 */
+static constexpr uint column_data_length = 5;
+/* 1110 0000 */
+static constexpr uint column_data_length_mask = 0xE0;
+
+/** set encryption block header with the given components */
+static void column_set_encrypt_header(byte *data, bool is_encryption,
+                                       ulint lenlen, uint alg) noexcept {
+  ulint header = 0;
+  header |= (is_encryption << column_encyrption);
+  header |= (alg << column_encryption_algorithm);
+  header |= (lenlen << column_data_length);
+  mach_write_to_1(data, header);
+}
+
+/** parse encyrption block header */
+static void column_get_encrypt_header(const byte *data, bool *is_encryption,
+                                       ulint *lenlen, uint *alg) noexcept {
+  const byte header = mach_read_from_1(data);
+  *is_encryption =
+      ((header & column_encryption_mask) >> column_encyrption);
+  *alg = ((header & column_encryption_algorithm_mask) >> column_encryption_algorithm);
+  *lenlen = ((header & column_data_length_mask) >> column_data_length);
+}
+
+/* get the encrypted data len */
+static ulint get_column_encrypted_len (ulint len,
+                                       uint algorithm_type) {
+  enum my_aes_opmode aes_mode = my_aes_256_cbc;
+  switch (algorithm_type) {
+    case ENCRYPTION_COL_ALGO_TYPE_AES128:
+      aes_mode = my_aes_128_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_AES192:
+      aes_mode = my_aes_192_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_AES256:
+      aes_mode = my_aes_256_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_SM4:
+      return my_sm4_get_size(len);
+  }
+  return my_aes_get_size(len, aes_mode);
+}
+
+/** encrypt column
+@param[in]      data            data in mysql (unencryption) format
+@param[in,out]  len             in: data length, out: length of encryption data
+@param[in]      algorithm_type  in: encryption algorithm
+@param[in]      encryption_key  in: encryption_key would be need for encrypt
+@param[in]      encryption_iv   in: encryption_iv would be need for encrypt
+@param[in]      prebuilt        use prebuilt->ecnryption only here
+@return pointer to the encrypted data */
+const byte *row_encrypt_column(const byte *data, 
+                         ulint *len,
+                         ulint lenlen,
+                         uint algorithm_type, 
+                         byte *encryption_key,
+                         byte *encryption_iv,
+                         row_prebuilt_t *prebuilt) {
+  byte *buf;
+  byte *ptr;
+  int elen = 0;
+  bool is_encrypt = true;
+  ulint original_len = *len;
+  /* current only support aes */
+  ulint encrypt_buf_len = get_column_encrypted_len(*len, algorithm_type);
+
+  ulint buf_len = encrypt_buf_len + column_encryption_prefix_max_length;
+
+  /* is illegal encryption key, we don't encrypt (such as no keyring_file plugin)*/
+  bool is_legal_key = (encryption_key != nullptr) && (encryption_iv != nullptr);
+
+  /* current max algorithm_type is 3 */
+  ut_ad(algorithm_type <= 3);
+
+  if (!prebuilt->encryption_heap)
+    prebuilt->encryption_heap = mem_heap_create(std::max(UNIV_PAGE_SIZE, buf_len), UT_LOCATION_HERE);
+  buf = static_cast<byte *>(mem_heap_zalloc(prebuilt->encryption_heap, buf_len));
+
+  ptr = buf + column_encyrption_header_length + lenlen;
+
+  enum my_aes_opmode aes_mode = my_aes_192_cbc;
+  /* encrypt the data */
+  switch (algorithm_type) {
+    case ENCRYPTION_COL_ALGO_TYPE_AES128:
+      aes_mode = my_aes_128_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_AES192:
+      aes_mode = my_aes_192_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_AES256:
+      aes_mode = my_aes_256_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_SM4:
+      break;
+    default:
+      ib::fatal(UT_LOCATION_HERE, ER_IB_MSG_972) << "unsupported 'algorithm' type for column encryption\n";
+  }
+
+  if (!is_legal_key)
+     goto not_encrypt;
+
+
+  if (algorithm_type == ENCRYPTION_COL_ALGO_TYPE_SM4) {
+    /* sm4 encrypt */
+    auto ret =
+        my_sm4_encrypt((unsigned char*)data, 
+                       *len, ptr, &elen, encryption_key,
+                       encryption_iv, true);
+    if (ret == MY_SM_BAD_DATA) {
+      is_encrypt = false;
+      if (*len > 0)
+        ib::info() << "error: failed to encrypt the column by sm4, data length is: " << *len;
+    }
+  } else {
+    /* aes encrypt */
+    elen = my_aes_encrypt(reinterpret_cast<const unsigned char *>(data),
+                               *len, ptr, encryption_key, Encryption::KEY_LEN,
+                               aes_mode, encryption_iv, true);
+
+    if (elen == MY_AES_BAD_DATA) {
+      is_encrypt = false;
+      ib::info() << "error: failed to encrypt the column by aes";
+    }
+  }
+
+  if (is_encrypt) {
+    /* set header */ 
+    column_set_encrypt_header(buf, true, lenlen, algorithm_type);
+    ptr = buf + column_encyrption_header_length;
+    switch (lenlen) {
+       case 1:
+        mach_write_to_1(ptr, original_len);
+        break;
+      case 2:
+        mach_write_to_2(ptr, original_len);
+        break;
+      case 3:
+        mach_write_to_3(ptr, original_len);
+        break;
+      case 4:
+        mach_write_to_4(ptr, original_len);
+        break;
+      default:
+        ut_ad(0);
+    }
+    *len = elen + column_encyrption_header_length + lenlen;
+    return buf;
+  } 
+
+not_encrypt:
+
+  /* if failed to encrypt data, only add a header */
+  ptr = buf;
+    /* Now, Algorithm is not important, set default: ZLIB_COL_COMP */
+  column_set_encrypt_header(ptr, false, 0, 0);
+  ptr += column_encyrption_header_length;
+  memcpy(ptr, data, *len);
+  *len = original_len + column_encyrption_header_length;
+  return buf;
+}
+
+/** decrypt column
+@param[in]	data	data in InnoDB (encrypt) format
+@param[in,out]	len	in: data length, out: length of decomprssed data
+@param[in]      algorithm_type  in: encryption algorithm
+@param[in]      encryption_key  in: encryption_key would be need for encrypt
+@param[in]      encryption_iv   in: encryption_iv would be need for encrypt
+@return pointer to the decrypted data */
+const byte *row_decrypt_column(const byte *data, 
+                               ulint *len,
+                               byte *encryption_key,
+                               byte *encryption_iv,
+                               row_prebuilt_t *prebuilt) {
+  byte *buf;
+  bool is_encrypted = false;
+  ulint lenlen = 0;
+  uint algorithm_type = 0;
+
+  bool is_legal_read = (prebuilt->trx && prebuilt->trx->mysql_thd) ?  
+                       prebuilt->trx->mysql_thd->is_legal_column_encrypt_read :
+                       true;
+  /* is illegal encryption key, we don't encrypt (such as no keyring_file plugin)*/
+  bool is_legal_key = (encryption_key != nullptr) && (encryption_iv != nullptr);
+
+  int elen = 0;
+  bool is_decrypt = true;
+  enum my_aes_opmode aes_mode = my_aes_192_cbc;
+
+ /* decrypted data is shorter than encrypted, but there is a header + lenlen data */
+  ulint buf_len = *len + column_encryption_prefix_max_length;
+
+  if (!prebuilt->encryption_heap) {
+    prebuilt->encryption_heap =
+      mem_heap_create(std::max(UNIV_PAGE_SIZE, buf_len), UT_LOCATION_HERE);
+  }
+  
+  buf = static_cast<byte *>(mem_heap_zalloc(prebuilt->encryption_heap, buf_len));
+
+  column_get_encrypt_header(data, &is_encrypted, &lenlen, &algorithm_type);
+
+  ut_ad(lenlen <= 4);
+
+  data += column_encyrption_header_length;
+  if (!is_encrypted) {
+    /* skip the header */
+    ut_ad(lenlen == 0);
+    *len -= column_encyrption_header_length;
+    return data;
+  }
+
+  ulint origin_data_len = 0;
+  ulint encrypted_len = *len - column_encyrption_header_length - lenlen;
+  switch (lenlen) {
+    case 1:
+      origin_data_len = mach_read_from_1(data);
+      break;
+    case 2:
+      origin_data_len = mach_read_from_2(data);
+      break;
+    case 3:
+      origin_data_len = mach_read_from_3(data);
+      break;
+    case 4:
+      origin_data_len = mach_read_from_4(data);
+      break;
+    default:
+      ut_error;
+  }
+
+  
+  data += lenlen;
+
+  if (!is_legal_read || !is_legal_key) {
+    /* return encrypted data directly */
+    ib::error() << "illegal user or without master key can only read encrypted data of the encrypted column";
+    goto undecrypted;
+  }
+
+  /* encrypt the data */
+  switch(algorithm_type) {
+    case ENCRYPTION_COL_ALGO_TYPE_AES128:
+      aes_mode = my_aes_128_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_AES192:
+      aes_mode = my_aes_192_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_AES256:
+      aes_mode = my_aes_256_cbc;
+      break;
+    case ENCRYPTION_COL_ALGO_TYPE_SM4:
+      break;
+    default:
+      ib::error() << "unsupported 'algorithm' type for column decryption \n";
+  }
+
+
+  if (algorithm_type == ENCRYPTION_COL_ALGO_TYPE_SM4) {
+    /* sm4 */
+    auto ret = my_sm4_decrypt(const_cast<unsigned char*>(data), encrypted_len,
+                              buf, &elen, encryption_key, encryption_iv,
+                              true);
+    /* If decryption failed, return error. */
+    if (ret == MY_SM_BAD_DATA) {
+      is_decrypt = false;
+      ib::error() << "error: failed to decrypt the column by sm4"; 
+    }
+  } else {
+    /* aes */
+
+    elen = my_aes_decrypt(data, encrypted_len,
+                        buf, encryption_key, Encryption::KEY_LEN,
+                        aes_mode, encryption_iv, true);
+
+    if (elen == MY_AES_BAD_DATA) {
+      is_decrypt = false;
+      ib::error() << "error: failed to decrypt the column by aes";
+    }
+  }
+
+  if (is_decrypt) {
+    *len = elen;
+    ut_ad(*len == origin_data_len);
+    return buf;
+  }
+
+  /* if failed to decrypt data, return the encrypted data */
+undecrypted:
+  *len = origin_data_len;
+  return data;
 }
 
 /** Stores a >= 5.0.3 format true VARCHAR length to dest, in the MySQL row
@@ -420,7 +741,12 @@ byte *row_mysql_store_col_in_innobase_format(
                             necessarily the length of the actual
                             payload data; if the column is a true
                             VARCHAR then this is irrelevant */
-    ulint comp)             /*!< in: nonzero=compact format */
+    ulint comp,             /*!< in: nonzero=compact format */
+    bool need_encryption,  /*!< in: if the data need to be encrypted */
+    ulint encryption_algorithm,/*!< in: which encryption algorithm to use*/
+    byte *encryption_key,  /*! < in : the column encryption key */
+    byte *encryption_iv,   /*! < in : the column encryption key */
+    row_prebuilt_t *prebuilt)
 {
   const byte *ptr = mysql_data;
   const dtype_t *dtype;
@@ -470,7 +796,12 @@ byte *row_mysql_store_col_in_innobase_format(
         lenlen = 2;
       }
 
-      ptr = row_mysql_read_true_varchar(&col_len, mysql_data, lenlen);
+      const byte *tmp_ptr = row_mysql_read_true_varchar(&col_len, mysql_data, lenlen);
+      if (need_encryption)
+        ptr = row_encrypt_column(tmp_ptr, &col_len, lenlen, encryption_algorithm,
+                                 encryption_key, encryption_iv, prebuilt);
+      else
+        ptr = tmp_ptr;
     } else {
       /* Remove trailing spaces from old style VARCHAR
       columns. */
@@ -581,6 +912,7 @@ static void row_mysql_convert_row_to_innobase(
 {
   const mysql_row_templ_t *templ;
   dfield_t *dfield;
+  dict_col_t *col = nullptr;
   ulint i;
   ulint n_col = 0;
   ulint n_v_col = 0;
@@ -604,6 +936,8 @@ static void row_mysql_convert_row_to_innobase(
       }
     } else {
       dfield = dtuple_get_nth_field(row, n_col);
+      col = prebuilt->table->get_col(n_col);
+      ut_ad(dict_col_get_no(col) == n_col);
       n_col++;
     }
 
@@ -639,11 +973,23 @@ static void row_mysql_convert_row_to_innobase(
       }
       dfield_multi_value_dup(dfield, *heap);
     } else {
-      row_mysql_store_col_in_innobase_format(
-          dfield, prebuilt->ins_upd_rec_buff + templ->mysql_col_offset,
-          true, /* MySQL row format data */
-          mysql_rec + templ->mysql_col_offset, templ->mysql_col_len,
-          dict_table_is_comp(prebuilt->table));
+      /* virtual column can't be encrypted, and col is nullptr*/
+      if (!templ->is_virtual) {
+        row_mysql_store_col_in_innobase_format(
+            dfield, prebuilt->ins_upd_rec_buff + templ->mysql_col_offset,
+            true, /* MySQL row format data */
+            mysql_rec + templ->mysql_col_offset, templ->mysql_col_len,
+            dict_table_is_comp(prebuilt->table), templ->is_encryption,
+            templ->col_encryption_algorithm, col->encryption_key,
+            col->encryption_iv, prebuilt);
+      } else {
+        row_mysql_store_col_in_innobase_format(
+            dfield, prebuilt->ins_upd_rec_buff + templ->mysql_col_offset,
+            true, /* MySQL row format data */
+            mysql_rec + templ->mysql_col_offset, templ->mysql_col_len,
+            dict_table_is_comp(prebuilt->table), 
+            false, 0, nullptr, nullptr, nullptr);
+      }
 
       /* server has issue regarding handling BLOB virtual fields,
       and we need to duplicate it with our own memory here */
@@ -981,6 +1327,10 @@ void row_prebuilt_free(row_prebuilt_t *prebuilt, bool dict_locked) {
 
   if (prebuilt->blob_heap) {
     row_mysql_prebuilt_free_blob_heap(prebuilt);
+  }
+
+  if (prebuilt->encryption_heap) {
+    mem_heap_free(prebuilt->encryption_heap);
   }
 
   if (prebuilt->old_vers_heap) {
@@ -1573,6 +1923,9 @@ static dberr_t row_insert_for_mysql_using_ins_graph(const byte *mysql_rec,
     ib::error(ER_IB_MSG_979) << "Table " << table->name << " is corrupt.";
     return (DB_TABLE_CORRUPT);
   }
+
+  if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
+    mem_heap_empty(prebuilt->encryption_heap);
 
   trx->op_info = "inserting";
 
@@ -2211,7 +2564,7 @@ static dberr_t row_del_upd_for_mysql_using_cursor(row_prebuilt_t *prebuilt) {
 
   /* Internal table is created by optimizer. So there
   should not be any virtual columns. */
-  row_upd_store_row(node, nullptr, nullptr, nullptr);
+  row_upd_store_row(node, nullptr, nullptr, prebuilt);
 
   if (!node->is_delete) {
     /* UPDATE operation */

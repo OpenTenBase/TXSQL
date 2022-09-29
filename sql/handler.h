@@ -2295,6 +2295,10 @@ typedef bool (*check_fk_column_compat_t)(
 
 typedef bool (*is_reserved_db_name_t)(handlerton *hton, const char *name);
 
+typedef void (*get_keyring_master_key_t)(uint32_t *master_key_id,
+                                         unsigned char **master_key,
+                                         uint32_t *master_key_len);
+
 /**
   Prepare the secondary engine for executing a statement. This function is
   called right after the secondary engine TABLE objects have been opened by
@@ -2631,6 +2635,7 @@ struct handlerton {
   dict_get_server_version_t dict_get_server_version;
   dict_set_server_version_t dict_set_server_version;
   is_reserved_db_name_t is_reserved_db_name;
+  get_keyring_master_key_t get_keyring_master_key;
 
   /** Global handler flags. */
   uint32 flags{0};
@@ -2841,6 +2846,9 @@ struct handlerton {
 
 /** Engine supports table or tablespace encryption . */
 #define HTON_SUPPORTS_TABLE_ENCRYPTION (1 << 16)
+
+/** Engine supports column encryption. */
+#define HTON_SUPPORTS_COLUMN_ENCRYPTION (1 << 18)
 
 constexpr const decltype(handlerton::flags) HTON_SUPPORTS_ENGINE_ATTRIBUTE{
     1 << 17};

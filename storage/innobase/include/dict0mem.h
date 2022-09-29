@@ -481,6 +481,12 @@ struct dict_col_t {
   If this is not a instantly added column then this is nullptr. */
   dict_col_default_t *instant_default{nullptr};
 
+  /** encryption key */
+  byte *encryption_key;
+
+  /** encryption key iv */
+  byte *encryption_iv;
+
   unsigned prtype : 32; /*!< precise type; MySQL data
                         type, charset code, flags to
                         indicate nullability,
@@ -752,6 +758,17 @@ struct dict_col_t {
     ut_ad(version <= MAX_ROW_VERSION);
     return (!is_added_after(version) && !is_dropped_in_or_before(version));
   }
+  /** Set encryption key
+  @param[in]	value	Default value
+  @param[in]	length	Default value length
+  @param[in,out]	heap	Heap to allocate memory */
+  void set_encryption_key(const byte *value, size_t length, mem_heap_t *heap);
+
+  /** Set encryption iv
+  @param[in]	value	Default value
+  @param[in]	length	Default value length
+  @param[in,out]	heap	Heap to allocate memory */
+  void set_encryption_iv(const byte *value, size_t length, mem_heap_t *heap);
 
 #ifdef UNIV_DEBUG
   /** Assert that a column and a data type match.

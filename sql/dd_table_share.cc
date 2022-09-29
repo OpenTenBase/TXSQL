@@ -898,6 +898,8 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
   Field *reg_field;
   ha_storage_media field_storage;
   column_format_type field_column_format;
+  encryption_column_algo_type column_encryption_algorithm = 
+                              ENCRYPTION_COL_ALGO_TYPE_AES128;
 
   //
   // Read column details from dd table
@@ -910,6 +912,7 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
   name[s.length()] = '\0';
 
   const dd::Properties *column_options = &col_obj->options();
+  const dd::Properties *column_se_private_data = &col_obj->se_private_data();
 
   // Type
   field_type = dd_get_old_field_type(col_obj->type());
@@ -969,6 +972,24 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
     field_column_format = static_cast<column_format_type>(option_value);
   } else
     field_column_format = COLUMN_FORMAT_TYPE_DEFAULT;
+  
+  // Read algorithm/encryption_key、iv for dd::mysql.columns 
+  dd::String_type key_value{};
+  dd::String_type iv_value{};
+  if (field_column_format == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+    if (column_options->exists("encryption_algo")) {
+      uint32 option_value = 0;
+      column_options->get("encryption_algo", &option_value);
+      column_encryption_algorithm =
+          static_cast<encryption_column_algo_type>(option_value);
+    }
+    if (column_se_private_data->exists("encryption_key")) {
+      column_se_private_data->get("encryption_key", &key_value);
+    }
+    if (column_se_private_data->exists("encryption_iv")) {
+      column_se_private_data->get("encryption_iv", &iv_value);
+    }
+  }
 
   // Read Interval TYPELIB
   TYPELIB *interval = nullptr;
@@ -1083,6 +1104,23 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
 
   reg_field->set_storage_type(field_storage);
   reg_field->set_column_format(field_column_format);
+  reg_field->encryption_col_algo = column_encryption_algorithm;
+
+  // encryption_key, encryption_iv
+  reg_field->encryption_key.length = key_value.length();
+  reg_field->encryption_iv.length = iv_value.length();
+  if (reg_field->encryption_key.length) {
+    reg_field->encryption_key.str = strmake_root(&share->mem_root, 
+                                                 key_value.c_str(), 
+                                                 key_value.length());
+    reg_field->encryption_key.length = key_value.length();
+  }
+  if (reg_field->encryption_iv.length) {
+    reg_field->encryption_iv.str = strmake_root(&share->mem_root, 
+                                                iv_value.c_str(),
+                                                iv_value.length());
+    reg_field->encryption_iv.length = iv_value.length();
+  }
 
   // Comments
   dd::String_type comment = col_obj->comment();

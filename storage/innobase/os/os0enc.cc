@@ -351,7 +351,7 @@ void Encryption::get_master_key(uint32_t *master_key_id,
   /* Check for s_master_key_id again, as a parallel rotation might have caused
   it to change. */
   if (s_master_key_id == DEFAULT_MASTER_KEY_ID) {
-    ut_ad(strlen(server_uuid) > 0);
+ //   ut_ad(strlen(server_uuid) > 0);
     memset(s_uuid, 0x0, sizeof(s_uuid));
 
     /* If m_master_key is DEFAULT_MASTER_KEY_ID, it means there's

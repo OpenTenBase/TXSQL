@@ -96,6 +96,41 @@ struct row_prebuilt_t;
 void row_mysql_prebuilt_free_blob_heap(
     row_prebuilt_t *prebuilt); /*!< in: prebuilt struct of a
                                ha_innobase:: table handle */
+
+/** Frees the encryption heap in prebuilt when no longer needed.
+@param[in]	prebuilt	prebuilt struct of a ha_innobase::table handle
+*/
+void row_mysql_prebuilt_free_encryption_heap(row_prebuilt_t *prebuilt) noexcept;
+
+/** encrypt column
+@param[in]	data	data in InnoDB (encryption) format
+@param[in,out]	len	in: data length, out: length of decrypt data
+@param[in]  encryption_key  in: encryption_key would be need for encrypt
+@param[in]  encryption_iv   in: encryption_iv would be need for encrypt
+@return pointer to the decryption data */
+const byte *row_decrypt_column(
+    const byte *data,
+    ulint *len,
+    byte *encryption_key,
+    byte *encryption_iv, 
+    row_prebuilt_t *prebuilt);
+
+/** decryption column
+@param[in]      data            data in mysql (decryption) format
+@param[in,out]  len             in: data length, out: length of compressed data
+@param[in]      encryption_key  in: encryption_key would be need for decrypt
+@param[in]      encryption_iv   in: encryption_iv would be need for decrypt
+@param[in]      prebuilt        use prebuilt->compress only here
+@return pointer to the compressed data */
+const byte *row_encrypt_column(
+    const byte *data, 
+    ulint *len,
+    ulint lenlen,
+    uint algorithm_type,
+    byte *encryption_key,
+    byte *encryption_iv, 
+    row_prebuilt_t *prebuilt);
+
 /** Stores a >= 5.0.3 format true VARCHAR length to dest, in the MySQL row
  format.
  @return pointer to the data, we skip the 1 or 2 bytes at the start
@@ -184,7 +219,12 @@ byte *row_mysql_store_col_in_innobase_format(
                             necessarily the length of the actual
                             payload data; if the column is a true
                             VARCHAR then this is irrelevant */
-    ulint comp);            /*!< in: nonzero=compact format */
+    ulint comp,            /*!< in: nonzero=compact format */
+    bool need_encryption,  /*!< in: if the data need to be encrypted */
+    ulint encryption_algorithm,  /*!< in: which encrypted algorithm to use*/
+    byte *encryption_key,  /*! < in : the column encryption key */
+    byte *encryption_iv,   /*! < in : the column encryption key */
+    row_prebuilt_t *prebuilt); 
 /** Handles user errors and lock waits detected by the database engine.
  @return true if it was a lock wait and we should continue running the
  query thread */
@@ -500,10 +540,10 @@ struct mysql_row_templ_t {
   ulint is_multi_val;           /*!< if a column is a Multi-Value Array virtual
                                 column */
   bool is_mask;                 /*!< if column maybe masked */
-
   uint64_t mask_start_pos;
-
   uint64_t mask_end_pos;
+  ulint col_encryption_algorithm;/*!< algorithm for columns with ecnryption format */
+  ulint is_encryption;          /*!< if column format is ecncrypted */
 };
 
 constexpr uint32_t MYSQL_FETCH_CACHE_SIZE = 8;
@@ -771,6 +811,8 @@ struct row_prebuilt_t {
   bool in_fts_query;                 /*!< Whether we are in a FTS query */
   bool fts_doc_id_in_read_set;       /*!< true if table has externally
                              defined FTS_DOC_ID coulmn. */
+  mem_heap_t *encryption_heap;          /*!< memory heap used to encrytion
+                                        and deencryption column*/
   /*----------------------*/
   ulonglong autoinc_last_value;
   /*!< last value of AUTO-INC interval */

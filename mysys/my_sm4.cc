@@ -33,9 +33,9 @@
 #include "sm_encrypt.h"
 
 /* SM4 encryption must have iv, give a default one if not provide */
-static unsigned char my_sm4_default_iv[16] =
-         { 0x99, 0xaa, 0x3e, 0x68, 0xed, 0x81, 0x73, 0xa0,
-           0xee, 0xd0, 0x66, 0x84, 0xee, 0xd0, 0x66, 0x84 };
+static unsigned char my_sm4_default_iv[16] = {
+    0x99, 0xaa, 0x3e, 0x68, 0xed, 0x81, 0x73, 0xa0,
+    0xee, 0xd0, 0x66, 0x84, 0xee, 0xd0, 0x66, 0x84};
 
 int my_sm4_encrypt(unsigned char *source, int source_length,
                    unsigned char *cipher_text, int *cipher_length,
@@ -43,8 +43,8 @@ int my_sm4_encrypt(unsigned char *source, int source_length,
   if (nullptr == iv) {
     iv = my_sm4_default_iv;
   }
-  return Sm4CbcEncrypt(source, source_length,
-                       cipher_text, cipher_length, key, iv, padding); 
+  return Sm4CbcEncrypt(source, source_length, cipher_text, cipher_length, key,
+                       iv, padding);
 }
 
 int my_sm4_decrypt(unsigned char *source, int source_length,
@@ -53,22 +53,21 @@ int my_sm4_decrypt(unsigned char *source, int source_length,
   if (nullptr == iv) {
     iv = my_sm4_default_iv;
   }
-  return Sm4CbcDecrypt(source, source_length,
-                       plain_text, plaintext_length, key, iv, padding);
+  return Sm4CbcDecrypt(source, source_length, plain_text, plaintext_length, key,
+                       iv, padding);
 }
 
 int my_sm4_get_size(int source_length) {
-  return  (MY_SM4_CBC_BLOCK_SIZE * (source_length / MY_SM4_CBC_BLOCK_SIZE) +
+  return (MY_SM4_CBC_BLOCK_SIZE * (source_length / MY_SM4_CBC_BLOCK_SIZE) +
           MY_SM4_CBC_BLOCK_SIZE);
 }
 
-int my_sm3_digest(unsigned char *data, int data_len,
-                  unsigned char *digest, int *digest_len) {
+int my_sm3_digest(unsigned char *data, int data_len, unsigned char *digest,
+                  int *digest_len) {
   return Sm3Digest(data, data_len, digest, digest_len);
 }
 
-int my_sm3_hmac(unsigned char *data, int data_len,
-                unsigned char *hmac, int *hmac_len,
-                unsigned char *hmac_key, int key_len) {
+int my_sm3_hmac(unsigned char *data, int data_len, unsigned char *hmac,
+                int *hmac_len, unsigned char *hmac_key, int key_len) {
   return Sm3Hmac(data, data_len, hmac, hmac_len, hmac_key, key_len);
 }

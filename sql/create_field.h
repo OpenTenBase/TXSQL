@@ -111,6 +111,7 @@ class Create_field {
   enum_field_types sql_type;
   uint decimals;
   uint flags{0};
+  uint flags2{0};
   /**
     Bitmap of flags indicating if field value should be auto-generated
     by default and/or on update, and in which way.
@@ -188,6 +189,13 @@ class Create_field {
   LEX_CSTRING m_engine_attribute = EMPTY_CSTR;
   LEX_CSTRING m_secondary_engine_attribute = EMPTY_CSTR;
 
+  // encryption key, iv
+  LEX_CSTRING encryption_key = EMPTY_CSTR;
+  LEX_CSTRING encryption_iv = EMPTY_CSTR;
+
+  // Which encryption algorithm to use, in COLUMN_FORMAT encrypted
+  uint encryption_col_algo{ENCRYPTION_COL_ALGO_TYPE_AES128};
+
   Create_field()
       : after(nullptr),
         is_explicit_collation(false),
@@ -222,7 +230,8 @@ class Create_field {
                           const char *field_name = "");
 
   bool init(THD *thd, const char *field_name, enum_field_types type,
-            const char *length, const char *decimals, uint type_modifier,
+            const char *length, const char *decimals, 
+            uint type_modifier, uint type_modifier2,
             Item *default_value, Item *on_update_value,
             const LEX_CSTRING *comment, const char *change,
             List<String> *interval_list, const CHARSET_INFO *cs,
@@ -235,6 +244,10 @@ class Create_field {
 
   ha_storage_media field_storage_type() const {
     return (ha_storage_media)((flags >> FIELD_FLAGS_STORAGE_MEDIA) & 3);
+  }
+
+  void set_column_format(column_format_type column_format_arg) {
+    flags |= (column_format_arg << FIELD_FLAGS_COLUMN_FORMAT);
   }
 
   column_format_type column_format() const {

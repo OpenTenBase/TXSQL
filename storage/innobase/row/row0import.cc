@@ -1799,9 +1799,9 @@ dberr_t row_import::add_instant_dropped_columns(dict_table_t *target_table) {
   size_t new_heap_size =
       mem_heap_get_size(target_table->heap) + mem_heap_get_size(index->heap);
   if (new_heap_size > old_heap_size) {
-    mutex_enter(&dict_sys->mutex);
+    dict_sys_mutex_enter();
     dict_sys->size += new_heap_size - old_heap_size;
-    mutex_exit(&dict_sys->mutex);
+    dict_sys_mutex_exit();
   }
 
   return DB_SUCCESS;
@@ -1937,9 +1937,9 @@ dberr_t row_import::adjust_instant_metadata_in_taregt_table(
 
   size_t new_size = mem_heap_get_size(m_table->heap);
   if (new_size > old_size) {
-    mutex_enter(&dict_sys->mutex);
+    dict_sys_mutex_enter();
     dict_sys->size += new_size - old_size;
-    mutex_exit(&dict_sys->mutex);
+    dict_sys_mutex_exit();
   }
 
   if (err != DB_SUCCESS) {

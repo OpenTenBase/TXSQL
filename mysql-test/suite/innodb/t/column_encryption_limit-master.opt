@@ -1,0 +1,4 @@
+--early-plugin-load="keyring_file=$KEYRING_PLUGIN"
+--loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring2
+$KEYRING_PLUGIN_OPT
+--tencent-root-cnf=tmy.conf

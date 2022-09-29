@@ -236,7 +236,8 @@ static inline const byte *rec_get_nth_field_instant(const rec_t *rec,
                                                     const ulint *offsets,
                                                     ulint n,
                                                     const dict_index_t *index,
-                                                    ulint *len);
+                                                    ulint *len,
+                                                    uint *is_default = NULL);
 
 /** Determine if the field is not NULL and not having default value
 after instant ADD COLUMN

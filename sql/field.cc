@@ -234,6 +234,9 @@ bool change_prevents_inplace(const Field_str &from, const Create_field &to) {
   DBUG_TRACE;
   return sql_type_prevents_inplace(from, to) ||
          length_prevents_inplace(from, to) ||
+         // Changing column format to/from encryption or changing associated
+         // encryption must result in table rebuild
+         from.has_different_encryption_attributes_with(to) ||
          charset_prevents_inplace(from, to);
 }
 }  // namespace
@@ -1698,6 +1701,7 @@ Field::Field(uchar *ptr_arg, uint32 length_arg, uchar *null_ptr_arg,
 
 {
   if (!is_nullable()) set_flag(NOT_NULL_FLAG);
+  encryption_col_algo = ENCRYPTION_COL_ALGO_TYPE_AES128;
   comment.str = "";
   comment.length = 0;
   m_field_index = 0;
@@ -1813,6 +1817,24 @@ bool Field::send_to_protocol(Protocol *protocol) const {
   String tmp(buff, sizeof(buff), charset());
   String *res = val_str(&tmp);
   return res ? protocol->store(res) : protocol->store_null();
+}
+
+/**
+  Checks if the current field definition and provided create field
+  definition have different encryption attributes.
+  @param   new_field   create field definition to compare with
+  @return
+    true  - if encryption attributes are different
+    false - if encryption attributes are identical.
+*/
+bool Field::has_different_encryption_attributes_with(
+    const Create_field &new_field) const {
+  if (new_field.column_format() != COLUMN_FORMAT_TYPE_ENCRYPTION &&
+      column_format() != COLUMN_FORMAT_TYPE_ENCRYPTION)
+    return false;
+  if (new_field.encryption_col_algo != encryption_col_algo)
+    return true;
+  return (new_field.column_format() != column_format());
 }
 
 /**
@@ -2159,8 +2181,13 @@ Field *Field::new_field(MEM_ROOT *root, TABLE *new_table) const {
     sure which parts of the server will break.
   */
   tmp->auto_flags = Field::NONE;
+  /* encryption column format flag must not be cleared here */
+  const bool has_encryption_flag =
+      (tmp->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION);
   tmp->flags &= (NOT_NULL_FLAG | BLOB_FLAG | UNSIGNED_FLAG | ZEROFILL_FLAG |
                  BINARY_FLAG | ENUM_FLAG | SET_FLAG | NOT_SECONDARY_FLAG);
+  if (has_encryption_flag)
+    tmp->set_column_format(COLUMN_FORMAT_TYPE_ENCRYPTION);
   return tmp;
 }
 
@@ -3108,6 +3135,11 @@ bool Field_new_decimal::compatible_field_size(uint field_metadata,
 }
 
 uint Field_new_decimal::is_equal(const Create_field *new_field) const {
+
+  if (has_different_encryption_attributes_with(*new_field)) {
+    return IS_EQUAL_NO;
+  }
+
   return (new_field->sql_type == real_type()) &&
          (Overlaps(new_field->flags, UNSIGNED_FLAG) ==
           is_flag_set(UNSIGNED_FLAG)) &&
@@ -4468,6 +4500,10 @@ my_time_flags_t Field_temporal::date_flags() const {
 }
 
 uint Field_temporal::is_equal(const Create_field *new_field) const {
+
+  if (has_different_encryption_attributes_with(*new_field)) {
+    return IS_EQUAL_NO;
+  }
   return new_field->sql_type == real_type() &&
          new_field->decimals == decimals();
 }
@@ -6197,6 +6233,10 @@ uint Field_str::is_equal(const Create_field *new_field) const {
   if (change_prevents_inplace(*this, *new_field)) {
     return IS_EQUAL_NO;
   }
+  
+  if (has_different_encryption_attributes_with(*new_field)) {
+    return IS_EQUAL_NO;
+  }
 
   size_t new_char_len = new_field->max_display_width_in_codepoints();
   if (new_char_len != char_length()  // Changed char len cannot be done
@@ -6891,6 +6931,10 @@ uint Field_varstring::is_equal(const Create_field *new_field) const {
     return IS_EQUAL_NO;
   }
 
+  if (has_different_encryption_attributes_with(*new_field)) {
+    return IS_EQUAL_NO;
+  }
+
   if (new_field->charset == field_charset &&
       new_field->pack_length() == pack_length()) {
     return IS_EQUAL_YES;
@@ -7450,6 +7494,10 @@ uint Field_blob::is_equal(const Create_field *new_field) const {
   if (new_field->sql_type != get_blob_type_from_length(max_data_length()) ||
       new_field->pack_length() != pack_length() ||
       charset_prevents_inplace(*this, *new_field)) {
+    return IS_EQUAL_NO;
+  }
+
+  if (has_different_encryption_attributes_with(*new_field)) {
     return IS_EQUAL_NO;
   }
 

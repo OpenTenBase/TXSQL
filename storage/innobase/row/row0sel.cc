@@ -2402,7 +2402,8 @@ void row_sel_convert_mysql_key_to_innobase(dtuple_t *tuple, byte *buf,
     if (UNIV_LIKELY(!is_null)) {
       buf = row_mysql_store_col_in_innobase_format(
           dfield, buf, false, /* MySQL key value format col */
-          key_ptr + data_offset, data_len, dict_table_is_comp(index->table));
+          key_ptr + data_offset, data_len, dict_table_is_comp(index->table),
+          false, 0, nullptr, nullptr, nullptr);
       ut_a(buf <= original_buf + buf_len);
     }
 
@@ -2529,9 +2530,9 @@ mysql_col_len, mbminlen, mbmaxlen
                                 clustered index format and used only for end
                                 range comparison. */
 void row_sel_field_store_in_mysql_format_func(
-    byte *dest, const mysql_row_templ_t *templ, const dict_index_t *index,
-    IF_DEBUG(ulint field_no, ) const byte *data, row_prebuilt_t *prebuilt,
-    ulint len IF_DEBUG(, ulint sec_field)) {
+    byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
+    const dict_index_t *index, IF_DEBUG(ulint field_no, ) const byte *data, ulint len,
+    row_prebuilt_t *prebuilt IF_DEBUG(, ulint sec_field)) {
   byte *ptr;
 #ifdef UNIV_DEBUG
   const dict_field_t *field =
@@ -2612,6 +2613,11 @@ void row_sel_field_store_in_mysql_format_func(
         /* This is a >= 5.0.3 type true VARCHAR. Store the
         length of the data to the first byte or the first
         two bytes of dest. */
+        if (templ->is_encryption && (instant_default == 0))
+            data = row_decrypt_column(data, &len, 
+                                      field->col->encryption_key, 
+                                      field->col->encryption_iv, 
+                                      prebuilt);
 
         dest =
             row_mysql_store_true_var_len(dest, len, templ->mysql_length_bytes);
@@ -2894,8 +2900,8 @@ void row_sel_field_store_in_mysql_format_func(
     ut_a(rec_field_not_null_not_add_col_def(len));
 
     row_sel_field_store_in_mysql_format(mysql_rec + templ->mysql_col_offset,
-                                        templ, rec_index, field_no, data, prebuilt,
-                                        len, ULINT_UNDEFINED);
+                                        templ, 0, rec_index, field_no, data, len, 
+                                        prebuilt, ULINT_UNDEFINED);
 
     if (heap != blob_heap) {
       mem_heap_free(heap);
@@ -2903,7 +2909,9 @@ void row_sel_field_store_in_mysql_format_func(
   } else {
     /* Field is stored in the row. */
 
-    data = rec_get_nth_field_instant(rec, offsets, field_no, rec_index, &len);
+    uint is_instant_default = 0;
+    data = rec_get_nth_field_instant(rec, offsets, field_no, rec_index, &len,
+                                     &is_instant_default);
 
     if (len == UNIV_SQL_NULL) {
       /* MySQL assumes that the field for an SQL
@@ -2944,14 +2952,17 @@ void row_sel_field_store_in_mysql_format_func(
       data = static_cast<byte *>(mem_heap_dup(heap, data, len));
     }
 
+    if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
+      mem_heap_empty(prebuilt->encryption_heap);
+
     /* Reassign the clustered index field no. */
     if (clust_templ_for_sec) {
       field_no = clust_field_no;
     }
 
     row_sel_field_store_in_mysql_format(mysql_rec + templ->mysql_col_offset,
-                                        templ, rec_index, field_no, data, prebuilt,
-                                        len, sec_field_no);
+                                        templ, is_instant_default, rec_index, field_no, 
+                                        data, len, prebuilt, sec_field_no);
   }
 
   ut_ad(rec_field_not_null_not_add_col_def(len));
@@ -2984,6 +2995,9 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
   if (blob_heap != nullptr && blob_heap == prebuilt->blob_heap) {
     mem_heap_empty(blob_heap);
   }
+
+  if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
+    mem_heap_empty(prebuilt->encryption_heap);
 
   if (clust_templ_for_sec) {
     /* Store all clustered index column of secondary index record. */
@@ -3047,9 +3061,9 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
                templ->mysql_col_len);
       } else {
         row_sel_field_store_in_mysql_format(
-            mysql_rec + templ->mysql_col_offset, templ, rec_index,
-            templ->clust_rec_field_no, (const byte *)dfield->data, prebuilt,
-            dfield->len, ULINT_UNDEFINED);
+            mysql_rec + templ->mysql_col_offset, templ, 0, rec_index,
+            templ->clust_rec_field_no, (const byte *)dfield->data,
+            dfield->len, prebuilt, ULINT_UNDEFINED);
         if (templ->mysql_null_bit_mask) {
           mysql_rec[templ->mysql_null_byte_offset] &=
               ~(byte)templ->mysql_null_bit_mask;

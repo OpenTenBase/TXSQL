@@ -166,6 +166,10 @@ static inline ulint dict_max_v_field_len_store_undo(dict_table_t *table,
                                                     ulint col_no);
 
 #endif /* !UNIV_HOTBACKUP */
+
+inline bool dict_col_is_encrypted(
+    const dict_col_t *col); /*!< in: column */
+
 /** Gets the column number.
  @return col->ind, table column position (starting from 0) */
 [[nodiscard]] static inline ulint dict_col_get_no(

@@ -1,0 +1,483 @@
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Can't generate new master key for tablespace encryption, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Encryption can't find master key, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Function 'keyring_file' already exists");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Couldn't load plugin named 'keyring_file' with soname 'keyring_file.*'.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* illegal user or without master key can only read encrypted data of the encrypted .*");
+call mtr.add_suppression("Plugin keyring_file reported");
+CREATE TABLE t1(id int primary key, c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION algorithm=aes256, c3 varchar(1) column_format ENCRYPTION, c4 varchar(1) column_format ENCRYPTION algorithm=aes128, 
+c5 varchar(1) ENCRYPTION algorithm=SM4 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into t1 values(1, 'a','b','c','d', 'e');
+insert into t1 values(2, '数','据','库','系', '统');
+insert into t1 values(3, '', '', '', '', '');
+SELECT * FROM t1;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+alter table t1 drop primary key, change id id int auto_increment primary key;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+select * from t1;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+insert into t1 select 0,c1,c2,c3,c4,c5 from t1;
+SELECT * FROM t1 order by id desc limit 10,10;
+id	c1	c2	c3	c4	c5
+1773	数	据	库	系	统
+1772	a	b	c	d	e
+1771					
+1770	数	据	库	系	统
+1769	a	b	c	d	e
+1768					
+1767	数	据	库	系	统
+1766	a	b	c	d	e
+1765					
+1764	数	据	库	系	统
+alter table t1 drop primary key, change id id int;
+SELECT * FROM t1 order by id desc limit 10,10;
+id	c1	c2	c3	c4	c5
+1773	数	据	库	系	统
+1772	a	b	c	d	e
+1771					
+1770	数	据	库	系	统
+1769	a	b	c	d	e
+1768					
+1767	数	据	库	系	统
+1766	a	b	c	d	e
+1765					
+1764	数	据	库	系	统
+alter table t1 change id id int auto_increment, add primary key(id);
+SELECT * FROM t1 order by id desc limit 10,10;
+id	c1	c2	c3	c4	c5
+1773	数	据	库	系	统
+1772	a	b	c	d	e
+1771					
+1770	数	据	库	系	统
+1769	a	b	c	d	e
+1768					
+1767	数	据	库	系	统
+1766	a	b	c	d	e
+1765					
+1764	数	据	库	系	统
+alter table t1 add a1 varchar(255) encryption default 'abc';
+alter table t1 add a2 varchar(255) encryption default NULL;
+alter table t1 add a3 varchar(255) encryption algorithm=SM4 default '天';
+select a1,a2,a3 from t1 order by id limit 4;
+a1	a2	a3
+abc	NULL	天
+abc	NULL	天
+abc	NULL	天
+abc	NULL	天
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	abc	NULL	天
+2	数	据	库	系	统	abc	NULL	天
+3						abc	NULL	天
+4	a	b	c	d	e	abc	NULL	天
+alter table t1 drop column a1, drop column a2, drop column a3;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption default 'abc', ALGORITHM=INPLACE;
+alter table t1 add a2 varchar(255) encryption default NULL, ALGORITHM=INPLACE;
+alter table t1 add a3 varchar(255) encryption algorithm=SM4 default '天', ALGORITHM=INPLACE;
+select a1,a2,a3 from t1 order by id limit 4;
+a1	a2	a3
+abc	NULL	天
+abc	NULL	天
+abc	NULL	天
+abc	NULL	天
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	abc	NULL	天
+2	数	据	库	系	统	abc	NULL	天
+3						abc	NULL	天
+4	a	b	c	d	e	abc	NULL	天
+alter table t1 drop column a1, drop column a2, drop column a3, ALGORITHM=INPLACE;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption default 'abc', ALGORITHM=INPLACE;
+alter table t1 add a2 varchar(255) encryption default NULL, ALGORITHM=COPY;
+alter table t1 add a3 varchar(255) encryption algorithm=SM4 default '天';
+select a1,a2,a3 from t1 order by id limit 1;
+a1	a2	a3
+abc	NULL	天
+select * from t1 order by id limit 1;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	abc	NULL	天
+alter table t1 drop column a1, drop column a2, drop column a3, ALGORITHM=INPLACE;
+select * from t1 order by id limit 1;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption default 'abc', ALGORITHM=COPY;
+alter table t1 add a2 varchar(255) encryption default NULL, ALGORITHM=COPY;
+alter table t1 add a3 varchar(255) encryption algorithm=SM4 default '天', ALGORITHM=COPY;
+select a1,a2,a3 from t1 order by id limit 4;
+a1	a2	a3
+abc	NULL	天
+abc	NULL	天
+abc	NULL	天
+abc	NULL	天
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	abc	NULL	天
+2	数	据	库	系	统	abc	NULL	天
+3						abc	NULL	天
+4	a	b	c	d	e	abc	NULL	天
+alter table t1 drop column a1, drop column a2, drop column a3, ALGORITHM=COPY;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(128);
+alter table t1 add a2 int default 222;
+alter table t1 add a3 int default 333;
+alter table t1 add index k(a3);
+select * from t1 limit 1;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	NULL	222	333
+alter table t1 drop column a1, drop column a2, drop column a3;
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(128), ALGORITHM=INPLACE;
+alter table t1 add a2 int default 222, ALGORITHM=INPLACE;
+alter table t1 add a3 int default 333, ALGORITHM=INPLACE;
+alter table t1 add index k(a3);
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	NULL	222	333
+2	数	据	库	系	统	NULL	222	333
+3						NULL	222	333
+4	a	b	c	d	e	NULL	222	333
+alter table t1 drop column a1, drop column a2, drop column a3, ALGORITHM=INPLACE;
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(128), ALGORITHM=INSTANT;
+alter table t1 add a2 int default 222, ALGORITHM=INSTANT;
+alter table t1 add a3 int default 333, ALGORITHM=INSTANT;
+alter table t1 add index k(a3);
+select * from t1 limit 1;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	NULL	222	333
+alter table t1 drop column a1, drop column a2, drop column a3;
+select * from t1 limit 1;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+alter table t1 add a1 varchar(128), ALGORITHM=COPY;
+alter table t1 add a2 int default 222, ALGORITHM=COPY;
+alter table t1 add a3 int default 333, ALGORITHM=COPY;
+alter table t1 add index k(a3);
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	NULL	222	333
+2	数	据	库	系	统	NULL	222	333
+3						NULL	222	333
+4	a	b	c	d	e	NULL	222	333
+alter table t1 drop column a1, drop column a2, drop column a3, ALGORITHM=COPY;
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024) encryption algorithm=aes256;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 drop column a1;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024);
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 drop column a1;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024) encryption algorithm=aes256;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 drop column a1;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024) encryption algorithm=SM4 default '天';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 change a1 a1 varchar(1024);
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5	a1
+1	a	b	c	d	e	天
+2	数	据	库	系	统	天
+3						天
+4	a	b	c	d	e	天
+alter table t1 drop column a1;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 rename to t2;
+select * from t2 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t2 rename to t3;
+select * from t3 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t3 rename to t1;
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+alter table t1 add index k1(id);
+alter table t1 drop primary key;
+alter table t1 add a1 varchar(255) default 'with primary' encryption algorithm=sm4, add primary key(id);
+alter table t1 add a2 int default 222, drop primary key;
+alter table t1 add a3 int default 333, add primary key(id);
+alter table t1 add index k(a3);
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5	a1	a2	a3
+1	a	b	c	d	e	with primary	222	333
+2	数	据	库	系	统	with primary	222	333
+3						with primary	222	333
+4	a	b	c	d	e	with primary	222	333
+alter table t1 drop column a1, drop column a2, drop column a3;
+select * from t1 limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+CREATE TABLE talter(
+id int,
+c1 VARCHAR(1024) ENCRYPTION,
+c2 VARCHAR(1024) CHARACTER SET utf8mb4 ENCRYPTION ALGORITHM = AES256 ,
+c3 VARCHAR(1024) CHARACTER SET gb2312 ENCRYPTION ALGORITHM = AES192,
+c4 VARCHAR(1024) CHARACTER SET latin1 ENCRYPTION ALGORITHM = AES128,
+c5 VARCHAR(1024) CHARACTER SET ascii ENCRYPTION ALGORITHM = SM4
+)ENGINE=InnoDB;
+INSERT INTO talter SELECT 1, REPEAT('a', 1024), REPEAT('b', 1024), REPEAT('c', 1024), REPEAT('d', 1024), REPEAT('e', 1024);
+alter table talter add i1 varchar(255) encryption algorithm=SM4 default '天';
+optimize table talter;
+Table	Op	Msg_type	Msg_text
+test.talter	optimize	note	Table does not support optimize, doing recreate + analyze instead
+test.talter	optimize	status	OK
+select id,right(c1,1),right(c2,1),right(c3,1),right(c4,1),right(c5,1)  from talter;
+id	right(c1,1)	right(c2,1)	right(c3,1)	right(c4,1)	right(c5,1)
+1	a	b	c	d	e
+drop table talter;
+CREATE TABLE talter(
+id int,
+c1 VARCHAR(1024) ENCRYPTION,
+c2 VARCHAR(1024) CHARACTER SET utf8mb4 ENCRYPTION ALGORITHM = AES256 ,
+c3 VARCHAR(1024) CHARACTER SET gb2312 ENCRYPTION ALGORITHM = AES192,
+c4 VARCHAR(1024) CHARACTER SET latin1 ENCRYPTION ALGORITHM = AES128,
+c5 VARCHAR(1024) CHARACTER SET ascii ENCRYPTION ALGORITHM = SM4
+)ENGINE=InnoDB;
+INSERT INTO talter SELECT 1, REPEAT('a', 1024), REPEAT('b', 1024), REPEAT('c', 1024), REPEAT('d', 1024), REPEAT('e', 1024);
+alter table talter add i1 varchar(255) encryption algorithm=SM4 default '天';
+alter table talter engine=innodb;
+select id,right(c1,1),right(c2,1),right(c3,1),right(c4,1),right(c5,1)  from talter;
+id	right(c1,1)	right(c2,1)	right(c3,1)	right(c4,1)	right(c5,1)
+1	a	b	c	d	e
+drop table talter;
+CREATE TABLE talter(
+id int,
+c1 VARCHAR(1024) ENCRYPTION,
+c2 VARCHAR(1024) CHARACTER SET utf8mb4 ENCRYPTION ALGORITHM = AES256 ,
+c3 VARCHAR(1024) CHARACTER SET gb2312 ENCRYPTION ALGORITHM = AES192,
+c4 VARCHAR(1024) CHARACTER SET latin1 ENCRYPTION ALGORITHM = AES128,
+c5 VARCHAR(1024) CHARACTER SET ascii ENCRYPTION ALGORITHM = SM4
+)ENGINE=InnoDB;
+INSERT INTO talter SELECT 1, REPEAT('a', 1024), REPEAT('b', 1024), REPEAT('c', 1024), REPEAT('d', 1024), REPEAT('e', 1024);
+alter table talter add i1 varchar(255) encryption algorithm=SM4 default '天';
+alter table talter drop column c1;
+select id,right(c2,1),right(c3,1),right(c4,1),right(c5,1)  from talter;
+id	right(c2,1)	right(c3,1)	right(c4,1)	right(c5,1)
+1	b	c	d	e
+drop table talter;
+CREATE TABLE talter(
+id int,
+c1 VARCHAR(1024) ENCRYPTION,
+c2 VARCHAR(1024) CHARACTER SET utf8mb4 ENCRYPTION ALGORITHM = AES256 ,
+c3 VARCHAR(1024) CHARACTER SET gb2312 ENCRYPTION ALGORITHM = AES192,
+c4 VARCHAR(1024) CHARACTER SET latin1 ENCRYPTION ALGORITHM = AES128,
+c5 VARCHAR(1024) CHARACTER SET ascii ENCRYPTION ALGORITHM = SM4
+)ENGINE=InnoDB;
+INSERT INTO talter SELECT 1, REPEAT('a', 1024), REPEAT('b', 1024), REPEAT('c', 1024), REPEAT('d', 1024), REPEAT('e', 1024);
+alter table talter add i1 varchar(255) encryption algorithm=SM4 default '天';
+alter table talter rename to talter2;
+alter table talter2 add i2 varchar(255) encryption algorithm=SM4 default '天', ALGORITHM=inplace;
+select id,right(c1,1),right(c2,1),right(c3,1),right(c4,1),right(c5,1)  from talter2;
+id	right(c1,1)	right(c2,1)	right(c3,1)	right(c4,1)	right(c5,1)
+1	a	b	c	d	e
+drop table talter2;
+# restart:
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `k1` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1784 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+set global cdb_column_encryption_whitelist = 'invalid';
+alter table t1 drop primary key;
+alter table t1 add a1 varchar(255) default 'with primary' encryption algorithm=sm4, add primary key(id);
+alter table t1 add a2 int default 222, drop primary key;
+alter table t1 add a3 int default 333, add primary key(id);
+alter table t1 add index k(a3);
+select length(a1) from t1 where a1='with primary' limit 10;
+length(a1)
+Warnings:
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'a1'
+alter table t1 drop column a1, drop column a2, drop column a3;
+set global cdb_column_encryption_whitelist = '';
+select * from t1 order by id limit 4;
+id	c1	c2	c3	c4	c5
+1	a	b	c	d	e
+2	数	据	库	系	统
+3					
+4	a	b	c	d	e
+drop table t1;

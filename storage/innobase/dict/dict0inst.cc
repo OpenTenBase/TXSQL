@@ -76,7 +76,7 @@ bool Instant_ddl_impl<Table>::is_instant_add_possible(
     /* Get the maximum possible size needed for this field */
     size_t field_max_size = 0;
     {
-      unsigned col_len;
+      ulint col_len;
       ulint mtype;
       ulint prtype;
       get_field_types(nullptr, dict_table, field, col_len, mtype, prtype);
