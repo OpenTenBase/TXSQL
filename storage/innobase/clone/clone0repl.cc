@@ -49,18 +49,18 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   if (!is_active() || gtid_table_persistor == nullptr) {
     return;
   }
-  ut_ad(trx_sys_serialisation_mutex_own());
+  lock();
+
 
   /* If too many GTIDs are accumulated, wait for all to get flushed. Ignore
   timeout and loop to avoid possible hang. The insert should already be
   slowed down by the wait here. */
   if (check_max_gtid_threshold() && is_thread_active()) {
-    trx_sys_serialisation_mutex_exit();
+    unlock();
     wait_flush(false, false, nullptr);
-    trx_sys_serialisation_mutex_enter();
+    lock();
   }
 
-  ut_ad(trx_sys_serialisation_mutex_own());
   /* Get active GTID list */
   auto &current_gtids = get_active_list();
 
@@ -76,10 +76,11 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
 
   DBUG_EXECUTE_IF("dont_compress_gtid_table", {
     /* For predictable outcome of mtr test we flush the GTID immediately. */
-    trx_sys_serialisation_mutex_exit();
+    unlock();
     wait_flush(false, false, nullptr);
-    trx_sys_serialisation_mutex_enter();
+    lock();
   });
+  unlock();
 }
 
 trx_undo_t::Gtid_storage Clone_persist_gtid::persists_gtid(const trx_t *trx) {
@@ -488,7 +489,7 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
 
   bool explicit_request = m_explicit_request.load();
 
-  trx_sys_serialisation_mutex_enter();
+  lock();
   /* Get oldest transaction number that is yet to be committed. Any transaction
   with lower transaction number is committed and is added to GTID list. */
   auto oldest_trx_no = trx_sys_oldest_trx_no();
@@ -499,7 +500,7 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
     /* Switch active list and get the previous list to write to disk table. */
     auto flush_list_number = switch_active_list();
     /* Exit trx mutex during write to table. */
-    trx_sys_serialisation_mutex_exit();
+    unlock();
     err = write_to_table(flush_list_number, table_gtid_set, sid_map);
     m_flush_in_progress.store(false);
     /* Compress always after recovery, if GTIDs are added. */
@@ -508,7 +509,7 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
       ib::info(ER_IB_CLONE_GTID_PERSIST) << "GTID compression after recovery. ";
     }
   } else {
-    trx_sys_serialisation_mutex_exit();
+    unlock();
   }
 
   if (is_recovery) {
@@ -552,7 +553,9 @@ void Clone_persist_gtid::flush_gtids(THD *thd) {
 }
 
 bool Clone_persist_gtid::check_max_gtid_threshold() {
-  ut_ad(trx_sys_serialisation_mutex_own());
+  /* TODO(lanzaoxu): replace trx_sys_serialisation_mutex, will there be conflicts? 
+  same scenario in 8022. */
+  ut_ad(mutex_own(&m_mutex) || trx_sys_mutex_own());
   /* Allow only one GTID to flush at a time. */
   DBUG_EXECUTE_IF("dont_compress_gtid_table",
                   { return m_num_gtid_mem.load() > 0; });

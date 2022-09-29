@@ -522,6 +522,9 @@ ulong srv_n_purge_threads = 4;
 /* the number of pages to purge in one batch */
 ulong srv_purge_batch_size = 20;
 
+/* use fast clone oldest view */
+bool srv_use_fast_clone_oldest_view = false;
+
 /* Internal setting for "innodb_stats_method". Decides how InnoDB treats
 NULL value when collecting statistics. By default, it is set to
 SRV_STATS_NULLS_EQUAL(0), ie. all NULL value are treated equal */
@@ -1918,10 +1921,8 @@ void srv_export_innodb_status(void) {
 
   rw_lock_s_unlock(&purge_sys->latch);
 
-  trx_sys_serialisation_mutex_enter();
   /* Maximum transaction number added to history list for purge. */
-  trx_id_t max_trx_no = trx_sys->rw_max_trx_no;
-  trx_sys_serialisation_mutex_exit();
+  trx_id_t max_trx_no = trx_sys->rw_max_trx_no.load();
 
   if (done_trx_no == 0 || max_trx_no < done_trx_no) {
     export_vars.innodb_purge_trx_id_age = 0;
@@ -3564,7 +3565,7 @@ void Backquery_manager::add_view(time_t t) {
   HistoryReadView hr;
   hr.view =
       ut::new_withkey<ReadView>(ut::make_psi_memory_key(mem_key_backquery));
-  hr.view->snapshot_for_backquery();
+  hr.view->snapshot(nullptr);
   auto ret =
       history_readviews.insert(std::pair<time_t, HistoryReadView>(t, hr));
   if (ret.second == false) {

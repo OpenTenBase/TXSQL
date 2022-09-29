@@ -447,6 +447,7 @@ LatchDebug::LatchDebug() {
   LEVEL_MAP_INSERT(SYNC_TRX_SYS_HEADER);
   LEVEL_MAP_INSERT(SYNC_THREADS);
   LEVEL_MAP_INSERT(SYNC_TRX);
+  LEVEL_MAP_INSERT(SYNC_RW_TRX_HASH_ELEMENT);
   LEVEL_MAP_INSERT(SYNC_TRX_SYS);
   LEVEL_MAP_INSERT(SYNC_TRX_SYS_SHARD);
   LEVEL_MAP_INSERT(SYNC_TRX_SYS_SERIALISATION);
@@ -703,6 +704,7 @@ Latches *LatchDebug::check_order(const latch_t *latch,
     case SYNC_THREADS:
     case SYNC_LOCK_SYS_GLOBAL:
     case SYNC_LOCK_WAIT_SYS:
+    case SYNC_RW_TRX_HASH_ELEMENT:
     case SYNC_TRX_SYS:
     case SYNC_TRX_SYS_SHARD:
     case SYNC_TRX_SYS_SERIALISATION:
@@ -1238,6 +1240,9 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_MUTEX(BUF_POOL_ZIP, SYNC_BUF_BLOCK, buf_pool_zip_mutex_key);
 
+  LATCH_ADD_MUTEX(CLONE_PERSIST_GTID, SYNC_NO_ORDER_CHECK,
+                  clone_persist_gtid_mutex_key);
+
   LATCH_ADD_MUTEX(DICT_FOREIGN_ERR, SYNC_NO_ORDER_CHECK,
                   dict_foreign_err_mutex_key);
 
@@ -1359,6 +1364,7 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 #else
   LATCH_ADD_MUTEX(SYNC_THREAD, SYNC_NO_ORDER_CHECK, PFS_NOT_INSTRUMENTED);
 #endif /* UNIV_DEBUG */
+  LATCH_ADD_MUTEX(TRX_VIEW, SYNC_NO_ORDER_CHECK, trx_view_mutex_key);
 
   LATCH_ADD_MUTEX(TRX_UNDO, SYNC_TRX_UNDO, trx_undo_mutex_key);
 
@@ -1383,9 +1389,6 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
   LATCH_ADD_MUTEX(TRX_SYS, SYNC_TRX_SYS, trx_sys_mutex_key);
 
   LATCH_ADD_MUTEX(TRX_SYS_SHARD, SYNC_TRX_SYS_SHARD, trx_sys_shard_mutex_key);
-
-  LATCH_ADD_MUTEX(TRX_SYS_SERIALISATION, SYNC_TRX_SYS_SERIALISATION,
-                  trx_sys_serialisation_mutex_key);
 
   LATCH_ADD_MUTEX(SRV_SYS, SYNC_THREADS, srv_sys_mutex_key);
 
@@ -1450,6 +1453,10 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_RWLOCK(UNDO_SPACES, SYNC_UNDO_SPACES, undo_spaces_lock_key);
 
+  LATCH_ADD_RWLOCK(TRX_SYS_MVCC_LOCK, SYNC_NO_ORDER_CHECK, trx_sys_mvcc_lock_key);
+
+  LATCH_ADD_RWLOCK(TRX_SYS_RW_LOCK, SYNC_NO_ORDER_CHECK, trx_sys_rw_lock_key);
+
   LATCH_ADD_MUTEX(UNDO_DDL, SYNC_UNDO_DDL, PFS_NOT_INSTRUMENTED);
 
   LATCH_ADD_RWLOCK(FIL_SPACE, SYNC_FSP, fil_space_latch_key);
@@ -1494,6 +1501,9 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_MUTEX(REDO_LOG_ARCHIVE_QUEUE_MUTEX, SYNC_NO_ORDER_CHECK,
                   PFS_NOT_INSTRUMENTED);
+
+  LATCH_ADD_MUTEX(RW_TRX_HASH_ELEMENT, SYNC_NO_ORDER_CHECK,
+                  rw_trx_hash_element_mutex_key);
 
   LATCH_ADD_MUTEX(DBLWR, SYNC_DBLWR, dblwr_mutex_key);
 
@@ -1558,6 +1568,7 @@ struct CreateTracker {
 
   /** Destructor */
   ~CreateTracker() UNIV_NOTHROW {
+
     ut_ad(m_files.empty());
 
     m_mutex.destroy();
@@ -1578,7 +1589,6 @@ struct CreateTracker {
     typedef Files::value_type value_type;
 
     m_files.insert(lb, value_type(ptr, File(filename, line)));
-
     m_mutex.exit();
   }
 
@@ -1592,7 +1602,6 @@ struct CreateTracker {
     ut_ad(lb != m_files.end() && !(m_files.key_comp()(ptr, lb->first)));
 
     m_files.erase(lb);
-
     m_mutex.exit();
   }
 

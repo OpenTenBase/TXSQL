@@ -715,6 +715,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(buf_pool_free_list_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(buf_pool_zip_free_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(buf_pool_zip_hash_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(clone_persist_gtid_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(buf_pool_zip_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(clone_snapshot_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(clone_sys_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -777,6 +778,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
 #endif /* UNIV_DEBUG */
     PSI_MUTEX_KEY(trx_undo_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_pool_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(trx_view_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_pool_manager_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(temp_pool_manager_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(srv_sys_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -784,6 +786,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(lock_sys_table_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(lock_wait_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(rw_trx_hash_element_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(srv_threads_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(srv_threads_slot_mutex, 0, 0, PSI_DOCUMENT_ME),
 #ifndef PFS_SKIP_EVENT_MUTEX
@@ -796,7 +799,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(rtr_ssn_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_sys_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_sys_shard_mutex, 0, 0, PSI_DOCUMENT_ME),
-    PSI_MUTEX_KEY(trx_sys_serialisation_mutex, 0, 0, PSI_DOCUMENT_ME),
+    // PSI_MUTEX_KEY(trx_sys_serialisation_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(zip_pad_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(master_key_id_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(sync_array_mutex, 0, 0, PSI_DOCUMENT_ME),
@@ -832,6 +835,8 @@ static PSI_rwlock_info all_innodb_rwlocks[] = {
     PSI_RWLOCK_KEY(index_online_log, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(dict_table_stats, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(hash_table_locks, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(trx_sys_mvcc_lock, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(trx_sys_rw_lock, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(backquery_enable_lock, 0, PSI_DOCUMENT_ME),
 };
 #endif /* UNIV_PFS_RWLOCK */
@@ -2925,6 +2930,17 @@ trx_t *check_trx_exists(THD *thd) /*!< in: user thread handle */
   }
 
   return (trx);
+}
+
+/** Get current trx.
+This function may be called during InnoDB initilisation, when
+innodb_hton_ptr->slot is not set yet to meaningful value. */
+trx_t* current_trx() {
+  THD *thd = current_thd;
+  if (likely(thd != nullptr) && innodb_hton_ptr->slot != HA_SLOT_UNDEF) {
+    return thd_to_trx(thd);
+  }
+  return nullptr;
 }
 
 /** InnoDB transaction object that is currently associated with THD is
@@ -19159,12 +19175,8 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
       }
 
     } else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
-               MVCC::is_view_active(trx->read_view)) {
-      mutex_enter(&trx_sys->mutex);
-
-      trx_sys->mvcc->view_close(trx->read_view, true);
-
-      mutex_exit(&trx_sys->mutex);
+               trx->view_assigned) {
+      trx_sys->mvcc->view_close(trx);
     }
   }
 
@@ -19752,15 +19764,10 @@ THR_LOCK_DATA **ha_innobase::store_lock(
         innobase_trx_map_isolation_level(thd_get_trx_isolation(thd));
 
     if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
-        MVCC::is_view_active(trx->read_view)) {
+        trx->view_assigned) {
       /* At low transaction isolation levels we let
       each consistent read set its own snapshot */
-
-      mutex_enter(&trx_sys->mutex);
-
-      trx_sys->mvcc->view_close(trx->read_view, true);
-
-      mutex_exit(&trx_sys->mutex);
+      trx_sys->mvcc->view_close(trx);
     }
   }
 
@@ -22365,6 +22372,10 @@ static MYSQL_SYSVAR_ULONG(purge_threads, srv_n_purge_threads,
                           1,                     /* Minimum value */
                           MAX_PURGE_THREADS, 0); /* Maximum value */
 
+static MYSQL_SYSVAR_BOOL(use_fast_clone_oldest_view, srv_use_fast_clone_oldest_view,
+                         PLUGIN_VAR_OPCMDARG, "use fast clone oldest view", nullptr,
+                         nullptr, 0);
+
 static MYSQL_SYSVAR_ULONG(sync_array_size, srv_sync_array_size,
                           PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
                           "Size of the mutex/lock wait array.", nullptr,
@@ -24165,6 +24176,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(monitor_reset_all),
     MYSQL_SYSVAR(purge_threads),
     MYSQL_SYSVAR(purge_batch_size),
+    MYSQL_SYSVAR(use_fast_clone_oldest_view),
 #ifdef UNIV_DEBUG
     MYSQL_SYSVAR(background_drop_list_empty),
     MYSQL_SYSVAR(purge_run_now),

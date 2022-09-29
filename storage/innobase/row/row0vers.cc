@@ -257,7 +257,7 @@ static bool row_vers_find_matching(
     delete-marked, because we never start a transaction by
     inserting a delete-marked record. */
     ut_ad(prev_version || !rec_get_deleted_flag(version, comp) ||
-          !trx_rw_is_active(trx_id, false));
+          !trx_sys->find(nullptr, trx_id, false/*do_ref*/));
 
     /* Free version and clust_offsets. */
     mem_heap_free(old_heap);
@@ -295,7 +295,7 @@ static bool row_vers_find_matching(
  negatives. The caller must confirm all positive results by calling checking if
  the trx is still active.*/
 static inline trx_t *row_vers_impl_x_locked_low(
-    const rec_t *const clust_rec, const dict_index_t *const clust_index,
+    trx_t *caller_trx, const rec_t *const clust_rec, const dict_index_t *const clust_index,
     const rec_t *const sec_rec, const dict_index_t *const sec_index,
     const ulint *const sec_offsets, mtr_t *const mtr) {
   trx_id_t trx_id;
@@ -494,14 +494,22 @@ static inline trx_t *row_vers_impl_x_locked_low(
 
   trx_id = row_get_rec_trx_id(clust_rec, clust_index, clust_offsets);
 
-  trx_t *trx = trx_rw_is_active(trx_id, true);
-
-  if (trx == nullptr) {
-    /* The transaction that modified or inserted clust_rec is no
-    longer active, or it is corrupt: no implicit lock on rec */
-    lock_check_trx_id_sanity(trx_id, clust_rec, clust_index, clust_offsets);
-    mem_heap_free(heap);
-    return nullptr;
+    trx_t *trx = nullptr;
+  if (trx_id == caller_trx->id) {
+    trx = caller_trx;
+    trx->n_ref++;
+  } else {
+    trx = trx_sys->find(caller_trx, trx_id, true);
+    if (trx == NULL) {
+#ifdef UNIV_DEBUG
+      if (!lock_check_trx_id_sanity(trx_id, clust_rec,
+                               clust_index, clust_offsets)) {
+        ib::error() << "Transaction ID Sanity checking is failed.";
+      }
+#endif
+      mem_heap_free(heap);
+      return 0;
+    }
   }
 
   auto comp = page_rec_is_comp(sec_rec);
@@ -524,7 +532,7 @@ static inline trx_t *row_vers_impl_x_locked_low(
   return trx;
 }
 
-trx_t *row_vers_impl_x_locked(const rec_t *rec, const dict_index_t *index,
+trx_t *row_vers_impl_x_locked(trx_t *caller_trx, const rec_t *rec, const dict_index_t *index,
                               const ulint *offsets) {
   mtr_t mtr;
   trx_t *trx;
@@ -561,7 +569,7 @@ trx_t *row_vers_impl_x_locked(const rec_t *rec, const dict_index_t *index,
 
     trx = nullptr;
   } else {
-    trx = row_vers_impl_x_locked_low(clust_rec, clust_index, rec, index,
+    trx = row_vers_impl_x_locked_low(caller_trx, clust_rec, clust_index, rec, index,
                                      offsets, &mtr);
 
     ut_ad(trx == nullptr || trx_is_referenced(trx));
@@ -1364,7 +1372,7 @@ the view, that is, it was freshly inserted afterwards
 @param[out] vrow Virtual row, old version, or null if it is not updated in the
 view */
 void row_vers_build_for_semi_consistent_read(
-    const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
+    trx_t *caller_trx, const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
     mem_heap_t **offset_heap, mem_heap_t *in_heap, const rec_t **old_vers,
     const dtuple_t **vrow) {
   const rec_t *version;
@@ -1391,7 +1399,7 @@ void row_vers_build_for_semi_consistent_read(
     if (rec == version) {
       rec_trx_id = version_trx_id;
     }
-    if (!trx_rw_is_active(version_trx_id, false)) {
+    if (!trx_sys->rw_trx_hash.find(caller_trx, version_trx_id, false)) {
     committed_version_trx:
       /* We found a version that belongs to a
       committed transaction: return it. */

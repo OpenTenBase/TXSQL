@@ -296,7 +296,7 @@ static int match_and_save(void *v_el, void *v_arg) {
   LF_PINS *el_end = el + LF_DYNARRAY_LEVEL_LENGTH;
   for (; el < el_end; el++) {
     for (i = 0; i < LF_PINBOX_PINS; i++) {
-      void *p = el->pin[i];
+      void *p = el->pin[i].load(std::memory_order_acquire);
       if (p) {
         void *cur = arg->old_purgatory;
         void **list_prev = &arg->old_purgatory;

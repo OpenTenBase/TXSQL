@@ -48,6 +48,7 @@ class ReadView;
 
 /** Finds out if an active transaction has inserted or modified a secondary
  index record.
+ @param[in]   caller_trx  current transaction
  @param[in]   rec       record in a secondary index
  @param[in]   index     the secondary index
  @param[in]   offsets   rec_get_offsets(rec, index)
@@ -56,7 +57,7 @@ class ReadView;
  negatives. The caller must confirm all positive results by checking if the trx
  is still active.
 */
-trx_t *row_vers_impl_x_locked(const rec_t *rec, const dict_index_t *index,
+trx_t *row_vers_impl_x_locked(trx_t *caller_trx, const rec_t *rec, const dict_index_t *index,
                               const ulint *offsets);
 
 /** Finds out if we must preserve a delete marked earlier version of a clustered
@@ -120,6 +121,7 @@ dberr_t row_vers_build_for_consistent_read(
 
 /** Constructs the last committed version of a clustered index record,
  which should be seen by a semi-consistent read.
+@param[in] caller_trx  current transaction
 @param[in] rec Record in a clustered index; the caller must have a latch on the
 page; this latch locks the top of the stack of versions of this records
 @param[in] mtr Mini-transaction holding the latch on rec
@@ -134,7 +136,7 @@ the view, that is, it was freshly inserted afterwards
 @param[out] vrow Virtual row, old version, or null if it is not updated in the
 view */
 void row_vers_build_for_semi_consistent_read(
-    const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
+    trx_t *caller_trx, const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
     mem_heap_t **offset_heap, mem_heap_t *in_heap, const rec_t **old_vers,
     const dtuple_t **vrow);
 

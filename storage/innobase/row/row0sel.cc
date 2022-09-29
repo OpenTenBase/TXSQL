@@ -744,7 +744,7 @@ static void row_sel_build_committed_vers_for_mysql(
         mem_heap_create(rec_offs_size(*offsets), UT_LOCATION_HERE);
   }
 
-  row_vers_build_for_semi_consistent_read(rec, mtr, clust_index, offsets,
+  row_vers_build_for_semi_consistent_read(prebuilt->trx, rec, mtr, clust_index, offsets,
                                           offset_heap, prebuilt->old_vers_heap,
                                           old_vers, vrow);
 }
@@ -4835,7 +4835,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
     if (trx->mysql_n_tables_locked == 0 && !prebuilt->ins_sel_stmt &&
         prebuilt->select_lock_type == LOCK_NONE &&
         trx->isolation_level > TRX_ISO_READ_UNCOMMITTED &&
-        MVCC::is_view_active(trx->read_view)) {
+        trx->view_assigned) {
       /* This is a SELECT query done as a consistent read,
       and the read view has already been allocated:
       let us try a search shortcut through the hash
@@ -4949,7 +4949,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
         trx->state.load(std::memory_order_relaxed) == TRX_STATE_ACTIVE);
 
   ut_ad(prebuilt->sql_stat_start || prebuilt->select_lock_type != LOCK_NONE ||
-        MVCC::is_view_active(trx->read_view) || srv_read_only_mode);
+        trx->view_assigned || srv_read_only_mode);
 
   trx_start_if_not_started(trx, false, UT_LOCATION_HERE);
 
@@ -4992,7 +4992,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   if (!prebuilt->sql_stat_start) {
     /* No need to set an intention lock or assign a read view */
 
-    if (!MVCC::is_view_active(trx->read_view) && !srv_read_only_mode &&
+    if (!trx->view_assigned && !srv_read_only_mode &&
         prebuilt->select_lock_type == LOCK_NONE) {
       ib::error(ER_IB_MSG_1031) << "MySQL is trying to perform a"
                                    " consistent read but the read view is not"

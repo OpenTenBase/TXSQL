@@ -816,6 +816,15 @@ bool has_to_wait(const lock_t *lock1, const lock_t *lock2,
 void lock_report_trx_id_insanity(trx_id_t trx_id, const rec_t *rec,
                                  const dict_index_t *index,
                                  const ulint *offsets, trx_id_t next_trx_id);
+#ifdef UNIV_DEBUG
+/** Checks that a transaction id is sensible, i.e., not in the future.
+@return true if ok */
+bool lock_check_trx_id_sanity(
+  trx_id_t trx_id,            /*!< in: trx id */
+  const rec_t *rec,           /*!< in: user record */
+  const dict_index_t *index,  /*!< in: index */
+  const ulint *offsets);      /*!< in: rec_get_offsets(rec, index) */
+#endif
 
 /** Prints info of locks for all transactions.
 @param[in]  file   file where to print */
@@ -1126,7 +1135,7 @@ set on the record, sets one for it.
 @param[in]  rec       user record on page
 @param[in]  index     index of record
 @param[in]  offsets   rec_get_offsets(rec, index) */
-void lock_rec_convert_impl_to_expl(const buf_block_t *block, const rec_t *rec,
+void lock_rec_convert_impl_to_expl(trx_t *caller_trx, const buf_block_t *block, const rec_t *rec,
                                    dict_index_t *index, const ulint *offsets);
 
 

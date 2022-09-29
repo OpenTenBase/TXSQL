@@ -648,14 +648,12 @@ static bool trx_rollback_or_clean_resurrected(
     bool all)   /*!< in: false=roll back dictionary transactions;
                  true=roll back all non-PREPARED transactions */
 {
-  ut_ad(trx_sys_mutex_own());
-  ut_ad(trx->in_rw_trx_list);
 
   /* Generally, an HA transaction with is_recovered && state==TRX_STATE_PREPARED
   can be committed or rolled back by a client who knows its XID at any time.
   To prove that no such state transition is possible while our thread operates,
   observe that we hold trx_sys->mutex which is required by both commit and
-  rollback to deregister the trx from trx_sys->rw_trx_list during
+  rollback to deregister the trx from trx_sys->rw_trx_hash during
   trx_release_impl_and_expl_locks() and we see the trx is still in this list.
   Thus, if we see is_recovered==true, then the state can not change until we
   release the trx_sys->mutex. Moreover for TRX_STATE_PREPARED we do nothing, so
@@ -677,7 +675,6 @@ static bool trx_rollback_or_clean_resurrected(
 
   switch (state) {
     case TRX_STATE_COMMITTED_IN_MEMORY:
-      trx_sys_mutex_exit();
       ib::info(ER_IB_MSG_1188)
           << "Cleaning up trx with id " << trx_get_id_for_print(trx);
 
@@ -687,8 +684,15 @@ static bool trx_rollback_or_clean_resurrected(
       return true;
     case TRX_STATE_ACTIVE:
       if (all || trx->ddl_operation) {
-        trx_sys_mutex_exit();
+#ifdef UNIV_DEBUG
+        trx_id_t id = trx->id;
+        ut_ad(id > 0);
+#endif
         trx_rollback_active(trx);
+#ifdef UNIV_DEBUG
+        /* Trx should have been deregistered */
+        ut_ad(!trx_sys->is_registered(NULL, id));
+#endif
         trx_free_for_background(trx);
         ut_ad(!trx->is_recovered);
         return true;
@@ -702,6 +706,20 @@ static bool trx_rollback_or_clean_resurrected(
   }
 
   ut_error;
+}
+
+static bool trx_rollback_recovered_callback(rw_trx_hash_element_t *element,
+                                               std::vector<trx_t*> *trx_list) {
+  mutex_enter(&element->mutex);
+  if (trx_t *trx = element->trx) {
+    trx_mutex_enter(trx);
+    if (trx->is_recovered) {
+      trx_list->push_back(trx);
+    }
+    trx_mutex_exit(trx);
+  }
+  mutex_exit(&element->mutex);
+  return (false);
 }
 
 /** Rollback or clean up any incomplete transactions which were
@@ -729,46 +747,20 @@ void trx_rollback_or_clean_recovered(
 
   /* Loop over the transaction list as long as there are
   recovered transactions to clean up or recover. */
+  std::vector<trx_t*> trx_list;
+  trx_list.clear();
 
-  trx_sys_mutex_enter();
-  for (bool need_one_more_scan = true; need_one_more_scan;) {
-    need_one_more_scan = false;
-    for (auto trx : trx_sys->rw_trx_list) {
-      assert_trx_in_rw_list(trx);
+  /* Collect list of recovered ACTIVE transaction ids first. Once collected,
+  no other thread is allowed to modify or remove these transactions from
+  rw_trx_hash.  */
+  TRX_HASH_ITERATE_NODUP(nullptr, trx_rollback_recovered_callback, &trx_list);
 
-      /* In case of slow shutdown, we have to wait for the background
-      thread (trx_recovery_rollback) which is doing the rollbacks of
-      recovered transactions. Note that it can add undo to purge.
-      In case of fast shutdown we do not care if we left transactions
-      not rolled back. But still we want to stop the thread, so since
-      certain point of shutdown we might be sure there are no changes
-      to transactions / undo. */
-      if (srv_shutdown_state.load() >= SRV_SHUTDOWN_RECOVERY_ROLLBACK &&
-          srv_fast_shutdown != 0) {
-        ut_a(srv_shutdown_state_matches([](auto state) {
-          return state == SRV_SHUTDOWN_RECOVERY_ROLLBACK ||
-                 state == SRV_SHUTDOWN_EXIT_THREADS;
-        }));
-
-        trx_sys_mutex_exit();
-
-        if (all) {
-          ib::info(ER_IB_MSG_TRX_RECOVERY_ROLLBACK_NOT_COMPLETED);
-        }
-        return;
-      }
-
-      /* If this function does a cleanup or rollback
-      then it will release the trx_sys->mutex, therefore
-      we need to reacquire it before retrying the loop. */
-      if (trx_rollback_or_clean_resurrected(trx, all)) {
-        trx_sys_mutex_enter();
-        need_one_more_scan = true;
-        break;
-      }
-    }
+  while (!trx_list.empty()) {
+    trx_t *trx = trx_list.back();
+    trx_list.pop_back();
+    trx_rollback_or_clean_resurrected(trx, all);
   }
-  trx_sys_mutex_exit();
+
 
   if (all) {
     ib::info(ER_IB_MSG_TRX_RECOVERY_ROLLBACK_COMPLETED);
