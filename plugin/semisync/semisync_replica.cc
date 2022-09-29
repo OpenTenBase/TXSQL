@@ -115,6 +115,11 @@ int ReplSemiSyncSlave::slaveReply(MYSQL *mysql, const char *binlog_filename,
     assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
   };);
 
+  DBUG_EXECUTE_IF("semi_sync_wait_during_shutdown", {
+    LogErr(INFORMATION_LEVEL, ER_SEMISYNC_SLAVE_WAIT_ACK_AND_SLEEP);
+    my_sleep(50 * 1000 * 1000);
+  };);
+
   /* Prepare the buffer of the reply. */
   reply_buffer[REPLY_MAGIC_NUM_OFFSET] = kPacketMagicNum;
   int8store(reply_buffer + REPLY_BINLOG_POS_OFFSET, binlog_filepos);

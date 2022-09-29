@@ -1,0 +1,158 @@
+###############################################################################
+# Forced sync: rpl_semi_sync_no_slave_count_bugfix.test 
+#
+# If wait_forever is ON, no slave count less than 
+# rpl_semi_sync_master_wait_for_slave_count, shutdown will hang. 
+################################################################################
+--source include/not_valgrind.inc
+--source include/not_group_replication_plugin.inc
+--source include/have_binlog_format_row.inc
+
+--echo #
+--echo # prepare
+--echo #
+# server_1 is master, others are slaves.
+--let $rpl_topology= 1->2, 1->3
+--source include/rpl_init.inc
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+# Suppress warning:
+# "Semi-sync master failed on net_flush() before waiting for slave reply"
+CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
+CALL mtr.add_suppression('Timeout waiting for reply of binlog');
+CALL mtr.add_suppression('SEMISYNC: Forced shutdown. Some updates might not be replicated');
+CALL mtr.add_suppression('of the transaction may not be synchronized to slave when server shutdown');
+
+--echo # Enable semisync on master
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+
+--let $semisync_master_enabled= ON
+--let $use_old_semisync_plugin_names = 1
+--source include/install_semisync_source.inc
+SET GLOBAL rpl_semi_sync_master_enabled= ON;
+SET GLOBAL rpl_semi_sync_master_wait_forever= ON;
+
+--echo # Change master variables
+SET GLOBAL rpl_semi_sync_master_timeout= 20000000;
+SET GLOBAL rpl_semi_sync_master_wait_no_slave= ON;
+SET GLOBAL rpl_semi_sync_master_wait_for_slave_count = 2;
+SET GLOBAL rpl_semi_sync_master_trace_level = 255;
+--let $MYSQL_SOCKET= `SELECT @@socket`
+--let $MYSQL_PORT= `SELECT @@port`
+
+--echo # Start slave : server_2
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/install_semisync_replica.inc
+SET GLOBAL rpl_semi_sync_slave_trace_level = 255;
+show variables like "slave_net_timeout";
+
+--echo # Start slave : server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/install_semisync_replica.inc
+SET GLOBAL rpl_semi_sync_slave_trace_level = 255;
+show variables like "slave_net_timeout";
+
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+
+--source include/rpl_sync.inc
+--echo # Verify ack_receiver thread is created
+--let $assert_text= ack receiver thread is created;
+--let $assert_cond= count(*) = 1 FROM performance_schema.threads WHERE name LIKE "%Ack_receiver"
+--source include/assert.inc
+
+CREATE TABLE t1(c1 INT);
+--source include/rpl_sync.inc
+
+--echo # Verify semisync replication works well
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names=1
+--source include/assert_semisync_source_status_on.inc
+
+
+--echo #
+--echo # Run
+--echo #
+
+--echo # shutdown slave : server_2
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--source include/stop_slave_io.inc
+--source include/wait_for_slave_io_to_stop.inc
+--echo # Server2 io_thread is down
+
+--echo # shutdown slave : server_3
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--source include/stop_slave_io.inc
+--source include/wait_for_slave_io_to_stop.inc
+--echo # Server3 io_thread is down
+
+--echo #
+--echo # sleep 6s wait master send heartbeat 
+--sleep 6
+
+--echo # shutdown slave : server_1
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--send insert into t1 values(1)
+--sleep 1
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQLADMIN -uroot -S $MYSQL_SOCKET -P $MYSQL_PORT shutdown 2>&1
+--echo # Server1 is down
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--replace_regex /end_pos: [0-9]*\) /end_pos: <pos>) /  
+--error ER_CDB_ERROR_IN_SYNC_DATA
+--reap
+
+--echo
+--echo # restart server 1.
+--let $rpl_server_number=1
+--source include/rpl_start_server.inc
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+
+--echo # restart server 2 io_thread.
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--source include/start_slave_io.inc
+
+--echo # restart server 3 io_thread.
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--source include/start_slave_io.inc
+
+--echo #
+--echo # Cleanup
+--echo #
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+DROP TABLE t1;
+--source include/rpl_sync.inc
+
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_replica.inc
+
+--let $rpl_connection_name= server_3
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_replica.inc
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_source.inc
+--source include/rpl_end.inc
+

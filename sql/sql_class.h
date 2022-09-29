@@ -4775,6 +4775,9 @@ private:
     return variables.net_wait_timeout;
   }
 
+  bool is_semisync_ack_error;
+  bool volatile is_report_error_to_client;
+
   struct timespec start_io_time;
   struct timespec start_cpu_time;
 
@@ -4790,7 +4793,6 @@ private:
   */
   std::unordered_map<std::string, time_t> m_backquery_timestamps;
   /**
-    Hash map for backquery after parsing.
     Key: table id
     Value: pair<timestamp, readview>
   */

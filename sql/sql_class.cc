@@ -114,6 +114,10 @@
 #include "template_utils.h"
 #include "thr_mutex.h"
 
+/* Changes from TXSQL start. */
+#include "rpl_handler.h"
+/* Changes from TXSQL end. */
+
 class Parse_tree_root;
 
 using std::max;
@@ -601,6 +605,12 @@ const char *THD::proc_info(const System_variables &sysvars) const {
   return ret;
 }
 
+extern "C" void set_semisync_ack_error(THD *thd) {
+  if (!thd) thd = current_thd;
+
+  thd->is_semisync_ack_error = true;
+}
+
 void Open_tables_state::set_open_tables_state(Open_tables_state *state) {
   this->open_tables = state->open_tables;
 
@@ -853,6 +863,12 @@ THD::THD(bool enable_plugins)
   set_system_user(false);
   set_connection_admin(false);
   m_mem_cnt.set_thd(this);
+
+  /**
+    Changes from txsql start.
+  */
+  is_semisync_ack_error = false;
+  is_report_error_to_client = false;
 
   backquery_flag = false;
   m_backquery_timestamps.clear();
@@ -2920,6 +2936,25 @@ void THD::send_statement_status() {
   /* Can not be true, but do not take chances in production. */
   if (da->is_sent()) return;
 
+  /*
+   * Set the LOCK_thd_data to avoid the conflict between
+   * THD::send_statement_status and Send_error_to_client in THD::net.
+   *
+   * Set the is_sync_connection to allow only one message of transaction status
+   * can send client.
+   */
+  bool is_sync_connection = false;
+  if (unlikely(connection_events_loop_aborted()))
+    RUN_HOOK(connection_state, before_force_close, (this, &is_sync_connection));
+
+  if (unlikely(is_sync_connection)) {
+    mysql_mutex_lock(&LOCK_thd_data);
+    if (is_report_error_to_client == true) {
+      mysql_mutex_unlock(&LOCK_thd_data);
+      return;
+    }
+  }
+
   switch (da->status()) {
     case Diagnostics_area::DA_ERROR:
       assert(!is_mem_cnt_error_issued || is_mem_cnt_error());
@@ -2944,6 +2979,12 @@ void THD::send_statement_status() {
       error = m_protocol->send_ok(server_status, 0, 0, 0, nullptr);
       break;
   }
+
+  if (unlikely(is_sync_connection)) {
+    is_report_error_to_client = true;
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
+
   if (!error) da->set_is_sent(true);
 }
 

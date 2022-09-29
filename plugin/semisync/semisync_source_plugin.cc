@@ -226,6 +226,16 @@ static int repl_semi_reset_master(Binlog_transmit_param *) {
   return 0;
 }
 
+int repl_semi_before_connection_close(Connection_state_param *param) {
+  /*
+   * Check if current sync mode is wait_forever(strong sync)
+   */
+  assert(param);
+  assert(param->is_sync);
+  *(param->is_sync) = (bool)rpl_semi_sync_master_wait_forever;
+  return 0;
+}
+
 /*
   semisync system variables
  */
@@ -450,6 +460,12 @@ Binlog_transmit_observer transmit_observer = {
     repl_semi_before_send_event,  // before_send_event
     repl_semi_after_send_event,   // after_send_event
     repl_semi_reset_master,       // reset
+};
+
+Connection_state_observer connstate_observer = {
+  sizeof(Connection_state_observer), // len
+
+  repl_semi_before_connection_close,   // before
 };
 
 #define SHOW_FNAME(name) rpl_semi_sync_source_show_##name
@@ -725,6 +741,7 @@ static int semi_sync_master_plugin_init(void *p) {
   if (register_trans_observer(&trans_observer, p)) return 1;
   if (register_binlog_storage_observer(&storage_observer, p)) return 1;
   if (register_binlog_transmit_observer(&transmit_observer, p)) return 1;
+  if (register_connection_state_observer(&connstate_observer, p)) return 1;
 
   success = true;
   return 0;
@@ -760,6 +777,13 @@ static int semi_sync_master_plugin_deinit(void *p) {
     deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
     return 1;
   }
+  if (unregister_connection_state_observer(&connstate_observer, p)) {
+    LogErr(ERROR_LEVEL,
+           ER_SEMISYNC_UNREGISTER_CONNECTION_STATE_OBSERVER_FAILED);
+    deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
+    return 1;
+  }
+
   delete ack_receiver;
   ack_receiver = nullptr;
   delete repl_semisync;

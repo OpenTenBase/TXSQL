@@ -49,6 +49,7 @@ struct Binlog_relay_IO_param;
 struct Binlog_storage_observer;
 struct Binlog_transmit_observer;
 struct Server_state_observer;
+struct Connection_state_observer;
 struct Trans_observer;
 struct TABLE_LIST;
 
@@ -348,6 +349,24 @@ class Server_state_delegate : public Delegate {
   int after_dd_upgrade_from_57(THD *thd);
 };
 
+#ifdef HAVE_PSI_INTERFACE
+extern PSI_rwlock_key key_rwlock_Connection_state_delegate_lock;
+#endif
+
+class Connection_state_delegate : public Delegate {
+ public:
+  Connection_state_delegate()
+      : Delegate(
+#ifdef HAVE_PSI_INTERFACE
+            key_rwlock_Connection_state_delegate_lock
+#endif
+        ) {
+  }
+
+  typedef Connection_state_observer Observer;
+  int before_force_close(THD *thd, bool *is_sync);
+};
+
 #ifdef HAVE_PSI_RWLOCK_INTERFACE
 extern PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
 #endif
@@ -447,6 +466,7 @@ void delegates_update_lock_type();
 extern Trans_delegate *transaction_delegate;
 extern Binlog_storage_delegate *binlog_storage_delegate;
 extern Server_state_delegate *server_state_delegate;
+extern Connection_state_delegate *connection_state_delegate;
 extern Binlog_transmit_delegate *binlog_transmit_delegate;
 extern Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 

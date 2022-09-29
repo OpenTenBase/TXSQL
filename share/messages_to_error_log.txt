@@ -11960,6 +11960,28 @@ ER_SEMISYNC_MASTER_CLIENT_THREAD_OVERFLOW
 
 ER_SEMISYNC_SET_EXPORT_CLIENT_THREADS_USE_TIME
   eng "setExportClientThreads use time: %d"
+
+ER_SEMISYNC_CHECK_BINLOG_FILE_AND_POSITION
+  eng "received ack or shutdown, retry to check binlog file and postion"
+
+ER_SEMISYNC_RECEIVED_ACK_OR_SHUTDOWN_INFORMATION
+  eng "received ack or shutdown, wait_forever: %s, wait_result: %d"
+
+ER_SEMISYNC_UNREGISTER_CONNECTION_STATE_OBSERVER_FAILED
+  eng "unregister_connection_state_observer failed"
+
+ER_SEMISYNC_RECEIVED_ACK_OR_SHUTDOWN_CHECK_NORMAL
+  eng "received ack or shutdown, time check normal"
+
+ER_SEMISYNC_LAST_SYNC_POINT_FILE_AND_POSITION
+  eng "last sync point: file: %s, pos: %llu"
+
+ER_SEMISYNC_BINLOG_MAY_NOT_BE_SYNC
+  eng "the binlog may not be synchronized to slave when server shutdown."
+
+ER_SEMISYNC_SLAVE_WAIT_ACK_AND_SLEEP
+  eng "slave receive ack then sleep 5s"
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #

@@ -70,6 +70,7 @@
 Trans_delegate *transaction_delegate;
 Binlog_storage_delegate *binlog_storage_delegate;
 Server_state_delegate *server_state_delegate;
+Connection_state_delegate *connection_state_delegate;
 
 Binlog_transmit_delegate *binlog_transmit_delegate;
 Binlog_relay_IO_delegate *binlog_relay_io_delegate;
@@ -355,6 +356,8 @@ int delegates_init() {
       place_storage_mem[sizeof(Binlog_storage_delegate)];
   alignas(Server_state_delegate) static char
       place_state_mem[sizeof(Server_state_delegate)];
+  alignas(Connection_state_delegate) static char
+      place_connection_state_mem[sizeof(Connection_state_delegate)];
   alignas(Binlog_transmit_delegate) static char
       place_transmit_mem[sizeof(Binlog_transmit_delegate)];
   alignas(Binlog_relay_IO_delegate) static char
@@ -373,6 +376,16 @@ int delegates_init() {
   }
 
   server_state_delegate = new (place_state_mem) Server_state_delegate;
+
+  connection_state_delegate =
+      new (place_connection_state_mem) Connection_state_delegate;
+  if (!connection_state_delegate->is_inited()) {
+    sql_print_error(
+        "Initialization of connection state delegates failed. "
+        "Please report a bug.");
+    return 1;
+  }
+
   binlog_transmit_delegate = new (place_transmit_mem) Binlog_transmit_delegate;
   if (!binlog_transmit_delegate->is_inited()) {
     LogErr(ERROR_LEVEL, ER_RPL_BINLOG_TRANSMIT_DELEGATES_INIT_FAILED);
@@ -402,6 +415,8 @@ void delegates_destroy() {
   if (binlog_storage_delegate)
     binlog_storage_delegate->~Binlog_storage_delegate();
   if (server_state_delegate) server_state_delegate->~Server_state_delegate();
+  if (connection_state_delegate)
+    connection_state_delegate->~Connection_state_delegate();
   if (binlog_transmit_delegate)
     binlog_transmit_delegate->~Binlog_transmit_delegate();
   if (binlog_relay_io_delegate)
@@ -998,6 +1013,23 @@ int Server_state_delegate::after_server_shutdown(THD *) {
 }
 
 /**
+  * This hook MUST be invoked before force close a connection is
+  * initiated.
+  *
+  * @param[in] thd The thread context.
+  * @return 0 on success, >0 otherwise.
+*/
+int Connection_state_delegate::before_force_close(THD * , bool *is_sync)
+{
+  DBUG_TRACE;
+  Connection_state_param param = { is_sync };
+
+  int ret= 0;
+  FOREACH_OBSERVER(ret, before_force_close, (&param));
+  return ret;
+}
+
+/**
  * This hook MUST be invoked after upgrade from .frm to data dictionary
  *
  * @return 0 on success, >0 otherwise.
@@ -1322,6 +1354,16 @@ int unregister_server_state_observer(Server_state_observer *observer, void *) {
   DBUG_TRACE;
   int result = server_state_delegate->remove_observer(observer);
   return result;
+}
+
+int register_connection_state_observer(Connection_state_observer *observer,
+                                       void *p) {
+  return connection_state_delegate->add_observer(observer, (st_plugin_int *)p);
+}
+
+int unregister_connection_state_observer(Connection_state_observer *observer,
+                                         void *) {
+  return connection_state_delegate->remove_observer(observer);
 }
 
 int register_binlog_transmit_observer(Binlog_transmit_observer *observer,
