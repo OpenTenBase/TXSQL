@@ -984,6 +984,7 @@ using std::vector;
 #include "my_md5.h"
 #include "sql/threadpool.h"
 #include <set>
+#include "sql/protocol_classic.h"
 
 char *mysqld_admin_port_init_tool = nullptr;
 char *mysqld_admin_port_init_tool_md5 = nullptr;
@@ -2242,11 +2243,17 @@ class Set_kill_conn : public Do_THD_Impl {
  private:
   int m_dump_thread_count;
   bool m_kill_dump_threads_flag;
+  bool m_kill_read_write_threads_flag;
 
  public:
-  Set_kill_conn() : m_dump_thread_count(0), m_kill_dump_threads_flag(false) {}
+  Set_kill_conn()
+      : m_dump_thread_count(0),
+        m_kill_dump_threads_flag(false),
+        m_kill_read_write_threads_flag(false) {}
 
   void set_dump_thread_flag() { m_kill_dump_threads_flag = true; }
+
+  void set_read_write_thread_flag() { m_kill_read_write_threads_flag = true; }
 
   int get_dump_thread_count() const { return m_dump_thread_count; }
 
@@ -2267,6 +2274,7 @@ class Set_kill_conn : public Do_THD_Impl {
                killing_thd->get_command() != COM_BINLOG_DUMP_GTID);
       };);
     }
+
     DBUG_EXECUTE_IF("close_connections_before_kill_binlog_dump",
                     {
                       if (killing_thd->get_command() == COM_BINLOG_DUMP ||
@@ -2276,6 +2284,12 @@ class Set_kill_conn : public Do_THD_Impl {
                         kill_binlog_dump = 1;
                       }
                     };);
+
+    if (!m_kill_read_write_threads_flag) {
+      if (killing_thd->lex && killing_thd->lex->sql_command != SQLCOM_SELECT)
+        return;
+    }
+
     mysql_mutex_lock(&killing_thd->LOCK_thd_data);
 
     if (killing_thd->kill_immunizer) {
@@ -2305,6 +2319,57 @@ class Set_kill_conn : public Do_THD_Impl {
       mysql_mutex_unlock(&killing_thd->LOCK_current_cond);
     }
     mysql_mutex_unlock(&killing_thd->LOCK_thd_data);
+  }
+};
+
+
+/**
+  This class implements callback function used by close_connections()
+  to send error to client for all thds in thd list in sync mode
+*/
+class Send_error_to_client : public Do_THD_Impl {
+ public:
+  virtual void operator()(THD *closing_thd) override {
+    uint event_thread_mask =
+        (SYSTEM_THREAD_EVENT_SCHEDULER | SYSTEM_THREAD_EVENT_WORKER);
+    uint other_thread_mask = (~event_thread_mask);
+    if (closing_thd->system_thread & other_thread_mask) return;
+
+    if (closing_thd->get_command() == COM_BINLOG_DUMP ||
+        closing_thd->get_command() == COM_BINLOG_DUMP_GTID)
+      return;
+
+    if (closing_thd->get_protocol()->connection_alive()) {
+      bool is_sync_connection = false;
+      RUN_HOOK(connection_state, before_force_close,
+               (closing_thd, &is_sync_connection));
+      if (is_sync_connection) {
+        const char *err_msg = my_get_err_msg(ER_CDB_ERROR_IN_SYNC_DATA);
+        my_off_t sync_wait_binlog_pos = 0;
+        const char *sync_wait_binlog_file = NULL;
+        char msg_buf[MYSQL_ERRMSG_SIZE] = {0};
+        closing_thd->get_trans_fixed_pos(&sync_wait_binlog_file,
+                                         &sync_wait_binlog_pos);
+        if (sync_wait_binlog_pos != 0 && sync_wait_binlog_file != NULL) {
+          mysql_mutex_lock(&(closing_thd->LOCK_thd_data));
+          if (closing_thd->is_report_error_to_client == false) {
+            snprintf(msg_buf, MYSQL_ERRMSG_SIZE, err_msg, sync_wait_binlog_file,
+                     sync_wait_binlog_pos);
+            if (closing_thd->system_thread & event_thread_mask) {
+              sql_print_warning(
+                  "The event thread have some event tasks without"
+                  " synchronizing binlog in wait forever mode.");
+            } else {
+              net_send_error(closing_thd, ER_CDB_ERROR_IN_SYNC_DATA, msg_buf);
+            }
+
+            sql_print_warning("%s", msg_buf);
+            closing_thd->is_report_error_to_client = true;
+          }
+          mysql_mutex_unlock(&(closing_thd->LOCK_thd_data));
+        }
+      }
+    }
   }
 };
 
@@ -2363,8 +2428,14 @@ static void close_connections(void) {
   LogErr(INFORMATION_LEVEL, ER_DEPART_WITH_GRACE,
          static_cast<int>(thd_manager->get_thd_count()));
 
+  // kill read only transaction
   Set_kill_conn set_kill_conn;
   thd_manager->do_for_all_thd(&set_kill_conn);
+
+  // kill read write transaction
+  set_kill_conn.set_read_write_thread_flag();
+  thd_manager->do_for_all_thd(&set_kill_conn);
+
   LogErr(INFORMATION_LEVEL, ER_SHUTTING_DOWN_SLAVE_THREADS);
   end_slave();
 
@@ -2395,6 +2466,9 @@ static void close_connections(void) {
 
   LogErr(INFORMATION_LEVEL, ER_DISCONNECTING_REMAINING_CLIENTS,
          static_cast<int>(thd_manager->get_thd_count()));
+
+  Send_error_to_client send_error_to_client;
+  thd_manager->do_for_all_thd(&send_error_to_client);
 
   Call_close_conn call_close_conn(true);
   thd_manager->do_for_all_thd(&call_close_conn);
@@ -12145,6 +12219,7 @@ PSI_rwlock_key key_rwlock_channel_to_filter_lock;
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Server_state_delegate_lock;
+PSI_rwlock_key key_rwlock_Connection_state_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_transmit_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
@@ -12165,6 +12240,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_channel_lock, "channel_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_Trans_delegate_lock, "Trans_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_Server_state_delegate_lock, "Server_state_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_Connection_state_delegate_lock, "Connection_state_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_Binlog_storage_delegate_lock, "Binlog_storage_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_receiver_sid_lock, "gtid_retrieved", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_rpl_filter_lock, "rpl_filter_lock", 0, 0, PSI_DOCUMENT_ME},

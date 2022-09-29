@@ -24,6 +24,7 @@
 #include "plugin/semisync/semisync_source.h"
 #include "plugin/semisync/semisync_timespec_util.h"
 #include "sql/sql_error.h"
+#include "mysqld_error.h"
 
 #include <assert.h>
 #include <time.h>
@@ -742,7 +743,10 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
       abstime.tv_nsec -= TIME_BILLION;
     }
 
-    while (is_on() && !thd_killed(current_thd)) {
+    while (is_on()) {
+      DBUG_EXECUTE_IF("semi_sync_wait_during_shutdown",
+                      LogErr(INFORMATION_LEVEL,
+                             ER_SEMISYNC_CHECK_BINLOG_FILE_AND_POSITION););
       if (reply_file_name_inited_) {
         int cmp =
             ActiveTranx::compare(reply_file_name_, reply_file_pos_,
@@ -825,11 +829,14 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
        * these waiting threads.
        */
       if (connection_events_loop_aborted() &&
-          (rpl_semi_sync_source_clients ==
-           rpl_semi_sync_source_wait_for_replica_count - 1) &&
+          (rpl_semi_sync_source_clients <
+           rpl_semi_sync_source_wait_for_replica_count) &&
           is_on()) {
         LogErr(WARNING_LEVEL, ER_SEMISYNC_FORCED_SHUTDOWN);
         switch_off();
+        if (rpl_semi_sync_master_wait_forever) {
+          set_semisync_ack_error(nullptr);
+        }
         break;
       }
 
@@ -854,6 +861,11 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
       if (rpl_semi_sync_source_wait_sessions > 0)
         rpl_semi_sync_source_wait_sessions--;
 
+      DBUG_EXECUTE_IF("semi_sync_wait_during_shutdown",
+                      LogErr(INFORMATION_LEVEL,
+                             ER_SEMISYNC_RECEIVED_ACK_OR_SHUTDOWN_INFORMATION,
+                             wait_forever ? "true" : "false", wait_result););
+
       if (wait_result != 0) {
         DBUG_EXECUTE_IF("rpl_semisync_wait_timeout",
                 {
@@ -871,8 +883,10 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
           we should wait for ack again.
          */
         assert(!wait_forever);
-        if (rpl_semi_sync_master_wait_forever)
+        if (!(connection_events_loop_aborted() && thd_killed(current_thd)) &&
+            rpl_semi_sync_master_wait_forever) {
           continue;
+        }
 
         /* This is a real wait timeout. */
         LogErr(WARNING_LEVEL, ER_SEMISYNC_WAIT_FOR_BINLOG_TIMEDOUT,
@@ -896,21 +910,46 @@ int ReplSemiSyncMaster::commitTrx(const char *trx_wait_binlog_name,
         } else {
           rpl_semi_sync_source_trx_wait_num++;
           rpl_semi_sync_source_trx_wait_time += wait_time;
+          DBUG_EXECUTE_IF(
+              "semi_sync_wait_during_shutdown",
+              LogErr(INFORMATION_LEVEL,
+                     ER_SEMISYNC_RECEIVED_ACK_OR_SHUTDOWN_CHECK_NORMAL););
         }
       }
     }
 
   l_end:
+    /*
+     *  In the shutdown, if the transaction log file and pos is less than the
+     *  synced log file and pos, we need set error and through it to client.
+     */
+    if (trace_level_ & kTraceDetail) {
+      LogErr(INFORMATION_LEVEL, ER_SEMISYNC_LAST_SYNC_POINT_FILE_AND_POSITION,
+             reply_file_name_, reply_file_pos_);
+    }
+    if (unlikely(connection_events_loop_aborted() &&
+                 rpl_semi_sync_master_wait_forever &&  // sync mode
+                 !is_on() && strcmp(reply_file_name_, "") != 0 &&
+                 reply_file_pos_ != 0)) {  // last sync point
+      int cmp = ActiveTranx::compare(reply_file_name_, reply_file_pos_,
+                                     trx_wait_binlog_name, trx_wait_binlog_pos);
+      if (cmp < 0) {
+        if (trace_level_ & kTraceDetail) {
+          LogErr(INFORMATION_LEVEL, ER_SEMISYNC_BINLOG_MAY_NOT_BE_SYNC);
+        }
+        set_semisync_ack_error(nullptr);
+      }
+    }
+
     /* Update the status counter. */
-    if (is_on() && is_semi_sync_trans)
-    {
+    if (is_on() && is_semi_sync_trans) {
       if (unlikely(thd_killed(current_thd)))
         rpl_semi_sync_master_killed_transactions++;
       else
         rpl_semi_sync_source_yes_transactions++;
-    }
-    else
+    } else {
       rpl_semi_sync_source_no_transactions++;
+    }
   }
 
   /* Last waiter removes the TranxNode */

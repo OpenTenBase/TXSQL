@@ -895,6 +895,18 @@ void remove_ssl_err_thread_state();
   Interface to get the number of VCPUs.
 */
 unsigned int thd_get_num_vcpus();
+
+
+/**
+  Set the ack error state of a connection
+
+  @details
+  Set the ack error flag, the outside group follower can get this error.
+
+  @param thd  user thread connection handle
+*/
+void set_semisync_ack_error(MYSQL_THD thd);
+
 #ifdef __cplusplus
 }
 #endif

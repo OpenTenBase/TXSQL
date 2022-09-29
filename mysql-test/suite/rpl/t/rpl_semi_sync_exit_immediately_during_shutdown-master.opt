@@ -1,0 +1,3 @@
+$SEMISYNC_PLUGIN_OPT --skip-ssl
+--loose-cdb_hidden_key_col=off
+--log-error=$MYSQLTEST_VARDIR/tmp/rpl_semi_sync_exit_immediately_during_shutdown.err

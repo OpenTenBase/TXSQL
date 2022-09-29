@@ -8757,6 +8757,22 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     thd->get_transaction()->m_flags.run_hooks = false;
   }
 
+  if (thd->is_semisync_ack_error) {
+    assert(connection_events_loop_aborted());
+    my_off_t trx_wait_binlog_pos = 0;
+    const char *trx_wait_binlog_file = NULL;
+    thd->get_trans_fixed_pos(&trx_wait_binlog_file, &trx_wait_binlog_pos);
+    if (trx_wait_binlog_pos == 0 || trx_wait_binlog_file == NULL)
+      trx_wait_binlog_file = " ";
+
+    my_error(ER_CDB_ERROR_IN_SYNC_DATA, MYF(0), trx_wait_binlog_file,
+             trx_wait_binlog_pos);
+    sql_print_warning(ER_DEFAULT(ER_CDB_ERROR_IN_SYNC_DATA),
+                      trx_wait_binlog_file, trx_wait_binlog_pos);
+
+    thd->is_semisync_ack_error = false;
+  }
+
   DBUG_EXECUTE_IF("leaving_finish_commit", {
     const char act[] = "now SIGNAL signal_leaving_finish_commit";
     assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
@@ -8783,6 +8799,7 @@ static inline int call_after_sync_hook(THD *queue_head) {
   if (NO_HOOK(binlog_storage)) return 0;
 
   assert(queue_head != nullptr);
+  assert(queue_head == current_thd);
   for (THD *thd = queue_head; thd != nullptr; thd = thd->next_to_commit)
     if (likely(thd->commit_error == THD::CE_NONE))
       thd->get_trans_fixed_pos(&log_file, &pos);
@@ -8791,6 +8808,13 @@ static inline int call_after_sync_hook(THD *queue_head) {
       RUN_HOOK(binlog_storage, after_sync, (queue_head, log_file, pos))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_FAILED_TO_RUN_AFTER_SYNC_HOOK);
     return ER_ERROR_ON_WRITE;
+  }
+
+  if (queue_head->is_semisync_ack_error) {
+    assert(connection_events_loop_aborted());
+    for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
+      thd->is_semisync_ack_error = true;
+    }
   }
   return 0;
 }

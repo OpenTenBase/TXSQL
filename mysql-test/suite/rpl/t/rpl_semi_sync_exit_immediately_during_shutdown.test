@@ -1,0 +1,103 @@
+--source include/have_semisync_plugin.inc
+--source include/not_group_replication_plugin.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_binlog_format_row.inc
+
+--source include/master-slave.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/install_semisync.inc
+
+--echo #
+--echo # prepare
+
+--source include/rpl_connection_master.inc
+--connect(master2,localhost,root,,test)
+--let $MYSQL_PIDFILE= `SELECT @@pid_file`
+--let $MYSQL_SOCKET= `SELECT @@socket`
+--let $MYSQL_PORT= `SELECT @@port`
+--let $log_err= `select @@GLOBAL.log_error`
+
+# set 3s timeout for master
+SET GLOBAL rpl_semi_sync_master_timeout = 3000;
+set global rpl_semi_sync_master_trace_level=255;
+set global rpl_semi_sync_master_wait_forever=ON;
+show variables like "rpl_semi_sync%";
+
+create table t1 (a int);
+insert into t1 values (1);
+--query_vertical select * from t1;
+
+--sync_slave_with_master
+set global rpl_semi_sync_slave_trace_level=255;
+--query_vertical select * from t1;
+
+--source include/rpl_connection_master.inc
+SET global DEBUG = '+d,semi_sync_wait_during_shutdown';
+set global binlog_group_commit_sync_delay= 500000;
+
+--source include/rpl_connection_slave.inc
+SET global DEBUG = '+d,semi_sync_wait_during_shutdown';
+
+
+--echo #
+--echo # run
+--source include/rpl_connection_master.inc
+--let GREP_START= `SELECT DATE_FORMAT(CONVERT_TZ(SYSDATE(6),'SYSTEM','UTC'),'%Y%m%d%H%i%s%f')`
+--let GREP_FILE= $log_err
+--let GREP_MAX_LINE= 3
+--let GREP_PATTERN=received ack or shutdown, retry to check binlog file and postion
+
+# expect to get ER_CDB_ERROR_IN_SYNC_DATA error
+--send insert into t1 values (2)
+--source include/rpl_connection_master1.inc
+--send insert into t1 values (3)
+--sleep 0.5 
+
+--let $rpl_connection_name= master2
+--source include/rpl_connection.inc
+
+--echo # shutdown master
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQLADMIN -uroot -S $MYSQL_SOCKET -P $MYSQL_PORT shutdown 2>&1
+
+--source include/rpl_connection_master.inc
+--replace_regex /end_pos: [0-9]*\) /end_pos: <pos>) /  
+--error ER_CDB_ERROR_IN_SYNC_DATA
+--reap
+
+--source include/rpl_connection_master1.inc
+--replace_regex /end_pos: [0-9]*\) /end_pos: <pos>) /  
+--error ER_CDB_ERROR_IN_SYNC_DATA
+--reap
+
+--source include/wait_until_disconnected.inc
+
+--let $rpl_server_number=1
+--source include/rpl_start_server.inc
+
+select * from t1;
+--echo # get the times of retry
+--source t/search_pattern_in_error_log.inc 
+
+--source include/rpl_connection_master.inc
+select * from t1;
+DROP TABLE t1;
+--source include/rpl_sync.inc
+
+--source include/rpl_connection_slave.inc
+set global rpl_semi_sync_slave_trace_level=0;
+set global debug= '-d,semi_sync_wait_during_shutdown';
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_replica.inc
+
+--source include/rpl_connection_master.inc
+set global DEBUG= '-d,semi_sync_wait_during_shutdown';
+set global binlog_group_commit_sync_delay= default;
+SET GLOBAL rpl_semi_sync_master_enabled= OFF;
+--let $use_old_semisync_plugin_names = 1
+--source include/wait_for_semisync_source_status_off.inc
+--let $use_old_semisync_plugin_names = 1
+--source include/uninstall_semisync_source.inc
+
+--source include/rpl_end.inc

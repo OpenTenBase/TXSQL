@@ -398,6 +398,26 @@ typedef struct Server_state_observer {
   after_dd_upgrade_t after_dd_upgrade_from_57;
 } Server_state_observer;
 
+typedef struct Connection_state_param {
+  bool *is_sync;
+} Connection_state_param;
+
+typedef struct Connection_state_observer {
+  uint32 len;
+
+  /**
+    This callback is called before the force close procedure.
+    Can be useful to report error in some cases.
+
+    @param[in]  param Observer common parameter
+
+    @retval 0 Success
+    @retval >0 Failure
+  */
+  int (*before_force_close)(Connection_state_param *param);
+
+} Connection_state_observer;
+
 /**
    Binlog storage observer parameters
  */
@@ -819,6 +839,28 @@ int register_server_state_observer(Server_state_observer *observer, void *p);
    @retval 1 Observer not exists
 */
 int unregister_server_state_observer(Server_state_observer *observer, void *p);
+
+/**
+   Register a connection state observer
+
+   @param observer The connection state observer to register
+   @param p pointer to the internal plugin structure
+
+   @retval 0 Success
+   @retval 1 Observer already exists
+*/
+int register_connection_state_observer(Connection_state_observer *observer, void *p);
+
+/**
+   Unregister a connection state observer
+
+   @param observer The connection state observer to unregister
+   @param p pointer to the internal plugin structure
+
+   @retval 0 Success
+   @retval 1 Observer not exists
+*/
+int unregister_connection_state_observer(Connection_state_observer *observer, void *p);
 
 /**
    Register a binlog relay IO (slave IO thread) observer
