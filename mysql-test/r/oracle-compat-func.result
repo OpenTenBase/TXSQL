@@ -159,47 +159,47 @@ select to_char(c1, 'YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 to_char(c1, 'YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Warning	4153	Failed to resolve the format string YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 select to_char(c1, 'YYYYMMDD HH24:MI:SS A') from t;
 to_char(c1, 'YYYYMMDD HH24:MI:SS A')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDD HH24:MI:SS A
+Warning	4153	Failed to resolve the format string YYYYMMDD HH24:MI:SS A
 select to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.') from t;
 to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.X.
+Warning	4153	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.X.
 select to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.') from t;
 to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.X.
+Warning	4153	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.X.
 select to_char(c1, 'YYYYMMDD HH24:MI:SS A.XX') from t;
 to_char(c1, 'YYYYMMDD HH24:MI:SS A.XX')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.XX
+Warning	4153	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.XX
 select to_char(c1, 'YYYY/MM/DD B') from t;
 to_char(c1, 'YYYY/MM/DD B')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYY/MM/DD B
+Warning	4153	Failed to resolve the format string YYYY/MM/DD B
 select to_char(c1, 'YYYY/MM/DD B.M.') from t;
 to_char(c1, 'YYYY/MM/DD B.M.')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYY/MM/DD B.M.
+Warning	4153	Failed to resolve the format string YYYY/MM/DD B.M.
 select to_char(c1, 'YYYY/MM/DD B.CM') from t;
 to_char(c1, 'YYYY/MM/DD B.CM')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYY/MM/DD B.CM
+Warning	4153	Failed to resolve the format string YYYY/MM/DD B.CM
 select to_char(c1, 'YYYYMMDD HH24:MI:SS P.X.') from t;
 to_char(c1, 'YYYYMMDD HH24:MI:SS P.X.')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDD HH24:MI:SS P.X.
+Warning	4153	Failed to resolve the format string YYYYMMDD HH24:MI:SS P.X.
 select to_char(c1, 'YYYYY') from t;
 to_char(c1, 'YYYYY')
 20211
@@ -207,22 +207,22 @@ select to_char(c1, 'R') from t;
 to_char(c1, 'R')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string R
+Warning	4153	Failed to resolve the format string R
 select to_char(c1, 'RRR') from t;
 to_char(c1, 'RRR')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string RRR
+Warning	4153	Failed to resolve the format string RRR
 select to_char(c1, 'YYYYMO') from t;
 to_char(c1, 'YYYYMO')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMO
+Warning	4153	Failed to resolve the format string YYYYMO
 select to_char(c1, 'YYYYMONT') from t;
 to_char(c1, 'YYYYMONT')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMONT
+Warning	4153	Failed to resolve the format string YYYYMONT
 select to_char(c1, 'YYYYMONHH') from t;
 to_char(c1, 'YYYYMONHH')
 2021Sep03
@@ -230,62 +230,62 @@ select to_char(c1, 'YYYYMONTT') from t;
 to_char(c1, 'YYYYMONTT')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMONTT
+Warning	4153	Failed to resolve the format string YYYYMONTT
 select to_char(c1, 'YYYYMMDX') from t;
 to_char(c1, 'YYYYMMDX')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDX
+Warning	4153	Failed to resolve the format string YYYYMMDX
 select to_char(c1, 'YYYYMMDA') from t;
 to_char(c1, 'YYYYMMDA')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDA
+Warning	4153	Failed to resolve the format string YYYYMMDA
 select to_char(c1, 'YYYYMMDAX') from t;
 to_char(c1, 'YYYYMMDAX')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDAX
+Warning	4153	Failed to resolve the format string YYYYMMDAX
 select to_char(c1, 'YYYYMMDDHH24MISSFF0') from t;
 to_char(c1, 'YYYYMMDDHH24MISSFF0')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHH24MISSFF0
+Warning	4153	Failed to resolve the format string YYYYMMDDHH24MISSFF0
 select to_char(c1, 'YYYYMMDDHH24MISSFF7') from t;
 to_char(c1, 'YYYYMMDDHH24MISSFF7')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHH24MISSFF7
+Warning	4153	Failed to resolve the format string YYYYMMDDHH24MISSFF7
 select to_char(c1, 'YYYYMMDDH') from t;
 to_char(c1, 'YYYYMMDDH')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDH
+Warning	4153	Failed to resolve the format string YYYYMMDDH
 select to_char(c1, 'YYYYMMDDHHXX') from t;
 to_char(c1, 'YYYYMMDDHHXX')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHHXX
+Warning	4153	Failed to resolve the format string YYYYMMDDHHXX
 select to_char(c1, 'YYYYMMDDHHX') from t;
 to_char(c1, 'YYYYMMDDHHX')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHHX
+Warning	4153	Failed to resolve the format string YYYYMMDDHHX
 select to_char(c1, 'YYYYMMDDHH12MIS') from t;
 to_char(c1, 'YYYYMMDDHH12MIS')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHH12MIS
+Warning	4153	Failed to resolve the format string YYYYMMDDHH12MIS
 select to_char(c1, 'YYYYMMDDHH12MISX') from t;
 to_char(c1, 'YYYYMMDDHH12MISX')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYYMMDDHH12MISX
+Warning	4153	Failed to resolve the format string YYYYMMDDHH12MISX
 select TO_CHAR('2000-11-05', 'YYYY&AMM&||||DD');
 TO_CHAR('2000-11-05', 'YYYY&AMM&||||DD')
 NULL
 Warnings:
-Warning	4148	Failed to resolve the format string YYYY&AMM&||||DD
+Warning	4153	Failed to resolve the format string YYYY&AMM&||||DD
 select TO_CHAR('2000-11-05', 'YYYY&"MM"|DD');
 TO_CHAR('2000-11-05', 'YYYY&"MM"|DD')
 2000&MM05
