@@ -120,6 +120,7 @@ bool push_new_name_resolution_context(Parse_context *pc, TABLE_LIST *left_op,
                                       TABLE_LIST *right_op);
 void init_sql_command_flags(void);
 const CHARSET_INFO *get_bin_collation(const CHARSET_INFO *cs);
+bool has_column_encryption_priv(THD *thd);
 void killall_non_super_threads(THD *thd);
 bool shutdown(THD *thd, enum mysql_enum_shutdown_level level);
 bool show_precheck(THD *thd, LEX *lex, bool lock);

@@ -1,0 +1,239 @@
+# InnoDB transparent column data encryption
+# This test case will test basic encryption support features.
+
+--source include/no_valgrind_without_big.inc
+
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Can't generate new master key for tablespace encryption, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Encryption can't find master key, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Function 'keyring_file' already exists");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Couldn't load plugin named 'keyring_file' with soname 'keyring_file.*'.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* illegal user or without master key can only read encrypted data of the encrypted .*");
+call mtr.add_suppression("Plugin keyring_file reported");
+call mtr.add_suppression("Encryption can't find master key");
+
+# column ENCRYPTION and  algorithm support
+CREATE TABLE t1(c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION algorithm=aes256, c3 varchar(1) column_format ENCRYPTION, c4 varchar(1) column_format ENCRYPTION algorithm=aes128, 
+c5 varchar(1) ENCRYPTION algorithm=SM4 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE t1;
+insert into t1 values('a','b','c','d', 'e');
+insert into t1 values('数','据','库','系', '统');
+SELECT * FROM t1;
+
+# test varchar(255) with charset utf8mb4
+CREATE TABLE vc_t1 (c1 varchar(255) ENCRYPTION, c2 varchar(255) ENCRYPTION algorithm=SM4) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE vc_t1;
+insert into vc_t1 values('a','a');
+insert into vc_t1 values('数','数');
+insert into vc_t1 values(repeat('a',255), repeat('a',255));
+insert into vc_t1 values(repeat('数',255),repeat('数',255));
+SELECT c1,c2,length(c1),length(c2) FROM vc_t1;
+
+# test varchar(255) with charset latin1
+CREATE TABLE vc_t2 (c1 varchar(255) ENCRYPTION, c2 varchar(255) ENCRYPTION algorithm=SM4) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE vc_t2;
+insert into vc_t2 values('a','a');
+insert into vc_t2 values(repeat('a',255),repeat('a',255));
+SELECT c1,c2,length(c1),length(c2) FROM vc_t2;
+
+# test varchar(1) with charset utf8mb4;
+CREATE TABLE vc_t3(c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION ALGORITHM=SM4) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE vc_t3;
+insert into vc_t3 values('a','a');
+insert into vc_t3 values('数','数');
+SELECT c1,c2,length(c1),length(c2) FROM vc_t3;
+
+# test varchar(1) with charset latin1;
+CREATE TABLE vc_t4(c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION ALGORITHM=SM4) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE vc_t4;
+insert into vc_t4 values('a','a');
+SELECT c1,c2,length(c1),length(c2) FROM vc_t4;
+
+# test varchar(1024) with charset utf8mb4;
+CREATE TABLE vc_t5(c1 varchar(1024) ENCRYPTION) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE vc_t5;
+insert into vc_t5 values('a');
+insert into vc_t5 values('数');
+insert into vc_t5 values(repeat('a',255));
+insert into vc_t5 values(repeat('数',255));
+insert into vc_t5 values(repeat('a',1024));
+insert into vc_t5 values(repeat('a',1024));
+SELECT left(c1,1), right(c1,1), length(c1) FROM vc_t5;
+
+# test varchar(1024) with charset latin1;
+CREATE TABLE vc_t6(c1 varchar(1024) ENCRYPTION) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE vc_t6;
+insert into vc_t6 values('a');
+insert into vc_t6 values(repeat('a',255));
+insert into vc_t6 values(repeat('a',1024));
+insert into vc_t6 values(repeat('a',1024));
+SELECT left(c1,1), right(c1,1), length(c1) FROM vc_t6;
+
+
+
+FLUSH TABLES;
+
+# test create table like
+
+CREATE TABLE t2 like vc_t1;
+insert into t2 select * from vc_t2;
+
+CREATE TABLE t3 like vc_t3;
+insert into t3 select * from vc_t3;
+
+CREATE TABLE t4 like vc_t3;
+insert into t4 select * from vc_t4;
+
+CREATE TABLE t5 like vc_t5;
+insert into t5 select * from vc_t5;
+
+CREATE TABLE t6 as select * from vc_t6;
+CREATE TABLE t7 as select * from t1;
+
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+SHOW CREATE TABLE t3;
+SHOW CREATE TABLE t4;
+SHOW CREATE TABLE t5;
+SHOW CREATE TABLE t6;
+SHOW CREATE TABLE t7;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t1;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t2;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t3;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t4;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t5;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t6;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t7;
+
+--source include/restart_mysqld_no_echo.inc
+
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+SHOW CREATE TABLE t3;
+SHOW CREATE TABLE t4;
+SHOW CREATE TABLE t5;
+SHOW CREATE TABLE t6;
+SHOW CREATE TABLE t7;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t1;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t2;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t3;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t4;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t5;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t6;
+SELECT left(c1,1), right(c1,1), length(c1) FROM t7;
+
+# column encryption with table encrypiton
+CREATE TABLE te(c1 INT, c2 varchar(20) encryption) ENCRYPTION="Y" ENGINE = InnoDB;
+SHOW CREATE TABLE te;
+INSERT INTO te VALUES(0, "aaaaa");
+INSERT INTO te VALUES(1, "bbbbb");
+INSERT INTO te VALUES(2, "ccccc");
+INSERT INTO te VALUES(3, "ddddd");
+INSERT INTO te VALUES(4, "eeeee");
+INSERT INTO te VALUES(5, "fffff");
+INSERT INTO te VALUES(6, "ggggg");
+INSERT INTO te VALUES(7, "hhhhh");
+INSERT INTO te VALUES(8, "iiiii");
+INSERT INTO te VALUES(9, "jjjjj");
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+select * from te limit 10;
+
+# column encryption with ROW_FORMAT=DYNAMIC
+CREATE TABLE tc(c1 INT auto_increment primary key, c2 varchar(1024) encryption) ROW_FORMAT = DYNAMIC ENGINE = InnoDB;
+SHOW CREATE TABLE tc;
+INSERT INTO tc VALUES(1, repeat("b", 255));
+INSERT INTO tc VALUES(2, repeat("c", 255));
+INSERT INTO tc VALUES(3, repeat("d", 255));
+INSERT INTO tc VALUES(4, repeat("e", 255));
+INSERT INTO tc VALUES(5, repeat("f", 255));
+INSERT INTO tc VALUES(6, repeat("g", 255));
+INSERT INTO tc VALUES(7, repeat("h", 255));
+INSERT INTO tc VALUES(8, repeat("i", 255));
+INSERT INTO tc VALUES(9, repeat("j", 255));
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+select * from tc order by c1 limit 10;
+
+
+# for cdb_column_encryption_whitelist
+
+# cdb_column_encryption_whitelist is '' allow all user
+--echo #test for tencentroot slow query log
+connect (con_tencentroot, localhost, tencentroot,'', );
+--connection con_tencentroot
+set global cdb_column_encryption_whitelist = '';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+
+select c1, left(c2,1) , length(c1), length(c2) from tc order by c1 limit 10;
+select count(*) from tc where c1=1;
+select count(*) from tc where c2=repeat('a',255);
+select c2=repeat('a',255) from tc where c1=1;
+
+
+# cdb_column_encryption_whitelist='invalid' only allow 'invalid' to read encrypted data
+set global cdb_column_encryption_whitelist = 'invalid';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+
+select c1, length(c1), length(c2) from tc order by c1 limit 10;
+select count(*) from tc where c1=1;
+select count(*) from tc where c2=repeat('a',255);
+select c2=repeat('a',255) from tc where c1=1;
+
+set global cdb_column_encryption_whitelist = 'tencentroot';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+
+select c1, left(c2,1) , length(c1), length(c2) from tc order by c1 limit 10;
+select count(*) from tc where c1=1;
+select count(*) from tc where c2=repeat('a',255);
+select c2=repeat('a',255) from tc where c1=1;
+
+# cdb_column_encryption_whitelist='tencentroot,invalid' allow 'invalid' && 'root'
+set global cdb_column_encryption_whitelist = 'tencentroot,invalid';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+
+select c1, left(c2,1) , length(c1), length(c2) from tc order by c1 limit 10;
+select count(*) from tc where c1=1;
+select count(*) from tc where c2=repeat('a',255);
+select c2=repeat('a',255) from tc where c1=1;
+
+
+
+
+# uninstall plugin
+--source include/restart_mysqld_no_echo.inc
+uninstall plugin keyring_file;
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+
+select c1, length(c1), length(c2) from tc order by c1 limit 10;
+select count(*) from tc where c1=1;
+select count(*) from tc where c2=repeat('a',255);
+select c2=repeat('a',255) from tc where c1=1;
+
+
+# drop table 
+drop table t1,t2,t3,t4,t5,t6,t7;
+drop table tc,te;
+drop table vc_t1,vc_t2,vc_t3,vc_t4,vc_t5,vc_t6;
+set global cdb_column_encryption_whitelist = '';
+
+--source include/restart_mysqld_no_echo.inc
+# --remove_file $MYSQL_TMP_DIR/mysecret_keyring.backup
+# end

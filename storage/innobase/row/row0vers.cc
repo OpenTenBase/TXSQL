@@ -675,7 +675,7 @@ static void row_vers_build_cur_vrow_low(
     bool in_purge, const rec_t *rec, dict_index_t *clust_index,
     ulint *clust_offsets, dict_index_t *index, roll_ptr_t roll_ptr,
     trx_id_t trx_id, mem_heap_t *v_heap, const dtuple_t **vrow, mtr_t *mtr,
-    bool pre_purge = false) {
+    row_prebuilt_t *prebuilt, bool pre_purge = false) {
   const rec_t *version;
   rec_t *prev_version;
   mem_heap_t *heap = nullptr;
@@ -961,7 +961,7 @@ static const dtuple_t *row_vers_build_cur_vrow(
     /* Try to fetch virtual column data from undo log */
     row_vers_build_cur_vrow_low(in_purge, rec, clust_index, *clust_offsets,
                                 index, roll_ptr, trx_id, v_heap, &cur_vrow,
-                                mtr, pre_purge);
+                                mtr, prebuilt, pre_purge);
   }
 
   *clust_offsets = rec_get_offsets(rec, clust_index, nullptr, ULINT_UNDEFINED,
@@ -1395,7 +1395,6 @@ void row_vers_build_for_semi_consistent_read(
     committed_version_trx:
       /* We found a version that belongs to a
       committed transaction: return it. */
-
 #if defined UNIV_DEBUG || defined UNIV_BLOB_LIGHT_DEBUG
       ut_a(!rec_offs_any_null_extern(index, version, *offsets));
 #endif /* UNIV_DEBUG || UNIV_BLOB_LIGHT_DEBUG */

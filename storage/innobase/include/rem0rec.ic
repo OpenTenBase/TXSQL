@@ -1027,7 +1027,8 @@ static inline const byte *rec_get_nth_field_instant(const rec_t *rec,
                                                     const ulint *offsets,
                                                     ulint n,
                                                     const dict_index_t *index,
-                                                    ulint *len) {
+                                                    ulint *len,
+                                                    uint *is_default) {
   if (index->has_row_versions()) {
     /* Fields are stored in record in order of the version they are added in.
     Get the field number on physical record. */
@@ -1038,7 +1039,14 @@ static inline const byte *rec_get_nth_field_instant(const rec_t *rec,
   ulint off = rec_get_nth_field_offs(nullptr, offsets, n, len);
 
   if (*len != UNIV_SQL_ADD_COL_DEFAULT && *len != UNIV_SQL_INSTANT_DROP_COL) {
+    if (is_default != nullptr) {
+       *is_default = 0;
+    }
     return (rec + off);
+  }
+
+  if (is_default != nullptr) {
+    *is_default = 1;
   }
 
   ut_a(index != nullptr);

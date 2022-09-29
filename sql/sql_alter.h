@@ -504,17 +504,26 @@ class Alter_info {
 
   bool add_field(THD *thd, const LEX_STRING *field_name,
                  enum enum_field_types type, const char *length,
-                 const char *decimal, uint type_modifier, Item *default_value,
-                 Item *on_update_value, LEX_CSTRING *comment,
-                 const char *change, List<String> *interval_list,
-                 const CHARSET_INFO *cs, bool has_explicit_collation,
-                 uint uint_geom_type, Value_generator *gcol_info,
-                 Value_generator *default_val_expr, const char *opt_after,
-                 std::optional<gis::srid_t> srid,
+                 const char *decimal, uint type_modifier, uint type_modifier2,
+                 Item *default_value, Item *on_update_value,
+                 LEX_CSTRING *comment, const char *change,
+                 List<String> *interval_list, const CHARSET_INFO *cs,
+                 bool has_explicit_collation, uint uint_geom_type,
+                 Value_generator *gcol_info, Value_generator *default_val_expr,
+                 const char *opt_after, std::optional<gis::srid_t> srid,
                  Sql_check_constraint_spec_list *check_cons_list,
                  dd::Column::enum_hidden_type hidden, bool is_array = false,
                  bool is_masked = false, uint64_t mask_start = 0, 
                  uint64_t mask_end = 0);
+
+  /**
+     Checks if there are any columns with COLUMN_FORMAT ENCRYPTION
+     attribute among field definitions in create_list.
+
+     @retval false there are no encrypted columns
+     @retval true there is at least one encrypted column
+  */
+  bool has_encryption_columns() const;
 
  private:
   Alter_info &operator=(const Alter_info &rhs);  // not implemented

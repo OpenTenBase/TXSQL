@@ -53,6 +53,8 @@ constexpr const int MAX_FIELD_VARCHARLENGTH{65535};
 constexpr const unsigned int MAX_FIELD_BLOBLENGTH{
     std::numeric_limits<uint32_t>::max()};
 
+constexpr const unsigned int MAX_ENCRYPTION_FIELD_CHARLENGTH{1024};
+
 /**
   CHAR and VARCHAR fields longer than this number of characters are converted
   to BLOB.

@@ -1375,8 +1375,12 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> SQL_CDB_FILTER_SYM 1259
 %token<lexer.keyword> MASK_SYM 1260
 %token<lexer.keyword> UNMASK_SYM 1261
-%token<lexer.keyword> TABLESAMPLE_SYM 1262
-%token<lexer.keyword> BERNOULLI_SYM 1263
+%token<lexer.keyword> AES128_SYM 1262
+%token<lexer.keyword> AES192_SYM 1263
+%token<lexer.keyword> AES256_SYM 1264
+%token<lexer.keyword> SM4_SYM 1265
+%token<lexer.keyword> TABLESAMPLE_SYM 1266
+%token<lexer.keyword> BERNOULLI_SYM 1267
 /* Changes from txsql end. */
 
 /*
@@ -2045,6 +2049,8 @@ void warn_about_deprecated_binary(THD *thd)
 %type <col_attr> column_attribute
 
 %type <column_format> column_format
+
+%type <encryption_column_algorithm> encryption_column_algorithm 
 
 %type <storage_media> storage_media
 
@@ -4068,6 +4074,7 @@ sp_fdparam:
             if (spvar->field_def.init(thd, "", field_type,
                                       $2->get_length(), $2->get_dec(),
                                       $2->get_type_flags(),
+                                      $2->get_type_flags2(),
                                       NULL, NULL, &NULL_CSTR, 0,
                                       $2->get_interval_list(),
                                       cs ? cs : thd->variables.collation_database,
@@ -4129,6 +4136,7 @@ sp_pdparam:
             if (spvar->field_def.init(thd, "", field_type,
                                       $3->get_length(), $3->get_dec(),
                                       $3->get_type_flags(),
+                                      $3->get_type_flags2(),
                                       NULL, NULL, &NULL_CSTR, 0,
                                       $3->get_interval_list(),
                                       cs ? cs : thd->variables.collation_database,
@@ -4259,6 +4267,7 @@ sp_decl:
               if (spvar->field_def.init(thd, "", var_type,
                                         $3->get_length(), $3->get_dec(),
                                         $3->get_type_flags(),
+                                        $3->get_type_flags2(),
                                         NULL, NULL, &NULL_CSTR, 0,
                                         $3->get_interval_list(),
                                         cs ? cs : thd->variables.collation_database,
@@ -7562,9 +7571,17 @@ column_attribute:
           {
             $$= NEW_PTN PT_collate_column_attr(@2, $2);
           }
+        | ENCRYPTION_SYM encryption_column_algorithm
+          {
+            $$= NEW_PTN PT_column_format_column_attr(COLUMN_FORMAT_TYPE_ENCRYPTION, $2);
+          }
         | COLUMN_FORMAT_SYM column_format
           {
-            $$= NEW_PTN PT_column_format_column_attr($2);
+            $$= NEW_PTN PT_column_format_column_attr($2, ENCRYPTION_COL_ALGO_TYPE_AES128);
+          }
+        | COLUMN_FORMAT_SYM ENCRYPTION_SYM encryption_column_algorithm
+          {
+            $$= NEW_PTN PT_column_format_column_attr(COLUMN_FORMAT_TYPE_ENCRYPTION, $3);
           }
         | STORAGE_SYM storage_media
           {
@@ -7613,6 +7630,14 @@ column_attribute:
           {
             $$ = NEW_PTN PT_column_mask_attr($1, $2.mask_start, $2.mask_end);
           }
+        ;
+
+encryption_column_algorithm:
+          /* empty */ { $$= ENCRYPTION_COL_ALGO_TYPE_AES192; }
+        | ALGORITHM_SYM EQ AES128_SYM { $$= ENCRYPTION_COL_ALGO_TYPE_AES128; }
+        | ALGORITHM_SYM EQ AES192_SYM { $$= ENCRYPTION_COL_ALGO_TYPE_AES192; }
+        | ALGORITHM_SYM EQ AES256_SYM { $$= ENCRYPTION_COL_ALGO_TYPE_AES256; }
+        | ALGORITHM_SYM EQ SM4_SYM { $$= ENCRYPTION_COL_ALGO_TYPE_SM4; }
         ;
 
 column_format:
@@ -15580,6 +15605,9 @@ ident_keywords_unambiguous:
         | ACTIVE_SYM
         | ADDDATE_SYM
         | ADMIN_SYM
+        | AES128_SYM
+        | AES192_SYM
+        | AES256_SYM
         | AFTER_SYM
         | AGAINST
         | AGGREGATE_SYM
@@ -15898,6 +15926,7 @@ ident_keywords_unambiguous:
         | SIMPLE_SYM
         | SKIP_SYM
         | SLOW
+        | SM4_SYM
         | SNAPSHOT_SYM
         | SOCKET_SYM
         | SONAME_SYM
@@ -18136,7 +18165,8 @@ sf_tail:
 
             if (sp->m_return_field_def.init(YYTHD, "", field_type,
                                             $10->get_length(), $10->get_dec(),
-                                            $10->get_type_flags(), NULL, NULL, &NULL_CSTR, 0,
+                                            $10->get_type_flags(), $10->get_type_flags(),
+                                            NULL, NULL, &NULL_CSTR, 0,
                                             $10->get_interval_list(),
                                             cs ? cs : YYTHD->variables.collation_database,
                                             $11 != nullptr, $10->get_uint_geom_type(),

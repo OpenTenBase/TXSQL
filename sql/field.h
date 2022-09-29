@@ -188,7 +188,16 @@ enum Derivation {
 enum column_format_type {
   COLUMN_FORMAT_TYPE_DEFAULT = 0, /* Not specified (use engine default) */
   COLUMN_FORMAT_TYPE_FIXED = 1,   /* FIXED format */
-  COLUMN_FORMAT_TYPE_DYNAMIC = 2  /* DYNAMIC format */
+  COLUMN_FORMAT_TYPE_DYNAMIC = 2,  /* DYNAMIC format */
+  COLUMN_FORMAT_TYPE_ENCRYPTION = 3 /* ENCRYPTION format */
+};
+
+/* Specifies which algorithm to use in encrytion columns */
+enum encryption_column_algo_type {
+  ENCRYPTION_COL_ALGO_TYPE_AES128 = 0,    /* AES128 algorithm */
+  ENCRYPTION_COL_ALGO_TYPE_AES192 = 1,    /* AES192 algorithm */
+  ENCRYPTION_COL_ALGO_TYPE_AES256 = 2,    /* AES256 algorithm */
+  ENCRYPTION_COL_ALGO_TYPE_SM4 = 3        /* SM4 algorithm */
 };
 
 /**
@@ -683,6 +692,8 @@ class Field {
   const char *orig_table_name{nullptr};
   const char **table_name, *field_name;
   LEX_CSTRING comment;
+  LEX_CSTRING encryption_key{EMPTY_CSTR};
+  LEX_CSTRING encryption_iv{EMPTY_CSTR};
   /* Field is part of the following keys */
   Key_map key_start;          /* Keys that starts with this field */
   Key_map part_of_key;        ///< Keys that includes this field
@@ -776,6 +787,9 @@ class Field {
      might have only a prefix).
   */
   bool m_indexed;
+
+  // algorithm for the encryption column
+  encryption_column_algo_type encryption_col_algo;
 
   LEX_CSTRING m_engine_attribute = EMPTY_CSTR;
   LEX_CSTRING m_secondary_engine_attribute = EMPTY_CSTR;
@@ -1209,6 +1223,14 @@ class Field {
     in str and restore it with set() if needed
   */
   virtual void sql_type(String &str) const = 0;
+
+
+  /**
+    Check whether the the Field is with COLUMN_FORMAT compressed.
+    @return    true if the field is with COLUMN_FORMAT compressed.
+               false otherwise
+  */
+  bool is_column_encrypted() const { return column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION; }
 
   /**
     Check whether the full table's row is NULL or the Field has value NULL.
@@ -1842,6 +1864,21 @@ class Field {
   uchar *pack_int64(uchar *to, const uchar *from, size_t max_length) const;
 
   const uchar *unpack_int64(uchar *to, const uchar *from) const;
+
+
+ public:
+  /**
+    Checks if the current field definition and provided create field
+    definition have different encryption attributes.
+
+    @param   new_field   create field definition to compare with
+
+    @return
+      true  - if encryption attributes are different
+      false - if encryptioin attributes are identical.
+  */
+  bool has_different_encryption_attributes_with(
+      const Create_field &new_field) const;
 };
 
 /**

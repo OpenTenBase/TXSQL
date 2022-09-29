@@ -975,7 +975,8 @@ dberr_t Builder::copy_columns(Copy_ctx &ctx, size_t &mv_rows_added,
     }
 
     ut_a(len <= col->len || DATA_LARGE_MTYPE(col->mtype) ||
-         (col->mtype == DATA_POINT && len == DATA_MBR_LEN));
+         (col->mtype == DATA_POINT && len == DATA_MBR_LEN) ||
+         dict_col_is_encrypted(col));
 
     auto fixed_len = ifield->fixed_len;
 

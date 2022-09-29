@@ -223,6 +223,8 @@ constexpr uint32_t DATA_VIRTUAL = 8192;
 /** Multi-value Virtual column */
 constexpr uint32_t DATA_MULTI_VALUE = 16384;
 
+constexpr uint32_t DATA_ENCRYPTION = 32768;
+
 /*-------------------------------------------*/
 
 /* This many bytes we need to store the type information affecting the

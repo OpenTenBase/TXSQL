@@ -826,7 +826,8 @@ upd_t *row_upd_build_difference_binary(dict_index_t *index,
                                        const dtuple_t *entry, const rec_t *rec,
                                        const ulint *offsets, bool no_sys,
                                        trx_t *trx, mem_heap_t *heap,
-                                       TABLE *mysql_table, row_prebuilt_t *prebuilt,
+                                       TABLE *mysql_table, 
+                                       row_prebuilt_t *prebuilt, 
                                        dberr_t *error) {
   upd_field_t *upd_field;
   dfield_t *dfield;
@@ -2924,7 +2925,7 @@ func_exit:
   entries */
 
   row_upd_store_row(node, thr_get_trx(thr)->mysql_thd,
-                    thr->prebuilt ? thr->prebuilt->m_mysql_table : nullptr, 
+                    thr->prebuilt ? thr->prebuilt->m_mysql_table : nullptr,
                     thr->prebuilt);
 
   /* Mark the clustered index record deleted; we do not have to check

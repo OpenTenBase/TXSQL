@@ -66,6 +66,7 @@
 #include "sql/create_field.h"  // Create_field
 #include "sql/current_thd.h"
 #include "sql/debug_sync.h"  // DEBUG_SYNC
+#include "sql/derror.h"      // ER_THD
 #include "sql/enum_query_type.h"
 #include "sql/error_handler.h"  // Ignore_error_handler
 #include "sql/field.h"
@@ -268,6 +269,47 @@ static bool reads_not_secondary_columns(const LEX *lex) {
           oto.add_alnum("reason", message.c_str());
         }
         return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validates current_thd can access column encryption data
+ *
+ * @return True if invalidate, false otherwise.
+ */
+
+static bool validate_column_encryption_priv (THD *thd, LEX *lex) {
+
+    /* check field encryption and privileges */
+  bool has_priv = has_column_encryption_priv(thd);
+
+  if (has_priv) return false;
+
+  for (TABLE_LIST *tables = lex->query_tables; 
+      tables && tables->table; tables = tables->next_global)
+  {
+    TABLE *table = tables->table;
+    for (Field **field = table->field; *field; field++) {
+      if ((*field)->is_column_encrypted()) {
+          
+        // read encrypted data
+        if (bitmap_is_set(table->read_set, (*field)->field_index())) {
+          thd->is_legal_column_encrypt_read = false;
+          push_warning_printf(thd, Sql_condition::SL_WARNING, 
+                      ER_CDB_ILLEGAL_READ_COLUMN_ENCRYPTION,
+                      ER_THD(thd, ER_CDB_ILLEGAL_READ_COLUMN_ENCRYPTION),
+                      (*field)->field_name);
+        }
+
+        if (bitmap_is_set(table->write_set, (*field)->field_index())) {
+          my_error(ER_CDB_ILLEGAL_USER_UPDATE_COLUMN_ENCRYPTION, MYF(0),
+                   (*field)->field_name);
+          return true;
+        }
       }
     }
   }
@@ -587,6 +629,8 @@ bool Sql_cmd_dml::execute(THD *thd) {
       m_lazy_result = false;
     }
   }
+
+  if (validate_column_encryption_priv(thd, thd->lex)) goto err;
 
   if (validate_use_secondary_engine(lex)) goto err;
 

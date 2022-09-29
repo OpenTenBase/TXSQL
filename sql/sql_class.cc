@@ -841,6 +841,8 @@ THD::THD(bool enable_plugins)
   timer_cache = nullptr;
 
   m_token_array = nullptr;
+  is_legal_column_encrypt_read = true;
+
   if (max_digest_length > 0) {
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
                                                max_digest_length, MYF(MY_WME));

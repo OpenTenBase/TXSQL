@@ -1257,6 +1257,9 @@ que_thr_t *row_purge_step(que_thr_t *thr) {
     row_purge_end(thr);
   }
 
+  if (thr->prebuilt != nullptr && thr->prebuilt->encryption_heap != nullptr)
+    mem_heap_empty(thr->prebuilt->encryption_heap);
+
   return (thr);
 }
 

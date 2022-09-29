@@ -198,6 +198,10 @@
 /** Field is masked */
 #define FIELD_IS_MASK (1 << 31)
 
+/** Flags in type_flags2 */
+#define FIELD_FLAGS_COL_ENCRYPTION_ALGO 0 /* Field column compression algorithm, bit 0-2 */
+#define FIELD_FLAGS_COL_ENCRYPTION_ALGO_MASK (7 << FIELD_FLAGS_COL_ENCRYPTION_ALGO)
+
 /** @}*/
 
 /**

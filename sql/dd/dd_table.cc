@@ -28,6 +28,7 @@
 #include <memory>  // unique_ptr
 
 #include "lex_string.h"
+#include "my_aes.h"
 #include "m_ctype.h"
 #include "m_string.h"
 #include "my_alloc.h"
@@ -35,6 +36,7 @@
 #include "my_dbug.h"
 #include "my_io.h"
 #include "my_loglevel.h"
+#include "my_rnd.h"
 #include "my_sys.h"
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/service_mysql_alloc.h"
@@ -108,6 +110,8 @@
 #include "typelib.h"
 
 namespace dd {
+
+  static const int COLUMN_ENCRYPT_KEY_LEN = 32;
 
 /**
   Convert to and from new enum types in DD framework to current MySQL
@@ -360,6 +364,55 @@ static void prepare_default_value_string(uchar *buf, TABLE *table,
     } else
       def_value->copy(STRING_WITH_LEN(""), system_charset_info);
   }
+}
+
+/**
+ Generate key and iv encrypted by aes via master_key.
+*/
+bool generate_column_encrypted_key(handlerton *hton,
+                                   unsigned char *encrypted_key,
+                                   unsigned char *encrypted_iv) {
+  unsigned char *master_key = nullptr;
+  uint32_t master_key_id = 0;
+  uint32_t master_key_len = 0;
+
+  /* Get master key from key ring. For bootstrap, we use a default
+      master key which master_key_id is 0. */
+  if (hton->get_keyring_master_key) {
+    hton->get_keyring_master_key(&master_key_id, &master_key, &master_key_len);
+  }
+
+  if (master_key == nullptr) {
+    my_error(ER_CANNOT_FIND_KEY_IN_KEYRING, MYF(0));
+    return true;
+  }
+  assert(master_key_len == COLUMN_ENCRYPT_KEY_LEN);
+
+  unsigned char key[COLUMN_ENCRYPT_KEY_LEN] = {0};
+  unsigned char iv[COLUMN_ENCRYPT_KEY_LEN] = {0};
+
+  if (my_rand_buffer(key, COLUMN_ENCRYPT_KEY_LEN)) {
+    return true;
+  }
+  if (my_rand_buffer(iv, COLUMN_ENCRYPT_KEY_LEN)) {
+    return true;
+  }
+  /* Encrypt key */
+  auto elen =
+      my_aes_encrypt(key, COLUMN_ENCRYPT_KEY_LEN, encrypted_key, master_key,
+                     master_key_len, my_aes_256_ecb, nullptr, false);
+
+  if (elen == MY_AES_BAD_DATA) {
+    return true;
+  }
+  /* Encrypt iv */
+  elen = my_aes_encrypt(iv, COLUMN_ENCRYPT_KEY_LEN, encrypted_iv, master_key,
+                        master_key_len, my_aes_256_ecb, nullptr, false);
+
+  if (elen == MY_AES_BAD_DATA) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -701,6 +754,46 @@ bool fill_dd_columns_from_create_fields(THD *thd, dd::Abstract_table *tab_obj,
     if (field.column_format() != COLUMN_FORMAT_TYPE_DEFAULT)
       col_options->set("column_format",
                        static_cast<uint32>(field.column_format()));
+
+    if (field.column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+      col_options->set("encryption_algo",
+                       static_cast<uint32>(field.encryption_col_algo));
+
+      assert(field.encryption_key.length == field.encryption_iv.length);
+      /* in alter sql, can't change the column encryption_key, encryption_iv */
+      if (field.encryption_key.length > 0) {
+        dd::String_type ekey(field.encryption_key.str,
+                             field.encryption_key.length);
+        dd::String_type eiv(field.encryption_iv.str,
+                            field.encryption_iv.length);
+        col_obj->se_private_data().set("encryption_key", ekey);
+        col_obj->se_private_data().set("encryption_iv", eiv);
+      } else {  // new encryption column
+        handlerton *hton = file->ht;
+        assert(hton && ha_storage_engine_is_enabled(hton));
+        unsigned char encrypted_key[COLUMN_ENCRYPT_KEY_LEN];
+        unsigned char encrypted_iv[COLUMN_ENCRYPT_KEY_LEN];
+        unsigned char hex_key[COLUMN_ENCRYPT_KEY_LEN * 2 + 1];
+        unsigned char hex_iv[COLUMN_ENCRYPT_KEY_LEN * 2 + 1];
+        if (generate_column_encrypted_key(hton, encrypted_key, encrypted_iv)) {
+          return true;
+        }
+        bin_to_hex_str(reinterpret_cast<char *>(hex_key),
+                       COLUMN_ENCRYPT_KEY_LEN * 2 + 1,
+                       reinterpret_cast<const char *>(encrypted_key),
+                       COLUMN_ENCRYPT_KEY_LEN);
+        bin_to_hex_str(reinterpret_cast<char *>(hex_iv),
+                       COLUMN_ENCRYPT_KEY_LEN * 2 + 1,
+                       reinterpret_cast<const char *>(encrypted_iv),
+                       COLUMN_ENCRYPT_KEY_LEN);
+        dd::String_type ekey(reinterpret_cast<const char *>(hex_key),
+                             COLUMN_ENCRYPT_KEY_LEN * 2);
+        dd::String_type eiv(reinterpret_cast<const char *>(hex_iv),
+                            COLUMN_ENCRYPT_KEY_LEN * 2);
+        col_obj->se_private_data().set("encryption_key", ekey);
+        col_obj->se_private_data().set("encryption_iv", eiv);
+      }
+    }
 
     // NOT SECONDARY column option.
     if (field.flags & NOT_SECONDARY_FLAG)

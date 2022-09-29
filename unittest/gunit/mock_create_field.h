@@ -48,6 +48,7 @@ class Mock_create_field : public Create_field {
          nullptr,         // char *fld_length
          nullptr,         // char *fld_decimals,
          0,               // uint fld_type_modifier
+         0,               // uint fld_type_modifier2
          insert_default,  // Item *fld_default_value,
          update_default,  // Item *fld_on_update_value,
          /*

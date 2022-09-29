@@ -1228,6 +1228,8 @@ uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
 bool opt_persist_sensitive_variables_in_plaintext{true};
+char *opt_cdb_column_encryption_whitelist = NULL;
+
 ulong opt_myisam_conversion_innodb;
 ulong opt_tencent_myisam_conversion_innodb;
 const char *myisam_conversion_innodb_names[]=

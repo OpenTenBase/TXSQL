@@ -271,6 +271,9 @@ The following options may be given as the first argument:
  audit switch
  --cdb-audit-truncat-sql-len[=#] 
  Audit sql text truncate length 
+ --cdb-column-encryption-whitelist=name 
+ allows user to access column encryption data,if set 0 or
+ empty string means no priv limit 
  --cdb-convert-memory-to-innodb 
  memory storage convert innodb
  --cdb-enable-key-rotate 
@@ -1888,6 +1891,7 @@ caching-sha2-password-public-key-path public_key.pem
 cdb-admin-port-allow-for-normal-user TRUE
 cdb-audit-action-enabled FALSE
 cdb-audit-truncat-sql-len 1024
+cdb-column-encryption-whitelist (No default value)
 cdb-convert-memory-to-innodb FALSE
 cdb-enable-key-rotate TRUE
 cdb-enable-lock-statistics FALSE

@@ -5714,7 +5714,7 @@ String *Item_func_sm4_cbc_encrypt::val_str(String *str) {
       }
       memset(key_buff, 0, MY_SM4_CBC_KEY_SIZE);
       memcpy(key_buff, key->ptr(), key->length());
-      ret = my_sm4_encrypt((unsigned char*)sptr->ptr(), sptr->length(),
+      ret = my_sm4_encrypt((unsigned char*)(sptr->ptr()), sptr->length(),
         (unsigned char *)tmp_value.ptr(), &len, (unsigned char*)key_buff, iv_str, true);
       if (ret == 0 && len == alloc_len) {
          tmp_value.length(len);

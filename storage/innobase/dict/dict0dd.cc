@@ -54,6 +54,7 @@ Data dictionary interface */
 #include "dict0dict.h"
 #include "fil0fil.h"
 #include "mach0data.h"
+#include "my_aes.h"
 #include "rem0rec.h"
 #ifndef UNIV_HOTBACKUP
 #include "fts0priv.h"
@@ -2090,17 +2091,23 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
     /* Get the mtype and prtype of this field. Keep this same
     with the code in dd_fill_dict_table(), except FTS check */
     ulint prtype = 0;
-    unsigned col_len = field->pack_length();
+    ulint col_len = field->pack_length();
     ulint nulls_allowed;
     ulint unsigned_type;
     ulint binary_type;
     ulint long_true_varchar;
     ulint charset_no;
+    ulint is_encryption;
+    ulint field_type;
     ulint mtype = get_innobase_type_from_mysql_type(&unsigned_type, field);
 
     nulls_allowed = field->is_nullable() ? 0 : DATA_NOT_NULL;
 
     binary_type = field->binary() ? DATA_BINARY_TYPE : 0;
+
+    field_type = field->type();
+
+    is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
 
     charset_no = 0;
     if (dtype_is_string_type(mtype)) {
@@ -2116,9 +2123,11 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
       }
     }
 
+    dict_fix_string_to_varchar_for_encryption(is_encryption, &field_type, &col_len);
+
     prtype =
-        dtype_form_prtype((ulint)field->type() | nulls_allowed | unsigned_type |
-                              binary_type | long_true_varchar,
+        dtype_form_prtype(field_type | nulls_allowed | unsigned_type |
+                              binary_type | long_true_varchar | is_encryption,
                           charset_no);
 
     dict_col_t col;
@@ -2126,6 +2135,15 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
     dict_mem_fill_column_struct(&col, 0, mtype, prtype, col_len, true,
                                 UINT32_UNDEFINED,
                                 new_dict_table->current_row_version, 0);
+    if (is_encryption) {
+        uint64_t new_size;
+        uint64_t old_size = mem_heap_get_size(new_dict_table->heap);
+        dd_parse_encrypted_key_value(se_private, &col, new_dict_table->heap);
+        new_size = mem_heap_get_size(new_dict_table->heap);
+        dict_sys_mutex_enter();
+        dict_sys->size += new_size - old_size;
+        dict_sys_mutex_exit();
+    }
     dfield_t dfield;
     col.copy_type(dfield_get_type(&dfield));
 
@@ -2135,7 +2153,7 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
 
     row_mysql_store_col_in_innobase_format(
         &dfield, reinterpret_cast<byte *>(&buf), true, mysql_data, size,
-        dict_table_is_comp(new_dict_table));
+        dict_table_is_comp(new_dict_table), false, 0, nullptr, nullptr, nullptr);
 
     DD_instant_col_val_coder coder;
     size_t length = 0;
@@ -2331,6 +2349,142 @@ void static inline validate_dropped_col_metadata(const dd::Table *dd_table,
   }
 }
 #endif
+
+/**
+  Convert given asciiz string of hex (0..9 a..f) characters to octet
+  sequence.
+
+  @param[out] to Buffer to place result; must be at least len/2 bytes
+  @param[in] str Input buffer; 'str' and 'to' may not overlap;
+  @param[in] len length for character string; len % 2 == 0
+ */
+
+static void hex2octet (byte *to, const char *str, uint32_t len) {
+  auto char_val = [](uint8_t X) {
+    return (X >= '0' && X <= '9'
+                ? X - '0'
+                : X >= 'A' && X <= 'Z' ? X - 'A' + 10 : X - 'a' + 10);
+  };
+
+  const char *str_end = str + len;
+  while (str < str_end) {
+    char tmp = char_val(*str++);
+    *to++ = (tmp << 4) | char_val(*str++);
+  }
+}
+
+/* decrypt the column encryption key(hex encoding).
+@return true on success, false on failure. */
+bool decrypt_column_key(const char *value, uint32 len, byte *dst) {
+  byte *master_key = nullptr;
+  uint32_t master_key_id;
+  byte encrypted_key[Encryption::KEY_LEN];
+
+  Encryption::get_master_key(&master_key_id, &master_key);
+
+  if (master_key == nullptr) {
+  /* without master_key, can only read encrypted data */
+    return false;
+  }
+
+  /* decode hex to char */
+  hex2octet(encrypted_key, value, len);
+
+  /* Then decrypt the encrypted key */
+  auto elen = my_aes_decrypt(encrypted_key,
+                        static_cast<uint32>(Encryption::KEY_LEN), dst,
+                        reinterpret_cast<unsigned char *>(master_key),
+                        static_cast<uint32>(Encryption::KEY_LEN), 
+                        my_aes_256_ecb, nullptr, false);
+  if (elen == MY_AES_BAD_DATA) {
+    return false;
+  }
+  return true;
+}
+
+/** Parse the encryption value from dd::Column::se_private to dict_col_t
+@param[in]	se_private_data	dd::Column::se_private
+@param[in,out]	col		InnoDB column object
+@param[in,out]	heap		Heap to store the default value 
+@return true on success, false on failure. */
+bool dd_parse_encrypted_key_value(const dd::Properties &se_private_data,
+                                  dict_col_t *col, mem_heap_t *heap) {
+  if (se_private_data.exists(dd_column_key_strings[DD_COLUMN_ENCRYPTION_KEY])) {
+    dd::String_type key_value;
+    se_private_data.get(dd_column_key_strings[DD_COLUMN_ENCRYPTION_KEY],
+                        &key_value);
+
+    byte decrypted_key[Encryption::KEY_LEN];
+    if(decrypt_column_key(key_value.c_str(), key_value.length(), decrypted_key)) {
+      col->set_encryption_key(decrypted_key, Encryption::KEY_LEN, heap);
+    } else {
+      /* nullptr mean don't need to encrypt/decrypt */
+      col->set_encryption_key(nullptr, 0, heap);
+    }
+  } else {
+    col->set_encryption_key(nullptr, 0, heap);
+  }
+
+  if (se_private_data.exists(dd_column_key_strings[DD_COLUMN_ENCRYPTION_IV])) {
+    dd::String_type iv_value;
+    se_private_data.get(dd_column_key_strings[DD_COLUMN_ENCRYPTION_IV],
+                        &iv_value);
+
+    byte decrypted_iv[Encryption::KEY_LEN];
+    if (decrypt_column_key(iv_value.c_str(), iv_value.length(), decrypted_iv)) {
+      col->set_encryption_iv(decrypted_iv, Encryption::KEY_LEN, heap);
+    } else {
+      /* nullptr mean don't need to encrypt/decrypt */
+      col->set_encryption_key(nullptr, 0, heap);
+    }
+  } else {
+    col->set_encryption_iv(nullptr, 0, heap);
+  }
+
+  return true;
+}
+
+/** Parse the encryption value from dd::Column::se_private to dict_col_t
+@param[in]	se_private_data	dd::Column::se_private
+@param[in]	key && key_len for set_encryption_key
+@param[in]	iv && iv_len for set_encryption_iv
+@param[in,out]	col		InnoDB column object
+@param[in,out]	heap		Heap to store the default value 
+@return true on success, false on failure. */
+bool dd_parse_encrypted_key_value(const char *key, uint32 key_len, 
+                               const char *iv,  uint32 iv_len,
+                               dict_col_t *col, mem_heap_t *heap) {
+  
+  if(key_len > 0) {
+    ut_ad(key_len == 2*Encryption::KEY_LEN);
+
+    byte decrypted_key[Encryption::KEY_LEN];
+    if(decrypt_column_key(key, key_len, decrypted_key)) {
+      col->set_encryption_key(decrypted_key, Encryption::KEY_LEN, heap);
+    } else {
+      /* nullptr mean don't need to encrypt/decrypt */
+      col->set_encryption_key(nullptr, 0, heap);
+    }
+  } else {
+    col->set_encryption_key(nullptr, 0, heap);
+  }
+
+  if(iv_len > 0) {
+    ut_ad(key_len == 2*Encryption::KEY_LEN);
+
+    byte decrypted_iv[Encryption::KEY_LEN];
+    if (decrypt_column_key(iv, iv_len, decrypted_iv)) {
+      col->set_encryption_iv(decrypted_iv, Encryption::KEY_LEN, heap);
+    } else {
+      /* nullptr mean don't need to encrypt/decrypt */
+      col->set_encryption_iv(nullptr, 0, heap);
+    }
+  } else {
+    col->set_encryption_iv(nullptr, 0, heap);
+  }
+
+  return true;
+}
 
 /** Import all metadata which is related to instant ADD COLUMN of a table
 to dd::Table. This is used for IMPORT.
@@ -3352,7 +3506,7 @@ static void fill_dict_dropped_column(const dd::Column *column,
 }
 
 void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
-                     const Field *field, unsigned &col_len, ulint &mtype,
+                     const Field *field, ulint &col_len, ulint &mtype,
                      ulint &prtype) {
   /* The MySQL type code has to fit in 8 bits in the metadata stored in the
   InnoDB change buffer. */
@@ -3365,8 +3519,15 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
   ulint nulls_allowed;
   ulint unsigned_type;
   ulint charset_no = 0;
+  ulint is_encryption;
+  ulint field_type;
+
+  is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
 
   mtype = get_innobase_type_from_mysql_type(&unsigned_type, field);
+
+  field_type = field->type();
+
 
   nulls_allowed = field->is_nullable() ? 0 : DATA_NOT_NULL;
 
@@ -3405,6 +3566,8 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
     }
   }
 
+  dict_fix_string_to_varchar_for_encryption(is_encryption, &field_type, &col_len);
+
   ulint is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
 
   ulint is_multi_val =
@@ -3416,8 +3579,8 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
 
   if (!is_virtual) {
     prtype =
-        dtype_form_prtype((ulint)field->type() | nulls_allowed | unsigned_type |
-                              binary_type | long_true_varchar,
+        dtype_form_prtype(field_type | nulls_allowed | unsigned_type |
+                              binary_type | long_true_varchar | is_encryption,
                           charset_no);
   } else {
     prtype = dtype_form_prtype(
@@ -3433,11 +3596,14 @@ static inline void fill_dict_existing_column(
     IF_DEBUG(uint32_t &crv, ) mem_heap_t *heap, const uint32_t pos,
     bool has_row_versions) {
   const Field *field = m_form->field[pos];
-  unsigned col_len;
+  ulint col_len;
   ulint mtype;
   ulint prtype;
+  ulint is_encryption;
+
   get_field_types(&dd_tab->table(), m_table, field, col_len, mtype, prtype);
 
+  is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
   ulint is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
 
   if (!is_virtual) {
@@ -3472,6 +3638,21 @@ static inline void fill_dict_existing_column(
     dict_mem_table_add_col(m_table, heap, field->field_name, mtype, prtype,
                            col_len, !field->is_hidden_by_system(), phy_pos,
                            (uint8_t)v_added, UINT8_UNDEFINED);
+
+    if(is_encryption) {
+        uint64_t new_size;
+        uint64_t old_size = mem_heap_get_size(m_table->heap);
+        dict_col_t *col = m_table->get_col(m_table->n_def-1);
+        dd_parse_encrypted_key_value(field->encryption_key.str, 
+                                     field->encryption_key.length, 
+                                     field->encryption_iv.str, 
+                                     field->encryption_iv.length, 
+                                     col, m_table->heap);
+        new_size = mem_heap_get_size(m_table->heap);
+        dict_sys_mutex_enter();
+        dict_sys->size += new_size - old_size;
+        dict_sys_mutex_exit();
+    }
   } else {
     dict_mem_table_add_v_col(m_table, heap, field->field_name, mtype, prtype,
                              col_len, pos,

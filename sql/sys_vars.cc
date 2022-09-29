@@ -8143,3 +8143,9 @@ static Sys_var_bool Sys_tdsql_compat_oracle_mode(
     "Keep tdsql compatible with oracle if it's set.",
     GLOBAL_VAR(g_tdsql_compat_oracle_mode), CMD_LINE(OPT_ARG), DEFAULT(false));
 /* Changes from txsql end. */
+
+static Sys_var_charptr Sys_cdb_column_encryption_whitelist(
+    "cdb_column_encryption_whitelist", "allows user to access column encryption data,"
+    "if set 0 or empty string means no priv limit ",
+    GLOBAL_VAR(opt_cdb_column_encryption_whitelist), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);

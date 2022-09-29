@@ -64,6 +64,13 @@ dict_index_t *dict_mem_index_create(
                             DICT_CLUSTERED, ... ORed */
     ulint n_fields);        /*!< in: number of fields */
 
+/** fix the char/binary/varchar/varbinary's field_type and col_len for 
+encryption.
+@param[in]  is_encryption is column encryption
+@param[in/out] field_type    the converted field_type  
+@param[in/out] col_len       the converted col_len */
+void dict_fix_string_to_varchar_for_encryption(bool is_encrytion, ulint *field_type, 
+                                            ulint *col_len);
 /** Adds a column definition to a table.
 @param[in] table        table
 @param[in] heap         temporary memory heap, or NULL

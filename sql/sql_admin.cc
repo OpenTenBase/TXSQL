@@ -1969,7 +1969,35 @@ bool Sql_cmd_alter_instance::execute(THD *thd) {
   if (!alter_instance) {
     my_error(ER_OUT_OF_RESOURCES, MYF(0));
   } else {
-    res = alter_instance->execute();
+
+    bool has_encryption_key =  false;
+    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+    std::vector<const dd::Table *> table_vector;
+    if (!thd->dd_client()->fetch_global_components(&table_vector)) {
+      for (const dd::Table *table: table_vector) {
+        for (const dd::Column *col_obj : table->columns()) {
+          const dd::Properties *column_options = &col_obj->options();
+          if (column_options->exists("column_format")) {
+            uint32 format_option_value = 0;
+            column_options->get("column_format", &format_option_value);
+            if (format_option_value == COLUMN_FORMAT_TYPE_ENCRYPTION) {
+              has_encryption_key = true;
+              break;
+            }
+          }
+        }
+        if (has_encryption_key) {
+          break;
+        }
+      }
+    } else
+       has_encryption_key = true;
+
+    if (has_encryption_key) {
+      my_error(ER_CDB_UNSUPPORTED_MASTER_KEY_ROTATE, MYF(0), "have encryption column");
+    } else 
+      res = alter_instance->execute();
+
     delete alter_instance;
     alter_instance = nullptr;
   }
