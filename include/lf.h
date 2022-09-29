@@ -62,12 +62,21 @@ void *lf_dynarray_value(LF_DYNARRAY *array, uint idx);
 void *lf_dynarray_lvalue(LF_DYNARRAY *array, uint idx);
 int lf_dynarray_iterate(LF_DYNARRAY *array, lf_dynarray_func func, void *arg);
 
+typedef bool (*my_hash_walk_action)(void *,void *);
+#define NULL_WALK_CALLBACK nullptr
+
 /*
   pin manager for memory allocator, lf_alloc-pin.c
 */
 
 #define LF_PINBOX_PINS 4
-#define LF_PURGATORY_SIZE 10
+/**
+retired node from hash list will not be checked to be freed immediately
+since it will cost much to check if it can be reclaimed.
+so batch these node util we reach the threshold LF_PURGATORY_SIZE.
+Increase the threshold will decrease frequency to do a full scan to check.
+*/
+#define LF_PURGATORY_SIZE 100
 
 typedef void lf_pinbox_free_func(void *, void *, void *);
 
@@ -109,14 +118,14 @@ static inline void lf_pin(LF_PINS *pins, int pin, void *addr) {
 #if defined(__GNUC__) && defined(MY_LF_EXTRA_DEBUG)
   assert(pin < LF_NUM_PINS_IN_THIS_FILE);
 #endif
-  pins->pin[pin].store(addr);
+  pins->pin[pin].store(addr, std::memory_order_release);
 }
 
 static inline void lf_unpin(LF_PINS *pins, int pin) {
 #if defined(__GNUC__) && defined(MY_LF_EXTRA_DEBUG)
   assert(pin < LF_NUM_PINS_IN_THIS_FILE);
 #endif
-  pins->pin[pin].store(nullptr);
+  pins->pin[pin].store(nullptr, std::memory_order_release);
 }
 
 void lf_pinbox_init(LF_PINBOX *pinbox, uint free_ptr_offset,
@@ -191,6 +200,7 @@ struct LF_HASH {
   uint key_offset, key_length;   /* see HASH */
   uint element_size;             /* size of memcpy'ed area on insert */
   uint flags;                    /* LF_HASH_UNIQUE, etc */
+  uint max_size;                 /* Max number of hash bucket, to limit the bucket count */
   std::atomic<int32> size;       /* size of array */
   std::atomic<int32> count;      /* number of elements in the hash */
   /**
@@ -225,6 +235,7 @@ int lf_hash_insert(LF_HASH *hash, LF_PINS *pins, const void *data);
 void *lf_hash_search(LF_HASH *hash, LF_PINS *pins, const void *key,
                      uint keylen);
 int lf_hash_delete(LF_HASH *hash, LF_PINS *pins, const void *key, uint keylen);
+int lf_hash_iterate(LF_HASH *hash, LF_PINS *pins, my_hash_walk_action action, void *arg);
 
 static inline LF_PINS *lf_hash_get_pins(LF_HASH *hash) {
   return lf_pinbox_get_pins(&hash->alloc.pinbox);

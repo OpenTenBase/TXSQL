@@ -288,8 +288,8 @@ static trx_rseg_t *trx_rseg_physical_initialize(trx_rseg_t *rseg,
 #ifdef UNIV_DEBUG
     /* Update last transaction number during recovery. */
     mutex_enter(&purge_sys->pq_mutex);
-    if (rseg->last_trx_no > trx_sys->rw_max_trx_no) {
-      trx_sys->rw_max_trx_no = rseg->last_trx_no;
+    if (rseg->last_trx_no > trx_sys->rw_max_trx_no.load()) {
+      trx_sys->rw_max_trx_no.store(rseg->last_trx_no);
     }
     mutex_exit(&purge_sys->pq_mutex);
 #endif /* UNIV_DEBUG */

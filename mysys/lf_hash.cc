@@ -117,7 +117,8 @@ static inline T *SET_DELETED(T *ptr) {
 */
 static int my_lfind(std::atomic<LF_SLIST *> *head, lf_cmp_func *cmp_func,
                     CHARSET_INFO *cs, uint32 hashnr, const uchar *key,
-                    size_t keylen, CURSOR *cursor, LF_PINS *pins) {
+                    size_t keylen, CURSOR *cursor, LF_PINS *pins,
+                    my_hash_walk_action callback) {
   uint32 cur_hashnr;
   const uchar *cur_key;
   size_t cur_keylen;
@@ -147,8 +148,17 @@ retry:
       (void)LF_BACKOFF;
       goto retry;
     }
-    if (!DELETED(link)) {
-      if (cur_hashnr >= hashnr) {
+    if (!DELETED(link)) { 
+      /* here we change the semantic of find operation.
+      Since iterate and find operations are very similar in split-order hash,
+      we do iterate use find operation.
+      Now, if callback is specified, we just do the callback and do not check hashnr order.
+      Note, dummy node should not be callbacked. */
+      if (unlikely(callback)) {
+        if ((cur_hashnr & 1) && callback(cursor->curr + 1, const_cast<uchar*>(key))) {
+          return 1;
+        }
+      } else if (cur_hashnr >= hashnr) {
         if (cur_hashnr > hashnr) {
           return 0;
         }
@@ -324,7 +334,7 @@ static LF_SLIST *linsert(std::atomic<LF_SLIST *> *head, lf_cmp_func *cmp_func,
 
   for (;;) {
     if (my_lfind(head, cmp_func, cs, node->hashnr, node->key, node->keylen,
-                 &cursor, pins) &&
+                 &cursor, pins, NULL_WALK_CALLBACK) &&
         (flags & LF_HASH_UNIQUE)) {
       res = 0; /* duplicate found */
       break;
@@ -369,7 +379,7 @@ static int ldelete(std::atomic<LF_SLIST *> *head, lf_cmp_func *cmp_func,
   int res;
 
   for (;;) {
-    if (!my_lfind(head, cmp_func, cs, hashnr, key, keylen, &cursor, pins)) {
+    if (!my_lfind(head, cmp_func, cs, hashnr, key, keylen, &cursor, pins, NULL_WALK_CALLBACK)) {
       res = 1; /* not found */
       break;
     } else {
@@ -387,7 +397,7 @@ static int ldelete(std::atomic<LF_SLIST *> *head, lf_cmp_func *cmp_func,
             (to ensure the number of "set DELETED flag" actions
             is equal to the number of "remove from the list" actions)
           */
-          my_lfind(head, cmp_func, cs, hashnr, key, keylen, &cursor, pins);
+          my_lfind(head, cmp_func, cs, hashnr, key, keylen, &cursor, pins, NULL_WALK_CALLBACK);
         }
         res = 0;
         break;
@@ -418,9 +428,11 @@ static LF_SLIST *my_lsearch(std::atomic<LF_SLIST *> *head,
                             uint32 hashnr, const uchar *key, uint keylen,
                             LF_PINS *pins) {
   CURSOR cursor;
-  int res = my_lfind(head, cmp_func, cs, hashnr, key, keylen, &cursor, pins);
+  int res = my_lfind(head, cmp_func, cs, hashnr, key, keylen, &cursor, pins, NULL_WALK_CALLBACK);
   if (res) {
     lf_pin(pins, 2, cursor.curr);
+  } else {
+    lf_unpin(pins, 2);
   }
   lf_unpin(pins, 0);
   lf_unpin(pins, 1);
@@ -490,6 +502,7 @@ void lf_hash_init_impl(LF_HASH *hash, uint element_size, uint flags,
   lf_dynarray_init(&hash->array, sizeof(LF_SLIST *));
   hash->size = 1;
   hash->count = 0;
+  hash->max_size = 0;
   hash->element_size = element_size;
   hash->flags = flags;
   hash->key_offset = key_offset;
@@ -606,7 +619,9 @@ int lf_hash_insert(LF_HASH *hash, LF_PINS *pins, const void *data) {
     return 1;
   }
   csize = hash->size;
-  if ((hash->count.fetch_add(1) + 1.0) / csize > MAX_LOAD) {
+  if ((hash->count.fetch_add(1) + 1.0) / csize > MAX_LOAD
+       && (hash->max_size == 0 || csize < (int)(hash->max_size))) {
+    // make sure the size will not exceed max_size again if max_size is specified
     atomic_compare_exchange_strong(&hash->size, &csize, csize * 2);
   }
   return 0;
@@ -699,6 +714,41 @@ void *lf_hash_search(LF_HASH *hash, LF_PINS *pins, const void *key,
                      my_reverse_bits(hashnr) | 1,
                      pointer_cast<const uchar *>(key), keylen, pins);
   return found ? found + 1 : nullptr;
+}
+
+/**
+  Iterate over all elements in hash and call function with the element
+
+  @note
+  If one of 'action' invocations returns true, the iteration aborts.
+  'action' might see some elements twice!
+
+  @retval 0 ok
+  @retval 1 error (action return 1)
+ */
+int lf_hash_iterate(LF_HASH *hash, LF_PINS *pins,
+                    my_hash_walk_action action, void *argument) {
+  CURSOR cursor;
+  uint bucket = 0;
+  int res = 0;
+
+  void *arr_elem_addr = lf_dynarray_lvalue(&hash->array, bucket);
+  std::atomic<LF_SLIST*> *el = static_cast<std::atomic<LF_SLIST*> *>(arr_elem_addr);
+
+  if (unlikely(el == nullptr)) {
+    return 0; /* if there is no bucket 0, the hash is empty */ 
+  }
+  if (el->load(std::memory_order_relaxed) == nullptr) {
+    return 0; /* bucket 0 is here, but no data not, so also empty */
+  }
+
+  res = my_lfind(el, nullptr /* cmp_func */, nullptr /* charset*/, 0 /* hashnr */, (uchar*)argument,
+                 0 /* keylen */, &cursor, pins, action);
+
+  lf_unpin(pins, 2);
+  lf_unpin(pins, 1);
+  lf_unpin(pins, 0);
+  return res;
 }
 
 /**

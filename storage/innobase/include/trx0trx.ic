@@ -58,8 +58,6 @@ static inline bool trx_state_eq(const trx_t *trx, trx_state_t state) {
       ut_a(state == TRX_STATE_NOT_STARTED ||
            state == TRX_STATE_FORCED_ROLLBACK);
 
-      ut_ad(!trx->in_rw_trx_list);
-
       return true;
   }
   ut_error;
@@ -241,7 +239,7 @@ extern bool thd_has_backquery(THD *thd);
 static inline ReadView *trx_get_read_view_low(const trx_t *trx,
                                               const dict_index_t *index) {
   ReadView *v = nullptr;
-  if (MVCC::is_view_active(trx->read_view)) {
+  if (trx->view_assigned) {
     v = trx->read_view;
     if (unlikely(thd_has_backquery(trx->mysql_thd) && index)) {
       time_t ts;

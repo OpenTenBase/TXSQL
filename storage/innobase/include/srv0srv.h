@@ -794,6 +794,9 @@ extern ulong srv_n_purge_threads;
 /* the number of pages to purge in one batch */
 extern ulong srv_purge_batch_size;
 
+/* use fast clone oldest view */
+extern bool srv_use_fast_clone_oldest_view;
+
 /* the number of sync wait arrays */
 extern ulong srv_sync_array_size;
 

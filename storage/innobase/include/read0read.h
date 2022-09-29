@@ -42,31 +42,20 @@ this program; if not, write to the Free Software Foundation, Inc.,
 /** The MVCC read view manager */
 class MVCC {
  public:
-  /** Constructor
-  @param size           Number of views to pre-allocate */
-  explicit MVCC(ulint size);
+  /** Constructor **/
+  explicit MVCC();
 
-  /** Destructor.
-  Free all the views in the m_free list */
+  /** Destructor */
   ~MVCC();
 
   /** Allocate and create a view.
   @param view   View owned by this class created for the caller. Must be
   freed by calling view_close()
   @param trx    Transaction instance of caller */
-  void view_open(ReadView *&view, trx_t *trx);
+  void view_open(ReadView *view, trx_t *trx);
 
-  /**
-  Close a view created by the above function.
-  @param view           view allocated by trx_open.
-  @param own_mutex      true if caller owns trx_sys_t::mutex */
-  void view_close(ReadView *&view, bool own_mutex);
-
-  /**
-  Release a view that is inactive but not closed. Caller must own
-  the trx_sys_t::mutex.
-  @param view           View to release */
-  void view_release(ReadView *&view);
+  /** Close a view created by the above function. */
+  void view_close(trx_t *trx);
 
   /** Clones the oldest view and stores it in view. No need to
   call view_close(). The caller owns the view that is passed in.
@@ -74,19 +63,11 @@ class MVCC {
   m_free list. This function is called by Purge to determine whether it should
   purge the delete marked record or not.
   @param view           Preallocated view, owned by the caller */
-  void clone_oldest_view(ReadView *view);
+  void clone_oldest_view(ReadView *view, bool fast = false);
 
   /**
   @return the number of active views */
   ulint size() const;
-
-  /**
-  @return true if the view is active and valid */
-  static bool is_view_active(ReadView *view) {
-    ut_a(view != reinterpret_cast<ReadView *>(0x1));
-
-    return (view != nullptr && !(intptr_t(view) & 0x1));
-  }
 
   /**
   Set the view creator transaction id. Note: This shouldbe set only
@@ -95,43 +76,30 @@ class MVCC {
   @param id     Transaction id to set */
   static void set_view_creator_trx_id(ReadView *view, trx_id_t id) {
     ut_ad(id > 0);
-
     view->creator_trx_id(id);
   }
 
- private:
-  /**
-  Validates a read view list. */
-  bool validate() const;
+  ReadView *cached_view() { return m_cached_view; }
 
-  /**
-  Find a free view from the active list, if none found then allocate
-  a new view. This function will also attempt to move delete marked
-  views from the active list to the freed list.
-  @return a view to use */
-  inline ReadView *get_view();
+  void cached_view_slock() { rw_lock_s_lock(m_cached_view_lock, UT_LOCATION_HERE); }
 
-  /**
-  Get the oldest view in the system. It will also move the delete
-  marked read views from the views list to the freed list.
-  @return oldest view if found or NULL */
-  inline ReadView *get_oldest_view() const;
-  ReadView *get_view_created_by_trx_id(trx_id_t trx_id) const;
+  void cached_view_sunlock() { rw_lock_s_unlock(m_cached_view_lock); }
+
+  void cached_view_xlock() { rw_lock_x_lock(m_cached_view_lock, UT_LOCATION_HERE); }
+
+  bool cached_view_try_xlock() { return rw_lock_x_lock_nowait(m_cached_view_lock, UT_LOCATION_HERE); }
+
+  void cached_view_xunlock() { rw_lock_x_unlock(m_cached_view_lock); }
+
 
  private:
   // Prevent copying
   MVCC(const MVCC &);
   MVCC &operator=(const MVCC &);
 
- private:
-  typedef UT_LIST_BASE_NODE_T(ReadView, m_view_list) view_list_t;
-
-  /** Free views ready for reuse. */
-  view_list_t m_free;
-
-  /** Active and closed views, the closed views will have the
-  creator trx id set to TRX_ID_MAX */
-  view_list_t m_views;
+  // cached view to avoid do lf_hash iterate
+  ReadView *m_cached_view;
+  rw_lock_t *m_cached_view_lock;
 };
 
 #endif /* read0read_h */

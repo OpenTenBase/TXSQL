@@ -152,6 +152,7 @@ extern mysql_pfs_key_t srv_monitor_file_mutex_key;
 #ifdef UNIV_DEBUG
 extern mysql_pfs_key_t sync_thread_mutex_key;
 #endif /* UNIV_DEBUG */
+extern mysql_pfs_key_t trx_view_mutex_key;
 extern mysql_pfs_key_t trx_undo_mutex_key;
 extern mysql_pfs_key_t trx_mutex_key;
 extern mysql_pfs_key_t trx_pool_mutex_key;
@@ -162,10 +163,10 @@ extern mysql_pfs_key_t lock_sys_table_mutex_key;
 extern mysql_pfs_key_t lock_wait_mutex_key;
 extern mysql_pfs_key_t trx_sys_mutex_key;
 extern mysql_pfs_key_t trx_sys_shard_mutex_key;
-extern mysql_pfs_key_t trx_sys_serialisation_mutex_key;
 extern mysql_pfs_key_t srv_sys_mutex_key;
 extern mysql_pfs_key_t srv_threads_mutex_key;
 extern mysql_pfs_key_t srv_threads_slot_mutex_key;
+extern mysql_pfs_key_t rw_trx_hash_element_mutex_key;
 #ifndef PFS_SKIP_EVENT_MUTEX
 extern mysql_pfs_key_t event_mutex_key;
 extern mysql_pfs_key_t event_manager_mutex_key;
@@ -178,6 +179,7 @@ extern mysql_pfs_key_t master_key_id_mutex_key;
 extern mysql_pfs_key_t clone_sys_mutex_key;
 extern mysql_pfs_key_t clone_task_mutex_key;
 extern mysql_pfs_key_t clone_snapshot_mutex_key;
+extern mysql_pfs_key_t clone_persist_gtid_mutex_key;
 extern mysql_pfs_key_t parallel_read_mutex_key;
 extern mysql_pfs_key_t dblwr_mutex_key;
 extern mysql_pfs_key_t row_truncate_list_mutex_key;
@@ -207,6 +209,7 @@ extern mysql_pfs_key_t trx_purge_latch_key;
 extern mysql_pfs_key_t index_tree_rw_lock_key;
 extern mysql_pfs_key_t index_online_log_key;
 extern mysql_pfs_key_t dict_table_stats_key;
+extern mysql_pfs_key_t trx_sys_mvcc_lock_key;
 extern mysql_pfs_key_t trx_sys_rw_lock_key;
 extern mysql_pfs_key_t hash_table_locks_key;
 extern mysql_pfs_key_t backquery_enable_lock_key;

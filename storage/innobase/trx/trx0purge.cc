@@ -293,8 +293,6 @@ void trx_purge_sys_close() {
 
   purge_sys->sess = nullptr;
 
-  purge_sys->view.close();
-  purge_sys->view.~ReadView();
   purge_sys->pre_view.~ReadView();
 
   rw_lock_free(&purge_sys->latch);
@@ -2452,23 +2450,23 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
   /* The number of tasks submitted should be completed. */
   ut_ad(purge_sys->n_submitted.load() == purge_sys->n_completed.load());
 
-  ReadView mvcc_oldest_view, backquery_oldest_view;
-  trx_sys->mvcc->clone_oldest_view(&mvcc_oldest_view);
+  ReadView pre_view, backquery_oldest_view;
+  trx_sys->mvcc->clone_oldest_view(&pre_view, srv_use_fast_clone_oldest_view);
   if (!backquery_manager->clone_oldest_view(&backquery_oldest_view)) {
     /* Backquery is disabled or there is no history view */
-    backquery_oldest_view.clone_from(&mvcc_oldest_view);
+    backquery_oldest_view.clone_from(&pre_view);
   } else {
     /*
       Note, the oldest view for backquery may not be the oldest one in trx_sys,
       merge them to prevent crash.
     */
-    backquery_oldest_view.merge(&mvcc_oldest_view);
+    backquery_oldest_view.merge(&pre_view);
   }
 
   rw_lock_x_lock(&purge_sys->latch, UT_LOCATION_HERE);
 
   purge_sys->view.clone_from(&backquery_oldest_view);
-  purge_sys->pre_view.clone_from(&mvcc_oldest_view);
+  purge_sys->pre_view.clone_from(&pre_view);
 
   rw_lock_x_unlock(&purge_sys->latch);
 

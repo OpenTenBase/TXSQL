@@ -82,6 +82,7 @@ class Clone_persist_gtid {
     m_num_gtid_mem.store(0);
     m_flush_in_progress.store(false);
     m_close_thread.store(false);
+    mutex_create(LATCH_ID_CLONE_PERSIST_GTID, &m_mutex);
   }
 
   /** Destructor: stop gtid thread */
@@ -89,6 +90,7 @@ class Clone_persist_gtid {
     ut_ad(!m_thread_active.load());
     stop();
     os_event_destroy(m_event);
+    mutex_destroy(&m_mutex);
   }
 
   /** Start GTID persistence and background thread.
@@ -195,6 +197,9 @@ class Clone_persist_gtid {
   /** Disable assignment */
   Clone_persist_gtid &operator=(Clone_persist_gtid const &) = delete;
 
+  void lock() { mutex_enter(&m_mutex); }
+  void unlock() { mutex_exit(&m_mutex); }
+
  private:
   /** Check if GTID needs to persist at XA prepare.
   @param[in]            thd             session THD
@@ -232,7 +237,9 @@ class Clone_persist_gtid {
 
   /** @return current active GTID list */
   Gitd_info_list &get_active_list() {
-    ut_ad(trx_sys_serialisation_mutex_own());
+    /* TODO(lanzaoxu): replace trx_sys_serialisation_mutex, will there be conflicts? 
+    same scenario in 8022. */
+    ut_ad(mutex_own(&m_mutex) || trx_sys_mutex_own());
     return (get_list(m_active_number));
   }
 
@@ -253,7 +260,7 @@ class Clone_persist_gtid {
   @param[in]    compress        request compression of GTID table
   @return flush list number to track and wait for flush to complete. */
   uint64_t request_immediate_flush(bool compress) {
-    trx_sys_serialisation_mutex_enter();
+    lock();
     /* We want to flush all GTIDs. */
     uint64_t request_number = m_active_number.load();
     /* If no GTIDs added to active, wait for previous index. */
@@ -262,7 +269,7 @@ class Clone_persist_gtid {
       --request_number;
     }
     m_flush_request_number = request_number;
-    trx_sys_serialisation_mutex_exit();
+    unlock();
 
     if (compress) {
       m_explicit_request.store(true);
@@ -289,7 +296,7 @@ class Clone_persist_gtid {
   /** Switch active GTID list. */
   uint64_t switch_active_list() {
     /* Switch active list under transaction system mutex. */
-    ut_ad(trx_sys_serialisation_mutex_own());
+    ut_ad(mutex_own(&m_mutex));
     uint64_t flush_number = m_active_number;
     ++m_active_number;
     m_compression_gtid_counter += m_num_gtid_mem;
@@ -356,6 +363,8 @@ class Clone_persist_gtid {
 
   /** Event for GTID background thread. */
   os_event_t m_event;
+
+  ib_mutex_t m_mutex;
 
   /** Counter to keep track of the number of writes till it reaches
   compression threshold. */
