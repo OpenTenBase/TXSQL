@@ -1,0 +1,403 @@
+
+SET SESSION txsql_parallel_copy_ddl=ON;
+
+--echo 
+--echo 
+--echo #Case 1: test table with datetime
+CREATE TABLE t1 (fld1 INT, fld2 DATETIME NOT NULL) ENGINE= INNODB;
+INSERT INTO t1 VALUES(1, '2000-01-01');
+INSERT INTO t1 VALUES(2, '2001-01-01');
+INSERT INTO t1 VALUES(3, '2002-01-01');
+ALTER TABLE t1 ADD COLUMN fld4 DATETIME, ALGORITHM= COPY;
+SELECT * FROM t1;
+DROP TABLE t1;
+
+
+--echo 
+--echo 
+--echo #Case 2: test alter table modify column
+CREATE TABLE t2 (fld1 INT, fld2 POINT NOT NULL) ENGINE= INNODB;
+INSERT INTO t2 values(1,  ST_PointFromText('POINT(10 10)'));
+SELECT * FROM t2;
+ALTER TABLE t2 MODIFY fld2 POINT NOT NULL AFTER fld1;
+ALTER TABLE t2 MODIFY fld2 POINT NOT NULL FIRST, ALGORITHM= COPY;
+--ERROR 1138
+ALTER TABLE t2 MODIFY fld2 POINT NOT NULL AFTER fld1,
+               ADD COLUMN fld3 MULTIPOINT NOT NULL, ALGORITHM= COPY;
+SHOW CREATE TABLE t2;
+SELECT * FROM t2;
+DROP TABLE t2;
+
+--echo 
+--echo 
+--echo #Case 3: test myisam table
+create table t1 (bandID MEDIUMINT UNSIGNED NOT NULL PRIMARY KEY, payoutID SMALLINT UNSIGNED NOT NULL) engine=myisam;
+insert into t1 (bandID,payoutID) VALUES (1,6),(2,6),(3,4),(4,9),(5,10),(6,1),(7,12),(8,12);
+alter table t1 add column new_col int, order by payoutid,bandid;
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 4: test temporary table
+CREATE TABLE `t+1` (c1 INT);
+ALTER TABLE  `t+1` RENAME `t+2`;
+CREATE TABLE `t+1` (c1 INT);
+--ERROR 1050
+ALTER TABLE  `t+1` RENAME `t+2`;
+DROP TABLE  `t+1`, `t+2`;
+CREATE TEMPORARY TABLE `tt+1` (c1 INT);
+ALTER TABLE  `tt+1` RENAME `tt+2`;
+DROP TABLE `tt+2`;
+
+--echo 
+--echo 
+--echo #Case 5: test table with datetime
+CREATE TABLE t1 (fld1 char(25)) ENGINE= INNODB;
+INSERT INTO t1 VALUES('0000-00-00');
+--ERROR 1292
+ALTER TABLE t1 MODIFY fld1 DATETIME NOT NULL;
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 6: test table with datetime.
+CREATE TABLE t1 (fld1 INT, fld2 DATETIME NOT NULL) ENGINE= INNODB;
+INSERT INTO t1 VALUES(1, '2000-01-01');
+ALTER TABLE t1 MODIFY fld2 DATETIME NOT NULL FIRST, ALGORITHM= COPY;
+SELECT * from t1;
+DROP TABLE t1;
+
+
+--echo 
+--echo 
+--echo #Case 7: test alter table with order
+create table t1 (bandID MEDIUMINT UNSIGNED NOT NULL PRIMARY KEY, payoutID SMALLINT UNSIGNED NOT NULL) engine=InnoDB;
+insert into t1 (bandID,payoutID) VALUES (1,6),(2,6),(3,4),(4,9),(5,10),(6,1),(7,12),(8,12);
+alter table t1 add column new_col int, order by payoutid,bandid;
+select * from t1;
+drop table t1;
+
+
+--echo 
+--echo 
+--echo #Case 8: test table change column to different name
+CREATE TABLE `t1` (
+  `a` int DEFAULT NULL,
+  `b` varchar(30) DEFAULT NULL,
+  `c` double DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+Insert into t1 values(1, 'abcd', 1.234);
+ALTER TABLE t1 CHANGE COLUMN a b int, RENAME COLUMN b TO c, CHANGE COLUMN c d FLOAT;
+select * from t1;
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 9: test alter table with order
+create table t1 (n int);
+insert into t1 values(9),(3),(12),(10);
+alter table t1 order by n;
+select * from t1;
+drop table t1;
+
+
+--echo 
+--echo 
+--echo #Case 10: test auto-increment table.
+CREATE TABLE t1 (name varchar(64), age smallint(3))ENGINE=innodb;
+INSERT INTO t1 SET name='Andy', age=31;
+INSERT INTO t1 SET name='Jacob', age=2;
+INSERT INTO t1 SET name='Caleb', age=1;
+ALTER TABLE t1 ADD id int(8) ZEROFILL AUTO_INCREMENT PRIMARY KEY,
+ALGORITHM=COPY;
+select * from t1;
+drop table t1;
+
+
+--echo 
+--echo 
+--echo #Case 11: parallel copy ddl doesn't support partition table now
+CREATE TABLE t1 (a INT NOT NULL, b INT NOT NULL)
+PARTITION BY KEY (a) PARTITIONS 2;
+INSERT INTO t1 VALUES (0,1), (0,2);
+
+--error ER_DUP_ENTRY
+ALTER TABLE t1 ADD PRIMARY KEY (a);
+
+UPDATE t1 SET a = 1, b = 1 WHERE a = 0 AND b = 2;
+ALTER TABLE t1 ADD PRIMARY KEY (a);
+
+SELECT * FROM t1;
+ALTER TABLE t1 DROP PRIMARY KEY;
+SELECT * FROM t1;
+
+DROP TABLE t1;
+
+
+--echo 
+--echo 
+--echo #Case 12: test table with json column
+CREATE TABLE t1 (i int);
+INSERT INTO t1(i) VALUES (1),(2);
+ALTER TABLE t1 ADD COLUMN b JSON DEFAULT (JSON_OBJECT("key",i));
+SELECT * FROM t1;
+
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 13: test alter table engine=innodb
+create table t1 (
+  a int primary key,
+  b varchar(6),
+  index b3(b(3))
+) engine=innodb character set=utf8;
+insert into t1 values(1,'foo'),(2,'foobar');
+select * from t1 where b like 'foob%';
+alter table t1 engine=innodb, algorithm=copy;
+select * from t1 where b like 'foob%';
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 14: test duplicate key
+create table t1(id int primary key, val int);
+insert into t1 values(1,1),(2,1);
+--error ER_DUP_ENTRY
+alter table t1 add unique(val), algorithm=copy;
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 15: test discard tablespace
+CREATE TABLE t4 (c1 INT PRIMARY KEY, c2 INT DEFAULT 1, ct TEXT, INDEX(c2));
+INSERT INTO t4 VALUES (1, 1, 'one'), (2, 2, 'two'), (3, 3, 'three');
+ALTER TABLE t4 DISCARD TABLESPACE;
+--error ER_TABLESPACE_DISCARDED
+ALTER TABLE t4 TABLESPACE innodb_system, ALGORITHM=COPY;
+show warnings;
+drop table t4;
+
+--echo 
+--echo 
+--echo #Case 16:
+set names latin1;
+create table t1 (a varchar(1) character set latin1 collate latin1_general_ci)
+partition by range columns(a)
+( partition p0 values less than ('a'),
+  partition p1 values less than ('b'),
+  partition p2 values less than ('c'),
+  partition p3 values less than ('d'));
+insert into t1 values ('A'),('a'),('B'),('b'),('C'),('c');
+select * from t1 where a > 'B' collate latin1_bin;
+select * from t1 where a <> 'B' collate latin1_bin;
+alter table t1 remove partitioning;
+select * from t1 where a > 'B' collate latin1_bin;
+select * from t1 where a <> 'B' collate latin1_bin;
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 17: test table that use prebuilt->encrypiton_heap
+set names utf8mb4;
+CREATE TABLE t1(id int primary key, c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION algorithm=aes256, c3 varchar(1) column_format ENCRYPTION, c4 varchar(1) column_format ENCRYPTION algorithm=aes128, 
+c5 varchar(1) ENCRYPTION algorithm=SM4 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+insert into t1 values(1, 'a','b','c','d', 'e');
+insert into t1 values(2, '数','据','库','系', '统');
+insert into t1 values(3, '', '', '', '', ''); 
+
+alter table t1 drop primary key, change id id int;
+
+select * from t1;
+
+drop table t1;
+
+
+--echo 
+--echo 
+--echo #Case 18: multi-value index, parallel copy ddl doesn't support now
+create table if not exists t1 (
+        j7 json default (json_array(time('11:11:11'))),
+        j8 int default 1,
+        key mv_idx_time (( cast(j7->'$[*]' as time array))));
+insert into t1() values() ;
+alter table t1 change column j8 j8 bigint,  algorithm = copy;
+select * from t1 where cast('11:11:11' as time) member of (j7->'$[*]');
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 19: generated virtual coulmn and index 
+create table t_people(id int primary key, name varchar(50));
+
+Insert into t_people (id,name) values(1, '杨某某');
+
+alter table t_people add second_name varchar(3) generated always as(substring(name,1,1));
+
+alter table t_people add index ix_second_name(second_name);
+
+explain select count(*) from t_people where second_name='杨';
+
+Alter table t_people change column id id bigint;
+
+select count(*) from t_people where second_name='杨';
+
+drop table t_people;
+
+
+--echo 
+--echo 
+--echo #Case 20: check table constraint
+CREATE TABLE t1 (f1 INT CHECK (f1 < 10));
+ALTER TABLE t1 ADD CONSTRAINT CHECK (f1 > 1), ADD CONSTRAINT `t1_p_ck` CHECK (f1 > 1);
+ALTER TABLE t1 ADD f2 INT CHECK (f2 < 10), RENAME TO t6, ALGORITHM=COPY;
+ALTER TABLE t6 RENAME TO t1;
+
+ALTER TABLE t1 ADD f3 INT CHECK (f3 < 10) NOT ENFORCED, ALGORITHM=INPLACE;
+ALTER TABLE t1 ADD CONSTRAINT CHECK (f2 < 10) NOT ENFORCED, ALGORITHM=INPLACE;
+
+INSERT INTO t1 VALUES (5, 5, 5);
+ALTER TABLE t1 ALTER CHECK t1_chk_1 NOT ENFORCED, ALGORITHM=INPLACE;
+INSERT INTO t1 VALUES (8, 8, 8);
+ALTER TABLE t1 ALTER CHECK t1_chk_1 ENFORCED, ALGORITHM=COPY; 
+
+
+ALTER TABLE t1 ALTER CHECK t1_chk_1 NOT ENFORCED, ALGORITHM=INPLACE;
+INSERT INTO t1 VALUES (12, 5, 5);
+--error ER_CHECK_CONSTRAINT_VIOLATED
+ALTER TABLE t1 ALTER CHECK t1_chk_1 ENFORCED, ALGORITHM=COPY;  
+
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 21: parallel copy ddl doesn't support self-reference
+CREATE TABLE t3
+(
+FOLDERID VARCHAR(32)BINARY NOT NULL
+, PARENTID VARCHAR(32)BINARY
+, PRIMARY KEY ( FOLDERID )
+) charset utf8mb4 ENGINE=InnoDB;
+
+INSERT INTO t3 VALUES("2f6161e879db43c1a5b82c21ddc49089", NULL);
+INSERT INTO t3 VALUES("c373e9f5ad0791724315444553544200", "2f6161e879db43c1a5b82c21ddc49089");
+
+ALTER TABLE t3 ADD  FOREIGN KEY FK_FLDRS_PRNTID ( PARENTID)
+    REFERENCES t3 (FOLDERID );
+
+SHOW CREATE TABLE t3;
+DROP TABLE t3;
+
+
+--echo 
+--echo 
+--echo #Case 22: test spatial index
+CREATE TABLE t1(c1 INT PRIMARY KEY, g geometry not null, spatial index(g)) ENCRYPTION = "Y" ENGINE = InnoDB;
+INSERT INTO t1 VALUES(0, POINT(0, 0));
+INSERT INTO t1 VALUES(1, POINT(1, 1));
+INSERT INTO t1 VALUES(2, POINT(2, 2));
+INSERT INTO t1 VALUES(3, POINT(3, 3));
+INSERT INTO t1 VALUES(4, POINT(4, 4));
+INSERT INTO t1 VALUES(5, POINT(5, 5));
+INSERT INTO t1 VALUES(6, POINT(6, 6));
+INSERT INTO t1 VALUES(7, POINT(7, 7));
+INSERT INTO t1 VALUES(8, POINT(8, 8));
+INSERT INTO t1 VALUES(9, POINT(9, 9));
+SHOW CREATE TABLE t1;
+ALTER TABLE t1 DROP PRIMARY KEY;
+SHOW CREATE TABLE t1;
+SELECT c1, ST_AsText(g) FROM t1 ORDER BY c1 LIMIT 10;
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 23: test fts index
+CREATE TABLE `t1` (`id` int NOT NULL, `k` int NOT NULL DEFAULT '0',
+    `c` char(120) NOT NULL DEFAULT '', `pad` text,
+    PRIMARY KEY (`id`), KEY `k_1` (`k`)) ENGINE=InnoDB;
+
+let row_count=200;
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t1 VALUES ($row_count, $row_count, LPAD($row_count, 119, 0), LPAD($row_count, 119, 0));
+  dec $row_count;
+}
+--enable_query_log
+
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE k < 99, COUNT(*), 1)
+
+alter table t1 drop column pad;
+
+alter table t1 add column pad text, add column i int,
+               add column j char(250) default 'abc',
+               change column c c int,
+               add column n int default 1, algorithm=copy;
+
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE k < 99, COUNT(*), 1)
+
+assert($count_before == $count_after);
+
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case 24: #TEST INVALID USE OF NULL VALUES
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) ENGINE=INNODB;
+let row_count=100;
+--disable_query_log
+while ($row_count)
+{
+  --let $c2=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), $c2, LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+ANALYZE TABLE t1;
+ALTER TABLE t1 drop primary key;
+ALTER TABLE t1 add primary key(c1, c3), algorithm=copy;
+ALTER TABLE t1 drop column c1;
+ALTER TABLE t1 add column c1 int;
+
+--error 1265
+ALTER TABLE t1 drop primary key, add primary key(c1, c3), add index(c3), algorithm=copy;
+
+drop table t1;
+
+--echo 
+--echo 
+--echo #Case : test parallel copy ddl with a large amount of data
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) ENGINE=INNODB;
+let row_count=5000;
+--disable_query_log
+while ($row_count)
+{
+  --let $c2=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), $c2, LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+
+set session innodb_parallel_read_threads=16;
+ALTER TABLE t1 change column c2 c2 bigint, change column c3 c3 int, drop primary key, add index idx(c2);
+
+SHOW CREATE TABLE t1;
+
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+set session innodb_parallel_read_threads=8;
+ALTER TABLE t1 change column c2 c2 char(10);
+
+ALTER TABLE t1 change column c2 c2 bigint;
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+set session innodb_parallel_read_threads=5;
+ALTER TABLE t1 encryption='Y';
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+DROP TABLE t1;

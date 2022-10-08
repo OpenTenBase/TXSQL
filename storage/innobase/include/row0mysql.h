@@ -264,6 +264,10 @@ void row_update_prebuilt_trx(row_prebuilt_t *prebuilt, trx_t *trx);
     row_prebuilt_t *prebuilt); /*!< in: prebuilt struct in the MySQL
                               table handle */
 
+dtuple_t *row_get_prebuilt_insert_row(
+    row_prebuilt_t *prebuilt); /*!< in: prebuilt struct in the MySQL
+                              table handle */
+
 /** Sets a table lock on the table mentioned in prebuilt.
 @param[in,out]  prebuilt        table handle
 @return error code or DB_SUCCESS */

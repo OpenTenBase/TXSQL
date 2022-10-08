@@ -1307,7 +1307,9 @@ void log_free_check_validate() {
         << "log_free_check() was called while holding an un-listed latch.";
     ut_error;
   }
-  mtr_t::check_my_thread_mtrs_are_not_latching();
+  /* [TXSQL Parallel Copy DDL] We skip this check since a copy ddl thread will
+  try to latch in the insert mtr while holding the latch in scan mtr.*/
+  // mtr_t::check_my_thread_mtrs_are_not_latching();
 }
 #endif /* !UNIV_DEBUG */
 

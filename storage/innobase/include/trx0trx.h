@@ -425,7 +425,7 @@ struct trx_lock_t {
   /** Default constructor. */
   trx_lock_t() = default;
 
-  ulint n_active_thrs; /*!< number of active query threads */
+  std::atomic<ulint> n_active_thrs; /*!< number of active query threads */
 
   trx_que_t que_state; /*!< valid when trx->state
                        == TRX_STATE_ACTIVE: TRX_QUE_RUNNING,

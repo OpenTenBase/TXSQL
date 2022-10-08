@@ -109,6 +109,7 @@ struct index_physical_info_t {
             static_cast<double>(heap_recs));
   }
 };
+
 /* Changes from txsql end. */
 
 namespace dd {
@@ -443,6 +444,28 @@ class ha_innobase : public handler {
                            const dd::Table *old_dd_tab,
                            dd::Table *new_dd_tab) override;
 
+  /** Alter the table structure with copy operations.
+  @param[in]        from                TABLE object for old version of table.
+  @param[in]        to                  TABLE object for new version of table.
+  @param[in]        new_dd_tab          dd::Table object for the new version of
+                                        the table.
+  @param[in]        old_dd_tab          dd::Table object describing old version
+
+  @param[in]        ha_copy_alter_info  Structure describing changes to be done
+                                        by ALTER TABLE and holding data used
+                                        during copy alter.
+  @param[in]        create              Create field list.
+  @param[in,out]    found               Number of rows found.
+
+  @return error status (zero on success, HA_ERR_* error code on error)
+  */
+  int parallel_copy_data_between_tables(TABLE *from, TABLE *to,
+                              dd::Table *new_dd_tab, const dd::Table *old_dd_tab,
+                              Alter_copy_info *ha_copy_alter_info,
+                              List<Create_field> &create, ulong &found) override;
+
+  void prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) override;
+
   /** Commit or rollback the changes made during
   prepare_inplace_alter_table() and inplace_alter_table() inside
   the storage engine. Note that the allowed level of concurrency
@@ -507,6 +530,7 @@ class ha_innobase : public handler {
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
                                   uint table_changes) override;
 
+  
  private:
   /** @name Multi Range Read interface
   @{ */
@@ -1334,6 +1358,8 @@ by a lock wait timeout or a deadlock.
 @param[in]  thd     MySQL thread or NULL.
 @return MySQL error code */
 int convert_error_code_to_mysql(dberr_t error, uint32_t flags, THD *thd);
+
+void build_copy_template(row_prebuilt_t * prebuilt, bool whole_row, TABLE *table);
 
 /** Converts a search mode flag understood by MySQL to a flag understood
 by InnoDB.

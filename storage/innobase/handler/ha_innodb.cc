@@ -25564,4 +25564,159 @@ finish:
   m_prebuilt->trx->op_info = "";
   DBUG_RETURN(ret);
 }
+
+void build_copy_template(row_prebuilt_t * prebuilt, bool whole_row, TABLE *table) {
+  dict_index_t *index;
+  dict_index_t *clust_index;
+  ulint n_fields;
+  bool fetch_all_in_key = false;
+  bool fetch_primary_key_cols = false;
+  ulint i;
+
+  if (prebuilt->select_lock_type == LOCK_X) {
+    /* We always retrieve the whole clustered index record if we
+    use exclusive row level locks, for example, if the read is
+    done in an UPDATE statement. */
+
+    whole_row = true;
+  } else if (!whole_row) {
+    if (prebuilt->hint_need_to_fetch_extra_cols == ROW_RETRIEVE_ALL_COLS) {
+      /* We know we must at least fetch all columns in the
+      key, or all columns in the table */
+
+      if (prebuilt->read_just_key) {
+        /* MySQL has instructed us that it is enough
+        to fetch the columns in the key; looks like
+        MySQL can set this flag also when there is
+        only a prefix of the column in the key: in
+        that case we retrieve the whole column from
+        the clustered index */
+
+        fetch_all_in_key = true;
+      } else {
+        whole_row = true;
+      }
+    } else if (prebuilt->hint_need_to_fetch_extra_cols ==
+               ROW_RETRIEVE_PRIMARY_KEY) {
+      /* We must at least fetch all primary key cols. Note
+      that if the clustered index was internally generated
+      by InnoDB on the row id (no primary key was
+      defined), then row_search_for_mysql() will always
+      retrieve the row id to a special buffer in the
+      prebuilt struct. */
+
+      fetch_primary_key_cols = true;
+    }
+  }
+
+  clust_index = prebuilt->table->first_index();
+
+  index = whole_row ? clust_index : prebuilt->index;
+
+  prebuilt->need_to_access_clustered = (index == clust_index);
+
+  /* Either prebuilt->index should be a secondary index, or it
+  should be the clustered index. */
+  ut_ad(index->is_clustered() == (index == clust_index));
+
+  /* Below we check column by column if we need to access
+  the clustered index. */
+
+  n_fields = (ulint)table->s->fields; /* number of columns */
+
+  if (!prebuilt->mysql_template) {
+    prebuilt->mysql_template = (mysql_row_templ_t *)ut::malloc_withkey(
+        UT_NEW_THIS_FILE_PSI_KEY, n_fields * sizeof(mysql_row_templ_t));
+  }
+
+#if defined(UNIV_DEBUG) && !defined(UNIV_DEBUG_VALGRIND)
+  /* zero-filling for compare contents for debug */
+  memset(prebuilt->mysql_template, 0, n_fields * sizeof(mysql_row_templ_t));
+#endif /* UNIV_DEBUG && !UNIV_DEBUG_VALGRIND */
+
+  prebuilt->template_type =
+      whole_row ? ROW_MYSQL_WHOLE_ROW : ROW_MYSQL_REC_FIELDS;
+  prebuilt->null_bitmap_len = table->s->null_bytes;
+
+  /* Prepare to build prebuilt->mysql_template[]. */
+  prebuilt->templ_contains_blob = false;
+  prebuilt->templ_contains_fixed_point = false;
+  prebuilt->mysql_prefix_len = 0;
+  prebuilt->n_template = 0;
+  prebuilt->idx_cond_n_cols = 0;
+
+  mysql_row_templ_t *templ;
+  ulint num_v = 0;
+  /* No index condition pushdown */
+  prebuilt->idx_cond = false;
+
+  for (i = 0; i < n_fields; i++) {
+    const Field *field;
+    bool is_virtual = innobase_is_v_fld(table->field[i]);
+
+    if (whole_row) {
+      /* Even this is whole_row, if the seach is
+      on a virtual column, and read_just_key is
+      set, and field is not in this index, we
+      will not try to fill the value since they
+      are not stored in such index nor in the
+      cluster index. */
+      if (is_virtual && prebuilt->read_just_key &&
+          !dict_index_contains_col_or_prefix(prebuilt->index, num_v,
+                                              true)) {
+        /* Turn off ROW_MYSQL_WHOLE_ROW */
+        prebuilt->template_type = ROW_MYSQL_REC_FIELDS;
+        num_v++;
+        continue;
+      }
+
+      field = table->field[i];
+    } else {
+      bool contain;
+
+      if (innobase_is_v_fld(table->field[i])) {
+        contain = dict_index_contains_col_or_prefix(index, num_v, true);
+      } else {
+        contain = dict_index_contains_col_or_prefix(index, i - num_v, false);
+      }
+
+      field = build_template_needs_field(
+          contain, prebuilt->read_just_key, fetch_all_in_key,
+          fetch_primary_key_cols, index, table, i, num_v);
+      if (!field) {
+        if (is_virtual) {
+          num_v++;
+        }
+        continue;
+      }
+    }
+
+    templ = build_template_field(prebuilt, clust_index, index, table, field,
+                                  i - num_v, num_v);
+
+    /* Virtual columns may have to be read from the secondary index before
+    evaluating an end-range condition in row_search_end_range_check(). Set
+    ICP field number for virtual column. */
+    auto scan_index = prebuilt->index;
+    bool is_sec_idx = (scan_index != nullptr && !scan_index->is_clustered());
+
+    if (is_virtual && is_sec_idx) {
+      set_templ_icp(templ, index, scan_index, num_v);
+    }
+
+    if (templ->is_virtual) {
+      num_v++;
+    }
+  }
+
+  if (index != clust_index && prebuilt->need_to_access_clustered) {
+    /* Change rec_field_no's to correspond to the clustered index
+    record */
+    for (i = 0; i < prebuilt->n_template; i++) {
+      mysql_row_templ_t *templ = &prebuilt->mysql_template[i];
+
+      templ->rec_field_no = templ->clust_rec_field_no;
+    }
+  }
+}
 /* Changes from txsql end. */

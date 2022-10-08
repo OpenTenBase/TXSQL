@@ -86,6 +86,7 @@ class String;
 class THD;
 class handler;
 class partition_info;
+class Create_field;
 struct System_status_var;
 
 namespace dd {
@@ -3105,6 +3106,58 @@ class inplace_alter_handler_ctx {
 };
 
 /**
+  Copy alter handler context.
+
+  This is a superclass intended to be subclassed by individual handlers
+  in order to store handler unique context between in-place alter API calls.
+
+  @see Alter_inplace_info
+*/
+
+class copy_alter_handler_ctx {
+ public:
+  copy_alter_handler_ctx() = default;
+
+  void init(const char *new_db_arg, const char *db_arg,
+            const char *new_name_arg, const char *tmp_name_arg,
+            const char *path_arg, const char *tmp_path_arg) {
+      new_db = new_db_arg;
+      db = db_arg;
+      table_name = new_name_arg;
+      tmp_name = tmp_name_arg;
+      path = path_arg;
+      tmp_path = tmp_path_arg;
+  }
+
+  virtual void set_shared_data(const copy_alter_handler_ctx *ctx
+                               [[maybe_unused]]) {}
+  virtual ~copy_alter_handler_ctx() = default;
+
+  /**
+     @return path to the temporary table created during ALTER TABLE.
+  */
+  const char *get_tmp_path() const { return tmp_path; }
+
+  /**
+     @return path to the original table.
+  */
+  const char *get_path() const {
+    return path;
+  }
+
+  const char *db;
+  const char *new_db;
+
+  const char *table_name;
+  const char *tmp_name;
+
+  const char *path;
+  const char *tmp_path;
+
+};
+
+
+/**
   Class describing changes to be done by ALTER TABLE.
   Instance of this class is passed to storage engine in order
   to determine if this ALTER TABLE can be done using in-place
@@ -3549,6 +3602,20 @@ class Alter_inplace_info {
     index_add_buffer[index_add_count++] = (uint)(new_key - key_info_buffer);
     DBUG_PRINT("info", ("index added: '%s'", new_key->name));
   }
+};
+
+class Alter_copy_info {
+public:
+  Alter_copy_info() : handler_ctx(nullptr) {}
+
+  ~Alter_copy_info() {}
+  /**
+     Context information to allow handlers to keep context between copy
+     alter API calls.
+
+     @see copy_alter_handler_ctx for information about object lifecycle.
+  */
+  copy_alter_handler_ctx *handler_ctx;
 };
 
 struct HA_CHECK_OPT {
@@ -6123,6 +6190,23 @@ class handler {
 
   /**
      Public function wrapping the actual handler call.
+     @see parallel_copy_data_between_tables()
+  */
+  int ha_parallel_copy_data_between_tables(TABLE *from, TABLE *to,
+                                           dd::Table *table_def,
+                                           const dd::Table *old_table_def,
+                                           Alter_copy_info *ha_copy_alter_info,
+                                           List<Create_field> &create, ulong &found) {
+    return parallel_copy_data_between_tables(from, to, table_def, old_table_def,
+                                             ha_copy_alter_info, create, found);
+  }
+
+  void ha_prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) {
+    return prepare_copy_alter(ha_copy_alter_info);
+  }
+
+  /**
+     Public function wrapping the actual handler call.
      Allows us to enforce asserts regardless of handler implementation.
      @see commit_inplace_alter_table()
   */
@@ -6223,6 +6307,49 @@ class handler {
                                    [[maybe_unused]],
                                    dd::Table *new_table_def [[maybe_unused]]) {
     return false;
+  }
+
+  /**
+     Alter the table structure copy with operations specified using
+     HA_ALTER_FLAGS and Alter_copy_info. The level of concurrency allowed
+     during this operation depends on the return value from
+     check_if_supported_inplace_alter().
+
+     @note Storage engines are responsible for reporting any errors by
+     calling my_error()/print_error()
+
+     @param    from               TABLE object for original version of table.
+
+     @param    to                 TABLE object for new version of table.
+
+     @param    table_def          dd::Table object for the new version of the
+                                  table. Can be adjusted by this call if SE
+                                  supports atomic DDL. These changes to the
+                                  table definition will be persisted in the
+                                  data-dictionary at statement commit time.
+     @param    old_table_def      dd::Table object describing old version of
+                                  the table.
+
+     @param    ha_copy_alter_info Structure describing changes to be done
+                                  by ALTER TABLE and holding data used
+                                  during copy alter.
+
+     @return error status (zero on success, HA_ERR_* error code on error)
+  */
+  virtual int parallel_copy_data_between_tables(
+                      TABLE *from [[maybe_unused]],
+                      TABLE *to [[maybe_unused]],
+                      dd::Table *table_def [[maybe_unused]],
+                      const dd::Table *old_table_def [[maybe_unused]],
+                      Alter_copy_info *ha_copy_alter_info [[maybe_unused]],
+                      List<Create_field> &create [[maybe_unused]],
+                      ulong &found [[maybe_unused]]) {
+    return 0;
+  }
+
+  virtual void prepare_copy_alter(
+    Alter_copy_info *ha_copy_alter_info [[maybe_unused]]) {
+      return;
   }
 
   /**

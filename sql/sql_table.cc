@@ -438,7 +438,9 @@ static const dd::Index *find_fk_parent_key(handlerton *hton,
 static int copy_data_between_tables(
     THD *thd, PSI_stage_progress *psi, TABLE *from, TABLE *to,
     List<Create_field> &create, ha_rows *copied, ha_rows *deleted,
-    Alter_info::enum_enable_or_disable keys_onoff, Alter_table_ctx *alter_ctx);
+    Alter_info::enum_enable_or_disable keys_onoff,
+    Alter_table_ctx *alter_ctx, dd::Table *table_def,
+    const dd::Table *old_table_def);
 
 static bool prepare_blob_field(THD *thd, Create_field *sql_field,
                                bool convert_character_set);
@@ -17942,7 +17944,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
 
     if (copy_data_between_tables(thd, thd->m_stage_progress_psi, table,
                                  new_table, alter_info->create_list, &copied,
-                                 &deleted, alter_info->keys_onoff, &alter_ctx))
+                                 &deleted, alter_info->keys_onoff, &alter_ctx,
+                                 table_def, old_table_def))
       goto err_new_table_cleanup;
 
     DEBUG_SYNC(thd, "alter_after_copy_table");
@@ -18635,10 +18638,61 @@ bool mysql_trans_commit_alter_copy_data(THD *thd) {
   return error;
 }
 
+/*
+In the following cases, we don't use parallel copy ddl:
+  1. Turn off txsql_parallel_copy_ddl;
+  2. Table build with engines rather than innodb;
+  3. Temperaory table;
+  4. Alter table order by, should be single-threaded;
+  5. Table constains auto_increment fields, should be single-threaded;
+  6. Partition table, which need other apis, can be implemented afterwards;
+  7. Table with foreign keys, this is because that parallel scan will hold one mtr
+      latch, and during insert, it will do row_ins_check_foreign_constraints, which
+      maybe try to acquire the same latch when the parent is in the same table.
+      In this case, crash will happen.
+
+      Example,
+      CREATE TABLE t3(
+      FOLDERID VARCHAR(32)BINARY NOT NULL
+      , PARENTID VARCHAR(32)BINARY
+      , PRIMARY KEY ( FOLDERID )
+      ) charset utf8mb4 ENGINE=InnoDB;
+
+      INSERT INTO t3 VALUES("2f6161e879db43c1a5b82", NULL);
+      INSERT INTO t3 VALUES("c373e9f5ad079172431544", "2f6161e879db43c1a5b82");
+
+      ALTER TABLE t3 ADD  FOREIGN KEY FK_FLDRS_PRNTID ( PARENTID)
+                          REFERENCES t3 (FOLDERID );
+*/
+static bool check_if_can_use_parallel_copy_ddl(THD *thd, TABLE *from, TABLE *to,
+                                              Alter_table_ctx *alter_ctx,
+                                              ORDER *order, bool is_auto_inc,
+                                              bool is_multi_value,
+                                              dd::Table *table_def,
+                                              const dd::Table *old_table_def) {
+  bool res = false;
+  if (thd->variables.txsql_parallel_copy_ddl
+      && my_strcasecmp(system_charset_info,
+          from->file->table_type(), "InnoDB") == 0
+      && my_strcasecmp(system_charset_info,
+          to->file->table_type(), "InnoDB") == 0
+      && !alter_ctx->is_tmp_table()
+      && order == nullptr && !is_auto_inc
+      && (!from->part_info && !to->part_info)
+      && table_def->foreign_keys()->empty()
+      && const_cast<dd::Table *>(old_table_def)->foreign_keys()->empty()
+      && !is_multi_value) {
+    return true;
+  }
+  return res;
+}
+
 static int copy_data_between_tables(
     THD *thd, PSI_stage_progress *psi [[maybe_unused]], TABLE *from, TABLE *to,
     List<Create_field> &create, ha_rows *copied, ha_rows *deleted,
-    Alter_info::enum_enable_or_disable keys_onoff, Alter_table_ctx *alter_ctx) {
+    Alter_info::enum_enable_or_disable keys_onoff,
+    Alter_table_ctx *alter_ctx, dd::Table *table_def,
+    const dd::Table *old_table_def) {
   DBUG_TRACE;
 
   int error;
@@ -18653,6 +18707,10 @@ static int copy_data_between_tables(
   sql_mode_t save_sql_mode;
   Query_expression *const unit = thd->lex->unit;
   Query_block *const select = unit->first_query_block();
+
+  Alter_copy_info ha_copy_alter_info;
+  bool is_auto_inc = false;
+  bool is_multi_value = false;
 
   /*
     If target storage engine supports atomic DDL we should not commit
@@ -18709,6 +18767,24 @@ static int copy_data_between_tables(
   gen_fields_end = gen_fields;
   for (ptr = to->field; *ptr; ptr++) {
     def = it++;
+    if ((*ptr)->is_flag_set(AUTO_INCREMENT_FLAG) ||
+        (def->field && def->field->is_flag_set(AUTO_INCREMENT_FLAG))) {
+      is_auto_inc = true;
+    }
+    /* Whether it is a multi-value index */
+    if ((*ptr)->is_virtual_gcol() &&
+        (((*ptr)->gcol_info->expr_item &&
+          (*ptr)->gcol_info->expr_item->returns_array()) ||
+        (*ptr)->is_array())) {
+      is_multi_value = true;
+    }
+    if (def->field && def->field->is_virtual_gcol() &&
+        ((def->field->gcol_info->expr_item &&
+          def->field->gcol_info->expr_item->returns_array()) ||
+        def->field->is_array())) {
+      is_multi_value = true;
+    }
+
     if ((*ptr)->is_gcol()) {
       /*
         Values in generated columns need to be (re)generated even for
@@ -18813,103 +18889,141 @@ static int copy_data_between_tables(
 
   to->file->ha_extra(HA_EXTRA_BEGIN_ALTER_COPY);
 
-  while (!(error = iterator->Read())) {
-    if (thd->killed) {
-      thd->send_kill_message();
-      error = 1;
-      break;
-    }
-    /*
-      Return error if source table isn't empty.
+  to->file->ha_prepare_copy_alter(&ha_copy_alter_info);
 
-      For a DATE/DATETIME field, return error only if strict mode
-      and No ZERO DATE mode is enabled.
-    */
-    if ((alter_ctx->error_if_not_empty &
-         Alter_table_ctx::GEOMETRY_WITHOUT_DEFAULT) ||
-        ((alter_ctx->error_if_not_empty &
-          Alter_table_ctx::DATETIME_WITHOUT_DEFAULT) &&
-         (thd->variables.sql_mode & MODE_NO_ZERO_DATE) &&
-         thd->is_strict_mode())) {
-      error = 1;
-      break;
-    }
-    if (to->next_number_field) {
-      if (auto_increment_field_copied)
-        to->autoinc_field_has_explicit_non_null_value = true;
-      else
-        to->next_number_field->reset();
-    }
+  if (check_if_can_use_parallel_copy_ddl(thd, from, to, alter_ctx,
+                                         order, is_auto_inc, is_multi_value,
+                                         table_def, old_table_def)) {
 
-    for (Copy_field *copy_ptr = copy; copy_ptr != copy_end; copy_ptr++) {
-      copy_ptr->invoke_do_copy();
-    }
-    if (thd->is_error()) {
-      error = 1;
-      break;
-    }
+    ha_copy_alter_info.handler_ctx->init(alter_ctx->new_db, alter_ctx->db,
+                                         alter_ctx->table_name, alter_ctx->tmp_name,
+                                         alter_ctx->get_path(),
+                                         alter_ctx->get_tmp_path());
+    if (!(error = iterator->Read())) {
+      /*
+        Return error if source table isn't empty.
 
-    /*
-      Iterate through all generated columns and all new columns which have
-      generated defaults and evaluate their values. This needs to happen
-      after copying values for old columns and storing default values for
-      new columns without generated defaults, as generated values might
-      depend on these values.
-      OTOH generated columns/generated defaults need to be processed in
-      the order in which their columns are present in table as generated
-      values are allowed to depend on each other as long as there are no
-      forward references (i.e. references to other columns with generated
-      values which come later in the table).
-    */
-    for (ptr = gen_fields; ptr != gen_fields_end; ptr++) {
-      Item *expr_item;
-      if ((*ptr)->is_gcol()) {
-        expr_item = (*ptr)->gcol_info->expr_item;
-      } else {
-        assert((*ptr)->has_insert_default_general_value_expression());
-        expr_item = (*ptr)->m_default_val_expr->expr_item;
+        For a DATE/DATETIME field, return error only if strict mode
+        and No ZERO DATE mode is enabled.
+      */
+      if ((alter_ctx->error_if_not_empty &
+          Alter_table_ctx::GEOMETRY_WITHOUT_DEFAULT) ||
+          ((alter_ctx->error_if_not_empty &
+            Alter_table_ctx::DATETIME_WITHOUT_DEFAULT) &&
+          (thd->variables.sql_mode & MODE_NO_ZERO_DATE) &&
+          thd->is_strict_mode())) {
+        error = 1;
+        goto err;
       }
-      expr_item->save_in_field(*ptr, false);
+    }
+
+    error = from->file->ha_parallel_copy_data_between_tables(from, to, table_def,
+                                                             old_table_def,
+                                                             &ha_copy_alter_info,
+                                                             create, found_count);
+    mysql_stage_set_work_completed(psi, found_count);
+    thd->get_stmt_da()->set_current_row_for_condition(found_count);
+  }
+  else {
+    while (!(error = iterator->Read())) {
+      if (thd->killed) {
+        thd->send_kill_message();
+        error = 1;
+        break;
+      }
+      /*
+        Return error if source table isn't empty.
+
+        For a DATE/DATETIME field, return error only if strict mode
+        and No ZERO DATE mode is enabled.
+      */
+      if ((alter_ctx->error_if_not_empty &
+          Alter_table_ctx::GEOMETRY_WITHOUT_DEFAULT) ||
+          ((alter_ctx->error_if_not_empty &
+            Alter_table_ctx::DATETIME_WITHOUT_DEFAULT) &&
+          (thd->variables.sql_mode & MODE_NO_ZERO_DATE) &&
+          thd->is_strict_mode())) {
+        error = 1;
+        break;
+      }
+      if (to->next_number_field) {
+        if (auto_increment_field_copied)
+          to->autoinc_field_has_explicit_non_null_value = true;
+        else
+          to->next_number_field->reset();
+      }
+
+      for (Copy_field *copy_ptr = copy; copy_ptr != copy_end; copy_ptr++) {
+        copy_ptr->invoke_do_copy();
+      }
       if (thd->is_error()) {
         error = 1;
         break;
       }
-    }
-    if (error) break;
 
-    error = invoke_table_check_constraints(thd, to);
-    if (error) break;
-
-    error = to->file->ha_write_row(to->record[0]);
-    to->autoinc_field_has_explicit_non_null_value = false;
-    if (error) {
-      if (!to->file->is_ignorable_error(error)) {
-        /* Not a duplicate key error. */
-        to->file->print_error(error, MYF(0));
-        break;
-      } else {
-        /* Report duplicate key error. */
-        uint key_nr = to->file->get_dup_key(error);
-        if ((int)key_nr >= 0) {
-          const char *err_msg = ER_THD(thd, ER_DUP_ENTRY_WITH_KEY_NAME);
-          if (key_nr == 0 && (to->key_info[0].key_part[0].field->is_flag_set(
-                                 AUTO_INCREMENT_FLAG)))
-            err_msg = ER_THD(thd, ER_DUP_ENTRY_AUTOINCREMENT_CASE);
-          print_keydup_error(
-              to, key_nr == MAX_KEY ? nullptr : &to->key_info[key_nr], err_msg,
-              MYF(0), from->s->table_name.str);
-        } else
-          to->file->print_error(error, MYF(0));
-        break;
+      /*
+        Iterate through all generated columns and all new columns which have
+        generated defaults and evaluate their values. This needs to happen
+        after copying values for old columns and storing default values for
+        new columns without generated defaults, as generated values might
+        depend on these values.
+        OTOH generated columns/generated defaults need to be processed in
+        the order in which their columns are present in table as generated
+        values are allowed to depend on each other as long as there are no
+        forward references (i.e. references to other columns with generated
+        values which come later in the table).
+      */
+      for (ptr = gen_fields; ptr != gen_fields_end; ptr++) {
+        Item *expr_item;
+        if ((*ptr)->is_gcol()) {
+          expr_item = (*ptr)->gcol_info->expr_item;
+        } else {
+          assert((*ptr)->has_insert_default_general_value_expression());
+          expr_item = (*ptr)->m_default_val_expr->expr_item;
+        }
+        expr_item->save_in_field(*ptr, false);
+        if (thd->is_error()) {
+          error = 1;
+          break;
+        }
       }
-    } else {
-      DEBUG_SYNC(thd, "copy_data_between_tables_before");
-      found_count++;
-      mysql_stage_set_work_completed(psi, found_count);
+      if (error) break;
+
+      error = invoke_table_check_constraints(thd, to);
+      if (error) break;
+
+      error = to->file->ha_write_row(to->record[0]);
+      to->autoinc_field_has_explicit_non_null_value = false;
+      if (error) {
+        if (!to->file->is_ignorable_error(error)) {
+          /* Not a duplicate key error. */
+          to->file->print_error(error, MYF(0));
+          break;
+        } else {
+          /* Report duplicate key error. */
+          uint key_nr = to->file->get_dup_key(error);
+          if ((int)key_nr >= 0) {
+            const char *err_msg = ER_THD(thd, ER_DUP_ENTRY_WITH_KEY_NAME);
+            if (key_nr == 0 && (to->key_info[0].key_part[0].field->is_flag_set(
+                                  AUTO_INCREMENT_FLAG)))
+              err_msg = ER_THD(thd, ER_DUP_ENTRY_AUTOINCREMENT_CASE);
+            print_keydup_error(
+                to, key_nr == MAX_KEY ? nullptr : &to->key_info[key_nr], err_msg,
+                MYF(0), from->s->table_name.str);
+          } else
+            to->file->print_error(error, MYF(0));
+          break;
+        }
+      } else {
+        DEBUG_SYNC(thd, "copy_data_between_tables_before");
+        found_count++;
+        mysql_stage_set_work_completed(psi, found_count);
+      }
+      thd->get_stmt_da()->inc_current_row_for_condition();
     }
-    thd->get_stmt_da()->inc_current_row_for_condition();
   }
   iterator.reset();
+
   free_io_cache(from);
 
   if (to->file->ha_end_bulk_insert() && error <= 0) {

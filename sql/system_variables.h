@@ -492,6 +492,10 @@ struct System_variables {
   */
   bool txsql_range_estimation_by_histogram;
   bool enable_select_semi_read;
+  /**
+    @sa Sys_txsql_parallel_copy_ddl
+  */
+  bool txsql_parallel_copy_ddl;
   /* Changes from txsql end. */
 
   /**
