@@ -1217,7 +1217,6 @@ static MY_ATTRIBUTE((warn_unused_result)) int row_merge_tmpfile_if_needed(
 @return file descriptor, or -1 on failure */
 static MY_ATTRIBUTE((warn_unused_result)) int row_merge_file_create_if_needed(
     merge_file_t *file, int *tmpfd, ulint nrec, const char *path) {
-  DBUG_EXECUTE_IF("row_merge_file_create_if_needed_INJECT_ERR", return -1;);
   ut_ad(file->fd < 0 || *tmpfd >= 0);
   if (file->fd < 0 && row_merge_file_create(file, path) >= 0) {
     MONITOR_ATOMIC_INC(MONITOR_ALTER_TABLE_SORT_FILES);
@@ -2772,11 +2771,6 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
         }
       }
 
-      dberr_t ge = global_err.load();
-      DBUG_EXECUTE_IF("set_global_err", err = DB_ERROR;);
-      if (ge == DB_SUCCESS && err != DB_SUCCESS) {
-        global_err.compare_exchange_strong(ge, err);
-      }
       return error;
     };
     for (ulint t = 0; t < parallel_threads; t++) {
@@ -2807,6 +2801,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
   ut::free(nonnull);
 
   trx->op_info = "";
+
   return err;
 }
 
@@ -2932,7 +2927,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
       !row_merge_read(file->fd, *foffs1, &block[srv_sort_buf_size])) {
   corrupt:
     mem_heap_free(heap);
-    return DB_CORRUPTION;
+    return DB_INDEX_CORRUPT;
   }
 
   b0 = &block[0];
@@ -2982,7 +2977,7 @@ done1:
   mem_heap_free(heap);
   b2 = row_merge_write_eof(&block[2 * srv_sort_buf_size], b2, of->fd,
                            &of->offset);
-  return b2 ? DB_SUCCESS : DB_CORRUPTION;
+  return b2 ? DB_SUCCESS : DB_INDEX_CORRUPT;
 }
 
 struct SortRecord {
@@ -3090,11 +3085,11 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
   mem_heap_free(heap);
   b[K] = row_merge_write_eof(&block[K * srv_sort_buf_size], b[K], of->fd,
                            &of->offset);
-  return b[K] ? DB_SUCCESS : DB_CORRUPTION;
+  return b[K] ? DB_SUCCESS : DB_INDEX_CORRUPT;
 
 corrupt:
   mem_heap_free(heap);
-  return DB_CORRUPTION;
+  return DB_INDEX_CORRUPT;
 }
 
 /** Copy a block of index entries.
@@ -3239,7 +3234,7 @@ static dberr_t row_merge(trx_t *trx, const row_merge_dup_t *dup,
     run_offset[n_run++] = of.offset;
 
     if (!row_merge_blocks_copy(dup->index, file, block, &foffs0, &of, stage)) {
-      return (DB_CORRUPTION);
+      return (DB_INDEX_CORRUPT);
     }
   }
 
@@ -3254,14 +3249,14 @@ static dberr_t row_merge(trx_t *trx, const row_merge_dup_t *dup,
     run_offset[n_run++] = of.offset;
 
     if (!row_merge_blocks_copy(dup->index, file, block, &foffs1, &of, stage)) {
-      return (DB_CORRUPTION);
+      return (DB_INDEX_CORRUPT);
     }
   }
 
   ut_ad(foffs1 == file->offset);
 
   if (UNIV_UNLIKELY(of.n_rec != file->n_rec)) {
-    return (DB_CORRUPTION);
+    return (DB_INDEX_CORRUPT);
   }
 
   ut_ad(n_run <= *num_run);
@@ -3395,7 +3390,7 @@ static dberr_t row_merge_with_k(trx_t *trx, const row_merge_dup_t *dup,
       if (!row_merge_blocks_copy(dup->index, file, block, &foffs[i], &of, stage)) {
         ib::error() << "row_merge_blocks_copy failed, foffs=" << foffs[i]
                     << " ihalf=" << ihalf[i + 1];
-        return (DB_CORRUPTION);
+        return (DB_INDEX_CORRUPT);
       }
     }
   }
@@ -3701,7 +3696,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t row_merge_insert_index_tuples(
   if (row_buf != nullptr) {
     ut_ad(fd == -1);
     ut_ad(block == nullptr);
-    DBUG_EXECUTE_IF("row_merge_read_failure", error = DB_CORRUPTION;
+    DBUG_EXECUTE_IF("row_merge_read_failure", error = DB_INDEX_CORRUPT;
                     goto err_exit;);
     buf = nullptr;
     b = nullptr;
@@ -3712,7 +3707,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t row_merge_insert_index_tuples(
     dtuple = nullptr;
 
     if (!row_merge_read(fd, foffs, block)) {
-      error = DB_CORRUPTION;
+      error = DB_INDEX_CORRUPT;
       goto err_exit;
     } else {
       buf = static_cast<mrec_buf_t *>(mem_heap_alloc(heap, sizeof *buf));
@@ -3744,7 +3739,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t row_merge_insert_index_tuples(
       if (UNIV_UNLIKELY(!b)) {
         /* End of list, or I/O error */
         if (mrec) {
-          error = DB_CORRUPTION;
+          error = DB_INDEX_CORRUPT;
         }
         break;
       }
@@ -4145,7 +4140,7 @@ void parallel_partition_file(
   }
 
   if (!row_merge_read(input_file->fd, cur_run, block)) {
-    worker_err = DB_CORRUPTION;
+    worker_err = DB_INDEX_CORRUPT;
     interrupt_.store(true);
     return;
   }
@@ -4156,12 +4151,12 @@ void parallel_partition_file(
                                  &cur_run, &mrec, offsets);
     if (UNIV_UNLIKELY(!b_after)) {
       if (mrec) {
-        worker_err = DB_CORRUPTION;
+        worker_err = DB_INDEX_CORRUPT;
         break;
       } else if (++cur_run >= end_run) {
         continue;
       } else if (!row_merge_read(input_file->fd, cur_run, block)) {
-        worker_err = DB_CORRUPTION;
+        worker_err = DB_INDEX_CORRUPT;
         break;
       } else {
         b = block;
@@ -4190,6 +4185,53 @@ void parallel_partition_file(
 
   delete[] local_partition_buffers;
   local_partition_buffers = nullptr;
+}
+
+void output_rec(merge_file_t *input_file,
+                dict_index_t *index, ulint end_run) {
+  ulint *offsets = nullptr;
+  mrec_buf_t *buf = nullptr;
+  const ulint offsets_i =
+      1 + REC_OFFS_HEADER_SIZE + dict_index_get_n_fields(index);
+
+  ut::allocator<row_merge_block_t> alloc(mem_key_row_merge_sort);
+  row_merge_block_t * block = alloc.allocate(srv_sort_buf_size);
+
+  mem_heap_t * heap = mem_heap_create(offsets_i * sizeof(*offsets) + sizeof(*buf), UT_LOCATION_HERE);
+  buf = static_cast<mrec_buf_t*>(mem_heap_alloc(heap, sizeof(*buf)));
+
+  const byte *b = nullptr;
+  const byte *b_after = nullptr;
+  ulint cur_run = 0;
+  const mrec_t *mrec = nullptr;
+
+  offsets = static_cast<ulint*>(mem_heap_alloc(heap, offsets_i * sizeof(*offsets)));
+  offsets[0] = offsets_i;
+  offsets[1] = dict_index_get_n_fields(index);
+
+  if (!row_merge_read(input_file->fd, cur_run, block)) {
+    return;
+  }
+  b = block;
+
+  while (cur_run < end_run) {
+    b_after = row_merge_read_rec(block, buf, b, index, input_file->fd,
+                                 &cur_run, &mrec, offsets);
+    if (UNIV_UNLIKELY(!b_after)) {
+      if (mrec) {
+        break;
+      } else if (++cur_run >= end_run) {
+        continue;
+      } else if (!row_merge_read(input_file->fd, cur_run, block)) {
+        break;
+      } else {
+        b = block;
+        continue;
+      }
+    }
+    b = b_after;
+    ib::info() << rec_printer(mrec, 0, offsets).str();
+  }
 }
 
 void parallel_merge_sort(ulint id, merge_file_wrapper_t *file_wrapper,
@@ -4273,7 +4315,7 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
 #endif
     }
   } else {
-    err = DB_CORRUPTION;
+    err = DB_INDEX_CORRUPT;
   }
   if (err != DB_SUCCESS) return err;
   DBUG_EXECUTE_IF(
@@ -4312,7 +4354,7 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
   DBUG_EXECUTE_IF(
         "parallel_merge_sort_fail",
         DBUG_SET("-d,parallel_merge_sort_fail");
-        sort_results[0] = DB_CORRUPTION;);
+        sort_results[0] = DB_INDEX_CORRUPT;);
   // check the results of all sort workers.
   for (auto &res : sort_results) {
     if (res != DB_SUCCESS) {
@@ -4325,6 +4367,10 @@ dberr_t partition_and_sort(trx_t *trx, row_merge_dup_t *dup,
     total_cnt += output_files[s].file->n_rec;
   }
   ut_a(total_cnt == file->n_rec);
+
+  // ib::info() << "merge_file[" << 3 << "], n_rec[" << output_files[3].file->n_rec << "].";
+  // output_rec(output_files[3].file, index, output_files[3].offset);
+
   DBUG_EXECUTE_IF(
         "crash_after_merge_sort_before_build_btree",
         sql_print_information("Crashing "
@@ -4357,7 +4403,7 @@ public:
       m_stage(nullptr),
       m_btr_bulk(nullptr) {}
 
-  dberr_t init(trx_t *trx, merge_file_t *file, dict_index_t *index,
+  dberr_t init(ulint id, trx_t *trx, merge_file_t *file, dict_index_t *index,
                dict_table_t *old_table, Flush_observer *observer,
                Alter_stage *stage, bool is_leftmost_subtree);
 
@@ -4380,6 +4426,7 @@ private:
   Alter_stage *m_stage;
   BtrBulk *m_btr_bulk;
   AsSubtree m_as_subtree;
+  ulint m_id;
 };
 
 /** the leftmost path and rightmost path */
@@ -4503,7 +4550,7 @@ dberr_t parallel_build_btree(dict_index_t *index, trx_t *trx, Flush_observer *ob
   /** Stage 1: build subtrees concurrently */
   BuildBtrWorker *workers = new BuildBtrWorker[parallel_threads];
   for (int t = 0; t < parallel_threads; t++) {
-    err = workers[t].init(trx, partitioned_sorted_files[t].file, index,
+    err = workers[t].init(t, trx, partitioned_sorted_files[t].file, index,
                           old_table, observer, stage, (t==0));
     if (err != DB_SUCCESS) {
       goto func_exit;
@@ -4513,10 +4560,24 @@ dberr_t parallel_build_btree(dict_index_t *index, trx_t *trx, Flush_observer *ob
   for (int t = 0; t < parallel_threads; t++) {
     workers[t].join();
   }
+
+#ifdef UNIV_DEBUG_PARALLEL_DDL
+  for (int t = 0; t < parallel_threads; t++) {
+    ulint cur_subtree_level = workers[t].get_btr_bulk()->get_root_level();
+    PageBulk *cur_root_page_bulk = workers[t].get_btr_bulk()->m_page_bulks->at(cur_subtree_level);
+    dtuple_t *node_ptr = cur_root_page_bulk->getNodePtr();
+    ib::info() << "after subtree[" << t << "] level["
+             << cur_subtree_level << "] root node ptr["
+              << rec_printer(node_ptr).str() << "] btr_buld["
+              <<  workers[t].get_btr_bulk() << "] page_bulk: " << cur_root_page_bulk
+              << " page_no: " << cur_root_page_bulk->getPageNo();
+  }
+#endif
+
   DBUG_EXECUTE_IF(
         "build_btr_worker_fail",
         DBUG_SET("-d,build_btr_worker_fail");
-        workers[0].set_worker_err(DB_CORRUPTION););
+        workers[0].set_worker_err(DB_INDEX_CORRUPT););
   for (int t = 0; t < parallel_threads; t++) {
     if (workers[t].get_worker_err() != DB_SUCCESS) {
       err = workers[t].get_worker_err();
@@ -4587,10 +4648,11 @@ func_exit:
   return err;
 }
 
-dberr_t BuildBtrWorker::init(trx_t *trx, merge_file_t *file, dict_index_t *index,
+dberr_t BuildBtrWorker::init(ulint id, trx_t *trx, merge_file_t *file, dict_index_t *index,
                              dict_table_t *old_table, Flush_observer *observer,
                              Alter_stage *stage, bool is_leftmost_subtree) {
   dberr_t err = DB_SUCCESS;
+  m_id = id;
   m_trx = trx;
   m_file = file;
   m_index = index;
@@ -4600,6 +4662,7 @@ dberr_t BuildBtrWorker::init(trx_t *trx, merge_file_t *file, dict_index_t *index
   m_as_subtree.is_leftmost_subtree = is_leftmost_subtree;
   m_btr_bulk = new BtrBulk(m_index, m_trx->id, observer, &m_as_subtree);
   err = m_btr_bulk->init();
+
   DBUG_EXECUTE_IF(
 		        "build_btr_worker_init_failed",
 		        DBUG_SET("-d,build_btr_worker_init_failed");
@@ -4641,7 +4704,7 @@ void BuildBtrWorker::build_btr_worker_run() {
   offsets[1] = dict_index_get_n_fields(m_index);
 
   if (!row_merge_read(m_file->fd, /* offset=*/ 0, block)) {
-    m_worker_err = DB_CORRUPTION;
+    m_worker_err = DB_INDEX_CORRUPT;
     return;
   }
 
@@ -4656,7 +4719,7 @@ void BuildBtrWorker::build_btr_worker_run() {
     b = row_merge_read_rec(block, buf, b, m_index, m_file->fd, &run, &mrec, offsets);
     if (UNIV_UNLIKELY(!b)) {
       if (mrec) {
-        m_worker_err = DB_CORRUPTION;
+        m_worker_err = DB_INDEX_CORRUPT;
       }
       break;
     }
@@ -4770,7 +4833,7 @@ dberr_t get_tree_edge_paths(dict_index_t *index, BuildBtrWorker *workers, int pa
       DBUG_EXECUTE_IF(
           "get_rightmost_child_page_id_failed",
           DBUG_SET("-d,get_rightmost_child_page_id_failed");
-          err = DB_CORRUPTION;);
+          err = DB_INDEX_CORRUPT;);
       if (err != DB_SUCCESS) {
         goto func_exit;
       }
@@ -4794,7 +4857,7 @@ dberr_t get_child_page_id(dict_index_t *index, page_id_t page_id, bool leftmost_
 		        DBUG_SET("-d,get_child_page_id_failed");
 		        block = nullptr;);
   if (!block) {
-    return DB_CORRUPTION;
+    return DB_INDEX_CORRUPT;
   }
 
   if (leftmost_or_rightmost) {
@@ -4912,7 +4975,7 @@ dberr_t merge_to_index_root(dict_index_t *index, trx_t *trx, TreeEdgePath *tree_
 		        subtree_root_block = nullptr;);
     if (UNIV_UNLIKELY(!subtree_root_block ||
                       subtree_root_block->get_page_id() != subtree_root_page_id)) {
-      err = DB_CORRUPTION;
+      err = DB_INDEX_CORRUPT;
       goto func_exit;
     }
     rec_t *first_rec = page_rec_get_next(page_get_infimum_rec(
@@ -5076,7 +5139,7 @@ dberr_t compress_tree_get_cursor_by_page_no(dict_index_t *index, page_no_t page_
 		        DBUG_SET("-d,compress_tree_get_cursor_by_page_no_failed");
 		        block = nullptr;);
   if (block == nullptr || block->get_page_id().page_no() != page_no) {
-    return DB_CORRUPTION;
+    return DB_INDEX_CORRUPT;
   }
   rec_t *rec = page_rec_get_next(page_get_infimum_rec(buf_block_get_frame(block)));
   btr_cur_position(index, rec, block, cursor);
@@ -5334,7 +5397,7 @@ dberr_t row_merge_build_indexes(
         DBUG_EXECUTE_IF(
         "row_merge_sort_failed",
         DBUG_SET("-d,row_merge_sort_failed");
-        error = DB_CORRUPTION;);
+        error = DB_INDEX_CORRUPT;);
       }
 
 #ifdef UNIV_DEBUG_PARALLEL_DDL

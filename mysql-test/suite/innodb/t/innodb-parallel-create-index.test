@@ -279,17 +279,17 @@ assert($count_before_create_index == $count_after_create_index_after);
 
 --echo 
 --echo 
---echo #TEST SCAN_THREAD AND DDL_THREAD from 1 to 16
+--echo #TEST SCAN_THREAD AND DDL_THREAD from 1 to 12
 
 let parallel_thread_cnt=1;
 
-while ($parallel_thread_cnt <= 16)
+while ($parallel_thread_cnt <= 12)
 {
   --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
   --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
-  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
+  --eval ALTER TABLE t1 ADD INDEX k_val1(val1)
   --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
-  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --eval ALTER TABLE t1 DROP INDEX k_val1
   --inc $parallel_thread_cnt
 }
 
@@ -315,28 +315,14 @@ SET SESSION innodb_txsql_parallel_ddl=ON;
 set @@global.txsql_parallel_ddl_merge_sort_k_value = 64;
 let parallel_thread_cnt=4;
 
-while ($parallel_thread_cnt <= 16)
+while ($parallel_thread_cnt <= 8)
 {
   --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
   --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
   --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
   --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
   --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
-  --inc $parallel_thread_cnt
-}
-
-assert($count_before_create_index == $count_after);
-
-set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;
-let parallel_thread_cnt=4;
-
-while ($parallel_thread_cnt <= 16)
-{
-  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
-  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
-  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
-  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
-  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --eval set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;
   --inc $parallel_thread_cnt
 }
 
@@ -345,35 +331,20 @@ assert($count_before_create_index == $count_after);
 set @@global.txsql_parallel_ddl_merge_sort_k_value = 8;
 let parallel_thread_cnt=4;
 
-while ($parallel_thread_cnt <= 16)
+while ($parallel_thread_cnt <= 8)
 {
   --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
   --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
   --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
   --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
   --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
-  --inc $parallel_thread_cnt
-}
-
-assert($count_before_create_index == $count_after);
-
-set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;
-let parallel_thread_cnt=4;
-
-while ($parallel_thread_cnt <= 16)
-{
-  --eval SET SESSION innodb_txsql_ddl_threads=$parallel_thread_cnt
-  --eval SET SESSION innodb_parallel_read_threads=$parallel_thread_cnt
-  --eval ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2)
-  --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE val1 < 5000, COUNT(*), 1)
-  --eval ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2
+  --eval set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;
   --inc $parallel_thread_cnt
 }
 
 assert($count_before_create_index == $count_after);
 
 SET @@global.txsql_parallel_ddl_merge_sort_k_value= @old_k_value;
-
 
 DROP TABLE t1;
 

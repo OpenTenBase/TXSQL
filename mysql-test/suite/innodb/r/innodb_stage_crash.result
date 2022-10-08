@@ -3,12 +3,6 @@ CREATE TABLE `t1` (`id` int NOT NULL AUTO_INCREMENT, `k` int NOT NULL DEFAULT '0
 PRIMARY KEY (`id`), KEY `k_1` (`k`)) ENGINE=InnoDB;
 alter table t1 drop column pad;
 alter table t1 add column pad text, add column i int,  add column j char(250) default 'abc', add column n int default 1,algorithm=instant;
-show variables like '%merge%';
-Variable_name	Value
-innodb_disable_background_merge	OFF
-innodb_merge_threshold_set_all_debug	50
-merge_join_buffer_size	262144
-threshold_of_interesting_order_for_merge_join	10
 SET @old_sort_buf_size= @@sort_buffer_size;
 SET GLOBAL sort_buffer_size=4096;
 Warnings:

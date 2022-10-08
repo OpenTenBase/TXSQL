@@ -64,22 +64,22 @@ SET SESSION innodb_txsql_parallel_ddl=ON;
 SET session debug= @old_debug;
 
 set debug = '+d,get_child_page_id_failed';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set SESSION debug = '+d,get_rightmost_child_page_id_failed';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
-SET SESSION innodb_txsql_ddl_threads=1;
+SET SESSION innodb_txsql_ddl_threads=4;
 set SESSION debug = '+d,row_merge_sort_failed';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 SET SESSION innodb_txsql_ddl_threads=4;
 
@@ -96,68 +96,68 @@ SET SESSION debug= @old_debug;
 SET SESSION innodb_parallel_read_threads=4;
 
 set debug = '+d,parallel_merge_sort_fail';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,compress_tree_get_cursor_by_page_no_failed';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,build_btr_worker_fail';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,merge_to_index_root_failed';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,link_adjacent_paths_trx_interrupted';
 --error 1317
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,merge_to_index_root_trx_interrupted';
 --error 1317
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,compress_tree_trx_interrupted';
 --error 1317
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,compress_tree_trx_interrupted1';
 --error 1317
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,build_btr_worker_init_failed';
 --error 1041
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,merge_to_index_root_no_enough_space';
 --error 1030
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 set debug = '+d,force_parallel';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
 SET session debug= @old_debug;
 
@@ -168,9 +168,9 @@ SET session debug= @old_debug;
 --echo 
 --echo TEST PARTITION FILES CORRUPTION
 set debug = '+d,parallel_partition_files_corruption';
---error 1034
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
+
 SET session debug= @old_debug;
 
 DROP TABLE t1;

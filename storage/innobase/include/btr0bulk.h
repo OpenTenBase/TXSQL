@@ -151,6 +151,9 @@ class PageBulk : private ut::Non_copyable {
   @return node pointer */
   dtuple_t *getNodePtr();
 
+  /** Re-get mpage for root block */
+  void reget_mpage(mtr_t *mtr);
+
   /** Split the page records between this and given bulk.
    * @param new_page_bulk  The new bulk to store split records. */
   void split(PageBulk &new_page_bulk);
@@ -430,6 +433,7 @@ class BtrBulk {
   /** Flush observer */
   Flush_observer *m_flush_observer;
 
+public:
   /** Page cursor vector for all level */
   page_bulk_vector *m_page_bulks;
 
