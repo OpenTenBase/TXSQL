@@ -327,6 +327,165 @@ struct ha_innobase_inplace_ctx : public inplace_alter_handler_ctx {
   ha_innobase_inplace_ctx &operator=(const ha_innobase_inplace_ctx &);
 };
 
+struct ha_innobase_copy_ctx : public copy_alter_handler_ctx {
+  /** The prebuilt struct of the new-creating instance */
+  row_prebuilt_t *prebuilt;
+
+  ha_innobase_copy_ctx(row_prebuilt_t *prebuilt_arg)
+      : copy_alter_handler_ctx(),
+        prebuilt(prebuilt_arg) {
+  }
+
+ private:
+  // Disable copying
+  ha_innobase_copy_ctx(const ha_innobase_copy_ctx &);
+  ha_innobase_copy_ctx &operator=(const ha_innobase_copy_ctx &);
+};
+
+struct ha_innobase_copy_ctx_t {
+  mem_heap_t * copy_heap;
+
+  row_prebuilt_t * copy_prebuilt;
+
+  row_prebuilt_t * from_prebuilt;
+
+  THD * copy_thd;
+
+  Copy_field *copy, *copy_end;
+
+  Field **gen_fields, **gen_fields_end;
+
+  TABLE * from_table, * to_table;
+
+  void init(dict_table_t * new_inno_table, dict_table_t *old_inno_table,
+            TABLE *from, TABLE *to,
+            row_prebuilt_t * prebuilt, row_prebuilt_t * old_prebuilt,
+            THD * thd, dd::Table *new_dd_tab, const dd::Table *old_dd_tab,
+            ha_innobase_copy_ctx *copy_ctx, List<Create_field> create) {
+
+    copy_heap = mem_heap_create(1024, UT_LOCATION_HERE);
+
+    from_table = open_table_uncached(thd, copy_ctx->get_path(), copy_ctx->db,
+                                    copy_ctx->table_name, true, true, *old_dd_tab);
+
+    to_table = open_table_uncached(thd, copy_ctx->get_tmp_path(), copy_ctx->new_db,
+                                   copy_ctx->tmp_name, true, true, *new_dd_tab);
+    /*
+      Mark all columns in 'from_table' as used to allow usage
+      of its record[0] buffer and Field objects during in-place
+      ALTER TABLE.
+    */
+    from_table->column_bitmaps_set_no_signal(&from_table->s->all_set,
+                                             &from_table->s->all_set);
+
+    to_table->column_bitmaps_set_no_signal(&to_table->s->all_set,
+                                             &to_table->s->all_set);
+
+    copy_prebuilt = row_create_prebuilt(new_inno_table, to->s->reclength);
+
+    copy_prebuilt->default_rec = to->s->default_values;
+    ut_ad(copy_prebuilt->default_rec);
+
+    /* Use same trx as original prebuilt. */
+    copy_prebuilt->trx = prebuilt->trx;
+
+    copy_prebuilt->m_mysql_table = to;
+
+    build_copy_template(copy_prebuilt, true, to_table);
+
+    from_prebuilt = row_create_prebuilt(old_inno_table, from->s->reclength);
+    from_prebuilt->default_rec = from->s->default_values;
+    ut_ad(from_prebuilt->default_rec);
+
+    from_prebuilt->trx = old_prebuilt->trx;
+
+    from_prebuilt->m_mysql_table = from;
+
+    build_copy_template(from_prebuilt, true, from_table);
+
+    copy_thd = thd;
+
+    /* build copy_field information */
+
+    Field **ptr;
+    /*
+      Fields which values need to be generated for each row, i.e. either
+      generated fields or newly added fields with generated default values.
+    */
+
+    if (!(copy = new (thd->mem_root) Copy_field[to_table->s->fields]))
+      return; /* purecov: inspected */
+
+    if (!(gen_fields = thd->mem_root->ArrayAlloc<Field *>(
+              to_table->s->gen_def_field_count + to_table->s->vfields))) {
+      destroy_array(copy, to_table->s->fields);
+      return;
+    }
+
+    // Field **it = from_table->field;
+    List_iterator<Create_field> it(create);
+    const Create_field *def;
+    copy_end = copy;
+    gen_fields_end = gen_fields;
+    for (ptr = to_table->field; *ptr; ptr++) {
+      def = it++;
+      if ((*ptr)->is_gcol()) {
+        /*
+          Values in generated columns need to be (re)generated even for
+          pre-existing columns, as they might depend on other columns,
+          values in which might have changed as result of this ALTER.
+          Because of this there is no sense in copying old values for
+          these columns.
+          TODO: Figure out if we can avoid even reading these old values
+                from SE.
+        */
+        *(gen_fields_end++) = *ptr;
+        continue;
+      }
+      if (def->field) {
+        const char * cmp_name = (*ptr)->field_name;
+        if (def->change) {
+          cmp_name = def->change;
+        }
+        for (Field **from_it = from_table->field; *from_it; from_it++) {
+          if (my_strcasecmp(system_charset_info, (*from_it)->field_name, cmp_name) == 0) {
+            (copy_end++)->set(*ptr, *from_it);
+            break;
+          }
+        }
+      } else {
+        /*
+          New column. Add it to the array of columns requiring value
+          generation if it has generated default.
+        */
+        if ((*ptr)->has_insert_default_general_value_expression()) {
+          assert(!((*ptr)->is_gcol()));
+          *(gen_fields_end++) = *ptr;
+        }
+      }
+    }
+  }
+
+  void destroy() {
+    /* Decrement the ref count. The table is MDL locked, so should
+    not be dropped */
+    mem_heap_free(copy_heap);
+
+    /* Do not close the table. */
+    copy_prebuilt->table = nullptr;
+    row_prebuilt_free(copy_prebuilt, false);
+    from_prebuilt->table = nullptr;
+    row_prebuilt_free(from_prebuilt, false);
+
+    destroy_array(copy, to_table->s->fields);
+
+    close_temporary_table(copy_thd, from_table, true, false);
+    from_table = nullptr;
+    close_temporary_table(copy_thd, to_table, true, false);
+    to_table = nullptr;
+  }
+};
+
 /** Structure to remember table information for updating DD */
 struct alter_table_old_info_t {
   /** Constructor */
@@ -1633,6 +1792,243 @@ void ha_innobase::parallel_scan_end(void *parallel_scan_ctx) {
       static_cast<Parallel_reader_adapter *>(parallel_scan_ctx);
   ut::delete_(parallel_reader);
 }
+
+void ha_innobase::prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) {
+  ha_copy_alter_info->handler_ctx = new (m_user_thd->mem_root)
+                                        ha_innobase_copy_ctx(m_prebuilt);
+  ha_innobase_copy_ctx *ctx =
+      static_cast<ha_innobase_copy_ctx *>(ha_copy_alter_info->handler_ctx);
+  assert(ctx);
+  if (m_prebuilt->mysql_template == nullptr) {
+    build_template(true);
+  }
+  row_get_prebuilt_insert_row(m_prebuilt);
+}
+
+/*
+  @return error status (zero on success, HA_ERR_* error code on error)
+*/
+int ha_innobase::parallel_copy_data_between_tables(
+                TABLE *from, TABLE *to, dd::Table *new_dd_tab,
+                const dd::Table *old_dd_tab,
+                Alter_copy_info *ha_copy_alter_info,
+                List<Create_field> &create, ulong &found) {
+  dberr_t err = DB_SUCCESS;
+  if (dict_table_is_discarded(m_prebuilt->table)) {
+    return (HA_ERR_NO_SUCH_TABLE);
+  }
+  size_t num_threads;
+  THD * thd = current_thd;
+  mem_heap_t * heap = mem_heap_create(1024, UT_LOCATION_HERE);
+  dict_index_t *clust_index = m_prebuilt->table->first_index();
+  int constraint_err = 0;
+
+  ha_innobase_copy_ctx *ctx =
+      static_cast<ha_innobase_copy_ctx *>(ha_copy_alter_info->handler_ctx);
+
+  row_prebuilt_t * new_prebuilt = ctx->prebuilt;
+
+  auto trx = m_prebuilt->trx;
+
+  innobase_register_trx(ht, ha_thd(), trx);
+
+  trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
+
+  trx_assign_read_view(trx);
+
+  if (trx_is_interrupted(trx)) {
+    mem_heap_free(heap);
+    ib::error(ER_IB_MSG_1004) << "Trx is interrupted, parallel copy data is stopped.";
+    return (true);
+  }
+
+  trx->op_info = "parallel copying data between tables";
+
+  // all threads one trx and one que_thr_t.
+  // que_thr_t *thr = pars_complete_graph_for_exec(nullptr, trx, heap, m_prebuilt);
+
+  num_threads = thd_parallel_read_threads(m_prebuilt->trx->mysql_thd);
+
+  num_threads =
+      Parallel_reader::available_threads(num_threads, false);
+
+  if (num_threads == 0) {
+    mem_heap_free(heap);
+    ib::error(ER_IB_MSG_1004) << "No enough parallel reader threads.";
+    return (true);
+  }
+
+  sql_print_information("[TXSQL Parallel Copy DDL] parallel_threads=%u, "\
+                          "sql=%s.", num_threads, thd->query().str);
+
+
+  dict_table_t * new_inno_table = dd_table_open_on_id(new_dd_tab->se_private_id(),
+                                                      thd, nullptr, false, true);
+  dict_table_t * old_inno_table = dd_table_open_on_id(old_dd_tab->se_private_id(),
+                                                      thd, nullptr, false, true);
+  ha_innobase_copy_ctx_t ** ctx_array = ut::new_arr_withkey<ha_innobase_copy_ctx_t *>(
+      UT_NEW_THIS_FILE_PSI_KEY, ut::Count{num_threads});
+
+  for (size_t i = 0; i < num_threads; i++) {
+    ctx_array[i] = ut::new_withkey<ha_innobase_copy_ctx_t>(UT_NEW_THIS_FILE_PSI_KEY);
+    ctx_array[i]->init(new_inno_table, old_inno_table,
+                       from, to, new_prebuilt, m_prebuilt,
+                       thd, new_dd_tab, old_dd_tab, ctx, create);
+  }
+
+  Parallel_reader::Scan_range full_scan;
+  Parallel_reader::Config config(full_scan, clust_index);
+  Parallel_reader reader(/*max_threads=*/num_threads);
+  std::atomic<uint64_t> total_recs{0};
+  std::atomic<dberr_t> global_err{DB_SUCCESS};
+
+  auto process_row = [&](const Parallel_reader::Ctx *ctx) {
+    dberr_t error = DB_SUCCESS;
+    const rec_t *mrec = ctx->m_rec;
+    // row_ext_t *ext = nullptr;
+    const size_t thread_id = ctx->thread_id();
+    char my_stack;
+    thd->thread_stack = &my_stack;  // remember where our stack is
+
+    auto g_err = global_err.load();
+    if (g_err != DB_SUCCESS) {
+      return g_err;
+    }
+
+    ut_a(thread_id < num_threads);
+
+    current_thd = thd;
+
+    mem_heap_t * row_heap = ctx_array[thread_id]->copy_heap;
+    row_prebuilt_t * from_prebuilt = ctx_array[thread_id]->from_prebuilt;
+    row_prebuilt_t * to_prebuilt = ctx_array[thread_id]->copy_prebuilt;
+
+    Copy_field *copy = ctx_array[thread_id]->copy;
+    Copy_field *copy_end = ctx_array[thread_id]->copy_end;
+
+    Field **gen_fields = ctx_array[thread_id]->gen_fields;
+    Field **gen_fields_end = ctx_array[thread_id]->gen_fields_end;
+
+    TABLE * from_table = ctx_array[thread_id]->from_table;
+    TABLE * to_table = ctx_array[thread_id]->to_table;
+
+    /* Conver rec_t to MySQL record */
+
+    ulint offsets_[REC_OFFS_NORMAL_SIZE];
+    ulint *offsets = offsets_;
+
+    rec_offs_init(offsets_);
+
+    offsets = rec_get_offsets(mrec, clust_index, offsets,
+                              ULINT_UNDEFINED, UT_LOCATION_HERE, &row_heap);
+
+    byte * mysql_rec;
+
+    ulint bufsize = std::max(UNIV_PAGE_SIZE, from_prebuilt->mysql_row_len);
+    mysql_rec = static_cast<byte *>(
+        ut::malloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, bufsize));
+
+    if (!row_sel_store_mysql_rec(mysql_rec, from_prebuilt, mrec,
+                                nullptr, true, clust_index,
+                                clust_index, offsets, false, nullptr,
+                                from_prebuilt->blob_heap)) {
+       ut::free(mysql_rec);
+       global_err.store(DB_ERROR);
+       return DB_ERROR;
+    }
+
+    memcpy(from_table->record[0], mysql_rec, from_table->s->reclength);
+
+    innobase_rec_reset(to_table);
+
+    for (Copy_field *copy_ptr = copy; copy_ptr != copy_end; copy_ptr++) {
+      copy_ptr->invoke_do_copy();
+    }
+
+    if (thd->is_error()) {
+      ut::free(mysql_rec);
+      global_err.store(DB_ERROR);
+      return DB_ERROR;
+    }
+
+    for (auto ptr = gen_fields; ptr != gen_fields_end; ptr++) {
+      Item *expr_item;
+      if ((*ptr)->is_gcol()) {
+        expr_item = (*ptr)->gcol_info->expr_item;
+      } else {
+        assert((*ptr)->has_insert_default_general_value_expression());
+        expr_item = (*ptr)->m_default_val_expr->expr_item;
+      }
+      expr_item->save_in_field(*ptr, false);
+      if (thd->is_error()) {
+        ut::free(mysql_rec);
+        global_err.store(DB_ERROR);
+        return DB_ERROR;
+      }
+    }
+    // store the check constraint result error code
+    int tmp_err = invoke_table_check_constraints(thd, to_table);
+    if (tmp_err) {
+      constraint_err = err;
+    }
+
+    if (thd->is_killed()) {
+      ut::free(mysql_rec);
+      global_err.store(DB_ERROR);
+      return DB_ERROR;
+    }
+
+    error = row_insert_for_mysql((byte *)to_table->record[0], to_prebuilt);
+    int res_code = convert_error_code_to_mysql(error, 0, ha_thd());
+    if (res_code) {
+      if (!to_table->file->is_ignorable_error(res_code)) {
+        /* Not a duplicate key error. */
+        to_table->file->print_error(res_code, MYF(0));
+      } else {
+        /* Report duplicate key error. */
+        uint key_nr = to_table->file->get_dup_key(res_code);
+        if ((int)key_nr >= 0) {
+          const char *err_msg = ER_THD(thd, ER_DUP_ENTRY_WITH_KEY_NAME);
+          if (key_nr == 0 && (to_table->key_info[0].key_part[0].field->is_flag_set(
+                                AUTO_INCREMENT_FLAG)))
+            err_msg = ER_THD(thd, ER_DUP_ENTRY_AUTOINCREMENT_CASE);
+          print_keydup_error(
+              to_table, key_nr == MAX_KEY ? nullptr : &to_table->key_info[key_nr], err_msg,
+              MYF(0), from_table->s->table_name.str);
+        } else
+          to_table->file->print_error(res_code, MYF(0));
+      }
+    }
+    ut::free(mysql_rec);
+    total_recs++;
+    return error;
+  };
+  err = reader.add_scan(trx, config, process_row);
+
+  if (err == DB_SUCCESS) {
+    err = reader.run(num_threads);
+  }
+
+  found = total_recs.load();
+
+  dd_table_close(new_inno_table, thd, nullptr, false);
+  dd_table_close(old_inno_table, thd, nullptr, false);
+
+  if (ctx_array) {
+    for (size_t i = 0; i < num_threads; i++) {
+      ctx_array[i]->destroy();
+    }
+    ut::delete_arr(ctx_array);
+    ctx_array = nullptr;
+  }
+  mem_heap_free(heap);
+
+  trx->op_info = "";
+
+  if (constraint_err) return constraint_err;
+  return (convert_error_code_to_mysql(err, 0, ha_thd()));
+}
+
 
 bool ha_innobase::inplace_alter_table(TABLE *altered_table,
                                       Alter_inplace_info *ha_alter_info,

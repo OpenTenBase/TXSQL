@@ -566,6 +566,9 @@ class Alter_table_ctx {
     return path;
   }
 
+  bool is_tmp_table() const {
+    return tmp_table;
+  }
   /**
      @return path to the temporary table created during ALTER TABLE.
   */

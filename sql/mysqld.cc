@@ -13145,3 +13145,4 @@ bool g_mc_sleep_mode = false;
 bool g_mc_gts_check = true;
 bool g_enable_backup_dcn_switch = false;
 bool g_log_statement_of_query_event = false;
+bool txsql_parallel_copy_ddl = false;

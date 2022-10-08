@@ -7790,6 +7790,13 @@ static Sys_var_uint Sys_txsql_parallel_ddl_merge_sort_k_value(
     CMD_LINE(OPT_ARG), VALID_RANGE(2, 64), DEFAULT(2), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 
+static Sys_var_bool Sys_txsql_parallel_copy_ddl(
+    "txsql_parallel_copy_ddl",
+    "Enable to use parallel processing for ddl with copy algorithm.",
+    SESSION_VAR(txsql_parallel_copy_ddl), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
 #ifdef HAVE_POOL_OF_THREADS
 
 static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {
@@ -8698,8 +8705,7 @@ static bool fix_pseudo_server_id(sys_var *, THD *thd, enum_var_type) {
 }
 
 static bool check_pseudo_server_id(sys_var *, THD *thd, set_var *) {
-  return (!(thd->is_tencent_root_or_tdsql_user() ||
-            thd->security_context()->check_access(SUPER_ACL)));
+  return (thd->security_context()->check_access(SUPER_ACL));
 }
 
 static Sys_var_ulong Sys_pseudo_server_id(

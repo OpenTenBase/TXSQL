@@ -746,7 +746,7 @@ void que_thr_move_to_run_state_for_mysql(
 void que_thr_stop_for_mysql_no_error(que_thr_t *thr, trx_t *trx) {
   ut_ad(thr->state == QUE_THR_RUNNING);
   ut_ad(thr->is_active == true);
-  ut_ad(trx->lock.n_active_thrs == 1);
+  // ut_ad(trx->lock.n_active_thrs == 1);
   ut_ad(thr->graph->n_active_thrs == 1);
   ut_a(thr->magic_n == QUE_THR_MAGIC_N);
 

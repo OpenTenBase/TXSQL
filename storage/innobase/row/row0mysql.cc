@@ -1415,7 +1415,7 @@ void row_update_prebuilt_trx(row_prebuilt_t *prebuilt, trx_t *trx) {
  has not yet been built in the prebuilt struct, then this function first
  builds it.
  @return prebuilt dtuple; the column type information is also set in it */
-static dtuple_t *row_get_prebuilt_insert_row(
+dtuple_t *row_get_prebuilt_insert_row(
     row_prebuilt_t *prebuilt) /*!< in: prebuilt struct in MySQL
                               handle */
 {
@@ -1828,7 +1828,7 @@ For InnoDB case, this will also by-pass hidden column generation.
 @param[in,out]  prebuilt        prebuilt struct in MySQL handle
 @return error code or DB_SUCCESS */
 static dberr_t row_insert_for_mysql_using_cursor(const byte *mysql_rec,
-                                                 row_prebuilt_t *prebuilt) {
+                                          row_prebuilt_t *prebuilt) {
   dberr_t err = DB_SUCCESS;
   ins_node_t *node = nullptr;
   que_thr_t *thr = nullptr;

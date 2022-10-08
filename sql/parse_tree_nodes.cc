@@ -995,7 +995,6 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
     }
     select->parsing_place = save_context;
   }
-
   return new (thd->mem_root) Sql_cmd_update(is_multitable, &value_list->value);
 }
 
