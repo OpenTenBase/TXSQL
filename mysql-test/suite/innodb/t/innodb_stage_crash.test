@@ -19,8 +19,6 @@ alter table t1 drop column pad;
 
 alter table t1 add column pad text, add column i int,  add column j char(250) default 'abc', add column n int default 1,algorithm=instant;
 
-show variables like '%merge%';
-
 let row_count=10000;
 --disable_query_log
 SET SESSION sql_log_bin=OFF;

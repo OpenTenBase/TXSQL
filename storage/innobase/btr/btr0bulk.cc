@@ -369,6 +369,17 @@ dtuple_t *PageBulk::getNodePtr() {
   return (node_ptr);
 }
 
+void PageBulk::reget_mpage(mtr_t *mtr) {
+  page_id_t page_id(dict_index_get_space(m_index), m_page_no);
+  page_size_t page_size(dict_table_page_size(m_index->table));
+  m_block =
+        buf_page_get_gen(page_id, page_size, RW_X_LATCH, m_block,
+                         Page_fetch::NORMAL, UT_LOCATION_HERE, mtr);
+  m_page = buf_block_get_frame(m_block);
+  m_page_zip = buf_block_get_page_zip(m_block);
+  assert(m_page_no == page_get_page_no(m_page));
+}
+
 /** Split the page records between this and given bulk.
  @param new_page_bulk  The new bulk to store split records. */
 void PageBulk::split(PageBulk &new_page_bulk) {
@@ -1171,11 +1182,16 @@ dberr_t BtrBulk::raise_to_level(ulint max_level) {
     return DB_SUCCESS;
   }
 
+  mtr_t raise_mtr;
+  raise_mtr.start();
+
   while (m_root_level < max_level) {
     PageBulk *cur_root_page_bulk = m_page_bulks->at(m_root_level);
+    cur_root_page_bulk->reget_mpage(&raise_mtr);
     dtuple_t *node_ptr = cur_root_page_bulk->getNodePtr();
     dberr_t err = insert(node_ptr, m_root_level + 1);
     if (err != DB_SUCCESS) {
+      raise_mtr.commit();
       return err;
     }
     PageBulk *new_added_page_bulk = m_page_bulks->at(m_root_level);
@@ -1183,6 +1199,7 @@ dberr_t BtrBulk::raise_to_level(ulint max_level) {
     new_added_page_bulk->finish();
     new_added_page_bulk->commit(/*success*/true);
   }
+  raise_mtr.commit();
   return DB_SUCCESS;
 }
 

@@ -1,8 +1,12 @@
 
 --source include/have_debug.inc
 
+call mtr.add_suppression("Failed to read merge block");  
+call mtr.add_suppression("Retry attempts for reading partial data failed.");  
+call mtr.add_suppression("Retrying for the remaining bytes");  
+
 CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=INNODB;
-let row_count=500;
+let row_count=1000;
 --disable_query_log
 while ($row_count)
 {
@@ -56,8 +60,7 @@ let $check_secondary_index__idx_name=k_c3;
 
 ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
 
-       
-       
+
 # row_merge_write_failure
 --echo 
 --echo 
@@ -67,22 +70,9 @@ SET SESSION innodb_txsql_parallel_ddl=ON;
 SET SESSION innodb_txsql_ddl_threads=16;
 SET SESSION innodb_parallel_read_threads=16;
 SET GLOBAL debug='+d,row_merge_write_failure';
---error 1878
+--error 1712
 ALTER TABLE t1 ADD INDEX k_c2(c2), add index k_c3(c3);
 SET GLOBAL debug='-d,row_merge_write_failure';
-       
-       
-# row_merge_file_create_if_needed_INJECT_ERR
---echo 
---echo 
---echo #TEST CREATE TMP FILE FAILURE
-SET session innodb_txsql_parallel_ddl=ON;
-SET SESSION innodb_txsql_ddl_threads=2;
-SET SESSION innodb_parallel_read_threads=2;
-SET GLOBAL debug="+d,row_merge_file_create_if_needed_INJECT_ERR";
---error 1041
-ALTER TABLE t1 ADD INDEX k_c2(c2), add index k_c3(c3);
-SET GLOBAL debug="-d,row_merge_file_create_if_needed_INJECT_ERR";
 
 
 # fts
@@ -133,22 +123,6 @@ SET GLOBAL debug="-d,force_parallel";
 DROP TABLE t_vf;
 
 
-# sort_merge_buf_failure
---echo 
---echo 
---echo #TEST SORT BUF FAILURE
-SET SESSION innodb_txsql_parallel_ddl=ON;
-
-SET SESSION innodb_txsql_ddl_threads=1;
-SET SESSION innodb_parallel_read_threads=16;
-SET GLOBAL debug="+d,sort_merge_buf_failure";
-SET GLOBAL debug="+d,ib_row_merge_buf_add_two";
---error 1878
-ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
-SET GLOBAL debug="-d,sort_merge_buf_failure";
-SET GLOBAL debug="-d,ib_row_merge_buf_add_two";
-
-
 # ib_row_merge_buf_add_failure
 --echo 
 --echo 
@@ -160,7 +134,7 @@ SET SESSION innodb_parallel_read_threads=16;
 SET GLOBAL debug="+d,ib_row_merge_buf_add_failure";
 --error 1030
 ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
-SET GLOBAL debug="-d,sort_merge_buf_failure";
+SET GLOBAL debug="-d,ib_row_merge_buf_add_failure";
 
 
 # ib_row_merge_buf_readd_failure
@@ -215,20 +189,6 @@ ALTER TABLE t1 ADD INDEX k_c2(c2);
 SET GLOBAL debug="-d,write_merge_buf_to_file_failure";
 SET GLOBAL debug="-d,ib_row_merge_buf_add_two";
 SET GLOBAL debug="";
-
-
-# set_global_err
---echo 
---echo 
---echo #TEST GLOBAL_ERROR FLAG SET
-SET SESSION innodb_txsql_parallel_ddl=on;
-
-SET SESSION innodb_txsql_ddl_threads=16;
-set session innodb_parallel_read_threads=16;
-SET GLOBAL debug="+d,set_global_err";
---error 1030
-ALTER TABLE t1 ADD INDEX k_c2(c2), ADD INDEX k_c3(c3);
-SET GLOBAL debug="-d,set_global_err";
 
 
 # nornal non-parallel
