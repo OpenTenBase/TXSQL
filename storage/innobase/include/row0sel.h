@@ -439,17 +439,17 @@ mysql_col_len, mbminlen, mbmaxlen
                                 clustered index format and used only for end
                                 range comparison. */
 void row_sel_field_store_in_mysql_format_func(
-    byte *dest, const mysql_row_templ_t *templ, const uint instant_default, 
-    const dict_index_t *index, IF_DEBUG(ulint field_no, ) const byte *data, ulint len, 
-    row_prebuilt_t *prebuilt IF_DEBUG(, ulint sec_field));
+    byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
+    const dict_index_t *index, ulint field_no, const byte *data, ulint len,
+    row_prebuilt_t *prebuilt, ulint sec_field);
 
 /** Convert a non-SQL-NULL field from Innobase format to MySQL format. */
 static inline void row_sel_field_store_in_mysql_format(
-    byte *dest, const mysql_row_templ_t *templ, const uint instant_default, 
-    const dict_index_t *idx, ulint field, const byte *src, ulint len, 
+    byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
+    const dict_index_t *idx, ulint field, const byte *src, ulint len,
     row_prebuilt_t *prebuilt, ulint sec) {
   row_sel_field_store_in_mysql_format_func(
-      dest, templ, instant_default, idx, IF_DEBUG(field, ) src, len, prebuilt IF_DEBUG(, sec));
+      dest, templ, instant_default, idx, field, src, len, prebuilt, sec);
 }
 
 /** Search the record present in innodb_table_stats table using

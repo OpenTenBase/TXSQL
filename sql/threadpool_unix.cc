@@ -1224,7 +1224,6 @@ static connection_t *get_event(worker_thread_t *current_thread,
         */
         if (connection_is_high_prio(*connection)) {
           connection->tickets--;
-          connection->when_enqueued = 0;
         } else if (too_many_busy_threads(*thread_group)) {
           /*
             Not eligible for high priority processing. Restore tickets and put
@@ -1240,6 +1239,7 @@ static connection_t *get_event(worker_thread_t *current_thread,
         if (connection) {
           thread_group->get_normal_queue_num++;
           thread_group->queue_event_count++;
+          connection->when_enqueued = 0;
           break;
         }
       }
