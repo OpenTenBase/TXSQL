@@ -410,7 +410,7 @@ TableSampleIterator::~TableSampleIterator() {
 }
 
 bool TableSampleIterator::Init() {
-  const bool first_init = !table()->file->inited;
+  [[maybe_unused]] const bool first_init = !table()->file->inited;
 
   // Don't support rescan.
   assert(first_init);

@@ -5257,7 +5257,8 @@ void row_truncate_file_for_mysql_in_background(void) {
   if ((ulong)st.st_size <= srv_async_truncate_size*1024*1024) {
     unlink(trun->file_name);
   } else {
-    truncate(trun->file_name, st.st_size - srv_async_truncate_size*1024*1024);
+    [[maybe_unused]] int ret = truncate(
+        trun->file_name, st.st_size - srv_async_truncate_size * 1024 * 1024);
     return;
   }
 
