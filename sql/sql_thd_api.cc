@@ -704,7 +704,7 @@ void thd_set_backquery_info(MYSQL_THD thd, uint64_t key, time_t t, void *ptr,
                             bool clear) {
   assert(thd);
   if (!clear) {
-    auto ret = thd->m_backquery_info.insert(
+    [[maybe_unused]] auto ret = thd->m_backquery_info.insert(
         std::make_pair(key, std::make_pair(t, ptr)));
     /* Must success. */
     assert(ret.second);

@@ -2428,7 +2428,7 @@ bool Query_result_insert::send_data(THD *thd,
   bool error = false;
 
   Query_block *const query_block = thd->lex->query_block;
-  const bool has_returning =
+  [[maybe_unused]] const bool has_returning =
       (query_block->has_returning() && !thd->is_system_thread());
 
   Autoinc_field_has_explicit_non_null_value_reset_guard after_each_row(table);
