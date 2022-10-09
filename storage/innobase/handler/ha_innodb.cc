@@ -11883,16 +11883,10 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
           col_len, !field->is_hidden_by_system(), phy_pos, v_added, v_dropped);
 
       if(is_encryption) {
-          uint64_t new_size;
-          uint64_t old_size = mem_heap_get_size(table->heap);
           dict_col_t *col = table->get_col(table->n_def-1);
           dd_parse_encrypted_key_value(field->encryption_key.str, field->encryption_key.length, 
                                   field->encryption_iv.str, field->encryption_iv.length, 
                                   col, table->heap);
-          new_size = mem_heap_get_size(table->heap);
-          dict_sys_mutex_enter();
-          dict_sys->size += new_size - old_size;
-          dict_sys_mutex_exit();
       }
 
       if (v_modified != UINT32_UNDEFINED && v_modified > 0) {

@@ -227,6 +227,7 @@ id	c1	c2	c3	c4	c5
 2	数	据	库	系	统
 3					
 4	a	b	c	d	e
+set global cdb_instant_modify_column_enabled=on;
 alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
 select * from t1 order by id limit 4;
 id	c1	c2	c3	c4	c5	a1
@@ -283,6 +284,7 @@ id	c1	c2	c3	c4	c5
 2	数	据	库	系	统
 3					
 4	a	b	c	d	e
+set global cdb_instant_modify_column_enabled=off;
 alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
 select * from t1 order by id limit 4;
 id	c1	c2	c3	c4	c5	a1

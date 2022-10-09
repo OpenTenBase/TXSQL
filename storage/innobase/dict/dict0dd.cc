@@ -3657,19 +3657,12 @@ static inline void fill_dict_existing_column(
                            col_len, !field->is_hidden_by_system(), phy_pos,
                            (uint8_t)v_added, UINT8_UNDEFINED);
 
-    if(is_encryption) {
-        uint64_t new_size;
-        uint64_t old_size = mem_heap_get_size(m_table->heap);
-        dict_col_t *col = m_table->get_col(m_table->n_def-1);
-        dd_parse_encrypted_key_value(field->encryption_key.str, 
-                                     field->encryption_key.length, 
-                                     field->encryption_iv.str, 
-                                     field->encryption_iv.length, 
-                                     col, m_table->heap);
-        new_size = mem_heap_get_size(m_table->heap);
-        dict_sys_mutex_enter();
-        dict_sys->size += new_size - old_size;
-        dict_sys_mutex_exit();
+    if (is_encryption) {
+      dict_col_t *col = m_table->get_col(m_table->n_def - 1);
+      dd_parse_encrypted_key_value(
+          field->encryption_key.str, field->encryption_key.length,
+          field->encryption_iv.str, field->encryption_iv.length, col,
+          m_table->heap);
     }
 
     if (dd_column_is_modified(column)) {

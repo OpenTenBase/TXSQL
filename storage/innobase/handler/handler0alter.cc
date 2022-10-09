@@ -4829,16 +4829,13 @@ template <typename Table>
             ctx->new_table, ctx->heap, field->field_name, col_type,
             prtype, col_len, !field->is_hidden_by_system(), UINT32_UNDEFINED,
             UINT8_UNDEFINED, UINT8_UNDEFINED);
-        
+
         if (is_encryption) {
-          uint64_t new_size;
-          uint64_t old_size = mem_heap_get_size(ctx->new_table->heap);
-          dict_col_t *col = ctx->new_table->get_col(ctx->new_table->n_def-1);
-          dd_parse_encrypted_key_value(field->encryption_key.str, field->encryption_key.length, 
-                                       field->encryption_iv.str, field->encryption_iv.length, 
-                                       col, ctx->new_table->heap);
-          new_size = mem_heap_get_size(ctx->new_table->heap);
-          dict_sys->size += new_size - old_size;
+          dict_col_t *col = ctx->new_table->get_col(ctx->new_table->n_def - 1);
+          dd_parse_encrypted_key_value(
+              field->encryption_key.str, field->encryption_key.length,
+              field->encryption_iv.str, field->encryption_iv.length, col,
+              ctx->new_table->heap);
         }
       }
     }
@@ -11340,6 +11337,11 @@ static inline bool innobase_support_modify_instant(
     }
     if (col->is_instant_added() || col->is_instant_dropped()) {
       /* Modifying column which is instant added or dropped is not supported. */
+      return false;
+    }
+    if (field->is_column_encrypted() || old_field->is_column_encrypted() ||
+        col->encryption_iv != nullptr || col->encryption_key != nullptr) {
+      /* encrypted column is not supported. */
       return false;
     }
     if (field->charset() != old_field->charset() ||

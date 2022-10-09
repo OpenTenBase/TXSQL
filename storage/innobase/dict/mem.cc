@@ -402,6 +402,8 @@ void dict_mem_fill_column_struct(dict_col_t *column, ulint col_pos, ulint mtype,
   column->set_phy_pos(phy_pos);
   column->set_version_added(v_added);
   column->set_version_dropped(v_dropped);
+  column->encryption_key = nullptr;
+  column->encryption_iv = nullptr;
 #ifndef UNIV_HOTBACKUP
 #ifndef UNIV_LIBRARY
   ulint mbminlen;
