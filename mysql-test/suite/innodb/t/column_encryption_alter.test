@@ -116,7 +116,11 @@ alter table t1 drop column a1, drop column a2, drop column a3, ALGORITHM=COPY;
 select * from t1 limit 4;
 
 # modify encryption algorithm
-#set global cdb_instant_modify_column_enabled=on;
+connect (con_tencentroot, localhost, tencentroot,'', );
+connection con_tencentroot;
+set global cdb_instant_modify_column_enabled=on;
+connection default;
+
 alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
 select * from t1 order by id limit 4;
 alter table t1 change a1 a1 varchar(1024) encryption algorithm=SM4 default '天';
@@ -135,7 +139,11 @@ select * from t1 order by id limit 4;
 alter table t1 drop column a1;
 select * from t1 order by id limit 4;
 
-#set global cdb_instant_modify_column_enabled=off;
+connection con_tencentroot;
+set global cdb_instant_modify_column_enabled=off;
+connection default;
+disconnect con_tencentroot;
+
 alter table t1 add a1 varchar(255) encryption algorithm=SM4 default '天';
 select * from t1 order by id limit 4;
 alter table t1 change a1 a1 varchar(1024) encryption algorithm=SM4 default '天';
