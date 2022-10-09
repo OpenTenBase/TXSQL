@@ -2531,13 +2531,13 @@ mysql_col_len, mbminlen, mbmaxlen
                                 range comparison. */
 void row_sel_field_store_in_mysql_format_func(
     byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
-    const dict_index_t *index, IF_DEBUG(ulint field_no, ) const byte *data, ulint len,
-    row_prebuilt_t *prebuilt IF_DEBUG(, ulint sec_field)) {
+    const dict_index_t *index, ulint field_no, const byte *data, ulint len,
+    row_prebuilt_t *prebuilt, ulint sec_field) {
   byte *ptr;
-#ifdef UNIV_DEBUG
+
   const dict_field_t *field =
       templ->is_virtual ? nullptr : index->get_field(field_no);
-
+#ifdef UNIV_DEBUG
   bool clust_templ_for_sec = (sec_field != ULINT_UNDEFINED);
 #endif /* UNIV_DEBUG */
   ulint mysql_col_len =
