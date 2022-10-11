@@ -776,9 +776,14 @@ bool Unix_socket::create_lockfile() {
     }
 
     if (read_pid != cur_pid && read_pid != parent_pid) {
-      if (kill(read_pid, 0) == 0) {
+      if (kill(read_pid, 0) == 0
+#ifdef HAVE_SYS_TGKILL
+        && syscall(SYS_tgkill, cur_pid, read_pid, 0) != 0
+#endif
+        ) {
         LogErr(ERROR_LEVEL, ER_CONN_UNIX_PID_CLAIMED_SOCKET_FILE,
                static_cast<int>(read_pid));
+        unix_socket_lock_error = true;
         return true;
       }
     }

@@ -2608,7 +2608,7 @@ void clean_up_mysqld_mutexes() { clean_up_mutexes(); }
 
 static void mysqld_exit(int exit_code) {
   assert((exit_code >= MYSQLD_SUCCESS_EXIT && exit_code <= MYSQLD_ABORT_EXIT) ||
-         exit_code == MYSQLD_RESTART_EXIT);
+         exit_code == MYSQLD_RESTART_EXIT || exit_code == MYSQLD_SOCKT_LOCK_EXIT);
   mysql_audit_finalize();
   Srv_session::module_deinit();
   delete_optimizer_cost_module();
@@ -8326,7 +8326,11 @@ int mysqld_main(int argc, char **argv)
   }
 
   if (init_ssl_communication()) unireg_abort(MYSQLD_ABORT_EXIT);
-  if (network_init()) unireg_abort(MYSQLD_ABORT_EXIT);
+  if (network_init()) {
+    int exit_code =
+      unix_socket_lock_error ? MYSQLD_SOCKT_LOCK_EXIT : MYSQLD_ABORT_EXIT;
+    unireg_abort(exit_code);
+  }
 
 #ifdef _WIN32
   if (opt_require_secure_transport && !opt_enable_shared_memory &&
@@ -12981,3 +12985,4 @@ bool g_txsql_load_data_local_strict_mode = false;
 bool g_tdsql_compat_oracle_mode = false;
 bool cdb_compressed_histogram_enabled = false;
 bool cdb_instant_modify_column_enabled = false;
+bool unix_socket_lock_error = false;

@@ -179,6 +179,7 @@
 #cmakedefine HAVE_PTHREAD_THREADID_NP 1
 #cmakedefine HAVE_INTEGER_PTHREAD_SELF 1
 #cmakedefine HAVE_PTHREAD_SETNAME_NP 1
+#cmakedefine HAVE_SYS_TGKILL 1
 
 /* IPV6 */
 #cmakedefine HAVE_NETINET_IN6_H 1
