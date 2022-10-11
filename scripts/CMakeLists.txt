@@ -231,10 +231,14 @@ IF(UNIX)
   IF(LINUX)
     SET (FIND_PROC
       "ps wwwp $PID | grep -v mysqld_safe | grep -- $MYSQLD > /dev/null")
+    SET (FIND_PROC_FILTER
+      "ps wwwp $PID | grep -v mysqld_safe | grep -- $MYSQLD | grep $FILTER > /dev/null")
   ENDIF()
   IF(SOLARIS)
     SET (FIND_PROC
       "ps -p $PID | grep -v mysqld_safe | grep -- $MYSQLD > /dev/null")
+    SET (FIND_PROC_FILTER
+      "ps -p $PID | grep -v mysqld_safe | grep -- $MYSQLD | grep $FILTER > /dev/null")
   ENDIF()
 
   IF(NOT FIND_PROC)
@@ -244,6 +248,8 @@ IF(UNIX)
     IF(result MATCHES 0)
       SET( FIND_PROC
         "ps -uaxww | grep -v mysqld_safe | grep -- $MYSQLD | grep $PID > /dev/null")
+      SET( FIND_PROC_FILTER
+        "ps -uaxww | grep -v mysqld_safe | grep -- $MYSQLD | grep $PID | grep $FILTER > /dev/null")
     ENDIF()
   ENDIF()
 
@@ -253,7 +259,22 @@ IF(UNIX)
       OUTPUT_QUIET ERROR_QUIET RESULT_VARIABLE result)
     IF(result MATCHES 0)
       SET( FIND_PROC "ps -ef | grep -v mysqld_safe | grep -- $MYSQLD | grep $PID > /dev/null")
+      SET( FIND_PROC_FILTER "ps -ef | grep -v mysqld_safe | grep -- $MYSQLD | grep $PID | grep $FILTER > /dev/null")
     ENDIF()
+  ENDIF()
+
+# We need LWP and Command, only support `ps -efL` now
+  EXECUTE_PROCESS(COMMAND ps -efL
+    OUTPUT_QUIET ERROR_QUIET RESULT_VARIABLE result)
+  IF(result MATCHES 0)
+    SET( FIND_THR "ps -efL | grep -v mysqld_safe | grep -- $MYSQLD | grep $PID > /dev/null")
+    SET( FIND_THR_FILTER "ps -efL | grep -v mysqld_safe | grep -- $MYSQLD | grep $PID | grep $FILTER > /dev/null")
+  ENDIF()
+
+  # Found process only if `ps -efL` not support
+  IF(NOT FIND_THR)
+    SET(FIND_THR ${FIND_PROC})
+    SET(FIND_THR_FILTER ${FIND_PROC_FILTER})
   ENDIF()
 
   EXECUTE_PROCESS(COMMAND sh -c "kill -0 $$"

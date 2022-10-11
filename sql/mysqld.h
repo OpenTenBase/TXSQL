@@ -918,5 +918,7 @@ extern bool g_tdsql_compat_oracle_mode;
 extern char *opt_cdb_column_encryption_whitelist;
 extern bool cdb_compressed_histogram_enabled;
 extern bool cdb_instant_modify_column_enabled;
+extern bool unix_socket_lock_error;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

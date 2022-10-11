@@ -637,6 +637,18 @@ int main(int argc, char **argv)
 }"
 HAVE_PTHREAD_SETNAME_NP_MACOS)
 
+# Check for tgkill system call(by send signal to pid 1)
+CHECK_C_SOURCE_COMPILES("
+#include <sys/types.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+int main(int ac, char **av)
+{
+  int ret = syscall(SYS_tgkill, 1, 1, 0);
+  return (ret == 0 ? 0 : 1);
+}"
+HAVE_SYS_TGKILL)
+
 #--------------------------------------------------------------------
 # Check for IPv6 support
 #--------------------------------------------------------------------

@@ -808,8 +808,19 @@ then
   then
     if @FIND_PROC@
     then    # The pid contains a mysqld process
-      log_error "A mysqld process already exists"
-      exit 1
+      FILTER="pid-file="
+      if @FIND_PROC_FILTER@       # mysqld process contain '--pid-file' option
+      then
+        FILTER="pid-file=$pid_file"
+        if @FIND_PROC_FILTER@     # another mysqld process use the same pid file
+        then
+          log_error "A mysqld process already exists"
+          exit 1
+        fi
+      else  # no '--pid-file' option, may start without mysqld-safe
+        log_error "A mysqld process already exists"
+        exit 1
+      fi
     fi
   fi
   if [ ! -h "$pid_file" ]; then
@@ -885,11 +896,20 @@ while true
 do
   start_time=`date +%M%S`
   eval_log_error "$cmd"
-  if [ $? -eq 16 ] ; then
+  mysqld_errno=$?
+  if [ $mysqld_errno -eq 16 ] ; then
     dont_restart_mysqld=false
     echo "Restarting mysqld..."
   else
     dont_restart_mysqld=true
+  fi
+
+  # mysqld use kill/tgkill to see if another mysqld is running
+  # at the same directory, it's not accuracy, recheck it.
+  if [ $mysqld_errno -eq 128 ] ; then
+    recheck_socket_lock=true
+  else
+    recheck_socket_lock=false
   fi
 
   # hypothetical: log was renamed but not
@@ -919,6 +939,33 @@ do
   fi
 
   end_time=`date +%M%S`
+
+  if $recheck_socket_lock; then
+    safe_mysql_unix_lock_file="$safe_mysql_unix_port.lock"
+    PID=`cat "$safe_mysql_unix_lock_file"`
+    if @FIND_THR@
+    then
+      FILTER="socket="
+      if @FIND_THR_FILTER@    # mysqld thread contain '--socket' option
+      then
+        FILTER="socket=$safe_mysql_unix_port"
+        if @FIND_THR_FILTER@  # try to restart mysqld if use different socket file
+        then
+         dont_restart_mysqld=true
+        else
+         dont_restart_mysqld=false
+         rm -f "$safe_mysql_unix_lock_file"
+         log_notice "A mysqld process with pid or tid=$PID not use same socket lock file."
+         log_notice "Safely rm file $safe_mysql_unix_lock_file !"
+        fi
+      fi
+    else
+      dont_restart_mysqld=false
+      rm -f "$safe_mysql_unix_lock_file"
+      log_notice "A process with pid or tid=$PID is not mysqld."
+      log_notice "Safely rm file $safe_mysql_unix_lock_file !"
+    fi
+  fi
 
   if $dont_restart_mysqld; then
     if test ! -f "$pid_file"		# This is removed if normal shutdown

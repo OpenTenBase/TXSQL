@@ -269,6 +269,12 @@ constexpr const int MYSQLD_FAILURE_EXIT{2};
   exit directly with values like 3.
 */
 constexpr const int MYSQLD_RESTART_EXIT{16};
+/*
+  Exit code used by mysqld_exit, my_thread_exit function which allows
+  for external programs mysqld_safe to konw mysqld exit for socket.lock file.
+  The exit code 128 is choosen for gap of MYSQLD_RESTART_EXIT.
+*/
+constexpr const int MYSQLD_SOCKT_LOCK_EXIT{128};
 
 constexpr const size_t UUID_LENGTH{8 + 1 + 4 + 1 + 4 + 1 + 4 + 1 + 12};
 
