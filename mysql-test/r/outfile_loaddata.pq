@@ -173,8 +173,8 @@ Warning	1638	Non-ASCII separator arguments are not fully supported
 Warning	1638	Non-ASCII separator arguments are not fully supported
 Warning	1638	Non-ASCII separator arguments are not fully supported
 ##################################################
-—ä1	ABC-·‚˜	DEF-¬√ƒ
 —ä2	\N	\N
+—ä1	ABC-·‚˜	DEF-¬√ƒ
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET binary LINES STARTING BY '—ä';
@@ -256,8 +256,8 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 ##################################################
-2	\N	\N
 1	ABC-–ê–ë–í	DEF-√Ç√É√Ñ
+2	\N	\N
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET utf8;
@@ -305,3 +305,25 @@ LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/bug24577194.txt' INTO TABLE t2 FIELDS TER
 ERROR 01000: Row 1 was truncated; it contained more data than there were input columns
 DROP TABLE t1,t2;
 SET sql_mode=default;
+#
+# Bug #32888982 EXPORT DATA OF DOUBLE FIELD FAILED TO IMPORT
+#               WHEN IT IS DOUBLE'S LOWER BOUNDARY
+#
+CREATE TABLE t1 (a DOUBLE);
+INSERT INTO t1 VALUES(-1.7976931348623157e308);
+SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/bug32888982.txt';;
+LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/bug32888982.txt' INTO TABLE t1;;
+SELECT * from t1;
+a
+-1.7976931348623157e308
+-1.7976931348623157e308
+DROP TABLE t1;
+CREATE TABLE t1 (a FLOAT);
+INSERT INTO t1 VALUES(-3.40282346638528859811704183484516925e+38);
+SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/bug32888982.txt';;
+LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/bug32888982.txt' INTO TABLE t1;;
+SELECT * from t1;
+a
+-3.40282e38
+-3.40282e38
+DROP TABLE t1;

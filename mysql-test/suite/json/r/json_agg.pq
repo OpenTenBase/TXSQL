@@ -17,7 +17,7 @@ INSERT INTO t1 VALUES
 FLUSH STATUS;
 SELECT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a;
 a	JSON_ARRAYAGG(b)
-1	["alfa", null, "unu", "one"]
+1	[null, "one", "unu", "alfa"]
 2	["doi"]
 3	["trei"]
 4	[null, null]
@@ -26,7 +26,7 @@ Variable_name	Value
 Handler_update	0
 SELECT SQL_BIG_RESULT  a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a;
 a	JSON_ARRAYAGG(b)
-1	["alfa", null, "unu", "one"]
+1	["one", "alfa", "unu", null]
 2	["doi"]
 3	["trei"]
 4	[null, null]
@@ -41,7 +41,7 @@ Variable_name	Value
 Handler_update	0
 SELECT SQL_BUFFER_RESULT  a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a;
 a	JSON_ARRAYAGG(b)
-1	["alfa", null, "unu", "one"]
+1	["alfa", "unu", null, "one"]
 2	["doi"]
 3	["trei"]
 4	[null, null]
@@ -50,16 +50,16 @@ Variable_name	Value
 Handler_update	0
 SELECT JSON_ARRAYAGG(b) FROM t1;
 JSON_ARRAYAGG(b)
-["alfa", null, "doi", "unu", "trei", null, null, "one"]
+["alfa", null, "doi", "unu", "trei", null, "one", null]
 SELECT SQL_BIG_RESULT JSON_ARRAYAGG(b) FROM t1;
 JSON_ARRAYAGG(b)
-["alfa", null, "doi", "unu", "trei", null, null, "one"]
+["alfa", null, "unu", "doi", "trei", null, null, "one"]
 SELECT SQL_SMALL_RESULT JSON_ARRAYAGG(b) FROM t1;
 JSON_ARRAYAGG(b)
-["alfa", null, "doi", "unu", "trei", null, null, "one"]
+[null, "alfa", "doi", "unu", null, "trei", null, "one"]
 SELECT SQL_BUFFER_RESULT JSON_ARRAYAGG(b) FROM t1;
 JSON_ARRAYAGG(b)
-["alfa", null, "doi", "unu", "trei", null, null, "one"]
+["unu", "alfa", "trei", "one", null, null, "doi", null]
 PREPARE p1 FROM "SELECT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a";
 EXECUTE p1;
 a	JSON_ARRAYAGG(b)
@@ -99,7 +99,7 @@ JSON_ARRAYAGG(b)
 deallocate prepare p4;
 SELECT JSON_MERGE_PRESERVE(JSON_ARRAYAGG(b), '[true, false]') FROM t1;
 JSON_MERGE_PRESERVE(JSON_ARRAYAGG(b), '[true, false]')
-["alfa", null, "doi", "unu", "trei", null, null, "one", true, false]
+["alfa", "doi", "unu", null, "trei", null, null, "one", true, false]
 PREPARE p1 FROM
 "SELECT a, JSON_MERGE_PRESERVE(JSON_ARRAYAGG(b), '[true, false]') FROM t1 GROUP BY a";
 EXECUTE p1;
@@ -691,11 +691,11 @@ Warnings:
 Note	1003	/* select#1 */ select sql_buffer_result json_arrayagg(`test`.`t1`.`b`) AS `JSON_ARRAYAGG(b)` from `test`.`t1`
 SELECT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a WITH ROLLUP;
 a	JSON_ARRAYAGG(b)
-1	["alfa", null, "unu", "one"]
+1	["unu", null, "alfa", "one"]
 2	["doi"]
 3	["trei"]
 4	[null, null]
-NULL	["alfa", null, "unu", "one", "doi", "trei", null, null]
+NULL	["unu", null, "alfa", "one", "doi", "trei", null, null]
 SELECT a, JSON_ARRAYAGG(b) as jarray
 FROM t1
 GROUP BY a
@@ -1351,11 +1351,11 @@ INSERT INTO t1 VALUES
 SELECT a, JSON_OBJECTAGG(k, b) FROM t1 GROUP BY a;
 a	JSON_OBJECTAGG(k, b)
 1	{"1": "1.3"}
-2	{"2": "2.3"}
+2	{"2": "2.2"}
 SELECT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a;
 a	JSON_ARRAYAGG(b)
-1	["1.1", "1.2", "1.3"]
-2	["2.1", "2.2", "2.3"]
+1	["1.2", "1.1", "1.3"]
+2	["2.1", "2.3", "2.2"]
 DROP TABLE t1;
 #
 # Tests with ORDER BY, DISTINCT
@@ -1373,19 +1373,19 @@ INSERT INTO t1 VALUES
 (1, 1, "1.3");
 SELECT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a;
 a	JSON_ARRAYAGG(b)
-1	["1.1", "1.2", "1.3"]
-2	["2.3", "2.2", "2.1"]
-3	["3.2", "3.1", "3.3"]
+1	["1.3", "1.2", "1.1"]
+2	["2.1", "2.2", "2.3"]
+3	["3.3", "3.2", "3.1"]
 SELECT DISTINCT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a;
 a	JSON_ARRAYAGG(b)
-1	["1.1", "1.2", "1.3"]
+1	["1.1", "1.3", "1.2"]
 2	["2.3", "2.2", "2.1"]
 3	["3.2", "3.1", "3.3"]
 SELECT DISTINCT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a ORDER BY a ASC;
 a	JSON_ARRAYAGG(b)
-1	["1.1", "1.2", "1.3"]
+1	["1.2", "1.3", "1.1"]
 2	["2.3", "2.2", "2.1"]
-3	["3.2", "3.1", "3.3"]
+3	["3.2", "3.3", "3.1"]
 SELECT DISTINCT a, JSON_ARRAYAGG(b) FROM t1 GROUP BY a ORDER BY a DESC;
 a	JSON_ARRAYAGG(b)
 3	["3.2", "3.1", "3.3"]
@@ -1438,17 +1438,17 @@ SELECT t1 FROM t ORDER BY (SELECT JSON_ARRAYAGG(t1) FROM t AS t2);
 t1
 1
 2
-3
 1
+3
 SELECT JSON_ARRAYAGG(t1) FROM t
 ORDER BY (SELECT JSON_ARRAYAGG(t1) FROM t AS t2);
 JSON_ARRAYAGG(t1)
-[1, 2, 3, 1]
+[3, 1, 1, 2]
 SELECT (SELECT JSON_ARRAYAGG(t1_outer.t1) FROM t AS t1_inner LIMIT 1) as f
 FROM t AS t1_outer GROUP BY t1_outer.t2;
 f
-[1, 2]
 [1]
+[2, 1]
 [3]
 DROP TABLE t;
 DROP TABLE p;
@@ -1481,14 +1481,14 @@ gid	1.0 * JSON_ARRAYAGG(a)
 1	0
 2	0
 Warning	3156	Invalid JSON value for CAST to DOUBLE from column json_arrayagg at row 1
-Warning	3156	Invalid JSON value for CAST to DOUBLE from column json_arrayagg at row 2
+Warning	3156	Invalid JSON value for CAST to DOUBLE from column json_arrayagg at row 1
 Warnings:
 SELECT gid, 0x30 << JSON_ARRAYAGG(a) FROM t2 GROUP BY gid;
 gid	0x30 << JSON_ARRAYAGG(a)
 1	48
 2	48
 Warning	3156	Invalid JSON value for CAST to INTEGER from column json_arrayagg at row 1
-Warning	3156	Invalid JSON value for CAST to INTEGER from column json_arrayagg at row 2
+Warning	3156	Invalid JSON value for CAST to INTEGER from column json_arrayagg at row 1
 Warnings:
 SELECT gid, DATE_ADD(JSON_ARRAYAGG(a), INTERVAL 31 DAY)
 FROM t2 GROUP BY gid;
@@ -1496,7 +1496,7 @@ gid	DATE_ADD(JSON_ARRAYAGG(a), INTERVAL 31 DAY)
 1	NULL
 2	NULL
 Warning	3156	Invalid JSON value for CAST to DATE/TIME/DATETIME/TIMESTAMP from column json_arrayagg at row 1
-Warning	3156	Invalid JSON value for CAST to DATE/TIME/DATETIME/TIMESTAMP from column json_arrayagg at row 2
+Warning	3156	Invalid JSON value for CAST to DATE/TIME/DATETIME/TIMESTAMP from column json_arrayagg at row 1
 Warnings:
 SELECT gid, ADDTIME(JSON_ARRAYAGG(a), '02:00:00.999998')
 FROM t2 GROUP BY gid;
@@ -1504,14 +1504,14 @@ gid	ADDTIME(JSON_ARRAYAGG(a), '02:00:00.999998')
 1	NULL
 2	NULL
 Warning	3156	Invalid JSON value for CAST to DATE/TIME/DATETIME/TIMESTAMP from column json_arrayagg at row 1
-Warning	3156	Invalid JSON value for CAST to DATE/TIME/DATETIME/TIMESTAMP from column json_arrayagg at row 2
+Warning	3156	Invalid JSON value for CAST to DATE/TIME/DATETIME/TIMESTAMP from column json_arrayagg at row 1
 Warnings:
 SELECT gid, SEC_TO_TIME(JSON_ARRAYAGG(a)) FROM t2 GROUP BY gid;
 gid	SEC_TO_TIME(JSON_ARRAYAGG(a))
 1	00:00:00.000000
 2	00:00:00.000000
 Warning	3156	Invalid JSON value for CAST to DECIMAL from column json_arrayagg at row 1
-Warning	3156	Invalid JSON value for CAST to DECIMAL from column json_arrayagg at row 2
+Warning	3156	Invalid JSON value for CAST to DECIMAL from column json_arrayagg at row 1
 Warnings:
 TRUNCATE TABLE t2;
 SELECT 1.0 * JSON_ARRAYAGG(a) FROM t2;

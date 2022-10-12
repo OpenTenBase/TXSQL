@@ -25,9 +25,15 @@ v='a'
 select binary v='a' from t1;
 binary v='a'
 0
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 select binary v='a ' from t1;
 binary v='a '
 1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 insert into t1 values('a');
 alter table t1 add primary key (v);
 ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
@@ -78,6 +84,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 1 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	257	const	3	100.00	Parallel scan (4 workers); Using index
@@ -85,6 +92,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 2 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	257	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -102,9 +110,9 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
+This is a test
+This is a test
 This is a test 
-This is a test
-This is a test
 select * from t1 where v like 'S%' order by v;
 v
 Short string
@@ -117,6 +125,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 1 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	258	const	3	100.00	Parallel scan (4 workers); Using index
@@ -124,6 +133,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 2 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	258	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -156,6 +166,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 1 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	259	const	3	100.00	Parallel scan (4 workers); Using index
@@ -163,6 +174,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 2 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	259	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -180,8 +192,8 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
 This is a test 
+This is a test
 This is a test
 select * from t1 where v like 'S%' order by v;
 v
@@ -195,6 +207,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 1 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	260	const	3	100.00	Parallel scan (4 workers); Using index
@@ -202,6 +215,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 2 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	260	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -219,8 +233,8 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
 This is a test 
+This is a test
 This is a test
 select * from t1 where v like 'S%' order by v;
 v
@@ -234,6 +248,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 1 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	261	const	3	100.00	Parallel scan (4 workers); Using index
@@ -241,6 +256,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 2 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	261	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -273,6 +289,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 3 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	262	const	3	100.00	Parallel scan (4 workers); Using index
@@ -280,6 +297,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 4 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	262	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -312,6 +330,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 3 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	261	const	3	100.00	Parallel scan (4 workers); Using index
@@ -319,6 +338,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 4 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	261	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -336,9 +356,9 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
-This is a test
 This is a test 
+This is a test
+This is a test
 select * from t1 where v like 'S%' order by v;
 v
 Short string
@@ -351,6 +371,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 3 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	260	const	3	100.00	Parallel scan (4 workers); Using index
@@ -358,6 +379,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 4 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	260	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -375,9 +397,9 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
-This is a test
 This is a test 
+This is a test
+This is a test
 select * from t1 where v like 'S%' order by v;
 v
 Short string
@@ -390,6 +412,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 3 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	259	const	3	100.00	Parallel scan (4 workers); Using index
@@ -397,6 +420,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 4 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	259	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -414,8 +438,8 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test 
 This is a test
+This is a test 
 This is a test
 select * from t1 where v like 'S%' order by v;
 v
@@ -429,6 +453,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 3 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	258	const	3	100.00	Parallel scan (4 workers); Using index
@@ -436,6 +461,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 4 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	258	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -468,6 +494,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 3 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	257	const	3	100.00	Parallel scan (4 workers); Using index
@@ -475,6 +502,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 4 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	257	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
@@ -491,9 +519,9 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
+This is a test
+This is a test
 This is a test 
-This is a test
-This is a test
 select * from t1 where v like 'S%' order by v;
 v
 Short string
@@ -506,6 +534,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` like 'This is a test') order by `test`.`t1`.`v`
+Helper line 5 for --skip_if_hypergraph diffing
 explain select * from t1 where v='This is a test' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	13	const	4	100.00	Parallel scan (4 workers); Using where
@@ -513,6 +542,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v` from `test`.`t1` where (`test`.`t1`.`v` = 'This is a test') order by `test`.`t1`.`v`
+Helper line 6 for --skip_if_hypergraph diffing
 explain select * from t1 where v like 'S%' order by v;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	13	NULL	3	100.00	Parallel scan (4 workers); Using where; Using filesort

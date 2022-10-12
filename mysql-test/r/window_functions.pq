@@ -147,7 +147,7 @@ CREATE VIEW v AS
 SELECT i, j, SUM(i+j) OVER (ORDER BY j DESC ROWS UNBOUNDED PRECEDING) foo FROM t;
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
-v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t`.`i` AS `i`,`t`.`j` AS `j`,sum((`t`.`i` + `t`.`j`)) OVER (ORDER BY `t`.`j` desc ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)  AS `foo` from `t`	utf8	utf8_general_ci
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t`.`i` AS `i`,`t`.`j` AS `j`,sum((`t`.`i` + `t`.`j`)) OVER (ORDER BY `t`.`j` desc ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)  AS `foo` from `t`	utf8mb3	utf8mb3_general_ci
 SELECT * FROM v;
 i	j	foo
 1	1	15
@@ -905,20 +905,22 @@ id	sex	CUME_DIST() OVER (ORDER BY sex DESC)
 11	NULL	1
 SELECT id value,
 SUM(id) OVER (ROWS UNBOUNDED PRECEDING)
-FROM t1 u, t2 WHERE t2.user_id = u.id;
+FROM t1 u LEFT JOIN t2 ON t2.user_id = u.id;
 value	SUM(id) OVER (ROWS UNBOUNDED PRECEDING)
 1	1
-1	4
-2	3
+1	2
+10	30
+11	41
+2	4
 3	7
 4	11
 4	15
 5	20
 Aggregate with GROUP BY arguments to window function
 SELECT AVG(id) average,
-SUM(AVG(id)) OVER (ROWS UNBOUNDED PRECEDING)
+SUM(AVG(id)) OVER (ORDER BY sex DESC ROWS UNBOUNDED PRECEDING)
 FROM t1 u, t2 WHERE t2.user_id = u.id GROUP BY sex;
-average	SUM(AVG(id)) OVER (ROWS UNBOUNDED PRECEDING)
+average	SUM(AVG(id)) OVER (ORDER BY sex DESC ROWS UNBOUNDED PRECEDING)
 2.3333	2.3333
 3.2500	5.5833
 Aggregate with GROUP BY in window's ORDER BY clause, with aggregate present in
@@ -1703,12 +1705,12 @@ RANK() OVER (ORDER BY sex,id),
 ROW_NUMBER() OVER (ORDER BY sex,id)
 FROM t1;
 id	sex	SUM(id) OVER (ORDER BY id ROWS UNBOUNDED PRECEDING)	RANK() OVER (ORDER BY sex,id)	ROW_NUMBER() OVER (ORDER BY sex,id)
+1	M	1	6	6
 10	NULL	25	1	1
 11	NULL	36	2	2
 2	F	3	3	3
 3	F	6	4	4
 4	F	10	5	5
-1	M	1	6	6
 5	M	15	7	7
 SELECT t1.*, SUM(id) OVER (ORDER BY id ROWS UNBOUNDED PRECEDING),
 PERCENT_RANK() OVER (ORDER BY sex,id),
@@ -1716,12 +1718,12 @@ CUME_DIST() OVER (ORDER BY sex,id),
 ROW_NUMBER() OVER (ORDER BY sex,id)
 FROM t1;
 id	sex	SUM(id) OVER (ORDER BY id ROWS UNBOUNDED PRECEDING)	PERCENT_RANK() OVER (ORDER BY sex,id)	CUME_DIST() OVER (ORDER BY sex,id)	ROW_NUMBER() OVER (ORDER BY sex,id)
+1	M	1	0.8333333333333334	0.8571428571428571	6
 10	NULL	25	0	0.14285714285714285	1
 11	NULL	36	0.16666666666666666	0.2857142857142857	2
 2	F	3	0.3333333333333333	0.42857142857142855	3
 3	F	6	0.5	0.5714285714285714	4
 4	F	10	0.6666666666666666	0.7142857142857143	5
-1	M	1	0.8333333333333334	0.8571428571428571	6
 5	M	15	1	1	7
 a little more windows + subquery
 SELECT t.*, SUM(id + r00 + r01) OVER (ORDER BY id ROWS UNBOUNDED PRECEDING) AS s FROM (
@@ -2190,7 +2192,7 @@ WINDOW w AS (PARTITION BY sex ORDER BY id
 ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING);
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
-v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t1`.`id` AS `id`,sum(`t1`.`id`) OVER `w` AS `SUM(id) OVER w`,`t1`.`sex` AS `sex` from `t1` window `w` AS (PARTITION BY `t1`.`sex` ORDER BY `t1`.`id` ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING) 	utf8	utf8_general_ci
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t1`.`id` AS `id`,sum(`t1`.`id`) OVER `w` AS `SUM(id) OVER w`,`t1`.`sex` AS `sex` from `t1` window `w` AS (PARTITION BY `t1`.`sex` ORDER BY `t1`.`id` ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING) 	utf8mb3	utf8mb3_general_ci
 SELECT * FROM v;
 id	SUM(id) OVER w	sex
 1	NULL	M
@@ -2970,7 +2972,7 @@ CREATE VIEW v AS
 SELECT id, FIRST_VALUE(id) OVER w FROM t1 WINDOW w AS (ORDER BY id RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING);
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
-v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t1`.`id` AS `id`,first_value(`t1`.`id`) OVER `w` AS `FIRST_VALUE(id) OVER w` from `t1` window `w` AS (ORDER BY `t1`.`id` RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) 	utf8	utf8_general_ci
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t1`.`id` AS `id`,first_value(`t1`.`id`) OVER `w` AS `FIRST_VALUE(id) OVER w` from `t1` window `w` AS (ORDER BY `t1`.`id` RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) 	utf8mb3	utf8mb3_general_ci
 SELECT * FROM v;
 id	FIRST_VALUE(id) OVER w
 1	1
@@ -3498,7 +3500,7 @@ CREATE VIEW v AS
 SELECT id, FIRST_VALUE(id) OVER w FROM t_date WINDOW w AS (ORDER BY id RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING);
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
-v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t_date`.`id` AS `id`,first_value(`t_date`.`id`) OVER `w` AS `FIRST_VALUE(id) OVER w` from `t_date` window `w` AS (ORDER BY `t_date`.`id` RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) 	utf8	utf8_general_ci
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t_date`.`id` AS `id`,first_value(`t_date`.`id`) OVER `w` AS `FIRST_VALUE(id) OVER w` from `t_date` window `w` AS (ORDER BY `t_date`.`id` RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) 	utf8mb3	utf8mb3_general_ci
 SELECT * FROM v;
 id	FIRST_VALUE(id) OVER w
 2002-06-09	2002-06-09
@@ -3531,7 +3533,7 @@ CREATE VIEW v AS
 SELECT id, FIRST_VALUE(id) OVER w FROM t_date WINDOW w AS (ORDER BY id RANGE BETWEEN INTERVAL 2 DAY FOLLOWING AND INTERVAL 3 DAY FOLLOWING);
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
-v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t_date`.`id` AS `id`,first_value(`t_date`.`id`) OVER `w` AS `FIRST_VALUE(id) OVER w` from `t_date` window `w` AS (ORDER BY `t_date`.`id` RANGE BETWEEN INTERVAL 2 day  FOLLOWING AND INTERVAL 3 day  FOLLOWING) 	utf8	utf8_general_ci
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `t_date`.`id` AS `id`,first_value(`t_date`.`id`) OVER `w` AS `FIRST_VALUE(id) OVER w` from `t_date` window `w` AS (ORDER BY `t_date`.`id` RANGE BETWEEN INTERVAL 2 day  FOLLOWING AND INTERVAL 3 day  FOLLOWING) 	utf8mb3	utf8mb3_general_ci
 SELECT * FROM v;
 id	FIRST_VALUE(id) OVER w
 2002-06-09	NULL
@@ -4309,10 +4311,10 @@ i	SUM(i) OVER ()	MOD(SUM(i),2)
 NULL	3	NULL
 SELECT i, SUM(SUM(i)) OVER (), SUM(i) OVER (ORDER BY i), MOD(SUM(i),2), SUM(i) FROM tj2 GROUP BY i;
 i	SUM(SUM(i)) OVER ()	SUM(i) OVER (ORDER BY i)	MOD(SUM(i),2)	SUM(i)
-NULL	7	NULL	NULL	NULL
 0	7	0	0	0
 1	7	1	1	3
 2	7	3	0	4
+NULL	7	NULL	NULL	NULL
 DROP TABLE tj2;
 ----------------------------------------------------------------------
 -    Bug fixes
@@ -4748,7 +4750,7 @@ w1 AS (w RANGE BETWEEN INTERVAL 24 HOUR  PRECEDING AND
 INTERVAL '2:2' MINUTE_SECOND FOLLOWING);
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
-v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select count(0) OVER `w0` AS `COUNT(*) OVER w0`,count(0) OVER `w` AS `COUNT(*) OVER w`,count(0) OVER `w1` AS `COUNT(*) OVER w1` from `t6` window `w0` AS () , `w` AS (`w0` ORDER BY `t6`.`t` ) , `w1` AS (`w` RANGE BETWEEN INTERVAL 24 hour  PRECEDING AND INTERVAL '2:2' minute_second  FOLLOWING) 	utf8	utf8_general_ci
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select count(0) OVER `w0` AS `COUNT(*) OVER w0`,count(0) OVER `w` AS `COUNT(*) OVER w`,count(0) OVER `w1` AS `COUNT(*) OVER w1` from `t6` window `w0` AS () , `w` AS (`w0` ORDER BY `t6`.`t` ) , `w1` AS (`w` RANGE BETWEEN INTERVAL 24 hour  PRECEDING AND INTERVAL '2:2' minute_second  FOLLOWING) 	utf8mb3	utf8mb3_general_ci
 SELECT * FROM v;
 COUNT(*) OVER w0	COUNT(*) OVER w	COUNT(*) OVER w1
 12	1	2
@@ -6252,14 +6254,6 @@ SELECT * FROM t WHERE a = ANY(SELECT ROW_NUMBER() OVER () + 1 FROM t);
 a
 2
 3
-=ALL => NOT EXISTS (select non-equal rows)
-SELECT * FROM t WHERE a = ALL(SELECT ROW_NUMBER() OVER () + 1 FROM t);
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
-<>SOME => EXISTS (select non-equal rows)
-SELECT * FROM t WHERE a <> SOME(SELECT ROW_NUMBER() OVER () + 1 FROM t);
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
-SELECT * FROM t WHERE a <> ANY(SELECT ROW_NUMBER() OVER () + 1 FROM t);
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
 SELECT * FROM t WHERE a <> ALL(SELECT ROW_NUMBER() OVER () + 1 FROM t);
 a
 1
@@ -6472,33 +6466,7 @@ EXPLAIN
 Warnings:
 Note	1276	Field or reference 'test.upper.a' of SELECT #2 was resolved in SELECT #1
 Note	1003	/* select#1 */ select `test`.`upper`.`a` AS `a` from `test`.`t` `upper` semi join ((/* select#3 */ select row_number() OVER ()  AS `rn` from `test`.`t`) `ta`) where (`ta`.`rn` > `test`.`upper`.`a`)
-# Correlated => no subquery materialization.
-# IN => EXISTS, error
-SELECT * FROM t upper
-WHERE upper.a IN (SELECT ROW_NUMBER() OVER () FROM t
-WHERE t.a > upper.a);
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
-# Correlated => no subquery materialization.
-# >ANY => EXISTS(select smaller rows), error
-SELECT * FROM t upper
-WHERE upper.a > ANY (SELECT ROW_NUMBER() OVER () FROM t
-WHERE t.a > upper.a);
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
-SELECT * FROM t upper
-WHERE upper.a > ALL (SELECT ROW_NUMBER() OVER () FROM t
-WHERE t.a > upper.a);
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
 DROP TABLE t;
-#
-# Bug#25601138 WINDOW FUNCTION IN CORRELATED SUBQUERY GIVES WRONG RESULT
-#
-CREATE TABLE t1(i INT, j INT, k INT);
-INSERT INTO t1 VALUES (1,1,1),(2,2,2);
-# When we support this, expected result is 1,1,1 and 2,2,2
-select * from t1 AS upper where i+1
-IN (select row_number() over () + upper.i from t1 );
-ERROR 42000: This version of MySQL doesn't yet support 'the combination of this ALL/ANY/SOME/IN subquery with this comparison operator and with contained window functions'
-DROP TABLE t1;
 #
 # Check window aggregate referencing columns from an outside query
 # All results checked against Postgresql which also allows this.
@@ -6536,8 +6504,8 @@ FROM t1 LIMIT 1)
 FROM t1 AS upper;
 (SELECT FIRST_VALUE(upper.j) OVER (ORDER BY upper.j DESC)
 FROM t1 LIMIT 1)
-1
 2
+1
 SELECT (SELECT LAST_VALUE(j) OVER (ORDER BY upper.j) FROM tAccepted LIMIT Accepted)
 FROM tAccepted AS upper;
 (SELECT LAST_VALUE(j) OVER (ORDER BY upper.j) FROM tAccepted LIMIT Accepted)
@@ -7530,7 +7498,7 @@ EXPLAIN
 -> Window aggregate: row_number() OVER (ORDER BY 's' ) 
     -> Filter: (b.pk is null)  (cost=0.35 rows=1)
         -> Nested loop left join  (cost=0.35 rows=1)
-            -> Rows fetched before execution  (cost=0.00 rows=1)
+            -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
             -> Sort: 's'  (cost=0.35 rows=1)
                 -> Filter: ('s' = b.c)  (cost=0.35 rows=1)
                     -> Table scan on b  (cost=0.35 rows=1)
@@ -7621,6 +7589,11 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 INSERT INTO t1 VALUES (1,8,'2004-03-26 11:59:45'),(2,-692387840,'2000-11-03
 14:56:50'),(3,8,'2008-04-11 14:04:45'),(4,-660865024,'2004-08-11
 07:07:20'),(5,9,'2001-04-11 00:00:00');
+Warnings:
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2000-11-03
+14:56:50' at row 2 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2004-08-11
+07:07:20' at row 4 is deprecated. Prefer the standard ' '.
 CREATE TEMPORARY TABLE t2 (
 pk int(11) NOT NULL AUTO_INCREMENT,
 col1 varchar(10) CHARACTER SET utf8 DEFAULT NULL,
@@ -8416,7 +8389,7 @@ NULL
 CREATE OR REPLACE VIEW v1 AS SELECT STDDEV_SAMP(a) FROM  t;
 SELECT STDDEV_SAMP(a) FROM t;
 STDDEV_SAMP(a)
-3.9157800414902435
+3.915780041490243
 SELECT * FROM v1;
 STDDEV_SAMP(a)
 3.9157800414902435
@@ -8730,19 +8703,19 @@ rnk
 SELECT * FROM twf WHERE rnk IN (SELECT RANK() OVER ( ORDER BY a ) AS rnk FROM
 t  GROUP BY a);
 rnk
-1
 2
-3
-4
 5
-6
-7
-8
-9
 10
-11
+1
+6
+9
 12
+4
+8
 13
+3
+7
+11
 14
 SELECT * FROM twf WHERE rnk NOT IN (SELECT RANK() OVER ( ORDER BY a ) AS rnk
 FROM t  GROUP BY a);
@@ -9615,3 +9588,66 @@ DO NTILE(@v) OVER();
 DO NTILE(@v) OVER(), @v:=20;
 ERROR HY000: Incorrect arguments to ntile
 # End of test for Bug#31393719
+#
+# Bug#31546816 - QUERY RETURNS DIFFERENT RESULTS DEPENDING ON INTERNAL_TMP_MEM_STORAGE_ENGINE
+#
+CREATE TABLE `t1` (`c1` INT, `c2` INT, `c3` CHAR(255), `c4` CHAR(255));
+INSERT INTO t1 VALUES
+(1,1,'t1','t1'), (2,2,'t1','t1'), (3,3,'t1','t1'), (4,4,'t1','t1'), (5,5,'t1','t1'),
+(6,6,'t1','t1'), (7,7,'t1','t1'), (8,8,'t1','t1'), (9,9,'t1','t1'), (10,10,'t1','t1'),
+(11,11,'t1','t1'), (12,12,'t1','t1'), (13,13,'t1','t1'), (14,14,'t1','t1'), (15,15,'t1','t1'),
+(16,16,'t1','t1'), (17,17,'t1','t1'), (18,18,'t1','t1'), (19,19,'t1','t1'), (20,20,'t1','t1'),
+(21,21,'t1','t1'), (22,22,'t1','t1'), (23,23,'t1','t1'), (24,24,'t1','t1'), (25,25,'t1','t1');
+SET @@session.max_heap_table_size=16*1024;
+SET @@session.tmp_table_size=1024;
+SET optimizer_switch="derived_condition_pushdown=off";
+SET SESSION internal_tmp_mem_storage_engine=MEMORY;
+SELECT * FROM (SELECT c2, c3, c4, SUM(c1) OVER (PARTITION BY c2) AS wcol FROM t1)o WHERE c2=10;
+c2	c3	c4	wcol
+10	t1	t1	10
+SET SESSION internal_tmp_mem_storage_engine=TempTable;
+SELECT * FROM (SELECT c2, c3, c4, SUM(c1) OVER (PARTITION BY c2) AS wcol FROM t1)o WHERE c2=10;
+c2	c3	c4	wcol
+10	t1	t1	10
+SET optimizer_switch=default;
+SET @@session.max_heap_table_size=default;
+SET @@session.tmp_table_size=default;
+SET @@session.internal_tmp_mem_storage_engine=default;
+DROP TABLE t1;
+#
+# Bug #32497850 RECENT CRASH IN MY_DECIMAL::MY_DECIMAL
+#
+SELECT (3.14 DIV (
+FIRST_VALUE(
+FROM_DAYS(2486378174430980553)
+)
+OVER()
+)
+);
+(3.14 DIV (
+)
+)
+)
+FIRST_VALUE(
+FROM_DAYS(2486378174430980553)
+NULL
+OVER()
+Warning	1292	Incorrect datetime value: '0000-00-00'
+Warnings:
+SELECT (3.14 DIV (
+NTH_VALUE(
+FROM_DAYS(2486378174430980553), 1
+)
+OVER()
+)
+);
+(3.14 DIV (
+)
+)
+)
+FROM_DAYS(2486378174430980553), 1
+NTH_VALUE(
+NULL
+OVER()
+Warning	1292	Incorrect datetime value: '0000-00-00'
+Warnings:

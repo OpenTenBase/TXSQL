@@ -527,9 +527,9 @@ EXPLAIN SELECT 1 FROM t1 WHERE NOT EXISTS
 (SELECT 1 FROM t2 WHERE d = (SELECT d FROM t2 WHERE a >= 1) ORDER BY d);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-1	PRIMARY	t2	NULL	eq_ref	PRIMARY,d	PRIMARY	1	func	1	100.00	Using where; Not exists
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	t2	NULL	eq_ref	PRIMARY,d	PRIMARY	1	func	1	100.00	Using where; Not exists
 3	DEPENDENT SUBQUERY	t2	NULL	index	NULL	d	2	NULL	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #3 was resolved in SELECT #1

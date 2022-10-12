@@ -4,9 +4,15 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 set @saved_writeset_extraction = @@global.transaction_write_set_extraction;
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
 set @saved_dependency_tracking = @@global.binlog_transaction_dependency_tracking;
 set global transaction_write_set_extraction=xxhash64;
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
 set transaction_write_set_extraction=xxhash64;
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
 set global binlog_transaction_dependency_tracking=writeset;
 set binlog_format = mixed;
 show variables like '%binlog_format%';
@@ -18,12 +24,16 @@ create table t3(c1 int);
 insert into t2 values(1);
 include/sync_slave_sql_with_master.inc
 stop replica;
-set @saved_slave_preserve_commit_order=@@global.slave_preserve_commit_order;
-set @saved_slave_parallel_type=@@global.slave_parallel_type;
-set @saved_slave_parallel_workers=@@global.slave_parallel_workers;
-set global slave_preserve_commit_order=OFF;
-set global slave_parallel_type=logical_clock;
-set global slave_parallel_workers=2;
+set @saved_replica_preserve_commit_order=@@global.replica_preserve_commit_order;
+set @saved_replica_parallel_type=@@global.replica_parallel_type;
+Warnings:
+Warning	1287	'@@replica_parallel_type' is deprecated and will be removed in a future release.
+set @saved_replica_parallel_workers=@@global.replica_parallel_workers;
+set global replica_preserve_commit_order=OFF;
+set global replica_parallel_type=logical_clock;
+Warnings:
+Warning	1287	'@@replica_parallel_type' is deprecated and will be removed in a future release.
+set global replica_parallel_workers=2;
 begin;
 update t2 set c1=2 where c1=1;
 commit;
@@ -47,12 +57,16 @@ select * from t2;
 c1
 9
 stop replica;
-set global slave_preserve_commit_order=@saved_slave_preserve_commit_order;
-set global slave_parallel_type=@saved_slave_parallel_type;
-set global slave_parallel_workers=@saved_slave_parallel_workers;
+set global replica_preserve_commit_order=@saved_replica_preserve_commit_order;
+set global replica_parallel_type=@saved_replica_parallel_type;
+Warnings:
+Warning	1287	'@@replica_parallel_type' is deprecated and will be removed in a future release.
+set global replica_parallel_workers=@saved_replica_parallel_workers;
 start replica;
 set global binlog_transaction_dependency_tracking = @saved_dependency_tracking;
 set global transaction_write_set_extraction = @saved_writeset_extraction;
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
 drop table if exists t1;
 drop table if exists t2;
 drop table if exists t3;

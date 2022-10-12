@@ -44,7 +44,7 @@ send Mysqlx.Sql.StmtExecute {
 
 
 command ok
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
@@ -91,7 +91,7 @@ send Mysqlx.Sql.StmtExecute {
 
 
 command ok
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
@@ -138,7 +138,7 @@ send Mysqlx.Sql.StmtExecute {
 
 
 command ok
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
@@ -170,9 +170,9 @@ send Mysqlx.Crud.Find {
 }
 
 ID	Name	CountryCode	District	Population
-4	Mazar-e-Sharif	AFG	Balkh	127
-3	Herat	AFG	Herat	186
 2	Qandahar	AFG	Qandahar	237
+3	Herat	AFG	Herat	186
+4	Mazar-e-Sharif	AFG	Balkh	127
 command ok
 Mysqlx.Ok {
   msg: "bye!"
@@ -187,7 +187,7 @@ send Mysqlx.Sql.StmtExecute {
 
 
 command ok
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 SSL/TLS
 0 rows affected
@@ -219,9 +219,9 @@ send Mysqlx.Crud.Find {
 }
 
 ID	Name	CountryCode	District	Population
-3	Herat	AFG	Herat	186
-2	Qandahar	AFG	Qandahar	237
 4	Mazar-e-Sharif	AFG	Balkh	127
+2	Qandahar	AFG	Qandahar	237
+3	Herat	AFG	Herat	186
 command ok
 Mysqlx.Ok {
   msg: "bye!"
@@ -230,19 +230,19 @@ ok
 Check if mysqlx_socket has correct value
 result
 1
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
 connecting...
 active session is now 'session2'
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
 connecting...
 active session is now 'session3'
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
@@ -321,7 +321,7 @@ send Mysqlx.Sql.StmtExecute {
 
 
 command ok
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
@@ -353,8 +353,8 @@ send Mysqlx.Crud.Find {
 }
 
 ID	Name	CountryCode	District	Population
-3	Herat	AFG	Herat	186
 2	Qandahar	AFG	Qandahar	237
+3	Herat	AFG	Herat	186
 4	Mazar-e-Sharif	AFG	Balkh	127
 command ok
 Mysqlx.Ok {
@@ -405,7 +405,7 @@ Mysqlx.Session.AuthenticateOk {
 ok
 SET GLOBAL require_secure_transport:=0;
 # restart: --mysqlx-socket=SOCKET
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected
@@ -413,7 +413,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query';
+RUN SELECT CONNECTION_TYPE from performance_schema.threads where processlist_command='Query' and PROCESSLIST_ID=connection_id();
 CONNECTION_TYPE
 Socket
 0 rows affected

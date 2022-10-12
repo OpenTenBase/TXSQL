@@ -1119,10 +1119,10 @@ RETURN f()|
 SHOW PROCEDURE CODE p1;
 Pos	Instruction
 0	set x1@0 (select (1 + 2))
-1	set x2@1 (select * from (select (1 + 2) AS `1 + 2`) `t1`)
-2	set x3@2 (select * from `test`.`t1`)
-3	set x4@3 (select * from `test`.`t2`)
-4	set x5@4 (select * from `test`.`t3`)
+1	set x2@1 (select `*` from (select (1 + 2) AS `1 + 2`) `t1`)
+2	set x3@2 (select `*` from `test`.`t1`)
+3	set x4@3 (select `*` from `test`.`t2`)
+4	set x5@4 (select `*` from `test`.`t3`)
 5	set x6@5 (select `f`())
 6	cpush c1@0:
 7	cpush c2@1: SELECT * FROM (SELECT 1 + 2) t1
@@ -1132,35 +1132,35 @@ Pos	Instruction
 11	cpush c6@5: SELECT f()
 12	jump_if_not 14(14) (select (1 + 2))
 13	stmt "SET @dummy = 1"
-14	jump_if_not 16(16) (select * from (select (1 + 2) AS `1 + 2`) `t1`)
+14	jump_if_not 16(16) (select `*` from (select (1 + 2) AS `1 + 2`) `t1`)
 15	stmt "SET @dummy = 1"
-16	jump_if_not 18(18) (select * from `test`.`t1`)
+16	jump_if_not 18(18) (select `*` from `test`.`t1`)
 17	stmt "SET @dummy = 1"
-18	jump_if_not 20(20) (select * from `test`.`t2`)
+18	jump_if_not 20(20) (select `*` from `test`.`t2`)
 19	stmt "SET @dummy = 1"
-20	jump_if_not 22(22) (select * from `test`.`t3`)
+20	jump_if_not 22(22) (select `*` from `test`.`t3`)
 21	stmt "SET @dummy = 1"
 22	jump_if_not 24(24) (select `f`())
 23	stmt "SET @dummy = 1"
 24	set x1@0 (select (1 + 2))
-25	set x1@0 (select * from (select (1 + 2) AS `1 + 2`) `t1`)
-26	set x1@0 (select * from `test`.`t1`)
-27	set x1@0 (select * from `test`.`t2`)
-28	set x1@0 (select * from `test`.`t3`)
+25	set x1@0 (select `*` from (select (1 + 2) AS `1 + 2`) `t1`)
+26	set x1@0 (select `*` from `test`.`t1`)
+27	set x1@0 (select `*` from `test`.`t2`)
+28	set x1@0 (select `*` from `test`.`t3`)
 29	set x1@0 (select `f`())
 30	jump_if_not 33(49) ((select (1 + 2)) = 1)
 31	stmt "SET @dummy = 1"
 32	jump 49
-33	jump_if_not 36(49) ((select * from (select (1 + 2) AS `1 + 2`) `t1`) = 2)
+33	jump_if_not 36(49) ((select `*` from (select (1 + 2) AS `1 + 2`) `t1`) = 2)
 34	stmt "SET @dummy = 1"
 35	jump 49
-36	jump_if_not 39(49) ((select * from `test`.`t1`) = 3)
+36	jump_if_not 39(49) ((select `*` from `test`.`t1`) = 3)
 37	stmt "SET @dummy = 1"
 38	jump 49
-39	jump_if_not 42(49) ((select * from `test`.`t2`) = 3)
+39	jump_if_not 42(49) ((select `*` from `test`.`t2`) = 3)
 40	stmt "SET @dummy = 1"
 41	jump 49
-42	jump_if_not 45(49) ((select * from `test`.`t3`) = 3)
+42	jump_if_not 45(49) ((select `*` from `test`.`t3`) = 3)
 43	stmt "SET @dummy = 1"
 44	jump 49
 45	jump_if_not 48(49) ((select `f`()) = 3)
@@ -1172,22 +1172,22 @@ Pos	Instruction
 51	stmt "SET @dummy = 1"
 52	jump 54
 53	stmt "SET @dummy = 1"
-54	set_case_expr (59) 1 (select * from (select (1 + 2) AS `1 + 2`) `t1`)
+54	set_case_expr (59) 1 (select `*` from (select (1 + 2) AS `1 + 2`) `t1`)
 55	jump_if_not_case_when 58(59) (case_expr@1 = 1)
 56	stmt "SET @dummy = 1"
 57	jump 59
 58	stmt "SET @dummy = 1"
-59	set_case_expr (64) 2 (select * from `test`.`t1`)
+59	set_case_expr (64) 2 (select `*` from `test`.`t1`)
 60	jump_if_not_case_when 63(64) (case_expr@2 = 1)
 61	stmt "SET @dummy = 1"
 62	jump 64
 63	stmt "SET @dummy = 1"
-64	set_case_expr (69) 3 (select * from `test`.`t2`)
+64	set_case_expr (69) 3 (select `*` from `test`.`t2`)
 65	jump_if_not_case_when 68(69) (case_expr@3 = 1)
 66	stmt "SET @dummy = 1"
 67	jump 69
 68	stmt "SET @dummy = 1"
-69	set_case_expr (74) 4 (select * from `test`.`t3`)
+69	set_case_expr (74) 4 (select `*` from `test`.`t3`)
 70	jump_if_not_case_when 73(74) (case_expr@4 = 1)
 71	stmt "SET @dummy = 1"
 72	jump 74
@@ -1200,16 +1200,16 @@ Pos	Instruction
 79	jump_if_not 82(82) (select (1 - 1))
 80	stmt "SET @dummy = 1"
 81	jump 79
-82	jump_if_not 85(85) (select * from (select (1 - 1) AS `1 - 1`) `t1`)
+82	jump_if_not 85(85) (select `*` from (select (1 - 1) AS `1 - 1`) `t1`)
 83	stmt "SET @dummy = 1"
 84	jump 82
-85	jump_if_not 88(88) ((select * from `test`.`t1`) - 10)
+85	jump_if_not 88(88) ((select `*` from `test`.`t1`) - 10)
 86	stmt "SET @dummy = 1"
 87	jump 85
-88	jump_if_not 91(91) ((select * from `test`.`t2`) - 10)
+88	jump_if_not 91(91) ((select `*` from `test`.`t2`) - 10)
 89	stmt "SET @dummy = 1"
 90	jump 88
-91	jump_if_not 94(94) ((select * from `test`.`t3`) - 10)
+91	jump_if_not 94(94) ((select `*` from `test`.`t3`) - 10)
 92	stmt "SET @dummy = 1"
 93	jump 91
 94	jump_if_not 97(97) ((select `f`()) - 1)
@@ -1218,13 +1218,13 @@ Pos	Instruction
 97	stmt "SET @dummy = 1"
 98	jump_if_not 97(99) (select (1 - 1))
 99	stmt "SET @dummy = 1"
-100	jump_if_not 99(101) (select * from (select (1 - 1) AS `1 - 1`) `t1`)
+100	jump_if_not 99(101) (select `*` from (select (1 - 1) AS `1 - 1`) `t1`)
 101	stmt "SET @dummy = 1"
-102	jump_if_not 101(103) ((select * from `test`.`t1`) - 10)
+102	jump_if_not 101(103) ((select `*` from `test`.`t1`) - 10)
 103	stmt "SET @dummy = 1"
-104	jump_if_not 103(105) ((select * from `test`.`t2`) - 10)
+104	jump_if_not 103(105) ((select `*` from `test`.`t2`) - 10)
 105	stmt "SET @dummy = 1"
-106	jump_if_not 105(107) ((select * from `test`.`t3`) - 10)
+106	jump_if_not 105(107) ((select `*` from `test`.`t3`) - 10)
 107	stmt "SET @dummy = 1"
 108	jump_if_not 107(109) ((select `f`()) - 1)
 109	cpop 6
@@ -1234,16 +1234,16 @@ Pos	Instruction
 0	freturn 3 (select (1 + 2))
 SHOW FUNCTION CODE f2;
 Pos	Instruction
-0	freturn 3 (select * from (select (1 + 2) AS `1 + 2`) `t1`)
+0	freturn 3 (select `*` from (select (1 + 2) AS `1 + 2`) `t1`)
 SHOW FUNCTION CODE f3;
 Pos	Instruction
-0	freturn 3 (select * from `test`.`t1`)
+0	freturn 3 (select `*` from `test`.`t1`)
 SHOW FUNCTION CODE f4;
 Pos	Instruction
-0	freturn 3 (select * from `test`.`t2`)
+0	freturn 3 (select `*` from `test`.`t2`)
 SHOW FUNCTION CODE f5;
 Pos	Instruction
-0	freturn 3 (select * from `test`.`t3`)
+0	freturn 3 (select `*` from `test`.`t3`)
 SHOW FUNCTION CODE f6;
 Pos	Instruction
 0	freturn 3 `f`()

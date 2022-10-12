@@ -33,6 +33,6 @@ Mysqlx.Ok {
 ok
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info
-<ID>	event_scheduler	<HOST_NAME>	NULL	Wait	<TIME>	Waiting on empty queue	NULL
-<ID>	root	<HOST_NAME>	test	Wait	<TIME>	STATE	SHOW PROCESSLIST
+<ID>	event_scheduler	<HOST_NAME>	NULL	Daemon	<TIME>	Waiting on empty queue	NULL
+<ID>	root	<HOST_NAME>	test	Query	<TIME>	STATE	SHOW PROCESSLIST
 DROP TABLE x;

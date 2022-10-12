@@ -11,6 +11,7 @@ where name like "wait/synch/sxlock/%"
 "wait/synch/sxlock/innodb/buf_block_debug_latch")
 order by name;
 name
+wait/synch/sxlock/innodb/backquery_enable_lock
 wait/synch/sxlock/innodb/btr_search_latch
 wait/synch/sxlock/innodb/dict_operation_lock
 wait/synch/sxlock/innodb/dict_table_stats
@@ -25,8 +26,6 @@ wait/synch/sxlock/innodb/log_sn_lock
 wait/synch/sxlock/innodb/rsegs_lock
 wait/synch/sxlock/innodb/trx_i_s_cache_lock
 wait/synch/sxlock/innodb/trx_purge_latch
-wait/synch/sxlock/innodb/trx_sys_mvcc_lock
-wait/synch/sxlock/innodb/trx_sys_rw_lock
 wait/synch/sxlock/innodb/undo_spaces_lock
 select name from performance_schema.rwlock_instances
 where name in

@@ -120,7 +120,8 @@ SELECT CREATE_DIGEST(@clr_msg);
 ERROR HY000: Can't initialize function 'create_digest'; Requires two parameters: the algo and the clear text.
 
 SELECT CREATE_DIGEST('error_input', @clr_msg);
-ERROR HY000: Can't initialize function 'create_digest'; Choose'md5', 'sha1', 'sha224', sha256', 'sha384' or 'sha512' as the first parame
+ERROR HY000: Can't initialize function 'create_digest'; Choose'md5', 'sha1', 'sha224', sha256', 'sha384' or 'sha512' as the first parameter.
+
 SET @hash1 = CREATE_DIGEST('Md5', @clr_msg);
 SET @hash1 = CREATE_DIGEST('SHA1', @clr_msg);
 SET @hash2 = CREATE_DIGEST('SHA224', @clr_msg);
@@ -194,11 +195,6 @@ Successfully removed!
 SELECT REMOVE_KEY_RECORDS('Dsa', 1);
 REMOVE_KEY_RECORDS('Dsa', 1)
 Successfully removed!
-SHOW STATUS LIKE "%CDB_ENTERPRISE_ENCRYPTION_COUNTS%";
-Variable_name	Value
-SHOW STATUS LIKE "%CDB_ENTERPRISE_ENCRYPTION_COUNTS%";
-Variable_name	Value
-cdb_enterprise_encryption_counts	32
 DROP FUNCTION IF EXISTS modify_public_params;
 DROP FUNCTION IF EXISTS create_asymmetric_priv_key;
 DROP FUNCTION IF EXISTS create_asymmetric_pub_key;

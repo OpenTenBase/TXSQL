@@ -170,7 +170,6 @@ class Dfo_mgr {
 
 TableRowIterator *analyze_parallel_table(Dfo *dfo);
 
-bool px_partition(THD *thd, const TableRowIterator *scan, size_t &dop,
+bool px_partition(THD *thd, TableRowIterator *scan, size_t &dop,
                   void *&scan_ctx, void *&trx);
-
 #endif  // PX_DFO_INCLUDED

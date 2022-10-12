@@ -9,7 +9,6 @@ FROM information_schema.schemata
 WHERE schema_name NOT IN ('mtr', 'sys')
 ORDER BY schema_name;
 SCHEMA_NAME	HEX(schema_name)
-__cdb_recycle_bin__	5F5F6364625F72656379636C655F62696E5F5F
 information_schema	696E666F726D6174696F6E5F736368656D61
 mysql	6D7973716C
 performance_schema	706572666F726D616E63655F736368656D61

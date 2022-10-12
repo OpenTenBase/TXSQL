@@ -21,6 +21,10 @@ select 'a  a' > 'a', 'a  \0' < 'a';
 select binary 'a  a' > 'a', binary 'a  \0' > 'a', binary 'a\0' > 'a';
 binary 'a  a' > 'a'	binary 'a  \0' > 'a'	binary 'a\0' > 'a'
 1	1	1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 set names default;
 create table t1 (text1 varchar(32) not NULL, KEY key1 (text1)) charset latin1;
 insert into t1 values ('teststring'), ('nothing'), ('teststring\t');
@@ -80,6 +84,11 @@ text1	length(text1)
 nothing	7
 teststring	10
 teststring		11
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 alter table t1 modify text1 blob not null, drop key key1, add key key1 (text1(20));
 insert into t1 values ('teststring ');
 select concat('|', text1, '|') from t1 order by text1;
@@ -218,9 +227,9 @@ insert into t1 values ('teststring ');
 select concat('|', text1, '|') from t1 order by text1;
 concat('|', text1, '|')
 |nothing|
-|teststring|
 |teststring	|
 |teststring |
+|teststring|
 alter table t1 modify text1 text not null, pack_keys=1;
 select * from t1 where text1 like 'teststring_%';
 text1

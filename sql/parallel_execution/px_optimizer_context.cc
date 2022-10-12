@@ -68,8 +68,8 @@ inline const char *to_str(enum enum_opt_call_type type) {
 
 inline const char *to_str(enum enum_opt_repo_type type) {
   switch (type) {
-    case OPT_REPO_OUTLINE:
-      return "outline version";
+    //case OPT_REPO_OUTLINE:
+    //  return "outline version";
     case OPT_REPO_COST:
       return "optimizer_cost version";
     case OPT_REPO_REWRITER:
@@ -353,10 +353,8 @@ void Opt_ctx_client::begin_optimization() {
 
   assert(m_nested_level == 0);
   if (m_mode != OPT_CTX_NATIVE) {
-    assert(outline_reload_version != -1);
     assert(optimizer_cost_reload_version != -1);
     assert(rewriter_plugin_reload_version != -1);
-    m_versions[OPT_REPO_OUTLINE] = outline_reload_version;
     m_versions[OPT_REPO_COST] = optimizer_cost_reload_version;
     m_versions[OPT_REPO_REWRITER] = rewriter_plugin_reload_version;
   }
@@ -393,7 +391,6 @@ bool Opt_ctx_client::validate() {
   const char *error_type = nullptr;
 
   long long versions[OPT_REPO_TYPE_LEN];
-  versions[OPT_REPO_OUTLINE] = outline_reload_version;
   versions[OPT_REPO_COST] = optimizer_cost_reload_version;
   versions[OPT_REPO_REWRITER] = rewriter_plugin_reload_version;
   for (int i = 0; i < OPT_REPO_TYPE_LEN; i++) {

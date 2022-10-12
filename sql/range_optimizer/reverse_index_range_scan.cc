@@ -67,6 +67,38 @@ ReverseIndexRangeScanIterator::~ReverseIndexRangeScanIterator() {
   }
 }
 
+#if defined(HAVE_PX)
+std::shared_ptr<PX_table_descriptor> ReverseIndexRangeScanIterator::get_table_descriptor() const {
+  auto descriptor = std::shared_ptr<PX_table_descriptor>(
+      new (thd()->mem_root) PX_table_descriptor(table(), PX_RANGE_SCAN,
+          m_index, true),
+      [](PX_table_descriptor *table_descriptor) { destroy(table_descriptor); });
+
+  if (descriptor.get() == nullptr) {
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
+  }
+
+  return descriptor;
+}
+
+bool ReverseIndexRangeScanIterator::prepare_for_parallel_query() {
+  HANDLER_BUFFER empty_buf;
+  empty_buf.buffer = empty_buf.buffer_end = empty_buf.end_of_used_area =
+      nullptr;
+
+  RANGE_SEQ_IF seq_funcs = {quick_range_rev_seq_init, quick_range_seq_next,
+                            nullptr};
+  if (int error = table()->file->multi_range_read_init(
+          &seq_funcs, this, ranges.size(), m_mrr_flags, &empty_buf);
+      error != 0) {
+    (void)report_handler_error(table(), error);
+    return true;
+  }
+
+  return false;
+}
+#endif /* defined(HAVE_PX) */
+
 bool ReverseIndexRangeScanIterator::Init() {
   current_range_idx = ranges.size();
   empty_record(table());

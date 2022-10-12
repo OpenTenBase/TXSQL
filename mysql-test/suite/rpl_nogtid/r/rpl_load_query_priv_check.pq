@@ -30,7 +30,7 @@ Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 REVOKE FILE, INSERT  ON *.* FROM 'u1'@'localhost';
 SET @@GLOBAL.DEBUG = "+d,skip_the_priv_check_in_begin_load";
-CHANGE MASTER TO  MASTER_USER='root', MASTER_PORT=MASTER_PORT, MASTER_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', MASTER_LOG_POS= MASTER_LOG_POS;
+CHANGE REPLICATION SOURCE TO  SOURCE_USER='root', SOURCE_PORT=MASTER_PORT, SOURCE_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', SOURCE_LOG_POS= MASTER_LOG_POS;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -44,7 +44,7 @@ STOP SLAVE;
 Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 GRANT FILE, INSERT  ON *.* TO 'u1'@'localhost';
-CHANGE MASTER TO  MASTER_USER='root', MASTER_PORT=MASTER_PORT, MASTER_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', MASTER_LOG_POS= MASTER_LOG_POS;
+CHANGE REPLICATION SOURCE TO  SOURCE_USER='root', SOURCE_PORT=MASTER_PORT, SOURCE_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', SOURCE_LOG_POS= MASTER_LOG_POS;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -67,7 +67,6 @@ DROP TABLE t1;
 CREATE TABLE t1 (c1 INT NOT NULL, PRIMARY KEY (c1)) ENGINE = MyISAM;
 INSERT INTO t1 VALUES (1);
 SET @@SESSION.sql_log_bin = ON;
-master_log_pos 1196
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/data01' INTO TABLE t1;
 ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
 [connection slave]
@@ -86,7 +85,7 @@ Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 REVOKE FILE  ON *.* FROM 'u1'@'localhost';
 SET @@GLOBAL.DEBUG = "+d,skip_the_priv_check_in_begin_load";
-CHANGE MASTER TO  MASTER_USER='root', MASTER_PORT=MASTER_PORT, MASTER_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', MASTER_LOG_POS= MASTER_LOG_POS;
+CHANGE REPLICATION SOURCE TO  SOURCE_USER='root', SOURCE_PORT=MASTER_PORT, SOURCE_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', SOURCE_LOG_POS= MASTER_LOG_POS;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -100,7 +99,7 @@ STOP SLAVE;
 Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 GRANT FILE  ON *.* TO 'u1'@'localhost';
-CHANGE MASTER TO  MASTER_USER='root', MASTER_PORT=MASTER_PORT, MASTER_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', MASTER_LOG_POS= MASTER_LOG_POS;
+CHANGE REPLICATION SOURCE TO  SOURCE_USER='root', SOURCE_PORT=MASTER_PORT, SOURCE_HOST='127.0.0.1', PRIVILEGE_CHECKS_USER = 'u1'@'localhost', SOURCE_LOG_POS= MASTER_LOG_POS;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.

@@ -602,7 +602,7 @@ SELECT * FROM JSON_TABLE(CAST(CAST("11:22:33" AS TIME) AS JSON),
 '$' COLUMNS (dt TIME PATH '$')) as tt;
 dt
 11:22:33
-SELECT * FROM JSON_TABLE(CAST(CAST("2001.02.03" AS DATE) AS JSON),
+SELECT * FROM JSON_TABLE(CAST(CAST("2001-02-03" AS DATE) AS JSON),
 '$' COLUMNS (dt DATE PATH '$')) as tt;
 dt
 2001-02-03
@@ -1747,6 +1747,8 @@ v
 bar
 CREATE TABLE t1 (col1 VARCHAR(255) CHARACTER SET ucs2,
 col2 VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_cs);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES ("æ", "ハ"), ("å", "ø"), ("ø", "パ"), ("@", "バ");
 ANALYZE TABLE t1 UPDATE HISTOGRAM ON col1, col2;
 Table	Op	Msg_type	Msg_text
@@ -1760,6 +1762,8 @@ c double PATH '$[1]')) hist
 WHERE column_name = "col1";
 value	cumulfreq
 @	0.25
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warnings:
 å	0.5
 æ	0.75
 ø	1
@@ -2181,3 +2185,17 @@ HEX(a)
 SELECT * FROM
 JSON_TABLE('{}', '$' COLUMNS (o FOR ORDINALITY, O FOR ORDINALITY)) jt;
 ERROR 42S21: Duplicate column name 'o'
+#
+# Bug#33351497: JSON_TABLE function report duplicate column name
+#
+SELECT * FROM JSON_TABLE('[1, 2]', '$' COLUMNS (
+测试列aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa INT PATH '$[0]',
+测试列aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabb INT PATH '$[1]')
+) AS jt;
+测试列aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	测试列aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabb
+1	2
+#
+# Bug#33414235: Item_row::illegal_method_call const: Assertion `0' failed.
+#
+SELECT 1 FROM JSON_TABLE(ROW(1, 2), '$' COLUMNS (o FOR ORDINALITY)) AS jt;
+ERROR 21000: Operand should contain 1 column(s)

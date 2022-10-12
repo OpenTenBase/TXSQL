@@ -11,19 +11,19 @@ include/stop_slave.inc
 RESET SLAVE ALL;
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-CHANGE MASTER TO MASTER_HOST='localhost', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT FOR CHANNEL 'ch1';
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='localhost', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT FOR CHANNEL 'ch1';
 #
 # RESTART SLAVE SERVER
 #
-include/rpl_restart_server.inc [server_number=2 parameters: --relay-log-recovery --skip-slave-start --slave-parallel-workers=4 --relay-log-purge=0]
-CHANGE MASTER TO MASTER_HOST='localhost', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT FOR CHANNEL 'ch1';
+include/rpl_restart_server.inc [server_number=2 parameters: --relay-log-recovery --skip-replica-start --replica-parallel-workers=4 --relay-log-purge=0]
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='localhost', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT FOR CHANNEL 'ch1';
 include/start_slave.inc
 include/stop_slave.inc
 RESET SLAVE ALL FOR CHANNEL 'ch1';
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-CHANGE MASTER TO MASTER_HOST='localhost', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT FOR CHANNEL 'ch1';
-CHANGE MASTER TO MASTER_HOST='localhost', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT FOR CHANNEL '';
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='localhost', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT FOR CHANNEL 'ch1';
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='localhost', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT FOR CHANNEL '';
 START SLAVE;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
@@ -31,8 +31,8 @@ include/stop_slave.inc
 RESET SLAVE ALL;
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-SET @@global.slave_parallel_workers=SAVE_PARALLEL_WORKERS;
-CHANGE MASTER TO MASTER_HOST='127.0.0.1', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT;
+SET @@global.replica_parallel_workers=SAVE_PARALLEL_WORKERS;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='127.0.0.1', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT;
 include/start_slave.inc
 include/rpl_restart_server.inc [server_number=2]
 [connection master]
@@ -47,11 +47,11 @@ Note	3084	Replication thread(s) for channel '' are already stopped.
 RESET SLAVE ALL;
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-SET @@global.slave_parallel_workers=5;
-CHANGE MASTER TO MASTER_HOST='localhost', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT FOR CHANNEL 'ch_trunk';
+SET @@global.replica_parallel_workers=5;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='localhost', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT FOR CHANNEL 'ch_trunk';
 include/start_slave.inc
 === RESTART SLAVE SERVER ===
-include/rpl_restart_server.inc [server_number=2 parameters: --relay-log-recovery --skip-slave-start --slave-parallel-workers=5]
+include/rpl_restart_server.inc [server_number=2 parameters: --relay-log-recovery --skip-replica-start --replica-parallel-workers=5]
 [connection slave]
 START SLAVE;
 Warnings:
@@ -60,8 +60,8 @@ include/stop_slave.inc
 RESET SLAVE ALL;
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-SET @@global.slave_parallel_workers=SAVE_PARALLEL_WORKERS;
-CHANGE MASTER TO MASTER_HOST='127.0.0.1', MASTER_USER='root', MASTER_PORT=MASTER_MYPORT;
+SET @@global.replica_parallel_workers=SAVE_PARALLEL_WORKERS;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='127.0.0.1', SOURCE_USER='root', SOURCE_PORT=MASTER_MYPORT;
 include/start_slave.inc
 include/rpl_restart_server.inc [server_number=2]
 include/start_slave.inc

@@ -24,7 +24,7 @@ EXPLAIN
 -> Aggregate: count(0)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: count(0)
+            -> Aggregate: count(0)  (cost=2.25 rows=1)
                 -> Parallel index scan on t1 using idx_col2  (cost=1.25 rows=10)
 
 SELECT count(*) from t1;

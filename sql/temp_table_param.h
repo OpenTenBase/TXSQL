@@ -232,6 +232,11 @@ class Temp_table_param {
 #if defined(HAVE_PX)
   void pq_copy_from(Temp_table_param *orig_param);
 
+  /*
+    The function only serves the plan equivalence comparison of parallel
+    execution (see px_access_path.cc). The function here is not incomplete
+    equivalence comparison.
+  */
   bool eq(const Temp_table_param *other) const;
 #endif /* defined(HAVE_PX) */
 };

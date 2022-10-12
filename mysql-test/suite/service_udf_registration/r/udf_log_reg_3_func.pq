@@ -80,3 +80,4 @@ Query	SELECT myfunc_int(5)
 Query	SELECT myfunc_int(5)
 Query	SELECT myfunc_int(5)
 Query	SELECT myfunc_int(a AS attr_name) FROM t1
+TRUNCATE TABLE mysql.general_log;

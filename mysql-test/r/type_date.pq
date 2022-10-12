@@ -211,8 +211,8 @@ test.t1	analyze	status	OK
 EXPLAIN SELECT COUNT(*) FROM t1 WHERE a = NOW();
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Parallel scan (2 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t1` where (`test`.`t1`.`a` = <cache>(now()))
 DROP TABLE t1;
@@ -612,3 +612,92 @@ CREATE TABLE t1(a int);
 INSERT INTO t1 VALUE(15.00+adddate('2011-00-00', 1));
 ERROR 22007: Incorrect datetime value: '2011-00-00'
 DROP TABLE t1;
+# Bug#32915973: Prepare DATE_ADD/DATE_SUB incorrectly returns DATETIME
+set @d_str = '2020-01-01';
+set @t_str = '01:01:01';
+set @dt_str = '2020-01-01 01:01:01';
+set @dt_tz = '2020-01-01 01:01:01+03:00';
+set @d_int = 20200101;
+set @t_int = 010101;
+set @dt_int = 20200101010101;
+set @d_dec = 20200101.0;
+set @t_dec = 010101.0;
+set @dt_dec = 20200101010101.0;
+set @d_flt = 20200101E0;
+set @t_flt = 010101E0;
+set @dt_flt = 20200101010101E0;
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @d_str;
+DATE'2020-01-01' = ?
+1
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @t_str;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @dt_str;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @dt_tz;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @d_int;
+DATE'2020-01-01' = ?
+1
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @t_int;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @dt_int;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @d_dec;
+DATE'2020-01-01' = ?
+1
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @t_dec;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @dt_dec;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @d_flt;
+DATE'2020-01-01' = ?
+1
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @t_flt;
+DATE'2020-01-01' = ?
+0
+prepare stmt from "SELECT DATE'2020-01-01' = ?";
+execute stmt using @dt_flt;
+DATE'2020-01-01' = ?
+0
+deallocate prepare stmt;
+# Bug#33649009: Inconsistency between protocols when writing offset
+#               char values to DATE column
+CREATE TABLE dt(dt DATETIME);
+INSERT INTO dt VALUES('2021-10-10 23:00:00.123456+01:00');
+CREATE TABLE d(d DATE);
+INSERT INTO d VALUES('2021-10-10 23:00:00.123456+01:00');
+Warnings:
+Note	1292	Incorrect date value: '2021-10-10 23:00:00.123456+01:00' for column 'd' at row 1
+INSERT INTO d SELECT * FROM dt;
+Warnings:
+Note	1292	Incorrect date value: '2021-10-11 01:00:00' for column 'd' at row 1
+prepare s from "INSERT INTO d VALUES(?)";
+set @t='2021-10-10 23:00:00.123456+01:00';
+execute s using @t;
+Warnings:
+Note	1292	Incorrect date value: '2021-10-11 01:00:00' for column 'd' at row 1
+SELECT * FROM d;
+d
+2021-10-11
+2021-10-11
+2021-10-11
+DROP TABLE d, dt;

@@ -128,8 +128,8 @@ Note	1003	/* select#1 */ select /*+ NO_JOIN_INDEX(`t1`@`select#1` `i_ab`) */ `te
 EXPLAIN SELECT /*+ GROUP_INDEX(t1 i_ab) */ a, max(b) FROM t1 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	i_ab	i_ab	10	NULL	256	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	256	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	256	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select /*+ GROUP_INDEX(`t1`@`select#1` `i_ab`) */ `test`.`t1`.`a` AS `a`,max(`test`.`t1`.`b`) AS `max(b)` from `test`.`t1` group by `test`.`t1`.`a`
 EXPLAIN SELECT /*+ JOIN_INDEX(t1 i_ab) */ a, max(b) FROM t1 GROUP BY a;
@@ -229,7 +229,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	index	NULL	i_ab	10	NULL	256	12.50	Using where; Using index; Using join buffer (hash join)
 1	SIMPLE	ta	NULL	range	i_a	i_a	5	NULL	160	100.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
-Note	1003	/* select#1 */ select `ta`.`a` AS `a` from `test`.`t1` /*+ NO_INDEX(`t1`@`select#1` `i_a`, `i_b`) */  semi join (`test`.`t1` /*+ NO_INDEX(`t1`@`select#2` `i_ab`, `i_b`) */ ) join `test`.`t1` `ta` /*+ INDEX(`ta`@`select#1` `i_a`) */  where ((`test`.`t1`.`b` = `test`.`t1`.`a`) and (`ta`.`a` > 3) and (`test`.`t1`.`a` > 3))
+Note	1003	/* select#1 */ select `test`.`ta`.`a` AS `a` from `test`.`t1` /*+ NO_INDEX(`t1`@`select#1` `i_a`, `i_b`) */  semi join (`test`.`t1` /*+ NO_INDEX(`t1`@`select#2` `i_ab`, `i_b`) */ ) join `test`.`t1` `ta` /*+ INDEX(`ta`@`select#1` `i_a`) */  where ((`test`.`t1`.`b` = `test`.`t1`.`a`) and (`test`.`ta`.`a` > 3) and (`test`.`t1`.`a` > 3))
 EXPLAIN SELECT /*+ INDEX(tb i_a) */ tb.a FROM v2, t1 tb WHERE tb.a > 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	i_a	i_a	5	NULL	160	5.00	Using where; Using index; LooseScan
@@ -237,7 +237,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	ta	NULL	range	i_a	i_a	5	NULL	160	100.00	Using where; Using index; Using join buffer (hash join)
 1	SIMPLE	tb	NULL	range	i_a	i_a	5	NULL	160	100.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
-Note	1003	/* select#1 */ select /*+ INDEX(`tb`@`select#1` `i_a`) */ `test`.`tb`.`a` AS `a` from `test`.`t1` /*+ NO_INDEX(`t1`@`select#1` `i_a`, `i_b`) */  semi join (`test`.`t1` /*+ NO_INDEX(`t1`@`select#2` `i_ab`, `i_b`) */ ) join `test`.`t1` `ta` /*+ INDEX(`ta`@`select#1` `i_a`) */  join `test`.`t1` `tb` where ((`test`.`t1`.`b` = `test`.`t1`.`a`) and (`test`.`tb`.`a` > 3) and (`ta`.`a` > 3) and (`test`.`t1`.`a` > 3))
+Note	1003	/* select#1 */ select /*+ INDEX(`tb`@`select#1` `i_a`) */ `test`.`tb`.`a` AS `a` from `test`.`t1` /*+ NO_INDEX(`t1`@`select#1` `i_a`, `i_b`) */  semi join (`test`.`t1` /*+ NO_INDEX(`t1`@`select#2` `i_ab`, `i_b`) */ ) join `test`.`t1` `ta` /*+ INDEX(`ta`@`select#1` `i_a`) */  join `test`.`t1` `tb` where ((`test`.`t1`.`b` = `test`.`t1`.`a`) and (`test`.`tb`.`a` > 3) and (`test`.`ta`.`a` > 3) and (`test`.`t1`.`a` > 3))
 EXPLAIN SELECT /*+ INDEX(t1 i_a) */ * FROM t1 IGNORE INDEX(i_a)
 WHERE a = 1 AND b = 2 AND c = 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra

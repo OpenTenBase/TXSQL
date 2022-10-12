@@ -100,6 +100,12 @@ a	b	a3	b3	a4	b4
 4	2	1	2	3	2
 4	2	1	2	4	2
 5	3	NULL	NULL	NULL	NULL
+ANALYZE TABLE t1, t2, t3, t4;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
 EXPLAIN
 SELECT t2.a,t2.b,t3.a,t3.b,t4.a,t4.b
 FROM t2
@@ -108,11 +114,31 @@ LEFT JOIN
 ON t2.b=t4.b
 WHERE t3.a=1 OR t3.c IS NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b` from `test`.`t2` left join (`test`.`t3` join `test`.`t4`) on((`test`.`t4`.`b` = `test`.`t2`.`b`)) where ((`test`.`t3`.`a` = 1) or (`test`.`t3`.`c` is null))
+EXPLAIN FORMAT=tree
+SELECT t2.a,t2.b,t3.a,t3.b,t4.a,t4.b
+FROM t2
+LEFT JOIN              
+(t3, t4)
+ON t2.b=t4.b
+WHERE t3.a=1 OR t3.c IS NULL;
+EXPLAIN
+-> Filter: ((t3.a = 1) or (t3.c is null))  (cost=3.05 rows=12)
+    -> Nested loop left join  (cost=3.05 rows=12)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 3)
+                -> Parallel table scan on t2  (cost=0.55 rows=3)
+        -> Nested loop inner join  (cost=1.88 rows=4)
+            -> Table scan on t3  (cost=0.35 rows=2)
+            -> Filter: (t4.b = t2.b)  (cost=0.29 rows=2)
+                -> Table scan on t4  (cost=0.29 rows=2)
+
 SELECT t2.a,t2.b,t3.a,t3.b,t4.a,t4.b
 FROM t2
 LEFT JOIN              
@@ -218,6 +244,12 @@ a	b	a3	b3	a4	b4	a5	b5
 4	2	2	2	4	2	3	1
 4	2	2	2	4	2	3	3
 5	3	NULL	NULL	NULL	NULL	NULL	NULL
+ANALYZE TABLE t2, t3, t4, t5;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
 EXPLAIN
 SELECT t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,t5.a,t5.b
 FROM t2
@@ -226,7 +258,9 @@ LEFT JOIN
 ON t2.b=t4.b
 WHERE t3.a>1 OR t3.c IS NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
@@ -262,6 +296,12 @@ a	b	a3	b3	a4	b4	a5	b5
 4	2	2	2	4	2	3	1
 4	2	2	2	4	2	3	3
 5	3	NULL	NULL	NULL	NULL	NULL	NULL
+ANALYZE TABLE t2, t3, t4, t5;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
 EXPLAIN
 SELECT t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,t5.a,t5.b
 FROM t2
@@ -271,7 +311,9 @@ ON t2.b=t4.b
 WHERE (t3.a>1 OR t3.c IS NULL) AND 
 (t5.a<3 OR t5.c IS NULL);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
@@ -326,6 +368,11 @@ FROM t8;
 a	b
 0	2
 1	2
+ANALYZE TABLE t6, t7, t8;
+Table	Op	Msg_type	Msg_text
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
 EXPLAIN
 SELECT t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
 FROM (t6, t7)
@@ -333,9 +380,11 @@ LEFT JOIN
 t8
 ON t7.b=t8.b AND t6.b < 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
 1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 1	SIMPLE	t8	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b` from `test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t7`.`b`) and (`test`.`t6`.`b` < 10))) where true
 SELECT t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
@@ -889,6 +938,17 @@ a	b
 1	1
 1	2
 2	2
+ANALYZE TABLE t0, t1, t2, t3, t4, t5, t6, t7, t8;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
 EXPLAIN
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
@@ -916,8 +976,10 @@ WHERE t0.a=1 AND
 t0.b=t1.b AND          
 (t2.a >= 4 OR t2.c IS NULL);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
@@ -1024,6 +1086,18 @@ a	b	a	b	a	b	a3	b3	a4	b4	a	b	a6	b6	a7	b7	a	b
 1	2	3	2	5	3	NULL	NULL	NULL	NULL	3	1	3	2	1	1	NULL	NULL
 1	2	3	2	5	3	NULL	NULL	NULL	NULL	3	1	6	2	1	1	NULL	NULL
 1	2	3	2	5	3	NULL	NULL	NULL	NULL	3	3	NULL	NULL	NULL	NULL	NULL	NULL
+ANALYZE TABLE t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
+test.t9	analyze	status	OK
 EXPLAIN
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b,t9.a,t9.b
@@ -1060,9 +1134,11 @@ t0.b=t1.b AND
 (t8.b=t9.b OR t8.c IS NULL) AND
 (t9.a=1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 1	SIMPLE	t9	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
@@ -1417,8 +1493,10 @@ t2
 ON t3.a=1 AND t2.b=t4.b
 WHERE t1.a <= 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
@@ -1431,9 +1509,11 @@ LEFT JOIN
 (t1,t2)
 ON t3.a=1 AND t3.b=t2.b AND t2.b=t4.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-1	SIMPLE	t2	NULL	ref	idx_b	idx_b	5	test.t3.b	2	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	t2	NULL	ref	idx_b	idx_b	5	test.t3.b	1	100.00	Using where
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b` from `test`.`t3` join `test`.`t4` left join (`test`.`t1` join `test`.`t2`) on(((`test`.`t4`.`b` = `test`.`t3`.`b`) and (`test`.`t2`.`b` = `test`.`t3`.`b`) and (`test`.`t3`.`a` = 1))) where true
@@ -1466,6 +1546,18 @@ a	b	a	b	a	b
 4	2	1	2	4	2
 NULL	NULL	2	2	3	2
 NULL	NULL	2	2	4	2
+ANALYZE TABLE t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
+test.t9	analyze	status	OK
 EXPLAIN
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b,t9.a,t9.b
@@ -1502,9 +1594,11 @@ t0.b=t1.b AND
 (t8.b=t9.b OR t8.c IS NULL) AND
 (t9.a=1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 1	SIMPLE	t9	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
@@ -1516,6 +1610,18 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b`,`test`.`t9`.`a` AS `a`,`test`.`t9`.`b` AS `b` from `test`.`t0` join `test`.`t1` left join (`test`.`t2` left join (`test`.`t3` join `test`.`t4`) on(((`test`.`t4`.`b` = `test`.`t2`.`b`) and (`test`.`t3`.`a` = 1))) join `test`.`t5` left join (`test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` < 10)))) on(((`test`.`t7`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` >= 2)))) on((((`test`.`t3`.`b` = 2) or (`test`.`t3`.`c` is null)) and ((`test`.`t6`.`b` = 2) or (`test`.`t6`.`c` is null)) and ((`test`.`t5`.`b` = `test`.`t0`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t6`.`c` is null) or (`test`.`t8`.`c` is null)) and (`test`.`t1`.`a` <> 2))) join `test`.`t9` where ((`test`.`t9`.`a` = 1) and (`test`.`t1`.`b` = `test`.`t0`.`b`) and (`test`.`t0`.`a` = 1) and ((`test`.`t2`.`a` >= 4) or (`test`.`t2`.`c` is null)) and ((`test`.`t3`.`a` < 5) or (`test`.`t3`.`c` is null)) and ((`test`.`t4`.`b` = `test`.`t3`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t4`.`c` is null)) and ((`test`.`t5`.`a` >= 2) or (`test`.`t5`.`c` is null)) and ((`test`.`t6`.`a` >= 4) or (`test`.`t6`.`c` is null)) and ((`test`.`t7`.`a` <= 2) or (`test`.`t7`.`c` is null)) and ((`test`.`t8`.`a` < 1) or (`test`.`t8`.`c` is null)) and ((`test`.`t8`.`b` = `test`.`t9`.`b`) or (`test`.`t8`.`c` is null)))
 CREATE INDEX idx_b ON t4(b);
 CREATE INDEX idx_b ON t5(b);
+ANALYZE TABLE t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
+test.t9	analyze	status	OK
 EXPLAIN
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b,t9.a,t9.b
@@ -1552,12 +1658,14 @@ t0.b=t1.b AND
 (t8.b=t9.b OR t8.c IS NULL) AND
 (t9.a=1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 1	SIMPLE	t9	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
-1	SIMPLE	t4	NULL	ref	idx_b	idx_b	5	test.t2.b	2	100.00	Using where
+1	SIMPLE	t4	NULL	ALL	idx_b	NULL	NULL	NULL	2	100.00	Using where
 1	SIMPLE	t5	NULL	ALL	idx_b	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
@@ -1565,6 +1673,18 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b`,`test`.`t9`.`a` AS `a`,`test`.`t9`.`b` AS `b` from `test`.`t0` join `test`.`t1` left join (`test`.`t2` left join (`test`.`t3` join `test`.`t4`) on(((`test`.`t4`.`b` = `test`.`t2`.`b`) and (`test`.`t3`.`a` = 1))) join `test`.`t5` left join (`test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` < 10)))) on(((`test`.`t7`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` >= 2)))) on((((`test`.`t3`.`b` = 2) or (`test`.`t3`.`c` is null)) and ((`test`.`t6`.`b` = 2) or (`test`.`t6`.`c` is null)) and ((`test`.`t5`.`b` = `test`.`t0`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t6`.`c` is null) or (`test`.`t8`.`c` is null)) and (`test`.`t1`.`a` <> 2))) join `test`.`t9` where ((`test`.`t9`.`a` = 1) and (`test`.`t1`.`b` = `test`.`t0`.`b`) and (`test`.`t0`.`a` = 1) and ((`test`.`t2`.`a` >= 4) or (`test`.`t2`.`c` is null)) and ((`test`.`t3`.`a` < 5) or (`test`.`t3`.`c` is null)) and ((`test`.`t4`.`b` = `test`.`t3`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t4`.`c` is null)) and ((`test`.`t5`.`a` >= 2) or (`test`.`t5`.`c` is null)) and ((`test`.`t6`.`a` >= 4) or (`test`.`t6`.`c` is null)) and ((`test`.`t7`.`a` <= 2) or (`test`.`t7`.`c` is null)) and ((`test`.`t8`.`a` < 1) or (`test`.`t8`.`c` is null)) and ((`test`.`t8`.`b` = `test`.`t9`.`b`) or (`test`.`t8`.`c` is null)))
 CREATE INDEX idx_b ON t8(b);
+ANALYZE TABLE t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
+test.t9	analyze	status	OK
 EXPLAIN
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b,t9.a,t9.b
@@ -1601,20 +1721,34 @@ t0.b=t1.b AND
 (t8.b=t9.b OR t8.c IS NULL) AND
 (t9.a=1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 1	SIMPLE	t9	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
-1	SIMPLE	t4	NULL	ref	idx_b	idx_b	5	test.t2.b	2	100.00	Using where
+1	SIMPLE	t4	NULL	ALL	idx_b	NULL	NULL	NULL	2	100.00	Using where
 1	SIMPLE	t5	NULL	ALL	idx_b	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
-1	SIMPLE	t8	NULL	ref	idx_b	idx_b	5	test.t5.b	2	75.00	Using where
+1	SIMPLE	t8	NULL	ALL	idx_b	NULL	NULL	NULL	2	75.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b`,`test`.`t9`.`a` AS `a`,`test`.`t9`.`b` AS `b` from `test`.`t0` join `test`.`t1` left join (`test`.`t2` left join (`test`.`t3` join `test`.`t4`) on(((`test`.`t4`.`b` = `test`.`t2`.`b`) and (`test`.`t3`.`a` = 1))) join `test`.`t5` left join (`test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` < 10)))) on(((`test`.`t7`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` >= 2)))) on((((`test`.`t3`.`b` = 2) or (`test`.`t3`.`c` is null)) and ((`test`.`t6`.`b` = 2) or (`test`.`t6`.`c` is null)) and ((`test`.`t5`.`b` = `test`.`t0`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t6`.`c` is null) or (`test`.`t8`.`c` is null)) and (`test`.`t1`.`a` <> 2))) join `test`.`t9` where ((`test`.`t9`.`a` = 1) and (`test`.`t1`.`b` = `test`.`t0`.`b`) and (`test`.`t0`.`a` = 1) and ((`test`.`t2`.`a` >= 4) or (`test`.`t2`.`c` is null)) and ((`test`.`t3`.`a` < 5) or (`test`.`t3`.`c` is null)) and ((`test`.`t4`.`b` = `test`.`t3`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t4`.`c` is null)) and ((`test`.`t5`.`a` >= 2) or (`test`.`t5`.`c` is null)) and ((`test`.`t6`.`a` >= 4) or (`test`.`t6`.`c` is null)) and ((`test`.`t7`.`a` <= 2) or (`test`.`t7`.`c` is null)) and ((`test`.`t8`.`a` < 1) or (`test`.`t8`.`c` is null)) and ((`test`.`t8`.`b` = `test`.`t9`.`b`) or (`test`.`t8`.`c` is null)))
 CREATE INDEX idx_b ON t1(b);
 CREATE INDEX idx_a ON t0(a);
+ANALYZE TABLE t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
+test.t9	analyze	status	OK
 EXPLAIN
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b,t9.a,t9.b
@@ -1651,18 +1785,18 @@ t0.b=t1.b AND
 (t8.b=t9.b OR t8.c IS NULL) AND
 (t9.a=1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t0	NULL	ref	idx_a	idx_a	5	const	1	100.00	Using where
 1	SIMPLE	t9	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
-1	SIMPLE	t1	NULL	ref	idx_b	idx_b	5	test.t0.b	2	100.00	Using join buffer (Batched Key Access)
+1	SIMPLE	t1	NULL	ALL	idx_b	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t0	NULL	ref	idx_a	idx_a	5	const	2	33.33	Using where; Using join buffer (Batched Key Access)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
-1	SIMPLE	t4	NULL	ref	idx_b	idx_b	5	test.t2.b	2	100.00	Using where
+1	SIMPLE	t4	NULL	ALL	idx_b	NULL	NULL	NULL	2	100.00	Using where
 1	SIMPLE	t5	NULL	ALL	idx_b	NULL	NULL	NULL	3	55.56	Using where
 1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	2	75.00	Using where
 1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
-1	SIMPLE	t8	NULL	ref	idx_b	idx_b	5	test.t5.b	2	75.00	Using where
+1	SIMPLE	t8	NULL	ALL	idx_b	NULL	NULL	NULL	2	75.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b`,`test`.`t9`.`a` AS `a`,`test`.`t9`.`b` AS `b` from `test`.`t0` join `test`.`t1` left join (`test`.`t2` left join (`test`.`t3` join `test`.`t4`) on(((`test`.`t4`.`b` = `test`.`t2`.`b`) and (`test`.`t3`.`a` = 1))) join `test`.`t5` left join (`test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` < 10)))) on(((`test`.`t7`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` >= 2)))) on((((`test`.`t3`.`b` = 2) or (`test`.`t3`.`c` is null)) and ((`test`.`t6`.`b` = 2) or (`test`.`t6`.`c` is null)) and ((`test`.`t5`.`b` = `test`.`t0`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t6`.`c` is null) or (`test`.`t8`.`c` is null)) and (`test`.`t1`.`a` <> 2))) join `test`.`t9` where ((`test`.`t9`.`a` = 1) and (`test`.`t1`.`b` = `test`.`t0`.`b`) and (`test`.`t0`.`a` = 1) and ((`test`.`t2`.`a` >= 4) or (`test`.`t2`.`c` is null)) and ((`test`.`t3`.`a` < 5) or (`test`.`t3`.`c` is null)) and ((`test`.`t4`.`b` = `test`.`t3`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t4`.`c` is null)) and ((`test`.`t5`.`a` >= 2) or (`test`.`t5`.`c` is null)) and ((`test`.`t6`.`a` >= 4) or (`test`.`t6`.`c` is null)) and ((`test`.`t7`.`a` <= 2) or (`test`.`t7`.`c` is null)) and ((`test`.`t8`.`a` < 1) or (`test`.`t8`.`c` is null)) and ((`test`.`t8`.`b` = `test`.`t9`.`b`) or (`test`.`t8`.`c` is null)))
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b`,`test`.`t9`.`a` AS `a`,`test`.`t9`.`b` AS `b` from `test`.`t0` join `test`.`t1` left join (`test`.`t2` left join (`test`.`t3` join `test`.`t4`) on(((`test`.`t4`.`b` = `test`.`t2`.`b`) and (`test`.`t3`.`a` = 1))) join `test`.`t5` left join (`test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` < 10)))) on(((`test`.`t7`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` >= 2)))) on((((`test`.`t3`.`b` = 2) or (`test`.`t3`.`c` is null)) and ((`test`.`t6`.`b` = 2) or (`test`.`t6`.`c` is null)) and ((`test`.`t5`.`b` = `test`.`t1`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t6`.`c` is null) or (`test`.`t8`.`c` is null)) and (`test`.`t1`.`a` <> 2))) join `test`.`t9` where ((`test`.`t9`.`a` = 1) and (`test`.`t0`.`b` = `test`.`t1`.`b`) and (`test`.`t0`.`a` = 1) and ((`test`.`t2`.`a` >= 4) or (`test`.`t2`.`c` is null)) and ((`test`.`t3`.`a` < 5) or (`test`.`t3`.`c` is null)) and ((`test`.`t4`.`b` = `test`.`t3`.`b`) or (`test`.`t3`.`c` is null) or (`test`.`t4`.`c` is null)) and ((`test`.`t5`.`a` >= 2) or (`test`.`t5`.`c` is null)) and ((`test`.`t6`.`a` >= 4) or (`test`.`t6`.`c` is null)) and ((`test`.`t7`.`a` <= 2) or (`test`.`t7`.`c` is null)) and ((`test`.`t8`.`a` < 1) or (`test`.`t8`.`c` is null)) and ((`test`.`t8`.`b` = `test`.`t9`.`b`) or (`test`.`t8`.`c` is null)))
 SELECT t0.a,t0.b,t1.a,t1.b,t2.a,t2.b,t3.a,t3.b,t4.a,t4.b,
 t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b,t9.a,t9.b
 FROM t0,t1
@@ -1845,18 +1979,27 @@ INSERT INTO t1 VALUES (NULL), (0), (1), (2), (3), (4), (5), (6), (7), (8), (9),
 INSERT INTO t2 VALUES (NULL), (0), (1), (2), (3), (4), (5), (6), (7), (8), (9),
 (10), (11), (12), (13), (14), (15), (16), (17), (18), (19);
 INSERT INTO t3 VALUES (0), (1), (2), (3), (4), (5);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN SELECT a, b, c FROM t1 LEFT JOIN (t2, t3) ON c < 3 and b = c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	21	100.00	Using index
+1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	21	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	21	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	21	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	index	c	c	5	NULL	6	100.00	Using where; Using index
-1	SIMPLE	t2	NULL	ref	b	b	5	test.t3.c	2	100.00	Using index
+1	SIMPLE	t2	NULL	ref	b	b	5	test.t3.c	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` left join (`test`.`t2` join `test`.`t3`) on(((`test`.`t2`.`b` = `test`.`t3`.`c`) and (`test`.`t3`.`c` < 3))) where true
 EXPLAIN SELECT a, b, c FROM t1 LEFT JOIN (t2, t3) ON b < 3 and b = c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	21	100.00	Using index
+1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	21	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	21	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	21	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	index	c	c	5	NULL	6	100.00	Using where; Using index
-1	SIMPLE	t2	NULL	ref	b	b	5	test.t3.c	2	100.00	Using index
+1	SIMPLE	t2	NULL	ref	b	b	5	test.t3.c	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` left join (`test`.`t2` join `test`.`t3`) on(((`test`.`t2`.`b` = `test`.`t3`.`c`) and (`test`.`t3`.`c` < 3))) where true
 SELECT a, b, c FROM t1 LEFT JOIN (t2, t3) ON b < 3 and b = c;
@@ -1925,11 +2068,16 @@ NULL	0	0
 NULL	1	1
 NULL	2	2
 DELETE FROM t3;
+ANALYZE TABLE t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	OK
 EXPLAIN SELECT a, b, c FROM t1 LEFT JOIN (t2, t3) ON b < 3 and b = c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	21	100.00	Using index
-1	SIMPLE	t3	NULL	index	c	c	5	NULL	0	0.00	Using where; Using index
-1	SIMPLE	t2	NULL	ref	b	b	5	test.t3.c	2	100.00	Using index
+1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	21	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	21	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	21	100.00	Receive from (<sender1>)
+1	SIMPLE	t3	NULL	index	c	c	5	NULL	1	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	ref	b	b	5	test.t3.c	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t1` left join (`test`.`t2` join `test`.`t3`) on(((`test`.`t2`.`b` = `test`.`t3`.`c`) and (`test`.`t3`.`c` < 3))) where true
 SELECT a, b, c FROM t1 LEFT JOIN (t2, t3) ON b < 3 and b = c;
@@ -1960,25 +2108,34 @@ CREATE TABLE t1 (c11 int);
 CREATE TABLE t2 (c21 int);
 CREATE TABLE t3 (c31 int);
 INSERT INTO t1 VALUES (4), (5);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 SELECT * FROM t1 LEFT JOIN t2 ON c11=c21;
 c11	c21
 4	NULL
 5	NULL
 EXPLAIN SELECT * FROM t1 LEFT JOIN t2 ON c11=c21;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c11` AS `c11`,NULL AS `c21` from `test`.`t1` where true
+Note	1003	/* select#1 */ select `test`.`t1`.`c11` AS `c11`,`test`.`t2`.`c21` AS `c21` from `test`.`t1` left join `test`.`t2` on((`test`.`t2`.`c21` = `test`.`t1`.`c11`)) where true
 SELECT * FROM t1 LEFT JOIN (t2 LEFT JOIN t3 ON c21=c31) ON c11=c21;
 c11	c21	c31
 4	NULL	NULL
 5	NULL	NULL
 EXPLAIN SELECT * FROM t1 LEFT JOIN (t2 LEFT JOIN t3 ON c21=c31) ON c11=c21;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
-1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c11` AS `c11`,`test`.`t2`.`c21` AS `c21`,`test`.`t3`.`c31` AS `c31` from `test`.`t1` left join (`test`.`t2` left join `test`.`t3` on((`test`.`t3`.`c31` = `test`.`t1`.`c11`))) on((`test`.`t2`.`c21` = `test`.`t1`.`c11`)) where true
 DROP TABLE t1,t2,t3;
@@ -2120,20 +2277,29 @@ insert into t6 select * from t5;
 create table t7 like t6;
 insert into t7 select * from t6;
 insert into t7 select * from t6;
+ANALYZE TABLE t1, t2, t3, t4, t5, t6, t7;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
 explain select * from t4 join 
 t2 left join (t3 join t5 on t5.a=t3.b) on t3.a=t2.b where t4.a<=>t3.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	X	100.00	NULL
 1	SIMPLE	t3	NULL	ref	a	a	5	test.t2.b	X	100.00	Using join buffer (Batched Key Access)
 1	SIMPLE	t5	NULL	ref	a	a	5	test.t3.b	X	100.00	Using join buffer (Batched Key Access)
-1	SIMPLE	t4	NULL	ref	a	a	5	test.t3.b	X	100.00	Using index condition; Using join buffer (Batched Key Access)
+1	SIMPLE	t4	NULL	ref	a	a	5	test.t3.b	X	100.00	Using where; Using join buffer (Batched Key Access)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t4`.`filler` AS `filler`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t5`.`filler` AS `filler` from `test`.`t4` join `test`.`t2` left join (`test`.`t3` join `test`.`t5`) on(((`test`.`t5`.`a` = `test`.`t3`.`b`) and (`test`.`t3`.`a` = `test`.`t2`.`b`))) where (`test`.`t4`.`a` <=> `test`.`t3`.`b`)
 explain select * from (t4 join t6 on t6.a=t4.b) right join t3 on t4.a=t3.b
 join t2 left join (t5 join t7 on t7.a=t5.b) on t5.a=t2.b where t3.a<=>t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	X	100.00	NULL
-1	SIMPLE	t3	NULL	ref	a	a	5	test.t2.b	X	100.00	Using index condition; Using join buffer (Batched Key Access)
+1	SIMPLE	t3	NULL	ref	a	a	5	test.t2.b	X	100.00	Using where; Using join buffer (Batched Key Access)
 1	SIMPLE	t4	NULL	ref	a	a	5	test.t3.b	X	100.00	Using join buffer (Batched Key Access)
 1	SIMPLE	t6	NULL	ref	a	a	5	test.t4.b	X	100.00	Using join buffer (Batched Key Access)
 1	SIMPLE	t5	NULL	ref	a	a	5	test.t2.b	X	100.00	Using join buffer (Batched Key Access)
@@ -2144,11 +2310,11 @@ explain select * from t2 left join
 (t3 left join (t4 join t6 on t6.a=t4.b) on t4.a=t3.b 
 join t5 on t5.a=t3.b) on t3.a=t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	X	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	X	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	X	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	X	100.00	Receive from (<sender1>)
 1	SIMPLE	t3	NULL	ref	a	a	5	test.t2.b	X	100.00	Using join buffer (Batched Key Access)
-1	SIMPLE	t5	NULL	ref	a	a	5	test.t3.b	X	100.00	Using join buffer (Batched Key Access)
 1	SIMPLE	t4	NULL	ref	a	a	5	test.t5.a	X	100.00	Using where; Using join buffer (Batched Key Access)
-1	SIMPLE	t6	NULL	ref	a	a	5	test.t4.b	X	100.00	Using join buffer (Batched Key Access)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t4`.`filler` AS `filler`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t6`.`filler` AS `filler`,`test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t5`.`filler` AS `filler` from `test`.`t2` left join (`test`.`t3` left join (`test`.`t4` join `test`.`t6`) on(((`test`.`t6`.`a` = `test`.`t4`.`b`) and (`test`.`t4`.`a` = `test`.`t3`.`b`))) join `test`.`t5`) on(((`test`.`t5`.`a` = `test`.`t3`.`b`) and (`test`.`t3`.`a` = `test`.`t2`.`b`))) where true
 drop table t0, t1, t2, t3, t4, t5, t6, t7;
@@ -2158,13 +2324,19 @@ create table t2 (a int, filler char(100), key(a));
 insert into t2 select A.a + 10*B.a, '' from t1 A, t1 B;
 create table t3 like t2;
 insert into t3 select * from t2;
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain select * from t1 left join 
 (t2 left join t3 on (t2.a = t3.a)) 
 on (t1.a = t2.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	ref	a	a	5	test.t1.a	1	100.00	Using join buffer (Batched Key Access)
-1	SIMPLE	t3	NULL	ref	a	a	5	test.t1.a	1	100.00	Using join buffer (Batched Key Access)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`filler` AS `filler` from `test`.`t1` left join (`test`.`t2` left join `test`.`t3` on((`test`.`t3`.`a` = `test`.`t1`.`a`))) on((`test`.`t2`.`a` = `test`.`t1`.`a`)) where true
 drop table t1, t2, t3;
@@ -2405,6 +2577,13 @@ INSERT INTO t5 VALUES
 (6),(6),(6),(6),(6),(6),(6),(6),(6),(6),(6),(6),(6),(6),(456),(456),(456),
 (456),(456),(456),(456),(456),(456),(456),(456),(456),(456),(456),(456),
 (456),(486),(1081),(1111),(1111),(1111),(1111),(1510);
+ANALYZE TABLE t1, t2, t3, t4, t5;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
 SELECT COUNT(*) 
 FROM((t2 JOIN t1 ON t2.package_id = t1.id) 
 JOIN t3 ON t3.package_id = t1.id);
@@ -2418,11 +2597,13 @@ LEFT JOIN
 (t5 JOIN t4 ON t5.carrier_id = t4.id)
 ON t4.carrier = t1.carrier;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	package_id	package_id	5	NULL	45	100.00	Using where; Using index
-1	SIMPLE	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.package_id	1	100.00	Using join buffer (Batched Key Access)
+1	SIMPLE	t2	NULL	index	package_id	package_id	5	NULL	45	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.package_id	1	100.00	NULL
 1	SIMPLE	t4	NULL	eq_ref	PRIMARY,id	PRIMARY	8	test.t1.carrier	1	100.00	NULL
 1	SIMPLE	t5	NULL	ref	carrier_id	carrier_id	5	test.t4.id	22	100.00	Using index
 1	SIMPLE	t3	NULL	ref	package_id	package_id	5	test.t2.package_id	1	100.00	Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t2` join `test`.`t1` join `test`.`t3` left join (`test`.`t5` join `test`.`t4`) on(((`test`.`t5`.`carrier_id` = `test`.`t4`.`id`) and (`test`.`t4`.`carrier` = `test`.`t1`.`carrier`))) where ((`test`.`t1`.`id` = `test`.`t2`.`package_id`) and (`test`.`t3`.`package_id` = `test`.`t2`.`package_id`))
 SELECT COUNT(*) 
@@ -2507,6 +2688,12 @@ INSERT INTO t5 VALUES (1,1,0), (2,2,0), (3,3,0);
 INSERT INTO t6 VALUES (1,2,0), (3,2,0), (6,1,0);
 INSERT INTO t7 VALUES (1,1,0), (2,2,0);
 INSERT INTO t8 VALUES (0,2,0), (1,2,0);
+ANALYZE TABLE t5, t6, t7, t8;
+Table	Op	Msg_type	Msg_text
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
 EXPLAIN
 SELECT t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
 FROM t5 
@@ -2520,10 +2707,12 @@ ON t7.b=t8.b AND t6.b < 10
 ON t6.b >= 2 AND t5.b=t7.b AND
 (t8.a > 0 OR t8.c IS NULL);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
-1	SIMPLE	t7	NULL	ref	b_i	b_i	5	test.t5.b	2	100.00	NULL
-1	SIMPLE	t6	NULL	ALL	b_i	NULL	NULL	NULL	3	100.00	Using where
-1	SIMPLE	t8	NULL	ref	b_i	b_i	5	test.t5.b	2	100.00	Using where
+1	SIMPLE	t5	NULL	index	NULL	b_i	5	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	SIMPLE	t7	NULL	ref	b_i	b_i	5	test.t5.b	1	100.00	Using index
+1	SIMPLE	t6	NULL	index	b_i	b_i	5	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t8	NULL	ALL	b_i	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b` from `test`.`t5` left join (`test`.`t6` join `test`.`t7` left join `test`.`t8` on(((`test`.`t8`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` < 10)))) on(((`test`.`t7`.`b` = `test`.`t5`.`b`) and (`test`.`t6`.`b` >= 2) and ((`test`.`t8`.`a` > 0) or (`test`.`t8`.`c` is null)))) where true
 SELECT t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
@@ -2551,16 +2740,23 @@ INSERT INTO t5 VALUES (1,3,0), (3,2,0);
 INSERT INTO t6 VALUES (3,3,0);
 INSERT INTO t7 VALUES (1,2,0);
 INSERT INTO t8 VALUES (1,1,0);
+ANALYZE TABLE t5, t6, t7, t8;
+Table	Op	Msg_type	Msg_text
+test.t5	analyze	status	OK
+test.t6	analyze	status	OK
+test.t7	analyze	status	OK
+test.t8	analyze	status	OK
 EXPLAIN
 SELECT t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
 FROM t5 LEFT JOIN                
 (t6 LEFT JOIN t7 ON t7.a=1, t8)
 ON (t5.b=t8.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	SIMPLE	t7	NULL	const	PRIMARY	PRIMARY	4	const	1	100.00	NULL
-1	SIMPLE	t8	NULL	ALL	b_i	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t5	NULL	index	NULL	b_i	5	NULL	2	100.00	Parallel scan (2 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	SIMPLE	t6	NULL	index	NULL	b_i	5	NULL	1	100.00	Using index
+1	SIMPLE	t8	NULL	ref	b_i	b_i	5	test.t5.b	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b` from `test`.`t5` left join (`test`.`t6` left join `test`.`t7` on((`test`.`t7`.`a` = 1)) join `test`.`t8`) on((`test`.`t8`.`b` = `test`.`t5`.`b`)) where true
 SELECT t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
@@ -2576,10 +2772,12 @@ FROM t5 LEFT JOIN
 (t6 LEFT JOIN t7 ON t7.b=2, t8)
 ON (t5.b=t8.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	SIMPLE	t7	NULL	ref	b_i	b_i	5	const	1	100.00	NULL
-1	SIMPLE	t8	NULL	ALL	b_i	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t5	NULL	index	NULL	b_i	5	NULL	2	100.00	Parallel scan (2 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	SIMPLE	t6	NULL	index	NULL	b_i	5	NULL	1	100.00	Using index
+1	SIMPLE	t7	NULL	ref	b_i	b_i	5	const	1	100.00	Using index
+1	SIMPLE	t8	NULL	ref	b_i	b_i	5	test.t5.b	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b` from `test`.`t5` left join (`test`.`t6` left join `test`.`t7` on((`test`.`t7`.`b` = 2)) join `test`.`t8`) on((`test`.`t8`.`b` = `test`.`t5`.`b`)) where true
 SELECT t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b
@@ -2595,10 +2793,11 @@ FROM t5 LEFT JOIN
 (t8, t6 LEFT JOIN t7 ON t7.a=1)
 ON (t5.b=t8.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-1	SIMPLE	t8	NULL	ALL	b_i	NULL	NULL	NULL	1	100.00	Using where
-1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	SIMPLE	t7	NULL	const	PRIMARY	PRIMARY	4	const	1	100.00	NULL
+1	SIMPLE	t5	NULL	index	NULL	b_i	5	NULL	2	100.00	Parallel scan (2 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	SIMPLE	t8	NULL	ref	b_i	b_i	5	test.t5.b	1	100.00	Using index
+1	SIMPLE	t6	NULL	index	NULL	b_i	5	NULL	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b`,`test`.`t8`.`a` AS `a`,`test`.`t8`.`b` AS `b` from `test`.`t5` left join (`test`.`t8` join `test`.`t6` left join `test`.`t7` on((`test`.`t7`.`a` = 1))) on((`test`.`t8`.`b` = `test`.`t5`.`b`)) where true
 SELECT t5.a,t5.b,t6.a,t6.b,t7.a,t7.b,t8.a,t8.b

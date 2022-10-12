@@ -1,6 +1,3 @@
-DROP SCHEMA IF EXISTS xtest;
-Warnings:
-Note	1008	Can't drop database 'xtest'; database doesn't exist
 CREATE SCHEMA xtest;
 CREATE TABLE xtest.xtable (value FLOAT);
 
@@ -10,10 +7,10 @@ CREATE TABLE xtest.xtable (value FLOAT);
 Records: 5  Duplicates: 0  Warnings: 0
 Got expected error: Invalid value of placeholder (code 5154)
 value
-23.1
 56.3
-45.4
+23.1
 34.2
+45.4
 67.5
 0 rows affected
 
@@ -38,11 +35,11 @@ value
 Records: 5  Duplicates: 0  Warnings: 0
 Got expected error: Invalid value of placeholder (code 5154)
 value
+23.1
 34.2
 56.3
-67.5
-23.1
 45.4
+67.5
 0 rows affected
 
 0 rows affected
@@ -53,11 +50,11 @@ Records: 5  Duplicates: 0  Warnings: 0
 2 rows affected
 Rows matched: 2  Changed: 2  Warnings: 0
 value
+34.2
+23.1
 45.4
 11.2
-34.2
 11.2
-23.1
 0 rows affected
 
 0 rows affected
@@ -66,11 +63,11 @@ value
 Records: 5  Duplicates: 0  Warnings: 0
 Got expected error: Invalid value of placeholder (code 5154)
 value
-56.3
-23.1
 34.2
-67.5
 45.4
+23.1
+67.5
+56.3
 0 rows affected
 
 0 rows affected
@@ -82,13 +79,12 @@ Records: 5  Duplicates: 0  Warnings: 0
 Rows matched: 2  Changed: 2  Warnings: 0
 value
 11.2
-11.2
 56.3
-45.4
+11.2
 67.5
+45.4
 0 rows affected
 Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-DROP SCHEMA IF EXISTS xtest;

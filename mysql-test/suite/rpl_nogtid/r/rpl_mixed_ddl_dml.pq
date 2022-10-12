@@ -13,8 +13,8 @@ n
 2001
 2002
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Role
-2	127.0.0.1	SLAVE_PORT	1	SLAVE_UUID	CDB_ROLE_UNKNOWN
+Server_id	Host	Port	Master_id	Slave_UUID
+2	127.0.0.1	SLAVE_PORT	1	SLAVE_UUID
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 drop table t1;

@@ -164,9 +164,9 @@ CREATE TABLE t1 ENGINE=INNODB AS SELECT repeat('a', 5) AS s1 LIMIT 0;
 INSERT INTO t1 VALUES ('x'),('y'),('z'),('X'),('Y'),('Z');
 SELECT * FROM t1 GROUP BY s1;
 s1
-X
+Z
+x
 y
-z
 SELECT * FROM t1 ORDER BY s1;
 s1
 x
@@ -183,10 +183,10 @@ y
 z
 SELECT * FROM t1 ORDER BY s1;
 s1
-x
 X
-y
+x
 Y
+y
 Z
 z
 DROP TABLE t1;
@@ -217,8 +217,8 @@ SELECT * FROM t1 ORDER BY s1;
 s1
 X
 x
-y
 Y
+y
 Z
 z
 DROP TABLE t1;
@@ -233,12 +233,12 @@ y
 z
 SELECT * FROM t1 ORDER BY s1;
 s1
-X
 x
-Y
+X
 y
-Z
+Y
 z
+Z
 CREATE INDEX i1 ON t1 (s1);
 SELECT * FROM t1 GROUP BY s1;
 s1
@@ -251,8 +251,8 @@ x
 X
 Y
 y
-Z
 z
+Z
 DROP TABLE t1;
 SET NAMES latin2;
 CREATE TABLE t2(colours SET('red','blue','yellow'))CHARACTER SET latin2 COLLATE

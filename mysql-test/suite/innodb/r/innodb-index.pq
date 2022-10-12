@@ -169,8 +169,8 @@ select * from t1 force index(b) order by b;
 a	b	c	d
 6	1	ggg	ggg
 2	3	ak	ak
-4	4	tr	tr
 3	4	ad	ad
+4	4	tr	tr
 5	5	oo	oo
 select * from t1 force index(c) order by c;
 a	b	c	d
@@ -379,8 +379,8 @@ a	b	c	d
 select * from t1 force index(b) order by b;
 a	b	c	d
 1	1	ab	ab
-3	2	ad	ad
 2	2	ac	ac
+3	2	ad	ad
 4	4	afe	afe
 8	9	fff	fff
 analyze table t1;
@@ -638,7 +638,7 @@ t1	CREATE TABLE `t1` (
   `c` char(10) DEFAULT NULL,
   `d` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
 alter table t1 add index (b);
 insert into t1 values(10,10,'kkk','iii');
 select * from t1;
@@ -673,7 +673,7 @@ t1	CREATE TABLE `t1` (
   `d` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`a`),
   KEY `b` (`b`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
 alter table t1 add unique index (c), add index (d);
 insert into t1 values(11,11,'aaa','mmm');
 select * from t1;
@@ -744,7 +744,7 @@ t1	CREATE TABLE `t1` (
   UNIQUE KEY `c` (`c`),
   KEY `b` (`b`),
   KEY `d` (`d`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
 check table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
@@ -1312,7 +1312,7 @@ alter table t1 force;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 drop table t1;
@@ -1325,7 +1325,7 @@ alter table t1 add key(f2);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 drop table t1;
@@ -1355,7 +1355,7 @@ alter table t1 drop primary key, add primary key(f1,f2,f3,f4);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1365,7 +1365,7 @@ add column f6 int not null,add primary key(f1,f2,f5,f6);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1374,7 +1374,7 @@ alter table t1 drop column f6;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1383,7 +1383,7 @@ alter table t1 add column f6 int;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1392,7 +1392,7 @@ alter table t1 drop column f6;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Must sort
@@ -1401,9 +1401,8 @@ alter table t1 drop column f2;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
 # Reusing the same pk
@@ -1412,7 +1411,7 @@ primary key (f1,f5,f2n);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1422,7 +1421,7 @@ add column f8 int not null;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1432,9 +1431,8 @@ add primary key (f1,f5,f7,f2n);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
 # Reusing the same pk
@@ -1442,7 +1440,7 @@ alter table t1 force;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1451,7 +1449,7 @@ alter table t1 row_format=compact;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1460,7 +1458,7 @@ alter table t1 engine=innodb;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1471,7 +1469,7 @@ test.t1	optimize	note	Table does not support optimize, doing recreate + analyze 
 test.t1	optimize	status	OK
 affected rows: 2
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Sort files used for adding secondary index
@@ -1480,16 +1478,15 @@ i(f3);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # No sort files used for dropping secondary index
 alter table t1 drop primary key, add primary key(f1,f5),drop index i;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
@@ -1499,7 +1496,7 @@ drop column f5, add column f12 int not null;
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Must sort
@@ -1508,9 +1505,8 @@ alter table t1 drop primary key, add primary key(f1,f3);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort
 # Change PK(f1,f3) to (f1,added_column,f3,added_column)
@@ -1519,7 +1515,7 @@ add column f4n int, add primary key(f1,f3n,f3,f4n);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Adding Secondary index alone.
@@ -1527,9 +1523,8 @@ alter table t1 add key(f1);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Must sort
 # Change PK(f1,f3) to (existing_column,f1)
@@ -1537,9 +1532,8 @@ alter table t1 drop primary key, add primary key(f4,f1);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	3
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort for PK.
 # Change PK(f4,f1) to (added_columns,f4,f1)
@@ -1549,9 +1543,8 @@ add column f6n int, add primary key(f5n,f6n,f4,f1);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 # Skip sort for PK.
 # Change PK(f5n,f6n,f4,f1) to
@@ -1562,9 +1555,8 @@ add column f8n int, add primary key(f7n,f5n,f8n,f6n,f4,f1);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0
 SELECT name, count_reset FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
-subsystem = 'ddl' and count_reset > 0;
+subsystem = 'ddl' and count_reset > 0 AND count_reset > 16;
 name	count_reset
-ddl_sort_file_alter_table	2
 SET GLOBAL innodb_monitor_reset = module_ddl;
 SET GLOBAL innodb_monitor_disable = module_ddl;
 select count(*) from t1;

@@ -49,6 +49,13 @@ class ReverseIndexRangeScanIterator : public TableRowIterator {
   int Read() override;
   bool Init() override;
 
+  virtual std::string str() override { return "ReverseIndexRangeScan"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_INDEX_REVERSE_RANGE_SCAN; }
+#if defined(HAVE_PX)
+  virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const override;
+  bool prepare_for_parallel_query() override;
+#endif /* defined(HAVE_PX) */
+
  private:
   static range_seq_t quick_range_rev_seq_init(void *init_param, uint, uint);
 

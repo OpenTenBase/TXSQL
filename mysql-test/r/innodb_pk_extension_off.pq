@@ -58,8 +58,8 @@ test.t1	analyze	status	OK
 EXPLAIN SELECT count(*) FROM t1 WHERE pk_1 = 3 and f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	PRIMARY,k1	PRIMARY	4	const	#	20.00	Parallel scan (1 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where ((`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00') and (`test`.`t1`.`pk_1` = 3))
 FLUSH STATUS;
@@ -102,8 +102,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT count(*) FROM t1 WHERE pk_1 BETWEEN 3 AND 5 AND f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY,k1	PRIMARY	4	NULL	#	20.00	Parallel scan (1 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where ((`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00') and (`test`.`t1`.`pk_1` between 3 and 5))
 FLUSH STATUS;
@@ -150,8 +150,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT MIN(pk_1) FROM t1 WHERE f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	k1	k1	6	const	#	100.00	Parallel scan (2 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`pk_1`) AS `MIN(pk_1)` from `test`.`t1` where (`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00')
 FLUSH STATUS;
@@ -170,8 +170,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT MIN(pk_1) FROM t1 WHERE pk_1 BETWEEN 3 AND 5 AND f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY,k1	PRIMARY	4	NULL	#	20.00	Parallel scan (1 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`pk_1`) AS `MIN(pk_1)` from `test`.`t1` where ((`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00') and (`test`.`t1`.`pk_1` between 3 and 5))
 FLUSH STATUS;
@@ -190,8 +190,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT MAX(pk_1) FROM t1 WHERE f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	k1	k1	6	const	#	100.00	Parallel scan (2 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`pk_1`) AS `MAX(pk_1)` from `test`.`t1` where (`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00')
 FLUSH STATUS;
@@ -210,8 +210,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT MAX(pk_1) FROM t1 WHERE pk_1 BETWEEN 3 AND 5 AND f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY,k1	PRIMARY	4	NULL	#	20.00	Parallel scan (1 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`pk_1`) AS `MAX(pk_1)` from `test`.`t1` where ((`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00') and (`test`.`t1`.`pk_1` between 3 and 5))
 FLUSH STATUS;
@@ -233,8 +233,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT MIN(pk_1) FROM t1 WHERE f2 BETWEEN 13 AND 14 GROUP BY f2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	k2	k2	5	NULL	#	100.00	Parallel scan (2 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`pk_1`) AS `MIN(pk_1)` from `test`.`t1` where (`test`.`t1`.`f2` between 13 and 14) group by `test`.`t1`.`f2`
 FLUSH STATUS;
@@ -254,8 +254,8 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT MIN(pk_1) FROM t1 WHERE f2 IN (1, 2) GROUP BY f2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	k2	k2	5	NULL	#	100.00	Parallel scan (2 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`pk_1`) AS `MIN(pk_1)` from `test`.`t1` where (`test`.`t1`.`f2` in (1,2)) group by `test`.`t1`.`f2`
 FLUSH STATUS;
@@ -280,8 +280,8 @@ ON t2.pk_1 = t1.pk_1 WHERE t1.f1 = '2000-01-03' AND t2.f1 = '2000-01-03';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	PRIMARY,k1	k1	6	const	#	100.00	Parallel scan (2 workers); Using index
 1	SIMPLE	t2	NULL	ref	PRIMARY,k1	PRIMARY	4	test.t1.pk_1	#	20.00	Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t2`.`pk_1` = `test`.`t1`.`pk_1`) and (`test`.`t2`.`f1` = TIMESTAMP'2000-01-03 00:00:00') and (`test`.`t1`.`f1` = TIMESTAMP'2000-01-03 00:00:00'))
 FLUSH STATUS;
@@ -373,7 +373,7 @@ f6 = 0 AND f7 = 0 AND f8 = 0 AND f9 = 0 AND f10 = 0 AND
 f11 = 0 AND f12 = 0 AND f13 = 0 AND f14 = 0 AND
 f15 = 0 AND f16 = 0 AND f17 = 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	k1	k1	35	const,const,const,const,const,const,const	#	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	t1	NULL	ref	k1	k1	35	const,const,const,const,const,const,const	#	100.00	Parallel scan (1 workers); Using index condition; Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
@@ -405,7 +405,7 @@ EXPLAIN SELECT f5 FROM t1 FORCE INDEX (k1) WHERE
 f1 = 'a' AND f2 = 'a' AND f3 = 'a' AND f4 = 'a' AND
 f5 = 'a' AND f6 = 'a' AND f7 = 'a';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	k1	k1	1509	const,const,const	#	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	t1	NULL	ref	k1	k1	1509	const,const,const	#	100.00	Parallel scan (1 workers); Using index condition; Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
@@ -423,7 +423,7 @@ EXPLAIN SELECT f5 FROM t1 FORCE INDEX (k1) WHERE
 f1 = 'a' AND f2 = 'a' AND f4 = 'a' AND
 f5 = 'a' AND f6 = 'a' AND f7 = 'a';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	k1	k1	1509	const,const,const	#	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	t1	NULL	ref	k1	k1	1509	const,const,const	#	100.00	Parallel scan (1 workers); Using index condition; Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
@@ -485,4 +485,29 @@ SELECT st_astext(a) FROM t1 WHERE st_equals(a, point(7, 7));
 st_astext(a)
 POINT(7 7)
 DROP TABLE t1;
+#
+# Bug #31617858 INCORRECT RESULTS WHEN USING INDEX ON LONG CHARACTER COLS.
+#
+CREATE TABLE t(
+a VARCHAR(256) NOT NULL,
+i VARCHAR(512) NOT NULL,
+PRIMARY KEY (a),
+KEY (i)) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+INSERT INTO t VALUES
+('aaa12345678','aaa'), ('aaa2','aaa'), ('aaa4','aaa'),
+('aaa3','aaa'),('aaa1','aaa');
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+EXPLAIN SELECT DISTINCT(i) FROM t FORCE INDEX(i) WHERE a LIKE '%aaa12345678%';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	i	i	2050	NULL	5	20.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t`.`i` AS `i` from `test`.`t` FORCE INDEX (`i`) where (`test`.`t`.`a` like '%aaa12345678%')
+SELECT DISTINCT(i) FROM t FORCE INDEX(i) WHERE a LIKE '%aaa12345678%';
+i
+aaa
+DROP TABLE t;
 set optimizer_switch=default;

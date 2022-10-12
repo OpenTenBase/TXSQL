@@ -87,7 +87,7 @@ ERROR 42000: You have an error in your SQL syntax; check the manual that corresp
 SELECT global.cdb_enable_key_rotate;
 ERROR 42S02: Unknown table 'global' in field list
 SELECT cdb_enable_key_rotate = @@session.cdb_enable_key_rotate;
-ERROR 42S22: Unknown column 'cdb_enable_key_rotate' in 'field list'
+ERROR HY000: Variable 'cdb_enable_key_rotate' is a GLOBAL variable
 SET @@global.cdb_enable_key_rotate = @start_value;
 SELECT @@global.cdb_enable_key_rotate;
 @@global.cdb_enable_key_rotate

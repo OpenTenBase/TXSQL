@@ -72,13 +72,13 @@ Mysqlx.Resultset.Row {
 }
 
 Mysqlx.Resultset.Row {
-  field: "\004"
-  field: "two\000"
+  field: "\006"
+  field: "three\000"
 }
 
 Mysqlx.Resultset.Row {
-  field: "\006"
-  field: "three\000"
+  field: "\004"
+  field: "two\000"
 }
 
 Mysqlx.Resultset.FetchDone {

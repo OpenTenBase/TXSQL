@@ -2,8 +2,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 root@localhost
@@ -106,7 +106,7 @@ EXPLAIN
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t3.a between 1 and 9)  (cost=*** rows=***)
-                            -> Parallel index range scan on t3 using PRIMARY  (cost=*** rows=***)
+                            -> Parallel index range scan on t3 using PRIMARY over (1 <= a <= 9)  (cost=*** rows=***)
 
 explain format=tree select * from t1 where a >=1 union all select * from t1 where b > 1;
 EXPLAIN
@@ -245,15 +245,15 @@ EXPLAIN
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 7; workers: 4)
                         -> Filter: (t3.a > 1)  (cost=*** rows=***)
-                            -> Parallel index range scan on t3 using PRIMARY  (cost=*** rows=***)
+                            -> Parallel index range scan on t3 using PRIMARY over (1 < a)  (cost=*** rows=***)
 
 # Check for union
 explain format=tree select * from t1 union select * from t2;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.62 rows=***)
+            -> Union materialize with deduplication  (cost=***..5.12 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=*** rows=***)
@@ -265,8 +265,8 @@ explain format=tree select * from t1 union select * from t2 where a > 1;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.58 rows=***)
+            -> Union materialize with deduplication  (cost=***..4.74 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=*** rows=***)
@@ -279,8 +279,8 @@ explain format=tree select * from t1 where a > 1 union select * from t2 where a 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.54 rows=***)
+            -> Union materialize with deduplication  (cost=***..4.37 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -294,8 +294,8 @@ explain format=tree select * from t1 where a > 1 union select * from t3 where a 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.62 rows=***)
+            -> Union materialize with deduplication  (cost=***..6.50 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -303,14 +303,14 @@ EXPLAIN
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t3.a between 1 and 9)  (cost=*** rows=***)
-                            -> Parallel index range scan on t3 using PRIMARY  (cost=*** rows=***)
+                            -> Parallel index range scan on t3 using PRIMARY over (1 <= a <= 9)  (cost=*** rows=***)
 
 explain format=tree select * from t1 where a >=1 union select * from t1 where b > 1;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.54 rows=***)
+            -> Union materialize with deduplication  (cost=***..4.37 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a >= 1)  (cost=*** rows=***)
@@ -324,8 +324,8 @@ explain format=tree select * from t1 where a > 1 union select * from t2 where a 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.65 rows=***)
+            -> Union materialize with deduplication  (cost=***..6.67 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -342,8 +342,8 @@ explain format=tree select * from t1 where a > 1 union select * from t2 where c 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.55 rows=***)
+            -> Union materialize with deduplication  (cost=***..5.30 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -361,8 +361,8 @@ explain format=tree select * from t1 where a > 1 union select * from t2 where c 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.61 rows=***)
+            -> Union materialize with deduplication  (cost=***..6.61 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -383,8 +383,8 @@ explain format=tree select * from t1 where a > 1 union select * from t4 union se
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.66 rows=***)
+            -> Union materialize with deduplication  (cost=***..7.00 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -404,8 +404,8 @@ explain format=tree select * from t1 where a > 1 union select * from t4 union se
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.90 rows=***)
+            -> Union materialize with deduplication  (cost=***..12.45 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -426,7 +426,7 @@ EXPLAIN
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 7; workers: 4)
                         -> Filter: (t3.a > 1)  (cost=*** rows=***)
-                            -> Parallel index range scan on t3 using PRIMARY  (cost=*** rows=***)
+                            -> Parallel index range scan on t3 using PRIMARY over (1 < a)  (cost=*** rows=***)
 
 #
 # Check for select with union all / union
@@ -476,11 +476,11 @@ EXPLAIN
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t2  (cost=*** rows=***)
-            -> Stream results
+            -> Stream results  (cost=*** rows=***)
                 -> Group aggregate: sum(t3.d)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
                         -> PX Sender (slice: 4; workers: 4)
-                            -> Group aggregate: sum(t3.d)
+                            -> Group aggregate: sum(t3.d)  (cost=*** rows=***)
                                 -> Parallel index scan on t3 using idx  (cost=*** rows=***)
 
 explain format=tree select a,sum(b),sum(d) from t1 group by a union all select b,sum(b),avg(d) from t2 group by b union all select b,sum(d),avg(c) from t3 group by b;
@@ -504,11 +504,11 @@ EXPLAIN
                                 -> Table scan on <temporary>
                                     -> Aggregate using temporary table
                                         -> Parallel table scan on t2  (cost=*** rows=***)
-            -> Stream results
+            -> Stream results  (cost=*** rows=***)
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
                         -> PX Sender (slice: 4; workers: 4)
-                            -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
+                            -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)  (cost=*** rows=***)
                                 -> Parallel index scan on t3 using idx  (cost=*** rows=***)
 
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union all (select * from t3 where c > 1 and d > 2 order by b,c desc);
@@ -522,7 +522,7 @@ EXPLAIN
                         -> Nested loop inner join  (cost=*** rows=***)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
                                 -> Parallel table scan on t2  (cost=*** rows=***)
-                            -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
+                            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
             -> Stream results  (cost=*** rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 4)
@@ -548,7 +548,7 @@ EXPLAIN
                                 -> PX Sender (slice: 3; workers: 4)
                                     -> Filter: (t1.a is not null)  (cost=*** rows=***)
                                         -> Parallel table scan on t1  (cost=*** rows=***)
-                    -> Single-row index lookup on t3 using PRIMARY (a=t1.a)  (cost=*** rows=***)
+                    -> Single-row covering index lookup on t3 using PRIMARY (a=t1.a)  (cost=*** rows=***)
 
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union all (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
 EXPLAIN
@@ -561,7 +561,7 @@ EXPLAIN
                         -> Nested loop inner join  (cost=*** rows=***)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
                                 -> Parallel table scan on t2  (cost=*** rows=***)
-                            -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
+                            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
             -> Stream results  (cost=*** rows=***)
                 -> Left hash join (t2.a = t1.a)  (cost=*** rows=***)
                     -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -576,8 +576,8 @@ explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) fro
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.50 rows=***)
+            -> Union materialize with deduplication  (cost=***..2.50 rows=***)
                 -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
@@ -597,8 +597,8 @@ explain format=tree select a,sum(b) from t1 group by a union select b,sum(c) fro
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.62 rows=***)
+            -> Union materialize with deduplication  (cost=***..5.88 rows=***)
                 -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
@@ -616,15 +616,15 @@ EXPLAIN
                 -> Group aggregate: sum(t3.d)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
                         -> PX Sender (slice: 4; workers: 4)
-                            -> Group aggregate: sum(t3.d)
+                            -> Group aggregate: sum(t3.d)  (cost=*** rows=***)
                                 -> Parallel index scan on t3 using idx  (cost=*** rows=***)
 
 explain format=tree select a,sum(b),sum(d) from t1 group by a union select b,sum(b),avg(d) from t2 group by b union select b,sum(d),avg(c) from t3 group by b;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.62 rows=***)
+            -> Union materialize with deduplication  (cost=***..5.88 rows=***)
                 -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
@@ -642,21 +642,21 @@ EXPLAIN
                 -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
                         -> PX Sender (slice: 4; workers: 4)
-                            -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)
+                            -> Group aggregate: sum(t3.d), sum(t3.c), count(t3.c)  (cost=*** rows=***)
                                 -> Parallel index scan on t3 using idx  (cost=*** rows=***)
 
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select * from t3 where c > 1 and d > 2 order by b,c desc);
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.58 rows=***)
+            -> Union materialize with deduplication  (cost=***..6.94 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Nested loop inner join  (cost=*** rows=***)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
                                 -> Parallel table scan on t2  (cost=*** rows=***)
-                            -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
+                            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 4)
                         -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=*** rows=***)
@@ -666,8 +666,8 @@ explain format=tree (select * from t3 where c > 1 and d > 3 order by a,b) union 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.58 rows=***)
+            -> Union materialize with deduplication  (cost=***..8.69 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: ((t3.c > 1) and (t3.d > 3))  (cost=*** rows=***)
@@ -680,20 +680,20 @@ EXPLAIN
                                 -> PX Sender (slice: 3; workers: 4)
                                     -> Filter: (t1.a is not null)  (cost=*** rows=***)
                                         -> Parallel table scan on t1  (cost=*** rows=***)
-                    -> Single-row index lookup on t3 using PRIMARY (a=t1.a)  (cost=*** rows=***)
+                    -> Single-row covering index lookup on t3 using PRIMARY (a=t1.a)  (cost=*** rows=***)
 
 explain format=tree (select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a) union (select t2.* from t1 left join t2 on t1.a = t2.a where t1.a > 1 order by t1.b desc);
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.66 rows=***)
+            -> Union materialize with deduplication  (cost=***..8.03 rows=***)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Nested loop inner join  (cost=*** rows=***)
                             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
                                 -> Parallel table scan on t2  (cost=*** rows=***)
-                            -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
+                            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
                 -> Left hash join (t2.a = t1.a)  (cost=*** rows=***)
                     -> Filter: (t1.a > 1)  (cost=*** rows=***)
                         -> Table scan on t1  (cost=*** rows=***)
@@ -710,9 +710,9 @@ explain format=tree select * from t1 union all select * from t2 order by a;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Sort: a
+        -> Sort: a  (cost=***..5.00 rows=***)
             -> Table scan on <union temporary>  (cost=*** rows=***)
-                -> Union materialize
+                -> Union materialize  (cost=***..5.00 rows=***)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 4)
                             -> Parallel table scan on t1  (cost=*** rows=***)
@@ -724,9 +724,9 @@ explain format=tree select * from t1 where a > 1 union all select * from t2 unio
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Sort: a, b
+        -> Sort: a, b  (cost=***..6.92 rows=***)
             -> Table scan on <union temporary>  (cost=*** rows=***)
-                -> Union materialize
+                -> Union materialize  (cost=***..6.92 rows=***)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 4)
                             -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -742,28 +742,27 @@ explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Filter: (v.c1 > 1)
-            -> Table scan on v  (cost=*** rows=***)
-                -> Union materialize
-                    -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 2; workers: 4)
-                            -> Nested loop inner join  (cost=*** rows=***)
-                                -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
-                                    -> Parallel table scan on t2  (cost=*** rows=***)
-                                -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
-                    -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 3; workers: 4)
-                            -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=*** rows=***)
-                                -> Parallel table scan on t3  (cost=*** rows=***)
+        -> Table scan on v  (cost=***..2.52 rows=***)
+            -> Union materialize  (cost=***..6.19 rows=***)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
+                        -> Nested loop inner join  (cost=*** rows=***)
+                            -> Filter: ((t2.a > 1) and (t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
+                                -> Parallel table scan on t2  (cost=*** rows=***)
+                            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
+                        -> Filter: ((t3.c > 1) and (t3.d > 2) and (t3.a > 1))  (cost=*** rows=***)
+                            -> Parallel index range scan on t3 using PRIMARY over (1 < a)  (cost=*** rows=***)
 
 # Check for union
 explain format=tree select * from t1 union select * from t2 order by a;
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Sort: a
+        -> Sort: a  (cost=***..5.00 rows=***)
             -> Table scan on <union temporary>  (cost=*** rows=***)
-                -> Union materialize with deduplication
+                -> Union materialize with deduplication  (cost=***..5.00 rows=***)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 4)
                             -> Parallel table scan on t1  (cost=*** rows=***)
@@ -775,9 +774,9 @@ explain format=tree select * from t1 where a > 1 union select * from t2 union se
 EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Sort: a, b
+        -> Sort: a, b  (cost=***..6.92 rows=***)
             -> Table scan on <union temporary>  (cost=*** rows=***)
-                -> Union materialize with deduplication
+                -> Union materialize with deduplication  (cost=***..6.92 rows=***)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 4)
                             -> Filter: (t1.a > 1)  (cost=*** rows=***)
@@ -793,19 +792,18 @@ explain format=tree select * from ((select t2.a as c1,t2.b as c2,t2.c as c3,t2.d
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Filter: (v.c1 > 1)
-            -> Table scan on v  (cost=*** rows=***)
-                -> Union materialize with deduplication
-                    -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 2; workers: 4)
-                            -> Nested loop inner join  (cost=*** rows=***)
-                                -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
-                                    -> Parallel table scan on t2  (cost=*** rows=***)
-                                -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
-                    -> PX Receiver (slice: 1; workers: 1)
-                        -> PX Sender (slice: 3; workers: 4)
-                            -> Filter: ((t3.c > 1) and (t3.d > 2))  (cost=*** rows=***)
-                                -> Parallel table scan on t3  (cost=*** rows=***)
+        -> Table scan on v  (cost=***..2.52 rows=***)
+            -> Union materialize with deduplication  (cost=***..6.19 rows=***)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 2; workers: 4)
+                        -> Nested loop inner join  (cost=*** rows=***)
+                            -> Filter: ((t2.a > 1) and (t2.a > 1) and (t2.a is not null))  (cost=*** rows=***)
+                                -> Parallel table scan on t2  (cost=*** rows=***)
+                            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=*** rows=***)
+                -> PX Receiver (slice: 1; workers: 1)
+                    -> PX Sender (slice: 3; workers: 4)
+                        -> Filter: ((t3.c > 1) and (t3.d > 2) and (t3.a > 1))  (cost=*** rows=***)
+                            -> Parallel index range scan on t3 using PRIMARY over (1 < a)  (cost=*** rows=***)
 
 #
 # Part of branch query blocks don't pass compatibility check
@@ -834,8 +832,8 @@ explain format=tree select sum(a) from t1 group by b union select variance(a) fr
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.50 rows=***)
+            -> Union materialize with deduplication  (cost=***..2.50 rows=***)
                 -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
@@ -874,8 +872,8 @@ explain format=tree select variance(a) from t1 group by b union select variance(
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=*** rows=***)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=***..2.50 rows=***)
+            -> Union materialize with deduplication  (cost=***..2.50 rows=***)
                 -> Table scan on <temporary>
                     -> Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
@@ -892,8 +890,8 @@ EXPLAIN
 #
 explain format=tree SELECT left(a,100000000) FROM t5 UNION  SELECT b FROM t6;
 EXPLAIN
--> Table scan on <union temporary>  (cost=*** rows=***)
-    -> Union materialize with deduplication
+-> Table scan on <union temporary>  (cost=***..2.54 rows=***)
+    -> Union materialize with deduplication  (cost=***..3.64 rows=***)
         -> Table scan on t5  (cost=*** rows=***)
         -> Table scan on t6  (cost=*** rows=***)
 

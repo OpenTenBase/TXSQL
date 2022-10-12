@@ -397,29 +397,6 @@ JSON_EXTRACT(histogram, '$."histogram-type"') AS should_be_equiheight
 FROM information_schema.COLUMN_STATISTICS;
 SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	should_be_equiheight
 test	t1	col_integer	"equi-height"
-DELETE FROM t1;
-#
-# Check that the server switches to compressed when it should.
-#
-set global cdb_compressed_histogram_enabled = on;
-INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 10 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col_integer	{"mcv-list": [[1, 0.1], [2, 0.2], [3, 0.3], [4, 0.4], [5, 0.5], [6, 0.6], [7, 0.7], [8, 0.8], [9, 0.9], [10, 1.0]], "data-type": "int", "equi-height": [], "null-values": 0.0, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "compressed", "distinct-values": 10.0, "number-of-buckets-specified": 10}
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 9 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col_integer	{"mcv-list": [[1, 0.1], [2, 0.2], [3, 0.3], [4, 0.4], [5, 0.5], [6, 0.6], [7, 0.7], [8, 0.8], [9, 0.9]], "data-type": "int", "equi-height": [10, 10], "null-values": 0.0, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "compressed", "distinct-values": 10.0, "number-of-buckets-specified": 9}
-SET global cdb_compressed_histogram_enabled=0;
 DROP TABLE t1;
 #
 # Check that invalid range for the number of buckets is rejected
@@ -520,6 +497,35 @@ JSON_LENGTH(histogram->'$.buckets') <= 255
 ANALYZE TABLE t1 UPDATE HISTOGRAM ON col1, col2, col1 WITH 10 BUCKETS;
 ERROR 42S21: Duplicate column name 'col1'
 DROP TABLE t1;
+#
+# ANALYZE ... UPDATE HISTOGRAM and LOCK TABLES.
+#
+CREATE TABLE t1 (c1 INT);
+INSERT INTO t1 (c1) VALUES (10), (20), (30);
+CREATE TABLE t2 (c2 INT);
+INSERT INTO t2 (c2) VALUES (10), (20), (30);
+#
+# Check that ANALYZE TABLE UPDATE HISTOGRAM fails under LOCK TABLES
+# if table is not locked at least for READ.
+#
+LOCK TABLES t2 READ;
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON c1 WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	Error	Table 't1' was not locked with LOCK TABLES
+# There should be no histograms.
+SELECT COUNT(*) AS should_be_0 FROM information_schema.COLUMN_STATISTICS;
+should_be_0
+0
+ANALYZE TABLE t2 UPDATE HISTOGRAM ON c2 WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t2	histogram	status	Histogram statistics created for column 'c2'.
+# There should be histograms for t2.
+SELECT schema_name, table_name, column_name
+FROM information_schema.COLUMN_STATISTICS;
+SCHEMA_NAME	TABLE_NAME	COLUMN_NAME
+test	t2	c2
+UNLOCK TABLES;
+DROP TABLES t1, t2;
 ################
 # DROP HISTOGRAM
 ################
@@ -598,6 +604,14 @@ ANALYZE TABLE foo DROP HISTOGRAM ON foobar;
 Table	Op	Msg_type	Msg_text
 test.foo	histogram	Error	No histogram statistics found for column 'foobar'.
 #
+# Temporary table
+#
+CREATE TEMPORARY TABLE temp_table (col1 INT);
+ANALYZE TABLE temp_table DROP HISTOGRAM ON col1;
+Table	Op	Msg_type	Msg_text
+test.temp_table	histogram	Error	Cannot create histogram statistics for a temporary table.
+DROP TABLE temp_table;
+#
 # The same column specified multiple times
 #
 ANALYZE TABLE foo DROP HISTOGRAM ON foobar, foobar;
@@ -611,6 +625,43 @@ ANALYZE TABLE t1, t2 DROP HISTOGRAM ON col1;
 Table	Op	Msg_type	Msg_text
 	histogram	Error	Only one table can be specified while modifying histogram statistics.
 DROP TABLE t1, t2;
+#
+# ANALYZE ... DROP HISTOGRAM and LOCK TABLES.
+#
+CREATE TABLE t1 (c1 INT);
+INSERT INTO t1 (c1) VALUES (10), (20), (30);
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON c1 WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'c1'.
+CREATE TABLE t2 (c2 INT);
+INSERT INTO t2 (c2) VALUES (10), (20), (30);
+ANALYZE TABLE t2 UPDATE HISTOGRAM ON c2 WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t2	histogram	status	Histogram statistics created for column 'c2'.
+#
+# Check that ANALYZE TABLE DROP HISTOGRAM fails under LOCK TABLES
+# if table is not locked at least for READ.
+#
+LOCK TABLES t2 READ;
+ANALYZE TABLE t1 DROP HISTOGRAM ON c1;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	Error	Table 't1' was not locked with LOCK TABLES
+# We should still have two histograms.
+SELECT schema_name, table_name, column_name
+FROM information_schema.COLUMN_STATISTICS;
+SCHEMA_NAME	TABLE_NAME	COLUMN_NAME
+test	t1	c1
+test	t2	c2
+ANALYZE TABLE t2 DROP HISTOGRAM ON c2;
+Table	Op	Msg_type	Msg_text
+test.t2	histogram	status	Histogram statistics removed for column 'c2'.
+# There should be only histogram for t1 now.
+SELECT schema_name, table_name, column_name
+FROM information_schema.COLUMN_STATISTICS;
+SCHEMA_NAME	TABLE_NAME	COLUMN_NAME
+test	t1	c1
+UNLOCK TABLES;
+DROP TABLES t1, t2;
 #####################################
 # HISTOGRAM REMOVAL ON DDL STATEMENTS
 #####################################
@@ -1160,10 +1211,10 @@ test.t1	histogram	status	Histogram statistics created for column 'eighty'.
 EXPLAIN SELECT a.forty, b.twenty FROM t1 AS a, t1 AS b
 WHERE a.twenty = b.ten AND b.eighty >= (3 + 20);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	b	NULL	ALL	idx	NULL	NULL	NULL	50	60.00	Parallel scan (4 workers); Using where
+1	SIMPLE	b	NULL	ALL	idx	NULL	NULL	NULL	50	58.80	Parallel scan (4 workers); Using where
 1	SIMPLE	a	NULL	ref	idx3	idx3	5	test.b.ten	2	100.00	NULL
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	75	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	75	100.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	73	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	73	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`forty` AS `forty`,`test`.`b`.`twenty` AS `twenty` from `test`.`t1` `a` join `test`.`t1` `b` where ((`test`.`a`.`twenty` = `test`.`b`.`ten`) and (`test`.`b`.`eighty` >= <cache>((3 + 20))))
 DROP TABLE t1;
@@ -1870,7 +1921,7 @@ test.t1	histogram	status	Histogram statistics created for column 'col1'.
 # condition.
 EXPLAIN SELECT * FROM t1 WHERE col1 > 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
@@ -1911,6 +1962,19 @@ VALUES (10,8,'2006-08-19','2001-07-04
 04:46:53','18:13:22','q'),(14,1,'2003-10-21','2007-05-14
 06:19:04','00:00:00','g'),(29,1,'2008-12-24','2004-04-02
 07:16:01','16:30:10','e');
+Warnings:
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2001-07-04
+14:30:59' at row 1 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2006-12-15
+06:22:01' at row 2 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2002-06-19
+14:43:00' at row 3 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2005-08-19
+04:46:53' at row 4 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2007-05-14
+06:19:04' at row 5 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2004-04-02
+07:16:01' at row 6 is deprecated. Prefer the standard ' '.
 ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_time WITH 4 BUCKETS;
 Table	Op	Msg_type	Msg_text
 test.t1	histogram	status	Histogram statistics created for column 'col_time'.
@@ -1977,6 +2041,47 @@ VALUES (1,2,'2002-10-13','1900-01-01
 00:00:00','16:39:36','f'),(19,5,'0000-00-00','2001-07-25
 08:40:24','00:00:00','j'),(20,3,'2007-09-09','2009-06-07
 13:48:58','00:00:00','e');
+Warnings:
+Warning	4095	Delimiter '\n' in position 10 in datetime value '1900-01-01
+00:00:00' at row 1 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2005-08-15
+00:00:00' at row 2 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '1900-01-01
+00:00:00' at row 3 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2008-05-16
+08:09:06' at row 4 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2001-01-20
+12:47:23' at row 5 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2008-07-02
+00:00:00' at row 6 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '1900-01-01
+00:00:00' at row 7 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2002-12-08
+11:34:58' at row 8 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '1900-01-01
+00:00:00' at row 9 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '1900-01-01
+00:00:00' at row 10 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2002-08-25
+20:35:06' at row 11 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2001-10-22
+11:13:24' at row 12 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2003-03-12
+02:00:34' at row 13 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2007-04-10
+12:16:04' at row 14 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2009-11-07
+00:00:00' at row 15 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2003-12-04
+11:14:26' at row 16 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2006-09-11
+18:25:21' at row 17 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '1900-01-01
+00:00:00' at row 18 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2001-07-25
+08:40:24' at row 19 is deprecated. Prefer the standard ' '.
+Warning	4095	Delimiter '\n' in position 10 in datetime value '2009-06-07
+13:48:58' at row 20 is deprecated. Prefer the standard ' '.
 ANALYZE TABLE t2 UPDATE HISTOGRAM ON col_int WITH 4 BUCKETS;
 Table	Op	Msg_type	Msg_text
 test.t2	histogram	status	Histogram statistics created for column 'col_int'.
@@ -2211,6 +2316,9 @@ JSON_REMOVE(histogram, '$."last-updated"')
 FROM information_schema.COLUMN_STATISTICS;
 SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
 test	tbl_int	col1	{"buckets": [[1, 2, 0.4, 2], [3, 8, 0.8, 3]], "data-type": "int", "null-values": 0.2, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "equi-height", "number-of-buckets-specified": 2}
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 0;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2218,6 +2326,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 0)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 1;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2225,6 +2336,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 2;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
@@ -2232,6 +2346,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 3;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
@@ -2239,6 +2356,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 4;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	26.67	Parallel scan (4 workers); Using where
@@ -2246,6 +2366,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 5;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2253,6 +2376,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 6;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
@@ -2260,6 +2386,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 7;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2267,6 +2396,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 8;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2274,6 +2406,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 > 9;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 > 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2281,6 +2416,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` > 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 0;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2288,6 +2426,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 0)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 1;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2295,6 +2436,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 2;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2302,6 +2446,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 3;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
@@ -2309,6 +2456,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 4;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
@@ -2316,6 +2466,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 5;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	26.67	Parallel scan (4 workers); Using where
@@ -2323,6 +2476,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 6;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2330,6 +2486,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 7;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
@@ -2337,6 +2496,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 8;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2344,6 +2506,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 >= 9;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 >= 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2351,6 +2516,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` >= 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 0;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2358,6 +2526,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 0)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 1;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2365,6 +2536,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 2;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2372,48 +2546,69 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 3;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 4;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 5;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 6;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 7;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 8;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 = 9;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 = 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2421,6 +2616,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 0;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2428,6 +2626,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 0)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 1;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2435,6 +2636,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 2;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
@@ -2442,6 +2646,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 3;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	46.67	Parallel scan (4 workers); Using where
@@ -2449,6 +2656,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 4;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	53.33	Parallel scan (4 workers); Using where
@@ -2456,6 +2666,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 5;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2463,6 +2676,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 6;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
@@ -2470,6 +2686,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 7;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
@@ -2477,6 +2696,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 8;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2484,6 +2706,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <= 9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <= 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2491,6 +2716,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <= 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 0;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2498,6 +2726,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 0)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 1;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2505,6 +2736,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 2;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2512,6 +2746,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 3;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
@@ -2519,6 +2756,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 4;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	46.67	Parallel scan (4 workers); Using where
@@ -2526,6 +2766,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 5;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	53.33	Parallel scan (4 workers); Using where
@@ -2533,6 +2776,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 6;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2540,6 +2786,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 7;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
@@ -2547,6 +2796,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 8;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
@@ -2554,6 +2806,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 < 9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 < 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2561,6 +2816,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` < 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 0;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2568,6 +2826,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 0)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 1;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2575,6 +2836,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 2;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2582,48 +2846,69 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 3;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 4;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 5;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 6;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 7;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 8;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 <> 9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 <> 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2631,13 +2916,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` <> 9)
-EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 0;
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 0;
+COUNT(*)/10.0
+0.0000
+SET @const = 0;
+EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN @const AND @const;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	11.11	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 0)
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between <cache>((@`const`)) and <cache>((@`const`)))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 1;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2645,6 +2937,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 1)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 2;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
@@ -2652,6 +2947,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 2)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 3;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	46.67	Parallel scan (4 workers); Using where
@@ -2659,6 +2957,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 3)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 4;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	53.33	Parallel scan (4 workers); Using where
@@ -2666,6 +2967,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 4)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 5;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2673,6 +2977,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 5)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 6;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
@@ -2680,6 +2987,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 6)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 7;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	73.33	Parallel scan (4 workers); Using where
@@ -2687,6 +2997,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 7)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 8;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2694,6 +3007,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 8)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2701,6 +3017,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 0 AND 9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 0 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2708,6 +3027,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 0 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 1 AND 9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 1 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2715,6 +3037,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 1 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 2 AND 9;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 2 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2722,6 +3047,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 2 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 3 AND 9;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 3 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
@@ -2729,6 +3057,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 3 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 4 AND 9;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 4 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
@@ -2736,6 +3067,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 4 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 5 AND 9;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 5 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	26.67	Parallel scan (4 workers); Using where
@@ -2743,6 +3077,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 5 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 6 AND 9;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 6 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -2750,6 +3087,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 6 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 7 AND 9;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 7 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
@@ -2757,6 +3097,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 7 and 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 8 AND 9;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 8 AND 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2764,13 +3107,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 8 and 9)
-EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN 9 AND 9;
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 BETWEEN 9 AND 9;
+COUNT(*)/10.0
+0.0000
+SET @const = 9;
+EXPLAIN SELECT * FROM tbl_int WHERE col1 BETWEEN @const AND @const;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	11.11	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between 9 and 9)
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` between <cache>((@`const`)) and <cache>((@`const`)))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (0,1,2,3,4,5,6,7,8,9);
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (0,1,2,3,4,5,6,7,8,9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2778,55 +3128,79 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (0,1,2,3,4,5,6,7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (2,3,4,5,6,7,8,9);
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (2,3,4,5,6,7,8,9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (2,3,4,5,6,7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (3,4,5,6,7,8,9);
+COUNT(*)/10.0
+0.4000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (3,4,5,6,7,8,9);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (3,4,5,6,7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (4,5,6,7,8,9);
+COUNT(*)/10.0
+0.3000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (4,5,6,7,8,9);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	66.67	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (4,5,6,7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (5,6,7,8,9);
+COUNT(*)/10.0
+0.3000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (5,6,7,8,9);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	53.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (2,3,4,5,6,7,8,9))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (3,4,5,6,7,8,9);
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (5,6,7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (6,7,8,9);
+COUNT(*)/10.0
+0.3000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (6,7,8,9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (3,4,5,6,7,8,9))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (4,5,6,7,8,9);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (4,5,6,7,8,9))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (5,6,7,8,9);
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (6,7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (7,8,9);
+COUNT(*)/10.0
+0.2000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (7,8,9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	26.67	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (5,6,7,8,9))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (6,7,8,9);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (6,7,8,9))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (7,8,9);
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (7,8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (8,9);
+COUNT(*)/10.0
+0.2000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (8,9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	13.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (7,8,9))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (8,9);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (8,9))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (9);
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2834,27 +3208,39 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` = 9)
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (1,3,5,7);
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (1,3,5,7);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (1,3,5,7))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (2,4,6,8);
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (2,4,6,8);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (2,4,6,8))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (2,5,6);
+COUNT(*)/10.0
+0.4000
+EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (2,5,6);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	46.67	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (2,4,6,8))
-EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (2,5,6);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
-Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_int`.`col1` AS `col1` from `test`.`tbl_int` where (`test`.`tbl_int`.`col1` in (2,5,6))
+SELECT COUNT(*)/10.0 FROM tbl_int WHERE col1 IN (9,10,11,12,13);
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_int WHERE col1 IN (9,10,11,12,13);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_int	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2876,7 +3262,10 @@ SELECT schema_name, table_name, column_name,
 JSON_REMOVE(histogram, '$."last-updated"')
 FROM information_schema.COLUMN_STATISTICS;
 SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	tbl_float	col	{"buckets": [[0.1, 0.2, 0.2, 2], [0.3, 0.3, 0.4, 1], [0.4, 0.5, 0.7, 2], [0.8, 0.8, 0.8, 1]], "data-type": "double", "null-values": 0.2, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "equi-height", "number-of-buckets-specified": 4}
+test	tbl_float	col	{"buckets": [[0.1, 0.2, 0.2, 2], [0.3, 0.4, 0.5, 2], [0.5, 0.5, 0.7, 1], [0.8, 0.8, 0.8, 1]], "data-type": "double", "null-values": 0.2, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "equi-height", "number-of-buckets-specified": 4}
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.0;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2884,6 +3273,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.1;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2891,6 +3283,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.2;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2898,20 +3293,29 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.3;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.4;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.5;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2919,6 +3323,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.6;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2926,6 +3333,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.7;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2933,6 +3343,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.8;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2940,6 +3353,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col > 0.9;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col > 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2947,6 +3363,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` > 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.0;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2954,6 +3373,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.1;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -2961,6 +3383,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.2;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2968,6 +3393,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.3;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -2975,20 +3403,29 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.4;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.5;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.6;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -2996,6 +3433,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.7;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3003,6 +3443,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.8;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3010,6 +3453,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col >= 0.9;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col >= 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3017,6 +3463,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` >= 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.0;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3024,6 +3473,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.1;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3031,6 +3483,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.2;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3038,27 +3493,39 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.3;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	15.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.4;
+COUNT(*)/10.0
+0.1000
+EXPLAIN SELECT * FROM tbl_float WHERE col = 0.4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	15.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.5;
+COUNT(*)/10.0
+0.2000
+EXPLAIN SELECT * FROM tbl_float WHERE col = 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.3)
-EXPLAIN SELECT * FROM tbl_float WHERE col = 0.4;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.4)
-EXPLAIN SELECT * FROM tbl_float WHERE col = 0.5;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.6;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3066,6 +3533,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.7;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3073,6 +3543,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.8;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3080,6 +3553,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col = 0.9;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col = 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3087,6 +3563,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.0;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3094,6 +3573,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.1;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3101,6 +3583,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.2;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -3108,20 +3593,29 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.3;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.4;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.5;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3129,6 +3623,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.6;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3136,6 +3633,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.7;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3143,6 +3643,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.8;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3150,6 +3653,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <= 0.9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col <= 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3157,6 +3663,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <= 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.0;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3164,6 +3673,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.1;
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3171,6 +3683,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.2;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -3178,6 +3693,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.3;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -3185,20 +3703,29 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.4;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.5;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.6;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3206,6 +3733,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.7;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3213,6 +3743,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.8;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3220,6 +3753,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col < 0.9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col < 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3227,6 +3763,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` < 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.0;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3234,41 +3773,59 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.1;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.2;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.3;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	65.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.4;
+COUNT(*)/10.0
+0.7000
+EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	65.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.5;
+COUNT(*)/10.0
+0.6000
+EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.3)
-EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.4;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.4)
-EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.5;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
-Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.6;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3276,6 +3833,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.7;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3283,6 +3843,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.8;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3290,6 +3853,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col <> 0.9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col <> 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3297,13 +3863,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` <> 0.9)
-EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.0;
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.0;
+COUNT(*)/10.0
+0.0000
+SET @const = 0.0e0;
+EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN @const AND @const;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	11.11	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.0)
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between <cache>((@`const`)) and <cache>((@`const`)))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.1;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3311,6 +3884,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.1)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.2;
+COUNT(*)/10.0
+0.2000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
@@ -3318,20 +3894,29 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.2)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.3;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.3)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.4;
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.4)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.5;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3339,6 +3924,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.5)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.6;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3346,6 +3934,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.6)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.7;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
@@ -3353,6 +3944,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.7)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.8;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3360,6 +3954,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.8)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3367,6 +3964,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.0 AND 0.9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.0 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3374,6 +3974,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.0 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.1 AND 0.9;
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.1 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
@@ -3381,6 +3984,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.1 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.2 AND 0.9;
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.2 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -3388,6 +3994,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.2 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.3 AND 0.9;
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.3 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
@@ -3395,20 +4004,29 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.3 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.4 AND 0.9;
+COUNT(*)/10.0
+0.4000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.4 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.4 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.5 AND 0.9;
+COUNT(*)/10.0
+0.3000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.5 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.5 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.6 AND 0.9;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.6 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3416,6 +4034,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.6 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.7 AND 0.9;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.7 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3423,6 +4044,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.7 and 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.8 AND 0.9;
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.8 AND 0.9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3430,48 +4054,70 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.8 and 0.9)
-EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN 0.9 AND 0.9;
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col BETWEEN 0.9 AND 0.9;
+COUNT(*)/10.0
+0.0000
+SET @const = 0.9;
+EXPLAIN SELECT * FROM tbl_float WHERE col BETWEEN @const AND @const;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	11.11	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between 0.9 and 0.9)
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` between <cache>((@`const`)) and <cache>((@`const`)))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9);
+COUNT(*)/10.0
+0.8000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9);
+COUNT(*)/10.0
+0.7000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.3,0.4,0.5,0.6,0.7,0.8,0.9);
+COUNT(*)/10.0
+0.6000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.3,0.4,0.5,0.6,0.7,0.8,0.9);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	60.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.3,0.4,0.5,0.6,0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.4,0.5,0.6,0.7,0.8,0.9);
+COUNT(*)/10.0
+0.4000
+EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.4,0.5,0.6,0.7,0.8,0.9);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	45.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.4,0.5,0.6,0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.5,0.6,0.7,0.8,0.9);
+COUNT(*)/10.0
+0.3000
+EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.5,0.6,0.7,0.8,0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.3,0.4,0.5,0.6,0.7,0.8,0.9))
-EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.4,0.5,0.6,0.7,0.8,0.9);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.4,0.5,0.6,0.7,0.8,0.9))
-EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.5,0.6,0.7,0.8,0.9);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.5,0.6,0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.6,0.7,0.8,0.9);
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.6,0.7,0.8,0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3479,6 +4125,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.6,0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.7,0.8,0.9);
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.7,0.8,0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3486,6 +4135,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.7,0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.8,0.9);
+COUNT(*)/10.0
+0.1000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.8,0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3493,6 +4145,9 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.8,0.9))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.9);
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3500,27 +4155,39 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` = 0.9)
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.1,0.3,0.5,0.7);
+COUNT(*)/10.0
+0.5000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.1,0.3,0.5,0.7);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	20.00	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	45.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.1,0.3,0.5,0.7))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.2,0.4,0.6,0.8);
+COUNT(*)/10.0
+0.3000
+EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.2,0.4,0.6,0.8);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	35.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.2,0.4,0.6,0.8))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.2,0.5,0.6);
+COUNT(*)/10.0
+0.3000
+EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.2,0.5,0.6);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.1,0.3,0.5,0.7))
-EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.2,0.4,0.6,0.8);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.2,0.4,0.6,0.8))
-EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.2,0.5,0.6);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_float`.`col` AS `col` from `test`.`tbl_float` where (`test`.`tbl_float`.`col` in (0.2,0.5,0.6))
+SELECT COUNT(*)/10.0 FROM tbl_float WHERE col IN (0.9,1.0,1.1,1.2,1.3);
+COUNT(*)/10.0
+0.0000
 EXPLAIN SELECT * FROM tbl_float WHERE col IN (0.9,1.0,1.1,1.2,1.3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	tbl_float	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
@@ -3623,4 +4290,107 @@ Table	Op	Msg_type	Msg_text
 test.t1	histogram	Error	Lock wait timeout exceeded; try restarting transaction
 UNLOCK INSTANCE;
 DROP TABLE t1;
+#
+# Bug#33935417 Histograms cause zero row estimates for values outside
+#              histogram buckets
+#
+CREATE TABLE ten (x INT);
+INSERT INTO ten VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9);
+CREATE TABLE hundred (x INT);
+INSERT INTO hundred SELECT 10*ten1.x + ten0.x AS v
+FROM ten AS ten1, ten AS ten0 ORDER BY v;
+CREATE TABLE ten_thousand (x INT);
+INSERT INTO ten_thousand SELECT 100*h1.x + h0.x AS v
+FROM hundred AS h1, hundred AS h0 ORDER BY v;
+EXPLAIN SELECT * FROM ten WHERE x = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten`.`x` AS `x` from `test`.`ten` where (`test`.`ten`.`x` = <cache>(-(1)))
+EXPLAIN SELECT * FROM hundred WHERE x = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	hundred	NULL	ALL	NULL	NULL	NULL	NULL	100	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`hundred`.`x` AS `x` from `test`.`hundred` where (`test`.`hundred`.`x` = <cache>(-(1)))
+EXPLAIN SELECT * FROM ten_thousand WHERE x = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten_thousand	NULL	ALL	NULL	NULL	NULL	NULL	10000	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1000	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1000	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten_thousand`.`x` AS `x` from `test`.`ten_thousand` where (`test`.`ten_thousand`.`x` = <cache>(-(1)))
+ANALYZE TABLE ten UPDATE HISTOGRAM ON x;
+Table	Op	Msg_type	Msg_text
+test.ten	histogram	status	Histogram statistics created for column 'x'.
+ANALYZE TABLE ten;
+Table	Op	Msg_type	Msg_text
+test.ten	analyze	status	OK
+ANALYZE TABLE hundred UPDATE HISTOGRAM ON x;
+Table	Op	Msg_type	Msg_text
+test.hundred	histogram	status	Histogram statistics created for column 'x'.
+ANALYZE TABLE hundred;
+Table	Op	Msg_type	Msg_text
+test.hundred	analyze	status	OK
+ANALYZE TABLE ten_thousand UPDATE HISTOGRAM ON x;
+Table	Op	Msg_type	Msg_text
+test.ten_thousand	histogram	status	Histogram statistics created for column 'x'.
+ANALYZE TABLE ten_thousand;
+Table	Op	Msg_type	Msg_text
+test.ten_thousand	analyze	status	OK
+EXPLAIN SELECT * FROM ten WHERE x = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten`.`x` AS `x` from `test`.`ten` where (`test`.`ten`.`x` = <cache>(-(1)))
+EXPLAIN SELECT * FROM hundred WHERE x = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	hundred	NULL	ALL	NULL	NULL	NULL	NULL	100	1.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`hundred`.`x` AS `x` from `test`.`hundred` where (`test`.`hundred`.`x` = <cache>(-(1)))
+EXPLAIN SELECT * FROM ten_thousand WHERE x = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten_thousand	NULL	ALL	NULL	NULL	NULL	NULL	9980	0.10	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten_thousand`.`x` AS `x` from `test`.`ten_thousand` where (`test`.`ten_thousand`.`x` = <cache>(-(1)))
+EXPLAIN SELECT * FROM ten_thousand WHERE x < -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten_thousand	NULL	ALL	NULL	NULL	NULL	NULL	9980	0.10	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten_thousand`.`x` AS `x` from `test`.`ten_thousand` where (`test`.`ten_thousand`.`x` < <cache>(-(1)))
+EXPLAIN SELECT * FROM ten_thousand WHERE x BETWEEN -100 AND -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten_thousand	NULL	ALL	NULL	NULL	NULL	NULL	9980	0.10	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten_thousand`.`x` AS `x` from `test`.`ten_thousand` where (`test`.`ten_thousand`.`x` between <cache>(-(100)) and <cache>(-(1)))
+EXPLAIN SELECT * FROM ten_thousand WHERE x IN (-2, -1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten_thousand	NULL	ALL	NULL	NULL	NULL	NULL	9980	0.10	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten_thousand`.`x` AS `x` from `test`.`ten_thousand` where (`test`.`ten_thousand`.`x` in (<cache>(-(2)),<cache>(-(1))))
+EXPLAIN SELECT * FROM ten_thousand WHERE x IN (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ten_thousand	NULL	ALL	NULL	NULL	NULL	NULL	9980	0.10	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`ten_thousand`.`x` AS `x` from `test`.`ten_thousand` where (`test`.`ten_thousand`.`x` in (1,2,3))
+DROP TABLE ten;
+DROP TABLE hundred;
+DROP TABLE ten_thousand;
 # restart:

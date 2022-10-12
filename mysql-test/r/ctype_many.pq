@@ -5,6 +5,8 @@ CREATE TABLE t1 (
 comment CHAR(32) ASCII NOT NULL,
 koi8_ru_f CHAR(32) CHARACTER SET koi8r NOT NULL default ''
 ) CHARSET=latin5;
+Warnings:
+Warning	1287	'ASCII' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -162,64 +164,64 @@ INSERT INTO t1 (koi8_ru_f,comment) VALUES (_koi8r'Ò','CYR CAPIT YA');
 SET CHARACTER SET utf8;
 SELECT koi8_ru_f,MIN(comment),COUNT(*) FROM t1 GROUP BY 1;
 koi8_ru_f	MIN(comment)	COUNT(*)
-G	LAT CAPIT G	2
+F	LAT CAPIT F	2
 H	LAT CAPIT H	2
+J	LAT CAPIT J	2
 L	LAT CAPIT L	2
-O	LAT CAPIT O	2
-Q	LAT CAPIT Q	2
+P	LAT CAPIT P	2
 R	LAT CAPIT R	2
-U	LAT CAPIT U	2
-V	LAT CAPIT V	2
 Y	LAT CAPIT Y	2
+Z	LAT CAPIT Z	2
 a	LAT CAPIT A	2
 b	LAT CAPIT B	2
 c	LAT CAPIT C	2
 d	LAT CAPIT D	2
 e	LAT CAPIT E	2
-f	LAT CAPIT F	2
+g	LAT CAPIT G	2
 i	LAT CAPIT I	2
-j	LAT CAPIT J	2
 k	LAT CAPIT K	2
 m	LAT CAPIT M	2
 n	LAT CAPIT N	2
-p	LAT CAPIT P	2
+o	LAT CAPIT O	2
+q	LAT CAPIT Q	2
 s	LAT CAPIT S	2
 t	LAT CAPIT T	2
+u	LAT CAPIT U	2
+v	LAT CAPIT V	2
 w	LAT CAPIT W	2
 x	LAT CAPIT X	2
-z	LAT CAPIT Z	2
+–Å	CYR CAPIT IO	2
 –ë	CYR CAPIT BE	2
-–î	CYR CAPIT DE	2
-–ï	CYR CAPIT IE	2
-–ñ	CYR CAPIT ZHE	2
-–ò	CYR CAPIT I	2
+–ì	CYR CAPIT GE	2
+–ó	CYR CAPIT ZE	2
+–ö	CYR CAPIT KA	2
 –õ	CYR CAPIT EL	2
-–û	CYR CAPIT O	2
-–ü	CYR CAPIT PE	2
-–°	CYR CAPIT ES	2
-–•	CYR CAPIT HA	2
-–®	CYR CAPIT SHA	2
+–ú	CYR CAPIT EM	2
+–†	CYR CAPIT ER	2
+–§	CYR CAPIT EF	2
+–¶	CYR CAPIT TSE	2
 –™	CYR CAPIT HARD SIGN	2
+–¨	CYR CAPIT SOFT SIGN	2
 –Æ	CYR CAPIT YU	2
+–Ø	CYR CAPIT YA	2
 –∞	CYR CAPIT A	2
 –≤	CYR CAPIT VE	2
-–≥	CYR CAPIT GE	2
-–∑	CYR CAPIT ZE	2
-–∫	CYR CAPIT KA	2
-–º	CYR CAPIT EM	2
+–¥	CYR CAPIT DE	2
+–µ	CYR CAPIT IE	2
+–∂	CYR CAPIT ZHE	2
+–∏	CYR CAPIT I	2
 –Ω	CYR CAPIT EN	2
-—Ä	CYR CAPIT ER	2
+–æ	CYR CAPIT O	2
+–ø	CYR CAPIT PE	2
+—Å	CYR CAPIT ES	2
 —Ç	CYR CAPIT TE	2
 —É	CYR CAPIT U	2
-—Ñ	CYR CAPIT EF	2
-—Ü	CYR CAPIT TSE	2
+—Ö	CYR CAPIT HA	2
 —á	CYR CAPIT CHE	2
+—à	CYR CAPIT SHA	2
 —â	CYR CAPIT SCHA	2
 —ã	CYR CAPIT YERU	2
-—å	CYR CAPIT SOFT SIGN	2
 —ç	CYR CAPIT E	2
-—è	CYR CAPIT YA	2
-—ë	CYR CAPIT IO	2
 ALTER TABLE t1 ADD utf8_f CHAR(32) CHARACTER SET utf8 NOT NULL default '';
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
@@ -352,123 +354,123 @@ COUNT(DISTINCT bin_f)	COUNT(DISTINCT koi8_ru_f)	COUNT(DISTINCT utf8_f)
 116	58	57
 SELECT koi8_ru_f,MIN(comment) FROM t1 GROUP BY 1;
 koi8_ru_f	MIN(comment)
-D	LAT CAPIT D
-G	LAT CAPIT G
-J	LAT CAPIT J
+A	LAT CAPIT A
+E	LAT CAPIT E
+F	LAT CAPIT F
+H	LAT CAPIT H
+I	LAT CAPIT I
 M	LAT CAPIT M
-N	LAT CAPIT N
-Q	LAT CAPIT Q
-S	LAT CAPIT S
-U	LAT CAPIT U
+R	LAT CAPIT R
+T	LAT CAPIT T
 W	LAT CAPIT W
-X	LAT CAPIT X
-Z	LAT CAPIT Z
-a	LAT CAPIT A
 b	LAT CAPIT B
 c	LAT CAPIT C
-e	LAT CAPIT E
-f	LAT CAPIT F
-h	LAT CAPIT H
-i	LAT CAPIT I
+d	LAT CAPIT D
+g	LAT CAPIT G
+j	LAT CAPIT J
 k	LAT CAPIT K
 l	LAT CAPIT L
+n	LAT CAPIT N
 o	LAT CAPIT O
 p	LAT CAPIT P
-r	LAT CAPIT R
-t	LAT CAPIT T
+q	LAT CAPIT Q
+s	LAT CAPIT S
+u	LAT CAPIT U
 v	LAT CAPIT V
+x	LAT CAPIT X
 y	LAT CAPIT Y
+z	LAT CAPIT Z
 £	CYR CAPIT IO
+¿	CYR CAPIT YU
+¡	CYR CAPIT A
 ¬	CYR CAPIT BE
 √	CYR CAPIT TSE
-ƒ	CYR CAPIT DE
 ≈	CYR CAPIT IE
+∆	CYR CAPIT EF
 «	CYR CAPIT GE
-»	CYR CAPIT HA
+…	CYR CAPIT I
+Õ	CYR CAPIT EM
+Œ	CYR CAPIT EN
+–	CYR CAPIT PE
+—	CYR CAPIT YA
+“	CYR CAPIT ER
+”	CYR CAPIT ES
+÷	CYR CAPIT ZHE
+◊	CYR CAPIT VE
+ÿ	CYR CAPIT SOFT SIGN
+Ÿ	CYR CAPIT YERU
+€	CYR CAPIT SHA
+ﬁ	CYR CAPIT CHE
+ﬂ	CYR CAPIT HARD SIGN
+‰	CYR CAPIT DE
+Ë	CYR CAPIT HA
+Î	CYR CAPIT KA
+Ï	CYR CAPIT EL
+Ô	CYR CAPIT O
+Ù	CYR CAPIT TE
+ı	CYR CAPIT U
+˙	CYR CAPIT ZE
+¸	CYR CAPIT E
+˝	CYR CAPIT SCHA
+SELECT utf8_f,MIN(comment) FROM t1 GROUP BY 1;
+utf8_f	MIN(comment)
+A	LAT CAPIT A
+E	LAT CAPIT E
+I	LAT CAPIT I
+L	LAT CAPIT L
+M	LAT CAPIT M
+O	LAT CAPIT O
+P	LAT CAPIT P
+V	LAT CAPIT V
+X	LAT CAPIT X
+Z	LAT CAPIT Z
+b	LAT CAPIT B
+c	LAT CAPIT C
+d	LAT CAPIT D
+f	LAT CAPIT F
+g	LAT CAPIT G
+h	LAT CAPIT H
+j	LAT CAPIT J
+k	LAT CAPIT K
+n	LAT CAPIT N
+q	LAT CAPIT Q
+r	LAT CAPIT R
+s	LAT CAPIT S
+t	LAT CAPIT T
+u	LAT CAPIT U
+w	LAT CAPIT W
+y	LAT CAPIT Y
+≥	CYR CAPIT IE
+¡	CYR CAPIT A
+√	CYR CAPIT TSE
+ƒ	CYR CAPIT DE
+∆	CYR CAPIT EF
+…	CYR CAPIT I
 À	CYR CAPIT KA
 Õ	CYR CAPIT EM
 Œ	CYR CAPIT EN
 œ	CYR CAPIT O
-–	CYR CAPIT PE
 —	CYR CAPIT YA
 “	CYR CAPIT ER
 ”	CYR CAPIT ES
 ’	CYR CAPIT U
 ÷	CYR CAPIT ZHE
 ◊	CYR CAPIT VE
+ÿ	CYR CAPIT SOFT SIGN
 Ÿ	CYR CAPIT YERU
 ⁄	CYR CAPIT ZE
 €	CYR CAPIT SHA
-‹	CYR CAPIT E
 ›	CYR CAPIT SCHA
-ﬂ	CYR CAPIT HARD SIGN
-‡	CYR CAPIT YU
-·	CYR CAPIT A
-Ê	CYR CAPIT EF
-È	CYR CAPIT I
-Ï	CYR CAPIT EL
-Ù	CYR CAPIT TE
-¯	CYR CAPIT SOFT SIGN
-˛	CYR CAPIT CHE
-SELECT utf8_f,MIN(comment) FROM t1 GROUP BY 1;
-utf8_f	MIN(comment)
-A	LAT CAPIT A
-B	LAT CAPIT B
-E	LAT CAPIT E
-I	LAT CAPIT I
-J	LAT CAPIT J
-M	LAT CAPIT M
-N	LAT CAPIT N
-O	LAT CAPIT O
-R	LAT CAPIT R
-S	LAT CAPIT S
-U	LAT CAPIT U
-Y	LAT CAPIT Y
-Z	LAT CAPIT Z
-c	LAT CAPIT C
-d	LAT CAPIT D
-f	LAT CAPIT F
-g	LAT CAPIT G
-h	LAT CAPIT H
-k	LAT CAPIT K
-l	LAT CAPIT L
-p	LAT CAPIT P
-q	LAT CAPIT Q
-t	LAT CAPIT T
-v	LAT CAPIT V
-w	LAT CAPIT W
-x	LAT CAPIT X
-¡	CYR CAPIT A
-√	CYR CAPIT TSE
-≈	CYR CAPIT IE
-«	CYR CAPIT GE
-»	CYR CAPIT HA
-…	CYR CAPIT I
-Ã	CYR CAPIT EL
-Õ	CYR CAPIT EM
-–	CYR CAPIT PE
-—	CYR CAPIT YA
-“	CYR CAPIT ER
-”	CYR CAPIT ES
-‘	CYR CAPIT TE
-÷	CYR CAPIT ZHE
-◊	CYR CAPIT VE
-Ÿ	CYR CAPIT YERU
-‹	CYR CAPIT E
-›	CYR CAPIT SCHA
-ﬂ	CYR CAPIT HARD SIGN
+ﬁ	CYR CAPIT CHE
 ‡	CYR CAPIT YU
 ‚	CYR CAPIT BE
-‰	CYR CAPIT DE
-Ê	CYR CAPIT EF
-Î	CYR CAPIT KA
-Ó	CYR CAPIT EN
-Ô	CYR CAPIT O
-ı	CYR CAPIT U
-¯	CYR CAPIT SOFT SIGN
-˙	CYR CAPIT ZE
-˚	CYR CAPIT SHA
-˛	CYR CAPIT CHE
+Á	CYR CAPIT GE
+Ë	CYR CAPIT HA
+Ï	CYR CAPIT EL
+	CYR CAPIT PE
+Ù	CYR CAPIT TE
+¸	CYR CAPIT E
+ˇ	CYR CAPIT HARD SIGN
 SELECT DISTINCT koi8_ru_f FROM t1;
 koi8_ru_f
 a
@@ -557,19 +559,23 @@ w
 x
 y
 z
-£
+¿
 ¡
 ¬
 √
 ƒ
+≈
+∆
 «
 »
 …
 À
+Ã
 Õ
 Œ
 œ
 –
+—
 “
 ”
 ‘
@@ -577,17 +583,13 @@ z
 ÷
 ◊
 ÿ
+Ÿ
 ⁄
 €
 ‹
 ›
+ﬁ
 ﬂ
-‡
-Ê
-Ï
-Ò
-˘
-˛
 SELECT lower(koi8_ru_f) FROM t1 ORDER BY 1 DESC;
 lower(koi8_ru_f)
 —
@@ -1313,6 +1315,8 @@ CYR SMALL YA	CYR CAPIT YA
 CYR SMALL YA	CYR SMALL YA
 SET CHARACTER SET utf8;
 ALTER TABLE t1 ADD ucs2_f CHAR(32) CHARACTER SET ucs2;
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 ALTER TABLE t1 CHANGE ucs2_f ucs2_f CHAR(32) UNICODE NOT NULL;
 INSERT INTO t1 (ucs2_f,comment) VALUES (0x0391,'GREEK CAPIT ALPHA');
 INSERT INTO t1 (ucs2_f,comment) VALUES (0x0392,'GREEK CAPIT BETA');
@@ -1345,6 +1349,9 @@ Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 UPDATE t1 SET ucs2_f=CONVERT(utf8_f USING ucs2) WHERE ucs2_f=_ucs2'';
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT comment, koi8_ru_f, utf8_f, hex(bin_f), ucs2_f, armscii8_f, greek_f FROM t1;
 comment	koi8_ru_f	utf8_f	hex(bin_f)	ucs2_f	armscii8_f	greek_f
 ARMENIAN CAPIT AYB		‘±	00	‘±	‘±	
@@ -1730,14 +1737,15 @@ utf32 CHAR CHARACTER SET utf32
 );
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES ('','','','','');
 SELECT CHARSET(CONCAT(utf8, utf8mb4)) FROM t1;
 CHARSET(CONCAT(utf8, utf8mb4))
 utf8mb4
 SELECT CHARSET(CONCAT(utf8, ucs2)) FROM t1;
-ERROR HY000: Illegal mix of collations (utf8_general_ci,IMPLICIT) and (ucs2_general_ci,IMPLICIT) for operation 'concat'
+ERROR HY000: Illegal mix of collations (utf8mb3_general_ci,IMPLICIT) and (ucs2_general_ci,IMPLICIT) for operation 'concat'
 SELECT CHARSET(CONCAT(utf8, utf16)) FROM t1;
-ERROR HY000: Illegal mix of collations (utf8_general_ci,IMPLICIT) and (utf16_general_ci,IMPLICIT) for operation 'concat'
+ERROR HY000: Illegal mix of collations (utf8mb3_general_ci,IMPLICIT) and (utf16_general_ci,IMPLICIT) for operation 'concat'
 SELECT CHARSET(CONCAT(utf8, utf32)) FROM t1;
 CHARSET(CONCAT(utf8, utf32))
 utf32
@@ -1754,7 +1762,7 @@ SELECT CHARSET(CONCAT(utf8mb4, utf32)) FROM t1;
 CHARSET(CONCAT(utf8mb4, utf32))
 utf8mb4
 SELECT CHARSET(CONCAT(ucs2, utf8)) FROM t1;
-ERROR HY000: Illegal mix of collations (ucs2_general_ci,IMPLICIT) and (utf8_general_ci,IMPLICIT) for operation 'concat'
+ERROR HY000: Illegal mix of collations (ucs2_general_ci,IMPLICIT) and (utf8mb3_general_ci,IMPLICIT) for operation 'concat'
 SELECT CHARSET(CONCAT(ucs2, utf8mb4)) FROM t1;
 CHARSET(CONCAT(ucs2, utf8mb4))
 utf8mb4
@@ -1764,7 +1772,7 @@ SELECT CHARSET(CONCAT(ucs2, utf32)) FROM t1;
 CHARSET(CONCAT(ucs2, utf32))
 utf32
 SELECT CHARSET(CONCAT(utf16, utf8)) FROM t1;
-ERROR HY000: Illegal mix of collations (utf16_general_ci,IMPLICIT) and (utf8_general_ci,IMPLICIT) for operation 'concat'
+ERROR HY000: Illegal mix of collations (utf16_general_ci,IMPLICIT) and (utf8mb3_general_ci,IMPLICIT) for operation 'concat'
 SELECT CHARSET(CONCAT(utf16, ucs2)) FROM t1;
 ERROR HY000: Illegal mix of collations (utf16_general_ci,IMPLICIT) and (ucs2_general_ci,IMPLICIT) for operation 'concat'
 SELECT CHARSET(CONCAT(utf16, utf8mb4)) FROM t1;
@@ -1791,6 +1799,8 @@ DROP TABLE t1;
 #
 CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf32);
 CREATE TABLE t2 (a VARCHAR(10) CHARACTER SET ucs2);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (0x10082), (0x12345);
 INSERT INTO t2 SELECT * FROM t1;
 Warnings:
@@ -1814,6 +1824,7 @@ Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 INSERT INTO t1 VALUES ('a'), ('b');
 CREATE TABLE t2 (a BINARY(1));
+INSERT INTO t2 VALUES ('x'),('z');
 SELECT * FROM t2 WHERE a=(SELECT a FROM t1) AND a=_LATIN1'x';
 ERROR 21000: Subquery returns more than 1 row
 DROP TABLE t2;

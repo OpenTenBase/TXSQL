@@ -7,9 +7,9 @@ CREATE TABLE t1 (c1 INT KEY) ENGINE=InnoDB;
 include/save_binlog_position.inc
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-SET @saved_slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
+SET @saved_replica_transaction_retries = @@GLOBAL.replica_transaction_retries;
 SET @saved_innodb_lock_wait_timeout = @@GLOBAL.innodb_lock_wait_timeout;
-SET GLOBAL slave_transaction_retries = 1;
+SET GLOBAL replica_transaction_retries = 1;
 SET GLOBAL innodb_lock_wait_timeout = 1;
 include/start_slave.inc
 BEGIN;
@@ -32,10 +32,10 @@ ROLLBACK;
 #
 # Cleanup
 #
-SET GLOBAL slave_transaction_retries = @saved_slave_transaction_retries;
+SET GLOBAL replica_transaction_retries = @saved_replica_transaction_retries;
 SET GLOBAL innodb_lock_wait_timeout = @saved_innodb_lock_wait_timeout;
-CHANGE MASTER TO MASTER_LOG_FILE = "BINLOG_FILE", MASTER_LOG_POS = BINLOG_POS,
-MASTER_USER='root', MASTER_HOST='127.0.0.1', MASTER_PORT=MASTER_PORT;
+CHANGE REPLICATION SOURCE TO SOURCE_LOG_FILE = "BINLOG_FILE", SOURCE_LOG_POS = BINLOG_POS,
+SOURCE_USER='root', SOURCE_HOST='127.0.0.1', SOURCE_PORT=MASTER_PORT;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.

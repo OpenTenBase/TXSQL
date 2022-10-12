@@ -53,8 +53,8 @@ Warnings:
 Note	1003	/* select#1 */ select /*+ PARALLEL(0) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1`
 explain format=tree select /*+PARALLEL(0)*/ * from t1 union select * from t2;
 EXPLAIN
--> Table scan on <union temporary>  (cost=2.50 rows=0)
-    -> Union materialize with deduplication
+-> Table scan on <union temporary>  (cost=0.22..2.65 rows=12)
+    -> Union materialize with deduplication  (cost=3.12..5.55 rows=12)
         -> Table scan on t1  (cost=0.95 rows=7)
         -> Table scan on t2  (cost=0.75 rows=5)
 
@@ -68,8 +68,8 @@ explain format=tree select /*+PARALLEL(1)*/a,avg(c) from t1 group by a union sel
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.51..2.56 rows=5)
+            -> Union materialize with deduplication  (cost=1.76..3.81 rows=5)
                 -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)
@@ -87,8 +87,8 @@ EXPLAIN
 
 explain format=tree select /*+PARALLEL(10)*/ a,sum(b) from t1 group by a union select a,b from t2;
 EXPLAIN
--> Table scan on <union temporary>  (cost=2.50 rows=0)
-    -> Union materialize with deduplication
+-> Table scan on <union temporary>  (cost=0.51..2.56 rows=5)
+    -> Union materialize with deduplication  (cost=1.76..3.81 rows=5)
         -> Table scan on <temporary>
             -> Aggregate using temporary table
                 -> Table scan on t1  (cost=0.95 rows=7)
@@ -108,8 +108,8 @@ explain format=tree select /*+NO_BNL(t1,t2) PARALLEL(t2)*/ t1.a, t2.a from t1,t2
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.18..2.69 rows=15)
+            -> Union materialize with deduplication  (cost=8.43..10.94 rows=15)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Nested loop inner join  (cost=5.50 rows=5)
@@ -136,8 +136,8 @@ explain format=tree select /*+PARALLEL(t1)*/ t1.* from t1,t2 union select /*+PAR
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.07..3.06 rows=45)
+            -> Union materialize with deduplication  (cost=10.32..13.31 rows=45)
                 -> Inner hash join (no condition)  (cost=4.50 rows=35)
                     -> Table scan on t1  (cost=0.19 rows=7)
                     -> Hash
@@ -156,7 +156,7 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 4)
         -> Nested loop inner join  (cost=2.05 rows=4)
             -> Parallel index scan on t5 using PRIMARY  (cost=0.65 rows=4)
-            -> Index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
+            -> Covering index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
 
 Warnings:
 Warning	8504	parallel hint has no effect, not the chosen table.
@@ -164,13 +164,13 @@ explain format=tree select /*+JOIN_ORDER(t5,t3) PARALLEL(t3)*/ t5.a, t3.a from t
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.24..2.64 rows=11)
+            -> Union materialize with deduplication  (cost=4.34..6.74 rows=11)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Nested loop inner join  (cost=2.05 rows=4)
                             -> Parallel index scan on t5 using PRIMARY  (cost=0.65 rows=4)
-                            -> Index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
+                            -> Covering index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
@@ -191,8 +191,8 @@ explain format=tree select /*+NO_BNL(t1,t2) PARALLEL(t2 2)*/ t1.a+t2.b from t1,t
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.43..2.58 rows=6)
+            -> Union materialize with deduplication  (cost=6.88..9.03 rows=6)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 2)
                         -> Nested loop inner join  (cost=5.50 rows=5)
@@ -209,8 +209,8 @@ explain format=tree select /*+NO_BNL(t1,t2) PARALLEL(t2 2)*/ t1.a+t2.b from t1,t
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.43..2.58 rows=6)
+            -> Union materialize with deduplication  (cost=6.88..9.03 rows=6)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 2)
                         -> Nested loop inner join  (cost=5.50 rows=5)
@@ -317,7 +317,7 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 4)
         -> Nested loop inner join  (cost=2.05 rows=4)
             -> Parallel index scan on t5 using PRIMARY  (cost=0.65 rows=4)
-            -> Index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
+            -> Covering index lookup on t3 using idx (b=t5.a)  (cost=0.28 rows=1)
 
 Warnings:
 Warning	8504	parallel hint has no effect, not the chosen table.
@@ -350,7 +350,7 @@ EXPLAIN
         -> Nested loop inner join  (cost=2.05 rows=4)
             -> Parallel index scan on t6 using d  (cost=0.65 rows=4)
             -> Filter: ((t6.a + t3.b) = 1)  (cost=0.28 rows=1)
-                -> Index lookup on t3 using idx (b=t6.a)  (cost=0.28 rows=1)
+                -> Covering index lookup on t3 using idx (b=t6.a)  (cost=0.28 rows=1)
 
 # 1.2. test the NO_PARALLEL hint
 # 1.2.1 NO_PARALLEL(t)
@@ -390,8 +390,8 @@ explain format=tree select /*+NO_PARALLEL(t1)*/ * from t1 union select /*+parall
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.22..2.65 rows=12)
+            -> Union materialize with deduplication  (cost=3.12..5.55 rows=12)
                 -> Table scan on t1  (cost=0.95 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
@@ -409,7 +409,7 @@ explain format=tree select /*+JOIN_ORDER(t6,t3) NO_PARALLEL(t3) NO_PARALLEL(t6)*
 EXPLAIN
 -> Nested loop inner join  (cost=2.05 rows=4)
     -> Index scan on t6 using d  (cost=0.65 rows=4)
-    -> Index lookup on t3 using idx (b=t6.a)  (cost=0.28 rows=1)
+    -> Covering index lookup on t3 using idx (b=t6.a)  (cost=0.28 rows=1)
 
 # 1.2.3 others
 explain select /*+NO_PARALLEL(t1, 4)*/ * from t1;

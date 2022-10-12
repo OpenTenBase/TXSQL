@@ -10,10 +10,10 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 'connection con1'
 SELECT @@global.character_set_connection;
 @@global.character_set_connection
-utf8
+utf8mb3
 SELECT @@session.character_set_connection;
 @@session.character_set_connection
-utf8
+utf8mb3
 '#--------------------FN_DYNVARS_011_02-------------------------#'
 'connection default'
 DROP TABLE IF EXISTS t1;
@@ -31,7 +31,7 @@ SET @@session.character_set_connection = latin1;
 SELECT 'ЁЂЃЄ' AS utf_text;
 utf_text
 ????
-Warning	1300	Cannot convert string '\xD0\x81\xD0\x82\xD0\x83...' from utf8 to latin1
+Warning	1300	Cannot convert string '\xD0\x81\xD0\x82\xD0\x83...' from utf8mb3 to latin1
 Warnings:
 SET @@session.character_set_connection = utf8;
 Warnings:
@@ -43,7 +43,7 @@ utf_text
 SET @@session.character_set_connection = ascii;
 INSERT INTO t1 VALUES('ЁЂЃЄ');
 Warnings:
-Warning	1300	Cannot convert string '\xD0\x81\xD0\x82\xD0\x83...' from utf8 to ascii
+Warning	1300	Cannot convert string '\xD0\x81\xD0\x82\xD0\x83...' from utf8mb3 to ascii
 SELECT * FROM t1;
 b
 ????

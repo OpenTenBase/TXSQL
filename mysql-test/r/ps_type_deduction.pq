@@ -743,11 +743,11 @@ json_extract(trace,"$.steps[*].statement_parameters")
 prepare s from 'select ADDDATE(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
-[["DATETIME decimals=6", "LONGLONG"]]
+[["DATE", "LONGLONG"]]
 prepare s from 'select ADDDATE(?, INTERVAL ? MONTH)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
-[["DATETIME decimals=6", "LONGLONG"]]
+[["DATE", "LONGLONG"]]
 prepare s from 'select ADDDATE(?, INTERVAL ? SECOND)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
@@ -765,10 +765,26 @@ prepare s from 'select ADDDATE(?, INTERVAL ? DAY_SECOND)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["DATETIME decimals=6", "VARCHAR"]]
+prepare s from 'select ADDDATE(?, INTERVAL 1 MONTH)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["DATE"]]
+prepare s from 'select ADDDATE(CAST(? AS DATE), INTERVAL 1 MONTH)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["DATE"]]
+prepare s from 'select ADDDATE(CAST(? AS DATETIME), INTERVAL 1 SECOND)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["DATETIME decimals=6"]]
 prepare s from 'select ADDTIME(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
-[["DATETIME decimals=6", "TIME decimals=6"]]
+[["TIME decimals=6", "TIME decimals=6"]]
+prepare s from "select ADDTIME(?, time'01:01:01')";
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["TIME decimals=6"]]
 prepare s from 'select AES_DECRYPT(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
@@ -834,6 +850,8 @@ select json_extract(trace,"$.steps[*].statement_parameters") from information_sc
 json_extract(trace,"$.steps[*].statement_parameters")
 [["VARCHAR", "LONGLONG"]]
 prepare s from 'select BINARY(?)';
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["VARCHAR"]]
@@ -1796,15 +1814,15 @@ prepare s from 'select MAKETIME(?,?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["LONGLONG", "LONGLONG", "NEWDECIMAL decimals=30"]]
-prepare s from 'select MASTER_POS_WAIT(?,?)';
+prepare s from 'select SOURCE_POS_WAIT(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["VARCHAR", "LONGLONG"]]
-prepare s from 'select MASTER_POS_WAIT(?,?,?)';
+prepare s from 'select SOURCE_POS_WAIT(?,?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["VARCHAR", "LONGLONG", "LONGLONG"]]
-prepare s from 'select MASTER_POS_WAIT(?,?,?,?)';
+prepare s from 'select SOURCE_POS_WAIT(?,?,?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["VARCHAR", "LONGLONG", "LONGLONG", "VARCHAR"]]
@@ -1912,6 +1930,26 @@ prepare s from 'select NULLIF(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
 [["VARCHAR", "VARCHAR"]]
+prepare s from 'select NULLIF(100,?)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["LONGLONG"]]
+prepare s from 'select NULLIF(?,100)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["LONGLONG"]]
+prepare s from 'select 200 + NULLIF(?,?)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["LONGLONG", "LONGLONG"]]
+prepare s from 'select 200 + NULLIF("100",?)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["VARCHAR"]]
+prepare s from 'select 200 + NULLIF(?,"100")';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["VARCHAR"]]
 prepare s from 'select OCT(?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
@@ -2625,7 +2663,19 @@ json_extract(trace,"$.steps[*].statement_parameters")
 prepare s from 'select SUBDATE(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
-[["DATETIME decimals=6", "LONGLONG"]]
+[["DATE", "LONGLONG"]]
+prepare s from 'select SUBDATE(?, INTERVAL 1 MONTH)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["DATE"]]
+prepare s from 'select SUBDATE(CAST(? AS DATE), INTERVAL 1 MONTH)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["DATE"]]
+prepare s from 'select SUBDATE(CAST(? AS DATETIME), INTERVAL 1 SECOND)';
+select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
+json_extract(trace,"$.steps[*].statement_parameters")
+[["DATETIME decimals=6"]]
 prepare s from 'select SUBSTR(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
@@ -2649,7 +2699,7 @@ json_extract(trace,"$.steps[*].statement_parameters")
 prepare s from 'select SUBTIME(?,?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
-[["DATETIME decimals=6", "TIME decimals=6"]]
+[["TIME decimals=6", "TIME decimals=6"]]
 prepare s from 'select SUM(?)';
 select json_extract(trace,"$.steps[*].statement_parameters") from information_schema.optimizer_trace;
 json_extract(trace,"$.steps[*].statement_parameters")
@@ -3318,3 +3368,11 @@ DEALLOCATE PREPARE s;
 #               in item_func::propagate_type
 PREPARE s FROM 'DO ST_ENVELOPE(CEILING(?))';
 ERROR HY000: Incorrect arguments to ceiling
+# Bug#32145078: "Illegal mix of collations" against a string
+CREATE TABLE t1 (
+col1 VARCHAR(100) NOT NULL COLLATE latin1_swedish_ci,
+col2 VARCHAR(200) NOT NULL COLLATE utf8mb4_general_ci
+);
+PREPARE stmt1 FROM 'SELECT * FROM t1 WHERE col1 LIKE ? OR col2 LIKE ?';
+DEALLOCATE PREPARE stmt1;
+DROP TABLE t1;

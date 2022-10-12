@@ -652,6 +652,81 @@ void cost_skip_scan(TABLE *table, uint key, uint distinct_key_parts,
               (ulong)table_records, (uint)keys_per_group, (ulong)*records));
 }
 
+#if defined(HAVE_PX)
+bool IndexSkipScanParameters::eq(
+    const IndexSkipScanParameters *other) const {
+  if (!other) {
+    return false;
+  }
+
+  if (eq_prefix_len != other->eq_prefix_len ||
+      eq_prefix_key_parts != other->eq_prefix_key_parts ||
+      range_cond_flag != other->range_cond_flag ||
+      range_key_len != other->range_key_len ||
+      has_aggregate_function != other->has_aggregate_function) {
+    return false;
+  }
+
+  if (index_info) {
+    if (!other->index_info ||
+        strlen(index_info->name) != strlen(other->index_info->name) ||
+        strncmp(index_info->name,
+                other->index_info->name,
+                strlen(index_info->name)) != 0) {
+      return false;
+    }
+  }
+  else if (other->index_info) {
+    return false;
+  }
+
+  if ((index_range_tree && !other->index_range_tree) ||
+      (!index_range_tree && other->index_range_tree)) {
+    return false;
+  }
+  char buff1[512];
+  buff1[0] = '\0';
+  char other_buff1[512];
+  other_buff1[0] = '\0';
+  String range_result(buff1, sizeof(buff1), system_charset_info);
+  String other_range_result(other_buff1, sizeof(other_buff1), system_charset_info);
+  if (index_range_tree && other->index_range_tree) {
+    if (eq_prefix_key_parts > 0) {
+      range_result.length(0);
+      char buff2[128];
+      String range_so_far(buff2, sizeof(buff2), system_charset_info);
+      range_so_far.length(0);
+      append_range_all_keyparts(nullptr, &range_result, &range_so_far,
+                                index_range_tree,
+                                index_info->key_part, false);
+
+      other_range_result.length(0);
+      char other_buff2[128];
+      String other_range_so_far(other_buff2, sizeof(other_buff2), system_charset_info);
+      other_range_so_far.length(0);
+      append_range_all_keyparts(nullptr, &other_range_result, &other_range_so_far,
+                                other->index_range_tree,
+                                other->index_info->key_part, false);
+      if (range_result.length() != other_range_result.length() ||
+          strncmp(range_result.c_ptr(), other_range_result.c_ptr(), range_result.length()) != 0) {
+        return false;
+      }
+    }
+  }
+  range_result.length(0);
+  append_range(&range_result, range_key_part, min_range_key,
+               max_range_key, range_cond_flag);
+  other_range_result.length(0);
+  append_range(&other_range_result, other->range_key_part, other->min_range_key,
+               other->max_range_key, other->range_cond_flag);
+  if (range_result.length() != other_range_result.length() ||
+      strncmp(range_result.c_ptr(), other_range_result.c_ptr(), range_result.length()) != 0) {
+    return false;
+  }
+  return true;
+}
+#endif /* defined(HAVE_PX) */
+
 #ifndef NDEBUG
 void dbug_dump_index_skip_scan(int indent, bool verbose,
                                const AccessPath *path) {

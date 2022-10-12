@@ -763,21 +763,24 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t2	NULL	range	f2,f1	f1	5	NULL	1	100.00	Parallel scan (1 workers); Using index condition
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
+1	SIMPLE	t3	NULL	ALL	f2	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	SIMPLE	t1	NULL	ref	f1	f1	5	test.t3.f1	1	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select /*+ JOIN_ORDER(@`select#1` `t2`,`t3`) */ `test`.`t3`.`f1` AS `f1` from `test`.`t2` join `test`.`t3` left join `test`.`t1` on((`test`.`t1`.`f1` = `test`.`t3`.`f1`)) where ((`test`.`t2`.`f1` < 7) and (convert(`test`.`t3`.`f2` using utf8) = `test`.`t2`.`f2`))
+Warning	1739	Cannot use ref access on index 'f2' due to type or collation conversion on field 'f2'
+Warning	1739	Cannot use range access on index 'f2' due to type or collation conversion on field 'f2'
+Note	1003	/* select#1 */ select /*+ JOIN_ORDER(@`select#1` `t2`,`t3`) */ `test`.`t3`.`f1` AS `f1` from `test`.`t2` join `test`.`t3` left join `test`.`t1` on((`test`.`t1`.`f1` = `test`.`t3`.`f1`)) where ((`test`.`t2`.`f1` < 7) and (`test`.`t3`.`f2` = `test`.`t2`.`f2`))
 EXPLAIN SELECT /*+ JOIN_ORDER(t1, t2)  JOIN_ORDER(t2, t3) */ t3.f1
 FROM ( t2 INNER JOIN t3 ON t3.f2 = t2.f2 LEFT JOIN t1 ON t1.f1 = t3.f1 )
 WHERE NOT (t2.f1 >= 7);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
+1	SIMPLE	t3	NULL	ALL	f2	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
 1	SIMPLE	t1	NULL	ref	f1	f1	5	test.t3.f1	1	100.00	Using index
-1	SIMPLE	t2	NULL	ref	f2,f1	f2	768	func	1	100.00	Using index condition; Using where
+1	SIMPLE	t2	NULL	ref	f2,f1	f2	768	test.t3.f2	1	100.00	Using index condition; Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select /*+ JOIN_ORDER(@`select#1` `t1`,`t2`) */ `test`.`t3`.`f1` AS `f1` from `test`.`t2` join `test`.`t3` left join `test`.`t1` on((`test`.`t1`.`f1` = `test`.`t3`.`f1`)) where ((`test`.`t2`.`f1` < 7) and (convert(`test`.`t3`.`f2` using utf8) = `test`.`t2`.`f2`))
+Warning	1739	Cannot use ref access on index 'f2' due to type or collation conversion on field 'f2'
+Note	1003	/* select#1 */ select /*+ JOIN_ORDER(@`select#1` `t1`,`t2`) */ `test`.`t3`.`f1` AS `f1` from `test`.`t2` join `test`.`t3` left join `test`.`t1` on((`test`.`t1`.`f1` = `test`.`t3`.`f1`)) where ((`test`.`t2`.`f1` < 7) and (`test`.`t3`.`f2` = `test`.`t2`.`f2`))
 DROP TABLE t1, t2, t3;
 CREATE TABLE t1 (
 f1 INT(11) NOT NULL AUTO_INCREMENT,
@@ -1043,8 +1046,8 @@ WHERE alias2.f2 IS NULL HAVING (field1 != 3 AND field1 >= 8);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ref	f2	f2	5	const	1	100.00	Parallel scan (1 workers); Using index condition; Using where
 1	SIMPLE	t1	NULL	ref	f2	f2	5	test.t2.f3	1	100.00	Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	3128	Unresolved name `alias1` for JOIN_PREFIX hint
 Note	1003	/* select#1 */ select `test`.`t2`.`f3` AS `field1` from `test`.`t1` join `test`.`t2` where ((`test`.`t1`.`f2` = `test`.`t2`.`f3`) and (`test`.`t2`.`f2` is null)) having ((`field1` <> 3) and (`field1` >= 8))

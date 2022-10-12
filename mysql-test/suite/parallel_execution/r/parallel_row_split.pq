@@ -10,7 +10,7 @@ EXPLAIN
 -> Aggregate: sum(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.b)
+            -> Aggregate: sum(t1.b)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(b) from t1;
@@ -22,7 +22,7 @@ EXPLAIN
 -> Aggregate: sum(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 1)
-            -> Aggregate: sum(t1.b)
+            -> Aggregate: sum(t1.b)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(b) from t1;

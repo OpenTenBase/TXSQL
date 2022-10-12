@@ -1,9 +1,10 @@
 DROP TABLE IF EXISTS t1, `t``1`, `t 1`;
 drop view if exists v1;
 drop database if exists client_test_db;
+mtr.asserted_test_suppressions                     OK
 mtr.global_suppressions                            OK
+mtr.test_ignored_global_suppressions               OK
 mtr.test_suppressions                              OK
-mysql.column_statistics_history                    OK
 mysql.columns_priv                                 OK
 mysql.component                                    OK
 mysql.db                                           OK
@@ -20,13 +21,15 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
-mysql.outline                                      OK
 mysql.password_history                             OK
 mysql.plugin                                       OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
-mysql.recycle_bin_info                             OK
 mysql.replication_asynchronous_connection_failover OK
+mysql.replication_asynchronous_connection_failover_managed OK
+mysql.replication_group_configuration_version      OK
+mysql.replication_group_member_actions             OK
+mysql.resource_groups_extra                        OK
 mysql.role_edges                                   OK
 mysql.server_cost                                  OK
 mysql.servers                                      OK
@@ -43,13 +46,16 @@ mysql.time_zone_transition                         OK
 mysql.time_zone_transition_type                    OK
 mysql.user                                         OK
 sys.sys_config                                     OK
+mtr.asserted_test_suppressions
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mtr.global_suppressions
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mtr.test_suppressions
+mtr.test_ignored_global_suppressions
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.column_statistics_history
+mtr.test_suppressions
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.columns_priv
@@ -101,9 +107,6 @@ error    : The used command is not allowed with this MySQL version
 status   : Operation failed
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.outline
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
 mysql.password_history
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -116,10 +119,19 @@ status   : OK
 mysql.proxies_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.recycle_bin_info
+mysql.replication_asynchronous_connection_failover
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.replication_asynchronous_connection_failover
+mysql.replication_asynchronous_connection_failover_managed
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.replication_group_configuration_version
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.replication_group_member_actions
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.resource_groups_extra
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.role_edges
@@ -166,7 +178,6 @@ status   : OK
 sys.sys_config
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.column_statistics_history                    OK
 mysql.columns_priv                                 OK
 mysql.component                                    OK
 mysql.db                                           OK
@@ -183,13 +194,15 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
-mysql.outline                                      OK
 mysql.password_history                             OK
 mysql.plugin                                       OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
-mysql.recycle_bin_info                             OK
 mysql.replication_asynchronous_connection_failover OK
+mysql.replication_asynchronous_connection_failover_managed OK
+mysql.replication_group_configuration_version      OK
+mysql.replication_group_member_actions             OK
+mysql.resource_groups_extra                        OK
 mysql.role_edges                                   OK
 mysql.server_cost                                  OK
 mysql.servers                                      OK
@@ -205,9 +218,6 @@ mysql.time_zone_name                               OK
 mysql.time_zone_transition                         OK
 mysql.time_zone_transition_type                    OK
 mysql.user                                         OK
-mysql.column_statistics_history
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
 mysql.columns_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -257,9 +267,6 @@ error    : The used command is not allowed with this MySQL version
 status   : Operation failed
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.outline
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
 mysql.password_history
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -272,10 +279,19 @@ status   : OK
 mysql.proxies_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.recycle_bin_info
+mysql.replication_asynchronous_connection_failover
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.replication_asynchronous_connection_failover
+mysql.replication_asynchronous_connection_failover_managed
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.replication_group_configuration_version
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.replication_group_member_actions
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.resource_groups_extra
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.role_edges

@@ -74,16 +74,16 @@ Mysqlx_crud_delete	0
 0 rows affected
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
+1	1	People
 3	2	House
 8	3	House
-1	1	People
-7	2	House
 4	3	House
 6	2	People
+10	2	House
+5	1	People
 9	1	People
 2	2	People
-5	1	People
-10	2	House
+7	2	House
 0 rows affected
 Delete with In, && operators
 send Mysqlx.Crud.Delete {
@@ -151,13 +151,13 @@ RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
 1	1	People
 4	3	House
-7	2	House
-9	1	People
-5	1	People
 8	3	House
-2	2	People
-6	2	People
 10	2	House
+2	2	People
+7	2	House
+5	1	People
+9	1	People
+6	2	People
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value
@@ -195,14 +195,14 @@ send Mysqlx.Crud.Delete {
 1 rows affected
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
-6	2	People
-10	2	House
-4	3	House
-8	3	House
 2	2	People
-9	1	People
-5	1	People
+4	3	House
 7	2	House
+5	1	People
+10	2	House
+6	2	People
+9	1	People
+8	3	House
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value
@@ -345,13 +345,13 @@ Mysqlx.Error {
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
 2	2	People
-8	3	House
 4	3	House
-7	2	House
-10	2	House
-6	2	People
+8	3	House
 5	1	People
 9	1	People
+6	2	People
+10	2	House
+7	2	House
 0 rows affected
 Mysqlx.Ok {
   msg: "bye!"
@@ -370,12 +370,12 @@ RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
 2	2	People
 6	2	People
-9	1	People
-4	3	House
+8	3	House
 5	1	People
 7	2	House
 10	2	House
-8	3	House
+4	3	House
+9	1	People
 0 rows affected
 Delete all
 send Mysqlx.Crud.Delete {
@@ -413,19 +413,19 @@ last insert id: 14
 Records: 14  Duplicates: 0  Warnings: 0
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
-3	2	House
-5	1	People
+2	2	People
 1	1	People
-6	2	People2
 7	2	House2
 9	9	People2
 12	12	House4
-14	14	House6
-2	2	People
+4	3	House
 8	3	House2
 13	13	House5
-4	3	House
+5	1	People
 10	10	House2
+14	14	House6
+3	2	House
+6	2	People2
 11	11	House3
 0 rows affected
 Delete works ok because of the safe mode = 0
@@ -462,17 +462,17 @@ send Mysqlx.Crud.Delete {
 3 rows affected
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
-4	3	House
-9	9	People2
-6	2	People2
-10	10	House2
-14	14	House6
-3	2	House
+7	2	House2
 8	3	House2
+9	9	People2
 11	11	House3
 13	13	House5
-7	2	House2
+6	2	People2
+10	10	House2
 12	12	House4
+14	14	House6
+3	2	House
+4	3	House
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value
@@ -537,15 +537,15 @@ send Mysqlx.Crud.Delete {
 2 rows affected
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
-6	2	People2
+7	2	House2
+10	10	House2
+14	14	House6
 9	9	People2
 13	13	House5
 8	3	House2
 11	11	House3
-10	10	House2
+6	2	People2
 12	12	House4
-14	14	House6
-7	2	House2
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value
@@ -613,12 +613,12 @@ extracategoryinfoID	CategoryID	MainParentCategoryName
 0 rows affected
 RUN select * from mysqlxplugin.categories
 CategoryID	CategoryName	CategoryDescription	CategoryIMEI	CategoryDecimal
-1	Sports	Sports related category	1	235.15
-4	Kitchen	Kitchen related category	4	235.15
-3	Home	Home related category	3	235.15
-6	Toys	Toys related category	6	635.15
 2	Entertaiment	Entertaiment related category	2	235.15
 5	Garden	Garden related category	5	535.15
+3	Home	Home related category	3	235.15
+1	Sports	Sports related category	1	235.15
+6	Toys	Toys related category	6	635.15
+4	Kitchen	Kitchen related category	4	235.15
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value
@@ -675,12 +675,12 @@ last insert id: 14
 Records: 6  Duplicates: 0  Warnings: 0
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
+12	12	House
+13	13	House
+11	11	People
 10	10	People
 14	14	House
 9	9	People
-13	13	House
-12	12	House
-11	11	People
 0 rows affected
 Delete with > and < operators
 send Mysqlx.Crud.Delete {
@@ -742,8 +742,8 @@ extracategoryinfoID	CategoryID	MainParentCategoryName
 9	9	People
 13	13	House
 11	11	People
-14	14	House
 12	12	House
+14	14	House
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value
@@ -807,8 +807,8 @@ send Mysqlx.Crud.Delete {
 RUN select * from mysqlxplugin.extracategoryinfo
 extracategoryinfoID	CategoryID	MainParentCategoryName
 11	11	People
-12	12	House
 9	9	People
+12	12	House
 0 rows affected
 RUN SHOW STATUS like 'Mysqlx_crud_delete'
 Variable_name	Value

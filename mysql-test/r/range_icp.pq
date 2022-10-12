@@ -30,13 +30,17 @@ INSERT INTO t1 VALUES ('1999-07-10',100100,24), ('1999-07-11',100100,25),
 ('1999-09-19',100100,37), ('2000-12-18',100700,38);
 explain select event_date,type,event_id from t1 WHERE event_date >= "1999-07-01" AND event_date < "1999-07-15" AND (type=100600 OR type=100100) ORDER BY event_date;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	7	NULL	6	19.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	7	NULL	6	19.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`event_date` AS `event_date`,`test`.`t1`.`type` AS `type`,`test`.`t1`.`event_id` AS `event_id` from `test`.`t1` where ((`test`.`t1`.`event_date` >= DATE'1999-07-01') and (`test`.`t1`.`event_date` < DATE'1999-07-15') and ((`test`.`t1`.`type` = 100600) or (`test`.`t1`.`type` = 100100))) order by `test`.`t1`.`event_date`
 explain format=tree select event_date,type,event_id from t1 WHERE event_date >= "1999-07-01" AND event_date < "1999-07-15" AND (type=100600 OR type=100100) ORDER BY event_date;
 EXPLAIN
--> Filter: ((t1.event_date >= DATE'1999-07-01') and (t1.event_date < DATE'1999-07-15') and ((t1.`type` = 100600) or (t1.`type` = 100100)))  (cost=1.50 rows=1)
-    -> Index range scan on t1 using PRIMARY  (cost=1.50 rows=6)
+-> Filter: ((t1.event_date >= DATE'1999-07-01') and (t1.event_date < DATE'1999-07-15') and ((t1.`type` = 100600) or (t1.`type` = 100100)))  (cost=1.46 rows=1)
+    -> PX Receiver (merge sort; slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Parallel covering index range scan on t1 using PRIMARY over ('1999-07-01' <= event_date <= '1999-07-15' AND 100100 <= type)  (cost=1.46 rows=6)
 
 select event_date,type,event_id from t1 WHERE event_date >= "1999-07-01" AND event_date < "1999-07-15" AND (type=100600 OR type=100100) ORDER BY event_date;
 event_date	type	event_id
@@ -103,7 +107,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 repair table t1;
 Table	Op	Msg_type	Msg_text
-test.t1	repair	status	OK
+test.t1	repair	note	The storage engine for the table doesn't support repair
 drop table t1;
 CREATE TABLE t1 (
 id int(11) NOT NULL auto_increment,
@@ -123,7 +127,7 @@ INSERT INTO t1 VALUES (1,0,0), (3,1,1), (4,1,1), (8,2,2), (9,2,2), (17,3,2),
 (15,2,2), (6,1,1), (34,6,2), (35,6,2), (16,3,2), (7,1,1), (36,7,2), (18,3,2),
 (26,5,2), (27,5,2), (183,4,2), (38,7,2), (25,5,2), (37,7,2), (21,4,2),
 (19,3,2), (5,1,1), (179,5,2);
-SELECT * FROM t1 WHERE level = 1 AND parent_id = 1;
+SELECT * FROM t1 WHERE level = 1 AND parent_id = 1 order by id;
 id	parent_id	level
 2	1	1
 3	1	1
@@ -251,48 +255,64 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 explain select * from t1, t1 t2 where t1.y = 8 and t2.x between 7 and t1.y+0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	range	x	x	5	NULL	2	100.00	Using index condition; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x`,`test`.`t1`.`y` AS `y`,`test`.`t2`.`x` AS `x`,`test`.`t2`.`y` AS `y` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t1`.`y` = 8) and (`test`.`t2`.`x` between 7 and <cache>((8 + 0))))
 explain select * from t1, t1 t2 where t1.y = 8 and t2.x >= 7 and t2.x <= t1.y+0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	range	x	x	5	NULL	2	100.00	Using index condition; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x`,`test`.`t1`.`y` AS `y`,`test`.`t2`.`x` AS `x`,`test`.`t2`.`y` AS `y` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t1`.`y` = 8) and (`test`.`t2`.`x` >= 7) and (`test`.`t2`.`x` <= <cache>((8 + 0))))
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x between t1.y-1 and t1.y+1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	range	x	x	5	NULL	3	100.00	Using index condition; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x`,`test`.`t1`.`y` AS `y`,`test`.`t2`.`x` AS `x`,`test`.`t2`.`y` AS `y` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t1`.`y` = 2) and (`test`.`t2`.`x` between <cache>((2 - 1)) and <cache>((2 + 1))))
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x >= t1.y-1 and t2.x <= t1.y+1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	range	x	x	5	NULL	3	100.00	Using index condition; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x`,`test`.`t1`.`y` AS `y`,`test`.`t2`.`x` AS `x`,`test`.`t2`.`y` AS `y` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t1`.`y` = 2) and (`test`.`t2`.`x` >= <cache>((2 - 1))) and (`test`.`t2`.`x` <= <cache>((2 + 1))))
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x between 0 and t1.y;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	range	x	x	5	NULL	2	100.00	Using index condition; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x`,`test`.`t1`.`y` AS `y`,`test`.`t2`.`x` AS `x`,`test`.`t2`.`y` AS `y` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t1`.`y` = 2) and (`test`.`t2`.`x` between 0 and 2))
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x >= 0 and t2.x <= t1.y;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	ref	y	y	5	const	1	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	range	x	x	5	NULL	2	100.00	Using index condition; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x`,`test`.`t1`.`y` AS `y`,`test`.`t2`.`x` AS `x`,`test`.`t2`.`y` AS `y` from `test`.`t1` join `test`.`t1` `t2` where ((`test`.`t1`.`y` = 2) and (`test`.`t2`.`x` >= 0) and (`test`.`t2`.`x` <= 2))
 explain select count(*) from t1 where x in (1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	x	x	5	const	1	100.00	Using index
+1	SIMPLE	t1	NULL	ref	x	x	5	const	1	100.00	Parallel scan (2 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`x` = 1)
 explain select count(*) from t1 where x in (1,2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	5	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	5	NULL	2	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`x` in (1,2))
 drop table t1;
@@ -306,14 +326,18 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 INSERT INTO t2 VALUES (0),(0),(1),(1),(2),(2);
 explain select * from t1, t2 where (t1.key1 <t2.keya + 1) and t2.keya=3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	j1	j1	4	const	1	100.00	Using index
+1	SIMPLE	t2	NULL	ref	j1	j1	4	const	1	100.00	Parallel scan (1 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t1	NULL	index	i1	i1	4	NULL	7	100.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`key1` AS `key1`,`test`.`t2`.`keya` AS `keya` from `test`.`t1` join `test`.`t2` where ((`test`.`t2`.`keya` = 3) and (`test`.`t1`.`key1` < <cache>((3 + 1))))
 explain select * from t1 force index(i1), t2 force index(j1) where 
 (t1.key1 <t2.keya + 1) and t2.keya=3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	j1	j1	4	const	1	100.00	Using index
+1	SIMPLE	t2	NULL	ref	j1	j1	4	const	1	100.00	Parallel scan (1 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	SIMPLE	t1	NULL	index	i1	i1	4	NULL	7	100.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`key1` AS `key1`,`test`.`t2`.`keya` AS `keya` from `test`.`t1` FORCE INDEX (`i1`) join `test`.`t2` FORCE INDEX (`j1`) where ((`test`.`t2`.`keya` = 3) and (`test`.`t1`.`key1` < <cache>((3 + 1))))
@@ -489,87 +513,87 @@ count(*)
 analyze table t1,t2;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
-test.t2	analyze	status	Table is already up to date
+test.t2	analyze	status	OK
 explain select * from t1, t2  where t1.uid=t2.uid AND t1.uid > 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	uid_index	uid_index	4	NULL	112	100.00	Using index condition
-1	SIMPLE	t2	NULL	ref	uid_index	uid_index	4	test.t1.uid	38	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`uid` AS `uid`,`test`.`t2`.`id` AS `id`,`test`.`t2`.`name` AS `name`,`test`.`t2`.`uid` AS `uid` from `test`.`t1` join `test`.`t2` where ((`test`.`t2`.`uid` = `test`.`t1`.`uid`) and (`test`.`t1`.`uid` > 0))
+1	SIMPLE	#	NULL	range	uid_index	uid_index	4	#	28	100.00	Parallel scan (4 workers); Using index condition
+1	SIMPLE	#	NULL	ref	uid_index	uid_index	4	#	28	100.00	NULL
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Send to (<receiver1>)
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Receive from (<sender1>)
 explain select * from t1, t2  where t1.uid=t2.uid AND t2.uid > 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	uid_index	uid_index	4	NULL	112	100.00	Using index condition
-1	SIMPLE	t2	NULL	ref	uid_index	uid_index	4	test.t1.uid	38	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`uid` AS `uid`,`test`.`t2`.`id` AS `id`,`test`.`t2`.`name` AS `name`,`test`.`t2`.`uid` AS `uid` from `test`.`t1` join `test`.`t2` where ((`test`.`t2`.`uid` = `test`.`t1`.`uid`) and (`test`.`t1`.`uid` > 0))
+1	SIMPLE	#	NULL	range	uid_index	uid_index	4	#	28	100.00	Parallel scan (4 workers); Using index condition
+1	SIMPLE	#	NULL	ref	uid_index	uid_index	4	#	28	100.00	NULL
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Send to (<receiver1>)
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Receive from (<sender1>)
 explain select * from t1, t2  where t1.uid=t2.uid AND t1.uid != 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	uid_index	uid_index	4	NULL	113	100.00	Using index condition
-1	SIMPLE	t2	NULL	ref	uid_index	uid_index	4	test.t1.uid	38	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`uid` AS `uid`,`test`.`t2`.`id` AS `id`,`test`.`t2`.`name` AS `name`,`test`.`t2`.`uid` AS `uid` from `test`.`t1` join `test`.`t2` where ((`test`.`t2`.`uid` = `test`.`t1`.`uid`) and (`test`.`t1`.`uid` <> 0))
+1	SIMPLE	#	NULL	range	uid_index	uid_index	4	#	28	100.00	Parallel scan (4 workers); Using index condition
+1	SIMPLE	#	NULL	ref	uid_index	uid_index	4	#	28	100.00	NULL
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Send to (<receiver1>)
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Receive from (<sender1>)
 explain select * from t1, t2  where t1.uid=t2.uid AND t2.uid != 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	uid_index	uid_index	4	NULL	113	100.00	Using index condition
-1	SIMPLE	t2	NULL	ref	uid_index	uid_index	4	test.t1.uid	38	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`uid` AS `uid`,`test`.`t2`.`id` AS `id`,`test`.`t2`.`name` AS `name`,`test`.`t2`.`uid` AS `uid` from `test`.`t1` join `test`.`t2` where ((`test`.`t2`.`uid` = `test`.`t1`.`uid`) and (`test`.`t1`.`uid` <> 0))
+1	SIMPLE	#	NULL	range	uid_index	uid_index	4	#	28	100.00	Parallel scan (4 workers); Using index condition
+1	SIMPLE	#	NULL	ref	uid_index	uid_index	4	#	28	100.00	NULL
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Send to (<receiver1>)
+1	SIMPLE	#	NULL	ALL	NULL	NULL	NULL	#	28	100.00	Receive from (<sender1>)
 select * from t1, t2  where t1.uid=t2.uid AND t1.uid > 0;
 id	name	uid	id	name	uid
-1001	A	1	1001	A	1
-1002	B	2	1002	B	2
-1003	C	3	1003	C	3
-1004	D	4	1004	D	4
-1005	E	5	1005	E	5
-1006	F	6	1006	F	6
-1007	G	7	1007	G	7
-1008	H	8	1008	H	8
-1009	I	9	1009	I	9
-1010	J	10	1010	J	10
-1011	K	11	1011	K	11
-1012	L	12	1012	L	12
-1013	M	13	1013	M	13
-1014	N	14	1014	N	14
-1015	O	15	1015	O	15
-1016	P	16	1016	P	16
-1017	Q	17	1017	Q	17
-1018	R	18	1018	R	18
-1019	S	19	1019	S	19
-1020	T	20	1020	T	20
-1021	U	21	1021	U	21
-1022	V	22	1022	V	22
-1023	W	23	1023	W	23
-1024	X	24	1024	X	24
-1025	Y	25	1025	Y	25
-1026	Z	26	1026	Z	26
+1257	A	1	1257	A	1
+1258	B	2	1258	B	2
+1259	C	3	1259	C	3
+1260	D	4	1260	D	4
+1261	E	5	1261	E	5
+1262	F	6	1262	F	6
+1263	G	7	1263	G	7
+1264	H	8	1264	H	8
+1265	I	9	1265	I	9
+1266	J	10	1266	J	10
+1267	K	11	1267	K	11
+1268	L	12	1268	L	12
+1269	M	13	1269	M	13
+1270	N	14	1270	N	14
+1271	O	15	1271	O	15
+1272	P	16	1272	P	16
+1273	Q	17	1273	Q	17
+1274	R	18	1274	R	18
+1275	S	19	1275	S	19
+1276	T	20	1276	T	20
+1277	U	21	1277	U	21
+1278	V	22	1278	V	22
+1279	W	23	1279	W	23
+1280	X	24	1280	X	24
+1281	Y	25	1281	Y	25
+1282	Z	26	1282	Z	26
 select * from t1, t2  where t1.uid=t2.uid AND t1.uid != 0;
 id	name	uid	id	name	uid
-1001	A	1	1001	A	1
-1002	B	2	1002	B	2
-1003	C	3	1003	C	3
-1004	D	4	1004	D	4
-1005	E	5	1005	E	5
-1006	F	6	1006	F	6
-1007	G	7	1007	G	7
-1008	H	8	1008	H	8
-1009	I	9	1009	I	9
-1010	J	10	1010	J	10
-1011	K	11	1011	K	11
-1012	L	12	1012	L	12
-1013	M	13	1013	M	13
-1014	N	14	1014	N	14
-1015	O	15	1015	O	15
-1016	P	16	1016	P	16
-1017	Q	17	1017	Q	17
-1018	R	18	1018	R	18
-1019	S	19	1019	S	19
-1020	T	20	1020	T	20
-1021	U	21	1021	U	21
-1022	V	22	1022	V	22
-1023	W	23	1023	W	23
-1024	X	24	1024	X	24
-1025	Y	25	1025	Y	25
-1026	Z	26	1026	Z	26
+1257	A	1	1257	A	1
+1258	B	2	1258	B	2
+1259	C	3	1259	C	3
+1260	D	4	1260	D	4
+1261	E	5	1261	E	5
+1262	F	6	1262	F	6
+1263	G	7	1263	G	7
+1264	H	8	1264	H	8
+1265	I	9	1265	I	9
+1266	J	10	1266	J	10
+1267	K	11	1267	K	11
+1268	L	12	1268	L	12
+1269	M	13	1269	M	13
+1270	N	14	1270	N	14
+1271	O	15	1271	O	15
+1272	P	16	1272	P	16
+1273	Q	17	1273	Q	17
+1274	R	18	1274	R	18
+1275	S	19	1275	S	19
+1276	T	20	1276	T	20
+1277	U	21	1277	U	21
+1278	V	22	1278	V	22
+1279	W	23	1279	W	23
+1280	X	24	1280	X	24
+1281	Y	25	1281	Y	25
+1282	Z	26	1282	Z	26
 drop table t1,t2;
 create table t1 (x bigint unsigned not null);
 insert into t1(x) values (0xfffffffffffffff0);
@@ -663,7 +687,9 @@ insert into t1 select 18446744073709551615;
 insert into t1 select 18446744073709551614;
 explain select * from t1 where a <> -1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	t1i	t1i	9	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	t1i	t1i	9	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` is not null)
 select * from t1 where a <> -1;
@@ -672,7 +698,9 @@ a
 18446744073709551615
 explain select * from t1 where a > -1 or a < -1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	t1i	t1i	9	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	t1i	t1i	9	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` is not null)
 select * from t1 where a > -1 or a < -1;
@@ -681,7 +709,9 @@ a
 18446744073709551615
 explain select * from t1 where a > -1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	t1i	t1i	9	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	t1i	t1i	9	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` is not null)
 select * from t1 where a > -1;
@@ -709,6 +739,7 @@ explain select * from t1 where a=binary 'aaa';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	a	a	11	NULL	2	100.00	Using index condition
 Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1739	Cannot use ref access on index 'a' due to type or collation conversion on field 'a'
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` = <cache>(cast('aaa' as char charset binary)))
 explain select * from t1 where a='aaa' collate latin1_bin;
@@ -773,7 +804,9 @@ create table t1(a char(2), key(a(1))) charset utf8mb4;
 insert into t1 values ('x'), ('xx');
 explain select a from t1 where a > 'x';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	100.00	Using where
+1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` > 'x')
 select a from t1 where a > 'x';
@@ -966,6 +999,10 @@ and c10 in ("abcdefgh", "123456789", "qwertyuio", "asddfgh",
 "abcdefgC", "12345678C", "qwertyuiC", "asddfgC");
 c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16
 Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 Warnings:
 drop table t1;
 End of 4.1 tests
@@ -990,12 +1027,16 @@ INSERT INTO t1 VALUES
 (55,'C'), (56,'C'), (57,'C'), (58,'C'), (59,'C'), (60,'C');
 EXPLAIN SELECT * FROM t1 WHERE status <> 'A' AND status <> 'B';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	status	status	83	NULL	11	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	status	status	83	NULL	10	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`status` AS `status` from `test`.`t1` where ((`test`.`t1`.`status` <> 'A') and (`test`.`t1`.`status` <> 'B'))
 EXPLAIN SELECT * FROM t1 WHERE status NOT IN ('A','B');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	status	status	83	NULL	11	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	status	status	83	NULL	10	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`status` AS `status` from `test`.`t1` where (`test`.`t1`.`status` not in ('A','B'))
 SELECT * FROM t1 WHERE status <> 'A' AND status <> 'B';
@@ -1020,22 +1061,30 @@ id	status
 60	C
 EXPLAIN SELECT status FROM t1 WHERE status <> 'A' AND status <> 'B';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	status	status	83	NULL	11	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	status	status	83	NULL	10	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`status` AS `status` from `test`.`t1` where ((`test`.`t1`.`status` <> 'A') and (`test`.`t1`.`status` <> 'B'))
 EXPLAIN SELECT status FROM t1 WHERE status NOT IN ('A','B');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	status	status	83	NULL	11	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	status	status	83	NULL	10	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`status` AS `status` from `test`.`t1` where (`test`.`t1`.`status` not in ('A','B'))
 EXPLAIN SELECT * FROM t1 WHERE status NOT BETWEEN 'A' AND 'B';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	status	status	83	NULL	10	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	status	status	83	NULL	9	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`status` AS `status` from `test`.`t1` where (`test`.`t1`.`status` not between 'A' and 'B')
 EXPLAIN SELECT * FROM t1 WHERE status < 'A' OR status > 'B';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	status	status	83	NULL	10	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	status	status	83	NULL	9	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`status` AS `status` from `test`.`t1` where ((`test`.`t1`.`status` < 'A') or (`test`.`t1`.`status` > 'B'))
 SELECT * FROM t1 WHERE status NOT BETWEEN 'A' AND 'B';
@@ -1065,22 +1114,30 @@ INSERT INTO  t1 VALUES
 CREATE VIEW v1 as SELECT a,b FROM t1 WHERE b=3;
 EXPLAIN SELECT a,b FROM t1 WHERE a < 2 and b=3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	4	10.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	3	10.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` = 3) and (`test`.`t1`.`a` < 2))
 EXPLAIN SELECT a,b FROM v1 WHERE a < 2 and b=3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	4	10.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	3	10.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` = 3) and (`test`.`t1`.`a` < 2))
 EXPLAIN SELECT a,b FROM t1 WHERE a < 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	4	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` < 2)
 EXPLAIN SELECT a,b FROM v1 WHERE a < 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	4	10.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	3	10.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` = 3) and (`test`.`t1`.`a` < 2))
 SELECT a,b FROM t1 WHERE a < 2 and b=3;
@@ -1122,22 +1179,30 @@ INSERT INTO `t1` VALUES
 ,(13,2),(14,2),(15,3),(16,3),(17,3),(18,3),(19,3);
 explain select * from t1 where a in (3,4)  and b in (1,2,3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` in (3,4)) and (`test`.`t1`.`b` in (1,2,3)))
 explain select * from v1 where a in (3,4)  and b in (1,2,3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` in (3,4)) and (`test`.`t1`.`b` in (1,2,3)))
 explain select * from t1 where a between 3 and 4 and b between 1 and 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	11.11	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	11.11	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` between 3 and 4) and (`test`.`t1`.`b` between 1 and 2))
 explain select * from v1 where a between 3 and 4 and b between 1 and 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	11.11	Using where; Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	11.11	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` between 3 and 4) and (`test`.`t1`.`b` between 1 and 2))
 drop view v1;
@@ -1154,28 +1219,38 @@ create table t2 (a varchar(10), filler char(200), key(a)) charset utf8mb4;
 insert into t2 select * from t1;
 explain select * from t1 where a between 'a' and 'a ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	13	NULL	#	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	a	a	13	NULL	#	100.00	Parallel scan (1 workers); Using index condition
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`filler` AS `filler` from `test`.`t1` where (`test`.`t1`.`a` between 'a' and 'a ')
 explain select * from t1 where a = 'a' or a='a ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	13	NULL	#	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	a	a	13	NULL	#	100.00	Parallel scan (2 workers); Using index condition
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`filler` AS `filler` from `test`.`t1` where ((`test`.`t1`.`a` = 'a') or (`test`.`t1`.`a` = 'a '))
 explain select * from t2 where a between 'a' and 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	a	a	43	const	#	100.00	Using index condition
+1	SIMPLE	t2	NULL	ref	a	a	43	const	#	100.00	Parallel scan (1 workers); Using index condition
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`a` between 'a' and 'A')
 explain select * from t2 where a = 'a' or a='A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	a	a	43	const	#	100.00	NULL
+1	SIMPLE	t2	NULL	ref	a	a	43	const	#	100.00	Parallel scan (1 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where ((`test`.`t2`.`a` = 'a') or (`test`.`t2`.`a` = 'A'))
 update t1 set a='b' where a<>'a';
 explain select * from t1 where a not between 'b' and 'b';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	13	NULL	#	100.00	Using index condition
+1	SIMPLE	t1	NULL	ALL	a	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`filler` AS `filler` from `test`.`t1` where (`test`.`t1`.`a` not between 'b' and 'b')
 select a, hex(filler) from t1 where a not between 'b' and 'b';
@@ -1191,6 +1266,8 @@ select count(*) from (select @a:=concat(@a, ',', a) from t2 ) Z;
 count(*)
 1000
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 set @a=concat(@a, ')');
 insert into t2 values (11),(13),(15);
@@ -1200,7 +1277,7 @@ execute stmt1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	index	a	a	5	NULL	1003	50.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` FORCE INDEX (`a`) where (`test`.`t2`.`a` not in (0,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102,104,106,108,110,112,114,116,118,120,122,124,126,128,130,132,134,136,138,140,142,144,146,148,150,152,154,156,158,160,162,164,166,168,170,172,174,176,178,180,182,184,186,188,190,192,194,196,198,200,202,204,206,208,210,212,214,216,218,220,222,224,226,228,230,232,234,236,238,240,242,244,246,248,250,252,254,256,258,260,262,264,266,268,270,272,274,276,278,280,282,284,286,288,290,292,294,296,298,300,302,304,306,308,310,312,314,316,318,320,322,324,326,328,330,332,334,336,338,340,342,344,346,348,350,352,354,356,358,360,362,364,366,368,370,372,374,376,378,380,382,384,386,388,390,392,394,396,398,400,402,404,406,408,410,412,414,416,418,420,422,424,426,428,430,432,434,436,438,440,442,444,446,448,450,452,454,456,458,460,462,464,466,468,470,472,474,476,478,480,482,484,486,488,490,492,494,496,498,500,502,504,506,508,510,512,514,516,518,520,522,524,526,528,530,532,534,536,538,540,542,544,546,548,550,552,554,556,558,560,562,564,566,568,570,572,574,576,578,580,582,584,586,588,590,592,594,596,598,600,602,604,606,608,610,612,614,616,618,620,622,624,626,628,630,632,634,636,638,640,642,644,646,648,650,652,654,656,658,660,662,664,666,668,670,672,674,676,678,680,682,684,686,688,690,692,694,696,698,700,702,704,706,708,710,712,714,716,718,720,722,724,726,728,730,732,734,736,738,740,742,744,746,748,750,752,754,756,758,760,762,764,766,768,770,772,774,776,778,780,782,784,786,788,790,792,794,796,798,800,802,804,806,808,810,812,814,816,818,820,822,824,826,828,830,832,834,836,838,840,842,844,846,848,850,852,854,856,858,860,862,864,866,868,870,872,874,876,878,880,882,884,886,888,890,892,894,896,898,900,902,904,906,908,910,912,914,916,918,920,922,924,926,928,930,932,934,936,938,940,942,944,946,948,950,952,954,956,958,960,962,964,966,968,970,972,974,976,978,980,982,984,986,988,990,992,994,996,998,1000,1002,1004,1006,1008,1010,1012,1014,1016,1018,1020,1022,1024,1026,1028,1030,1032,1034,1036,1038,1040,1042,1044,1046,1048,1050,1052,1054,1056,1058,1060,1062,1064,1066,1068,1070,1072,1074,1076,1078,1080,1082,1084,1086,1088,1090,1092,1094,1096,1098,1100,1102,1104,1106,1108,1110,1112,1114,1116,1118,1120,1122,1124,1126,1128,1130,1132,1134,1136,1138,1140,1142,1144,1146,1148,1150,1152,1154,1156,1158,1160,1162,1164,1166,1168,1170,1172,1174,1176,1178,1180,1182,1184,1186,1188,1190,1192,1194,1196,1198,1200,1202,1204,1206,1208,1210,1212,1214,1216,1218,1220,1222,1224,1226,1228,1230,1232,1234,1236,1238,1240,1242,1244,1246,1248,1250,1252,1254,1256,1258,1260,1262,1264,1266,1268,1270,1272,1274,1276,1278,1280,1282,1284,1286,1288,1290,1292,1294,1296,1298,1300,1302,1304,1306,1308,1310,1312,1314,1316,1318,1320,1322,1324,1326,1328,1330,1332,1334,1336,1338,1340,1342,1344,1346,1348,1350,1352,1354,1356,1358,1360,1362,1364,1366,1368,1370,1372,1374,1376,1378,1380,1382,1384,1386,1388,1390,1392,1394,1396,1398,1400,1402,1404,1406,1408,1410,1412,1414,1416,1418,1420,1422,1424,1426,1428,1430,1432,1434,1436,1438,1440,1442,1444,1446,1448,1450,1452,1454,1456,1458,1460,1462,1464,1466,1468,1470,1472,1474,1476,1478,1480,1482,1484,1486,1488,1490,1492,1494,1496,1498,1500,1502,1504,1506,1508,1510,1512,1514,1516,1518,1520,1522,1524,1526,1528,1530,1532,1534,1536,1538,1540,1542,1544,1546,1548,1550,1552,1554,1556,1558,1560,1562,1564,1566,1568,1570,1572,1574,1576,1578,1580,1582,1584,1586,1588,1590,1592,1594,1596,1598,1600,1602,1604,1606,1608,1610,1612,1614,1616,1618,1620,1622,1624,1626,1628,1630,1632,1634,1636,1638,1640,1642,1644,1646,1648,1650,1652,1654,1656,1658,1660,1662,1664,1666,1668,1670,1672,1674,1676,1678,1680,1682,1684,1686,1688,1690,1692,1694,1696,1698,1700,1702,1704,1706,1708,1710,1712,1714,1716,1718,1720,1722,1724,1726,1728,1730,1732,1734,1736,1738,1740,1742,1744,1746,1748,1750,1752,1754,1756,1758,1760,1762,1764,1766,1768,1770,1772,1774,1776,1778,1780,1782,1784,1786,1788,1790,1792,1794,1796,1798,1800,1802,1804,1806,1808,1810,1812,1814,1816,1818,1820,1822,1824,1826,1828,1830,1832,1834,1836,1838,1840,1842,1844,1846,1848,1850,1852,1854,1856,1858,1860,1862,1864,1866,1868,1870,1872,1874,1876,1878,1880,1882,1884,1886,1888,1890,1892,1894,1896,1898,1900,1902,1904,1906,1908,1910,1912,1914,1916,1918,1920,1922,1924,1926,1928,1930,1932,1934,1936,1938,1940,1942,1944,1946,1948,1950,1952,1954,1956,1958,1960,1962,1964,1966,1968,1970,1972,1974,1976,1978,1980,1982,1984,1986,1988,1990,1992,1994,1996,1998))
+Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` FORCE INDEX (`a`) where (`test`.`t2`.`a` not in (0,0,2,4,984,6,986,8,10,12,988,990,14,16,992,994,18,20,996,22,998,24,1000,26,1002,28,1004,30,1006,1008,1010,32,34,36,38,40,42,1012,1014,1016,1018,1020,1022,1024,1026,44,46,48,50,52,1028,54,1030,56,58,1032,60,1034,62,1036,64,66,1038,68,70,1040,72,1042,74,1044,76,1046,78,80,1048,82,1050,84,1052,86,88,90,92,94,96,98,100,102,104,106,108,1054,1056,1058,1060,1062,1064,1066,1068,1070,1072,1074,1076,110,112,114,116,118,120,122,124,126,1078,1080,1082,1084,1086,128,130,132,1088,1090,134,136,1092,138,1094,140,1096,1098,142,1100,144,1102,1104,1106,1108,1110,1112,1114,1116,1118,1120,1122,1124,1126,1128,1130,146,1132,148,1134,150,1136,152,1138,1140,1142,1144,1146,1148,154,156,158,160,1150,1152,162,1154,164,166,168,1156,1158,1160,1162,1164,1166,1168,1170,1172,1174,170,172,174,176,178,180,1176,1178,1180,1182,182,184,1184,186,1186,1188,188,190,1190,1192,1194,1196,1198,192,194,196,198,200,1200,1202,1204,1206,202,204,206,1208,1210,208,210,1212,1214,1216,212,214,216,1218,1220,1222,218,220,222,1224,1226,224,226,1228,1230,228,230,1232,1234,1236,232,234,1238,236,1240,238,1242,1244,240,242,1246,244,246,1248,1250,248,250,1252,252,254,1254,256,258,1256,260,1258,262,1260,264,1262,266,1264,268,270,1266,272,1268,274,276,1270,278,1272,280,1274,1276,282,284,286,288,1278,1280,290,1282,292,1284,294,296,1286,1288,298,1290,300,1292,302,1294,304,306,1296,1298,308,310,1300,312,1302,314,1304,316,1306,1308,318,320,1310,322,324,1312,1314,326,328,1316,1318,330,1320,332,1322,1324,1326,1328,334,336,1330,1332,338,1334,340,1336,342,1338,344,1340,346,1342,348,1344,350,1346,352,1348,354,1350,356,1352,358,1354,360,1356,1358,362,1360,364,1362,366,1364,368,1366,370,1368,372,1370,374,1372,376,1374,378,380,1376,382,1378,384,1380,1382,386,1384,388,1386,390,1388,392,1390,394,1392,396,1394,398,1396,400,1398,402,1400,404,1402,406,1404,408,1406,410,1408,412,1410,414,1412,416,418,1414,420,1416,422,1418,424,426,1420,1422,1424,428,430,1426,432,1428,434,1430,436,1432,438,1434,440,1436,1438,442,1440,444,1442,446,1444,448,1446,450,1448,452,1450,1452,454,456,1454,1456,458,460,1458,462,1460,1462,1464,464,466,1466,468,1468,470,1470,472,474,1472,476,478,480,1474,1476,1478,1480,482,484,486,1482,488,1484,490,1486,492,1488,1490,494,496,1492,498,1494,500,1496,1498,1500,502,1502,504,506,1504,1506,1508,1510,508,510,512,1512,1514,514,1516,1518,516,518,1520,1522,1524,520,1526,522,1528,1530,524,526,1532,1534,1536,528,530,532,1538,1540,534,1542,536,1544,538,1546,540,1548,542,1550,544,1552,546,1554,1556,548,550,1558,1560,1562,552,554,1564,556,1566,558,1568,560,1570,562,1572,564,1574,1576,566,568,570,1578,572,1580,574,576,1582,578,1584,580,582,1586,584,1588,586,588,1590,1592,590,592,1594,1596,1598,594,596,598,1600,600,1602,602,604,1604,1606,606,608,1608,610,1610,612,1612,614,1614,616,618,1616,620,1618,622,1620,624,1622,626,1624,628,630,1626,632,634,1628,1630,636,638,1632,640,1634,642,644,1636,1638,646,648,1640,1642,1644,1646,1648,650,652,654,656,658,660,1650,1652,1654,662,664,666,1656,1658,668,1660,670,672,1662,1664,674,676,1666,1668,678,680,1670,682,684,1672,686,1674,688,690,1676,692,694,1678,1680,696,1682,698,1684,700,702,1686,1688,704,1690,706,708,710,712,1692,1694,714,1696,716,1698,718,1700,720,1702,722,1704,724,1706,1708,726,1710,728,1712,730,1714,732,734,1716,736,1718,738,1720,740,742,1722,744,1724,746,1726,748,750,1728,752,1730,754,1732,1734,756,1736,758,1738,760,1740,762,764,1742,766,1744,768,1746,770,1748,772,774,776,1750,1752,1754,1756,778,780,782,1758,1760,784,786,1762,1764,788,790,1766,1768,792,794,796,1770,1772,1774,1776,1778,798,800,802,804,806,1780,1782,1784,808,1786,810,1788,812,1790,814,1792,816,1794,818,1796,820,1798,822,1800,824,1802,826,1804,828,1806,1808,830,1810,1812,832,834,1814,1816,836,1818,838,1820,1822,840,1824,842,1826,1828,1830,1832,844,846,1834,848,1836,850,1838,852,1840,854,1842,856,1844,858,1846,860,1848,1850,862,1852,1854,864,1856,866,1858,868,1860,870,1862,872,1864,874,1866,876,878,880,1868,1870,882,1872,884,1874,886,888,890,1876,892,1878,894,1880,1882,896,1884,1886,898,1888,900,1890,902,1892,904,1894,906,1896,908,1898,910,1900,912,1902,914,916,918,920,1904,922,924,1906,1908,1910,1912,1914,1916,1918,1920,1922,1924,1926,1928,1930,1932,1934,1936,1938,1940,1942,1944,1946,1948,1950,1952,1954,1956,1958,1960,1962,1964,1966,1968,1970,1972,1974,1976,1978,1980,1982,1984,1986,1988,1990,1992,1994,1996,1998,926,928,930,932,934,936,938,940,942,944,946,948,950,952,954,956,958,960,962,964,966,968,970,972,974,976,978,980,982))
 prepare stmt1 from @a;
 execute stmt1;
 a
@@ -1228,12 +1305,16 @@ id	b	c
 0	3	4
 EXPLAIN  SELECT * FROM t1 WHERE b<=3 AND 3<=c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	idx1,idx2	idx2	4	NULL	3	100.00	Using index condition; Using where
+1	SIMPLE	t1	NULL	range	idx1,idx2	idx2	4	NULL	2	100.00	Parallel scan (2 workers); Using index condition; Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where ((`test`.`t1`.`b` <= 3) and (3 <= `test`.`t1`.`c`))
 EXPLAIN  SELECT * FROM t1 WHERE 3 BETWEEN b AND c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	idx1,idx2	idx2	4	NULL	3	100.00	Using where
+1	SIMPLE	t1	NULL	range	idx1,idx2	idx2	4	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where (3 between `test`.`t1`.`b` and `test`.`t1`.`c`)
 SELECT * FROM t1 WHERE 0 < b OR 0 > c;
@@ -1246,18 +1327,20 @@ id	b	c
 0	3	4
 EXPLAIN SELECT * FROM t1 WHERE 0 < b OR 0 > c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index_merge	idx1,idx2	idx1,idx2	4,4	NULL	4	100.00	Using sort_union(idx1,idx2); Using where
+1	SIMPLE	t1	NULL	index_merge	idx1,idx2	idx1,idx2	4,4	NULL	3	100.00	Using sort_union(idx1,idx2); Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where ((0 < `test`.`t1`.`b`) or (0 > `test`.`t1`.`c`))
 EXPLAIN SELECT * FROM t1 WHERE 0 NOT BETWEEN b AND c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index_merge	idx1,idx2	idx1,idx2	4,4	NULL	4	100.00	Using sort_union(idx1,idx2); Using where
+1	SIMPLE	t1	NULL	index_merge	idx1,idx2	idx1,idx2	4,4	NULL	3	100.00	Using sort_union(idx1,idx2); Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where (0 not between `test`.`t1`.`b` and `test`.`t1`.`c`)
 EXPLAIN FORMAT=tree SELECT * FROM t1 WHERE 0 NOT BETWEEN b AND c;
 EXPLAIN
--> Filter: (0 not between t1.b and t1.c)  (cost=2.27 rows=4)
-    -> Index range scan on t1 using sort_union(idx1,idx2)  (cost=2.27 rows=4)
+-> Filter: (0 not between t1.b and t1.c)  (cost=2.15 rows=3)
+    -> Sort-deduplicate by row ID  (cost=2.15 rows=3)
+        -> Index range scan on t1 using idx1 over (0 < b)  (cost=0.46 rows=2)
+        -> Index range scan on t1 using idx2 over (c < 0)  (cost=0.36 rows=1)
 
 DROP TABLE t1;
 CREATE TABLE t1 (                                      
@@ -1307,7 +1390,9 @@ INSERT INTO t1 VALUES
 This must use range access:
 explain select * from t1 where dateval >= '2007-01-01 00:00:00' and dateval <= '2007-01-02 23:59:59';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	dateval	dateval	4	NULL	2	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	dateval	dateval	4	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`dateval` AS `dateval` from `test`.`t1` where ((`test`.`t1`.`dateval` >= DATE'2007-01-01') and (`test`.`t1`.`dateval` <= DATE'2007-01-02'))
 drop table t1;
@@ -1322,7 +1407,9 @@ B
 B
 EXPLAIN SELECT a FROM t1 WHERE a='b' OR a='B';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	35	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	a	a	35	NULL	3	100.00	Parallel scan (1 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`a` = 'b') or (`test`.`t1`.`a` = 'B'))
 DROP TABLE t1;
@@ -1380,7 +1467,9 @@ Access method can be range/ALL with #rows >= 500.
 Or it can be ref with #rows = 2, only when there is memory limit.
 explain select * from t2 where a=1000 and b<11;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	a	NULL	NULL	NULL	1000	50.20	Using where
+1	SIMPLE	t2	NULL	ALL	a	NULL	NULL	NULL	1000	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	500	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	500	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where ((`test`.`t2`.`a` = 1000) and (`test`.`t2`.`b` < 11))
 drop table t1, t2;
@@ -1417,7 +1506,9 @@ SELECT * FROM t1 WHERE
 5 < a AND b = 3 OR
 3 <= a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	5	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((3 <= `test`.`t1`.`a`) and (`test`.`t1`.`a` < 5)) or ((`test`.`t1`.`b` = 3) and (5 < `test`.`t1`.`a`)) or (3 <= `test`.`t1`.`a`))
 SELECT * FROM t1 WHERE
@@ -1433,7 +1524,9 @@ SELECT * FROM t1 WHERE
 5 <= a AND b = 3 OR
 3 <= a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	5	NULL	4	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	a	a	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((3 <= `test`.`t1`.`a`) and (`test`.`t1`.`a` < 5)) or ((`test`.`t1`.`b` = 3) and (5 <= `test`.`t1`.`a`)) or (3 <= `test`.`t1`.`a`))
 SELECT * FROM t1 WHERE
@@ -1449,7 +1542,9 @@ SELECT * FROM t1 WHERE
 5 <= a AND b = 3 OR
 3 <= a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	5	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((3 <= `test`.`t1`.`a`) and (`test`.`t1`.`a` <= 5)) or ((`test`.`t1`.`b` = 3) and (5 <= `test`.`t1`.`a`)) or (3 <= `test`.`t1`.`a`))
 SELECT * FROM t1 WHERE
@@ -1463,7 +1558,9 @@ SELECT * FROM t1 WHERE
 3 <= a AND a <= 5 OR 
 3 <= a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	a	a	5	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((3 <= `test`.`t1`.`a`) and (`test`.`t1`.`a` <= 5)) or (3 <= `test`.`t1`.`a`))
 SELECT * FROM t2 WHERE
@@ -1504,7 +1601,9 @@ SELECT * FROM t2 WHERE
 OR
 1 <= a AND b = 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	10	NULL	50	27.10	Using where; Using index
+1	SIMPLE	t2	NULL	range	a	a	10	NULL	60	27.10	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` where (((`test`.`t2`.`b` = 1) and (5 <= `test`.`t2`.`a`) and (`test`.`t2`.`a` < 10)) or ((`test`.`t2`.`b` = 3) and (15 <= `test`.`t2`.`a`) and (`test`.`t2`.`a` < 20)) or ((`test`.`t2`.`b` = 1) and (1 <= `test`.`t2`.`a`)))
 SELECT * FROM t2 WHERE
@@ -1550,7 +1649,9 @@ SELECT * FROM t2 WHERE
 OR
 1 <= a AND b = 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	10	NULL	50	27.10	Using where; Using index
+1	SIMPLE	t2	NULL	range	a	a	10	NULL	60	27.10	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` where (((`test`.`t2`.`b` = 2) and (5 <= `test`.`t2`.`a`) and (`test`.`t2`.`a` < 10)) or ((`test`.`t2`.`b` = 3) and (15 <= `test`.`t2`.`a`) and (`test`.`t2`.`a` < 20)) or ((`test`.`t2`.`b` = 1) and (1 <= `test`.`t2`.`a`)))
 SELECT * FROM t3 WHERE
@@ -1573,7 +1674,9 @@ SELECT * FROM t3 WHERE
 a < 5 OR
 a < 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	range	a	a	5	NULL	8	100.00	Using where; Using index
+1	SIMPLE	t3	NULL	range	a	a	5	NULL	9	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t3` where (((`test`.`t3`.`b` = 3) and (5 <= `test`.`t3`.`a`) and (`test`.`t3`.`a` < 10)) or (`test`.`t3`.`a` < 5) or (`test`.`t3`.`a` < 10))
 DROP TABLE t1, t2, t3;
@@ -1602,13 +1705,21 @@ EXPLAIN
 SELECT * FROM t1 WHERE a >= '2009/09/23';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 X	X	X	NULL	range	a	a	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
 Warnings:
+X	X	X
 X	X	X
 SELECT * FROM t1 WHERE a >= '2009/09/23';
 a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t1 WHERE a >= '20090923';
 a
 2009-09-23
@@ -1629,28 +1740,51 @@ a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t1 WHERE a >= '2009:09:23';
 a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 # DATE vs DATETIME
 EXPLAIN
 SELECT * FROM t2 WHERE a >= '2009/09/23';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 X	X	X	NULL	range	a	a	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
 Warnings:
+X	X	X
 X	X	X
 SELECT * FROM t2 WHERE a >= '2009/09/23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t2 WHERE a >= '2009/09/23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t2 WHERE a >= '20090923';
 a
 2009-09-23 12:00:00
@@ -1671,23 +1805,41 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t2 WHERE a >= '2009:09:23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 # DATETIME vs DATETIME
 EXPLAIN
 SELECT * FROM t2 WHERE a >= '2009/09/23 12:00:00';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 X	X	X	NULL	range	a	a	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
 Warnings:
+X	X	X
 X	X	X
 SELECT * FROM t2 WHERE a >= '2009/09/23 12:00:00';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t2 WHERE a >= '20090923120000';
 a
 2009-09-23 12:00:00
@@ -1708,28 +1860,51 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t2 WHERE a >= '2009:09:23 12:00:00';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 # DATETIME vs DATE
 EXPLAIN
 SELECT * FROM t1 WHERE a >= '2009/09/23 00:00:00';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 X	X	X	NULL	range	a	a	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
+X	X	X	NULL	ALL	NULL	NULL	X	X	X	100.00	X
 Warnings:
+X	X	X
 X	X	X
 SELECT * FROM t1 WHERE a >= '2009/09/23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t1 WHERE a >= '2009/09/23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t1 WHERE a >= '20090923000000';
 a
 2009-09-23
@@ -1750,11 +1925,21 @@ a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT * FROM t1 WHERE a >= '2009:09:23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 # Test of the new get_date_from_str implementation
 # Behavior differs slightly between the trunk and mysql-pe.
 # The former may give errors for the truncated values, while the latter
@@ -1773,6 +1958,7 @@ SELECT str_to_date('2007-10-00', '%Y-%m-%d') BETWEEN '' AND '2007/10/20';
 str_to_date('2007-10-00', '%Y-%m-%d') BETWEEN '' AND '2007/10/20'
 1
 Warning	1292	Truncated incorrect date value: ''
+Warning	4095	Delimiter '/' in position 4 in datetime value '2007/10/20' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT str_to_date('2007-20-00', '%Y-%m-%d') BETWEEN '2007/10/20' AND '';
 str_to_date('2007-20-00', '%Y-%m-%d') BETWEEN '2007/10/20' AND ''
@@ -1826,6 +2012,8 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY)
 WHERE (a>=1 AND a<=2) OR (a>=4 AND a<=5) OR (a>=0 AND a <=10);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 @	@	@	NULL	range	@	@	@	@	@	100.00	@
+@	@	@	NULL	ALL	@	@	@	@	@	100.00	@
+@	@	@	NULL	ALL	@	@	@	@	@	100.00	@
 Warnings:
 @	@	@
 # Should return 2 rows
@@ -1842,7 +2030,9 @@ CREATE TABLE t1 (c_key INT, c_notkey INT, KEY(c_key));
 INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
 EXPLAIN SELECT * FROM t1 WHERE 2 NOT BETWEEN c_notkey AND c_key;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	c_key	NULL	NULL	NULL	3	66.67	Using where
+1	SIMPLE	t1	NULL	ALL	c_key	NULL	NULL	NULL	3	66.67	Parallel scan (3 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c_key` AS `c_key`,`test`.`t1`.`c_notkey` AS `c_notkey` from `test`.`t1` where (2 not between `test`.`t1`.`c_notkey` and `test`.`t1`.`c_key`)
 SELECT * FROM t1 WHERE 2 NOT BETWEEN c_notkey AND c_key;
@@ -1859,7 +2049,7 @@ INSERT INTO t1 VALUES (1,10), (2,20), (3,30);
 EXPLAIN
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	const	i4_uq	i4_uq	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	const	i4_uq	i4_uq	5	const	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select '1' AS `pk`,'10' AS `i4` from `test`.`t1` where true
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND 10;
@@ -1868,7 +2058,7 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1 WHERE 10 BETWEEN i4 AND i4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	const	i4_uq	i4_uq	5	const	1	100.00	NULL
+1	SIMPLE	t1	NULL	const	i4_uq	i4_uq	5	const	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select '1' AS `pk`,'10' AS `i4` from `test`.`t1` where true
 SELECT * FROM t1 WHERE 10 BETWEEN i4 AND i4;
@@ -1877,7 +2067,9 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1 WHERE 10 BETWEEN 10 AND i4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	i4_uq	i4_uq	5	NULL	3	100.00	Using index condition
+1	SIMPLE	t1	NULL	index	i4_uq	i4_uq	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4` from `test`.`t1` where (10 between 10 and `test`.`t1`.`i4`)
 SELECT * FROM t1 WHERE 10 BETWEEN 10 AND i4;
@@ -1888,7 +2080,9 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1 WHERE 10 BETWEEN i4 AND 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	i4_uq	i4_uq	5	NULL	1	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	i4_uq	i4_uq	5	NULL	1	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4` from `test`.`t1` where (10 between `test`.`t1`.`i4` and 10)
 SELECT * FROM t1 WHERE 10 BETWEEN i4 AND 10;
@@ -1897,7 +2091,9 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1 WHERE 10 BETWEEN 10 AND 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t1	NULL	index	NULL	i4_uq	5	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4` from `test`.`t1`
 SELECT * FROM t1 WHERE 10 BETWEEN 10 AND 10;
@@ -1932,7 +2128,9 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND 99999999999999999;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	i4_uq	i4_uq	5	NULL	3	100.00	Using index condition
+1	SIMPLE	t1	NULL	index	i4_uq	i4_uq	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4` from `test`.`t1` where (`test`.`t1`.`i4` between 10 and 99999999999999999)
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND 99999999999999999;
@@ -1951,7 +2149,9 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND '20';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	i4_uq	i4_uq	5	NULL	1	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	i4_uq	i4_uq	5	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4` from `test`.`t1` where (`test`.`t1`.`i4` between 10 and '20')
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND '20';
@@ -1961,25 +2161,32 @@ pk	i4
 EXPLAIN
 SELECT * FROM t1, t1 as t2 WHERE t2.pk BETWEEN t1.i4 AND t1.i4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	i4_uq	NULL	NULL	NULL	3	100.00	Using where
-1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.i4	1	100.00	Using index condition
+1	SIMPLE	t1	NULL	index	i4_uq	i4_uq	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.i4	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4`,`test`.`t2`.`pk` AS `pk`,`test`.`t2`.`i4` AS `i4` from `test`.`t1` join `test`.`t1` `t2` where (`test`.`t2`.`pk` between `test`.`t1`.`i4` and `test`.`t1`.`i4`)
 EXPLAIN FORMAT=tree
 SELECT * FROM t1, t1 as t2 WHERE t2.pk BETWEEN t1.i4 AND t1.i4;
 EXPLAIN
--> Nested loop inner join  (cost=1.85 rows=3)
-    -> Filter: (t1.i4 is not null)  (cost=0.80 rows=3)
-        -> Table scan on t1  (cost=0.80 rows=3)
-    -> Single-row index lookup on t2 using PRIMARY (pk=t1.i4), with index condition: (t2.pk between t1.i4 and t1.i4)  (cost=0.28 rows=1)
+-> PX Receiver (slice: 0; workers: 1)
+    -> PX Sender (slice: 1; workers: 3)
+        -> Nested loop inner join  (cost=1.60 rows=3)
+            -> Filter: (t1.i4 is not null)  (cost=0.55 rows=3)
+                -> Parallel index scan on t1 using i4_uq  (cost=0.55 rows=3)
+            -> Filter: (t2.pk between t1.i4 and t1.i4)  (cost=0.28 rows=1)
+                -> Single-row index lookup on t2 using PRIMARY (pk=t1.i4)  (cost=0.28 rows=1)
 
 SELECT * FROM t1, t1 as t2 WHERE t2.pk BETWEEN t1.i4 AND t1.i4;
 pk	i4	pk	i4
 EXPLAIN
 SELECT * FROM t1, t1 as t2 WHERE t1.i4 BETWEEN t2.pk AND t2.pk;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	i4_uq	NULL	NULL	NULL	3	100.00	Using where
-1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.i4	1	100.00	Using index condition
+1	SIMPLE	t1	NULL	index	i4_uq	i4_uq	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.i4	1	100.00	Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i4` AS `i4`,`test`.`t2`.`pk` AS `pk`,`test`.`t2`.`i4` AS `i4` from `test`.`t1` join `test`.`t1` `t2` where (`test`.`t1`.`i4` between `test`.`t2`.`pk` and `test`.`t2`.`pk`)
 SELECT * FROM t1, t1 as t2 WHERE t1.i4 BETWEEN t2.pk AND t2.pk;
@@ -2008,10 +2215,10 @@ unique key (id));
 insert into t2 select null,id*0.0009 from t1;
 select count(val) from t2 ignore index (val) where val > 0.1155;
 count(val)
-128
+185
 select count(val) from t2 force index (val)  where val > 0.1155;
 count(val)
-128
+185
 drop table t2, t1;
 #
 # BUG#13453382 - REGRESSION SINCE 5.1.39, RANGE OPTIMIZER WRONG
@@ -2111,6 +2318,9 @@ c1
 2
 3
 Warning	1292	Truncated incorrect DECIMAL value: 'A'
+Warning	1292	Truncated incorrect DECIMAL value: 'A'
+Warning	1292	Truncated incorrect DECIMAL value: 'A'
+Warning	1292	Truncated incorrect DECIMAL value: 'A'
 Warnings:
 DROP TABLE t1;
 create table t1 (a int,b int,key (b),key (a),key (b,a));
@@ -2156,7 +2366,9 @@ INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 #         range estimates k is selected.
 EXPLAIN SELECT * FROM t1 WHERE a = 1 AND b >= 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	k,l	k	5	const	134	33.33	Using where
+1	SIMPLE	t1	NULL	ref	k,l	k	5	const	129	33.33	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	42	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	42	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` = 1) and (`test`.`t1`.`b` >= 2))
 CREATE TABLE t2( 
@@ -2190,7 +2402,9 @@ INSERT INTO t2 VALUES (1, 1, 2);
 #         range estimates k is selected.
 EXPLAIN SELECT * FROM t2 WHERE a = 1 AND b >= 2 AND c >= 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	k,l,m,n	k	5	const	66	29.16	Using where
+1	SIMPLE	t2	NULL	ref	k,l,m,n	k	5	const	66	29.16	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	19	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	19	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`c` AS `c` from `test`.`t2` where ((`test`.`t2`.`a` = 1) and (`test`.`t2`.`b` >= 2) and (`test`.`t2`.`c` >= 2))
 DROP TABLE t1, t2;
@@ -2212,13 +2426,15 @@ INSERT INTO t100(I,J) VALUES(8,26);
 
 EXPLAIN SELECT * FROM t100 WHERE I <> 6 OR (I <> 8 AND J = 5);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t100	NULL	range	I	I	10	NULL	4	100.00	Using index condition
+1	SIMPLE	t100	NULL	range	I	I	10	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t100`.`K` AS `K`,`test`.`t100`.`I` AS `I`,`test`.`t100`.`J` AS `J` from `test`.`t100` where ((`test`.`t100`.`I` <> 6) or ((`test`.`t100`.`J` = 5) and (`test`.`t100`.`I` <> 8)))
 
 SELECT * FROM t100 WHERE I <> 6 OR (I <> 8 AND J = 5);
 K	I	J
-101	8	26
+128	8	26
 DROP TABLE t10,t100;
 #
 # BUG#12698916 - JOIN QUERY GIVES WRONG RESULT AT 2ND EXEC. OR
@@ -2327,7 +2543,8 @@ col_varchar_nokey
 (4, 2, '2004-10-10', 'd', 'd'),
 (8, 9, '2000-04-02', 'e', 'e')
 ;
-ALTER TABLE t1 DISABLE KEYS;
+SET UNIQUE_CHECKS = 0;
+SET FOREIGN_KEY_CHECKS = 0;
 SELECT table2.col_date_key AS field1,
 CONCAT ( table2.col_varchar_nokey, table1.col_varchar_nokey ) AS field2
 FROM ( t1 AS table1 INNER JOIN t1 AS table2
@@ -2442,7 +2659,8 @@ field1	field2
 2009-12-01	cd
 2009-12-01	cd
 2009-12-01	cd
-ALTER TABLE t1 ENABLE KEYS;
+SET FOREIGN_KEY_CHECKS = 1;
+SET UNIQUE_CHECKS = 1;
 CREATE TABLE t2 SELECT table2.col_date_key AS field1,
 CONCAT ( table2.col_varchar_nokey, table1.col_varchar_nokey ) AS field2
 FROM ( t1 AS table1 INNER JOIN t1 AS table2
@@ -2671,7 +2889,9 @@ INSERT INTO t2 VALUES ('2001-01-01 11:22:33');
 
 EXPLAIN SELECT * FROM t2 WHERE b=CAST('2001-01-01' AS DATE);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	b	b	259	NULL	5	20.00	Using where; Using index
+1	SIMPLE	t2	NULL	index	b	b	259	NULL	5	20.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1739	Cannot use ref access on index 'b' due to type or collation conversion on field 'b'
 Warning	1739	Cannot use range access on index 'b' due to type or collation conversion on field 'b'
@@ -2682,15 +2902,22 @@ b
 2001-01-01
 2001-01-01 00:00:00
 2001.01.01
+Warning	4095	Delimiter '#' in position 4 in datetime value '2001#01#01' at row # is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '.' in position 4 in datetime value '2001.01.01' at row # is deprecated. Prefer the standard '-'.
+Warnings:
 
 # range/ref access cannot be used for any of the queries below.
 # See BUG#13814468 about 'Range checked for each record'
 
 EXPLAIN SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using temporary; Using filesort
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using filesort
 1	SIMPLE	t2	NULL	index	b	b	259	NULL	5	20.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1739	Cannot use ref access on index 'b' due to type or collation conversion on field 'b'
 Warning	1739	Cannot use range access on index 'b' due to type or collation conversion on field 'b'
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t1` join `test`.`t2` where (`test`.`t1`.`a` = cast(`test`.`t2`.`b` as datetime(6))) order by cast(`test`.`t1`.`a` as char charset binary),cast(`test`.`t2`.`b` as char charset binary)
@@ -2701,12 +2928,25 @@ a	b
 2001-01-01 00:00:00	2001-01-01 00:00:00
 2001-01-01 00:00:00	2001.01.01
 2001-01-01 11:22:33	2001-01-01 11:22:33
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	4095	Delimiter '.' in position 4 in datetime value '2001.01.01' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '#' in position 4 in datetime value '2001#01#01' at row 1 is deprecated. Prefer the standard '-'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 
 EXPLAIN SELECT * FROM t1, t2 WHERE b=a ORDER BY BINARY a, BINARY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using temporary; Using filesort
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using filesort
 1	SIMPLE	t2	NULL	index	b	b	259	NULL	5	20.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1739	Cannot use ref access on index 'b' due to type or collation conversion on field 'b'
 Warning	1739	Cannot use range access on index 'b' due to type or collation conversion on field 'b'
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t1` join `test`.`t2` where (cast(`test`.`t2`.`b` as datetime(6)) = `test`.`t1`.`a`) order by cast(`test`.`t1`.`a` as char charset binary),cast(`test`.`t2`.`b` as char charset binary)
@@ -2717,6 +2957,15 @@ a	b
 2001-01-01 00:00:00	2001-01-01 00:00:00
 2001-01-01 00:00:00	2001.01.01
 2001-01-01 11:22:33	2001-01-01 11:22:33
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	4095	Delimiter '.' in position 4 in datetime value '2001.01.01' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter '#' in position 4 in datetime value '2001#01#01' at row 1 is deprecated. Prefer the standard '-'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 
 DROP TABLE t1,t2;
 #
@@ -2778,7 +3027,9 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((NULL,NULL),(NULL,NULL)))
 EXPLAIN SELECT a, b FROM t1 WHERE (a = 0 AND b = 0) OR (a = 1 AND b = 1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((`test`.`t1`.`b` = 0) and (`test`.`t1`.`a` = 0)) or ((`test`.`t1`.`b` = 1) and (`test`.`t1`.`a` = 1)))
 FLUSH STATUS;
@@ -2789,15 +3040,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN ((0, 0));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	x	x	10	const,const	1	100.00	Using index
+1	SIMPLE	t1	NULL	ref	x	x	10	const,const	1	100.00	Parallel scan (1 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` = 0) and (`test`.`t1`.`a` = 0))
 FLUSH STATUS;
@@ -2807,15 +3060,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	1
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	1
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN ((0, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((0,0),(1,1)))
 FLUSH STATUS;
@@ -2826,15 +3081,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b, c FROM t2 WHERE (a, b, c) IN ((0, 0, 0), (1, 1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	x	x	10	NULL	2	20.00	Using where
+1	SIMPLE	t2	NULL	range	x	x	10	NULL	2	20.00	Parallel scan (2 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`c` AS `c` from `test`.`t2` where ((`test`.`t2`.`a`,`test`.`t2`.`b`,`test`.`t2`.`c`) in ((0,0,0),(1,1,1)))
 FLUSH STATUS;
@@ -2845,15 +3102,17 @@ a	b	c
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b, c FROM t3 WHERE (a, b, c) IN ((0, 0, 0), (1, 1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	range	x	x	15	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t3	NULL	range	x	x	15	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t3` where ((`test`.`t3`.`a`,`test`.`t3`.`b`,`test`.`t3`.`c`) in ((0,0,0),(1,1,1)))
 FLUSH STATUS;
@@ -2864,15 +3123,17 @@ a	b	c
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t1 WHERE a = 0 AND b = 0 OR (a, b) IN ((1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((`test`.`t1`.`b` = 0) and (`test`.`t1`.`a` = 0)) or ((`test`.`t1`.`b` = 1) and (`test`.`t1`.`a` = 1)))
 FLUSH STATUS;
@@ -2883,15 +3144,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN ((1, 1)) OR a = 0 AND b = 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((`test`.`t1`.`b` = 1) and (`test`.`t1`.`a` = 1)) or ((`test`.`t1`.`b` = 0) and (`test`.`t1`.`a` = 0)))
 FLUSH STATUS;
@@ -2902,15 +3165,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t2 WHERE (a, b, c) IN ((1, 1, 1)) OR a = 0 AND b = 0 AND c = 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	x	x	10	NULL	2	19.00	Using index condition; Using where
+1	SIMPLE	t2	NULL	range	x	x	10	NULL	2	19.00	Parallel scan (2 workers); Using index condition; Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` where (((`test`.`t2`.`c` = 1) and (`test`.`t2`.`b` = 1) and (`test`.`t2`.`a` = 1)) or ((`test`.`t2`.`c` = 0) and (`test`.`t2`.`b` = 0) and (`test`.`t2`.`a` = 0)))
 FLUSH STATUS;
@@ -2921,15 +3186,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t3 WHERE (a, b, c) IN ((1, 1, 1)) OR a = 0 AND b = 0 AND c = 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	range	x	x	15	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t3	NULL	range	x	x	15	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t3` where (((`test`.`t3`.`c` = 1) and (`test`.`t3`.`b` = 1) and (`test`.`t3`.`a` = 1)) or ((`test`.`t3`.`c` = 0) and (`test`.`t3`.`b` = 0) and (`test`.`t3`.`a` = 0)))
 FLUSH STATUS;
@@ -2940,15 +3207,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN (((SELECT 1), 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	x	x	10	const,const	1	100.00	Using index
+1	SIMPLE	t1	NULL	ref	x	x	10	const,const	1	100.00	Parallel scan (1 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1249	Select 2 was reduced during optimization
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` = 1) and (`test`.`t1`.`a` = 1))
@@ -2959,15 +3228,17 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	1
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	1
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN (('0', 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in (('0',0),(1,1)))
 FLUSH STATUS;
@@ -2978,16 +3249,18 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 SET @v = 0;
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN ((@v, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	x	x	10	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in (((@`v`),0),(1,1)))
 FLUSH STATUS;
@@ -2998,9 +3271,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3019,8 +3292,10 @@ SELECT t4.*, t1.a, t1.b
 FROM t4 JOIN t1 USING(a, b)
 WHERE (t4.a, t4.b) IN ((1, 1), (0, 0));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	640	2.00	Using where
-1	SIMPLE	t1	NULL	ref	x	x	10	test.t4.a,test.t4.b	410	100.00	Using index
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	640	2.00	Parallel scan (2 workers); Using where
+1	SIMPLE	t1	NULL	ref	x	x	10	test.t4.a,test.t4.b	409	100.00	Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5245	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5245	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t4` join `test`.`t1` where ((`test`.`t1`.`b` = `test`.`t4`.`b`) and (`test`.`t1`.`a` = `test`.`t4`.`a`) and ((`test`.`t4`.`a`,`test`.`t4`.`b`) in ((1,1),(0,0))))
 # Join on IN
@@ -3029,7 +3304,9 @@ SELECT t4.*, t1.a, t1.b
 FROM t4 JOIN t1
 WHERE (t1.a, t1.b) IN ((t4.a, t4.b), (0, 0));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	Receive from (<sender1>)
 1	SIMPLE	t1	NULL	index	x	x	10	NULL	4098	2.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t4` join `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((`test`.`t4`.`a`,`test`.`t4`.`b`),(0,0)))
@@ -3038,7 +3315,9 @@ SELECT t4.*, t1.a, t1.b
 FROM t4 JOIN t1
 WHERE (t1.a, t1.b) IN ((t4.a, t4.b), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	NULL
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	640	100.00	Receive from (<sender1>)
 1	SIMPLE	t1	NULL	index	x	x	10	NULL	4098	2.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t4` join `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((`test`.`t4`.`a`,`test`.`t4`.`b`),(1,1)))
@@ -3077,8 +3356,10 @@ WHERE EXISTS (SELECT /*+ NO_SEMIJOIN() */ 1
 FROM t1
 WHERE (a, b) IN ((t1o.a, t1o.b)) );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1o	NULL	index	NULL	x	10	NULL	4098	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	ref	x	x	10	test.t1o.a,test.t1o.b	410	100.00	Using index
+1	PRIMARY	t1o	NULL	index	NULL	x	10	NULL	4098	100.00	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4098	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4098	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	ref	x	x	10	test.t1o.a,test.t1o.b	409	100.00	Using index
 Warnings:
 Note	1276	Field or reference 'test.t1o.a' of SELECT #2 was resolved in SELECT #1
 Note	1276	Field or reference 'test.t1o.b' of SELECT #2 was resolved in SELECT #1
@@ -3097,8 +3378,10 @@ EXPLAIN SELECT *
 FROM t5 JOIN t6 ON t5.a = t6.a JOIN t7
 WHERE t7.a IN (t5.b, t6.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t6	NULL	ALL	a	NULL	NULL	NULL	5	100.00	Using where
+1	SIMPLE	t6	NULL	ALL	a	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
 1	SIMPLE	t5	NULL	ref	a	a	5	test.t6.a	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 1	SIMPLE	t7	NULL	ALL	a	NULL	NULL	NULL	7	28.57	Range checked for each record (index map: 0x1)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b` from `test`.`t5` join `test`.`t6` join `test`.`t7` where ((`test`.`t5`.`a` = `test`.`t6`.`a`) and (`test`.`t7`.`a` in (`test`.`t5`.`b`,`test`.`t6`.`b`)))
@@ -3113,19 +3396,21 @@ a	b	a	b	a	b
 4	1	4	2	2	2
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
-Handler_read_first	0
-Handler_read_key	9
+Handler_read_first	1
+Handler_read_key	5
 Handler_read_last	0
-Handler_read_next	6
+Handler_read_next	4
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	6
+Handler_read_rnd_next	0
 EXPLAIN SELECT *
 FROM t5 JOIN t6 ON t5.a = t6.a JOIN t7
 WHERE (t7.a, t7.b) IN ((t5.b, 1), (t6.b, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t6	NULL	ALL	a	NULL	NULL	NULL	5	100.00	Using where
+1	SIMPLE	t6	NULL	ALL	a	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
 1	SIMPLE	t5	NULL	ref	a	a	5	test.t6.a	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 1	SIMPLE	t7	NULL	ALL	a	NULL	NULL	NULL	7	14.29	Range checked for each record (index map: 0x1)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t5`.`a` AS `a`,`test`.`t5`.`b` AS `b`,`test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t7`.`a` AS `a`,`test`.`t7`.`b` AS `b` from `test`.`t5` join `test`.`t6` join `test`.`t7` where ((`test`.`t5`.`a` = `test`.`t6`.`a`) and ((`test`.`t7`.`a`,`test`.`t7`.`b`) in ((`test`.`t5`.`b`,1),(`test`.`t6`.`b`,1))))
@@ -3138,13 +3423,13 @@ a	b	a	b	a	b
 4	1	4	2	1	1
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
-Handler_read_first	0
-Handler_read_key	9
+Handler_read_first	1
+Handler_read_key	5
 Handler_read_last	0
-Handler_read_next	4
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	6
+Handler_read_rnd_next	0
 #
 # Regression tests of the worklog below.
 #
@@ -3152,24 +3437,32 @@ Handler_read_rnd_next	6
 # The code around this is very unclear.
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) != (1, 1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	x	x	10	NULL	4098	99.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	x	x	10	NULL	4098	99.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4057	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4057	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` <> 1) or (`test`.`t1`.`b` <> 1))
 # This should give us a ref scan, as it always did.
 EXPLAIN SELECT a, b FROM t1 WHERE (a, b) IN ((0, 0));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	x	x	10	const,const	1	100.00	Using index
+1	SIMPLE	t1	NULL	ref	x	x	10	const,const	1	100.00	Parallel scan (1 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` = 0) and (`test`.`t1`.`a` = 0))
 EXPLAIN SELECT a, b FROM t1 WHERE (a, c) IN ((0, 0));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	x	x	5	const	1	10.00	Using where
+1	SIMPLE	t1	NULL	ref	x	x	5	const	1	10.00	Parallel scan (1 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`c` = 0) and (`test`.`t1`.`a` = 0))
 # ref scan on x(a).
 EXPLAIN SELECT * FROM t1 WHERE (a, c) IN ((0, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	x	x	5	NULL	2	20.00	Using where
+1	SIMPLE	t1	NULL	range	x	x	5	NULL	2	20.00	Parallel scan (2 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`c`) in ((0,0),(1,1)))
 DROP TABLE t1, t2, t3, t4, t5, t6, t7;
@@ -3197,12 +3490,12 @@ KEY (a, b)
 INSERT INTO t2 SELECT * FROM t1;
 ANALYZE TABLE t2;
 Table	Op	Msg_type	Msg_text
-test.t2	analyze	status	Table is already up to date
+test.t2	analyze	status	OK
 EXPLAIN SELECT DISTINCT a FROM t1 WHERE (a, b) IN ((0, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	20.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((0,0),(1,1)))
 FLUSH STATUS;
@@ -3221,7 +3514,9 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 EXPLAIN SELECT DISTINCT a FROM t2 WHERE (a, b) IN ((0, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	10	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	range	a	a	10	NULL	2	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a` from `test`.`t2` where ((`test`.`t2`.`a`,`test`.`t2`.`b`) in ((0,0),(1,1)))
 FLUSH STATUS;
@@ -3232,9 +3527,9 @@ a
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3242,14 +3537,16 @@ Handler_read_rnd_next	0
 EXPLAIN SELECT DISTINCT a FROM t1 WHERE (NULL, b) IN ((0, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	a	a	5	NULL	10	20.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` where ((NULL,`test`.`t1`.`b`) in ((0,0),(1,1)))
 # Should not use range scan.
 EXPLAIN SELECT DISTINCT a FROM t2 WHERE (NULL, b) IN ((0, 0), (1, 1));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	a	a	10	NULL	10	20.00	Using where; Using index
+1	SIMPLE	t2	NULL	index	a	a	10	NULL	10	20.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a` from `test`.`t2` where ((NULL,`test`.`t2`.`b`) in ((0,0),(1,1)))
 DROP TABLE t1, t2;
@@ -3277,12 +3574,16 @@ CREATE TABLE t1 (a INT PRIMARY KEY, b INT);
 INSERT INTO t1 VALUES (1,1), (2,1), (3,1), (4,1), (5,1), (6,1);
 EXPLAIN SELECT * FROM t1 WHERE a IN (1, 2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	2	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	2	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (1,2))
 EXPLAIN SELECT * FROM t1 WHERE a IN (1, "2");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	2	100.00	Using index condition
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	2	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (1,'2'))
 SELECT * FROM t1 WHERE a IN (1, 2);
@@ -3509,46 +3810,36 @@ KEY v1_key (v1(10))
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 INSERT INTO t1 VALUES ('ABCDE',19), ('JLVGO',14);
-EXPLAIN SELECT * FROM t1 WHERE t1.v1 < CHAR(128);
+EXPLAIN SELECT * FROM t1 WHERE t1.v1 < CHAR(127);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	v1_key	NULL	NULL	NULL	2	50.00	Parallel scan (2 workers); Using where
+1	SIMPLE	t1	NULL	range	v1_key	v1_key	32	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`v1` AS `v1`,`test`.`t1`.`pk` AS `pk` from `test`.`t1` where (`test`.`t1`.`v1` < <cache>(char(127)))
+EXPLAIN SELECT * FROM t1 WHERE t1.v1 = CHAR(127);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	v1_key	v1_key	32	const	1	100.00	Parallel scan (1 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Note	1003	/* select#1 */ select `test`.`t1`.`v1` AS `v1`,`test`.`t1`.`pk` AS `pk` from `test`.`t1` where (`test`.`t1`.`v1` < <cache>(char(128)))
-EXPLAIN SELECT * FROM t1 WHERE t1.v1 = CHAR(128);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Note	1003	/* select#1 */ select `test`.`t1`.`v1` AS `v1`,`test`.`t1`.`pk` AS `pk` from `test`.`t1` where (`test`.`t1`.`v1` = char(128))
-EXPLAIN SELECT * FROM t1 WHERE t1.v1 BETWEEN 'f' AND CHAR(128);
+Note	1003	/* select#1 */ select `test`.`t1`.`v1` AS `v1`,`test`.`t1`.`pk` AS `pk` from `test`.`t1` where (`test`.`t1`.`v1` = <cache>(char(127)))
+EXPLAIN SELECT * FROM t1 WHERE t1.v1 BETWEEN 'f' AND CHAR(127);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v1_key	v1_key	32	NULL	1	100.00	Parallel scan (1 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Note	1003	/* select#1 */ select `test`.`t1`.`v1` AS `v1`,`test`.`t1`.`pk` AS `pk` from `test`.`t1` where (`test`.`t1`.`v1` between 'f' and <cache>(char(128)))
-SELECT * FROM t1 WHERE t1.v1 < CHAR(128);
+Note	1003	/* select#1 */ select `test`.`t1`.`v1` AS `v1`,`test`.`t1`.`pk` AS `pk` from `test`.`t1` where (`test`.`t1`.`v1` between 'f' and <cache>(char(127)))
+SELECT * FROM t1 WHERE t1.v1 < CHAR(127);
 v1	pk
 ABCDE	19
 JLVGO	14
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Warnings:
-SELECT * FROM t1 WHERE t1.v1 = CHAR(128);
+SELECT * FROM t1 WHERE t1.v1 = CHAR(127);
 v1	pk
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Warnings:
-SELECT * FROM t1 WHERE t1.v1 BETWEEN 'f' AND CHAR(128);
+SELECT * FROM t1 WHERE t1.v1 BETWEEN 'f' AND CHAR(127);
 v1	pk
 JLVGO	14
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Warning	1366	Incorrect string value: '\x80' for column 'v1' at row 1
-Warnings:
 DROP TABLE t1;
 #
 # Bug #21761867: ASSERTION `TYPE_ARG == MAYBE_KEY ||
@@ -3587,16 +3878,16 @@ DROP TABLE t1, t2, t3;
 # Bug #21318711: WRONG RESULTS FOR TRUNCATED COLUMN AND AGGREGATION
 #
 CREATE TABLE t1 (
-col1 VARCHAR(5),
+col1 VARCHAR(5) CHARSET utf8mb4 COLLATE utf8mb4_bin,
 col2 INT NOT NULL,
 PRIMARY KEY (col1, col2)
-) ENGINE=InnoDB, CHARSET utf8mb4;
+);
 INSERT INTO t1 VALUES ('abcde', 10);
 EXPLAIN SELECT MAX(col2) FROM t1 WHERE col1 = 'abcdeaa';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	PRIMARY	PRIMARY	22	const	1	100.00	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`col2`) AS `MAX(col2)` from `test`.`t1` where (`test`.`t1`.`col1` = 'abcdeaa')
 EXPLAIN SELECT MAX(col2) FROM t1 WHERE col1 = 'abcde  ';
@@ -3625,7 +3916,9 @@ SET range_optimizer_max_mem_size= 5000;
 EXPLAIN SELECT * FROM t1 WHERE f1=1 OR f1=2 OR f1=3 OR f1=4 OR f1=5
 OR f1=6 OR f1=7 OR f1=8 OR f1=9 OR f1=10 OR f1=11;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	f1	f1	5	NULL	11	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	f1	f1	5	NULL	11	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where ((`test`.`t1`.`f1` = 1) or (`test`.`t1`.`f1` = 2) or (`test`.`t1`.`f1` = 3) or (`test`.`t1`.`f1` = 4) or (`test`.`t1`.`f1` = 5) or (`test`.`t1`.`f1` = 6) or (`test`.`t1`.`f1` = 7) or (`test`.`t1`.`f1` = 8) or (`test`.`t1`.`f1` = 9) or (`test`.`t1`.`f1` = 10) or (`test`.`t1`.`f1` = 11))
 SET range_optimizer_max_mem_size= @orig_range_optimizer_max_mem_size;
@@ -3690,11 +3983,11 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 CREATE TABLE t1 (c1 INT);
 INSERT INTO t1 VALUES (66136540), (68983250), (89627210), (77869520),
 (82543190), (67538270), (77282760), (77908170),
@@ -3925,8 +4218,135 @@ DROP TABLE test_ref;
 #
 CREATE TABLE t(f1 INTEGER key, f2 INTEGER)ENGINE=INNODB;
 INSERT INTO t VALUES(0,0);
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 SELECT f1,f2 FROM t WHERE f1 NOT IN(-0.1,0.1);
 f1	f2
 0	0
 DROP TABLE t;
+#
+# Bug#32523520: OPTIMIZER LOSES PART OF RANGE WHEN OR MULTIPLE
+#	       IDENTICAL RANGES IN RANGE PLAN
+#
+CREATE TABLE t1( a INTEGER, b INTEGER, c INTEGER,
+d VARCHAR(10), PRIMARY KEY (a, b, c));
+INSERT INTO t1 VALUES (1, 1, 1, 'a'), (2, 2, 2,'b'), (3, 3, 3, 'c');
+EXPLAIN SELECT * FROM t1 FORCE INDEX (PRIMARY) WHERE (a=1 AND b=1 AND c=1)
+OR (a=1 AND b=1 AND c=1) OR (a=1 AND b=2 AND c=2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	12	NULL	2	100.00	Parallel scan (3 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d` from `test`.`t1` FORCE INDEX (PRIMARY) where (((`test`.`t1`.`c` = 1) and (`test`.`t1`.`b` = 1) and (`test`.`t1`.`a` = 1)) or ((`test`.`t1`.`c` = 1) and (`test`.`t1`.`b` = 1) and (`test`.`t1`.`a` = 1)) or ((`test`.`t1`.`c` = 2) and (`test`.`t1`.`b` = 2) and (`test`.`t1`.`a` = 1)))
+SELECT * FROM t1 FORCE INDEX (PRIMARY) WHERE (a=1 AND b=1 AND c=1)
+OR (a=1 AND b=1 AND c=1) OR (a=1 AND b=2 AND c=2);
+a	b	c	d
+1	1	1	a
+DROP TABLE t1;
+#
+# Bug #31870920: WRONG RESULT WHEN SELECT INT COLUMN WITH RANGE
+#
+CREATE TABLE t1(f1 INTEGER, KEY(f1));
+INSERT INTO t1 VALUES(0),(0),(0);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT f1 FROM t1 WHERE f1 NOT IN (0.1, -0.1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	f1	f1	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (`test`.`t1`.`f1` not in (0.1,<cache>(-(0.1))))
+SELECT f1 FROM t1 WHERE f1 NOT IN (0.1, -0.1);
+f1
+0
+0
+0
+DROP TABLE t1;
+#
+# Bug#33067554: INDEX_MERGE: ASSERTION FAILURE:
+#               ROW0SEL.CC:5584:PREBUILT->CAN_PREFETCH_RECORDS() ||
+#               RECORD_BUFFER == NULLPTR
+#
+CREATE TABLE t (
+a INTEGER,
+b INTEGER,
+pk TEXT NOT NULL,
+PRIMARY KEY (pk(110)),
+KEY (a),
+KEY (b)
+);
+INSERT INTO t VALUES
+(51,16777216,''), (-128,0,' nsj  mizb'),
+(0,5900842,' qdblp vgc'), (0,-128,'c  z'),
+(-1,-125,'d'), (95,3345,'dtphyrp'),
+(97,14396343,'du'), (127,0,'fnwyz'),
+(-128,0,'fszpsqd'), (-128,32767,'g uevfc'),
+(-128,0,'hh  lhozu '), (0,0,'m tkr'),
+(0,246,'mgmtel'), (-1,2147483647,'n  hjh'),
+(127,0,'ssw'), (127,0,'t zl'), (0,-1,'uns');
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+SELECT b FROM t WHERE a = 0 AND b = 0;
+b
+0
+DROP TABLE t;
+# Bug#17769777 EXCESSIVE MEMORY CONSUMPTION WITH MANY AND / BETWEEN
+#              ITEMS
+# Bug#17413040 USING MANY WHERE CONDITIONS MAKES RANGE SCAN DISABLED
+CREATE TABLE t1 (
+a INT,
+b INT,
+KEY (a)
+)ENGINE=INNODB;
+INSERT INTO t1 VALUES (0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6),
+(7, 7), (8, 8), (9, 9);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SET RANGE_OPTIMIZER_MAX_MEM_SIZE= 100;
+EXPLAIN SELECT DISTINCT a FROM t1 WHERE (a, b) IN ((0, 0), (1, 1));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	a	a	5	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Warning	3170	Memory capacity of 100 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((0,0),(1,1)))
+SET RANGE_OPTIMIZER_MAX_MEM_SIZE= DEFAULT;
+EXPLAIN SELECT DISTINCT a FROM t1 WHERE (a, b) IN ((0, 0), (1, 1));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	a	a	5	NULL	2	20.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>); Using merge sort
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`a`,`test`.`t1`.`b`) in ((0,0),(1,1)))
+DROP TABLE t1;
+# End of test for Bug#17769777 and Bug#17413040
+#
+# Bug#33282123: Const table optimization for aggregates goes wrong with
+#               NO PAD collations
+#
+CREATE TABLE t1 (col1 VARCHAR(5), col2 INTEGER, PRIMARY KEY (col1, col2));
+INSERT INTO t1 VALUES ('abcde', 10);
+# Used to return 10. The expected result is NULL.
+SELECT MAX(col2) FROM t1 WHERE col1 = 'abcde  ';
+MAX(col2)
+NULL
+DROP TABLE t1;
+#
+# Bug#33611112: Reverse index scan is not sorted on implicit InnoDB primary key
+#
+CREATE TABLE t1 (a INTEGER, b INTEGER, PRIMARY KEY (a), KEY (b));
+INSERT INTO t1 VALUES (1, NULL), (2, NULL), (3, 3), (4, NULL);
+SELECT a FROM t1 WHERE b IS NULL GROUP BY a ORDER BY a DESC;
+a
+4
+2
+1
+DROP TABLE t1;
 set optimizer_switch=default;

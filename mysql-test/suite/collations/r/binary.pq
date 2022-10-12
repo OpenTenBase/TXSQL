@@ -51,7 +51,7 @@ SELECT col_aici FROM t UNION SELECT col_bin FROM t;
 col_aici
 ABC
 Abc
-abc 
+abc
 SELECT col_aici FROM t UNION SELECT col_0900_bin FROM t;
 col_aici
 ABC
@@ -79,7 +79,7 @@ UNION SELECT col_aici COLLATE utf8mb4_bin FROM t;
 col_bin
 ABC
 Abc
-abc 
+abc
 SELECT col_bin FROM t UNION SELECT col_0900_bin FROM t
 UNION SELECT col_aici COLLATE utf8mb4_0900_bin FROM t;
 col_bin

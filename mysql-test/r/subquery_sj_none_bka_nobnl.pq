@@ -8,6 +8,11 @@ create table t3 (a int not null, b int, primary key (a));
 insert into t1 values (1,10), (2,20), (3,30),  (4,40);
 insert into t2 values (2), (3), (4), (5);
 insert into t3 values (10,3), (20,4), (30,5);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 select * from t2 where t2.a in (select a from t1);
 a
 2
@@ -15,8 +20,10 @@ a
 4
 explain select * from t2 where t2.a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	PRIMARY	4	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
+1	PRIMARY	t2	NULL	index	NULL	PRIMARY	4	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	#	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t2`.`a`) in t1 on PRIMARY)))
 select * from t2 where t2.a in (select a from t1 where t1.b <> 30);
@@ -25,8 +32,10 @@ a
 4
 explain select * from t2 where t2.a in (select a from t1 where t1.b <> 30);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	PRIMARY	4	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	75.00	Using where
+1	PRIMARY	t2	NULL	index	NULL	PRIMARY	4	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	#	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t2`.`a`) in t1 on PRIMARY where (`test`.`t1`.`b` <> 30))))
 select * from t2 where t2.a in (select t1.a from t1,t3 where t1.b=t3.a);
@@ -35,9 +44,11 @@ a
 3
 explain select * from t2 where t2.a in (select t1.a from t1,t3 where t1.b=t3.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	PRIMARY	4	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.b	1	100.00	Using index
+1	PRIMARY	t2	NULL	index	NULL	PRIMARY	4	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	#	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.b	1	#	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` join `test`.`t3` where ((`test`.`t3`.`a` = `test`.`t1`.`b`) and (<cache>(`test`.`t2`.`a`) = `test`.`t1`.`a`))))
 drop table t1, t2, t3;
@@ -51,6 +62,12 @@ insert into t1
 select rand()*100000+200,rand()*100000 from t0 A, t0 B, t0 C, t0 D;
 insert into t2 values (2), (3), (4), (5);
 insert into t3 values (10,3), (20,4), (30,5);
+ANALYZE TABLE t0, t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 select * from t2 where t2.a in (select a from t1);
 a
 2
@@ -58,8 +75,10 @@ a
 4
 explain select * from t2 where t2.a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	a	a	5	func	1001	100.00	Using index
+1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	a	a	5	func	1	#	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(<index_lookup>(<cache>(`test`.`t2`.`a`) in t1 on a)))
 select * from t2 where t2.a in (select a from t1 where t1.b <> 30);
@@ -68,8 +87,10 @@ a
 4
 explain select * from t2 where t2.a in (select a from t1 where t1.b <> 30);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	a	a	5	func	1001	90.00	Using where; Using index
+1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	a	a	5	func	1	#	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(<index_lookup>(<cache>(`test`.`t2`.`a`) in t1 on a where (`test`.`t1`.`b` <> 30))))
 select * from t2 where t2.a in (select t1.a from t1,t3 where t1.b=t3.a);
@@ -78,12 +99,17 @@ a
 3
 explain select * from t2 where t2.a in (select t1.a from t1,t3 where t1.b=t3.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t3	NULL	index	a	a	5	NULL	3	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	ref	a	a	10	func,test.t3.a	1167	100.00	Using index
+1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	ref	a	a	5	func	1	#	Using where; Using index
+2	DEPENDENT SUBQUERY	t3	NULL	ref	a	a	5	test.t1.b	1	#	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` join `test`.`t3` where ((`test`.`t1`.`b` = `test`.`t3`.`a`) and (<cache>(`test`.`t2`.`a`) = `test`.`t1`.`a`))))
+Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` join `test`.`t3` where ((`test`.`t3`.`a` = `test`.`t1`.`b`) and (<cache>(`test`.`t2`.`a`) = `test`.`t1`.`a`))))
 insert into t1 values (3,31);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 select * from t2 where t2.a in (select a from t1 where t1.b <> 30);
 a
 2
@@ -95,8 +121,10 @@ a
 4
 explain select * from t2 where t2.a in (select a from t1 where t1.b <> 30);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	a	a	5	func	1001	90.00	Using where; Using index
+1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	4	#	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	#	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	a	a	5	func	1	#	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(<index_lookup>(<cache>(`test`.`t2`.`a`) in t1 on a where (`test`.`t1`.`b` <> 30))))
 drop table t0, t1, t2, t3;
@@ -113,7 +141,9 @@ insert into t12 select * from t10;
 Flattened because of dependency, t10=func(t1)
 explain select * from t1 where a in (select pk from t10);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`a`) in t10 on PRIMARY)))
@@ -125,7 +155,9 @@ a	b
 A confluent case of dependency
 explain select * from t1 where a in (select a from t10 where pk=12);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select NULL from `test`.`t10` where ((<cache>(`test`.`t1`.`a`) = NULL) and multiple equal(12, NULL))))
@@ -133,7 +165,9 @@ select * from t1 where a in (select a from t10 where pk=12);
 a	b
 explain select * from t1 where a in (select a from t10 where pk=9);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t10	NULL	const	PRIMARY	PRIMARY	4	const	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select '9' from `test`.`t10` where ((<cache>(`test`.`t1`.`a`) = '9'))))
@@ -142,15 +176,19 @@ a	b
 An empty table inside
 explain select * from t1 where a in (select a from t11);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select NULL from `test`.`t11` where (<cache>(`test`.`t1`.`a`) = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select `test`.`t11`.`a` from `test`.`t11` where (<cache>(`test`.`t1`.`a`) = `test`.`t11`.`a`)))
 select * from t1 where a in (select a from t11);
 a	b
 explain select * from t1 where a in (select pk from t10) and b in (select pk from t10);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 2	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
@@ -163,7 +201,9 @@ a	b
 flattening a nested subquery
 explain select * from t1 where a in (select pk from t10 where t10.a in (select pk from t12));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where
 3	DEPENDENT SUBQUERY	t12	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
@@ -176,7 +216,9 @@ a	b
 flattening subquery w/ several tables
 explain select * from t1 where a in (select t10.pk from t10, t12 where t12.pk=t10.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t10	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t12	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t10.a	1	100.00	Using index
 Warnings:
@@ -185,7 +227,9 @@ subqueries within outer joins go into ON expr.
 explain
 select * from t1 left join (t2 A, t2 B) on ( A.A= t1.A and B.A in (select pk from t10));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	PRIMARY	A	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 1	PRIMARY	B	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 2	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
@@ -195,7 +239,9 @@ t2 should be wrapped into OJ-nest, so we have "t1 LJ (t2 J t10)"
 explain
 select * from t1 left join t2 on (t2.A= t1.A and t2.A in (select pk from t10));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 2	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
@@ -214,7 +260,9 @@ t1 m00, t1 m01,  t1 m02, t1 m03, t1 m04,t1 m05,t1 m06,t1 m07,t1 m08,t1 m09,
 t1 m10, t1 m11,  t1 m12, t1 m13, t1 m14,t1 m15,t1 m16,t1 m17,t1 m18,t1 m19
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	s00	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	s00	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	PRIMARY	s01	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 1	PRIMARY	s02	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
 1	PRIMARY	s03	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
@@ -308,9 +356,14 @@ a	b	a	b
 1	1	1	1
 2	2	2	2
 insert into t1 select (A.a + 10 * B.a),1 from t0 A, t0 B;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 explain select * from t1 where a in (select pk from t10 where pk<3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	103	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	103	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	103	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	103	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t10	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`a`) in t10 on PRIMARY where (`test`.`t10`.`pk` < 3))))
@@ -331,10 +384,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -350,11 +406,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -362,10 +421,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -380,20 +442,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -401,7 +469,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -410,11 +479,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -422,7 +494,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -432,7 +505,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -447,10 +521,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -466,11 +543,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -478,10 +558,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -496,20 +579,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -517,7 +606,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -526,11 +616,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -538,7 +631,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -548,7 +642,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -563,10 +658,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -582,11 +680,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -594,10 +695,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -612,20 +716,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -633,371 +743,24 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (0);
-DELETE FROM t3;
-INSERT INTO t2 VALUES (2);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-0	1	0
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (2);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-0	1	1
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (1);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-0	1	2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -1016,7 +779,420 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (0);
+DELETE FROM t3;
+INSERT INTO t2 VALUES (2);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+0	1	0
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (2);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+0	1	1
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (1);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+0	1	2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
@@ -1034,10 +1210,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -1053,11 +1232,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -1065,10 +1247,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -1083,20 +1268,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -1104,7 +1295,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1113,11 +1305,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = <cache>(11)) and (`test`.`t2`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -1125,7 +1320,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1136,7 +1332,7 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1151,10 +1347,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -1170,11 +1369,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -1182,10 +1384,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -1200,20 +1405,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -1221,7 +1432,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1230,11 +1442,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = <cache>(11)) and (`test`.`t2`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -1242,7 +1457,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1268,10 +1484,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -1287,11 +1506,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((NULL = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -1299,10 +1521,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(NULL) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -1317,20 +1542,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(NULL) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -1348,11 +1579,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((NULL <> 0) and (<cache>(11) = `test`.`t3`.`i`) and (`test`.`t2`.`i` = `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -1391,10 +1625,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>('2') = NULL) and multiple equal(NULL, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -1410,11 +1647,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where multiple equal('2', NULL, NULL))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -1422,10 +1662,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>('2') = NULL) and multiple equal(NULL, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -1440,20 +1683,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t3` where (<cache>('2') = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t2` straight_join `test`.`t3` where (<cache>('2') = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -1461,7 +1710,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1470,11 +1720,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where multiple equal(<cache>(11), NULL, NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -1482,7 +1735,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1492,7 +1746,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1507,10 +1762,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select '2' from `test`.`t2` where ((<cache>('2') = '2') and multiple equal(NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -1526,11 +1784,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where exists(/* select#2 */ select 1 from `test`.`t2` where multiple equal('2'))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -1538,10 +1799,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select '2' from `test`.`t2` where ((<cache>('2') = '2') and multiple equal(NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -1556,11 +1820,13 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
@@ -1568,10 +1834,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select '2' from `test`.`t2` straight_join `test`.`t3` where (<cache>('2') = '2')))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -1579,7 +1848,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1588,11 +1858,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select '2' from `test`.`t2` where multiple equal(<cache>(11))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -1600,7 +1873,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1610,7 +1884,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -1625,10 +1900,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>('2') = `test`.`t3`.`i`) and multiple equal(NULL, `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -1644,11 +1922,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where multiple equal('2', `test`.`t3`.`i`, NULL))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -1656,10 +1937,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>('2') = `test`.`t3`.`i`) and multiple equal(NULL, `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -1674,11 +1958,13 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
@@ -1686,10 +1972,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>('2') = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -1697,399 +1986,24 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where multiple equal(<cache>(11), `test`.`t3`.`i`, NULL)))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (0);
-DELETE FROM t3;
-INSERT INTO t2 VALUES (2);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-1	1	0
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t3` where ((<cache>('2') = NULL) and multiple equal('2', NULL))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where exists(/* select#2 */ select 1 from `test`.`t3` where multiple equal('2', NULL))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t3` where ((<cache>('2') = NULL) and multiple equal('2', NULL))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t3` left join `test`.`t2` on(multiple equal(NULL, NULL)) where (<cache>('2') = NULL)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t3` where (<cache>('2') = NULL)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select NULL from `test`.`t3` where multiple equal(<cache>(11), NULL)))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (2);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-1	1	1
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select '2' from dual where false))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (1);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-1	1	2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` where false))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -2108,7 +2022,438 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (0);
+DELETE FROM t3;
+INSERT INTO t2 VALUES (2);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+1	1	0
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (2);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+1	1	1
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (1);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+1	1	2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
@@ -2126,10 +2471,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>('2') = NULL) and multiple equal(`test`.`t2`.`i`, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -2145,11 +2493,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where multiple equal('2', NULL, `test`.`t2`.`i`))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -2157,10 +2508,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>('2') = NULL) and multiple equal(`test`.`t2`.`i`, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -2175,21 +2529,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select NULL from `test`.`t3` left join `test`.`t2` on(multiple equal(`test`.`t2`.`i`, NULL)) where (<cache>('2') = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>('2',<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>('2') = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -2197,7 +2556,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2206,11 +2566,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where multiple equal(<cache>(11), NULL, `test`.`t2`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = <cache>(11)) and (`test`.`t2`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -2218,7 +2581,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2229,7 +2593,7 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2244,11 +2608,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -2267,12 +2633,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -2281,11 +2649,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -2303,11 +2673,13 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
@@ -2315,11 +2687,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -2328,7 +2702,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2337,11 +2712,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select '2' from `test`.`t2` where false))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = <cache>(11)) and (`test`.`t2`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -2349,7 +2727,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2375,11 +2754,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -2398,12 +2779,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -2412,11 +2795,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -2434,11 +2819,13 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
@@ -2446,11 +2833,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '2' AS `i` from dual where true
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -2469,12 +2858,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select '2' AS `i` from dual where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -2513,10 +2904,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = NULL) and multiple equal(NULL, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -2532,11 +2926,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t1`.`i` = NULL) and multiple equal(NULL, NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -2544,10 +2941,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = NULL) and multiple equal(NULL, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -2562,20 +2962,26 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t3` where (<cache>(`test`.`t1`.`i`) = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -2583,7 +2989,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2592,11 +2999,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((`test`.`t1`.`i` <> 0) and multiple equal(<cache>(11), NULL, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -2604,7 +3014,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2614,7 +3025,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2629,10 +3041,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from `test`.`t2` where ((<cache>(`test`.`t1`.`i`) = '2') and multiple equal(NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -2648,11 +3063,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` where ((`test`.`t1`.`i` = '2') and multiple equal(NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -2660,10 +3078,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from `test`.`t2` where ((<cache>(`test`.`t1`.`i`) = '2') and multiple equal(NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -2678,11 +3099,13 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from dual where (<cache>(`test`.`t1`.`i`) = '2')))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
@@ -2690,10 +3113,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = '2')))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
@@ -2701,7 +3127,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2710,11 +3137,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select '2' from `test`.`t2` where ((`test`.`t1`.`i` <> 0) and multiple equal(<cache>(11)))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -2722,7 +3152,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2732,7 +3163,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -2747,10 +3179,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`) and multiple equal(NULL, `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -2766,11 +3201,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t1`.`i` = `test`.`t3`.`i`) and multiple equal(NULL, `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -2778,10 +3216,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`) and multiple equal(NULL, `test`.`t3`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -2796,385 +3237,9 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-1
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t1`.`i` <> 0) and multiple equal(<cache>(11), `test`.`t3`.`i`, NULL))))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
-2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (0);
-DELETE FROM t3;
-INSERT INTO t2 VALUES (2);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-2	1	0
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = NULL) and multiple equal('2', NULL))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t3` where ((`test`.`t1`.`i` = NULL) and multiple equal('2', NULL)))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = NULL) and multiple equal('2', NULL))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-
-EXECUTE stmt;
-i
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t3` left join `test`.`t2` on(multiple equal(NULL, NULL)) where (<cache>(`test`.`t1`.`i`) = NULL)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t3` where (<cache>(`test`.`t1`.`i`) = NULL)))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select NULL from `test`.`t3` where ((`test`.`t1`.`i` <> 0) and multiple equal(<cache>(11), NULL))))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (2);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-2	1	1
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from dual where ((<cache>(`test`.`t1`.`i`) = '2'))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from dual where ((`test`.`t1`.`i` = '2')))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from dual where ((<cache>(`test`.`t1`.`i`) = '2'))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from <constant table> left join `test`.`t2` on(multiple equal('2', '2')) where (<cache>(`test`.`t1`.`i`) = '2')))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from `test`.`t3` where (<cache>(`test`.`t1`.`i`) = '2')))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select '2' from dual where false))
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-i
-EXPLAIN SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
-SELECT * FROM t1 WHERE (11) IN 
-(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
-i
-INSERT INTO t3 VALUES (1);
-SELECT (SELECT COUNT(*) from t1) AS c1,
-(SELECT COUNT(*) from t2) AS c2,
-(SELECT COUNT(*) from t3) AS c3;
-c1	c2	c3
-2	1	2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` where ((`test`.`t3`.`i` = '2') and (<cache>(`test`.`t1`.`i`) = '2'))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t3` where ((`test`.`t3`.`i` = '2') and (`test`.`t1`.`i` = '2')))
-SELECT * FROM t1 WHERE EXISTS 
-(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
-WHERE t1.i = t3.i);
-i
-2
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` where ((`test`.`t3`.`i` = '2') and (<cache>(`test`.`t1`.`i`) = '2'))))
-SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
-i
-2
-PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
-EXECUTE stmt;
-i
-2
-
-EXECUTE stmt;
-i
-2
-DEALLOCATE PREPARE stmt;
-EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
-(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
@@ -3187,21 +3252,22 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 i
-1
-2
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -3210,11 +3276,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` where false))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -3233,7 +3302,440 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (0);
+DELETE FROM t3;
+INSERT INTO t2 VALUES (2);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+2	1	0
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+
+EXECUTE stmt;
+i
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (2);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+2	1	1
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+INSERT INTO t3 VALUES (1);
+SELECT (SELECT COUNT(*) from t1) AS c1,
+(SELECT COUNT(*) from t2) AS c2,
+(SELECT COUNT(*) from t3) AS c3;
+c1	c2	c3
+2	1	2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (`test`.`t1`.`i` = `test`.`t2`.`i`)))
+SELECT * FROM t1 WHERE EXISTS 
+(SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
+WHERE t1.i = t3.i);
+i
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = `test`.`t2`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t2`.`i`))))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+2
+PREPARE stmt FROM "SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i)";
+EXECUTE stmt;
+i
+2
+
+EXECUTE stmt;
+i
+2
+DEALLOCATE PREPARE stmt;
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+1
+2
+EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
+SELECT * FROM t1 WHERE (t1.i) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+i
+1
+2
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = <cache>(11)) and (`test`.`t3`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
+SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
+i
+EXPLAIN SELECT * FROM t1 WHERE (11) IN 
+(SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
@@ -3251,10 +3753,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = NULL) and multiple equal(`test`.`t2`.`i`, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -3270,11 +3775,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t1`.`i` = NULL) and multiple equal(`test`.`t2`.`i`, NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -3282,10 +3790,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((<cache>(`test`.`t1`.`i`) = NULL) and multiple equal(`test`.`t2`.`i`, NULL))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -3300,19 +3811,24 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select NULL from `test`.`t3` left join `test`.`t2` on(multiple equal(`test`.`t2`.`i`, NULL)) where (<cache>(`test`.`t1`.`i`) = NULL)))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` straight_join `test`.`t3` where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
@@ -3322,7 +3838,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -3331,11 +3848,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select NULL from `test`.`t2` join `test`.`t3` where ((`test`.`t1`.`i` <> 0) and multiple equal(<cache>(11), NULL, `test`.`t2`.`i`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = <cache>(11)) and (`test`.`t2`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -3343,7 +3863,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -3354,7 +3875,7 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using where
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -3369,11 +3890,13 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from `test`.`t2` where ((`test`.`t2`.`i` = '2') and (<cache>(`test`.`t1`.`i`) = '2'))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 i
@@ -3392,12 +3915,14 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` where ((`test`.`t2`.`i` = '2') and (`test`.`t1`.`i` = '2')))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where exists(/* select#2 */ select 1 from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (`test`.`t1`.`i` = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE EXISTS 
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
@@ -3406,11 +3931,13 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from `test`.`t2` where ((`test`.`t2`.`i` = '2') and (<cache>(`test`.`t1`.`i`) = '2'))))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`i` = `test`.`t3`.`i`) and (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`))))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 i
@@ -3428,11 +3955,13 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t3	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select '2' from <constant table> left join `test`.`t2` on((`test`.`t2`.`i` = '2')) where (<cache>(`test`.`t1`.`i`) = '2')))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t3` left join `test`.`t2` on((`test`.`t2`.`i` = `test`.`t3`.`i`)) where (<cache>(`test`.`t1`.`i`) = `test`.`t3`.`i`)))
 SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 i
@@ -3440,7 +3969,9 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
@@ -3453,7 +3984,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -3462,11 +3994,14 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select '2' from `test`.`t2` where false))
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(11,<exists>(/* select#2 */ select `test`.`t3`.`i` from `test`.`t2` join `test`.`t3` where ((`test`.`t3`.`i` = <cache>(11)) and (`test`.`t2`.`i` = <cache>(11)) and (`test`.`t1`.`i` <> 0))))
 SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 i
@@ -3474,7 +4009,8 @@ EXPLAIN SELECT * FROM t1 WHERE (11) IN
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where false
 SELECT * FROM t1 WHERE (11) IN 
@@ -3500,7 +4036,9 @@ c1	c2	c3
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 INNER JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -3526,7 +4064,9 @@ EXPLAIN SELECT * FROM t1 WHERE EXISTS
 (SELECT * FROM t2 LEFT JOIN t3 ON t2.i=t3.i
 WHERE t1.i = t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -3541,7 +4081,9 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -3566,7 +4108,9 @@ DEALLOCATE PREPARE stmt;
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 RIGHT JOIN t3 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
@@ -3579,7 +4123,9 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t2 STRAIGHT_JOIN t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -3603,7 +4149,9 @@ i
 EXPLAIN SELECT * FROM t1 WHERE (11) IN 
 (SELECT t3.i FROM t2 LEFT JOIN t3 ON t2.i=t3.i WHERE t1.i <> 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -3783,10 +4331,19 @@ create table t12 select * from t1 where b = 67 AND (c IS NULL OR c > NOW()) orde
 create table t21 select * from t1 where b = 67 AND (c IS NULL OR c > '2005-12-08') order by 3 asc;
 create table t22 select * from t1 where b = 67 AND (c IS NULL OR c > '2005-12-08') order by 3 desc;
 update t22 set c = '2005-12-08 15:58:27' where a = 255;
+ANALYZE TABLE t1, t11, t12, t21, t22;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t11	analyze	status	OK
+test.t12	analyze	status	OK
+test.t21	analyze	status	OK
+test.t22	analyze	status	OK
 explain select t21.* from t21,t22 where t21.a = t22.a and 
 t22.a in (select t12.a from t11, t12 where t11.a in(255,256) and t11.a = t12.a and t11.c is null) and t22.c is null order by t21.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t22	NULL	ALL	NULL	NULL	NULL	NULL	26	10.00	Using where; Using temporary; Using filesort
+1	PRIMARY	t22	NULL	ALL	NULL	NULL	NULL	NULL	26	10.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	26	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	26	100.00	Receive from (<sender1>); Using filesort
 1	PRIMARY	t21	NULL	ALL	NULL	NULL	NULL	NULL	26	10.00	Using where
 2	DEPENDENT SUBQUERY	t11	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 2	DEPENDENT SUBQUERY	t12	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -3798,18 +4355,26 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "3.73"
+      "query_cost": "3.45"
     },
     "table": {
       "table_name": "t1",
-      "access_type": "ALL",
+      "access_type": "index",
+      "key": "idx_bc",
+      "used_key_parts": [
+        "b",
+        "c"
+      ],
+      "key_length": "10",
       "rows_examined_per_scan": 32,
       "rows_produced_per_join": 32,
       "filtered": "100.00",
+      "parallel_scan": "4 workers",
+      "using_index": true,
       "cost_info": {
-        "read_cost": "0.53",
+        "read_cost": "0.25",
         "eval_cost": "3.20",
-        "prefix_cost": "3.73",
+        "prefix_cost": "3.45",
         "data_read_per_join": "512"
       },
       "used_columns": [
@@ -3825,7 +4390,7 @@ EXPLAIN
           "query_block": {
             "select_id": 2,
             "cost_info": {
-              "query_cost": "1.31"
+              "query_cost": "1.05"
             },
             "table": {
               "table_name": "t11",
@@ -3834,9 +4399,9 @@ EXPLAIN
               "rows_produced_per_join": 1,
               "filtered": "12.50",
               "cost_info": {
-                "read_cost": "0.51",
+                "read_cost": "0.25",
                 "eval_cost": "0.10",
-                "prefix_cost": "1.31",
+                "prefix_cost": "1.05",
                 "data_read_per_join": "16"
               },
               "used_columns": [
@@ -3847,7 +4412,41 @@ EXPLAIN
           }
         }
       ]
-    }
+    },
+    "parallel_information": [
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 32,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 32,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      }
+    ]
   }
 }
 Warnings:
@@ -3862,7 +4461,9 @@ insert into t1 values (0),(1);
 explain 
 select (select max(y.a) from t1 y where a in (select a from t1 z) and a < x.a) as subq from t1 x;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	x	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	x	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	y	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 3	DEPENDENT SUBQUERY	z	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -3878,9 +4479,15 @@ insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t1 as select * from t0;
 insert into t1 select a+10 from t0;
 insert into t0 values(2);
+ANALYZE TABLE t0, t1;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
 explain select * from t1 where 2 in (select a from t0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
 2	SUBQUERY	t0	NULL	ALL	NULL	NULL	NULL	NULL	11	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where true
@@ -3908,7 +4515,9 @@ a
 9
 explain select * from (select a from t0) x where a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Using where
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	20	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`a`,<exists>(/* select#3 */ select `test`.`t1`.`a` from `test`.`t1` where (<cache>(`test`.`t0`.`a`) = `test`.`t1`.`a`)))
@@ -3918,7 +4527,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "1.60"
+      "query_cost": "1.35"
     },
     "table": {
       "table_name": "t0",
@@ -3926,10 +4535,11 @@ EXPLAIN
       "rows_examined_per_scan": 11,
       "rows_produced_per_join": 11,
       "filtered": "100.00",
+      "parallel_scan": "4 workers",
       "cost_info": {
-        "read_cost": "0.50",
+        "read_cost": "0.25",
         "eval_cost": "1.10",
-        "prefix_cost": "1.60",
+        "prefix_cost": "1.35",
         "data_read_per_join": "88"
       },
       "used_columns": [
@@ -3943,7 +4553,7 @@ EXPLAIN
           "query_block": {
             "select_id": 3,
             "cost_info": {
-              "query_cost": "2.51"
+              "query_cost": "2.25"
             },
             "table": {
               "table_name": "t1",
@@ -3952,9 +4562,9 @@ EXPLAIN
               "rows_produced_per_join": 2,
               "filtered": "10.00",
               "cost_info": {
-                "read_cost": "0.51",
+                "read_cost": "0.25",
                 "eval_cost": "0.20",
-                "prefix_cost": "2.51",
+                "prefix_cost": "2.25",
                 "data_read_per_join": "16"
               },
               "used_columns": [
@@ -3965,7 +4575,41 @@ EXPLAIN
           }
         }
       ]
-    }
+    },
+    "parallel_information": [
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 11,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 11,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      }
+    ]
   }
 }
 Warnings:
@@ -3978,9 +4622,16 @@ insert into t1 select A.a+10*(B.a+10*C.a), 0, 0, 'filler' from t0 A, t0 B, t0 C;
 insert into t1 select * from t1 where kp1 < 20;
 create table t3 (a int);
 insert into t3 select A.a + 10*B.a from t0 A, t0 B;
+ANALYZE TABLE t0, t1, t3;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t3	analyze	status	OK
 explain select * from t3 where a in (select kp1 from t1 where kp1<20);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	kp1	kp1	5	func	1	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a` from `test`.`t3` where <in_optimizer>(`test`.`t3`.`a`,<exists>(<index_lookup>(<cache>(`test`.`t3`.`a`) in t1 on kp1 where (`test`.`t1`.`kp1` < 20))))
@@ -4008,7 +4659,9 @@ a
 9
 explain select * from t3 where a in (select kp1 from t1 where kp1<20) and a<20;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	100	33.33	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	100	33.33	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	kp1	kp1	5	func	1	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`a`,<exists>(<index_lookup>(<cache>(`test`.`t3`.`a`) in t1 on kp1 where (`test`.`t1`.`kp1` < 20)))) and (`test`.`t3`.`a` < 20))
@@ -4036,10 +4689,15 @@ a
 9
 create table t4 (pk int primary key);
 insert into t4 select a from t3;
+ANALYZE TABLE t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
 explain select * from t3 where a in
 (select t1.kp1 from t1,t4 where kp1<20 and t4.pk=t1.c);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ref	kp1	kp1	5	func	1	100.00	Using where
 2	DEPENDENT SUBQUERY	t4	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.c	1	100.00	Using index
 Warnings:
@@ -4047,14 +4705,16 @@ Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a` from `test`.`t3` where <i
 explain format=tree select * from t3 where a in
 (select t1.kp1 from t1,t4 where kp1<20 and t4.pk=t1.c);
 EXPLAIN
--> Filter: <in_optimizer>(t3.a,<exists>(select #2))  (cost=10.54 rows=100)
-    -> Table scan on t3  (cost=10.54 rows=100)
+-> Filter: <in_optimizer>(t3.a,<exists>(select #2))  (cost=10.25 rows=100)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 4)
+            -> Parallel table scan on t3  (cost=10.25 rows=100)
     -> Select #2 (subquery in condition; dependent)
-        -> Limit: 1 row(s)  (cost=0.70 rows=1)
-            -> Nested loop inner join  (cost=0.70 rows=1)
-                -> Filter: ((t1.kp1 < 20) and (t1.c is not null))  (cost=0.35 rows=1)
-                    -> Index lookup on t1 using kp1 (kp1=<cache>(t3.a))  (cost=0.35 rows=1)
-                -> Single-row index lookup on t4 using PRIMARY (pk=t1.c)  (cost=0.35 rows=1)
+        -> Limit: 1 row(s)  (cost=0.71 rows=1)
+            -> Nested loop inner join  (cost=0.71 rows=1)
+                -> Filter: ((t1.kp1 < 20) and (t1.c is not null))  (cost=0.36 rows=1)
+                    -> Index lookup on t1 using kp1 (kp1=<cache>(t3.a))  (cost=0.36 rows=1)
+                -> Single-row covering index lookup on t4 using PRIMARY (pk=t1.c)  (cost=0.35 rows=1)
 
 select * from t3 where a in 
 (select t1.kp1 from t1,t4 where kp1<20 and t4.pk=t1.c);
@@ -4091,12 +4751,18 @@ set @@max_heap_table_size= 16384;
 # that these situations occurred with max_heap_table_size=16384
 # and optimizer_join_cache_level equals 1 and 0, respectively.
 # Finally execute a test that does not overflow the heap table.
+ANALYZE TABLE t0, t1;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
 explain
 select count(*) from t0 a, t0 b, t0 c
 where c.a in (select a from t1 d);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
+1	PRIMARY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers)
 1	PRIMARY	b	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 1	PRIMARY	c	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
 2	DEPENDENT SUBQUERY	d	NULL	ALL	NULL	NULL	NULL	NULL	12	10.00	Using where
 Warnings:
@@ -4126,9 +4792,16 @@ create table t2(a int);
 insert into t2 values (1),(2);
 create table t3 ( a int , filler char(100), key(a));
 insert into t3 select A.a + 10*B.a, 'filler' from t0 A, t0 B;
+analyze table t0, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain select * from t3 where a in (select a from t2) and (a > 5 or a < 10);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	100	100.00	Using where
+1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	100	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`t3`.`a`) = `test`.`t2`.`a`))) and ((`test`.`t3`.`a` > 5) or (`test`.`t3`.`a` < 10)))
@@ -4144,27 +4817,40 @@ insert into t2 values (1),(2);
 create table t3 (a char(10));
 insert into t3 select * from t1;
 insert into t3 values (1),(2);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain select * from t2 where a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` where (<cache>(`test`.`t2`.`a`) = `test`.`t1`.`a`)))
 explain select * from t2 where a in (select a from t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`t2`.`a`) = `test`.`t2`.`a`)))
 explain select * from t2 where a in (select a from t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t3`.`a` from `test`.`t3` where (<cache>(`test`.`t2`.`a`) = `test`.`t3`.`a`)))
 explain select * from t1 where a in (select a from t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select `test`.`t3`.`a` from `test`.`t3` where (<cache>(`test`.`t1`.`a`) = `test`.`t3`.`a`)))
@@ -4173,7 +4859,9 @@ create table t1 (a decimal);
 insert into t1 values (1),(2);
 explain select * from t1 where a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` where (<cache>(`test`.`t1`.`a`) = `test`.`t1`.`a`)))
@@ -4183,10 +4871,17 @@ insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t2 as select * from t1;
 create table t3 (a int, b int, filler char(100), key(a)) charset utf8mb4;
 insert into t3 select A.a + 10*B.a, A.a + 10*B.a, 'filler' from t1 A, t1 B, t1 C;
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain select * from t1, t3 where t3.a in (select a from t2) and (t3.a < 10 or t3.a >30) and t1.a =3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
-1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	1000	79.30	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	1000	79.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler` from `test`.`t1` join `test`.`t3` where ((`test`.`t1`.`a` = 3) and <in_optimizer>(`test`.`t3`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`t3`.`a`) = `test`.`t2`.`a`))) and ((`test`.`t3`.`a` < 10) or (`test`.`t3`.`a` > 30)))
@@ -4196,7 +4891,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "126.97"
+      "query_cost": "104.00"
     },
     "nested_loop": [
       {
@@ -4206,16 +4901,49 @@ EXPLAIN
           "rows_examined_per_scan": 10,
           "rows_produced_per_join": 1,
           "filtered": "10.00",
+          "parallel_scan": "4 workers",
           "cost_info": {
-            "read_cost": "1.40",
+            "read_cost": "1.15",
             "eval_cost": "0.10",
-            "prefix_cost": "1.50",
+            "prefix_cost": "1.25",
             "data_read_per_join": "8"
           },
           "used_columns": [
             "a"
           ],
           "attached_condition": "(`test`.`t1`.`a` = 3)"
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 1,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 1,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
         }
       },
       {
@@ -4226,13 +4954,13 @@ EXPLAIN
             "a"
           ],
           "rows_examined_per_scan": 1000,
-          "rows_produced_per_join": 793,
-          "filtered": "79.30",
+          "rows_produced_per_join": 790,
+          "filtered": "79.00",
           "cost_info": {
-            "read_cost": "46.16",
-            "eval_cost": "79.30",
-            "prefix_cost": "126.97",
-            "data_read_per_join": "322K"
+            "read_cost": "23.75",
+            "eval_cost": "79.00",
+            "prefix_cost": "104.00",
+            "data_read_per_join": "320K"
           },
           "used_columns": [
             "a",
@@ -4247,7 +4975,7 @@ EXPLAIN
               "query_block": {
                 "select_id": 2,
                 "cost_info": {
-                  "query_cost": "1.50"
+                  "query_cost": "1.25"
                 },
                 "table": {
                   "table_name": "t2",
@@ -4256,9 +4984,9 @@ EXPLAIN
                   "rows_produced_per_join": 1,
                   "filtered": "10.00",
                   "cost_info": {
-                    "read_cost": "0.50",
+                    "read_cost": "0.25",
                     "eval_cost": "0.10",
-                    "prefix_cost": "1.50",
+                    "prefix_cost": "1.25",
                     "data_read_per_join": "8"
                   },
                   "used_columns": [
@@ -4278,21 +5006,27 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler` from `test`.`t1` join `test`.`t3` where ((`test`.`t1`.`a` = 3) and <in_optimizer>(`test`.`t3`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`t3`.`a`) = `test`.`t2`.`a`))) and ((`test`.`t3`.`a` < 10) or (`test`.`t3`.`a` > 30)))
 explain select straight_join * from t1 a, t1 b where a.a in (select a from t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	PRIMARY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 1	PRIMARY	b	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select straight_join `test`.`a`.`a` AS `a`,`test`.`b`.`a` AS `a` from `test`.`t1` `a` join `test`.`t1` `b` where <in_optimizer>(`test`.`a`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`a`.`a`) = `test`.`t2`.`a`)))
 explain select * from t2 where a in (select straight_join a.a from t1 a, t1 b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 2	DEPENDENT SUBQUERY	b	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select straight_join `test`.`a`.`a` from `test`.`t1` `a` join `test`.`t1` `b` where (<cache>(`test`.`t2`.`a`) = `test`.`a`.`a`)))
 explain select * from t2 where a in (select straight_join a.a from t1 a, t1 b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 2	DEPENDENT SUBQUERY	b	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
 Warnings:
@@ -4300,7 +5034,9 @@ Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` where <i
 explain select straight_join * from t2 x, t2 y 
 where x.a in (select straight_join a.a from t1 a, t1 b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	x	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	PRIMARY	x	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 1	PRIMARY	y	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
 2	DEPENDENT SUBQUERY	a	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 2	DEPENDENT SUBQUERY	b	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
@@ -4310,19 +5046,23 @@ create table t0 (a int, b int);
 insert into t0 values(1,1);
 explain select * from t0, t3 where t3.a in (select a from t2) and (t3.a < 10 or t3.a >30);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	1000	79.30	Using where
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	1000	79.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '1' AS `a`,'1' AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`t3`.`a`) = `test`.`t2`.`a`))) and ((`test`.`t3`.`a` < 10) or (`test`.`t3`.`a` > 30)))
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler` from `test`.`t0` join `test`.`t3` where (<in_optimizer>(`test`.`t3`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where (<cache>(`test`.`t3`.`a`) = `test`.`t2`.`a`))) and ((`test`.`t3`.`a` < 10) or (`test`.`t3`.`a` > 30)))
 create table t4 as select a as x, a as y from t1;
 explain select * from t0, t3 where (t3.a, t3.b) in (select x,y from t4) and (t3.a < 10 or t3.a >30);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	1000	79.30	Using where
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	1000	79.00	Using where
 2	DEPENDENT SUBQUERY	t4	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '1' AS `a`,'1' AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where (<in_optimizer>((`test`.`t3`.`a`,`test`.`t3`.`b`),<exists>(/* select#2 */ select `test`.`t4`.`x`,`test`.`t4`.`y` from `test`.`t4` where ((<cache>(`test`.`t3`.`a`) = `test`.`t4`.`x`) and (<cache>(`test`.`t3`.`b`) = `test`.`t4`.`y`)))) and ((`test`.`t3`.`a` < 10) or (`test`.`t3`.`a` > 30)))
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t0`.`b` AS `b`,`test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`filler` AS `filler` from `test`.`t0` join `test`.`t3` where (<in_optimizer>((`test`.`t3`.`a`,`test`.`t3`.`b`),<exists>(/* select#2 */ select `test`.`t4`.`x`,`test`.`t4`.`y` from `test`.`t4` where ((<cache>(`test`.`t3`.`a`) = `test`.`t4`.`x`) and (<cache>(`test`.`t3`.`b`) = `test`.`t4`.`y`)))) and ((`test`.`t3`.`a` < 10) or (`test`.`t3`.`a` > 30)))
 drop table t0,t1,t2,t3,t4;
 create table t0 (a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -4331,13 +5071,17 @@ insert into t1 select A.a, B.a, 'filler' from t0 A, t0 B;
 create table t2 as select * from t1;
 explain select * from t2 where a in (select b from t1 where a=3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ref	a	a	10	const,func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`b` from `test`.`t1` where ((`test`.`t1`.`a` = 3) and (<cache>(`test`.`t2`.`a`) = `test`.`t1`.`b`))))
 explain select * from t2 where (b,a) in (select a,b from t1 where a=3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ref	a	a	10	const,func	1	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where <in_optimizer>((`test`.`t2`.`b`,`test`.`t2`.`a`),<exists>(/* select#2 */ select `test`.`t1`.`a`,`test`.`t1`.`b` from `test`.`t1` where ((`test`.`t1`.`a` = 3) and (<cache>(`test`.`t2`.`b`) = 3) and (<cache>(`test`.`t2`.`a`) = `test`.`t1`.`b`))))
@@ -4348,7 +5092,9 @@ create table t2 (a int, b int);
 insert into t2 select A.a + 10*B.a, A.a + 10*B.a from t0 A, t0 B;
 explain select * from t1 where (a,b) in (select a,b from t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	100	1.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>((`test`.`t1`.`a`,`test`.`t1`.`b`),<exists>(/* select#2 */ select `test`.`t2`.`a`,`test`.`t2`.`b` from `test`.`t2` where ((<cache>(`test`.`t1`.`a`) = `test`.`t2`.`a`) and (<cache>(`test`.`t1`.`b`) = `test`.`t2`.`b`))))
@@ -4398,9 +5144,15 @@ create table t0 (a decimal(4,2));
 insert into t0 values (10.24), (22.11);
 create table t1 as select * from t0;
 insert into t1 select * from t0;
+ANALYZE TABLE t0, t1;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
 explain select * from t0 where a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` where (<cache>(`test`.`t0`.`a`) = `test`.`t1`.`a`)))
@@ -4413,9 +5165,15 @@ create table t0(a date);
 insert into t0 values ('2008-01-01'),('2008-02-02');
 create table t1 as select * from t0;
 insert into t1 select * from t0;
+ANALYZE TABLE t0, t1;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
 explain select * from t0 where a in (select a from t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` where (<cache>(`test`.`t0`.`a`) = `test`.`t1`.`a`)))
@@ -4431,7 +5189,9 @@ create table t2 as select a as a, a as b from t0 where a < 3;
 insert into t2 select * from t2;
 explain select * from t1 where (a,b,c) in (select x.a, y.a, z.a from t2 x, t2 y, t2 z where x.b=33);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	x	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 2	DEPENDENT SUBQUERY	y	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 2	DEPENDENT SUBQUERY	z	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
@@ -4451,11 +5211,18 @@ insert into t1 values (2, 'duplicate ok', 'duplicate ok');
 insert into t1 values (18, 'duplicate ok', 'duplicate ok');
 insert into t2 values (3, 'duplicate ok', 'duplicate ok');
 insert into t2 values (19, 'duplicate ok', 'duplicate ok');
+ANALYZE TABLE t0, t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain select 
 a, mid(filler1, 1,10), length(filler1)=length(filler2) as z 
 from t1 ot where a in (select a from t2 it);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	32	100.00	Using where
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	32	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	32	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	32	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it	NULL	ALL	NULL	NULL	NULL	NULL	22	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`ot`.`a` AS `a`,substr(`test`.`ot`.`filler1`,1,10) AS `mid(filler1, 1,10)`,(length(`test`.`ot`.`filler1`) = length(`test`.`ot`.`filler2`)) AS `z` from `test`.`t1` `ot` where <in_optimizer>(`test`.`ot`.`a`,<exists>(/* select#2 */ select `test`.`it`.`a` from `test`.`t2` `it` where (<cache>(`test`.`ot`.`a`) = `test`.`it`.`a`)))
@@ -4489,7 +5256,9 @@ explain select
 a, mid(filler1, 1,10), length(filler1)=length(filler2) 
 from t2 ot where a in (select a from t1 it);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Using where
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it	NULL	ALL	NULL	NULL	NULL	NULL	32	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`ot`.`a` AS `a`,substr(`test`.`ot`.`filler1`,1,10) AS `mid(filler1, 1,10)`,(length(`test`.`ot`.`filler1`) = length(`test`.`ot`.`filler2`)) AS `length(filler1)=length(filler2)` from `test`.`t2` `ot` where <in_optimizer>(`test`.`ot`.`a`,<exists>(/* select#2 */ select `test`.`it`.`a` from `test`.`t1` `it` where (<cache>(`test`.`ot`.`a`) = `test`.`it`.`a`)))
@@ -4521,11 +5290,16 @@ a	mid(filler1, 1,10)	length(filler1)=length(filler2)
 9	filler1234	1
 insert into t1 select a+20, 'filler123456', 'filler123456' from t0;
 insert into t1 select a+20, 'filler123456', 'filler123456' from t0;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 explain select 
 a, mid(filler1, 1,10), length(filler1)=length(filler2) as z 
 from t1 ot where a in (select a from t2 it);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	52	100.00	Using where
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	52	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	52	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	52	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it	NULL	ALL	NULL	NULL	NULL	NULL	22	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`ot`.`a` AS `a`,substr(`test`.`ot`.`filler1`,1,10) AS `mid(filler1, 1,10)`,(length(`test`.`ot`.`filler1`) = length(`test`.`ot`.`filler2`)) AS `z` from `test`.`t1` `ot` where <in_optimizer>(`test`.`ot`.`a`,<exists>(/* select#2 */ select `test`.`it`.`a` from `test`.`t2` `it` where (<cache>(`test`.`ot`.`a`) = `test`.`it`.`a`)))
@@ -4559,7 +5333,9 @@ explain select
 a, mid(filler1, 1,10), length(filler1)=length(filler2) 
 from t2 ot where a in (select a from t1 it);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Using where
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	22	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it	NULL	ALL	NULL	NULL	NULL	NULL	52	10.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`ot`.`a` AS `a`,substr(`test`.`ot`.`filler1`,1,10) AS `mid(filler1, 1,10)`,(length(`test`.`ot`.`filler1`) = length(`test`.`ot`.`filler2`)) AS `length(filler1)=length(filler2)` from `test`.`t2` `ot` where <in_optimizer>(`test`.`ot`.`a`,<exists>(/* select#2 */ select `test`.`it`.`a` from `test`.`t1` `it` where (<cache>(`test`.`ot`.`a`) = `test`.`it`.`a`)))
@@ -4597,15 +5373,22 @@ create table t3 (a int, b int, key(a));
 insert into t1 select a,a from t0;
 insert into t2 select a,a from t0;
 insert into t3 select a,a from t0;
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 t2 and t3 must be use 'ref', not 'ALL':
 explain select * 
 from t0 where a in
 (select t2.a+t3.a from t1 left join (t2 join t3) on t2.a=t1.a and t3.a=t1.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
-2	DEPENDENT SUBQUERY	t1	NULL	index	a	a	5	NULL	10	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	t2	NULL	ref	a	a	5	test.t1.a	1	100.00	Using index
-2	DEPENDENT SUBQUERY	t3	NULL	ref	a	a	5	test.t1.a	1	100.00	Using index
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	index	a	a	5	NULL	#	100.00	Using where; Using index
+2	DEPENDENT SUBQUERY	t2	NULL	ref	a	a	5	test.t1.a	#	100.00	Using index
+2	DEPENDENT SUBQUERY	t3	NULL	ref	a	a	5	test.t1.a	#	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`a`,<exists>(/* select#2 */ select (`test`.`t1`.`a` + `test`.`t1`.`a`) from `test`.`t1` join `test`.`t2` join `test`.`t3` where ((`test`.`t2`.`a` = `test`.`t1`.`a`) and (`test`.`t3`.`a` = `test`.`t1`.`a`) and (<cache>(`test`.`t0`.`a`) = (`test`.`t1`.`a` + `test`.`t1`.`a`)))))
 drop table t0, t1,t2,t3;
@@ -4640,6 +5423,11 @@ insert into t3_16 values
 (concat('1 - 03', repeat('x', @suffix_len)), concat('2 - 03', repeat('x', @suffix_len)));
 insert into t3_16 values
 (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
+ANALYZE TABLE t1_16, t2_16, t3_16;
+Table	Op	Msg_type	Msg_text
+test.t1_16	analyze	status	OK
+test.t2_16	analyze	status	OK
+test.t3_16	analyze	status	OK
 explain select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select b1 from t2_16 where b1 > '0');
@@ -4730,6 +5518,11 @@ insert into t3 values ('1 - 05', '2 - 05');
 insert into t3 values ('1 - 06', '2 - 06');
 insert into t3 values ('1 - 07', '2 - 07');
 insert into t3 values ('1 - 08', '2 - 08');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain
 select * from t1
 where concat(a1,'x') IN
@@ -4739,7 +5532,9 @@ where (a1, a2) IN
 where t2.b2 = substring(t2_16.b2,1,6) and
 t2.b1 IN (select c1 from t3 where c2 > '0')));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1_16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 3	DEPENDENT SUBQUERY	t2_16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 3	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
@@ -4772,6 +5567,11 @@ insert into t3_512 values
 (concat('1 - 03', repeat('x', @suffix_len)), concat('2 - 03', repeat('x', @suffix_len)));
 insert into t3_512 values
 (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
+ANALYZE TABLE t1_512, t2_512, t3_512;
+Table	Op	Msg_type	Msg_text
+test.t1_512	analyze	status	OK
+test.t2_512	analyze	status	OK
+test.t3_512	analyze	status	OK
 explain select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select b1 from t2_512 where b1 > '0');
@@ -4885,6 +5685,11 @@ insert into t3_513 values
 (concat('1 - 03', repeat('x', @suffix_len)), concat('2 - 03', repeat('x', @suffix_len)));
 insert into t3_513 values
 (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
+ANALYZE TABLE t1_513, t2_513, t3_513;
+Table	Op	Msg_type	Msg_text
+test.t1_513	analyze	status	OK
+test.t2_513	analyze	status	OK
+test.t3_513	analyze	status	OK
 explain select left(a1,7), left(a2,7)
 from t1_513
 where a1 in (select b1 from t2_513 where b1 > '0');
@@ -4975,6 +5780,11 @@ insert into t3_1024 values
 (concat('1 - 03', repeat('x', @suffix_len)), concat('2 - 03', repeat('x', @suffix_len)));
 insert into t3_1024 values
 (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
+ANALYZE TABLE t1_1024, t2_1024, t3_1024;
+Table	Op	Msg_type	Msg_text
+test.t1_1024	analyze	status	OK
+test.t2_1024	analyze	status	OK
+test.t3_1024	analyze	status	OK
 explain select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select b1 from t2_1024 where b1 > '0');
@@ -5088,6 +5898,11 @@ insert into t3_1025 values
 (concat('1 - 03', repeat('x', @suffix_len)), concat('2 - 03', repeat('x', @suffix_len)));
 insert into t3_1025 values
 (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
+ANALYZE TABLE t1_1025, t2_1025, t3_1025;
+Table	Op	Msg_type	Msg_text
+test.t1_1025	analyze	status	OK
+test.t2_1025	analyze	status	OK
+test.t3_1025	analyze	status	OK
 explain select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select b1 from t2_1025 where b1 > '0');
@@ -5191,13 +6006,23 @@ INSERT INTO ot3 VALUES(0),(3),(6);
 INSERT INTO it1 VALUES(0),(1),(2),(3),(4),(5),(6),(7);
 INSERT INTO it2 VALUES(0),(2),(4),(6);
 INSERT INTO it3 VALUES(0),(3),(6);
+ANALYZE TABLE ot1, ot2, ot3, it1, it2, it3;
+Table	Op	Msg_type	Msg_text
+test.ot1	analyze	status	OK
+test.ot2	analyze	status	OK
+test.ot3	analyze	status	OK
+test.it1	analyze	status	OK
+test.it2	analyze	status	OK
+test.it3	analyze	status	OK
 # Test cases, Subquery Pattern 1
 # Example SQ1.1:
 explain SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a
 WHERE ot1.a IN (SELECT a FROM it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Using where
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 Warnings:
@@ -5214,8 +6039,10 @@ explain SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a
 WHERE COALESCE(ot2.a,0) IN (SELECT a FROM it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	32	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	32	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`ot1`.`a` AS `a`,`test`.`ot2`.`a` AS `a` from `test`.`ot1` left join `test`.`ot2` on((`test`.`ot2`.`a` = `test`.`ot1`.`a`)) where <in_optimizer>(coalesce(`test`.`ot2`.`a`,0),<exists>(/* select#2 */ select `test`.`it3`.`a` from `test`.`it3` where (<cache>(coalesce(`test`.`ot2`.`a`,0)) = `test`.`it3`.`a`)))
@@ -5234,7 +6061,9 @@ explain SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a
 WHERE (ot1.a,ot2.a) IN (SELECT a, a FROM it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
+1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 2	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 Warnings:
@@ -5355,7 +6184,9 @@ a	a	a
 explain SELECT *
 FROM ot1 JOIN ot2 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
+1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 2	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 Warnings:
@@ -5370,7 +6201,9 @@ explain SELECT *
 FROM ot1 JOIN ot2 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it2)
 AND ot2.a IN (SELECT a FROM it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
+1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 3	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 2	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
@@ -5420,7 +6253,9 @@ a	a	a
 explain SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 Warnings:
@@ -5440,7 +6275,9 @@ a	a
 explain SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a AND ot2.a IN (SELECT a FROM it2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 Warnings:
@@ -5461,7 +6298,9 @@ explain SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it1)
 AND ot2.a IN (SELECT a FROM it2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 3	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -5485,7 +6324,9 @@ FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a AND
 (ot1.a, ot2.a) IN (SELECT it1.a, it2.a
 FROM it1 JOIN it2 ON it1.a=it2.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -5578,21 +6419,23 @@ EXPLAIN FORMAT=tree SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it3)
 LEFT JOIN ot3 ON ot2.a=ot3.a AND ot3.a IN (SELECT a FROM it3);
 EXPLAIN
--> Nested loop left join  (cost=34.16 rows=96)
-    -> Nested loop left join  (cost=8.52 rows=32)
-        -> Table scan on ot1  (cost=1.30 rows=8)
-        -> Filter: ((ot2.a = ot1.a) and <in_optimizer>(ot1.a,<exists>(select #2)))  (cost=0.55 rows=4)
-            -> Table scan on ot2  (cost=0.55 rows=4)
+-> Nested loop left join  (cost=23.85 rows=96)
+    -> Nested loop left join  (cost=6.25 rows=32)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Parallel table scan on ot1  (cost=1.05 rows=8)
+        -> Filter: ((ot2.a = ot1.a) and <in_optimizer>(ot1.a,<exists>(select #2)))  (cost=0.30 rows=4)
+            -> Table scan on ot2  (cost=0.30 rows=4)
             -> Select #2 (subquery in condition; dependent)
-                -> Limit: 1 row(s)  (cost=0.60 rows=1)
-                    -> Filter: (<cache>(ot1.a) = it3.a)  (cost=0.60 rows=1)
-                        -> Table scan on it3  (cost=0.60 rows=3)
-    -> Filter: ((ot3.a = ot2.a) and <in_optimizer>(ot2.a,<exists>(select #3)))  (cost=0.51 rows=3)
-        -> Table scan on ot3  (cost=0.51 rows=3)
+                -> Limit: 1 row(s)  (cost=0.35 rows=1)
+                    -> Filter: (<cache>(ot1.a) = it3.a)  (cost=0.35 rows=1)
+                        -> Table scan on it3  (cost=0.35 rows=3)
+    -> Filter: ((ot3.a = ot2.a) and <in_optimizer>(ot2.a,<exists>(select #3)))  (cost=0.26 rows=3)
+        -> Table scan on ot3  (cost=0.26 rows=3)
         -> Select #3 (subquery in condition; dependent)
-            -> Limit: 1 row(s)  (cost=0.60 rows=1)
-                -> Filter: (<cache>(ot3.a) = it3.a)  (cost=0.60 rows=1)
-                    -> Table scan on it3  (cost=0.60 rows=3)
+            -> Limit: 1 row(s)  (cost=0.35 rows=1)
+                -> Filter: (<cache>(ot3.a) = it3.a)  (cost=0.35 rows=1)
+                    -> Table scan on it3  (cost=0.35 rows=3)
 
 SELECT *
 FROM ot1 LEFT JOIN ot2 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it3)
@@ -5626,7 +6469,9 @@ LEFT JOIN
 (ot2 JOIN ot3 ON ot2.a=ot3.a)
 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -5653,7 +6498,9 @@ JOIN
 (ot2 JOIN ot3 ON ot2.a=ot3.a)
 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	ot3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -5674,7 +6521,9 @@ JOIN
 (ot2 LEFT JOIN ot3 ON ot2.a=ot3.a)
 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
+1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 1	PRIMARY	ot3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -5697,7 +6546,9 @@ LEFT JOIN
 (ot2 LEFT JOIN ot3 ON ot2.a=ot3.a)
 ON ot1.a=ot2.a AND ot1.a IN (SELECT a FROM it1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 1	PRIMARY	ot3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -5905,6 +6756,12 @@ CREATE TABLE v (
 a INTEGER DEFAULT NULL
 ) ENGINE=InnoDB;
 INSERT INTO v VALUES (1),(1);
+ANALYZE TABLE t, t2, t4, v;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+test.t2	analyze	status	OK
+test.t4	analyze	status	OK
+test.v	analyze	status	OK
 explain SELECT *
 FROM t AS t1
 LEFT JOIN
@@ -5999,11 +6856,11 @@ PRIMARY KEY (pk),
 KEY time_key (time_key),
 KEY datetime_key (datetime_key),
 KEY varchar_key (varchar_key)
-) ENGINE=MyISaM;
+) ENGINE=INNODB;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-INSERT INTO t1 VALUES 
+INSERT IGNORE INTO t1 VALUES 
 (1,0, '00:16:10','2008-09-03 14:25:40','2008-09-03 14:25:40','h','h'),
 (2,7, '00:00:00','2001-01-13 00:00:00','2001-01-13 00:00:00','',''),
 (3,0, '00:00:00','0000-00-00 00:00:00','0000-00-00 00:00:00','x','x'),
@@ -6106,7 +6963,7 @@ INSERT INTO t2 VALUES
 CREATE TABLE t3 (
 varchar_key varchar(1) DEFAULT NULL,
 KEY varchar_key (varchar_key)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
 INSERT INTO t3 VALUES
 (NULL),('c'),('d'),('e'),('f'),('h'),('j'),('k'),('k'),('m'),('m'),('m'),
 ('n'),('o'),('r'),('t'),('t'),('u'),('w'),('y');
@@ -6132,12 +6989,17 @@ KEY vkey(vkey)
 ) charset utf8mb4;
 INSERT INTO t0 
 VALUES (1,'g','g'), (2,'v','v'), (3,'t','t'), (4,'u','u'), (5,'n','n');
+ANALYZE TABLE t0;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
 EXPLAIN SELECT vkey FROM t0 WHERE pk IN
 (SELECT t1.pk FROM t0 t1 JOIN t0 t2 ON t2.vkey = t1.vnokey);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	t0	NULL	index	NULL	vkey	7	NULL	5	100.00	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	ref	vkey	vkey	7	test.t1.vnokey	2	100.00	Using index
+2	DEPENDENT SUBQUERY	t2	NULL	ref	vkey	vkey	7	test.t1.vnokey	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`vkey` AS `vkey` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`pk`,<exists>(/* select#2 */ select `test`.`t1`.`pk` from `test`.`t0` `t1` join `test`.`t0` `t2` where ((`test`.`t2`.`vkey` = `test`.`t1`.`vnokey`) and (<cache>(`test`.`t0`.`pk`) = `test`.`t1`.`pk`))))
 SELECT vkey FROM t0 WHERE pk IN 
@@ -6239,7 +7101,7 @@ date_key
 # Bug#45933 "Crash in optimize_semijoin_nests on JOIN in subquery 
 # + AND in outer query".
 #
-INSERT INTO t1 VALUES (10,7,5,'2009-06-16','2002-04-10 14:25:30','w'),
+INSERT IGNORE INTO t1 VALUES (10,7,5,'2009-06-16','2002-04-10 14:25:30','w'),
 (11,7,0,'0000-00-00','0000-00-00 00:00:00','s'), 
 (12,4,0,'2003-07-14','2006-09-14 04:01:02','y'), 
 (13,0,4,'2002-07-25','0000-00-00 00:00:00','c'), 
@@ -6305,7 +7167,7 @@ Warning	1264	Out of range value for column 'datetime_key' at row 17
 Warning	1264	Out of range value for column 'datetime_key' at row 18
 Warning	1264	Out of range value for column 'datetime_key' at row 20
 CREATE TABLE t2 LIKE t1;
-INSERT INTO t2 VALUES 
+INSERT IGNORE INTO t2 VALUES 
 (10,0,'2006-07-07 07:26:28','q'),(11,5,'2002-09-23 00:00:00','m'),
 (12,7,'0000-00-00 00:00:00','j'),(13,1,'2006-06-07 00:00:00','z'),
 (14,8,'2000-09-16 12:15:34','a'),(15,2,'2007-08-05 15:47:52',''),
@@ -6388,6 +7250,11 @@ KEY varchar_key (varchar_key,int_key)
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t2 VALUES (123,NULL,NULL);
+ANALYZE TABLE t0, t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 SELECT int_key  
 FROM t0  
 WHERE varchar_nokey  IN (  
@@ -6413,8 +7280,10 @@ SELECT t1_1 .varchar_key
 FROM t1 AS t1_1  JOIN t1 AS t1_2 ON t1_1 .int_key
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where
-2	DEPENDENT SUBQUERY	t1_1	NULL	ref	varchar_key	varchar_key	7	func	2	50.00	Using where; Using index
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1_1	NULL	ref	varchar_key	varchar_key	7	func	1	50.00	Using where; Using index
 2	DEPENDENT SUBQUERY	t1_2	NULL	index	NULL	int_key	5	NULL	2	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t0`.`int_key` AS `int_key` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`varchar_nokey`,<exists>(/* select#2 */ select `test`.`t1_1`.`varchar_key` from `test`.`t1` `t1_1` join `test`.`t1` `t1_2` where ((<cache>(`test`.`t0`.`varchar_nokey`) = `test`.`t1_1`.`varchar_key`) and (0 <> `test`.`t1_1`.`int_key`))))
@@ -6435,12 +7304,14 @@ SELECT t1_1 .varchar_key
 FROM t1 AS t1_1  JOIN t1 AS t1_2 ON t1_1 .int_key  
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t2	NULL	index	NULL	int_key	5	NULL	1	100.00	Parallel scan (1 workers); Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where
-2	DEPENDENT SUBQUERY	t1_1	NULL	ref	varchar_key	varchar_key	7	func	2	50.00	Using where; Using index
+2	DEPENDENT SUBQUERY	t1_1	NULL	ref	varchar_key	varchar_key	7	func	1	50.00	Using where; Using index
 2	DEPENDENT SUBQUERY	t1_2	NULL	index	NULL	int_key	5	NULL	2	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t0`.`int_key` AS `int_key` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`varchar_nokey`,<exists>(/* select#2 */ select `test`.`t1_1`.`varchar_key` from `test`.`t1` `t1_1` join `test`.`t1` `t1_2` where ((<cache>(`test`.`t0`.`varchar_nokey`) = `test`.`t1_1`.`varchar_key`) and (0 <> `test`.`t1_1`.`int_key`))))
+Note	1003	/* select#1 */ select `test`.`t0`.`int_key` AS `int_key` from `test`.`t0` join `test`.`t2` where <in_optimizer>(`test`.`t0`.`varchar_nokey`,<exists>(/* select#2 */ select `test`.`t1_1`.`varchar_key` from `test`.`t1` `t1_1` join `test`.`t1` `t1_2` where ((<cache>(`test`.`t0`.`varchar_nokey`) = `test`.`t1_1`.`varchar_key`) and (0 <> `test`.`t1_1`.`int_key`))))
 DROP TABLE t0, t1, t2;
 # End of bug#46550
 
@@ -6603,6 +7474,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`t1field` AS `t1field` from `test`.`t1` where (<in_optimizer>(`test`.`t1`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`t1field`) in t2 on PRIMARY))) and <in_optimizer>(`test`.`t1`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`t1field`) in t3 on PRIMARY))))
 
+This line is only in place to help --skip_if_hypergraph diffing some more.
+
 EXECUTE stmt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Using where; Using index
@@ -6622,6 +7495,11 @@ CREATE TABLE it2(val VARCHAR(10)) charset utf8mb4;
 INSERT INTO ot  VALUES('aaa'), ('bbb'), ('eee'), ('mmm'), ('ppp');
 INSERT INTO it1 VALUES('aaa'), ('aaa'), ('bbb'), ('eee'), ('mmm'), ('ppp');
 INSERT INTO it2 VALUES('aaa'), ('bbb'), ('eee'), ('mmm'), ('ppp');
+ANALYZE TABLE ot, it1, it2;
+Table	Op	Msg_type	Msg_text
+test.ot	analyze	status	OK
+test.it1	analyze	status	OK
+test.it2	analyze	status	OK
 EXPLAIN
 SELECT *
 FROM ot
@@ -6630,7 +7508,9 @@ WHERE  it1.val LIKE 'a%' OR it1.val LIKE 'e%')
 AND ot.val IN (SELECT it2.val FROM it2
 WHERE  it2.val LIKE 'a%' OR it2.val LIKE 'e%');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
@@ -6677,7 +7557,7 @@ KEY datetime_key (datetime_key)
 );
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-INSERT INTO it2 VALUES
+INSERT IGNORE INTO it2 VALUES
 (5,'2002-04-10 14:25:30'), (0,'0000-00-00 00:00:00'),
 (0,'2006-09-14 04:01:02'), (4,'0000-00-00 00:00:00'),
 (8,'0000-00-00 00:00:00'), (5,'0000-00-00 00:00:00'),
@@ -6721,6 +7601,11 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO it1 VALUES
 (9,5), (0,4);
+ANALYZE TABLE ot1, it1, it2;
+Table	Op	Msg_type	Msg_text
+test.ot1	analyze	status	OK
+test.it1	analyze	status	OK
+test.it2	analyze	status	OK
 SELECT int_key FROM ot1
 WHERE int_nokey IN (SELECT it2.int_key
 FROM it1 LEFT JOIN it2 ON it2.datetime_key);
@@ -6747,7 +7632,9 @@ SELECT int_key FROM ot1
 WHERE int_nokey IN (SELECT it2.int_key
 FROM it1 LEFT JOIN it2 ON it2.datetime_key);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it1	NULL	index	NULL	int_key	4	NULL	2	100.00	Using index
 2	DEPENDENT SUBQUERY	it2	NULL	ref	int_key	int_key	4	func	2	90.00	Using where
 Warnings:
@@ -6774,11 +7661,13 @@ SELECT t1field
 FROM t1
 WHERE t1field IN (SELECT v1field FROM v1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Using where; Using index
+1	PRIMARY	t1	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	a	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Using index
 4	DEPENDENT SUBQUERY	t1	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select `t1`.`t1field` AS `t1field` from `test`.`t1` where <in_optimizer>(`t1`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`t1`.`t1field`) in t1 on PRIMARY where <in_optimizer>(`test`.`a`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`a`.`t1field`) in t1 on PRIMARY))))))
+Note	1003	/* select#1 */ select `test`.`t1`.`t1field` AS `t1field` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`t1field`) in t1 on PRIMARY where <in_optimizer>(`test`.`a`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`a`.`t1field`) in t1 on PRIMARY))))))
 SELECT t1.t1field
 FROM t1 LEFT JOIN t1 AS t2 ON t1.t1field IN (SELECT v1field FROM v1);
 t1field
@@ -6791,11 +7680,13 @@ SELECT t1field
 FROM t1
 WHERE t1field IN (SELECT v1field FROM v1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Using where; Using index
+1	PRIMARY	t1	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	a	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Using index
 4	DEPENDENT SUBQUERY	t1	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select `t1`.`t1field` AS `t1field` from `test`.`t1` where <in_optimizer>(`t1`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`t1`.`t1field`) in t1 on PRIMARY where <in_optimizer>(`test`.`a`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`a`.`t1field`) in t1 on PRIMARY))))))
+Note	1003	/* select#1 */ select `test`.`t1`.`t1field` AS `t1field` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`t1field`) in t1 on PRIMARY where <in_optimizer>(`test`.`a`.`t1field`,<exists>(<primary_index_lookup>(<cache>(`test`.`a`.`t1field`) in t1 on PRIMARY))))))
 CREATE PROCEDURE p1() 
 BEGIN 
 SELECT t1field
@@ -6863,6 +7754,11 @@ INSERT INTO works VALUES  ('E3','P2',20);
 INSERT INTO works VALUES  ('E4','P2',20);
 INSERT INTO works VALUES  ('E4','P4',40);
 INSERT INTO works VALUES  ('E4','P5',80);
+ANALYZE TABLE staff, proj, works;
+Table	Op	Msg_type	Msg_text
+test.staff	analyze	status	OK
+test.proj	analyze	status	OK
+test.works	analyze	status	OK
 explain SELECT EMPNUM, EMPNAME
 FROM staff
 WHERE EMPNUM IN
@@ -6870,7 +7766,9 @@ WHERE EMPNUM IN
 WHERE PNUM IN
 (SELECT PNUM  FROM proj));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	staff	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	staff	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	works	NULL	ALL	NULL	NULL	NULL	NULL	12	10.00	Using where
 3	DEPENDENT SUBQUERY	proj	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
@@ -6937,6 +7835,11 @@ idContact int,
 postalStripped varchar(100)
 );
 insert into t3 values (1,1, 'foo'), (2,2,'bar');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 The following must be converted to a semi-join:
 explain SELECT a.idIndividual FROM t1 a
 WHERE a.idIndividual IN 
@@ -6945,7 +7848,9 @@ INNER JOIN t2 c ON c.idContact=cona.idContact
 WHERE cona.postalStripped='T2H3B2'
 	);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	a	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Using where; Using index
+1	PRIMARY	a	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	cona	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	c	NULL	eq_ref	PRIMARY	PRIMARY	4	test.cona.idContact	1	33.33	Using where
 Warnings:
@@ -6972,6 +7877,10 @@ insert into t2 values (10,null,'0');
 insert into t1 values (10,3,'0');
 insert into t1 values (10,5,'0');
 insert into t1 values (10,10,'0');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 SELECT one,two,ROW(one,two) IN (SELECT one,two FROM t2 WHERE flag = 'N') as 'test' from t1;
 one	two	test
 1	2	NULL
@@ -7018,19 +7927,25 @@ one	two	test
 7	8	0
 explain SELECT one,two,ROW(one,two) IN (SELECT one,two FROM t2 WHERE flag = '0') as 'test' from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	9	11.11	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`one` AS `one`,`test`.`t1`.`two` AS `two`,<in_optimizer>((`test`.`t1`.`one`,`test`.`t1`.`two`),<exists>(/* select#2 */ select `test`.`t2`.`one`,`test`.`t2`.`two` from `test`.`t2` where ((`test`.`t2`.`flag` = '0') and <if>(outer_field_is_not_null, ((<cache>(`test`.`t1`.`one`) = `test`.`t2`.`one`) or (`test`.`t2`.`one` is null)), true) and <if>(outer_field_is_not_null, ((<cache>(`test`.`t1`.`two`) = `test`.`t2`.`two`) or (`test`.`t2`.`two` is null)), true)) having (<if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`one`), true) and <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`two`), true)))) AS `test` from `test`.`t1`
 explain SELECT one,two from t1 where ROW(one,two) IN (SELECT one,two FROM t2 WHERE flag = 'N');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	9	11.11	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`one` AS `one`,`test`.`t1`.`two` AS `two` from `test`.`t1` where <in_optimizer>((`test`.`t1`.`one`,`test`.`t1`.`two`),<exists>(/* select#2 */ select `test`.`t2`.`one`,`test`.`t2`.`two` from `test`.`t2` where ((`test`.`t2`.`flag` = 'N') and (<cache>(`test`.`t1`.`one`) = `test`.`t2`.`one`) and (<cache>(`test`.`t1`.`two`) = `test`.`t2`.`two`))))
 explain SELECT one,two,ROW(one,two) IN (SELECT one,two FROM t2 WHERE flag = '0' group by one,two) as 'test' from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	9	11.11	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`one` AS `one`,`test`.`t1`.`two` AS `two`,<in_optimizer>((`test`.`t1`.`one`,`test`.`t1`.`two`),<exists>(/* select#2 */ select `test`.`t2`.`one`,`test`.`t2`.`two` from `test`.`t2` where ((`test`.`t2`.`flag` = '0') and <if>(outer_field_is_not_null, ((<cache>(`test`.`t1`.`one`) = `test`.`t2`.`one`) or (`test`.`t2`.`one` is null)), true) and <if>(outer_field_is_not_null, ((<cache>(`test`.`t1`.`two`) = `test`.`t2`.`two`) or (`test`.`t2`.`two` is null)), true)) having (<if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`one`), true) and <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`two`), true)))) AS `test` from `test`.`t1`
@@ -7048,9 +7963,14 @@ SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1);
 a	b
 CREATE INDEX I1 ON t1 (a);
 CREATE INDEX I2 ON t1 (b);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	I1	I1	5	func	2	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`b`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`b`) in t1 on I1 where (<cache>(`test`.`t1`.`b`) = `test`.`t1`.`a`))))
@@ -7060,9 +7980,14 @@ CREATE TABLE t2 (a VARCHAR(1), b VARCHAR(10)) charset utf8mb4;
 INSERT INTO t2 SELECT * FROM t1;
 CREATE INDEX I1 ON t2 (a);
 CREATE INDEX I2 ON t2 (b);
+ANALYZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
 EXPLAIN SELECT a,b FROM t2 WHERE b IN (SELECT a FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	I1	I1	7	func	2	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`b`,<exists>(<index_lookup>(<cache>(`test`.`t2`.`b`) in t2 on I1 where (<cache>(`test`.`t2`.`b`) = `test`.`t2`.`a`))))
@@ -7071,7 +7996,9 @@ a	b
 EXPLAIN
 SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1 WHERE LENGTH(a)<500);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	index_subquery	I1	I1	5	func	2	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`b`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`b`) in t1 on I1 where ((length(`test`.`t1`.`a`) < 500) and (<cache>(`test`.`t1`.`b`) = `test`.`t1`.`a`)))))
@@ -7168,6 +8095,11 @@ INSERT INTO t3 VALUES  ('E4','P2',20);
 INSERT INTO t3 VALUES  ('E4','P4',40);
 INSERT INTO t3 VALUES  ('E4','P5',80);
 CREATE UNIQUE INDEX t1_IDX ON t1(EMPNUM);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN SELECT EMPNAME
 FROM t1
 WHERE EMPNUM IN
@@ -7178,7 +8110,9 @@ WHERE PNUM IN
 FROM t2
 WHERE PTYPE = 'Design'));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	12	10.00	Using where
 3	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
@@ -7199,6 +8133,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`EMPNAME` AS `EMPNAME` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`EMPNUM`,<exists>(/* select#2 */ select `test`.`t3`.`EMPNUM` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`PNUM`,<exists>(/* select#3 */ select `test`.`t2`.`PNUM` from `test`.`t2` where ((`test`.`t2`.`PTYPE` = 'Design') and (<cache>(`test`.`t3`.`PNUM`) = `test`.`t2`.`PNUM`)))) and (<cache>(`test`.`t1`.`EMPNUM`) = `test`.`t3`.`EMPNUM`))))
+
+This line is only in place to help --skip_if_hypergraph diffing some more.
 
 EXECUTE stmt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -7210,6 +8146,9 @@ Note	1003	/* select#1 */ select `test`.`t1`.`EMPNAME` AS `EMPNAME` from `test`.`
 DEALLOCATE PREPARE stmt;
 DROP INDEX t1_IDX ON t1;
 CREATE INDEX t1_IDX ON t1(EMPNUM);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT EMPNAME
 FROM t1
 WHERE EMPNUM IN
@@ -7220,7 +8159,9 @@ WHERE PNUM IN
 FROM t2
 WHERE PTYPE = 'Design'));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	12	10.00	Using where
 3	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
@@ -7242,6 +8183,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`EMPNAME` AS `EMPNAME` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`EMPNUM`,<exists>(/* select#2 */ select `test`.`t3`.`EMPNUM` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`PNUM`,<exists>(/* select#3 */ select `test`.`t2`.`PNUM` from `test`.`t2` where ((`test`.`t2`.`PTYPE` = 'Design') and (<cache>(`test`.`t3`.`PNUM`) = `test`.`t2`.`PNUM`)))) and (<cache>(`test`.`t1`.`EMPNUM`) = `test`.`t3`.`EMPNUM`))))
 
+This line is only in place to help --skip_if_hypergraph diffing some more.
+
 EXECUTE stmt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
@@ -7251,6 +8194,9 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`EMPNAME` AS `EMPNAME` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`EMPNUM`,<exists>(/* select#2 */ select `test`.`t3`.`EMPNUM` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`PNUM`,<exists>(/* select#3 */ select `test`.`t2`.`PNUM` from `test`.`t2` where ((`test`.`t2`.`PTYPE` = 'Design') and (<cache>(`test`.`t3`.`PNUM`) = `test`.`t2`.`PNUM`)))) and (<cache>(`test`.`t1`.`EMPNUM`) = `test`.`t3`.`EMPNUM`))))
 DEALLOCATE PREPARE stmt;
 DROP INDEX t1_IDX ON t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT EMPNAME
 FROM t1
 WHERE EMPNUM IN
@@ -7261,7 +8207,9 @@ WHERE PNUM IN
 FROM t2
 WHERE PTYPE = 'Design'));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	12	10.00	Using where
 3	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
@@ -7282,6 +8230,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`EMPNAME` AS `EMPNAME` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`EMPNUM`,<exists>(/* select#2 */ select `test`.`t3`.`EMPNUM` from `test`.`t3` where (<in_optimizer>(`test`.`t3`.`PNUM`,<exists>(/* select#3 */ select `test`.`t2`.`PNUM` from `test`.`t2` where ((`test`.`t2`.`PTYPE` = 'Design') and (<cache>(`test`.`t3`.`PNUM`) = `test`.`t2`.`PNUM`)))) and (<cache>(`test`.`t1`.`EMPNUM`) = `test`.`t3`.`EMPNUM`))))
+
+This line is only in place to help --skip_if_hypergraph diffing some more.
 
 EXECUTE stmt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -7343,7 +8293,9 @@ FROM t2
 WHERE 1 IN(SELECT 1
 FROM t3));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 3	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
@@ -7381,7 +8333,9 @@ FROM t3
 WHERE 1 IN(SELECT 1
 FROM t4)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Receive from (<sender1>)
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	NULL
 3	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	NULL
 4	SUBQUERY	t4	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	NULL
@@ -7442,16 +8396,24 @@ create table t3 (uid int, fid int, index(uid));
 insert into t3 values (1,3), (1,3);
 create table t4 (uid int);
 insert into t4 values (3);
+ANALYZE TABLE t1, t2, t3, t4;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
 explain select t2.uid from t2, t1 
 where t1.uid in (select t4.uid from t4, t3 where t3.uid=1 and t4.uid=t3.fid)
 and t2.uid=t1.fid;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
-2	DEPENDENT SUBQUERY	t4	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	t3	NULL	ref	uid	uid	5	const	1	50.00	Using where
+2	DEPENDENT SUBQUERY	t4	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t3	NULL	ref	uid	uid	5	const	2	50.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t2`.`uid` AS `uid` from `test`.`t2` join `test`.`t1` where ((`test`.`t1`.`fid` = `test`.`t2`.`uid`) and <in_optimizer>(`test`.`t1`.`uid`,<exists>(/* select#2 */ select '3' from `test`.`t3` where ((`test`.`t3`.`fid` = '3') and (`test`.`t3`.`uid` = 1) and (<cache>(`test`.`t1`.`uid`) = '3')))))
+Note	1003	/* select#1 */ select `test`.`t2`.`uid` AS `uid` from `test`.`t2` join `test`.`t1` where ((`test`.`t1`.`fid` = `test`.`t2`.`uid`) and <in_optimizer>(`test`.`t1`.`uid`,<exists>(/* select#2 */ select `test`.`t4`.`uid` from `test`.`t4` join `test`.`t3` where ((`test`.`t3`.`fid` = `test`.`t4`.`uid`) and (`test`.`t3`.`uid` = 1) and (<cache>(`test`.`t1`.`uid`) = `test`.`t4`.`uid`)))))
 select t2.uid from t2, t1 
 where t1.uid in (select t4.uid from t4, t3 where t3.uid=1 and t4.uid=t3.fid)
 and t2.uid=t1.fid;
@@ -7471,7 +8433,9 @@ CREATE TABLE t2 LIKE t1;
 INSERT INTO t2 VALUES (1,'i','iiii','iiii','iiii'),(2,'f','ffff','ffff','ffff');
 EXPLAIN SELECT pk FROM t1 WHERE (a) IN (SELECT a FROM t2 WHERE pk > 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where ((`test`.`t2`.`pk` > 0) and (<cache>(`test`.`t1`.`a`) = `test`.`t2`.`a`))))
@@ -7482,7 +8446,7 @@ SELECT pk FROM t1 WHERE (b,c,d) IN (SELECT b,c,d FROM t2 WHERE pk > 0);
 pk
 2
 DROP TABLE t1, t2;
-CREATE TABLE t1 (f1 INT, f2 DECIMAL(5,3)) ENGINE=MyISAM;
+CREATE TABLE t1 (f1 INT, f2 DECIMAL(5,3)) ENGINE=INNODB;
 INSERT INTO t1 (f1, f2) VALUES (1, 1.789);
 INSERT INTO t1 (f1, f2) VALUES (13, 1.454);
 INSERT INTO t1 (f1, f2) VALUES (10, 1.668);
@@ -7491,7 +8455,9 @@ INSERT INTO t2 VALUES (1, 1.789);
 INSERT INTO t2 VALUES (13, 1.454);
 EXPLAIN SELECT COUNT(*) FROM t1 WHERE (f1,f2) IN (SELECT f1,f2 FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t1` where <in_optimizer>((`test`.`t1`.`f1`,`test`.`t1`.`f2`),<exists>(/* select#2 */ select `test`.`t2`.`f1`,`test`.`t2`.`f2` from `test`.`t2` where ((<cache>(`test`.`t1`.`f1`) = `test`.`t2`.`f1`) and (<cache>(`test`.`t1`.`f2`) = `test`.`t2`.`f2`))))
@@ -7534,6 +8500,11 @@ INDEX (Percentage)
 ) charset utf8mb4;
 Warnings:
 Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN SELECT Name FROM t2 
 WHERE t2.Code IN (SELECT Country FROM t1 WHERE Population > 5000000)
 AND
@@ -7541,9 +8512,11 @@ t2.Code IN (SELECT Country FROM t3
 WHERE Language='English' AND Percentage > 10 AND
 t2.Population > 100000);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Using where
-3	DEPENDENT SUBQUERY	t3	NULL	unique_subquery	PRIMARY,Percentage	PRIMARY	132	func,const	1	95.45	Using where
-2	DEPENDENT SUBQUERY	t1	NULL	range	Population,Country	Population	4	NULL	1	10.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	16	10	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	16	10	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	16	10	Receive from (<sender1>)
+3	DEPENDENT SUBQUERY	t3	NULL	unique_subquery	PRIMARY,Percentage	PRIMARY	132	func,const	1	10	Using where
+2	DEPENDENT SUBQUERY	t1	NULL	range	Population,Country	Population	4	NULL	1	10	Using where
 Warnings:
 Note	1276	Field or reference 'test.t2.Population' of SELECT #3 was resolved in SELECT #1
 Note	1003	/* select#1 */ select `test`.`t2`.`Name` AS `Name` from `test`.`t2` where (<in_optimizer>(`test`.`t2`.`Code`,<exists>(/* select#2 */ select `test`.`t1`.`Country` from `test`.`t1` where ((`test`.`t1`.`Population` > 5000000) and (<cache>(`test`.`t2`.`Code`) = `test`.`t1`.`Country`)))) and <in_optimizer>(`test`.`t2`.`Code`,<exists>(<primary_index_lookup>(<cache>(`test`.`t2`.`Code`) in t3 on PRIMARY where ((`test`.`t3`.`Language` = 'English') and (`test`.`t3`.`Percentage` > 10) and (`test`.`t2`.`Population` > 100000))))))
@@ -7558,7 +8531,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "2.33"
+      "query_cost": "1.85"
     },
     "table": {
       "table_name": "t2",
@@ -7566,10 +8539,11 @@ EXPLAIN
       "rows_examined_per_scan": 16,
       "rows_produced_per_join": 16,
       "filtered": "100.00",
+      "parallel_scan": "4 workers",
       "cost_info": {
-        "read_cost": "0.73",
+        "read_cost": "0.25",
         "eval_cost": "1.60",
-        "prefix_cost": "2.33",
+        "prefix_cost": "1.85",
         "data_read_per_join": "3K"
       },
       "used_columns": [
@@ -7660,7 +8634,41 @@ EXPLAIN
           }
         }
       ]
-    }
+    },
+    "parallel_information": [
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 16,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 16,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      }
+    ]
   }
 }
 Warnings:
@@ -7707,13 +8715,19 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set names latin1;
 Fill the table with test data
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 This must not use LooseScan:
 EXPLAIN SELECT Name FROM t1 
 WHERE t1.Code IN (
 SELECT t2.CountryCode FROM t2 WHERE Population > 5000000);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	31	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	CountryCode	CountryCode	12	func	18	33.33	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	31	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	31	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	31	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	CountryCode	CountryCode	12	func	17	33.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`Name` AS `Name` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`Code`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`Code`) in t2 on CountryCode where (`test`.`t2`.`Population` > 5000000))))
 SELECT Name FROM t1 
@@ -7731,12 +8745,19 @@ create table t1 (a int, b int, key(a));
 insert into t1 select a,a from t0;
 create table t2 (a int, b int, primary key(a));
 insert into t2 select * from t1;
+ANALYZE TABLE t0, t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 Table t2, unlike table t1, should be displayed as pulled out
 explain select * from t0
 where t0.a in ( select t1.a from t1,t2 where t2.a=t0.a and
 t1.b=t2.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ref	a	a	5	func	1	100.00	NULL
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	20.00	Using where
 Warnings:
@@ -7889,10 +8910,18 @@ insert into t1 values (0,0),(1,1),(2,2);
 create table t2 as select * from t1;
 create table t3 (pk int, a int, primary key(pk));
 insert into t3 select a,a from t0;
+ANALYZE TABLE t0, t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain 
 select * from t1 left join t2 on (t2.a= t1.a and t2.a in (select pk from t3));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 2	DEPENDENT SUBQUERY	t3	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
@@ -7909,7 +8938,7 @@ t2	CREATE TABLE `t2` (
   `a` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `a` (`a`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 set @a=0;
 create table t3 as select * from t2 limit 0;
 insert into t3 select @a:=@a+1, t2.a from t2, t0;
@@ -7925,7 +8954,9 @@ alter table t3 add primary key(id), add key(a);
 The following must use loose index scan over t3, key a:
 explain select count(a) from t2 where a in ( SELECT  a FROM t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	1000	100.00	Using where; Using index
+1	PRIMARY	t2	NULL	index	NULL	a	5	NULL	1000	100.00	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1000	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1000	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	index_subquery	a	a	5	func	30	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select count(`test`.`t2`.`a`) AS `count(a)` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`a`,<exists>(<index_lookup>(<cache>(`test`.`t2`.`a`) in t3 on a)))
@@ -8014,7 +9045,9 @@ CREATE TABLE t2 LIKE t1;
 INSERT INTO t2 VALUES (1,'i','iiii','iiii','iiii','iiii','ffff','ffff','ffff','ffff','ffff',ST_GeomFromText('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))')), (2,'f','ffff','ffff','ffff','ffff','ffff','ffff','ffff','ffff','ffff',ST_GeomFromText('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))'));
 EXPLAIN SELECT pk FROM t1 WHERE (a, b) IN (SELECT a, b FROM t2 WHERE pk > 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk` from `test`.`t1` where <in_optimizer>((`test`.`t1`.`a`,`test`.`t1`.`b`),<exists>(/* select#2 */ select `test`.`t2`.`a`,`test`.`t2`.`b` from `test`.`t2` where ((`test`.`t2`.`pk` > 0) and (<cache>(`test`.`t1`.`a`) = `test`.`t2`.`a`) and (<cache>(`test`.`t1`.`b`) = `test`.`t2`.`b`))))
@@ -8119,10 +9152,16 @@ CREATE TABLE t1 (i INTEGER);
 INSERT INTO t1 VALUES (1), (2), (3), (4), (5);
 CREATE TABLE t2 (i INTEGER, j INTEGER, KEY k(i, j));
 INSERT INTO t2 VALUES (1, 0), (1, 1), (2, 0), (2, 1);
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 EXPLAIN
 SELECT * FROM t1 WHERE (i) IN (SELECT i FROM t2 where j > 0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	k	k	5	func	2	33.33	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`i`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`i`) in t2 on k where (`test`.`t2`.`j` > 0))))
@@ -8153,11 +9192,19 @@ create table t4 (uid int primary key, name varchar(128), index(name));
 insert into t4 values 
 (1, "A"), (2, "B"), (3, "C"), (4, "D"), (5, "E"),
 (6, "F"), (7, "G"), (8, "H"), (9, "I");
+ANALYZE TABLE t1, t2, t3, t4;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
 explain select name from t2, t1 
 where t1.uid in (select t4.uid from t4, t3 where t3.uid=1 and t4.uid=t3.fid)
 and t2.uid=t1.fid;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Receive from (<sender1>)
 1	PRIMARY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.fid	1	100.00	NULL
 2	DEPENDENT SUBQUERY	t4	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 2	DEPENDENT SUBQUERY	t3	NULL	ref	uid	uid	5	const	4	10.00	Using where
@@ -8206,6 +9253,11 @@ article_id VARCHAR(20) NOT NULL,
 PRIMARY KEY(user_id)
 ) charset utf8mb4;
 INSERT INTO t3 VALUES('nicke', 'imp');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN
 SELECT t1.partner_id
 FROM t1
@@ -8218,11 +9270,13 @@ WHERE user_id = 'nicke'
     )
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where
-3	DEPENDENT SUBQUERY	t3	NULL	system	PRIMARY	NULL	NULL	NULL	1	100.00	NULL
+3	DEPENDENT SUBQUERY	t3	NULL	const	PRIMARY	PRIMARY	202	const	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`partner_id` AS `partner_id` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`id`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`id`) in t2 on PRIMARY where <in_optimizer>(`test`.`t2`.`article_id`,<exists>(/* select#3 */ select 'imp' from dual where ((<cache>(`test`.`t2`.`article_id`) = 'imp')))))))
+Note	1003	/* select#1 */ select `test`.`t1`.`partner_id` AS `partner_id` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`id`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`id`) in t2 on PRIMARY where <in_optimizer>(`test`.`t2`.`article_id`,<exists>(/* select#3 */ select 'imp' from `test`.`t3` where ((<cache>(`test`.`t2`.`article_id`) = 'imp')))))))
 SELECT t1.partner_id
 FROM t1
 WHERE t1.id IN (
@@ -8250,17 +9304,17 @@ EXECUTE stmt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where
-3	DEPENDENT SUBQUERY	t3	NULL	system	PRIMARY	NULL	NULL	NULL	1	100.00	NULL
+3	DEPENDENT SUBQUERY	t3	NULL	const	PRIMARY	PRIMARY	202	const	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`partner_id` AS `partner_id` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`id`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`id`) in t2 on PRIMARY where <in_optimizer>(`test`.`t2`.`article_id`,<exists>(/* select#3 */ select 'imp' from dual where ((<cache>(`test`.`t2`.`article_id`) = 'imp')))))))
+Note	1003	/* select#1 */ select `test`.`t1`.`partner_id` AS `partner_id` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`id`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`id`) in t2 on PRIMARY where <in_optimizer>(`test`.`t2`.`article_id`,<exists>(/* select#3 */ select 'imp' from `test`.`t3` where ((<cache>(`test`.`t2`.`article_id`) = 'imp')))))))
 
 EXECUTE stmt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using where
-3	DEPENDENT SUBQUERY	t3	NULL	system	PRIMARY	NULL	NULL	NULL	1	100.00	NULL
+3	DEPENDENT SUBQUERY	t3	NULL	const	PRIMARY	PRIMARY	202	const	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`partner_id` AS `partner_id` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`id`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`id`) in t2 on PRIMARY where <in_optimizer>(`test`.`t2`.`article_id`,<exists>(/* select#3 */ select 'imp' from dual where ((<cache>(`test`.`t2`.`article_id`) = 'imp')))))))
+Note	1003	/* select#1 */ select `test`.`t1`.`partner_id` AS `partner_id` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`id`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`id`) in t2 on PRIMARY where <in_optimizer>(`test`.`t2`.`article_id`,<exists>(/* select#3 */ select 'imp' from `test`.`t3` where ((<cache>(`test`.`t2`.`article_id`) = 'imp')))))))
 PREPARE stmt FROM
 'SELECT t1.partner_id
 FROM t1
@@ -8293,7 +9347,9 @@ INSERT INTO t3 VALUES (1), (2);
 explain SELECT * FROM t1 WHERE (t1.i) IN 
 (SELECT t3.i FROM t3 LEFT JOIN t2 ON t2.i=t3.i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
@@ -8348,9 +9404,16 @@ create table t3 (a int);
 insert into t1 values(1),(1);
 insert into t2 values(1),(1),(1),(1);
 insert into t3 values(2),(2);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain select * from t1 where t1.a in (select t2.a from t2 left join t3 on t2.a=t3.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
@@ -8369,11 +9432,18 @@ CREATE TABLE t3 (a INT);
 INSERT INTO t1 VALUES(1),(1);
 INSERT INTO t2 VALUES(1),(1);
 INSERT INTO t3 VALUES(2),(2);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain SELECT * FROM t1
 WHERE t1.a IN (SELECT t2.a
 FROM t2 LEFT JOIN (t2 AS t2inner, t3) ON t2.a=t3.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	t2inner	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
@@ -8445,6 +9515,10 @@ INSERT INTO t2 VALUES
 (11,'m','m'), (12,'j','j'), (13,'z','z'), (14,'a','a'), (15,'',''),
 (16,'e','e'), (17,'t','t'), (19,'b','b'), (20,'w','w'), (21,'m','m'),
 (23,'',''), (24,'w','w'), (26,'e','e'), (27,'e','e'), (28,'p','p');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 SELECT varchar_nokey
 FROM t1
 WHERE (varchar_nokey, varchar_nokey) IN (SELECT varchar_key, varchar_nokey
@@ -8457,8 +9531,10 @@ WHERE (varchar_nokey, varchar_nokey) IN (SELECT varchar_key, varchar_nokey
 FROM t2  
 WHERE varchar_nokey < 'n' XOR pk);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	18	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	varchar_key	varchar_key	6	func	2	6.67	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	18	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	18	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	18	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	index_subquery	varchar_key	varchar_key	6	func	1	6.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`varchar_nokey` AS `varchar_nokey` from `test`.`t1` where <in_optimizer>((`test`.`t1`.`varchar_nokey`,`test`.`t1`.`varchar_nokey`),<exists>(<index_lookup>(<cache>(`test`.`t1`.`varchar_nokey`) in t2 on varchar_key where (((`test`.`t2`.`varchar_nokey` < 'n') xor (0 <> `test`.`t2`.`pk`)) and (<cache>(`test`.`t1`.`varchar_nokey`) = `test`.`t2`.`varchar_nokey`)))))
 DROP TABLE t1, t2;
@@ -8472,6 +9548,11 @@ CREATE TABLE t2(i INT);
 INSERT INTO t2 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
 CREATE TABLE t3(i INT);
 INSERT INTO t3 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 SELECT * FROM t1 WHERE t1.i IN (SELECT t2.i
 FROM t2 JOIN t3
 WHERE t2.i + t3.i = 5);
@@ -8484,7 +9565,9 @@ explain SELECT * FROM t1 WHERE t1.i IN (SELECT t2.i
 FROM t2 JOIN t3
 WHERE t2.i + t3.i = 5);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Using where
 2	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
 Warnings:
@@ -8502,6 +9585,12 @@ CREATE TABLE it3(a INTEGER);
 INSERT INTO it3 VALUES(7), (1), (0), (5), (1), (4);
 CREATE TABLE ot4(a INTEGER);
 INSERT INTO ot4 VALUES(1), (3), (5), (7), (9), (7), (3), (1);
+ANALYZE TABLE ot1, it2, it3, ot4;
+Table	Op	Msg_type	Msg_text
+test.ot1	analyze	status	OK
+test.it2	analyze	status	OK
+test.it3	analyze	status	OK
+test.ot4	analyze	status	OK
 SELECT * FROM ot1,ot4
 WHERE (ot1.a,ot4.a) IN (SELECT it2.a,it3.a
 FROM it2,it3);
@@ -8520,7 +9609,9 @@ explain SELECT * FROM ot1,ot4
 WHERE (ot1.a,ot4.a) IN (SELECT it2.a,it3.a
 FROM it2,it3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 1	PRIMARY	ot4	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Using where
 2	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
 2	DEPENDENT SUBQUERY	it3	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
@@ -8539,13 +9630,21 @@ INSERT INTO ot1 VALUES(0),(1),(2),(3),(4),(5),(6),(7);
 INSERT INTO ot2 VALUES(0),(2),(4),(6);
 INSERT INTO ot3 VALUES(0),(3),(6);
 INSERT INTO it1 VALUES(0),(1),(2),(3),(4),(5),(6),(7);
+ANALYZE TABLE ot1, ot2, ot3, it1;
+Table	Op	Msg_type	Msg_text
+test.ot1	analyze	status	OK
+test.ot2	analyze	status	OK
+test.ot3	analyze	status	OK
+test.it1	analyze	status	OK
 explain SELECT *
 FROM   ot1
 LEFT JOIN
 (ot2 JOIN ot3 on ot2.a=ot3.a)
 ON ot1.a=ot2.a AND ot1.a IN (SELECT a from it1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 1	PRIMARY	ot3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
@@ -8596,20 +9695,26 @@ DROP TABLE ot1, ot2, ot3, it1;
 #
 # Bug#11766739: Crash in tmp_table_param::init() with semijoin=on
 #
-CREATE TABLE t1 (f1 INTEGER) ENGINE=MyISAM;
-CREATE TABLE t2 (f1 INTEGER, f2 INTEGER) ENGINE=MyISAM;
+CREATE TABLE t1 (f1 INTEGER) ENGINE=INNODB;
+CREATE TABLE t2 (f1 INTEGER, f2 INTEGER) ENGINE=INNODB;
 INSERT INTO t1 VALUES (1);
 INSERT INTO t2 VALUES (1,1), (2,1);
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 EXPLAIN SELECT * FROM t2
 WHERE f2 IN (SELECT t1.f1
 FROM t1 LEFT OUTER JOIN (t2 AS b1 JOIN t2 AS b2 ON TRUE) ON TRUE);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	b1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 2	DEPENDENT SUBQUERY	b2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t2`.`f1` AS `f1`,`test`.`t2`.`f2` AS `f2` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`f2`,<exists>(/* select#2 */ select '1' from <constant table> left join (`test`.`t2` `b1` join `test`.`t2` `b2`) on((true)) where (<cache>(`test`.`t2`.`f2`) = '1')))
+Note	1003	/* select#1 */ select `test`.`t2`.`f1` AS `f1`,`test`.`t2`.`f2` AS `f2` from `test`.`t2` where <in_optimizer>(`test`.`t2`.`f2`,<exists>(/* select#2 */ select `test`.`t1`.`f1` from `test`.`t1` left join (`test`.`t2` `b1` join `test`.`t2` `b2`) on((true)) where (<cache>(`test`.`t2`.`f2`) = `test`.`t1`.`f1`)))
 SELECT * FROM t2
 WHERE f2 IN (SELECT t1.f1
 FROM t1 LEFT OUTER JOIN (t2 AS b1 JOIN t2 AS b2 ON TRUE) ON TRUE);
@@ -8696,6 +9801,10 @@ CREATE TABLE t1 (i1 int);
 INSERT INTO t1 VALUES (1);
 CREATE TABLE t2 (i1 int, i2 int) ENGINE=memory;
 INSERT INTO t2 VALUES (1, 2),(7, 3);
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	note	The storage engine for the table doesn't support analyze
 SELECT GRANDPARENT1.i1
 FROM t2 AS GRANDPARENT1 
 WHERE GRANDPARENT1.i2
@@ -8739,6 +9848,11 @@ JOIN t2 AS alias3
 ON alias2.col_varchar_10_latin1_key
 ON alias1.col_varchar_1024_utf8_key
 WHERE alias1.pk AND alias1.pk < 3 OR alias1.pk AND alias3.pk;
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN SELECT * 
 FROM t3 
 WHERE col_varchar_10_latin1_key IN (
@@ -8750,8 +9864,10 @@ ON alias2.col_varchar_10_latin1_key
 ON alias1.col_varchar_1024_utf8_key
 WHERE alias1.pk AND alias1.pk < 3 OR alias1.pk AND alias3.pk);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
-2	DEPENDENT SUBQUERY	alias1	NULL	ref	PRIMARY,col_varchar_10_latin1_key	col_varchar_10_latin1_key	43	func	2	100.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	alias1	NULL	ref	PRIMARY,col_varchar_10_latin1_key	col_varchar_10_latin1_key	43	func	1	100.00	Using where
 2	DEPENDENT SUBQUERY	alias3	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using where; Using index
 2	DEPENDENT SUBQUERY	alias2	NULL	index	NULL	col_varchar_10_latin1_key	43	NULL	4	100.00	Using where; Using index
 Warnings:
@@ -8837,9 +9953,9 @@ WHERE innr.col_varchar_key = 'a' OR innr.pk = 8)
 AND outr.col_varchar_nokey < 't'
 ORDER BY outr.col_varchar_key, outr.pk;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	outr	NULL	ALL	NULL	NULL	NULL	NULL	17	33.33	Parallel scan (4 workers); Using where; Using filesort
+1	PRIMARY	outr	NULL	ALL	NULL	NULL	NULL	NULL	17	33.33	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	17	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	17	100.00	Receive from (<sender1>); Using merge sort
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	17	100.00	Receive from (<sender1>); Using filesort
 2	DEPENDENT SUBQUERY	innr	NULL	index_subquery	PRIMARY,col_varchar_key	col_varchar_key	6	func	1	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`outr`.`col_varchar_key` AS `x`,`test`.`outr`.`pk` AS `y` from `test`.`t1` `outr` where (<in_optimizer>(`test`.`outr`.`col_varchar_key`,<exists>(<index_lookup>(<cache>(`test`.`outr`.`col_varchar_key`) in t2 on col_varchar_key where ((`test`.`innr`.`col_varchar_key` = 'a') or (`test`.`innr`.`pk` = 8))))) and (`test`.`outr`.`col_varchar_nokey` < 't')) order by `test`.`outr`.`col_varchar_key`,`test`.`outr`.`pk`
@@ -8886,6 +10002,10 @@ col_varchar_nokey varchar(1)
 ) charset latin1;
 INSERT INTO t2 VALUES
 ('b');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 EXPLAIN SELECT grandparent1.col_varchar_nokey
 FROM t1 AS grandparent1 LEFT JOIN t2 AS grandparent2 USING (col_varchar_nokey)
 WHERE (grandparent1.col_varchar_key) IN
@@ -8896,11 +10016,13 @@ WHERE parent1.col_varchar_key IN
 FROM t1 AS child1 LEFT JOIN t2 AS child2
 ON (child1.col_varchar_key > child2.col_varchar_nokey)));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	grandparent1	NULL	ALL	NULL	NULL	NULL	NULL	15	100.00	Using where
-1	PRIMARY	grandparent2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
-2	DEPENDENT SUBQUERY	parent1	NULL	ALL	NULL	NULL	NULL	NULL	15	10.00	Using where
-3	DEPENDENT SUBQUERY	child1	NULL	ALL	NULL	NULL	NULL	NULL	15	10.00	Using where
-3	DEPENDENT SUBQUERY	child2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	PRIMARY	grandparent1	NULL	ALL	NULL	NULL	NULL	#	15	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	#	15	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	#	15	100.00	Receive from (<sender1>)
+1	PRIMARY	grandparent2	NULL	ALL	NULL	NULL	NULL	#	1	100.00	Using where
+2	DEPENDENT SUBQUERY	parent1	NULL	ALL	NULL	NULL	NULL	#	15	10.00	Using where
+3	DEPENDENT SUBQUERY	child1	NULL	ALL	NULL	NULL	NULL	#	15	10.00	Using where
+3	DEPENDENT SUBQUERY	child2	NULL	ALL	NULL	NULL	NULL	#	1	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`grandparent1`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`t1` `grandparent1` left join `test`.`t2` `grandparent2` on((`test`.`grandparent2`.`col_varchar_nokey` = `test`.`grandparent1`.`col_varchar_nokey`)) where <in_optimizer>(`test`.`grandparent1`.`col_varchar_key`,<exists>(/* select#2 */ select `test`.`parent1`.`col_varchar_nokey` from `test`.`t1` `parent1` where (<in_optimizer>(`test`.`parent1`.`col_varchar_key`,<exists>(/* select#3 */ select `test`.`child1`.`col_varchar_nokey` AS `c1` from `test`.`t1` `child1` left join `test`.`t2` `child2` on((`test`.`child1`.`col_varchar_key` > `test`.`child2`.`col_varchar_nokey`)) where (<cache>(`test`.`parent1`.`col_varchar_key`) = `test`.`child1`.`col_varchar_nokey`))) and (<cache>(`test`.`grandparent1`.`col_varchar_key`) = `test`.`parent1`.`col_varchar_nokey`))))
 SELECT grandparent1.col_varchar_nokey
@@ -8962,9 +10084,9 @@ WHERE col_varchar_key IN (SELECT col_varchar_nokey
 FROM t2)
 ORDER BY col_datetime_key LIMIT 4;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where; Using filesort
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using merge sort
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using filesort
 2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`col_varchar_key` AS `col_varchar_key` from `test`.`t1` where <in_optimizer>(`test`.`t1`.`col_varchar_key`,<exists>(/* select#2 */ select `test`.`t2`.`col_varchar_nokey` from `test`.`t2` where (<cache>(`test`.`t1`.`col_varchar_key`) = `test`.`t2`.`col_varchar_nokey`))) order by `test`.`t1`.`col_datetime_key` limit 4
@@ -9110,7 +10232,7 @@ CREATE TABLE it (
 pk int NOT NULL,
 col_varchar VARCHAR(10) DEFAULT NULL,
 PRIMARY KEY (pk)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO it VALUES (1, 'g');
 CREATE TABLE ot
 SELECT alias1.pk AS field1
@@ -9261,6 +10383,11 @@ CREATE TABLE t4
 SELECT t2.col_int_nokey, t2.col_varchar_key
 FROM t1 JOIN t2 ON t2.col_varchar_key = t1.col_varchar_key
 WHERE t2.col_int_key = 1;
+ANALYZE TABLE t1, t2, t4;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t4	analyze	status	OK
 EXPLAIN SELECT *
 FROM t4
 WHERE (col_int_nokey, col_varchar_key) IN
@@ -9269,9 +10396,11 @@ FROM t1 JOIN t2 ON t2.col_varchar_key = t1.col_varchar_key
 WHERE t2.col_int_key = 1
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t4	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	ref	col_int_key	col_int_key	5	const	3	12.50	Using where
-2	DEPENDENT SUBQUERY	t1	NULL	ref	col_varchar_key	col_varchar_key	7	test.t2.col_varchar_key	2	100.00	Using index
+2	DEPENDENT SUBQUERY	t1	NULL	ref	col_varchar_key	col_varchar_key	7	test.t2.col_varchar_key	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t4`.`col_int_nokey` AS `col_int_nokey`,`test`.`t4`.`col_varchar_key` AS `col_varchar_key` from `test`.`t4` where <in_optimizer>((`test`.`t4`.`col_int_nokey`,`test`.`t4`.`col_varchar_key`),<exists>(/* select#2 */ select `test`.`t2`.`col_int_nokey`,`test`.`t2`.`col_varchar_key` from `test`.`t1` join `test`.`t2` where ((`test`.`t1`.`col_varchar_key` = `test`.`t2`.`col_varchar_key`) and (`test`.`t2`.`col_int_key` = 1) and (<cache>(`test`.`t4`.`col_int_nokey`) = `test`.`t2`.`col_int_nokey`) and (<cache>(`test`.`t4`.`col_varchar_key`) = `test`.`t2`.`col_varchar_key`))))
 SELECT *
@@ -9328,7 +10457,9 @@ alias2.col_int_key = alias1.col_int_key
 WHERE alias1.pk = 58 OR alias1.col_varchar_key = 'o'
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	alias1	NULL	index_merge	PRIMARY,col_int_key,col_varchar_key	col_varchar_key,PRIMARY	7,4	NULL	2	10.00	Using sort_union(col_varchar_key,PRIMARY); Using where
 2	DEPENDENT SUBQUERY	alias2	NULL	ALL	col_int_key	NULL	NULL	NULL	12	19.00	Range checked for each record (index map: 0x2)
 Warnings:
@@ -9357,12 +10488,20 @@ CREATE TABLE it1(a INTEGER);
 INSERT INTO it1 VALUES(1), (3), (5), (7);
 CREATE TABLE it2(a INTEGER);
 INSERT INTO it2 VALUES(1), (3), (5), (7), (9);
+ANALYZE TABLE ot1, ot2, it1, it2;
+Table	Op	Msg_type	Msg_text
+test.ot1	analyze	status	OK
+test.ot2	analyze	status	OK
+test.it1	analyze	status	OK
+test.it2	analyze	status	OK
 explain SELECT ot1.a, ot2.a
 FROM ot1, ot2
 WHERE ot1.a IN (SELECT a FROM it1) AND
 ot2.a IN (SELECT a FROM it2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using where
 3	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
@@ -9386,7 +10525,7 @@ col_int_nokey INT NOT NULL,
 col_int_key INT NOT NULL,
 PRIMARY KEY (pk),
 KEY col_int_key (col_int_key)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO t1 VALUES
 (1,4,0),
 (2,6,8),
@@ -9405,7 +10544,7 @@ col_int_nokey int NOT NULL,
 col_int_key int NOT NULL,
 PRIMARY KEY (pk),
 KEY col_int_key (col_int_key)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO t2 VALUES
 (10,8,7);
 CREATE TABLE t3
@@ -9420,6 +10559,11 @@ ON parent1.col_int_nokey = parent2.col_int_key
 )
 AND grandparent1.col_int_key <> 3
 ;
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain SELECT * FROM t3
 WHERE g1 NOT IN
 (SELECT grandparent1.col_int_nokey AS g1
@@ -9434,12 +10578,14 @@ ON parent1.col_int_nokey = parent2.col_int_key
 AND grandparent1.col_int_key <> 3
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	grandparent1	NULL	range	col_int_key	col_int_key	4	NULL	12	10.00	Using where
-3	DEPENDENT SUBQUERY	parent1	NULL	ref	col_int_key	col_int_key	4	func	2	100.00	Using where
-3	DEPENDENT SUBQUERY	parent2	NULL	ref	col_int_key	col_int_key	4	test.parent1.col_int_nokey	2	100.00	Using index
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	grandparent1	NULL	range	col_int_key	col_int_key	4	NULL	11	10.00	Using where
+3	DEPENDENT SUBQUERY	parent1	NULL	ref	col_int_key	col_int_key	4	func	1	100.00	Using where
+3	DEPENDENT SUBQUERY	parent2	NULL	ref	col_int_key	col_int_key	4	test.parent1.col_int_nokey	1	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select '8' AS `g1` from dual where <in_optimizer>('8',<exists>(/* select#2 */ select `test`.`grandparent1`.`col_int_nokey` AS `g1` from `test`.`t1` `grandparent1` where (<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>('8') = `test`.`grandparent1`.`col_int_nokey`))) is false)
+Note	1003	/* select#1 */ select `test`.`t3`.`g1` AS `g1` from `test`.`t3` where <in_optimizer>(`test`.`t3`.`g1`,<exists>(/* select#2 */ select `test`.`grandparent1`.`col_int_nokey` AS `g1` from `test`.`t1` `grandparent1` where (<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>(`test`.`t3`.`g1`) = `test`.`grandparent1`.`col_int_nokey`))) is false)
 explain format=json SELECT * FROM t3
 WHERE g1 NOT IN
 (SELECT grandparent1.col_int_nokey AS g1
@@ -9457,116 +10603,170 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "message": "Impossible WHERE noticed after reading const tables",
-    "optimized_away_subqueries": [
-      {
-        "dependent": true,
-        "cacheable": false,
-        "query_block": {
-          "select_id": 2,
-          "cost_info": {
-            "query_cost": "1.61"
-          },
-          "table": {
-            "table_name": "grandparent1",
-            "access_type": "range",
-            "possible_keys": [
-              "col_int_key"
-            ],
-            "key": "col_int_key",
-            "used_key_parts": [
-              "col_int_key"
-            ],
-            "key_length": "4",
-            "rows_examined_per_scan": 12,
-            "rows_produced_per_join": 1,
-            "filtered": "10.00",
+    "cost_info": {
+      "query_cost": "0.35"
+    },
+    "table": {
+      "table_name": "t3",
+      "access_type": "ALL",
+      "rows_examined_per_scan": 1,
+      "rows_produced_per_join": 1,
+      "filtered": "100.00",
+      "parallel_scan": "1 workers",
+      "cost_info": {
+        "read_cost": "0.25",
+        "eval_cost": "0.10",
+        "prefix_cost": "0.35",
+        "data_read_per_join": "8"
+      },
+      "used_columns": [
+        "g1"
+      ],
+      "attached_condition": "<in_optimizer>(`test`.`t3`.`g1`,<exists>(/* select#2 */ select `test`.`grandparent1`.`col_int_nokey` AS `g1` from `test`.`t1` `grandparent1` where (<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>(`test`.`t3`.`g1`) = `test`.`grandparent1`.`col_int_nokey`))) is false)",
+      "attached_subqueries": [
+        {
+          "dependent": true,
+          "cacheable": false,
+          "query_block": {
+            "select_id": 2,
             "cost_info": {
-              "read_cost": "0.51",
-              "eval_cost": "0.11",
-              "prefix_cost": "1.61",
-              "data_read_per_join": "17"
+              "query_cost": "1.35"
             },
-            "used_columns": [
-              "col_int_nokey",
-              "col_int_key"
-            ],
-            "attached_condition": "(<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>('8') = `test`.`grandparent1`.`col_int_nokey`))",
-            "attached_subqueries": [
-              {
-                "dependent": true,
-                "cacheable": false,
-                "query_block": {
-                  "select_id": 3,
-                  "cost_info": {
-                    "query_cost": "1.61"
-                  },
-                  "nested_loop": [
-                    {
-                      "table": {
-                        "table_name": "parent1",
-                        "access_type": "ref",
-                        "possible_keys": [
-                          "col_int_key"
-                        ],
-                        "key": "col_int_key",
-                        "used_key_parts": [
-                          "col_int_key"
-                        ],
-                        "key_length": "4",
-                        "ref": [
-                          "func"
-                        ],
-                        "rows_examined_per_scan": 2,
-                        "rows_produced_per_join": 2,
-                        "filtered": "100.00",
-                        "cost_info": {
-                          "read_cost": "0.50",
-                          "eval_cost": "0.20",
-                          "prefix_cost": "0.70",
-                          "data_read_per_join": "32"
-                        },
-                        "used_columns": [
-                          "col_int_nokey",
-                          "col_int_key"
-                        ],
-                        "attached_condition": "(<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)"
-                      }
+            "table": {
+              "table_name": "grandparent1",
+              "access_type": "range",
+              "possible_keys": [
+                "col_int_key"
+              ],
+              "key": "col_int_key",
+              "used_key_parts": [
+                "col_int_key"
+              ],
+              "key_length": "4",
+              "rows_examined_per_scan": 11,
+              "rows_produced_per_join": 1,
+              "filtered": "10.00",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.11",
+                "prefix_cost": "1.35",
+                "data_read_per_join": "17"
+              },
+              "used_columns": [
+                "col_int_nokey",
+                "col_int_key"
+              ],
+              "attached_condition": "(<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>(`test`.`t3`.`g1`) = `test`.`grandparent1`.`col_int_nokey`))",
+              "attached_subqueries": [
+                {
+                  "dependent": true,
+                  "cacheable": false,
+                  "query_block": {
+                    "select_id": 3,
+                    "cost_info": {
+                      "query_cost": "1.28"
                     },
-                    {
-                      "table": {
-                        "table_name": "parent2",
-                        "access_type": "ref",
-                        "possible_keys": [
-                          "col_int_key"
-                        ],
-                        "key": "col_int_key",
-                        "used_key_parts": [
-                          "col_int_key"
-                        ],
-                        "key_length": "4",
-                        "ref": [
-                          "test.parent1.col_int_nokey"
-                        ],
-                        "rows_examined_per_scan": 2,
-                        "rows_produced_per_join": 4,
-                        "filtered": "100.00",
-                        "using_index": true,
-                        "cost_info": {
-                          "read_cost": "0.51",
-                          "eval_cost": "0.40",
-                          "prefix_cost": "1.61",
-                          "data_read_per_join": "64"
-                        },
-                        "used_columns": [
-                          "col_int_key"
-                        ]
+                    "nested_loop": [
+                      {
+                        "table": {
+                          "table_name": "parent1",
+                          "access_type": "ref",
+                          "possible_keys": [
+                            "col_int_key"
+                          ],
+                          "key": "col_int_key",
+                          "used_key_parts": [
+                            "col_int_key"
+                          ],
+                          "key_length": "4",
+                          "ref": [
+                            "func"
+                          ],
+                          "rows_examined_per_scan": 1,
+                          "rows_produced_per_join": 1,
+                          "filtered": "100.00",
+                          "cost_info": {
+                            "read_cost": "0.46",
+                            "eval_cost": "0.18",
+                            "prefix_cost": "0.64",
+                            "data_read_per_join": "29"
+                          },
+                          "used_columns": [
+                            "col_int_nokey",
+                            "col_int_key"
+                          ],
+                          "attached_condition": "(<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)"
+                        }
+                      },
+                      {
+                        "table": {
+                          "table_name": "parent2",
+                          "access_type": "ref",
+                          "possible_keys": [
+                            "col_int_key"
+                          ],
+                          "key": "col_int_key",
+                          "used_key_parts": [
+                            "col_int_key"
+                          ],
+                          "key_length": "4",
+                          "ref": [
+                            "test.parent1.col_int_nokey"
+                          ],
+                          "rows_examined_per_scan": 1,
+                          "rows_produced_per_join": 1,
+                          "filtered": "100.00",
+                          "using_index": true,
+                          "cost_info": {
+                            "read_cost": "0.46",
+                            "eval_cost": "0.18",
+                            "prefix_cost": "1.28",
+                            "data_read_per_join": "29"
+                          },
+                          "used_columns": [
+                            "col_int_key"
+                          ]
+                        }
                       }
-                    }
-                  ]
+                    ]
+                  }
                 }
-              }
-            ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "parallel_information": [
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 1,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 1,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
           }
         }
       }
@@ -9574,7 +10774,7 @@ EXPLAIN
   }
 }
 Warnings:
-Note	1003	/* select#1 */ select '8' AS `g1` from dual where <in_optimizer>('8',<exists>(/* select#2 */ select `test`.`grandparent1`.`col_int_nokey` AS `g1` from `test`.`t1` `grandparent1` where (<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>('8') = `test`.`grandparent1`.`col_int_nokey`))) is false)
+Note	1003	/* select#1 */ select `test`.`t3`.`g1` AS `g1` from `test`.`t3` where <in_optimizer>(`test`.`t3`.`g1`,<exists>(/* select#2 */ select `test`.`grandparent1`.`col_int_nokey` AS `g1` from `test`.`t1` `grandparent1` where (<in_optimizer>((`test`.`grandparent1`.`col_int_nokey`,`test`.`grandparent1`.`col_int_key`),<exists>(/* select#3 */ select `test`.`parent1`.`col_int_key` AS `p1`,`test`.`parent1`.`col_int_key` AS `p2` from `test`.`t1` `parent1` left join `test`.`t2` `parent2` on((`test`.`parent2`.`col_int_key` = `test`.`parent1`.`col_int_nokey`)) where ((<cache>(`test`.`grandparent1`.`col_int_nokey`) = `test`.`parent1`.`col_int_key`) and (<cache>(`test`.`grandparent1`.`col_int_key`) = `test`.`parent1`.`col_int_key`)))) and (`test`.`grandparent1`.`col_int_key` <> 3) and (<cache>(`test`.`t3`.`g1`) = `test`.`grandparent1`.`col_int_nokey`))) is false)
 SELECT * FROM t3
 WHERE g1 NOT IN
 (SELECT grandparent1.col_int_nokey AS g1
@@ -9610,6 +10810,11 @@ CREATE TABLE t3 LIKE t1;
 INSERT INTO t3 VALUES
 (1,'o'),
 (4,'f');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain SELECT alias1.col_varchar_nokey
 FROM t1 AS alias1
 INNER JOIN v_t2 AS alias2
@@ -9617,8 +10822,10 @@ ON alias2.col_int_nokey = alias1.col_int_nokey AND
 'o' IN (SELECT col_varchar_nokey
 FROM t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`alias1`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`t1` `alias1` join `test`.`t2` where (`test`.`t2`.`col_int_nokey` = `test`.`alias1`.`col_int_nokey`)
@@ -9651,7 +10858,7 @@ col_int_nokey int NOT NULL,
 col_int_key int NOT NULL,
 PRIMARY KEY (pk),
 KEY col_int_key (col_int_key)
-) ENGINE=MyIsam;
+) ENGINE=INNODB;
 INSERT INTO t1 VALUES
 (10,1,7), (13,7,3), (18,0,1), (23,8,1);
 CREATE TABLE t2 (
@@ -9659,26 +10866,12 @@ pk int NOT NULL,
 col_int_key int NOT NULL,
 PRIMARY KEY (pk),
 KEY col_int_key (col_int_key)
-) ENGINE=MyIsam;
+) ENGINE=INNODB;
 INSERT INTO t2 VALUES (1,7);
-EXPLAIN SELECT t1a.*
-FROM t1 AS t1a
-JOIN t1 AS t1b USING ( col_int_nokey )
-WHERE t1a.col_int_key IN (
-SELECT pk
-FROM t2
-WHERE col_int_key IN (
-SELECT col_int_nokey
-FROM t1
-)
-);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1a	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
-1	PRIMARY	t1b	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
-2	DEPENDENT SUBQUERY	t2	NULL	system	PRIMARY	NULL	NULL	NULL	1	100.00	NULL
-3	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1a`.`pk` AS `pk`,`test`.`t1a`.`col_int_nokey` AS `col_int_nokey`,`test`.`t1a`.`col_int_key` AS `col_int_key` from `test`.`t1` `t1a` join `test`.`t1` `t1b` where ((`test`.`t1b`.`col_int_nokey` = `test`.`t1a`.`col_int_nokey`) and <in_optimizer>(`test`.`t1a`.`col_int_key`,<exists>(/* select#2 */ select '1' from dual where (<in_optimizer>('7',<exists>(/* select#3 */ select `test`.`t1`.`col_int_nokey` from `test`.`t1` where (<cache>('7') = `test`.`t1`.`col_int_nokey`))) and (<cache>(`test`.`t1a`.`col_int_key`) = '1')))))
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 SELECT t1a.*
 FROM t1 AS t1a
 JOIN t1 AS t1b USING ( col_int_nokey )
@@ -9729,6 +10922,14 @@ KEY a (a)
 ) charset utf8mb4;
 INSERT INTO t2 VALUES
 ('c'), (NULL), ('x'), ('q');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain SELECT *
 FROM t2 AS ot
 WHERE (a, a) IN
@@ -9738,8 +10939,10 @@ WHERE it.a = 'x' OR it.c > it.d
 )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	index	NULL	a	7	NULL	4	100.00	Using where; Using index
-2	DEPENDENT SUBQUERY	it	NULL	index_subquery	a	a	7	func	2	33.33	Using where
+1	PRIMARY	ot	NULL	index	NULL	a	7	NULL	4	100.00	Parallel scan (4 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	it	NULL	index_subquery	a	a	7	func	1	33.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`ot`.`a` AS `a` from `test`.`t2` `ot` where <in_optimizer>((`test`.`ot`.`a`,`test`.`ot`.`a`),<exists>(<index_lookup>(<cache>(`test`.`ot`.`a`) in t1 on a where (((`test`.`it`.`a` = 'x') or (`test`.`it`.`c` > `test`.`it`.`d`)) and (<cache>(`test`.`ot`.`a`) = `test`.`it`.`b`)))))
 SELECT *
@@ -9781,6 +10984,16 @@ CREATE TABLE t3 (
 col_int_nokey int
 );
 INSERT INTO t3 VALUES (7);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain SELECT grandparent1.col_varchar_nokey
 FROM t1 AS grandparent1 JOIN t1 AS grandparent2 USING (col_int_key)
 WHERE grandparent1.col_varchar_key IN (
@@ -9793,8 +11006,10 @@ ON child1.pk < child2.col_int_nokey
 )
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	grandparent1	NULL	ALL	col_int_key	NULL	NULL	NULL	3	100.00	Using where
-1	PRIMARY	grandparent2	NULL	ref	col_int_key	col_int_key	5	test.grandparent1.col_int_key	2	100.00	Using index
+1	PRIMARY	grandparent1	NULL	ALL	col_int_key	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	grandparent2	NULL	ref	col_int_key	col_int_key	5	test.grandparent1.col_int_key	1	100.00	Using index
 2	DEPENDENT SUBQUERY	parent1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 3	DEPENDENT SUBQUERY	child1	NULL	ALL	NULL	NULL	NULL	NULL	8	12.50	Using where
 3	DEPENDENT SUBQUERY	child2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
@@ -9836,6 +11051,9 @@ INSERT INTO t1 VALUES (4,'v','v');
 INSERT INTO t1 VALUES (62,'v','v');
 INSERT INTO t1 VALUES (7,'c','c');
 INSERT INTO t1 VALUES (1,NULL,NULL);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT
 alias1.col_varchar_nokey AS a1_nokey,
 alias1.col_varchar_key AS a1_key,
@@ -9853,10 +11071,12 @@ t1 AS sq2_alias1, t1 AS sq2_alias2
 )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
+1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 1	PRIMARY	alias2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using where
 2	DEPENDENT SUBQUERY	sq2_alias2	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
-2	DEPENDENT SUBQUERY	sq2_alias1	NULL	ref	col_varchar_key	col_varchar_key	7	func	2	100.00	Using index
+2	DEPENDENT SUBQUERY	sq2_alias1	NULL	ref	col_varchar_key	col_varchar_key	7	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`alias1`.`col_varchar_nokey` AS `a1_nokey`,`test`.`alias1`.`col_varchar_key` AS `a1_key`,`test`.`alias2`.`col_varchar_nokey` AS `a2_nokey` from `test`.`t1` `alias1` join `test`.`t1` `alias2` where <in_optimizer>((`test`.`alias1`.`col_varchar_nokey`,`test`.`alias2`.`col_varchar_nokey`),<exists>(/* select#2 */ select `test`.`sq2_alias2`.`col_varchar_nokey`,`test`.`sq2_alias1`.`col_varchar_key` from `test`.`t1` `sq2_alias1` join `test`.`t1` `sq2_alias2` where ((<cache>(`test`.`alias1`.`col_varchar_nokey`) = `test`.`sq2_alias2`.`col_varchar_nokey`) and (<cache>(`test`.`alias2`.`col_varchar_nokey`) = `test`.`sq2_alias1`.`col_varchar_key`))))
 SELECT
@@ -9921,9 +11141,9 @@ SELECT it2.col_varchar_nokey, it1.col_varchar_key
 FROM t2 AS it1 JOIN t1 AS it2 ON it2.col_int_key = it1.pk);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	ot1	NULL	index	NULL	col_varchar_key	10	NULL	20	100.00	Parallel scan (4 workers); Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	400	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	400	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	it1	NULL	ref	PRIMARY,col_varchar_key	col_varchar_key	6	func	1	100.00	Using index
 2	DEPENDENT SUBQUERY	it2	NULL	ref	col_int_key	col_int_key	4	test.it1.pk	1	10.00	Using where
 Warnings:
@@ -9983,9 +11203,9 @@ AND NOT ot.col_int_nokey < 2
 )
 ORDER BY col_varchar_nokey;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where; Using filesort
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using merge sort
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using filesort
 2	DEPENDENT SUBQUERY	it	NULL	index_subquery	col_varchar_key	col_varchar_key	6	func	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.ot.col_int_nokey' of SELECT #2 was resolved in SELECT #1
@@ -10007,8 +11227,8 @@ s
 v
 w
 y
-ALTER TABLE t1 ENGINE=MyISAM;
-ALTER TABLE t2 ENGINE=MyISAM;
+ALTER TABLE t1 ENGINE=INNODB;
+ALTER TABLE t2 ENGINE=INNODB;
 explain SELECT col_varchar_nokey
 FROM t2 AS ot
 WHERE col_varchar_nokey IN (
@@ -10019,8 +11239,10 @@ AND NOT ot.col_int_nokey < 2
 )
 ORDER BY col_varchar_nokey;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where; Using filesort
-2	DEPENDENT SUBQUERY	it	NULL	index_subquery	col_varchar_key	col_varchar_key	6	func	2	100.00	Using where
+1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using filesort
+2	DEPENDENT SUBQUERY	it	NULL	index_subquery	col_varchar_key	col_varchar_key	6	func	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.ot.col_int_nokey' of SELECT #2 was resolved in SELECT #1
 Note	1003	/* select#1 */ select `test`.`ot`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`t2` `ot` where <in_optimizer>(`test`.`ot`.`col_varchar_nokey`,<exists>(<index_lookup>(<cache>(`test`.`ot`.`col_varchar_nokey`) in t1 on col_varchar_key where (`test`.`ot`.`col_int_nokey` >= 2)))) order by `test`.`ot`.`col_varchar_nokey`
@@ -10100,6 +11322,16 @@ col_varchar_nokey VARCHAR(1),
 KEY (col_varchar_key)
 ) charset utf8mb4;
 INSERT INTO t3 VALUES ('k','k');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN SELECT gp1.id
 FROM t1 AS gp1 JOIN t3 AS gp2
 ON gp2.col_varchar_key <> gp1.col_varchar_nokey
@@ -10113,13 +11345,15 @@ FROM t2 LEFT JOIN t3 USING (col_varchar_key) )
 )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	gp2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	gp2	NULL	index	NULL	col_varchar_key	7	NULL	1	100.00	Parallel scan (1 workers); Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	PRIMARY	gp1	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
-3	DEPENDENT SUBQUERY	t2	NULL	system	col_varchar_key	NULL	NULL	NULL	1	100.00	NULL
-3	DEPENDENT SUBQUERY	t3	NULL	system	col_varchar_key	NULL	NULL	NULL	1	100.00	NULL
+3	DEPENDENT SUBQUERY	t2	NULL	ref	col_varchar_key	col_varchar_key	7	func	1	100.00	Using index
+3	DEPENDENT SUBQUERY	t3	NULL	ref	col_varchar_key	col_varchar_key	7	test.t2.col_varchar_key	1	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`gp1`.`id` AS `id` from `test`.`t1` `gp1` where (<in_optimizer>((`test`.`gp1`.`col_varchar_nokey`,`test`.`gp1`.`col_varchar_nokey`),<exists>(/* select#2 */ select `test`.`t1`.`col_varchar_nokey`,`test`.`t1`.`col_varchar_nokey` from `test`.`t1` where (<in_optimizer>(`test`.`t1`.`col_varchar_nokey`,<exists>(/* select#3 */ select 'b' from <constant table> left join `test`.`t3` on(multiple equal('b', NULL)) where (<cache>(`test`.`t1`.`col_varchar_nokey`) = 'b'))) and (<cache>(`test`.`gp1`.`col_varchar_nokey`) = `test`.`t1`.`col_varchar_nokey`) and (<cache>(`test`.`gp1`.`col_varchar_nokey`) = `test`.`t1`.`col_varchar_nokey`)))) and ('k' <> `test`.`gp1`.`col_varchar_nokey`))
+Note	1003	/* select#1 */ select `test`.`gp1`.`id` AS `id` from `test`.`t1` `gp1` join `test`.`t3` `gp2` where (<in_optimizer>((`test`.`gp1`.`col_varchar_nokey`,`test`.`gp1`.`col_varchar_nokey`),<exists>(/* select#2 */ select `test`.`t1`.`col_varchar_nokey`,`test`.`t1`.`col_varchar_nokey` from `test`.`t1` where (<in_optimizer>(`test`.`t1`.`col_varchar_nokey`,<exists>(/* select#3 */ select `test`.`t2`.`col_varchar_key` from `test`.`t2` left join `test`.`t3` on((`test`.`t3`.`col_varchar_key` = `test`.`t2`.`col_varchar_key`)) where (<cache>(`test`.`t1`.`col_varchar_nokey`) = `test`.`t2`.`col_varchar_key`))) and (<cache>(`test`.`gp1`.`col_varchar_nokey`) = `test`.`t1`.`col_varchar_nokey`) and (<cache>(`test`.`gp1`.`col_varchar_nokey`) = `test`.`t1`.`col_varchar_nokey`)))) and (`test`.`gp2`.`col_varchar_key` <> `test`.`gp1`.`col_varchar_nokey`))
 SELECT gp1.id
 FROM t1 AS gp1 JOIN t3 AS gp2
 ON gp2.col_varchar_key <> gp1.col_varchar_nokey
@@ -10145,7 +11379,7 @@ vc_key varchar(1) DEFAULT NULL,
 vc_nokey varchar(1) DEFAULT NULL,
 KEY int_key (int_key),
 KEY vc_key (vc_key, int_key)
-) charset utf8mb4 ENGINE=MyISAM;
+) charset utf8mb4 ENGINE=INNODB;
 INSERT INTO t1 VALUES
 (8,'x','x'), (7,'d','d'), (1,'r','r'), (7,'f','f'),
 (9,'y','y'), (NULL,'u','u'), (1,'m','m'), (9,NULL,NULL),
@@ -10157,8 +11391,12 @@ int_key int DEFAULT NULL,
 vc_key varchar(1) DEFAULT NULL,
 KEY int_key (int_key),
 KEY vc_key (vc_key, int_key)
-) charset utf8mb4 ENGINE=MyISAM;
+) charset utf8mb4 ENGINE=INNODB;
 INSERT INTO t2 VALUES (8,'g');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain SELECT vc_key
 FROM t1 as outr
 WHERE (vc_nokey, vc_key ) IN
@@ -10170,12 +11408,14 @@ FROM t2 AS child1 JOIN t1 AS child2 USING (int_key)
 )
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	outr	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where
+1	PRIMARY	outr	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	middle	NULL	ALL	NULL	NULL	NULL	NULL	20	5.00	Using where
-3	DEPENDENT SUBQUERY	child1	NULL	system	int_key,vc_key	NULL	NULL	NULL	1	100.00	NULL
-3	DEPENDENT SUBQUERY	child2	NULL	ref	int_key	int_key	5	const	3	100.00	Using where; Using index
+3	DEPENDENT SUBQUERY	child1	NULL	ref	int_key,vc_key	vc_key	7	func	1	100.00	Using where; Using index
+3	DEPENDENT SUBQUERY	child2	NULL	ref	int_key	int_key	5	test.child1.int_key	2	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`outr`.`vc_key` AS `vc_key` from `test`.`t1` `outr` where <in_optimizer>((`test`.`outr`.`vc_nokey`,`test`.`outr`.`vc_key`),<exists>(/* select#2 */ select `test`.`middle`.`vc_nokey`,`test`.`middle`.`vc_nokey` from `test`.`t1` `middle` where (<in_optimizer>(`test`.`middle`.`vc_nokey`,<exists>(/* select#3 */ select 'g' from `test`.`t1` `child2` where ((`test`.`child2`.`int_key` = '8') and (<cache>(`test`.`middle`.`vc_nokey`) = 'g')))) and (<cache>(`test`.`outr`.`vc_nokey`) = `test`.`middle`.`vc_nokey`) and (<cache>(`test`.`outr`.`vc_key`) = `test`.`middle`.`vc_nokey`))))
+Note	1003	/* select#1 */ select `test`.`outr`.`vc_key` AS `vc_key` from `test`.`t1` `outr` where <in_optimizer>((`test`.`outr`.`vc_nokey`,`test`.`outr`.`vc_key`),<exists>(/* select#2 */ select `test`.`middle`.`vc_nokey`,`test`.`middle`.`vc_nokey` from `test`.`t1` `middle` where (<in_optimizer>(`test`.`middle`.`vc_nokey`,<exists>(/* select#3 */ select `test`.`child1`.`vc_key` from `test`.`t2` `child1` join `test`.`t1` `child2` where ((`test`.`child2`.`int_key` = `test`.`child1`.`int_key`) and (<cache>(`test`.`middle`.`vc_nokey`) = `test`.`child1`.`vc_key`)))) and (<cache>(`test`.`outr`.`vc_nokey`) = `test`.`middle`.`vc_nokey`) and (<cache>(`test`.`outr`.`vc_key`) = `test`.`middle`.`vc_nokey`))))
 SELECT vc_key
 FROM t1 as outr
 WHERE (vc_nokey, vc_key ) IN
@@ -10325,7 +11565,9 @@ ON alias5.col_int_key < alias4.col_int_key
 ON alias5.col_varchar_key = alias4.col_varchar_key
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	outr	NULL	index	NULL	col_datetime_key	5	NULL	2	100.00	Using where; Using index
+1	PRIMARY	outr	NULL	index	NULL	col_datetime_key	5	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	alias1	NULL	ref	col_datetime_key	col_datetime_key	5	func	1	100.00	Using index
 2	DEPENDENT SUBQUERY	alias4	NULL	ALL	col_int_key,col_varchar_key	NULL	NULL	NULL	1	100.00	Using where
 2	DEPENDENT SUBQUERY	alias5	NULL	ref	col_int_key,col_varchar_key	col_varchar_key	6	test.alias4.col_varchar_key	1	100.00	Using where; Using index
@@ -10365,6 +11607,10 @@ col_varchar_key VARCHAR(1),
 KEY col_varchar_key (col_varchar_key)
 ) charset utf8mb4;
 INSERT INTO t2 VALUES ('x'), ('y');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain SELECT MIN(col_int_key)
 FROM t1 as t1_outer
 HAVING (1, 2) IN (
@@ -10374,8 +11620,8 @@ ON t2.col_varchar_key = t1_inner.col_varchar_key
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible HAVING
-2	SUBQUERY	t1_inner	NULL	system	col_varchar_key	NULL	NULL	NULL	1	100.00	NULL
-2	SUBQUERY	t2	NULL	ref	col_varchar_key	col_varchar_key	7	const	1	100.00	Using index
+2	SUBQUERY	t1_inner	NULL	ALL	col_varchar_key	NULL	NULL	NULL	1	100.00	Using where
+2	SUBQUERY	t2	NULL	ref	col_varchar_key	col_varchar_key	7	test.t1_inner.col_varchar_key	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1_outer`.`col_int_key`) AS `MIN(col_int_key)` from `test`.`t1` `t1_outer` having false
 SELECT MIN(col_int_key)
@@ -10457,6 +11703,9 @@ DROP TABLE t1, t2, t3;
 Extra test case for specific code coverage
 CREATE TABLE t1(pk INTEGER);
 INSERT INTO t1 VALUES(1), (2);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 explain SELECT *
 FROM t1 AS ot1 LEFT JOIN t1 AS ot2
 ON ot1.pk=ot2.pk AND
@@ -10464,7 +11713,9 @@ ot2.pk IN
 (SELECT it1.pk
 FROM t1 AS it1 LEFT JOIN t1 AS it2 ON it1.pk=it2.pk);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	ot1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 1	PRIMARY	ot2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 2	DEPENDENT SUBQUERY	it1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 2	DEPENDENT SUBQUERY	it2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
@@ -10585,9 +11836,9 @@ explain SELECT * FROM v1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	table1	NULL	index	NULL	col_int_key	5	NULL	20	100.00	Parallel scan (4 workers); Using index
 1	PRIMARY	table2	NULL	ALL	PRIMARY	NULL	NULL	NULL	20	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	400	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	400	100.00	Receive from (<sender1>)
 1	PRIMARY	table3	NULL	ref	col_int_key	col_int_key	5	test.table2.pk	2	100.00	Using where
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1000	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1000	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	subquery2_t3	NULL	index	PRIMARY,col_varchar_key	col_varchar_key	7	NULL	20	100.00	Using where; Using index
 3	DEPENDENT SUBQUERY	subquery2_t2	NULL	eq_ref	PRIMARY,col_varchar_key	PRIMARY	4	test.subquery2_t3.pk	1	7.14	Using where
 3	DEPENDENT SUBQUERY	subquery2_t1	NULL	ref	col_int_key	col_int_key	5	func	2	100.00	Using index
@@ -10595,7 +11846,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 4	DEPENDENT SUBQUERY	subquery1_t3	NULL	ref	col_varchar_key	col_varchar_key	7	test.subquery1_t2.col_varchar_nokey	1	10.00	Using where
 4	DEPENDENT SUBQUERY	subquery1_t1	NULL	index	PRIMARY	col_int_key	5	NULL	20	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `table2`.`col_varchar_nokey` AS `field1` from `test`.`t2` `table1` join `test`.`t1` `table2` straight_join `test`.`t2` `table3` where ((`table3`.`col_int_key` = `table2`.`pk`) and <in_optimizer>(`table2`.`pk`,<exists>(/* select#3 */ select `subquery2_t1`.`col_int_key` AS `subquery2_field1` from `test`.`t3` `subquery2_t2` join `test`.`t1` `subquery2_t3` join `test`.`t2` `subquery2_t1` where ((`subquery2_t2`.`col_varchar_key` = `subquery2_t3`.`col_varchar_key`) and (`subquery2_t2`.`pk` = `subquery2_t3`.`pk`) and (<cache>(`table3`.`col_int_key`) = `subquery2_t1`.`col_int_key`)))) and <in_optimizer>(`table3`.`col_int_nokey`,<exists>(/* select#4 */ select `subquery1_t2`.`col_int_nokey` AS `subquery1_field1` from `test`.`t1` `subquery1_t2` join `test`.`t1` `subquery1_t3` join `test`.`t2` `subquery1_t1` where ((`subquery1_t3`.`col_int_key` = `subquery1_t2`.`pk`) and (`subquery1_t3`.`col_varchar_key` = `subquery1_t2`.`col_varchar_nokey`) and (`subquery1_t1`.`pk` > 1) and (<cache>(`table3`.`col_int_nokey`) = `subquery1_t2`.`col_int_nokey`)))))
+Note	1003	/* select#1 */ select `test`.`table2`.`col_varchar_nokey` AS `field1` from `test`.`t2` `table1` join `test`.`t1` `table2` straight_join `test`.`t2` `table3` where ((`test`.`table3`.`col_int_key` = `test`.`table2`.`pk`) and <in_optimizer>(`test`.`table2`.`pk`,<exists>(/* select#3 */ select `test`.`subquery2_t1`.`col_int_key` AS `subquery2_field1` from `test`.`t3` `subquery2_t2` join `test`.`t1` `subquery2_t3` join `test`.`t2` `subquery2_t1` where ((`test`.`subquery2_t2`.`col_varchar_key` = `test`.`subquery2_t3`.`col_varchar_key`) and (`test`.`subquery2_t2`.`pk` = `test`.`subquery2_t3`.`pk`) and (<cache>(`test`.`table3`.`col_int_key`) = `test`.`subquery2_t1`.`col_int_key`)))) and <in_optimizer>(`test`.`table3`.`col_int_nokey`,<exists>(/* select#4 */ select `test`.`subquery1_t2`.`col_int_nokey` AS `subquery1_field1` from `test`.`t1` `subquery1_t2` join `test`.`t1` `subquery1_t3` join `test`.`t2` `subquery1_t1` where ((`test`.`subquery1_t3`.`col_int_key` = `test`.`subquery1_t2`.`pk`) and (`test`.`subquery1_t3`.`col_varchar_key` = `test`.`subquery1_t2`.`col_varchar_nokey`) and (`test`.`subquery1_t1`.`pk` > 1) and (<cache>(`test`.`table3`.`col_int_nokey`) = `test`.`subquery1_t2`.`col_int_nokey`)))))
 SELECT * FROM v1;
 field1
 v
@@ -10627,7 +11878,7 @@ DROP TABLE t1,t2,t3;
 CREATE TABLE t1 (
 col_datetime_key DATETIME DEFAULT NULL,
 KEY col_datetime_key (col_datetime_key)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO t1 VALUES
 ('2001-04-18 00:00:00'), ('2008-12-18 19:39:55'),
 ('2000-08-01 12:19:39'), ('2004-09-25 21:29:06'),
@@ -10641,7 +11892,7 @@ col_varchar_nokey varchar(1) DEFAULT NULL,
 KEY col_time_key (col_time_key),
 KEY col_datetime_key (col_datetime_key),
 KEY col_varchar_key(col_varchar_key)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO t2 VALUES ('1900-01-01',NULL,'2001-11-04 19:07:55','x','x');
 SELECT grandparent1.col_varchar_nokey
 FROM t2 AS grandparent1 LEFT JOIN t1 USING (col_datetime_key)
@@ -10686,6 +11937,10 @@ INSERT INTO t2 VALUES (2,150,62,'v','v');
 INSERT INTO t2 VALUES (5,5,0,'x','x');
 INSERT INTO t2 VALUES (6,3,7,'i','i');
 INSERT INTO t2 VALUES (7,1,7,'e','e');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 CREATE VIEW view_c AS SELECT * FROM t2;
 PREPARE prep_stmt_7430 FROM 'SELECT SUM( alias1.col_varchar_key ) AS field1
 FROM t1 AS alias1
@@ -10722,11 +11977,13 @@ FROM ( view_c AS sq2_alias1, t1 AS sq2_alias2 )
 )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias3	NULL	ALL	col_varchar_key	NULL	NULL	NULL	2	100.00	Using where
-1	PRIMARY	alias2	NULL	ref	col_varchar_key	col_varchar_key	7	test.alias3.col_varchar_key	2	100.00	Using index
+1	PRIMARY	alias3	NULL	index	col_varchar_key	col_varchar_key	12	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	PRIMARY	alias2	NULL	ref	col_varchar_key	col_varchar_key	7	test.alias3.col_varchar_key	1	100.00	Using index
 1	PRIMARY	alias1	NULL	index	NULL	col_varchar_key	12	NULL	2	100.00	Using where; Using index
-3	DEPENDENT SUBQUERY	sq2_alias2	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Using index
-3	DEPENDENT SUBQUERY	t2	NULL	ref	col_int_key	col_int_key	5	func	2	100.00	Using index
+3	DEPENDENT SUBQUERY	t2	NULL	ref	col_int_key	col_int_key	5	func	1	100.00	Using index
+3	DEPENDENT SUBQUERY	sq2_alias2	NULL	index	NULL	col_int_key	5	NULL	2	100.00	Using index
 2	SUBQUERY	sq1_alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`alias1`.`col_varchar_key`) AS `field1` from `test`.`t2` `alias2` join `test`.`t1` `alias3` left join `test`.`t1` `alias1` on(<in_optimizer>('v',<exists>(/* select#2 */ select `test`.`sq1_alias1`.`col_varchar_nokey` AS `sq1_field1` from `test`.`t1` `sq1_alias1` where (`test`.`sq1_alias1`.`col_varchar_nokey` = <cache>(convert(<cache>('v') using utf8mb4)))))) where ((`test`.`alias2`.`col_varchar_key` = `test`.`alias3`.`col_varchar_key`) and <in_optimizer>(`test`.`alias3`.`pk`,<exists>(/* select#3 */ select `test`.`t2`.`col_int_key` AS `sq2_field1` from `test`.`t2` join `test`.`t1` `sq2_alias2` where (<cache>(`test`.`alias3`.`pk`) = `test`.`t2`.`col_int_key`))))
@@ -10769,11 +12026,13 @@ AND sq2_alias1.col_varchar_key < "l"
   )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias3	NULL	ALL	col_varchar_key	NULL	NULL	NULL	2	100.00	Using where
-1	PRIMARY	alias2	NULL	ref	col_varchar_key	col_varchar_key	7	test.alias3.col_varchar_key	2	100.00	Using where; Using index
+1	PRIMARY	alias3	NULL	index	col_varchar_key	col_varchar_key	12	NULL	2	100.00	Parallel scan (2 workers); Using where; Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+1	PRIMARY	alias2	NULL	ref	col_varchar_key	col_varchar_key	7	test.alias3.col_varchar_key	1	100.00	Using where; Using index
 1	PRIMARY	alias1	NULL	index	NULL	col_varchar_key	12	NULL	2	100.00	Using where; Using index
-3	DEPENDENT SUBQUERY	t2	NULL	ref	col_int_key,col_varchar_key	col_int_key	5	func	2	32.00	Using where
-3	DEPENDENT SUBQUERY	sq2_alias2	NULL	index	NULL	PRIMARY	4	NULL	2	100.00	Using index
+3	DEPENDENT SUBQUERY	t2	NULL	ref	col_int_key,col_varchar_key	col_int_key	5	func	1	32.00	Using where
+3	DEPENDENT SUBQUERY	sq2_alias2	NULL	index	NULL	col_int_key	5	NULL	2	100.00	Using index
 2	SUBQUERY	sq1_alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.alias2.col_varchar_key' of SELECT #3 was resolved in SELECT #1
@@ -10793,6 +12052,9 @@ col_varchar_nokey VARCHAR(1),
 KEY col_varchar_key (col_varchar_key)
 );
 CREATE VIEW view_b AS SELECT * FROM t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 PREPARE prep_stmt_20421 FROM 'SELECT alias2.col_varchar_nokey AS field1
 FROM t1 AS alias1
 INNER JOIN t1 AS alias2
@@ -10832,13 +12094,20 @@ WHERE sq2_alias1.pk > alias2.pk
 )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-3	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	alias2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	alias1	NULL	ref	col_varchar_key	col_varchar_key	7	test.alias2.col_varchar_nokey	1	100.00	Using where
+3	DEPENDENT SUBQUERY	t1	NULL	range	col_varchar_key	col_varchar_key	7	NULL	1	100.00	Using where
+3	DEPENDENT SUBQUERY	sq2_alias2	NULL	ref	col_varchar_key	col_varchar_key	7	test.t1.col_varchar_key	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.alias2.pk' of SELECT #3 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `field1` from `test`.`t1` `alias1` join `test`.`t1` `alias2` where (<in_optimizer>(NULL,<exists>(/* select#3 */ select `test`.`sq2_alias2`.`col_varchar_nokey` AS `sq2_field1` from `test`.`t1` join `test`.`t1` `sq2_alias2` where ((`test`.`t1`.`pk` > NULL) and (<cache>(NULL) = `test`.`sq2_alias2`.`col_varchar_nokey`) and (`test`.`sq2_alias2`.`col_varchar_key` = `test`.`t1`.`col_varchar_key`)))) and <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t1`.`col_int_nokey` from `test`.`t1` where (<cache>(NULL) = `test`.`t1`.`col_int_nokey`))) and multiple equal(NULL, NULL))
+Note	1003	/* select#1 */ select `test`.`alias2`.`col_varchar_nokey` AS `field1` from `test`.`t1` `alias1` join `test`.`t1` `alias2` where ((`test`.`alias1`.`col_varchar_key` = `test`.`alias2`.`col_varchar_nokey`) and <in_optimizer>(`test`.`alias1`.`col_varchar_key`,<exists>(/* select#3 */ select `test`.`sq2_alias2`.`col_varchar_nokey` AS `sq2_field1` from `test`.`t1` join `test`.`t1` `sq2_alias2` where ((`test`.`sq2_alias2`.`col_varchar_key` = `test`.`t1`.`col_varchar_key`) and (`test`.`t1`.`pk` > `test`.`alias2`.`pk`) and (<cache>(`test`.`alias1`.`col_varchar_key`) = `test`.`sq2_alias2`.`col_varchar_nokey`)))) and <in_optimizer>(`test`.`alias1`.`col_int_key`,<exists>(/* select#2 */ select `test`.`t1`.`col_int_nokey` from `test`.`t1` where (<cache>(`test`.`alias1`.`col_int_key`) = `test`.`t1`.`col_int_nokey`))))
 ALTER TABLE t1 DROP INDEX col_varchar_key;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 PREPARE prep_stmt_20421 FROM 'SELECT alias2.col_varchar_nokey AS field1
 FROM t1 AS alias1
 INNER JOIN t1 AS alias2
@@ -10878,12 +12147,16 @@ WHERE sq2_alias1.pk > alias2.pk
 )
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-3	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
-2	SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Not optimized, outer query is empty
+1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	alias2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+3	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+3	DEPENDENT SUBQUERY	sq2_alias2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.alias2.pk' of SELECT #3 was resolved in SELECT #1
-Note	1003	/* select#1 */ select NULL AS `field1` from `test`.`t1` `alias1` join `test`.`t1` `alias2` where (<in_optimizer>(NULL,<exists>(/* select#3 */ select `test`.`sq2_alias2`.`col_varchar_nokey` AS `sq2_field1` from `test`.`t1` join `test`.`t1` `sq2_alias2` where ((`test`.`t1`.`pk` > NULL) and (<cache>(NULL) = `test`.`sq2_alias2`.`col_varchar_nokey`) and (`test`.`sq2_alias2`.`col_varchar_key` = `test`.`t1`.`col_varchar_key`)))) and <in_optimizer>(NULL,<exists>(/* select#2 */ select `test`.`t1`.`col_int_nokey` from `test`.`t1` where (<cache>(NULL) = `test`.`t1`.`col_int_nokey`))) and multiple equal(NULL, NULL))
+Note	1003	/* select#1 */ select `test`.`alias2`.`col_varchar_nokey` AS `field1` from `test`.`t1` `alias1` join `test`.`t1` `alias2` where ((`test`.`alias2`.`col_varchar_nokey` = `test`.`alias1`.`col_varchar_key`) and <in_optimizer>(`test`.`alias1`.`col_varchar_key`,<exists>(/* select#3 */ select `test`.`sq2_alias2`.`col_varchar_nokey` AS `sq2_field1` from `test`.`t1` join `test`.`t1` `sq2_alias2` where ((`test`.`sq2_alias2`.`col_varchar_key` = `test`.`t1`.`col_varchar_key`) and (`test`.`t1`.`pk` > `test`.`alias2`.`pk`) and (<cache>(`test`.`alias1`.`col_varchar_key`) = `test`.`sq2_alias2`.`col_varchar_nokey`)))) and <in_optimizer>(`test`.`alias1`.`col_int_key`,<exists>(/* select#2 */ select `test`.`t1`.`col_int_nokey` from `test`.`t1` where (<cache>(`test`.`alias1`.`col_int_key`) = `test`.`t1`.`col_int_nokey`))))
 DROP TABLE t1;
 DROP VIEW view_b;
 #
@@ -10909,6 +12182,11 @@ col_varchar_nokey VARCHAR(1),
 PRIMARY KEY (pk)
 );
 INSERT INTO t3 VALUES (1, 6, 5, 'r');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain SELECT outer_t1.pk, outer_t2.pk
 FROM t3 AS outer_t1
 RIGHT JOIN t2 AS outer_t2
@@ -10921,13 +12199,15 @@ ON inner_t3.pk = inner_t2.pk
 ON inner_t3.col_varchar_nokey = inner_t2.col_varchar_key
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	outer_t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	PRIMARY	outer_t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	inner_t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-2	DEPENDENT SUBQUERY	inner_t2	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	Using where
+1	PRIMARY	outer_t2	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Parallel scan (1 workers); Using index
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	outer_t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	inner_t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	inner_t2	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	NULL
 2	DEPENDENT SUBQUERY	inner_t3	NULL	eq_ref	PRIMARY	PRIMARY	4	test.inner_t2.pk	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select '1' AS `pk`,'1' AS `pk` from <constant table> left join `test`.`t3` `outer_t1` on(<in_optimizer>('6',<exists>(/* select#2 */ select '6' from <constant table> left join (`test`.`t1` `inner_t2` join `test`.`t1` `inner_t3`) on(((`test`.`inner_t3`.`pk` = `test`.`inner_t2`.`pk`) and (`test`.`inner_t3`.`col_varchar_nokey` = `test`.`inner_t2`.`col_varchar_key`))) where (<cache>('6') = '6'))))
+Note	1003	/* select#1 */ select `test`.`outer_t1`.`pk` AS `pk`,`test`.`outer_t2`.`pk` AS `pk` from `test`.`t2` `outer_t2` left join `test`.`t3` `outer_t1` on(<in_optimizer>(`test`.`outer_t1`.`col_int_nokey`,<exists>(/* select#2 */ select `test`.`inner_t1`.`col_int_nokey` from `test`.`t3` `inner_t1` left join (`test`.`t1` `inner_t2` join `test`.`t1` `inner_t3`) on(((`test`.`inner_t3`.`pk` = `test`.`inner_t2`.`pk`) and (`test`.`inner_t3`.`col_varchar_nokey` = `test`.`inner_t2`.`col_varchar_key`))) where (<cache>(`test`.`outer_t1`.`col_int_nokey`) = `test`.`inner_t1`.`col_int_nokey`)))) where true
 SELECT outer_t1.pk, outer_t2.pk
 FROM t3 AS outer_t1
 RIGHT JOIN t2 AS outer_t2
@@ -11010,6 +12290,11 @@ INSERT INTO t3 VALUES
 (19,9,'w'), (20,2,'m'), (21,4,'q'), (22,0,NULL),
 (23,4,'d'), (24,8,'g'), (25,NULL,'x'), (26,NULL,'f'),
 (27,0,'p'), (28,NULL,'j'), (29,8,'c');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 CREATE VIEW view_inline_0 AS
 SELECT t1.*
 FROM t1 INNER JOIN t3
@@ -11034,8 +12319,8 @@ WHERE (alias1.col_varchar_key, alias1.col_varchar_nokey) IN
 (SELECT * FROM view_inline_2
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias2	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Using where
-1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.alias2.col_varchar_key	2	100.00	Using where
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	PRIMARY	alias2	NULL	ALL	NULL	NULL	NULL	NULL	11	10.00	Using where
 4	DEPENDENT SUBQUERY	<derived7>	NULL	unique_subquery	<auto_distinct_key>	<auto_distinct_key>	6	func,func	1	100.00	Using index
 7	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 8	UNION	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
@@ -11043,10 +12328,11 @@ NULL	UNION RESULT	<union7,8>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	Using tempor
 3	DEPENDENT SUBQUERY	<derived6>	NULL	index_subquery	<auto_key0>	<auto_key0>	8	func,func	3	100.00	Using index
 6	DERIVED	sq2_alias1	NULL	ALL	NULL	NULL	NULL	NULL	15	100.00	NULL
 6	DERIVED	sq2_alias2	NULL	ref	col_int_key	col_int_key	5	test.sq2_alias1.pk	2	100.00	NULL
-2	DERIVED	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	15	100.00	NULL
-5	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	DERIVED	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+5	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+5	DERIVED	t3	NULL	ALL	NULL	NULL	NULL	NULL	15	10.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select sum(`alias1`.`col_varchar_nokey`) AS `field2` from `test`.`t2` `alias2` join (/* select#2 */ select `test`.`view_inline_0`.`pk` AS `pk`,`test`.`view_inline_0`.`col_varchar_key` AS `col_varchar_key`,`test`.`view_inline_0`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`view_inline_0`) `alias1` where ((`alias1`.`col_varchar_key` = `test`.`alias2`.`col_varchar_key`) and <in_optimizer>((`alias1`.`col_varchar_key`,`alias1`.`col_varchar_nokey`),<exists>(<primary_index_lookup>(<cache>(`alias1`.`col_varchar_key`) in view_inline_2 on <auto_distinct_key>))) and <in_optimizer>((`test`.`alias2`.`col_varchar_nokey`,`test`.`alias2`.`col_varchar_key`),<exists>(<index_lookup>(<cache>(`test`.`alias2`.`col_varchar_nokey`) in view_inline_1 on <auto_key0>))))
+Note	1003	/* select#1 */ select sum(`alias1`.`col_varchar_nokey`) AS `field2` from `test`.`t2` `alias2` join (/* select#2 */ select `test`.`view_inline_0`.`pk` AS `pk`,`test`.`view_inline_0`.`col_varchar_key` AS `col_varchar_key`,`test`.`view_inline_0`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`view_inline_0`) `alias1` where ((`test`.`alias2`.`col_varchar_key` = `alias1`.`col_varchar_key`) and <in_optimizer>((`alias1`.`col_varchar_key`,`alias1`.`col_varchar_nokey`),<exists>(<primary_index_lookup>(<cache>(`alias1`.`col_varchar_key`) in view_inline_2 on <auto_distinct_key>))) and <in_optimizer>((`test`.`alias2`.`col_varchar_nokey`,`test`.`alias2`.`col_varchar_key`),<exists>(<index_lookup>(<cache>(`test`.`alias2`.`col_varchar_nokey`) in view_inline_1 on <auto_key0>))))
 SELECT SUM(alias1.col_varchar_nokey) AS field2
 FROM t2 AS alias2
 LEFT JOIN (SELECT * FROM view_inline_0) AS alias1
@@ -11171,14 +12457,14 @@ FROM t1 AS subquery3_t1
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 1	PRIMARY	table2	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
-4	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
-3	DEPENDENT SUBQUERY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+4	DEPENDENT SUBQUERY	subquery3_t1	NULL	index_subquery	col_varchar_key	col_varchar_key	7	func	1	100.00	Using index
+3	DEPENDENT SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 2	DERIVED	subquery1_t1	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
 2	DERIVED	subquery1_t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.subquery1_t1.pk	1	100.00	Using index
 2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `table1`.`pk` AS `field1` from (/* select#2 */ select `test`.`subquery1_t1`.`pk` AS `pk`,`test`.`subquery1_t1`.`col_int_key` AS `col_int_key`,`test`.`subquery1_t1`.`col_varchar_key` AS `col_varchar_key`,`test`.`subquery1_t1`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`t2` `subquery1_t1` join `test`.`t2` `subquery1_t2` where (`test`.`subquery1_t2`.`pk` = `test`.`subquery1_t1`.`pk`)) `table1` straight_join `test`.`t2` `table2` where (<in_optimizer>(`table1`.`col_varchar_nokey`,<exists>(/* select#4 */ select NULL AS `subquery3_field1` from `test`.`t1` `subquery3_t1` where (<cache>(`table1`.`col_varchar_nokey`) = NULL))) and <in_optimizer>(`table1`.`col_int_key`,<exists>(/* select#3 */ select 7 from `test`.`t3` where (<cache>(`table1`.`col_int_key`) = 7))))
+Note	1003	/* select#1 */ select `table1`.`pk` AS `field1` from (/* select#2 */ select `test`.`subquery1_t1`.`pk` AS `pk`,`test`.`subquery1_t1`.`col_int_key` AS `col_int_key`,`test`.`subquery1_t1`.`col_varchar_key` AS `col_varchar_key`,`test`.`subquery1_t1`.`col_varchar_nokey` AS `col_varchar_nokey` from `test`.`t2` `subquery1_t1` join `test`.`t2` `subquery1_t2` where (`test`.`subquery1_t2`.`pk` = `test`.`subquery1_t1`.`pk`)) `table1` straight_join `test`.`t2` `table2` where (<in_optimizer>(`table1`.`col_varchar_nokey`,<exists>(<index_lookup>(<cache>(`table1`.`col_varchar_nokey`) in t1 on col_varchar_key))) and <in_optimizer>(`table1`.`col_int_key`,<exists>(/* select#3 */ select 7 from `test`.`t3` where (<cache>(`table1`.`col_int_key`) = 7))))
 SELECT table1.pk AS field1
 FROM ( SELECT subquery1_t1. *
 FROM t2 AS subquery1_t1
@@ -11243,9 +12529,9 @@ outr.col_varchar_key IS NULL
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	outr	NULL	ALL	col_datetime_key	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 1	PRIMARY	outr2	NULL	index	col_time_key	col_time_key	4	NULL	20	33.33	Using where; Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	innr	NULL	index_subquery	col_int_key	col_int_key	4	func	1	33.33	Using where
 Warnings:
 Warning	1739	Cannot use range access on index 'col_time_key' due to type or collation conversion on field 'col_time_key'
@@ -11301,6 +12587,10 @@ vc varchar(1)
 ) charset utf8mb4;
 INSERT INTO t2 VALUES
 (0, 'x'), (7, 'i'), (7, 'e'), (1, 'p'), (7, 's'), (1, 'j');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain format=json SELECT t2.vc, t2.ik AS t2_ik, t1.ik AS t1_ik
 FROM t2 LEFT JOIN t1 ON t2.vc=t1.vc
 WHERE t2.vc IN (SELECT vc FROM t2 AS t3);
@@ -11309,7 +12599,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "5.32"
+      "query_cost": "3.55"
     },
     "nested_loop": [
       {
@@ -11319,10 +12609,11 @@ EXPLAIN
           "rows_examined_per_scan": 6,
           "rows_produced_per_join": 6,
           "filtered": "100.00",
+          "parallel_scan": "4 workers",
           "cost_info": {
-            "read_cost": "0.51",
+            "read_cost": "0.25",
             "eval_cost": "0.60",
-            "prefix_cost": "1.11",
+            "prefix_cost": "0.85",
             "data_read_per_join": "96"
           },
           "used_columns": [
@@ -11337,7 +12628,7 @@ EXPLAIN
               "query_block": {
                 "select_id": 2,
                 "cost_info": {
-                  "query_cost": "1.11"
+                  "query_cost": "0.85"
                 },
                 "table": {
                   "table_name": "t3",
@@ -11346,9 +12637,9 @@ EXPLAIN
                   "rows_produced_per_join": 1,
                   "filtered": "16.67",
                   "cost_info": {
-                    "read_cost": "0.51",
+                    "read_cost": "0.25",
                     "eval_cost": "0.10",
-                    "prefix_cost": "1.11",
+                    "prefix_cost": "0.85",
                     "data_read_per_join": "16"
                   },
                   "used_columns": [
@@ -11362,6 +12653,38 @@ EXPLAIN
         }
       },
       {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 6,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 6,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
         "table": {
           "table_name": "t1",
           "access_type": "ALL",
@@ -11369,9 +12692,9 @@ EXPLAIN
           "rows_produced_per_join": 12,
           "filtered": "100.00",
           "cost_info": {
-            "read_cost": "3.01",
+            "read_cost": "1.50",
             "eval_cost": "1.20",
-            "prefix_cost": "5.32",
+            "prefix_cost": "3.55",
             "data_read_per_join": "192"
           },
           "used_columns": [
@@ -11416,7 +12739,9 @@ ON alias1.col_int IN
 FROM t1 AS sq1_alias1
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 2	DEPENDENT SUBQUERY	sq1_alias1	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
 Warnings:
@@ -11464,6 +12789,10 @@ INSERT INTO t2 VALUES
 ('j','j'), ('v','v'), ('c','c'), ('m','m'), ('d','d'), ('d','d'), ('y','y');
 SET @optimizer_switch_saved= @@optimizer_switch;
 SET @@optimizer_switch="derived_merge=off";
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain format=json SELECT *
 FROM (SELECT * FROM t2) AS derived1
 LEFT JOIN t1
@@ -11477,7 +12806,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "20.96"
+      "query_cost": "19.04"
     },
     "nested_loop": [
       {
@@ -11505,7 +12834,7 @@ EXPLAIN
               "query_block": {
                 "select_id": 3,
                 "cost_info": {
-                  "query_cost": "0.70"
+                  "query_cost": "0.41"
                 },
                 "table": {
                   "table_name": "derived2",
@@ -11521,14 +12850,14 @@ EXPLAIN
                   "ref": [
                     "func"
                   ],
-                  "rows_examined_per_scan": 2,
+                  "rows_examined_per_scan": 1,
                   "rows_produced_per_join": 0,
                   "filtered": "14.29",
                   "cost_info": {
-                    "read_cost": "0.50",
-                    "eval_cost": "0.03",
-                    "prefix_cost": "0.70",
-                    "data_read_per_join": "4"
+                    "read_cost": "0.29",
+                    "eval_cost": "0.02",
+                    "prefix_cost": "0.41",
+                    "data_read_per_join": "2"
                   },
                   "used_columns": [
                     "col_varchar_key",
@@ -11546,7 +12875,7 @@ EXPLAIN
             "query_block": {
               "select_id": 2,
               "cost_info": {
-                "query_cost": "1.21"
+                "query_cost": "0.95"
               },
               "table": {
                 "table_name": "t2",
@@ -11554,17 +12883,52 @@ EXPLAIN
                 "rows_examined_per_scan": 7,
                 "rows_produced_per_join": 7,
                 "filtered": "100.00",
+                "parallel_scan": "4 workers",
                 "cost_info": {
-                  "read_cost": "0.51",
+                  "read_cost": "0.25",
                   "eval_cost": "0.70",
-                  "prefix_cost": "1.21",
+                  "prefix_cost": "0.95",
                   "data_read_per_join": "112"
                 },
                 "used_columns": [
                   "col_varchar_key",
                   "col_varchar_nokey"
                 ]
-              }
+              },
+              "parallel_information": [
+                {
+                  "exchange_table": {
+                    "table_name": "<sender1>",
+                    "access_type": "ALL",
+                    "rows_examined_per_scan": 7,
+                    "rows_produced_per_join": 0,
+                    "filtered": "100.00",
+                    "send_to": "<receiver1>",
+                    "cost_info": {
+                      "read_cost": "0.00",
+                      "eval_cost": "0.00",
+                      "prefix_cost": "0.00",
+                      "data_read_per_join": "0"
+                    }
+                  }
+                },
+                {
+                  "exchange_table": {
+                    "table_name": "<receiver1>",
+                    "access_type": "ALL",
+                    "rows_examined_per_scan": 7,
+                    "rows_produced_per_join": 0,
+                    "filtered": "100.00",
+                    "receive_from": "<sender1>",
+                    "cost_info": {
+                      "read_cost": "0.00",
+                      "eval_cost": "0.00",
+                      "prefix_cost": "0.00",
+                      "data_read_per_join": "0"
+                    }
+                  }
+                }
+              ]
             }
           }
         }
@@ -11577,9 +12941,9 @@ EXPLAIN
           "rows_produced_per_join": 140,
           "filtered": "100.00",
           "cost_info": {
-            "read_cost": "3.67",
+            "read_cost": "1.75",
             "eval_cost": "14.00",
-            "prefix_cost": "20.96",
+            "prefix_cost": "19.04",
             "data_read_per_join": "1K"
           },
           "used_columns": [
@@ -11630,6 +12994,10 @@ KEY col_int_key (col_int_key)
 INSERT INTO t2 VALUES
 (4,0), (6,8), (3,1), (5,8), (3,9), (246,24), (2,6), (9,1), (3,6), (8,2),
 (1,4), (8,8), (8,4), (5,4), (7,7), (5,4), (1,1), (6,9), (2,4), (9,8);
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain format=json SELECT grandparent1.*
 FROM t1 AS grandparent1
 LEFT JOIN t1 USING (col_int_nokey)
@@ -11642,7 +13010,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "52.73"
+      "query_cost": "47.25"
     },
     "nested_loop": [
       {
@@ -11652,10 +13020,11 @@ EXPLAIN
           "rows_examined_per_scan": 20,
           "rows_produced_per_join": 20,
           "filtered": "100.00",
+          "parallel_scan": "4 workers",
           "cost_info": {
-            "read_cost": "0.51",
+            "read_cost": "0.25",
             "eval_cost": "2.00",
-            "prefix_cost": "2.51",
+            "prefix_cost": "2.25",
             "data_read_per_join": "320"
           },
           "used_columns": [
@@ -11670,7 +13039,7 @@ EXPLAIN
               "query_block": {
                 "select_id": 2,
                 "cost_info": {
-                  "query_cost": "0.74"
+                  "query_cost": "0.72"
                 },
                 "table": {
                   "table_name": "t2",
@@ -11692,7 +13061,7 @@ EXPLAIN
                   "cost_info": {
                     "read_cost": "0.50",
                     "eval_cost": "0.02",
-                    "prefix_cost": "0.74",
+                    "prefix_cost": "0.72",
                     "data_read_per_join": "3"
                   },
                   "used_columns": [
@@ -11707,6 +13076,38 @@ EXPLAIN
         }
       },
       {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 20,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 20,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
         "table": {
           "table_name": "t1",
           "access_type": "ALL",
@@ -11714,9 +13115,9 @@ EXPLAIN
           "rows_produced_per_join": 400,
           "filtered": "100.00",
           "cost_info": {
-            "read_cost": "10.22",
+            "read_cost": "5.00",
             "eval_cost": "40.00",
-            "prefix_cost": "52.73",
+            "prefix_cost": "47.25",
             "data_read_per_join": "6K"
           },
           "used_columns": [
@@ -11761,7 +13162,7 @@ PRIMARY KEY (pk),
 KEY col_int_key (col_int_key),  
 KEY col_datetime_key (col_datetime_key),  
 KEY col_varchar_key (col_varchar_key,col_int_key)
-) charset utf8mb4 engine=MyISAM;
+) charset utf8mb4 engine=INNODB;
 INSERT INTO t1 VALUES
 (10,7,'2004-06-06 04:22:12','v','v'), (11,0,'2005-11-13 01:12:31','s','s'),
 (12,9,'2002-05-04 01:50:00','l','l'), (13,3,'2004-10-27 10:28:45','y','y'),
@@ -11783,7 +13184,7 @@ PRIMARY KEY (pk),
 KEY col_int_key (col_int_key),
 KEY col_datetime_key (col_datetime_key),
 KEY col_varchar_key (col_varchar_key,col_int_key)
-) charset utf8mb4 engine=MyISAM;
+) charset utf8mb4 engine=INNODB;
 INSERT INTO t2 VALUES
 (1,0,'2002-02-13 17:30:06','j','j'), (2,8,'2008-09-27 00:34:58','v','v'),
 (3,1,'2007-05-28 00:00:00','c','c'), (4,8,'2009-07-25 09:21:20','m','m'),
@@ -11848,7 +13249,15 @@ col_datetime_key
 2009-07-25 09:21:20
 2009-07-25 09:21:20
 ALTER TABLE t1 DISABLE KEYS;
+Warnings:
+Note	1031	Table storage engine for 't1' doesn't have this option
 ALTER TABLE t2 DISABLE KEYS;
+Warnings:
+Note	1031	Table storage engine for 't2' doesn't have this option
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain format=json SELECT alias1.col_datetime_key
 FROM t2 AS alias1
 RIGHT JOIN t2 AS alias2
@@ -11865,7 +13274,7 @@ EXPLAIN
   "query_block": {
     "select_id": 1,
     "cost_info": {
-      "query_cost": "60.11"
+      "query_cost": "54.25"
     },
     "nested_loop": [
       {
@@ -11878,10 +13287,11 @@ EXPLAIN
           "rows_examined_per_scan": 20,
           "rows_produced_per_join": 20,
           "filtered": "100.00",
+          "parallel_scan": "4 workers",
           "cost_info": {
-            "read_cost": "0.53",
+            "read_cost": "0.25",
             "eval_cost": "2.00",
-            "prefix_cost": "2.53",
+            "prefix_cost": "2.25",
             "data_read_per_join": "640"
           },
           "used_columns": [
@@ -11897,27 +13307,40 @@ EXPLAIN
               "query_block": {
                 "select_id": 2,
                 "cost_info": {
-                  "query_cost": "5.06"
+                  "query_cost": "1.03"
                 },
                 "nested_loop": [
                   {
                     "table": {
                       "table_name": "sq2_alias2",
-                      "access_type": "ALL",
-                      "rows_examined_per_scan": 20,
-                      "rows_produced_per_join": 1,
-                      "filtered": "5.00",
+                      "access_type": "ref",
+                      "possible_keys": [
+                        "col_int_key",
+                        "col_varchar_key"
+                      ],
+                      "key": "col_varchar_key",
+                      "used_key_parts": [
+                        "col_varchar_key"
+                      ],
+                      "key_length": "7",
+                      "ref": [
+                        "func"
+                      ],
+                      "rows_examined_per_scan": 1,
+                      "rows_produced_per_join": 0,
+                      "filtered": "20.00",
+                      "using_index": true,
                       "cost_info": {
-                        "read_cost": "1.86",
-                        "eval_cost": "0.10",
-                        "prefix_cost": "2.53",
-                        "data_read_per_join": "32"
+                        "read_cost": "0.25",
+                        "eval_cost": "0.03",
+                        "prefix_cost": "0.39",
+                        "data_read_per_join": "9"
                       },
                       "used_columns": [
                         "col_int_key",
                         "col_varchar_key"
                       ],
-                      "attached_condition": "((`test`.`sq2_alias2`.`col_int_key` < 2) and (<cache>(`test`.`alias2`.`col_varchar_key`) = `test`.`sq2_alias2`.`col_varchar_key`))"
+                      "attached_condition": "(`test`.`sq2_alias2`.`col_int_key` < 2)"
                     }
                   },
                   {
@@ -11925,13 +13348,13 @@ EXPLAIN
                       "table_name": "sq2_alias1",
                       "access_type": "ALL",
                       "rows_examined_per_scan": 20,
-                      "rows_produced_per_join": 2,
+                      "rows_produced_per_join": 0,
                       "filtered": "10.00",
                       "cost_info": {
-                        "read_cost": "0.53",
-                        "eval_cost": "0.20",
-                        "prefix_cost": "5.06",
-                        "data_read_per_join": "64"
+                        "read_cost": "0.07",
+                        "eval_cost": "0.06",
+                        "prefix_cost": "1.04",
+                        "data_read_per_join": "18"
                       },
                       "used_columns": [
                         "col_varchar_nokey"
@@ -11943,6 +13366,38 @@ EXPLAIN
               }
             }
           ]
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<sender1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 20,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "send_to": "<receiver1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
+        }
+      },
+      {
+        "exchange_table": {
+          "table_name": "<receiver1>",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 20,
+          "rows_produced_per_join": 0,
+          "filtered": "100.00",
+          "receive_from": "<sender1>",
+          "cost_info": {
+            "read_cost": "0.00",
+            "eval_cost": "0.00",
+            "prefix_cost": "0.00",
+            "data_read_per_join": "0"
+          }
         }
       },
       {
@@ -11966,7 +13421,7 @@ EXPLAIN
           "cost_info": {
             "read_cost": "5.00",
             "eval_cost": "2.00",
-            "prefix_cost": "9.53",
+            "prefix_cost": "9.25",
             "data_read_per_join": "640"
           },
           "used_columns": [
@@ -11978,14 +13433,20 @@ EXPLAIN
       {
         "table": {
           "table_name": "alias1",
-          "access_type": "ALL",
+          "access_type": "index",
+          "key": "col_datetime_key",
+          "used_key_parts": [
+            "col_datetime_key"
+          ],
+          "key_length": "6",
           "rows_examined_per_scan": 20,
           "rows_produced_per_join": 400,
           "filtered": "100.00",
+          "using_index": true,
           "cost_info": {
-            "read_cost": "10.58",
+            "read_cost": "5.00",
             "eval_cost": "40.00",
-            "prefix_cost": "60.11",
+            "prefix_cost": "54.25",
             "data_read_per_join": "12K"
           },
           "used_columns": [
@@ -12118,7 +13579,7 @@ Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-Warning	3778	'utf8_spanish_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_spanish_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 VALUES
 (123,1,1,'1',NULL),
@@ -12380,7 +13841,9 @@ FROM t2 AS iir1 RIGHT JOIN t3 AS iir2
 ON iir2.col_varchar_nokey = iir1.col_varchar_key)) 
 ORDER BY r1.col_date_key;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	r1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where; Using filesort
+1	PRIMARY	r1	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using filesort
 2	DEPENDENT SUBQUERY	ir1	NULL	index	col_varchar_key	col_varchar_key	12	NULL	20	100.00	Using where; Using index
 2	DEPENDENT SUBQUERY	ir2	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Full scan on NULL key
 3	DEPENDENT SUBQUERY	iir2	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	NULL
@@ -12559,9 +14022,9 @@ WHERE t3.col_int IS NULL
 ORDER BY col_int_key
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t4	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers); Using where; Using filesort
+1	PRIMARY	t4	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers); Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using filesort
 2	DEPENDENT SUBQUERY	t1	NULL	ref	col_int_key	col_int_key	5	func	1	100.00	Using index
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.pk	1	100.00	NULL
 2	DEPENDENT SUBQUERY	t3	NULL	ref	col_int_key	col_int_key	5	test.t2.col_int	1	25.00	Using where
@@ -12577,19 +14040,19 @@ WHERE t3.col_int IS NULL
 ORDER BY col_int_key
 ;
 EXPLAIN
--> PX Receiver (merge sort; slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 4)
-        -> Sort: t4.col_int_key  (cost=0.85 rows=6)
-            -> Filter: <in_optimizer>(t4.col_int_key,<exists>(select #2))  (cost=0.85 rows=6)
-                -> Parallel table scan on t4  (cost=0.85 rows=6)
-                -> Select #2 (subquery in condition; dependent)
-                    -> Limit: 1 row(s)  (cost=0.78 rows=1)
-                        -> Filter: (t3.col_int is null)  (cost=0.78 rows=1)
-                            -> Nested loop left join  (cost=0.78 rows=1)
-                                -> Index lookup on t1 using col_int_key (col_int_key=<cache>(t4.col_int_key))  (cost=0.37 rows=1)
-                                -> Nested loop inner join  (cost=1.03 rows=1)
-                                    -> Single-row index lookup on t2 using PRIMARY (pk=t1.pk)  (cost=0.34 rows=1)
-                                    -> Index lookup on t3 using col_int_key (col_int_key=t2.col_int)  (cost=0.27 rows=1)
+-> Sort: t4.col_int_key (rows=6)
+    -> Filter: <in_optimizer>(t4.col_int_key,<exists>(select #2)) (rows=6)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 4)
+                -> Parallel table scan on t4 (rows=6)
+        -> Select #2 (subquery in condition; dependent)
+            -> Limit: 1 row(s) (rows=1)
+                -> Filter: (t3.col_int is null) (rows=1)
+                    -> Nested loop left join (rows=1)
+                        -> Covering index lookup on t1 using col_int_key (col_int_key=<cache>(t4.col_int_key)) (rows=1)
+                        -> Nested loop inner join (rows=1)
+                            -> Single-row index lookup on t2 using PRIMARY (pk=t1.pk) (rows=1)
+                            -> Index lookup on t3 using col_int_key (col_int_key=t2.col_int) (rows=1)
 
 SELECT *
 FROM t4
@@ -12633,16 +14096,22 @@ INSERT INTO t1 VALUES
 CREATE TABLE tv
 SELECT var_255_utf8 AS field1
 FROM t1;
+ANALYZE TABLE t1, tv;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.tv	analyze	status	OK
 EXPLAIN SELECT * FROM tv
 WHERE field1 IN (
 SELECT tv1.var_255_utf8
 FROM v1 AS tv1 LEFT JOIN v1 AS tv2 ON tv1.var_10_latin1=tv2.var_10_utf8);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	tv	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using where
+1	PRIMARY	tv	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where
 2	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tv`.`field1` AS `field1` from `test`.`tv` where <in_optimizer>(`test`.`tv`.`field1`,<exists>(/* select#2 */ select `test`.`t1`.`var_255_utf8` from `test`.`t1` left join (`test`.`t1`) on((convert(`test`.`t1`.`var_10_latin1` using utf8) = `test`.`t1`.`var_10_utf8`)) where (<cache>(`test`.`tv`.`field1`) = `test`.`t1`.`var_255_utf8`)))
+Note	1003	/* select#1 */ select `test`.`tv`.`field1` AS `field1` from `test`.`tv` where <in_optimizer>(`test`.`tv`.`field1`,<exists>(/* select#2 */ select `test`.`t1`.`var_255_utf8` from `test`.`t1` left join (`test`.`t1`) on((`test`.`t1`.`var_10_latin1` = `test`.`t1`.`var_10_utf8`)) where (<cache>(`test`.`tv`.`field1`) = `test`.`t1`.`var_255_utf8`)))
 SELECT * FROM tv
 WHERE field1 IN (
 SELECT tv1.var_255_utf8
@@ -12709,7 +14178,9 @@ EXPLAIN SELECT name FROM t2, t1
 WHERE t1.uid IN (SELECT t4.uid FROM t4, t3 WHERE t3.uid=1 AND t4.uid=t3.fid)
 AND t2.uid=t1.fid;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Receive from (<sender1>)
 1	PRIMARY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.fid	1	100.00	NULL
 2	DEPENDENT SUBQUERY	t4	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 2	DEPENDENT SUBQUERY	t3	NULL	ref	uid	uid	5	const	4	10.00	Using where
@@ -12733,13 +14204,13 @@ H
 I
 SHOW STATUS LIKE '%handler_read%';
 Variable_name	Value
-Handler_read_first	0
+Handler_read_first	1
 Handler_read_key	33
 Handler_read_last	0
 Handler_read_next	10
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	12
+Handler_read_rnd_next	0
 DROP TABLE t1,t2,t3,t4;
 # End of test for Bug#18194196
 #
@@ -12751,11 +14222,11 @@ pk INTEGER,
 col_varchar varchar(1),
 col_int INTEGER,
 PRIMARY KEY (pk)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 CREATE TABLE t2 (
 col_int INTEGER,
 col_varchar varchar(1)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO t2 VALUES (7,'x');
 INSERT INTO t2 VALUES (4,'z');
 SELECT t2.col_varchar

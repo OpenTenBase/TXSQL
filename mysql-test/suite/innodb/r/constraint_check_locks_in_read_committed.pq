@@ -69,8 +69,8 @@ WHERE object_schema='test' AND object_name = 't1';
 index_name	lock_type	lock_mode	lock_status	lock_data
 NULL	TABLE	IX	GRANTED	NULL
 a	RECORD	S	GRANTED	2, 2
-a	RECORD	S	GRANTED	3, 3
 a	RECORD	S,GAP	GRANTED	2, 5
+a	RECORD	S,GAP	GRANTED	3, 3
 COMMIT;
 SELECT * FROM t1;
 a	b
@@ -104,7 +104,7 @@ index_name	lock_type	lock_mode	lock_status	lock_data
 NULL	TABLE	IX	GRANTED	NULL
 PRIMARY	RECORD	S,REC_NOT_GAP	GRANTED	2
 a	RECORD	S	GRANTED	2, 2
-a	RECORD	S	GRANTED	3, 3
+a	RECORD	S,GAP	GRANTED	3, 3
 COMMIT;
 SELECT * FROM t1;
 a	b

@@ -1027,9 +1027,9 @@ send Mysqlx.Crud.Find {
 
 CONV
 null
-1
-24
 3
+24
+1
 command ok
 send Mysqlx.Crud.Find {
   collection {

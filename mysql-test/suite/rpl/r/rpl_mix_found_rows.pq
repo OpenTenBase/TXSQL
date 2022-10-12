@@ -172,8 +172,8 @@ sect	test	count
 2	4	3
 2	5	183
 2	5	183
-2	6	1
 2	6	183
+2	6	1
 2	6	183
 2	7	1
 include/sync_slave_sql_with_master.inc
@@ -185,9 +185,9 @@ sect	test	count
 2	4	3
 2	5	183
 2	5	183
-2	6	183
-2	6	183
 2	6	1
+2	6	183
+2	6	183
 2	7	1
 DROP TABLE t1, t2, logtbl;
 DROP PROCEDURE just_log;

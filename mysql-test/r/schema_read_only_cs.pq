@@ -94,7 +94,6 @@ CREATE SCHEMA S;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
 CATALOG_NAME	SCHEMA_NAME	OPTIONS
 def	S	
-def	__cdb_recycle_bin__	
 def	information_schema	
 def	mtr	
 def	mysql	
@@ -105,7 +104,6 @@ ALTER SCHEMA S READ ONLY=1;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
 CATALOG_NAME	SCHEMA_NAME	OPTIONS
 def	S	READ ONLY=1
-def	__cdb_recycle_bin__	
 def	information_schema	
 def	mtr	
 def	mysql	
@@ -116,7 +114,6 @@ ALTER SCHEMA S READ ONLY=0;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
 CATALOG_NAME	SCHEMA_NAME	OPTIONS
 def	S	
-def	__cdb_recycle_bin__	
 def	information_schema	
 def	mtr	
 def	mysql	
@@ -240,7 +237,6 @@ S	CREATE DATABASE `S` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_090
 SELECT schema_name FROM information_schema.schemata ORDER BY schema_name;
 SCHEMA_NAME
 S
-__cdb_recycle_bin__
 information_schema
 mtr
 mysql
@@ -814,13 +810,13 @@ ALTER SCHEMA S READ ONLY = 1 COLLATE utf8_bin;
 ERROR HY000: Schema 'S' is in read only mode.
 ALTER SCHEMA S READ ONLY = 0 COLLATE utf8_bin;
 Warnings:
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE SCHEMA S;
 Database	Create Database
-S	CREATE DATABASE `S` /*!40100 DEFAULT CHARACTER SET utf8 COLLATE utf8_bin */ /*!80016 DEFAULT ENCRYPTION='N' */
+S	CREATE DATABASE `S` /*!40100 DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_bin */ /*!80016 DEFAULT ENCRYPTION='N' */
 ALTER SCHEMA S READ ONLY = 1 COLLATE utf8_general_ci;
 Warnings:
-Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 ALTER SCHEMA S READ ONLY=0;
 DROP SCHEMA S;
 #--------------------------------------------------------------------

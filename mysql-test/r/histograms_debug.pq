@@ -111,50 +111,6 @@ test	t1	col1	{"buckets": [], "data-type": "double", "null-values": 0.0, "collati
 SET DEBUG='-d,histogram_force_sampling';
 DROP TABLE t1;
 #
-# Check that compressed histogram mcv resizing works as expected
-#
-set global cdb_compressed_histogram_enabled = on;
-SET DEBUG='+d,histogram_force_sampling';
-CREATE TABLE t1 (col_integer INT);
-INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 10 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col_integer	{"mcv-list": [[1, 0.05], [2, 0.1], [3, 0.15], [4, 0.2], [5, 0.25], [6, 0.3], [7, 0.35], [8, 0.4], [9, 0.45], [10, 0.5]], "data-type": "int", "equi-height": [], "null-values": 0.0, "collation-id": 8, "sampling-rate": 0.5, "histogram-type": "compressed", "distinct-values": 20.0, "number-of-buckets-specified": 10}
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 9 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col_integer	{"mcv-list": [], "data-type": "int", "equi-height": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "null-values": 0.0, "collation-id": 8, "sampling-rate": 0.5, "histogram-type": "compressed", "distinct-values": 20.0, "number-of-buckets-specified": 9}
-DELETE FROM t1;
-INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (7), (7), (7), (7), (10);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 7 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col_integer	{"mcv-list": [[1, 0.05], [2, 0.1], [3, 0.15], [4, 0.2], [5, 0.25], [7, 0.45], [10, 0.5]], "data-type": "int", "equi-height": [], "null-values": 0.0, "collation-id": 8, "sampling-rate": 0.5, "histogram-type": "compressed", "distinct-values": 10.0, "number-of-buckets-specified": 7}
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col_integer WITH 6 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col_integer'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col_integer	{"mcv-list": [[7, 0.2]], "data-type": "int", "equi-height": [1, 1, 2, 3, 4, 5, 10], "null-values": 0.0, "collation-id": 8, "sampling-rate": 0.5, "histogram-type": "compressed", "distinct-values": 10.0, "number-of-buckets-specified": 6}
-SET DEBUG='-d,histogram_force_sampling';
-SET global cdb_compressed_histogram_enabled=0;
-DROP TABLE t1;
-#
 # Bug#26020352 WL8943:ASSERTION `M_THD->GET_TRANSACTION()->IS_EMPTY(
 #              TRANSACTION_CTX::STMT) && M
 #
@@ -248,85 +204,51 @@ Table	Op	Msg_type	Msg_text
 test.t1	histogram	status	Histogram statistics created for column 'col1'.
 DROP TABLE t1;
 #
-# Bug #97172 UNABLE TO OPEN TABLE WITH INCOMPATIBLE HISTOGRAM
-#            ASSERTION: thd->is_system_thread() || thd->killed || thd->is_error()
+# Additional tests for bug#29634540 "DROP DATABASE OF 1 MILLION
+# TABLES ...".
 #
-# We will inject a dummy histogram to simulate an incompatible histogram.
+# Check that DROP DATABASE statement doesn't acquire metadata locks
+# on column statistics while dropping it.
 #
-SET debug='+d,skip_dd_table_access_check';
-#
-# The dummy histogram will be ignored on opening table,
-# and removed on drop table.
-#
-CREATE TABLE tbl_int (col1 int);
-INSERT tbl_int VALUES (1);
-INSERT mysql.column_statistics
-VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
-"test", "tbl_int", "col1",
-"{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
-NULL);
-FLUSH TABLE tbl_int;
-SELECT * from tbl_int;
-col1
-1
-DROP TABLE tbl_int;
-SELECT COUNT(*) AS should_be_0 from information_schema.COLUMN_STATISTICS;
-should_be_0
-0
-#
-# The dummy histogram will be removed on DROP HISTOGRAM.
-#
-CREATE TABLE tbl_int (col1 int);
-INSERT mysql.column_statistics
-VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
-"test", "tbl_int", "col1",
-"{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
-NULL);
-ANALYZE TABLE tbl_int DROP HISTOGRAM ON col1;
+CREATE DATABASE mysqltest;
+CREATE TABLE mysqltest.t1 (i INT);
+INSERT INTO mysqltest.t1 VALUES (1), (2), (3);
+ANALYZE TABLE mysqltest.t1 UPDATE HISTOGRAM ON i WITH 10 BUCKETS;
 Table	Op	Msg_type	Msg_text
-test.tbl_int	histogram	status	Histogram statistics removed for column 'col1'.
-SELECT COUNT(*) AS should_be_0 FROM information_schema.COLUMN_STATISTICS;
-should_be_0
-0
-DROP TABLE tbl_int;
+mysqltest.t1	histogram	status	Histogram statistics created for column 'i'.
+CREATE TABLE mysqltest.t2 (j INT);
+# Run DROP DATABASE which will be paused near its end.
+SET DEBUG_SYNC = 'rm_table_no_locks_before_binlog SIGNAL drop_waiting WAIT_FOR drop_resume';
+DROP DATABASE mysqltest;
+connect con1, localhost, root,,;
+# Wait until DROP DATABASE gets paused and check what MDL
+# it has acquired. There should be X locks on both tables
+# and no locks on column statistics.
+SET DEBUG_SYNC = 'now WAIT_FOR drop_waiting';
+SELECT object_type, object_schema, object_name, column_name, lock_type
+FROM performance_schema.metadata_locks
+WHERE object_schema = "mysqltest"
+  ORDER BY object_type, object_schema, object_name, column_name, lock_type;
+object_type	object_schema	object_name	column_name	lock_type
+SCHEMA	mysqltest	NULL	NULL	EXCLUSIVE
+TABLE	mysqltest	t1	NULL	EXCLUSIVE
+TABLE	mysqltest	t2	NULL	EXCLUSIVE
 #
-# The dummy histogram will be overwritten on UPDATE HISTOGRAM.
-#
-CREATE TABLE tbl_int (col1 int);
-INSERT tbl_int VALUES (1);
-INSERT mysql.column_statistics
-VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
-"test", "tbl_int", "col1",
-"{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
-NULL);
-FLUSH TABLE tbl_int;
-SELECT JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.COLUMN_STATISTICS;
-JSON_REMOVE(histogram, '$."last-updated"')
-{"data-type": "int", "histogram-type": "dummy"}
-ANALYZE TABLE tbl_int update histogram on col1;
+# Run concurrent ANALYZE TABLE ... DROP HISTOGRAM on table from
+# database being dropped.
+ANALYZE TABLE mysqltest.t1 DROP HISTOGRAM ON i;
+connect con2, localhost, root,,;
+# Check that it will be blocked thanks to table MDL.
+# Unpause DROP DATABASE.
+SET DEBUG_SYNC = 'now SIGNAL drop_resume';
+disconnect con2;
+connection con1;
+# Reap ANALYZE TABLE ... DROP HISTOGRAM, which should not have
+# found any histograms since database has been dropped.
 Table	Op	Msg_type	Msg_text
-test.tbl_int	histogram	status	Histogram statistics created for column 'col1'.
-SELECT JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.COLUMN_STATISTICS;
-JSON_REMOVE(histogram, '$."last-updated"')
-{"buckets": [[1, 1.0]], "data-type": "int", "null-values": 0.0, "collation-id": 8, "sampling-rate": 1.0, "histogram-type": "singleton", "number-of-buckets-specified": 100}
-SELECT * FROM tbl_int;
-col1
-1
-DROP TABLE tbl_int;
-#
-# The dummy histogram aborts RENAME TABLE
-#
-CREATE TABLE tbl_int (col1 int);
-INSERT mysql.column_statistics
-VALUES (1, 1, unhex("746573741F74626C5F696E741F636F6C31"),
-"test", "tbl_int", "col1",
-"{\"histogram-type\":\"dummy\",\"data-type\":\"int\"}",
-NULL);
-RENAME TABLE tbl_int TO tbl_int_2;
-ERROR HY000: Unable to rename column statistics with incompatible histogram for column 'col1' in table 'test'.'tbl_int'. Please drop the histogram and try again.
-ANALYZE TABLE tbl_int DROP HISTOGRAM ON col1;
-Table	Op	Msg_type	Msg_text
-test.tbl_int	histogram	status	Histogram statistics removed for column 'col1'.
-RENAME TABLE tbl_int TO tbl_int_2;
-DROP TABLE tbl_int_2;
-SET DEBUG='-d,skip_dd_table_access_check';
+mysqltest.t1	histogram	Error	No histogram statistics found for column 'i'.
+disconnect con1;
+connection default;
+# Reap DROP DATABASE
+# Clean-up.
+SET DEBUG_SYNC = 'RESET';

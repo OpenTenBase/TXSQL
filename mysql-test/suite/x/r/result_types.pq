@@ -13,8 +13,8 @@ RUN INSERT INTO test_float VALUES (1234567890.1234567890,1234567890.1234567890)
 1 rows affected
 RUN SELECT * FROM test_float
 f	d
-0.0123457	0.012345679
 1234570000	1234567890.1234567
+0.0123457	0.012345679
 0 rows affected
 Mysqlx.Ok {
   msg: "bye!"
@@ -171,12 +171,11 @@ RUN INSERT INTO test_set VALUES ('one,two,three,four,five,six,seven,eight,nine,t
 1 rows affected
 RUN SELECT * FROM test_set
 s
-eight,eightteen,eightty,eleven,fifteen,fifty,five,forty,four,fourteen,nine,nineteen,ninety,one,seven,seventeen,seventy,six,sixteen,sixty,ten,thirteen,thirty,three,twelve,twenty,two
 one,two
 eight,eightteen,eleven,fifteen,five,four,fourteen,nine,nineteen,one,seven,seventeen,six,sixteen,ten,thirteen,three,twelve,two
+eight,eightteen,eightty,eleven,fifteen,fifty,five,forty,four,fourteen,nine,nineteen,ninety,one,seven,seventeen,seventy,six,sixteen,sixty,ten,thirteen,thirty,three,twelve,twenty,two
 0 rows affected
 Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-DROP SCHEMA xtest;

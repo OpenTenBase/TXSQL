@@ -115,11 +115,11 @@ send Mysqlx.Crud.Find {
 }
 
 last_update
-2006-02-15 04:34:33
 2006-02-14 04:34:33
 2006-02-18 04:34:33
-2006-02-16 04:34:33
+2006-02-15 04:34:33
 2006-02-17 04:34:33
+2006-02-16 04:34:33
 command ok
 Find specific row criteria and group by (grouping) and having (grouping_criteria) 
 send Mysqlx.Crud.Find {
@@ -202,8 +202,8 @@ send Mysqlx.Crud.Find {
 }
 
 Average Age	last_update
-17.5000	2006-02-15 04:34:33
 26.5000	2006-02-14 04:34:33
+17.5000	2006-02-15 04:34:33
 command ok
 Find specific row with COUNT, MAX and MIN functions with group by (grouping) 
 send Mysqlx.Crud.Find {
@@ -281,10 +281,10 @@ send Mysqlx.Crud.Find {
 
 Age count	Maximum_Age	Minimum_Age	last_update
 2	28	25	2006-02-14 04:34:33
-2	20	15	2006-02-15 04:34:33
 1	32	32	2006-02-16 04:34:33
-1	37	37	2006-02-17 04:34:33
+2	20	15	2006-02-15 04:34:33
 0	null	null	2006-02-18 04:34:33
+1	37	37	2006-02-17 04:34:33
 command ok
 Find specific row with COUNT, MAX and MIN functions with group by (grouping) and Having (grouping_criteria)
 send Mysqlx.Crud.Find {
@@ -442,9 +442,9 @@ send Mysqlx.Crud.Find {
 }
 
 Minimum_Age	last_update
+32	2006-02-16 04:34:33
 25	2006-02-14 04:34:33
 37	2006-02-17 04:34:33
-32	2006-02-16 04:34:33
 command ok
 Find specific row with group by (grouping) and Having (grouping_criteria) with >= Operator
 send Mysqlx.Crud.Find {
@@ -631,8 +631,8 @@ send Mysqlx.Crud.Find {
 }
 
 Minimum_Age	last_update
-15	2006-02-15 04:34:33
 25	2006-02-14 04:34:33
+15	2006-02-15 04:34:33
 command ok
 Find specific row with group by (grouping) and Having (grouping_criteria) with < Operator
 send Mysqlx.Crud.Find {
@@ -817,9 +817,9 @@ send Mysqlx.Crud.Find {
 
 Minimum_Age	last_update
 15	2006-02-15 04:34:33
+32	2006-02-16 04:34:33
 25	2006-02-14 04:34:33
 37	2006-02-17 04:34:33
-32	2006-02-16 04:34:33
 command ok
 Find specific row with group by (grouping) and Having (grouping_criteria) with double DataType
 send Mysqlx.Crud.Find {

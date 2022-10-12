@@ -150,8 +150,8 @@ SUM(k)
 FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	42	NULL	1	100.00	Parallel scan (1 workers); Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	42	func	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.k' of SELECT #2 was resolved in SELECT #1
@@ -170,8 +170,8 @@ HAVING (SELECT 'X' FROM t2
 WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	42	NULL	1	100.00	Parallel scan (1 workers); Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	42	func	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.k' of SELECT #2 was resolved in SELECT #1
@@ -188,8 +188,8 @@ AND SUM(t1.k)) = 'XXX'
 FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	42	NULL	1	100.00	Parallel scan (1 workers); Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	42	func	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.k' of SELECT #2 was resolved in SELECT #1
@@ -264,8 +264,8 @@ SUM(k)
 FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	42	NULL	1	100.00	Parallel scan (1 workers); Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	42	func	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.k' of SELECT #2 was resolved in SELECT #1
@@ -284,8 +284,8 @@ HAVING (SELECT 'X' FROM t2
 WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	42	NULL	1	100.00	Parallel scan (1 workers); Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	42	func	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.k' of SELECT #2 was resolved in SELECT #1
@@ -302,8 +302,8 @@ AND SUM(t1.k)) = 'XXX'
 FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	NULL	PRIMARY	42	NULL	1	100.00	Parallel scan (1 workers); Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	42	func	1	100.00	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.k' of SELECT #2 was resolved in SELECT #1
@@ -618,15 +618,15 @@ test.t1	analyze	status	OK
 test.t2	analyze	status	OK
 EXPLAIN FORMAT=tree SELECT * FROM t1 WHERE pk IN ( SELECT pk FROM t1 LEFT JOIN v2 USING (pk) WHERE f1 >= 'o' );
 EXPLAIN
--> Nested loop inner join  (cost=1.16 rows=1)
-    -> Table scan on <subquery2>  (cost=0.20 rows=1)
-        -> Materialize with deduplication  (cost=0.81 rows=1)
+-> Nested loop inner join  (cost=3.77 rows=1)
+    -> Table scan on <subquery2>  (cost=2.51..2.51 rows=1)
+        -> Materialize with deduplication  (cost=3.42..3.42 rows=1)
             -> PX Receiver (slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 1)
                     -> Nested loop left join  (cost=0.81 rows=1)
                         -> Filter: (t1.f1 >= 'o')  (cost=0.46 rows=1)
-                            -> Parallel index range scan on t1 using k1  (cost=0.46 rows=1)
-                        -> Single-row index lookup on t2 using PRIMARY (pk=t1.pk)  (cost=0.35 rows=1)
+                            -> Parallel covering index range scan on t1 using k1 over ('o' <= f1)  (cost=0.46 rows=1)
+                        -> Single-row covering index lookup on t2 using PRIMARY (pk=t1.pk)  (cost=0.35 rows=1)
     -> Single-row index lookup on t1 using PRIMARY (pk=`<subquery2>`.pk)  (cost=0.35 rows=1)
 
 DROP TABLE t1, t2;
@@ -644,7 +644,6 @@ SELECT 1
 FROM t1 LEFT JOIN t1 AS t2 ON 'f' IN ( SELECT f1 FROM t1 )
 WHERE EXISTS ( SELECT * FROM t1 LEFT JOIN t1 AS t3 ON t3.f1='a' )
 );
-ERROR 21000: Subquery returns more than 1 row
 DROP TABLE t1;
 #
 # Bug #29231551: WL#12470: SIG 6 QEP_TAB->LAST_INNER() == (-2) CONNECTJOINS()|SQL/SQL_EXECUTOR.CC
@@ -669,8 +668,8 @@ EXPLAIN
     -> Nested loop semijoin  (cost=0.68 rows=1)
         -> PX Receiver (slice: 0; workers: 1)
             -> PX Sender (slice: 1; workers: 1)
-                -> Filter: ((t1.f1 = 80) and (t1.pk > 80))  (cost=0.46 rows=0)
-                    -> Parallel index range scan on t1 using PRIMARY  (cost=0.46 rows=1)
+                -> Filter: ((t1.f1 = 80) and (t1.pk > 80))  (cost=0.46 rows=0.5)
+                    -> Parallel index range scan on t1 using PRIMARY over (80 < pk)  (cost=0.46 rows=1)
         -> Nested loop inner join  (cost=0.77 rows=2)
             -> Table scan on t5  (cost=0.45 rows=1)
             -> Index scan on t4 using PRIMARY  (cost=1.30 rows=2)
@@ -808,13 +807,13 @@ EXPLAIN
             -> Filter: (t1.pk is not null)  (cost=0.35 rows=1)
                 -> Parallel table scan on t1  (cost=0.35 rows=1)
             -> Single-row index lookup on <subquery2> using <auto_distinct_key> (pk=t1.pk)
-                -> Materialize with deduplication  (cost=1.10 rows=5)
+                -> Materialize with deduplication  (cost=1.60..1.60 rows=5)
                     -> Nested loop left join  (cost=1.10 rows=5)
                         -> Index scan on t2 using PRIMARY  (cost=0.35 rows=1)
                         -> Nested loop left join  (cost=2.50 rows=5)
                             -> Filter: (t3.col_int_key <> t2.pk)  (cost=0.75 rows=5)
                                 -> Table scan on t3  (cost=0.75 rows=5)
-                            -> Index lookup on t4 using ix2 (col_int_key=t3.pk)  (cost=0.27 rows=1)
+                            -> Covering index lookup on t4 using ix2 (col_int_key=t3.pk)  (cost=0.27 rows=1)
 
 SELECT * FROM t1 WHERE pk IN (
 SELECT t2.pk FROM
@@ -834,15 +833,15 @@ INSERT INTO t1 VALUES (1,'D'), (20,'G');
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
-EXPLAIN FORMAT=TREE SELECT * FROM ( SELECT DISTINCT * FROM t1 ) AS d0 LEFT JOIN t1 ON d0.pk IN ( SELECT 1 FROM t1 ) ORDER BY d0.f1;
+EXPLAIN FORMAT=TREE SELECT d0.f1, d0.pk, t1.pk, t1.f1 FROM ( SELECT DISTINCT * FROM t1 ) AS d0 LEFT JOIN t1 ON d0.pk IN ( SELECT 1 FROM t1 ) ORDER BY d0.f1;
 EXPLAIN
 -> Sort: d0.f1
-    -> Stream results  (cost=1.50 rows=8)
-        -> Nested loop left join  (cost=1.50 rows=8)
-            -> Table scan on d0  (cost=2.73 rows=2)
-                -> Materialize  (cost=0.45 rows=2)
-                    -> Table scan on <temporary>
-                        -> Temporary table with deduplication  (cost=0.45 rows=2)
+    -> Stream results  (cost=6.95 rows=8)
+        -> Nested loop left join  (cost=6.95 rows=8)
+            -> Table scan on d0  (cost=1.26..2.52 rows=2)
+                -> Materialize  (cost=4.64..5.90 rows=2)
+                    -> Table scan on <temporary>  (cost=1.26..2.52 rows=2)
+                        -> Temporary table with deduplication  (cost=1.91..3.17 rows=2)
                             -> PX Receiver (slice: 0; workers: 1)
                                 -> PX Sender (slice: 1; workers: 2)
                                     -> Parallel table scan on t1  (cost=0.45 rows=2)
@@ -851,11 +850,11 @@ EXPLAIN
                     -> Table scan on t1  (cost=0.23 rows=2)
                 -> Table scan on t1  (cost=0.23 rows=2)
 
-SELECT * FROM ( SELECT DISTINCT * FROM t1 ) AS d0 LEFT JOIN t1 ON d0.pk IN ( SELECT 1 FROM t1 ) ORDER BY d0.f1;
-pk	f1	pk	f1
-1	D	1	D
-1	D	20	G
-20	G	NULL	NULL
+SELECT d0.f1, d0.pk, t1.pk, t1.f1 FROM ( SELECT DISTINCT * FROM t1 ) AS d0 LEFT JOIN t1 ON d0.pk IN ( SELECT 1 FROM t1 ) ORDER BY d0.f1;
+f1	pk	pk	f1
+D	1	1	D
+D	1	20	G
+G	20	NULL	NULL
 DROP TABLE t1;
 #
 # Bug#29664504 REGRESSION: CRASHING FROM ITEM_FUNC_AS_WKT::VAL_STR_ASCII()
@@ -950,7 +949,7 @@ EXPLAIN
             -> Index scan on t1 using f2_idx  (cost=0.35 rows=1)
             -> Filter: (cast(t2.f1 as double) > cast(table1.f2 as double))  (cost=0.35 rows=1)
                 -> Index range scan on t2 (re-planned for each iteration)  (cost=0.35 rows=1)
-        -> Index lookup on t3 using f2_idx (f2=t2.f2)  (cost=0.35 rows=1)
+        -> Covering index lookup on t3 using f2_idx (f2=t2.f2)  (cost=0.35 rows=1)
 
 Warnings:
 Note	1276	Field or reference 'test.table1.f2' of SELECT #2 was resolved in SELECT #1
@@ -961,12 +960,12 @@ t1 AS t2 LEFT JOIN t1 AS t3 USING (f2)
 WHERE t2.f1 > table1.f2
 ) FROM t1 AS table1;
 (
-)
-) ON t3.f2 = t2.f2
-2
 SELECT t2.f2 FROM t1 JOIN (
-WHERE t2.f1 > table1.f2
 t1 AS t2 LEFT JOIN t1 AS t3 USING (f2)
+) ON t3.f2 = t2.f2
+WHERE t2.f1 > table1.f2
+)
+2
 DROP TABLE t1;
 # Bug#28941154: Executing query does not return a result the first time
 CREATE TABLE t1 (
@@ -1011,7 +1010,9 @@ FROM t1 as alias1
 )
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	subq	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Using where; FirstMatch
+1	PRIMARY	subq	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Parallel scan (4 workers); Using where; FirstMatch
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
 1	PRIMARY	table1	NULL	index	NULL	idx_CC_col_varchar_key	7	NULL	20	100.00	Using index; Using join buffer (hash join)
 1	PRIMARY	table2	NULL	ref	idx_CC_col_varchar_key	idx_CC_col_varchar_key	7	test.table1.col_varchar_key	1	100.00	NULL
 3	DEPENDENT SUBQUERY	alias1	NULL	index	NULL	idx_CC_col_time_key	4	NULL	20	100.00	Using index
@@ -1153,19 +1154,19 @@ GROUP BY table_user.id
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
-        -> Parallel index scan on table_city using PRIMARY  (cost=0.85 rows=6)
+        -> Parallel index scan on table_city using PRIMARY (rows=6)
 -> Select #2 (subquery in projection; dependent)
-    -> Aggregate: group_concat(d.id separator ',')
-        -> Table scan on d  (cost=2.73 rows=2)
-            -> Materialize  (cost=1.77 rows=5)
-                -> Table scan on <temporary>
-                    -> Temporary table with deduplication  (cost=1.77 rows=5)
-                        -> Nested loop inner join  (cost=1.77 rows=5)
-                            -> Filter: (table_city.id = `<subquery4>`.city)  (cost=1.02 rows=5)
-                                -> Table scan on <subquery4>  (cost=1.02 rows=5)
-                                    -> Materialize with deduplication  (cost=1.05 rows=5)
-                                        -> Index lookup on table_city_user using city (city=table_city.id)  (cost=1.05 rows=5)
-                            -> Single-row index lookup on table_user using PRIMARY (id=`<subquery4>`.`user`)  (cost=0.35 rows=1)
+    -> Aggregate: group_concat(d.id separator ',') (rows=1)
+        -> Table scan on d (rows=5)
+            -> Materialize (rows=5)
+                -> Table scan on <temporary> (rows=5)
+                    -> Temporary table with deduplication (rows=5)
+                        -> Nested loop inner join (rows=5)
+                            -> Filter: (table_city.id = `<subquery4>`.city) (rows=5)
+                                -> Table scan on <subquery4> (rows=5)
+                                    -> Materialize with deduplication (rows=5)
+                                        -> Index lookup on table_city_user using city (city=table_city.id) (rows=5)
+                            -> Single-row covering index lookup on table_user using PRIMARY (id=`<subquery4>`.`user`) (rows=1)
 
 Warnings:
 Note	1276	Field or reference 'test.table_city.id' of SELECT #4 was resolved in SELECT #1
@@ -1181,7 +1182,7 @@ id	users
 1	1,2,3,4,5,6,7,8
 2	1,2,3,4,5
 3	2,5
-4	5,2,3,8,1
+4	1,2,3,5,8
 5	NULL
 6	NULL
 DROP TABLE table_city, table_user, table_city_user;
@@ -1216,9 +1217,9 @@ EXPLAIN
             -> Index scan on c using idx_c  (cost=0.45 rows=2)
             -> Hash
                 -> Nested loop inner join  (cost=0.90 rows=2)
-                    -> Filter: (`<subquery2>`.c is not null)  (cost=0.20 rows=2)
-                        -> Table scan on <subquery2>  (cost=0.20 rows=2)
-                            -> Materialize with deduplication  (cost=1.80 rows=4)
+                    -> Filter: (`<subquery2>`.c is not null)  (cost=1.20..0.20 rows=2)
+                        -> Table scan on <subquery2>  (cost=0.64..2.55 rows=4)
+                            -> Materialize with deduplication  (cost=2.84..4.75 rows=4)
                                 -> Filter: (b.c is not null)  (cost=1.80 rows=4)
                                     -> Inner hash join (no condition)  (cost=1.80 rows=4)
                                         -> Index scan on c_inner_inner using idx_c  (cost=0.23 rows=2)
@@ -1227,8 +1228,8 @@ EXPLAIN
                                                 -> PX Sender (slice: 1; workers: 2)
                                                     -> Nested loop left join  (cost=1.15 rows=2)
                                                         -> Parallel index scan on b using idx_b  (cost=0.45 rows=2)
-                                                        -> Index lookup on c_inner using idx_c (c=b.c)  (cost=0.30 rows=1)
-                    -> Index lookup on d using idx_d (c=`<subquery2>`.c)  (cost=0.60 rows=1)
+                                                        -> Covering index lookup on c_inner using idx_c (c=b.c)  (cost=0.30 rows=1)
+                    -> Covering index lookup on d using idx_d (c=`<subquery2>`.c)  (cost=0.60 rows=1)
 
 SELECT /*+ JOIN_ORDER(b, c_inner, c_inner_inner, d, c) */ d.c
 FROM d JOIN c
@@ -1289,7 +1290,7 @@ WHERE t1.pk=26;
 EXPLAIN
 -> Remove duplicate (t1, t2) rows using temporary table (weedout)
     -> Nested loop left join  (cost=0.35 rows=1)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
         -> Nested loop inner join  (cost=0.70 rows=1)
             -> Filter: (t3.col_int_nokey = 3)  (cost=0.35 rows=1)
                 -> Table scan on t3  (cost=0.35 rows=1)
@@ -1421,21 +1422,21 @@ JOIN t2 ON t1.pk = t2.pk
 JOIN t3 ON t2.pk = t3.pk
 WHERE (t1.col_int + t2.pk) IN ( SELECT col_int FROM t4 );
 EXPLAIN
--> Nested loop inner join  (cost=2.90 rows=3)
-    -> Inner hash join (t1.pk = t3.pk), ((t1.col_int + t1.pk) = `<subquery2>`.col_int)  (cost=2.35 rows=3)
+-> Nested loop inner join  (cost=5.51 rows=3)
+    -> Inner hash join (t1.pk = t3.pk), ((t1.col_int + t1.pk) = `<subquery2>`.col_int)  (cost=4.96 rows=3)
         -> Table scan on t1  (cost=0.12 rows=4)
         -> Hash
-            -> Inner hash join (no condition)  (cost=0.90 rows=3)
+            -> Inner hash join (no condition)  (cost=3.51 rows=3)
                 -> Filter: (t3.pk is not null)  (cost=0.55 rows=3)
                     -> Table scan on t3  (cost=0.55 rows=3)
                 -> Hash
-                    -> Table scan on <subquery2>  (cost=0.07 rows=1)
-                        -> Materialize with deduplication  (cost=0.35 rows=1)
+                    -> Table scan on <subquery2>  (cost=2.51..2.51 rows=1)
+                        -> Materialize with deduplication  (cost=2.96..2.96 rows=1)
                             -> PX Receiver (slice: 0; workers: 1)
                                 -> PX Sender (slice: 1; workers: 1)
                                     -> Filter: (t4.col_int is not null)  (cost=0.35 rows=1)
                                         -> Parallel table scan on t4  (cost=0.35 rows=1)
-    -> Single-row index lookup on t2 using pk (pk=t3.pk)  (cost=0.12 rows=1)
+    -> Single-row covering index lookup on t2 using pk (pk=t3.pk)  (cost=0.12 rows=1)
 
 DROP TABLE t1, t2, t3, t4;
 CREATE TABLE t1 (
@@ -1511,12 +1512,12 @@ EXPLAIN
                 -> PX Sender (slice: 1; workers: 1)
                     -> Parallel table scan on t1  (cost=0.35 rows=1)
             -> Select #2 (subquery in condition; run only once)
-                -> Filter: (((t1.col_int_key + 6) = `<materialized_subquery>`.field4))  (cost=1.85 rows=16)
+                -> Filter: (((t1.col_int_key + 6) = `<materialized_subquery>`.field4))  (cost=3.45..3.45 rows=16)
                     -> Limit: 1 row(s)
                         -> Index lookup on <materialized_subquery> using <auto_distinct_key> (field4=(t1.col_int_key + 6))
-                            -> Materialize with deduplication  (cost=1.85 rows=16)
+                            -> Materialize with deduplication  (cost=3.45..3.45 rows=16)
                                 -> Index scan on table1s using col_int_unique  (cost=1.85 rows=16)
-        -> Single-row index lookup on t3 using PRIMARY (pk=t1.col_int_key)  (cost=0.35 rows=1)
+        -> Single-row covering index lookup on t3 using PRIMARY (pk=t1.col_int_key)  (cost=0.35 rows=1)
     -> Index lookup on t2 using col_int_key (col_int_key=t1.col_int_key)  (cost=0.40 rows=1)
 
 SELECT *
@@ -1862,14 +1863,14 @@ SET optimizer_switch='semijoin=on';
 explain format = tree SELECT a.c2 FROM  t1 AS a WHERE
 EXISTS (SELECT 1 FROM  t1 AS b WHERE b.c2 = a.c2 LIMIT 1,1);
 EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 2)
-        -> Filter: exists(select #2)  (cost=0.45 rows=2)
+-> Filter: exists(select #2)  (cost=0.45 rows=2)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 2)
             -> Parallel table scan on a  (cost=0.45 rows=2)
-            -> Select #2 (subquery in condition; dependent)
-                -> Limit/Offset: 1/1 row(s)  (cost=0.35 rows=1)
-                    -> Filter: (b.c2 = a.c2)  (cost=0.35 rows=1)
-                        -> Table scan on b  (cost=0.35 rows=2)
+    -> Select #2 (subquery in condition; dependent)
+        -> Limit/Offset: 1/1 row(s)  (cost=0.35 rows=0)
+            -> Filter: (b.c2 = a.c2)  (cost=0.35 rows=1)
+                -> Table scan on b  (cost=0.35 rows=2)
 
 Warnings:
 Note	1276	Field or reference 'test.a.c2' of SELECT #2 was resolved in SELECT #1
@@ -1921,7 +1922,7 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 2)
             -> Parallel table scan on a  (cost=0.45 rows=2)
     -> Select #2 (subquery in condition; dependent)
-        -> Zero rows (Zero limit)
+        -> Zero rows (Zero limit)  (cost=0.00..0.00 rows=0)
 
 Warnings:
 Note	1276	Field or reference 'test.a.c2' of SELECT #2 was resolved in SELECT #1
@@ -1938,3 +1939,288 @@ CREATE TABLE t2 (b INTEGER);
 SELECT ( SELECT b FROM t2 ORDER BY a, MIN(a) LIMIT 1 ) FROM t1 GROUP BY a;
 ( SELECT b FROM t2 ORDER BY a, MIN(a) LIMIT 1 )
 DROP TABLE t1, t2;
+#
+# Bug #32680367: ASSERTION `PATH->COST >= PATH->INIT_COST' FAILED|JOIN_OPTIMIZER.CC - HYPERGRAPH
+#
+CREATE TABLE t1 (a VARCHAR(1));
+INSERT INTO t1 VALUES (NULL), ('r');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SELECT * FROM t1 WHERE a <= ALL (
+SELECT 'a' FROM t1 AS t2
+WHERE t2.a < t1.a AND t2.a NOT IN (SELECT a FROM t1)
+);
+a
+NULL
+r
+DROP TABLE t1;
+#
+# Bug #32937950 - HYPERGRAPH: CACHED_ITEM* NEW_CACHED_ITEM: ASSERTION `0' FAILED.
+#
+CREATE TABLE t1 (
+a INTEGER,
+PRIMARY KEY (a)
+) PARTITION BY LINEAR KEY () PARTITIONS 4;
+SELECT 1 FROM t1 WHERE
+( SELECT a FROM ( SELECT 1 ) AS q )
+IN ( SELECT a FROM t1 WHERE a > 0 GROUP BY a );
+1
+DROP TABLE t1;
+#
+# Bug #32934187: HYPERGRAPH: CRASHING IN ITEM_IN_SUBSELECT::EXEC
+#
+CREATE TABLE t1 (a DATETIME);
+INSERT INTO t1 VALUES ('2000-01-01 00:00:00');
+INSERT INTO t1 VALUES ('2000-01-01 00:00:00');
+SET @b := _latin1 'a';
+SELECT 1 FROM t1 WHERE (@b IN ( SELECT a FROM t1 )) = a;
+DROP TABLE t1;
+#
+# Bug#32895824: SIGNAL 6 ASSERTION`!NULL_VALUE || IS_NULLABLE()'
+#               FAILED IN ../SQL/ITEM_FUNC.CC
+#
+CREATE TABLE t(pk INT PRIMARY KEY);
+SELECT 1 FROM t
+WHERE CAST(pk AS UNSIGNED INTEGER) = 1
+AND pk = (SELECT 1 FROM t);
+1
+DROP TABLE t;
+#
+# Bug #32932969: ASSERTION `ITEM->IS_NULLABLE()' FAILED.
+#
+CREATE TABLE t1 (a INTEGER);
+INSERT INTO t1 VALUES (1);
+SELECT 1 FROM t1 GROUP BY (
+SELECT COALESCE(18446744073709551614, COUNT(ST_AREA(ST_ASWKT(a))))
+) WITH ROLLUP;
+ERROR 22023: Invalid GIS data provided to function st_astext.
+DROP TABLE t1;
+#
+# Bug #33076462: PB2: FAILURE IN RQG_MULTI_UPDATE_DELETE TEST
+#
+CREATE TABLE t1 ( c INTEGER, KEY (c) );
+CREATE TABLE t2 ( pk INTEGER );
+INSERT INTO t2 VALUES (7);
+CREATE TABLE t3 (
+a INTEGER,
+b INTEGER,
+c INTEGER,
+KEY (a)
+);
+INSERT INTO t3 VALUES (3,4,NULL);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+UPDATE t1, t2
+SET t1.c = 0
+WHERE t1.c <> (
+SELECT
+t3.c
+FROM
+t3
+JOIN t3 AS t3_b ON t3_b.a > t3.a
+WHERE t3.b <= t3.b XOR t2.pk = 3
+);
+DROP TABLE t1, t2, t3;
+#
+# Bug #33030793: WL#14419: ASSERTION `NEW_PATH->COST >= NEW_PATH->INIT_COST' FAILED
+#
+CREATE TABLE t1 ( a BLOB );
+SELECT t1.a
+FROM
+t1,
+LATERAL ( SELECT t1.a FROM t1 AS inner_t1 LIMIT 1 ) AS d1
+WHERE 1 IN ( SELECT a FROM t1 )
+ORDER BY a;
+a
+DROP TABLE t1;
+#
+# Bug #33045256: WL#14419: ASSERTION `NULLPTR != DYNAMIC_CAST<TARGET>(ARG)' FAILED
+#
+CREATE TABLE t1 (a INTEGER);
+INSERT INTO t1 VALUES (1);
+SELECT * FROM (
+SELECT a, JSON_ARRAYAGG(a) OVER () AS b FROM t1
+) AS d1
+WHERE (a,b) IN (
+SELECT a, JSON_ARRAYAGG(a) OVER () AS b FROM t1
+);
+DROP TABLE t1;
+#
+# Bug #33075707: HYPERGRAPH: ASSERTION `COND->REAL_ITEM()->IS_BOOL_FUNC()' FAILED
+#
+CREATE TABLE t1 ( a VARCHAR(1) );
+INSERT INTO t1 VALUES ('0');
+SELECT 1
+FROM t1
+WHERE a NOT IN (
+SELECT 1
+FROM
+t1 AS t2
+LEFT JOIN t1 AS t3 ON (t2.a = t3.a OR 0 IN ( SELECT REGEXP_LIKE(a, '') FROM t1 ))
+);
+1
+1
+DROP TABLE t1;
+# Bug#33952115: Semijoin may give wrong result
+CREATE TABLE t1(c0 int);
+INSERT INTO t1 VALUES(NULL), (1), (NULL), (2), (NULL), (3);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+explain SELECT t1.c0 AS ref0
+FROM t1
+WHERE t1.c0 IN (SELECT t2.c0 AS ref1
+FROM t1 as t2
+WHERE t2.c0 NOT IN (SELECT t3.c0 AS ref2
+FROM t1 as t3
+WHERE t3.c0
+)
+= t2.c0
+);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+2	MATERIALIZED	t2	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
+1	PRIMARY	<subquery2>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+3	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	6	83.33	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c0` AS `ref0` from `test`.`t1` semi join (`test`.`t1` `t2`) where ((`test`.`t1`.`c0` = `<subquery2>`.`ref1`) and (<in_optimizer>(`test`.`t2`.`c0`,`test`.`t2`.`c0` not in ( <materialize> (/* select#3 */ select `test`.`t3`.`c0` AS `ref2` from `test`.`t1` `t3` where (0 <> `test`.`t3`.`c0`) having true ), <primary_index_lookup>(`test`.`t2`.`c0` in <temporary table> on <auto_distinct_key> where ((`test`.`t2`.`c0` = `<materialized_subquery>`.`ref2`))))) = `test`.`t2`.`c0`))
+SELECT t1.c0 AS ref0
+FROM t1
+WHERE t1.c0 IN (SELECT t2.c0 AS ref1
+FROM t1 as t2
+WHERE t2.c0 NOT IN (SELECT t3.c0 AS ref2
+FROM t1 as t3
+WHERE t3.c0
+)
+= t2.c0
+);
+ref0
+DROP TABLE t1;
+# Bug#33957233: Incorrect inner hash join when using materialization
+CREATE TABLE t0 (
+c0 INTEGER
+);
+INSERT INTO t0 VALUES
+(321108437), (-64596961), (329053785), (1983), (NULL), (NULL),
+(1936), (-543970881), (NULL), (NULL), (-1945919442), (NULL), (1230052719);
+ANALYZE TABLE t0;
+Table	Op	Msg_type	Msg_text
+test.t0	analyze	status	OK
+explain SELECT t0.c0
+FROM t0
+WHERE t0.c0 NOT IN (SELECT t0.c0 AS ref1
+FROM t0
+WHERE t0.c0 IN (SELECT t0.c0
+FROM t0
+WHERE t0.c0 NOT IN (SELECT t0.c0 AS ref3
+FROM t0
+)
+= t0.c0
+)
+);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t0	NULL	ALL	NULL	NULL	NULL	NULL	13	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	13	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	13	100.00	Receive from (<sender1>)
+2	SUBQUERY	<subquery3>	NULL	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+2	SUBQUERY	t0	NULL	ALL	NULL	NULL	NULL	NULL	13	10.00	Using where; Using join buffer (hash join)
+3	MATERIALIZED	t0	NULL	ALL	NULL	NULL	NULL	NULL	13	10.00	Using where
+4	SUBQUERY	t0	NULL	ALL	NULL	NULL	NULL	NULL	13	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t0`.`c0` AS `c0` from `test`.`t0` where <in_optimizer>(`test`.`t0`.`c0`,`test`.`t0`.`c0` in ( <materialize> (/* select#2 */ select `test`.`t0`.`c0` AS `ref1` from `test`.`t0` semi join (`test`.`t0`) where ((<in_optimizer>(`test`.`t0`.`c0`,`test`.`t0`.`c0` not in ( <materialize> (/* select#4 */ select `test`.`t0`.`c0` AS `ref3` from `test`.`t0` where true having true ), <primary_index_lookup>(`test`.`t0`.`c0` in <temporary table> on <auto_distinct_key> where ((`test`.`t0`.`c0` = `<materialized_subquery>`.`ref3`))))) = `test`.`t0`.`c0`) and (`test`.`t0`.`c0` = `<subquery3>`.`c0`)) having true ), <primary_index_lookup>(`test`.`t0`.`c0` in <temporary table> on <auto_distinct_key> where ((`test`.`t0`.`c0` = `<materialized_subquery>`.`ref1`)))) is false)
+SELECT t0.c0
+FROM t0
+WHERE t0.c0 NOT IN (SELECT t0.c0 AS ref1
+FROM t0
+WHERE t0.c0 IN (SELECT t0.c0
+FROM t0
+WHERE t0.c0 NOT IN (SELECT t0.c0 AS ref3
+FROM t0
+)
+= t0.c0
+)
+);
+c0
+-1945919442
+-543970881
+-64596961
+1230052719
+1936
+1983
+321108437
+329053785
+NULL
+NULL
+NULL
+NULL
+NULL
+DROP TABLE t0;
+# Bug#33755139: prepare stmt query return error record
+CREATE TABLE t1(a INTEGER, b INTEGER);
+INSERT INTO t1 VALUES(1, NULL);
+CREATE TABLE t2(c INTEGER, d INTEGER);
+INSERT INTO t2 VALUES(2, 2);
+SELECT a FROM t1 WHERE b =ALL (SELECT d FROM t2 WHERE c = 1);
+a
+1
+SELECT a FROM t1 WHERE b =ALL (SELECT d FROM t2 WHERE c = 2);
+a
+prepare ps FROM "
+SELECT a FROM t1 WHERE b =ALL (SELECT d FROM t2 WHERE c = ?)";
+SET @v = 1;
+execute ps using @v;
+a
+1
+SET @v = 2;
+execute ps using @v;
+a
+deallocate prepare ps;
+DROP TABLE t1, t2;
+#
+# Bug#34060289 optimizer rewrites view and turns left joins into inner joins
+#
+CREATE TABLE vt1 (c1 INT);
+CREATE TABLE vt2 (c1 INT);
+CREATE TABLE vt3 (c1 INT NOT NULL AUTO_INCREMENT, c2 INT,
+c3 INT, c4 INT, c5 INT, PRIMARY KEY (c1));
+INSERT INTO vt3 (c2,c3) VALUES (1,1);
+CREATE TABLE vt4 (c1 INT);
+INSERT INTO vt4 (c1) VALUES (1);
+CREATE VIEW v1 AS
+SELECT vt3.c2 AS vc1, vt3.c3 AS vc2, vt4.c1 AS vc3
+FROM (((vt3 LEFT JOIN vt1 ON vt1.c1 = vt3.c5)
+LEFT JOIN vt2 ON vt3.c4= vt2.c1) JOIN vt4);
+CREATE TABLE t1 (c1 INT, c2 CHAR(2));
+INSERT INTO t1 VALUES (1, '01');
+CREATE TABLE t2 (c2 INT, c3 INT);
+INSERT INTO t2 VALUES (1, null);
+SET optimizer_switch="derived_merge=off";
+SELECT *
+FROM v1
+WHERE (v1.vc3 IN (SELECT c1 FROM t1 WHERE c2='01'))
+AND (null IS null OR v1.vc1 IN (SELECT c2 FROM t2 WHERE c3=null))
+AND (null IS null OR v1.vc2 IN (null));
+vc1	vc2	vc3
+1	1	1
+SET optimizer_switch="derived_merge=on";
+SELECT *
+FROM v1
+WHERE (v1.vc3 IN (SELECT c1 FROM t1 WHERE c2='01'))
+AND (null IS null OR v1.vc1 IN (SELECT c2 FROM t2 WHERE c3=null))
+AND (null IS null OR v1.vc2 IN (null));
+vc1	vc2	vc3
+1	1	1
+SELECT *
+FROM v1
+WHERE (vc3 IN (SELECT c1 FROM t1 WHERE c2='01'))
+AND (null IS null OR v1.vc1 IN (SELECT c2 FROM t2 WHERE c3=null));
+vc1	vc2	vc3
+1	1	1
+DROP VIEW v1;
+DROP TABLE vt1, vt2, vt3, vt4, t1, t2;

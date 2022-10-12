@@ -147,7 +147,9 @@ a	b	c
 a	c	c
 explain select * from t1 where 'a' in (a,b,c collate latin1_bin);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where ('a' in (`test`.`t1`.`a`,`test`.`t1`.`b`,(`test`.`t1`.`c` collate latin1_bin)))
 drop table t1;
@@ -249,7 +251,9 @@ insert into t2 select C.a*2+1, 'yes' from t1 C;
 explain 
 select * from t2 where a NOT IN (0, 2,4,6,8,10,12,14,16,18);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	5	NULL	12	100.00	Using where
+1	SIMPLE	t2	NULL	range	a	a	5	NULL	11	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`a` not in (0,2,4,6,8,10,12,14,16,18))
 select * from t2 where a NOT IN (0, 2,4,6,8,10,12,14,16,18);
@@ -266,12 +270,16 @@ a	filler
 9	yes
 explain select * from t2 force index(a) where a NOT IN (2,2,2,2,2,2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	5	NULL	912	100.00	Using where
+1	SIMPLE	t2	NULL	range	a	a	5	NULL	910	100.00	Parallel scan (3 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	910	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	910	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` FORCE INDEX (`a`) where (`test`.`t2`.`a` not in (2,2,2,2,2,2))
 explain select * from t2 force index(a) where a <> 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	5	NULL	912	100.00	Using where
+1	SIMPLE	t2	NULL	range	a	a	5	NULL	910	100.00	Parallel scan (3 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	910	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	910	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` FORCE INDEX (`a`) where (`test`.`t2`.`a` <> 2)
 drop table t2;
@@ -285,7 +293,9 @@ select * from t2 where a NOT IN (
 '2006-04-25 10:00:00','2006-04-25 10:02:00','2006-04-25 10:04:00', 
 '2006-04-25 10:06:00', '2006-04-25 10:08:00');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	6	NULL	12	100.00	Using where
+1	SIMPLE	t2	NULL	range	a	a	6	NULL	11	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	11	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`a` not in ('2006-04-25 10:00:00','2006-04-25 10:02:00','2006-04-25 10:04:00','2006-04-25 10:06:00','2006-04-25 10:08:00'))
 select * from t2 where a NOT IN (
@@ -311,7 +321,9 @@ insert into t2 values ('fon', '1'), ('fop','1'), ('barbaq','1'),
 ('barbas','1'), ('bazbazbay', '1'),('zz','1');
 explain select * from t2 where a not in('foo','barbar', 'bazbazbaz');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	13	NULL	7	100.00	Using where
+1	SIMPLE	t2	NULL	range	a	a	13	NULL	6	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	13	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	13	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`a` not in ('foo','barbar','bazbazbaz'))
 drop table t2;
@@ -324,7 +336,9 @@ insert into t2 values (0, '1'), (22334.123,'1'), (33333,'1'),
 explain
 select * from t2 where a not in (345.67890, 43245.34, 64224.56344);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	a	a	7	NULL	7	100.00	Using where
+1	SIMPLE	t2	NULL	range	a	a	7	NULL	5	100.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`a` not in (345.67890,43245.34,64224.56344))
 select * from t2 where a not in (345.67890, 43245.34, 64224.56344);
@@ -344,6 +358,14 @@ select @str:=concat(@str, @cnt:=@cnt+1, ",")
 from t1 A, t1 B, t1 C, t1 D) Z;
 count(*)
 10000
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
@@ -397,9 +419,11 @@ JOIN t1 ON t3.a=t1.a
 JOIN t2 ON t3.a=t2.a
 JOIN t4 WHERE t4.a IN (t1.b, t2.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Using index
+1	SIMPLE	t3	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Parallel scan (4 workers); Using index
 1	SIMPLE	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	NULL
 1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	NULL
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 1	SIMPLE	t4	NULL	ALL	PRIMARY	NULL	NULL	NULL	7	28.57	Range checked for each record (index map: 0x1)
 Warnings:
 Note	1003	/* select#1 */ select straight_join `test`.`t3`.`a` AS `a`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t4`.`a` AS `a`,`test`.`t4`.`b` AS `b` from `test`.`t3` join `test`.`t1` join `test`.`t2` join `test`.`t4` where ((`test`.`t1`.`a` = `test`.`t3`.`a`) and (`test`.`t2`.`a` = `test`.`t3`.`a`) and (`test`.`t4`.`a` in (`test`.`t1`.`b`,`test`.`t2`.`b`)))
@@ -417,9 +441,11 @@ EXPLAIN SELECT STRAIGHT_JOIN
 FROM t3, t1, t2
 WHERE t3.a=t1.a AND t3.a=t2.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t3	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Using index
+1	PRIMARY	t3	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Parallel scan (4 workers); Using index
 1	PRIMARY	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	NULL
 1	PRIMARY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t4	NULL	index	NULL	PRIMARY	4	NULL	7	28.57	Using where; Using index
 Warnings:
 Note	1276	Field or reference 'test.t1.b' of SELECT #2 was resolved in SELECT #1
@@ -504,6 +530,10 @@ HEX(a)
 7FFFFFFFFFFFFFFE
 7FFFFFFFFFFFFFFF
 Warning	1292	Truncated incorrect DOUBLE value: 'abc'
+Warning	1292	Truncated incorrect DOUBLE value: 'abc'
+Warning	1292	Truncated incorrect DOUBLE value: 'abc'
+Warning	1292	Truncated incorrect DOUBLE value: 'abc'
+Warning	1292	Truncated incorrect DOUBLE value: 'abc'
 Warnings:
 CREATE TABLE t3 (a BIGINT UNSIGNED);
 INSERT INTO t3 VALUES (9223372036854775551);
@@ -515,6 +545,8 @@ SELECT * FROM t4 WHERE a IN ('1972-02-06','19772-07-29');
 a
 1972-02-06
 Warning	1292	Incorrect date value: '19772-07-29' for column 'a' at row 1
+Warning	1292	Incorrect date value: '19772-07-29' for column 'a' at row 1
+Warning	1292	Incorrect date value: '19772-07-29' for column 'a' at row 1
 Warnings:
 DROP TABLE t1,t2,t3,t4;
 CREATE TABLE t1 (id int not null);
@@ -522,11 +554,15 @@ INSERT INTO t1 VALUES (1),(2);
 SELECT id FROM t1 WHERE id IN(4564, (SELECT IF(1=0,1,1/0)) );
 id
 Warning	1365	Division by 0
+Warning	1365	Division by 0
 Warnings:
 DROP TABLE t1;
 End of 5.0 tests
 create table t1(f1 char(1));
 insert into t1 values ('a'),('b'),('1');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 select f1 from t1 where f1 in ('a',1);
 f1
 1
@@ -549,7 +585,9 @@ Warnings:
 a
 explain select f1 from t1 where f1 in ('a',1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	t1f1_idx	t1f1_idx	2	NULL	3	50.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	t1f1_idx	t1f1_idx	2	NULL	3	50.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	2	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	2	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1739	Cannot use range access on index 't1f1_idx' due to type or collation conversion on field 'f1'
 Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (`test`.`t1`.`f1` in ('a',1))
@@ -559,7 +597,9 @@ a
 b
 explain select f1 from t1 where f1 in ('a','b');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	t1f1_idx	t1f1_idx	2	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	range	t1f1_idx	t1f1_idx	2	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	2	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	2	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (`test`.`t1`.`f1` in ('a','b'))
 select f1 from t1 where f1 in (2,1);
@@ -570,7 +610,9 @@ Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warnings:
 explain select f1 from t1 where f1 in (2,1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	t1f1_idx	t1f1_idx	2	NULL	3	50.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	t1f1_idx	t1f1_idx	2	NULL	3	50.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	2	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	2	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1739	Cannot use range access on index 't1f1_idx' due to type or collation conversion on field 'f1'
 Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (`test`.`t1`.`f1` in (2,1))
@@ -585,18 +627,26 @@ Warning	1292	Truncated incorrect DOUBLE value: 'a'
 Warnings:
 explain select f2 from t2 where f2 in ('a',2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	t2f2	t2f2	5	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	range	t2f2	t2f2	5	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`f2` AS `f2` from `test`.`t2` where (`test`.`t2`.`f2` in ('a',2))
 select f2 from t2 where f2 in ('a','b');
 f2
 0
 Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'b'
+Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warnings:
 explain select f2 from t2 where f2 in ('a','b');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	t2f2	t2f2	5	NULL	1	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	range	t2f2	t2f2	5	NULL	1	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: 'a'
 Warning	1292	Truncated incorrect DOUBLE value: 'b'
@@ -609,7 +659,9 @@ Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warnings:
 explain select f2 from t2 where f2 in (1,'b');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	t2f2	t2f2	5	NULL	2	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	range	t2f2	t2f2	5	NULL	2	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`f2` AS `f2` from `test`.`t2` where (`test`.`t2`.`f2` in (1,'b'))
 drop table t1, t2;

@@ -972,8 +972,8 @@ set optimizer_switch = 'skip_scan=off';
 EXPLAIN SELECT count(a), count(b), count(c)  FROM t WHERE a = 5 AND c > 10 AND d < 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	ref	PRIMARY	PRIMARY	4	const	250	11.11	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(`test`.`t`.`a`) AS `count(a)`,count(`test`.`t`.`b`) AS `count(b)`,count(`test`.`t`.`c`) AS `count(c)` from `test`.`t` where ((`test`.`t`.`a` = 5) and (`test`.`t`.`c` > 10) and (`test`.`t`.`d` < 3))
 FLUSH STATUS;
@@ -1026,8 +1026,8 @@ set optimizer_switch = 'skip_scan=off';
 EXPLAIN SELECT min(a), max(b), min(c)  FROM t WHERE a = 5 AND c > 10 AND d < 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	ref	PRIMARY	PRIMARY	4	const	250	11.11	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t`.`a`) AS `min(a)`,max(`test`.`t`.`b`) AS `max(b)`,min(`test`.`t`.`c`) AS `min(c)` from `test`.`t` where ((`test`.`t`.`a` = 5) and (`test`.`t`.`c` > 10) and (`test`.`t`.`d` < 3))
 FLUSH STATUS;
@@ -1080,8 +1080,8 @@ set optimizer_switch = 'skip_scan=off';
 EXPLAIN SELECT sum(a), sum(b), sum(c)  FROM t WHERE a = 5 AND c > 10 AND d < 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	ref	PRIMARY	PRIMARY	4	const	250	11.11	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t`.`a`) AS `sum(a)`,sum(`test`.`t`.`b`) AS `sum(b)`,sum(`test`.`t`.`c`) AS `sum(c)` from `test`.`t` where ((`test`.`t`.`a` = 5) and (`test`.`t`.`c` > 10) and (`test`.`t`.`d` < 3))
 FLUSH STATUS;
@@ -1134,8 +1134,8 @@ set optimizer_switch = 'skip_scan=off';
 EXPLAIN SELECT count(*) FROM t WHERE d < 2;;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	index	NULL	b	8	NULL	2500	33.33	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t` where (`test`.`t`.`d` < 2)
 FLUSH STATUS;

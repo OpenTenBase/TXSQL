@@ -49,7 +49,7 @@ Warnings:
 Note	1003	/* select#1 */ select inet_aton('122.256') AS `inet_aton("122.256")`,inet_aton('122.226.') AS `inet_aton("122.226.")`,inet_aton('') AS `inet_aton("")`
 select length(uuid()), charset(uuid()), length(unhex(replace(uuid(),_utf8'-',_utf8'')));
 length(uuid())	charset(uuid())	length(unhex(replace(uuid(),_utf8'-',_utf8'')))
-36	utf8	16
+36	utf8mb3	16
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
@@ -97,7 +97,7 @@ create table t1 as select uuid(), length(uuid());
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `uuid()` varchar(36) CHARACTER SET utf8 NOT NULL DEFAULT '',
+  `uuid()` varchar(36) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
   `length(uuid())` int NOT NULL DEFAULT '0'
 ) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
@@ -711,11 +711,13 @@ Warnings:
 SELECT INET6_NTOA('1234'), INET6_NTOA(BINARY('1234'));
 INET6_NTOA('1234')	INET6_NTOA(BINARY('1234'))
 NULL	49.50.51.52
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1411	Incorrect string value: ''1234'' for function inet6_ntoa
 Warnings:
 SELECT INET6_NTOA('0123456789abcdef'), INET6_NTOA(BINARY('0123456789abcdef'));
 INET6_NTOA('0123456789abcdef')	INET6_NTOA(BINARY('0123456789abcdef'))
 NULL	3031:3233:3435:3637:3839:6162:6364:6566
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1411	Incorrect string value: ''0123456789abcdef'' for function inet6_ntoa
 Warnings:
 
@@ -904,7 +906,7 @@ x
 
 SELECT IS_IPV4(NULL);
 IS_IPV4(NULL)
-0
+NULL
 SELECT IS_IPV4(1);
 IS_IPV4(1)
 0
@@ -926,9 +928,11 @@ IS_IPV4('::1')
 SELECT IS_IPV4(BINARY('1.2.3.4'));
 IS_IPV4(BINARY('1.2.3.4'))
 1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 SELECT IS_IPV6(NULL);
 IS_IPV6(NULL)
-0
+NULL
 SELECT IS_IPV6(1);
 IS_IPV6(1)
 0
@@ -956,6 +960,8 @@ IS_IPV6('0000:0000:0000:0000:0000:0000:0000:0001')
 SELECT IS_IPV6(BINARY('0000:0000:0000:0000:0000:0000:0000:0001'));
 IS_IPV6(BINARY('0000:0000:0000:0000:0000:0000:0000:0001'))
 1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 
 # -- Checking IS_IPV4_MAPPED() and IS_IPV4_COMPAT()...
 
@@ -1131,7 +1137,7 @@ CREATE TABLE t1 AS SELECT CONCAT(NAME_CONST('char_col',_cp932'test' COLLATE 'cp9
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(5) CHARACTER SET cp932 DEFAULT NULL
+  `a` varchar(6) CHARACTER SET cp932 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE t1;
 # Bug#28892294: Segmentation fault at get_time_value()
@@ -1153,6 +1159,13 @@ EXECUTE st;
 pk	col_time	col_varchar
 DEALLOCATE PREPARE st;
 DROP TABLE t1;
+#
+# Bug #32231620 JSON_WRAPPER::COMPARE CONST:
+#               ASSERTION `THIS_TYPE != ENUM_JSON_TYPE::J_ERROR' FAILED.
+do (is_ipv4_mapped(bin_to_uuid(@a:=34)))
+<=>
+(json_objectagg('key2',42 ) and rtrim(""));
+ERROR HY000: Incorrect string value: '34' for function bin_to_uuid
 #
 # End of tests
 #

@@ -244,7 +244,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA1' from utf8mb4 to utf8
+Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA1' from utf8mb4 to utf8mb3
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` < '?')
 EXPLAIN SELECT * FROM tbl_varchar WHERE "🍡" > col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -252,7 +252,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA1' from utf8mb4 to utf8
+Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA1' from utf8mb4 to utf8mb3
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where ('?' > `test`.`tbl_varchar`.`col1`)
 # Expect "80.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_varchar WHERE col1 < "sierra";
@@ -383,7 +383,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8
+Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8mb3
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` in ('ag','ef','?'))
 # Expect "50.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_varchar WHERE col1 NOT IN ("ag", "ef", "🍣");
@@ -392,7 +392,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8
+Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8mb3
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` not in ('ag','ef','?'))
 DROP TABLE tbl_varchar;
 #

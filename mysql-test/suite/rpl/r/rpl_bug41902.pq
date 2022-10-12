@@ -7,7 +7,7 @@ include/sync_slave_sql_with_master.inc
 stop slave;
 Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
-SET @@debug="d,simulate_find_log_pos_error";
+# Adding debug point 'simulate_find_log_pos_error' to @@GLOBAL.debug
 reset slave;
 ERROR HY000: Target log not found in binlog index
 show warnings;
@@ -15,29 +15,29 @@ Level	Code	Message
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
 Error	1373	Target log not found in binlog index
 Error	1371	Failed purging old relay logs: Failed during log reset
-SET @@debug="";
+# Removing debug point 'simulate_find_log_pos_error' from @@GLOBAL.debug
 reset slave;
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-change master to master_host='dummy';
-SET @@debug="d,simulate_find_log_pos_error";
-change master to master_host='dummy';
+CHANGE REPLICATION SOURCE to SOURCE_HOST='dummy';
+# Adding debug point 'simulate_find_log_pos_error' to @@GLOBAL.debug
+CHANGE REPLICATION SOURCE to SOURCE_HOST='dummy';
 ERROR HY000: Target log not found in binlog index
-SET @@debug="";
+# Removing debug point 'simulate_find_log_pos_error' from @@GLOBAL.debug
 reset slave;
 Warnings:
 Warning	1287	'RESET SLAVE' is deprecated and will be removed in a future release. Please use RESET REPLICA instead
-change master to master_host='dummy';
-SET @@debug="d,simulate_find_log_pos_error";
+CHANGE REPLICATION SOURCE to SOURCE_HOST='dummy';
+# Adding debug point 'simulate_find_log_pos_error' to @@GLOBAL.debug
 reset master;
 ERROR HY000: Target log not found in binlog index
-SET @@debug="";
+# Removing debug point 'simulate_find_log_pos_error' from @@GLOBAL.debug
 reset master;
-SET @@debug="d,simulate_find_log_pos_error";
+# Adding debug point 'simulate_find_log_pos_error' to @@GLOBAL.debug
 purge binary logs to 'master-bin.000001';
 ERROR HY000: Target log not found in binlog index
-SET @@debug="";
+# Removing debug point 'simulate_find_log_pos_error' from @@GLOBAL.debug
 purge binary logs to 'master-bin.000001';
 ==== clean up ====
-CHANGE MASTER TO MASTER_HOST = '127.0.0.1';
+CHANGE REPLICATION SOURCE TO SOURCE_HOST = '127.0.0.1';
 include/rpl_end.inc

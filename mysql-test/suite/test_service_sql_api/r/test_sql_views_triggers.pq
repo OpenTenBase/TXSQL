@@ -43,8 +43,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -75,8 +75,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -122,18 +122,18 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][v1.c1][  1][1]
 		[data][v1.c2][  3][aaa]
 
-		[data][v1.c1][  1][2]
-		[data][v1.c2][  3][bbb]
-
 		[data][v1.c1][  1][3]
 		[data][v1.c2][  3][ccc]
+
+		[data][v1.c1][  1][2]
+		[data][v1.c2][  3][bbb]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -172,8 +172,8 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][v1.c1][  1][1]
@@ -213,8 +213,8 @@ EXECUTING:[102][SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][VIEWS.VIEW_DEFINITION][ 73][select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2` from `test`.`t1`]
@@ -245,8 +245,8 @@ EXECUTING:[102][SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][VIEWS.VIEW_DEFINITION][ 73][select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2` from `test`.`t1`]
@@ -338,8 +338,8 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][v1.c1][  1][1]
@@ -388,8 +388,8 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][v1.c1][  1][1]
@@ -465,8 +465,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -509,8 +509,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -544,8 +544,8 @@ EXECUTING:[108][SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGG
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][TRIGGERS.TRIGGER_NAME][  4][trig]
@@ -576,8 +576,8 @@ EXECUTING:[108][SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGG
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][TRIGGERS.TRIGGER_NAME][  4][trig]
@@ -692,8 +692,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -739,8 +739,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -783,8 +783,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -815,8 +815,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -862,8 +862,8 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][v1.c1][  1][1]
@@ -912,18 +912,18 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
+
+		[data][v1.c1][  1][3]
+		[data][v1.c2][  3][ccc]
 
 		[data][v1.c1][  1][1]
 		[data][v1.c2][  5][abcde]
 
 		[data][v1.c1][  1][2]
 		[data][v1.c2][  3][bbb]
-
-		[data][v1.c1][  1][3]
-		[data][v1.c2][  3][ccc]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -953,8 +953,8 @@ EXECUTING:[102][SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][VIEWS.VIEW_DEFINITION][ 73][select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2` from `test`.`t1`]
@@ -985,8 +985,8 @@ EXECUTING:[102][SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][VIEWS.VIEW_DEFINITION][ 73][select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2` from `test`.`t1`]
@@ -1078,15 +1078,15 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
-
-		[data][v1.c1][  1][1]
-		[data][v1.c2][  5][abcde]
 
 		[data][v1.c1][  1][2]
 		[data][v1.c2][  3][bbb]
+
+		[data][v1.c1][  1][1]
+		[data][v1.c2][  5][abcde]
 
 		[data][v1.c1][  1][3]
 		[data][v1.c2][  3][ccc]
@@ -1128,18 +1128,18 @@ EXECUTING:[16][SELECT * FROM v1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][v1.c1][  1][1]
 		[data][v1.c2][  5][abcde]
 
-		[data][v1.c1][  1][3]
-		[data][v1.c2][  3][ccc]
-
 		[data][v1.c1][  1][2]
 		[data][v1.c2][  3][bbb]
+
+		[data][v1.c1][  1][3]
+		[data][v1.c2][  3][ccc]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1205,8 +1205,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -1255,8 +1255,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -1296,8 +1296,8 @@ EXECUTING:[108][SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGG
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][TRIGGERS.TRIGGER_NAME][  4][trig]
@@ -1328,8 +1328,8 @@ EXECUTING:[108][SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGG
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][TRIGGERS.TRIGGER_NAME][  4][trig]
@@ -1444,8 +1444,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]
@@ -1497,8 +1497,8 @@ EXECUTING:[16][SELECT * FROM t2]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t2.c1][  1][1]

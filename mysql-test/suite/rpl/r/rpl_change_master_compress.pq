@@ -5,8 +5,10 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 [connection slave]
 # Success criteria: should produce an error
-CHANGE MASTER TO
-MASTER_COMPRESSION_ALGORITHMS='aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeee
+CHANGE REPLICATION SOURCE TO
+SOURCE_COMPRESSION_ALGORITHMS='aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeee
 eeeffffffffffgggggggggghhhhhhhhhhhiiiiiiiiiijjjjjjjjjjkkkkkkkkkk';
-ERROR HY000: Value too long setting MASTER_COMPRESSION_ALGORITHMS option to a 112 chars long string for channel ''.
+ERROR HY000: Value too long setting SOURCE_COMPRESSION_ALGORITHMS option to a 112 chars long string for channel ''.
+include/start_slave.inc
+include/rpl_end.inc
 # End of 8.0 tests

@@ -27,6 +27,10 @@ select 'a  a' > 'a', 'a  \0' < 'a';
 select binary 'a  a' > 'a', binary 'a  \0' > 'a', binary 'a\0' > 'a';
 binary 'a  a' > 'a'	binary 'a  \0' > 'a'	binary 'a\0' > 'a'
 1	1	1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 select hex(_utf16 0x44);
 hex(_utf16 0x44)
 0044
@@ -274,6 +278,12 @@ a
 фывапролДж
 фывапролдЖ
 фывапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT * FROM t1 WHERE a LIKE '%фЫв%' ORDER BY BINARY a;
 a
 ФЫВА
@@ -294,6 +304,12 @@ a
 фывапролДж
 фывапролдЖ
 фывапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT * FROM t1 WHERE a LIKE 'фЫва%' ORDER BY BINARY a;
 a
 ФЫВА
@@ -314,10 +330,22 @@ a
 фывапролДж
 фывапролдЖ
 фывапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT * FROM t1 WHERE a LIKE 'фЫва%' COLLATE utf16_bin ORDER BY BINARY a;
 a
 фЫва
 фЫвапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 CREATE TABLE t1 (word varchar(64) NOT NULL, PRIMARY KEY (word))
 CHARACTER SET utf16;
@@ -728,10 +756,14 @@ select * from t1 where a='a' order by binary a;
 a
 A
 a
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select hex(min(binary a)),count(*) from t1 group by a;
 hex(min(binary a))	count(*)
 0041	2
 0042	2
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 drop table t1;
 select char_length('abcd'), octet_length('abcd');
 char_length('abcd')	octet_length('abcd')
@@ -775,6 +807,8 @@ DBFFDCFF
 drop table t1;
 SET sql_mode = '';
 create table t1 (s1 varchar(50) character set ucs2);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 insert into t1 values (0xdf84);
 alter table t1 modify column s1 varchar(50) character set utf16;
 Warnings:
@@ -785,6 +819,8 @@ hex(s1)
 drop table t1;
 SET sql_mode = default;
 create table t1 (s1 varchar(5) character set ucs2, s2 varchar(5) character set utf16);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 insert into t1 (s1) values (0xdf84);
 update ignore t1 set s2 = s1;
 Warnings:

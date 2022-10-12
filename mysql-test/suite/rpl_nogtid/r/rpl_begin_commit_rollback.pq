@@ -4,6 +4,7 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
 call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
 SET @@session.binlog_direct_non_transactional_updates= FALSE;
 CREATE DATABASE replicate_do_db;
@@ -49,7 +50,7 @@ s
 after call replicate_do_db.p1()
 before call replicate_do_db.p1()
 [connection slave]
-START SLAVE UNTIL MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=MASTER_POS;
+START SLAVE UNTIL SOURCE_LOG_FILE='master-bin.000001', SOURCE_LOG_POS=MASTER_POS;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 include/wait_for_slave_sql_to_stop.inc
@@ -87,7 +88,7 @@ before call replicate_do_db.p1()
 before call replicate_do_db.p2()
 executed replicate_do_db.p2()
 [connection slave]
-START SLAVE UNTIL MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=MASTER_POS;
+START SLAVE UNTIL SOURCE_LOG_FILE='master-bin.000001', SOURCE_LOG_POS=MASTER_POS;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 include/wait_for_slave_sql_to_stop.inc

@@ -170,14 +170,15 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 OR a>10 OR a IN (1)	{
                       {
                         "index": "a",
                         "ranges": [
-                          "1 <= a <= 1",
-                          "5 <= a <= 5",
+                          "a = 1",
+                          "a = 5",
                           "10 < a"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 5,
                         "cost": 0.761949,
                         "chosen": true
@@ -194,8 +195,8 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 OR a>10 OR a IN (1)	{
                       "index": "a",
                       "rows": 5,
                       "ranges": [
-                        "1 <= a <= 1",
-                        "5 <= a <= 5",
+                        "a = 1",
+                        "a = 5",
                         "10 < a"
                       ] /* ranges */
                     } /* range_access_plan */,
@@ -392,15 +393,16 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 OR a>10 OR a IN (1,2)	{
                       {
                         "index": "a",
                         "ranges": [
-                          "1 <= a <= 1",
-                          "2 <= a <= 2",
-                          "5 <= a <= 5",
+                          "a = 1",
+                          "a = 2",
+                          "a = 5",
                           "10 < a"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": false,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 4,
                         "cost": 0.661462,
                         "chosen": true
@@ -417,9 +419,9 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 OR a>10 OR a IN (1,2)	{
                       "index": "a",
                       "rows": 4,
                       "ranges": [
-                        "1 <= a <= 1",
-                        "2 <= a <= 2",
-                        "5 <= a <= 5",
+                        "a = 1",
+                        "a = 2",
+                        "a = 5",
                         "10 < a"
                       ] /* ranges */
                     } /* range_access_plan */,
@@ -620,14 +622,15 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 AND (b=2 OR b=3 OR b=4)	{
                       {
                         "index": "a",
                         "ranges": [
-                          "5 <= a <= 5 AND 2 <= b <= 2",
-                          "5 <= a <= 5 AND 3 <= b <= 3",
-                          "5 <= a <= 5 AND 4 <= b <= 4"
+                          "a = 5 AND b = 2",
+                          "a = 5 AND b = 3",
+                          "a = 5 AND b = 4"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": false,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 3,
                         "cost": 0.560975,
                         "chosen": true
@@ -644,9 +647,9 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 AND (b=2 OR b=3 OR b=4)	{
                       "index": "a",
                       "rows": 3,
                       "ranges": [
-                        "5 <= a <= 5 AND 2 <= b <= 2",
-                        "5 <= a <= 5 AND 3 <= b <= 3",
-                        "5 <= a <= 5 AND 4 <= b <= 4"
+                        "a = 5 AND b = 2",
+                        "a = 5 AND b = 3",
+                        "a = 5 AND b = 4"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 3,
@@ -852,14 +855,15 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 AND (b=2 OR b=3 OR b>4)	{
                       {
                         "index": "a",
                         "ranges": [
-                          "5 <= a <= 5 AND 2 <= b <= 2",
-                          "5 <= a <= 5 AND 3 <= b <= 3",
-                          "5 <= a <= 5 AND 4 < b"
+                          "a = 5 AND b = 2",
+                          "a = 5 AND b = 3",
+                          "a = 5 AND 4 < b"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 3,
                         "cost": 0.560975,
                         "chosen": true
@@ -876,9 +880,9 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 AND (b=2 OR b=3 OR b>4)	{
                       "index": "a",
                       "rows": 3,
                       "ranges": [
-                        "5 <= a <= 5 AND 2 <= b <= 2",
-                        "5 <= a <= 5 AND 3 <= b <= 3",
-                        "5 <= a <= 5 AND 4 < b"
+                        "a = 5 AND b = 2",
+                        "a = 5 AND b = 3",
+                        "a = 5 AND 4 < b"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 3,
@@ -1083,14 +1087,15 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 AND (b=2 OR b=3 OR b IS NULL)	{
                       {
                         "index": "a",
                         "ranges": [
-                          "5 <= a <= 5 AND NULL <= b <= NULL",
-                          "5 <= a <= 5 AND 2 <= b <= 2",
-                          "5 <= a <= 5 AND 3 <= b <= 3"
+                          "a = 5 AND b = NULL",
+                          "a = 5 AND b = 2",
+                          "a = 5 AND b = 3"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 3,
                         "cost": 0.560975,
                         "chosen": true
@@ -1107,9 +1112,9 @@ EXPLAIN SELECT * FROM t1 WHERE a=5 AND (b=2 OR b=3 OR b IS NULL)	{
                       "index": "a",
                       "rows": 3,
                       "ranges": [
-                        "5 <= a <= 5 AND NULL <= b <= NULL",
-                        "5 <= a <= 5 AND 2 <= b <= 2",
-                        "5 <= a <= 5 AND 3 <= b <= 3"
+                        "a = 5 AND b = NULL",
+                        "a = 5 AND b = 2",
+                        "a = 5 AND b = 3"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 3,
@@ -1314,6 +1319,7 @@ EXPLAIN SELECT * FROM t1 WHERE a>5 AND (b=2 OR b=3 OR b=4)	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 1,
                         "cost": 0.36,
                         "chosen": true
@@ -1530,12 +1536,13 @@ EXPLAIN SELECT * FROM t1 WHERE a=5	{
                       {
                         "index": "a",
                         "ranges": [
-                          "5 <= a <= 5"
+                          "a = 5"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 3,
                         "cost": 0.560975,
                         "chosen": true
@@ -1552,7 +1559,7 @@ EXPLAIN SELECT * FROM t1 WHERE a=5	{
                       "index": "a",
                       "rows": 3,
                       "ranges": [
-                        "5 <= a <= 5"
+                        "a = 5"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 3,

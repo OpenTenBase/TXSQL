@@ -50,6 +50,8 @@ bool check_xchg_unsafe_sum_funcs(JOIN *join);
 
 bool check_px_unsafe_projector(JOIN *join);
 
+bool check_px_unsafe_items(Ref_item_array *items, size_t fields_count);
+
 bool check_px_unsafe_group(List<Cached_item> &group_field);
 
 bool check_px_unsafe_order(JOIN *join, ORDER *order, uint ref_slice);

@@ -33,8 +33,8 @@ Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t_myisam` jo
 EXPLAIN SELECT MIN(c2), COUNT(*), MAX(c1) FROM t_innodb;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t_innodb	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t_innodb`.`c2`) AS `MIN(c2)`,count(0) AS `COUNT(*)`,max(`test`.`t_innodb`.`c1`) AS `MAX(c1)` from `test`.`t_innodb`
 EXPLAIN SELECT MIN(c3), COUNT(*) FROM t_innodb;
@@ -552,7 +552,7 @@ EXPLAIN
 EXPLAIN FORMAT=tree SELECT COUNT(*) c FROM t_myisam HAVING c > 7;
 EXPLAIN
 -> Filter: (c > 7)
-    -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Rows fetched before execution
 
 SELECT COUNT(*) c FROM t_innodb LIMIT 10 OFFSET 5;
 c

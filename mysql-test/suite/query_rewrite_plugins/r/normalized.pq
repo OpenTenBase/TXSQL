@@ -10,7 +10,7 @@ VALUES ('SELECT /*+ NO_MRR(t1 idx1) */ * FROM test.t1',
 CALL query_rewrite.flush_rewrite_rules();
 SELECT normalized_pattern FROM query_rewrite.rewrite_rules;
 normalized_pattern
-select /*+ NO_MRR(`t1`@`select#1` `idx1`) */ * from `test`.`t1`
+select /*+ NO_MRR(`t1`@`select#1` `idx1`) */ `*` from `test`.`t1`
 DELETE FROM query_rewrite.rewrite_rules;
 DROP TABLE t1;
 Warnings:

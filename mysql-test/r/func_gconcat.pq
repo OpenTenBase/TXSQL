@@ -13,7 +13,7 @@ select grp,group_concat(c) from t1 group by grp;
 grp	group_concat(c)
 1	a
 2	b,c
-3	D,d,E,C,D,d
+3	d,E,D,D,C,d
 explain select grp,group_concat(c) from t1 group by grp;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Parallel scan (4 workers); Using filesort
@@ -24,13 +24,13 @@ Note	1003	/* select#1 */ select `test`.`t1`.`grp` AS `grp`,group_concat(`test`.`
 select grp,group_concat(a,c) from t1 group by grp;
 grp	group_concat(a,c)
 1	1a
-2	2b,3c
-3	6D,7d,4E,8d,5C,9D
+2	3c,2b
+3	5C,8d,9D,6D,4E,7d
 select grp,group_concat("(",a,":",c,")") from t1 group by grp;
 grp	group_concat("(",a,":",c,")")
 1	(1:a)
 2	(2:b),(3:c)
-3	(5:C),(6:D),(8:d),(4:E),(7:d),(9:D)
+3	(5:C),(7:d),(4:E),(9:D),(6:D),(8:d)
 select grp,group_concat(null) from t1 group by grp;
 grp	group_concat(null)
 1	NULL
@@ -51,17 +51,17 @@ select grp,group_concat(c separator ",") from t1 group by grp;
 grp	group_concat(c separator ",")
 1	a
 2	c,b
-3	C,D,d,E,D,d
+3	D,E,d,D,C,d
 select grp,group_concat(c separator "---->") from t1 group by grp;
 grp	group_concat(c separator "---->")
 1	a
-2	b---->c
-3	d---->C---->D---->E---->D---->d
+2	c---->b
+3	D---->D---->E---->C---->d---->d
 select grp,group_concat(c order by c) from t1 group by grp;
 grp	group_concat(c order by c)
 1	a
 2	b,c
-3	C,d,D,D,d,E
+3	C,D,d,d,D,E
 select grp,group_concat(c order by c desc) from t1 group by grp;
 grp	group_concat(c order by c desc)
 1	a
@@ -91,7 +91,7 @@ select grp,group_concat(c order by 1) from t1 group by grp;
 grp	group_concat(c order by 1)
 1	a
 2	b,c
-3	C,D,d,d,D,E
+3	C,d,d,D,D,E
 select grp,group_concat(distinct c order by c) from t1 group by grp;
 grp	group_concat(distinct c order by c)
 1	a
@@ -101,7 +101,7 @@ select grp,group_concat(distinct c order by c desc) from t1 group by grp;
 grp	group_concat(distinct c order by c desc)
 1	a
 2	c,b
-3	E,d,C
+3	E,D,C
 explain select grp,group_concat(distinct c order by c desc) from t1 group by grp;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	9	100.00	Parallel scan (4 workers); Using filesort
@@ -113,12 +113,12 @@ select grp,group_concat(c order by c separator ",") from t1 group by grp;
 grp	group_concat(c order by c separator ",")
 1	a
 2	b,c
-3	C,d,D,D,d,E
+3	C,D,D,d,d,E
 select grp,group_concat(c order by c desc separator ",") from t1 group by grp;
 grp	group_concat(c order by c desc separator ",")
 1	a
 2	c,b
-3	E,D,d,D,d,C
+3	E,d,d,D,D,C
 select grp,group_concat(distinct c order by c separator ",") from t1 group by grp;
 grp	group_concat(distinct c order by c separator ",")
 1	a
@@ -135,27 +135,27 @@ select grp,group_concat(distinct c order by c desc separator ",") from t1 group 
 grp	group_concat(distinct c order by c desc separator ",")
 1	a
 2	c,b
-3	E,d,C
+3	E,D,C
 select grp,group_concat(c order by grp desc) from t1 group by grp order by grp;
 grp	group_concat(c order by grp desc)
 1	a
-2	b,c
-3	d,D,D,C,E,d
+2	c,b
+3	D,d,d,D,E,C
 select grp, group_concat(a separator "")+0 from t1 group by grp;
 grp	group_concat(a separator "")+0
 1	1
 2	23
-3	794685
+3	496758
 select grp, group_concat(a separator "")+0.0 from t1 group by grp;
 grp	group_concat(a separator "")+0.0
 1	1
-2	32
-3	657489
+2	23
+3	567498
 select grp, ROUND(group_concat(a separator "")) from t1 group by grp;
 grp	ROUND(group_concat(a separator ""))
 1	1
-2	32
-3	847596
+2	23
+3	964857
 drop table t1;
 create table t1 (grp int, c char(10));
 insert into t1 values (1,NULL),(2,"b"),(2,NULL),(3,"E"),(3,NULL),(3,"D"),(3,NULL),(3,NULL),(3,"D"),(4,""),(5,NULL);
@@ -210,7 +210,7 @@ create table t1 (id int, name varchar(16));
 insert into t1 values (1,'longername'),(1,'evenlongername');
 select ifnull(group_concat(concat(t1.id, ':', t1.name)), 'shortname') as 'without distinct: how it should be' from t1;
 without distinct: how it should be
-1:longername,1:evenlongername
+1:evenlongername,1:longername
 select distinct ifnull(group_concat(concat(t1.id, ':', t1.name)), 'shortname') as 'with distinct: cutoff at length of shortname' from t1;
 with distinct: cutoff at length of shortname
 1:longername,1:evenlongername
@@ -238,7 +238,7 @@ bar
 test1
 select bar from t1 having instr(group_concat(bar order by concat(bar,bar) desc), "test2,test1") > 0;
 bar
-test1
+test2
 drop table t1;
 create table t1 (a int, a1 varchar(10));
 create table t2 (a0 int);
@@ -293,17 +293,17 @@ insert into t1 values ('a',2),('b',2),('c',1),('a',3),('b',4),('c',4);
 select distinct s1 from t1 order by s2,s1;
 s1
 c
-b
 a
+b
 select group_concat(distinct s1) from t1;
 group_concat(distinct s1)
 a,b,c
 select group_concat(distinct s1 order by s2) from t1 where s2 < 4;
 group_concat(distinct s1 order by s2)
-c,a,b
+c,b,a
 select group_concat(distinct s1 order by s2) from t1;
 group_concat(distinct s1 order by s2)
-c,a,b
+c,b,a
 drop table t1;
 create table t1 (a int, c int);
 insert into t1 values (1, 2), (2, 3), (2, 4), (3, 5);
@@ -311,16 +311,16 @@ create table t2 (a int, c int);
 insert into t2 values (1, 5), (2, 4), (3, 3), (3,3);
 select group_concat(c) from t1;
 group_concat(c)
-2,5,3,4
+3,2,4,5
 select group_concat(c order by (select c from t2 where t2.a=t1.a limit 1)) as grp from t1;
 grp
-5,3,4,2
+5,4,3,2
 select group_concat(c order by (select mid(group_concat(c order by a),1,5) from t2 where t2.a=t1.a)) as grp from t1;
 grp
 5,4,3,2
 select group_concat(c order by (select mid(group_concat(c order by a),1,5) from t2 where t2.a=t1.a) desc) as grp from t1;
 grp
-2,4,3,5
+2,3,4,5
 select t1.a, group_concat(c order by (select c from t2 where t2.a=t1.a limit 1)) as grp from t1 group by 1;
 a	grp
 1	2
@@ -329,12 +329,12 @@ a	grp
 select t1.a, group_concat(c order by (select mid(group_concat(c order by a),1,5) from t2 where t2.a=t1.a)) as grp from t1 group by 1;
 a	grp
 1	2
-2	3,4
+2	4,3
 3	5
 select t1.a, group_concat(c order by (select mid(group_concat(c order by a),1,5) from t2 where t2.a=t1.a) desc) as grp from t1 group by 1;
 a	grp
 1	2
-2	4,3
+2	3,4
 3	5
 select group_concat(c order by (select concat(5-t1.c,group_concat(c order by a)) from t2 where t2.a=t1.a)) as grp from t1;
 grp
@@ -536,12 +536,12 @@ insert into t1(a,b) values (1,3), (1,4), (1,2), (2,7), (1,1), (1,2), (2,3), (2,3
 select d,a,b from t1 order by a;
 d	a	b
 1	1	3
-2	1	4
-6	1	2
 3	1	2
+6	1	2
 5	1	1
-7	2	3
+2	1	4
 4	2	7
+7	2	3
 8	2	3
 explain select a, group_concat(b) from t1 group by a with rollup;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -552,9 +552,9 @@ Warnings:
 Note	1003	/* select#1 */ select rollup_group_item(`test`.`t1`.`a`,0) AS `a`,rollup_sum_switcher(group_concat(`test`.`t1`.`b` separator ',')) AS `group_concat(b)` from `test`.`t1` group by `test`.`t1`.`a` with rollup
 select a, group_concat(b) from t1 group by a with rollup;
 a	group_concat(b)
-1	3,1,4,2,2
+1	3,1,2,2,4
 2	7,3,3
-NULL	3,1,4,2,2,7,3,3
+NULL	3,1,2,2,4,7,3,3
 select a, group_concat(distinct b) from t1 group by a with rollup;
 a	group_concat(distinct b)
 1	1,2,3,4
@@ -631,15 +631,15 @@ INSERT INTO t1 VALUES
 (2, ''), (1, ''), (2, 'x'), (1, 'y'), (3, 'z'), (3, '');
 SELECT GROUP_CONCAT(a) FROM t1;
 GROUP_CONCAT(a)
-,,z,y,,x
+y,,,x,,z
 SELECT GROUP_CONCAT(a ORDER BY a) FROM t1;
 GROUP_CONCAT(a ORDER BY a)
 ,,,x,y,z
 SELECT GROUP_CONCAT(a) FROM t1 GROUP BY id;
 GROUP_CONCAT(a)
-,y
 ,z
 x,
+y,
 SELECT GROUP_CONCAT(a ORDER BY a) FROM t1 GROUP BY id;
 GROUP_CONCAT(a ORDER BY a)
 ,y
@@ -712,7 +712,7 @@ SELECT GROUP_CONCAT(a), x
 FROM (SELECT a, GROUP_CONCAT(b) x FROM t1 GROUP BY a) AS s
 GROUP BY x;
 GROUP_CONCAT(a)	x
-1	2,3
+1	3,2
 2	2,1
 DROP TABLE t1;
 set names utf8;
@@ -808,7 +808,7 @@ SELECT GROUP_CONCAT( a ) FROM t1;
 GROUP_CONCAT( a )
 Warning	1260	Row 2 was cut by GROUP_CONCAT()
 Warnings:
-bbbbbbbbbb,aaaaaaaaa
+aaaaaaaaaa,bbbbbbbbb
 SELECT GROUP_CONCAT( DISTINCT a ) FROM t1;
 GROUP_CONCAT( DISTINCT a )
 Warning	1260	Row 2 was cut by GROUP_CONCAT()
@@ -1069,7 +1069,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
 2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
-2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using filesort
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select 1 AS `1` from (/* select#2 */ select group_concat(`test`.`t1`.`a` order by `test`.`t1`.`a` ASC separator ',') AS `GROUP_CONCAT(t1.a ORDER BY t1.a ASC)` from `test`.`t1` `t2` join `test`.`t1` group by `test`.`t1`.`a`) `d`
@@ -1276,15 +1276,110 @@ FROM t1 t;
 c
 Warning	1260	Row 5 was cut by GROUP_CONCAT()
 Warnings:
-abcdefghijk,124567890,pqrstuvwxyz,010011000111,010
+abcdefghijk,pqrstuvwxyz,010011000111,124567890,pqr
 SELECT GROUP_CONCAT(t.c) as c
 FROM t1 t
 UNION
 SELECT '' as c;
 c
 
-124567890,abcdefghijk,010011000111,pqrstuvwxyz,abc
 Warning	1260	Row 5 was cut by GROUP_CONCAT()
 Warnings:
+pqrstuvwxyz,124567890,abcdefghijk,010011000111,abc
 SET group_concat_max_len= DEFAULT;
 DROP TABLE t1, t2, t3;
+#
+# Bug #32118201 GET RID OF MY_ATOF
+#
+CREATE TABLE t2 (grp INT, a CHAR(2));
+INSERT INTO t2 VALUES (1,"a"), (2,"2"), (2,"4"), (3,"c");
+SELECT grp, GROUP_concat(a SEPARATOR "") + 1.0  FROM t2 GROUP BY grp;
+grp	GROUP_concat(a SEPARATOR "") + 1.0
+1	1
+2	43
+3	1
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warning	1292	Truncated incorrect DOUBLE value: 'c'
+Warnings:
+DROP TABLE t2;
+# Bug#32053547: Assertion `item->hidden == hidden' failed.
+#               group_concat with ORDER BY clause
+prepare s from 'DO GROUP_CONCAT((SELECT COUNT(1)) ORDER BY 1)';
+execute s;
+execute s;
+deallocate prepare s;
+# Bug#31947466: Assertion failure with GROUP_CONCAT(... ORDER BY)
+#               and prepared statements
+CREATE TABLE t1 (name VARCHAR(100), square GEOMETRY);
+INSERT INTO t1 VALUES
+("center", ST_GeomFromText('POLYGON (( 0 0, 0 2, 2 2, 2 0, 0 0))')),
+("small",  ST_GeomFromText('POLYGON (( 0 0, 0 1, 1 1, 1 0, 0 0))')),
+("big",    ST_GeomFromText('POLYGON (( 0 0, 0 3, 3 3, 3 0, 0 0))')),
+("up",     ST_GeomFromText('POLYGON (( 0 1, 0 3, 2 3, 2 1, 0 1))')),
+("up2",    ST_GeomFromText('POLYGON (( 0 2, 0 4, 2 4, 2 2, 0 2))')),
+("up3",    ST_GeomFromText('POLYGON (( 0 3, 0 5, 2 5, 2 3, 0 3))')),
+("down",   ST_GeomFromText('POLYGON (( 0 -1, 0  1, 2  1, 2 -1, 0 -1))')),
+("down2",  ST_GeomFromText('POLYGON (( 0 -2, 0  0, 2  0, 2 -2, 0 -2))')),
+("down3",  ST_GeomFromText('POLYGON (( 0 -3, 0 -1, 2 -1, 2 -3, 0 -3))')),
+("right",  ST_GeomFromText('POLYGON (( 1 0, 1 2, 3 2, 3 0, 1 0))')),
+("right2", ST_GeomFromText('POLYGON (( 2 0, 2 2, 4 2, 4 0, 2 0))')),
+("right3", ST_GeomFromText('POLYGON (( 3 0, 3 2, 5 2, 5 0, 3 0))')),
+("left",   ST_GeomFromText('POLYGON (( -1 0, -1 2,  1 2,  1 0, -1 0))')),
+("left2",  ST_GeomFromText('POLYGON (( -2 0, -2 2,  0 2,  0 0, -2 0))')),
+("left3",  ST_GeomFromText('POLYGON (( -3 0, -3 2, -1 2, -1 0, -3 0))'));
+CREATE VIEW v AS SELECT * FROM t1;
+prepare s from '
+SELECT GROUP_CONCAT(a2.name ORDER BY a2.name) AS mbrcontains
+FROM v a1 JOIN v a2 ON MBRContains(a1.square, a2.square)
+WHERE a1.name = "center"
+GROUP BY a1.name';
+execute s;
+mbrcontains
+center,small
+execute s;
+mbrcontains
+center,small
+deallocate prepare s;
+DROP VIEW v;
+DROP TABLE t1;
+# Bug#32413530: Prepared statements with GROUP_CONCAT fail with a high
+#               group_concat_max_len
+CREATE TABLE t1 (
+o_id int unsigned NOT NULL AUTO_INCREMENT COMMENT 'Primary Key',
+PRIMARY KEY (o_id)
+);
+set group_concat_max_len = 1024;
+PREPARE ps FROM "SELECT GROUP_CONCAT(o_id) FROM t1;";
+EXECUTE ps;
+GROUP_CONCAT(o_id)
+NULL
+set group_concat_max_len = 10000000000;
+PREPARE ps FROM "SELECT GROUP_CONCAT(o_id) FROM t1;";
+EXECUTE ps;
+GROUP_CONCAT(o_id)
+NULL
+set group_concat_max_len = 9223372036854775807;
+PREPARE ps FROM "SELECT GROUP_CONCAT(o_id) FROM t1;";
+EXECUTE ps;
+GROUP_CONCAT(o_id)
+NULL
+set group_concat_max_len = 18446744073709551615;
+PREPARE ps FROM "SELECT GROUP_CONCAT(o_id) FROM t1;";
+EXECUTE ps;
+GROUP_CONCAT(o_id)
+NULL
+DROP TABLE t1;
+#
+# Bug #33521497 result of GROUP_CONCAT is inconsistent
+#               when group_concat_max_len becomes larger
+#
+SELECT LENGTH(t.value) FROM (SELECT
+GROUP_CONCAT('32689,34068,34370,34930,37034,37638,38478,38643,38925,39889,40497,41729,43085,43115,43500,44781,46344,46411,47173,47228,47623,48576,50293,50653,51794,54177,55347,55398,59492,59598,59804,59969,60612,62024,62754,62796,64647,68679,68974,69482,69625,70162,71100000') AS value ) t;
+LENGTH(t.value)
+260
+SET SESSION group_concat_max_len=1073741832;
+SELECT LENGTH(t.value) FROM (SELECT
+GROUP_CONCAT('32689,34068,34370,34930,37034,37638,38478,38643,38925,39889,40497,41729,43085,43115,43500,44781,46344,46411,47173,47228,47623,48576,50293,50653,51794,54177,55347,55398,59492,59598,59804,59969,60612,62024,62754,62796,64647,68679,68974,69482,69625,70162,71100000') AS value ) t;
+LENGTH(t.value)
+260
+SET SESSION group_concat_max_len=default;

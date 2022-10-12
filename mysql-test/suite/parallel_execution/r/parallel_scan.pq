@@ -1,8 +1,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 root@localhost
@@ -103,7 +103,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 3)
         -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -122,7 +122,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: (t1.col2 <= 3)  (cost=0.86 rows=3)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel covering index range scan on t1 using idx_col2 over (NULL < col2 <= 3)  (cost=0.86 rows=3)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -142,7 +142,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 3)
         -> Filter: (t1.col2 > 7)  (cost=0.86 rows=3)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel covering index range scan on t1 using idx_col2 over (7 < col2)  (cost=0.86 rows=3)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -162,7 +162,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: (t1.col2 >= 7)  (cost=1.06 rows=4)
-            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel covering index range scan on t1 using idx_col2 over (7 <= col2)  (cost=1.06 rows=4)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 7;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -183,7 +183,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 3)
         -> Filter: ((t1.col2 > 5) and (t1.col2 < 8))  (cost=0.66 rows=2)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel covering index range scan on t1 using idx_col2 over (5 < col2 < 8)  (cost=0.66 rows=2)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 < 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -202,7 +202,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: ((t1.col2 >= 5) and (t1.col2 < 8))  (cost=0.86 rows=3)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel covering index range scan on t1 using idx_col2 over (5 <= col2 < 8)  (cost=0.86 rows=3)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 < 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -222,7 +222,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: ((t1.col2 > 5) and (t1.col2 <= 8))  (cost=0.86 rows=3)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.86 rows=3)
+            -> Parallel covering index range scan on t1 using idx_col2 over (5 < col2 <= 8)  (cost=0.86 rows=3)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 > 5 AND col2 <= 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -242,7 +242,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: ((t1.col2 >= 5) and (t1.col2 <= 8))  (cost=1.06 rows=4)
-            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel covering index range scan on t1 using idx_col2 over (5 <= col2 <= 8)  (cost=1.06 rows=4)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 >= 5 AND col2 <= 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -263,7 +263,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: ((t1.col2 <= 2) or (t1.col2 >= 9))  (cost=1.06 rows=4)
-            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel covering index range scan on t1 using idx_col2 over (NULL < col2 <= 2) OR (9 <= col2)  (cost=1.06 rows=4)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 <= 2 OR col2 >= 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -284,7 +284,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: (((t1.col2 > 1) and (t1.col2 <= 3)) or ((t1.col2 >= 8) and (t1.col2 < 10)))  (cost=1.06 rows=4)
-            -> Parallel index range scan on t1 using idx_col2  (cost=1.06 rows=4)
+            -> Parallel covering index range scan on t1 using idx_col2 over (1 < col2 <= 3) OR (8 <= col2 < 10)  (cost=1.06 rows=4)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE (col2 > 1 AND col2 <= 3) OR (col2 >= 8 AND col2 < 10);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -304,7 +304,7 @@ EXPLAIN
 -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel covering index range scan on t1 using idx_col2 over (NULL < col2 < 3) (reverse)  (cost=0.66 rows=2)
 
 EXPLAIN SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3 ORDER BY col2 DESC;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra

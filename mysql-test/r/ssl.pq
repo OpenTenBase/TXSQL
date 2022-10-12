@@ -562,6 +562,7 @@ insert into tmp select * from t3;
 insert into t3 select * from tmp;
 insert into tmp select * from t3;
 insert into t3 select * from tmp;
+set session innodb_parallel_read_threads=1;
 alter table t3 add t2nr int not null auto_increment primary key first;
 drop table tmp;
 SET BIG_TABLES=1;
@@ -1641,7 +1642,7 @@ companynr	count(*)
 50	11
 select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
-70	absentee	vest	17788966	254128.0857	3272.5939722090234	10709871.306938833
+70	absentee	vest	17788966	254128.0857	3272.5939722090147	10709871.306938777
 explain select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Parallel scan (4 workers); Using where
@@ -1651,7 +1652,7 @@ Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)`,min(`test`.`t2`.`fld4`) AS `min(fld4)`,max(`test`.`t2`.`fld4`) AS `max(fld4)`,sum(`test`.`t2`.`fld1`) AS `sum(fld1)`,avg(`test`.`t2`.`fld1`) AS `avg(fld1)`,std(`test`.`t2`.`fld1`) AS `std(fld1)`,variance(`test`.`t2`.`fld1`) AS `variance(fld1)` from `test`.`t2` where ((`test`.`t2`.`companynr` = 34) and (`test`.`t2`.`fld4` <> ''))
 select companynr,count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 group by companynr order by companynr limit 3;
 companynr	count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
-00	82	Anthony	windmills	10355753	126289.6707	115550.97568479746	13352027981.708654
+00	82	Anthony	windmills	10355753	126289.6707	115550.97568479746	13352027981.708656
 29	95	abut	wetness	14473298	152350.5053	8368.547956641238	70032594.90260424
 34	70	absentee	vest	17788966	254128.0857	3272.5939722090147	10709871.306938777
 select companynr,t2nr,count(price),sum(price),min(price),max(price),avg(price) from t3 where companynr = 37 group by companynr,t2nr order by companynr,t2nr limit 10;
@@ -2333,6 +2334,6 @@ Ssl_cipher	SSL_CIPHER
 SET @@SESSION.wait_timeout = 2;
 # Wait for ssl_con to be disconnected.
 # Check that ssl_con has been disconnected.
-# CR_SERVER_LOST, CR_SERVER_GONE_ERROR
+# Different behavior depending on how the plattform implements the 
 SELECT 1;
 Got one of the listed errors

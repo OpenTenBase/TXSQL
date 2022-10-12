@@ -30,7 +30,7 @@ DROP PROCEDURE proc_rewrite_1;
 DROP FUNCTION  func_rewrite_1;
 DROP TABLE     t1;
 CREATE USER test_user2 IDENTIFIED WITH mysql_native_password BY 'azundris2';
-CHANGE MASTER TO MASTER_PASSWORD='azundris3';
+CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD='azundris3';
 CREATE USER 'test_user4'@'localhost' IDENTIFIED WITH mysql_native_password;
 ALTER USER 'test_user4'@'localhost' IDENTIFIED BY 'azundris4';
 CREATE USER test_user5 IDENTIFIED WITH mysql_native_password AS
@@ -88,7 +88,7 @@ ALTER USER 'u1'@'%' IDENTIFIED BY <secret> REPLACE <secret>,'u2'@'%' IDENTIFIED 
 ALTER USER 'u2'@'%' IDENTIFIED BY <secret>,'u1'@'%' IDENTIFIED BY <secret> REPLACE <secret>
 ALTER USER IF EXISTS 'test_user5'@'%' IDENTIFIED BY <secret>,'test_user6'@'%' IDENTIFIED WITH 'mysql_native_password' AS '*67092806AE91BFB6BE72DE6C7BE2B7CCA8CFA9DF','test_user7'@'%' IDENTIFIED BY <secret>
 ALTER USER test_user7 IDENTIFIED WITH mysql_native_password AS
-CHANGE MASTER TO MASTER_PASSWORD = <secret>
+CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD = <secret>
 CREATE USER 'test_user1'@'%' IDENTIFIED WITH 'mysql_native_password' BY <secret>
 CREATE USER 'test_user2'@'%' IDENTIFIED WITH 'mysql_native_password' BY <secret>
 CREATE USER 'test_user3'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY <secret> REQUIRE SSL
@@ -110,7 +110,7 @@ ALTER USER 'test_user9'@'%' IDENTIFIED WITH 'caching_sha2_password' BY <secret>
 ALTER USER 'u1'@'%' IDENTIFIED BY <secret> REPLACE <secret>,'u2'@'%' IDENTIFIED BY <secret> PASSWORD REQUIRE CURRENT OPTIONAL
 ALTER USER 'u2'@'%' IDENTIFIED BY <secret>,'u1'@'%' IDENTIFIED BY <secret> REPLACE <secret>
 ALTER USER IF EXISTS 'test_user5'@'%' IDENTIFIED BY <secret>,'test_user6'@'%' IDENTIFIED WITH 'mysql_native_password' AS '*67092806AE91BFB6BE72DE6C7BE2B7CCA8CFA9DF','test_user7'@'%' IDENTIFIED BY <secret>
-CHANGE MASTER TO MASTER_PASSWORD = <secret>
+CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD = <secret>
 CREATE USER 'test_user1'@'%' IDENTIFIED WITH 'mysql_native_password' BY <secret>
 CREATE USER 'test_user2'@'%' IDENTIFIED WITH 'mysql_native_password' BY <secret>
 CREATE USER 'test_user3'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY <secret> REQUIRE SSL
@@ -204,6 +204,7 @@ DROP TABLE test_log;
 SET GLOBAL general_log_file =  '.../mysqld.1/mysqld.log';
 SET GLOBAL log_output=        'FILE';
 SET GLOBAL general_log=       1;
+TRUNCATE TABLE mysql.general_log;
 
 End of 5.7 tests!
 

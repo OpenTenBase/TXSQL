@@ -68,7 +68,7 @@ FROM_HOST	FROM_USER	TO_HOST	TO_USER	WITH_ADMIN_OPTION
 %	r2	localhost	u1	N
 %	r4	localhost	u1	N
 [connection slave]
-CHANGE MASTER TO MASTER_USER='u1';
+CHANGE REPLICATION SOURCE TO SOURCE_USER='u1';
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -125,10 +125,10 @@ GRANT `r1`@`%` TO `u3`@`localhost`
 
 SHOW CREATE USER u2@localhost;
 CREATE USER for u2@localhost
-CREATE USER 'u2'@'localhost' IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r1`@`%`,`r2`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
+CREATE USER `u2`@`localhost` IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r1`@`%`,`r2`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
 SHOW CREATE USER u3@localhost;
 CREATE USER for u3@localhost
-CREATE USER 'u3'@'localhost' IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r1`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
+CREATE USER `u3`@`localhost` IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r1`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
 [connection master]
 connection master;
 
@@ -169,10 +169,10 @@ GRANT `r1`@`%`,`r2`@`%` TO `u3`@`localhost`
 
 SHOW CREATE USER u2@localhost;
 CREATE USER for u2@localhost
-CREATE USER 'u2'@'localhost' IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r1`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
+CREATE USER `u2`@`localhost` IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r1`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
 SHOW CREATE USER u3@localhost;
 CREATE USER for u3@localhost
-CREATE USER 'u3'@'localhost' IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r2`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
+CREATE USER `u3`@`localhost` IDENTIFIED WITH 'caching_sha2_password' DEFAULT ROLE `r2`@`%` REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
 
 # Cleanup Statement
 [connection master]
@@ -210,7 +210,7 @@ slave-bin.000001	#	Query	#	#	use `test`; ALTER USER u3@localhost DEFAULT ROLE r2
 slave-bin.000001	#	Query	#	#	use `test`; DROP ROLE r1, r2, r3,r4
 slave-bin.000001	#	Query	#	#	use `test`; DROP USER u1@localhost, u2@localhost, u3@localhost
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_USER='root';
+CHANGE REPLICATION SOURCE TO SOURCE_USER='root';
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.

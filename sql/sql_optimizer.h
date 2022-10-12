@@ -684,12 +684,6 @@ class JOIN {
 
 #if defined(HAVE_PX)
   bool px_generate_plan(px_access_path::Split_Position *split_position);
-  QEP_TAB *get_matched_tab(TABLE *table) {
-    for (uint i = 0; i < tables; ++i) {
-      if (qep_tab[i].table() == table) return &qep_tab[i];
-    }
-    return nullptr;
-  }
 #endif /* defined(HAVE_PX) */
   void reset();
   bool prepare_result();

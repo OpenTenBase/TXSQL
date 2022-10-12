@@ -95,7 +95,7 @@ EXPLAIN
 -> Group (no aggregates)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group (no aggregates)
+            -> Group (no aggregates)  (cost=405.25 rows=2000)
                 -> Sort row IDs: lineitem.l_returnflag DESC  (cost=205.25 rows=2000)
                     -> Parallel table scan on lineitem  (cost=205.25 rows=2000)
 

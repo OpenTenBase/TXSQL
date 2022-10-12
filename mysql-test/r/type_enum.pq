@@ -1704,7 +1704,7 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` enum('ä','ö','ü') CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT 'ü'
+  `a` enum('ä','ö','ü') CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT 'ü'
 ) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 insert into t1 values ('ä'), ('ö'), ('ü');
 select a from t1 order by a;
@@ -1735,16 +1735,16 @@ drop table t1;
 create table t1 (a enum ('Y','N') CHARACTER SET utf8 COLLATE utf8_bin);
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t1 values ('Y');
 alter table t1 add b set ('Y','N') CHARACTER SET utf8 COLLATE utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 alter table t1 add c enum ('Y','N') CHARACTER SET utf8 COLLATE utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 select * from t1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 Y	NULL	NULL
@@ -1790,9 +1790,6 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `russian_deviant` enum('E','F','EÿF','F,E') NOT NULL DEFAULT 'E'
 ) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-drop table t1;
-create table t1(exhausting_charset enum('ABCDEFGHIJKLMNOPQRSTUVWXYZ','	
- !"','#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~','xx\','yy\€','zz‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ'));
 drop table t1;
 CREATE TABLE t1 (
 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1955,3 +1952,22 @@ SELECT COUNT(*) FROM grants WHERE priv = 'XA_RECOVER_ADMIN';
 COUNT(*)
 1
 drop table grants;
+#
+# Bug #31019130 CASTING DOUBLE TO LONGLONG CAUSES UB
+#               IN FIELD_*::STORE(DOUBLE)
+#
+CREATE TABLE t_double (a double not null);
+INSERT INTO t_double (a) VALUES
+(-20000000000000000000000000000.0001), (20000000000000000000000000000.0001);
+CREATE TABLE t_enum (
+b enum('N','Y')
+);
+INSERT IGNORE INTO t_enum (b) SELECT a from t_double;
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'b' at row 2
+SELECT b FROM t_enum;
+b
+
+
+DROP TABLE t_double, t_enum;

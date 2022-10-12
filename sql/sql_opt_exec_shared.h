@@ -626,6 +626,7 @@ enum {
   REF_SLICE_TMP2,
 
 #if defined(HAVE_PX)
+  REF_SLICE_LOCAL_AGGREGATE,
   /**
      The slice with pointers to columns of table about final aggregator.
   */

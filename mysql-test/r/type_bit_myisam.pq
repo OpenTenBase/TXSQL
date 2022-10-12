@@ -293,13 +293,13 @@ select a+0, b+0, c+0 from t1;
 a+0	b+0	c+0
 1	1	100
 2	1	4
+23	0	1
 4	0	23
 4	0	3
 4	0	34
 4	0	54
 4	1	100
 4	NULL	1
-23	0	1
 56	0	22
 select hex(min(b)) from t1 where a = 4;
 hex(min(b))
@@ -613,12 +613,12 @@ select hex(a), b from t1;
 hex(a)	b
 1	2
 drop table t1;
-create table t1(bit_field bit(2), int_field int, key a(bit_field));
-insert into t1 values (1,2);
+create table t1(bit_field bit(8), int_field int, key a(bit_field));
+insert into t1 values (49,2);
 handler t1 open as t1;
-handler t1 read a=(1);
+handler t1 read a=(49);
 bit_field	int_field
-	2
+1	2
 handler t1 close;
 drop table t1;
 CREATE TABLE t1 (b BIT(2), a VARCHAR(5));

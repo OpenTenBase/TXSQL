@@ -5,6 +5,7 @@ where name like 'Wait/Synch/Mutex/sql/%'
 order by name limit 10;
 NAME	ENABLED	TIMED	PROPERTIES	VOLATILITY	DOCUMENTATION
 wait/synch/mutex/sql/Commit_order_manager::m_mutex	YES	YES		0	NULL
+wait/synch/mutex/sql/cond_with_lock_t::LOCK_worker	YES	YES		0	NULL
 wait/synch/mutex/sql/Cost_constant_cache::LOCK_cost_const	YES	YES	singleton	0	NULL
 wait/synch/mutex/sql/Event_scheduler::LOCK_scheduler_state	YES	YES	singleton	0	NULL
 wait/synch/mutex/sql/Exchange_Info_Channel_mutex	YES	YES		0	NULL
@@ -12,8 +13,7 @@ wait/synch/mutex/sql/Gtid_set::gtid_executed::free_intervals_mutex	YES	YES		0	NU
 wait/synch/mutex/sql/Gtid_state	YES	YES	singleton	0	NULL
 wait/synch/mutex/sql/hash_filo::lock	YES	YES		0	NULL
 wait/synch/mutex/sql/key_LOCK_Running_PX_Task_Barrier_mutex	YES	YES		0	NULL
-wait/synch/mutex/sql/key_mts_gaq_LOCK	YES	YES		0	NULL
-wait/synch/mutex/sql/key_mts_temp_table_LOCK	YES	YES		0	NULL
+wait/synch/mutex/sql/key_mta_gaq_LOCK	YES	YES		0	NULL
 select * from performance_schema.setup_instruments
 where name like 'Wait/Synch/Rwlock/sql/%'
   and name not in (
@@ -48,9 +48,9 @@ wait/synch/cond/sql/COND_flush_thread_cache	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_manager	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_queue_state	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_server_started	YES	YES	singleton	0	NULL
-wait/synch/cond/sql/COND_thd_done	YES	YES		0	NULL
 wait/synch/cond/sql/COND_thd_list	YES	YES		0	NULL
 wait/synch/cond/sql/COND_thr_lock	YES	YES		0	NULL
+wait/synch/cond/sql/COND_thread_cache	YES	YES	singleton	0	NULL
 select * from performance_schema.setup_instruments
 where name='Wait';
 select * from performance_schema.setup_instruments

@@ -207,12 +207,14 @@ SELECT CREATE_DIGEST(@not_exist, null);
 ERROR HY000: Can't initialize function 'create_digest'; Wrong parameter value. Argument 1 cannot be null
 
 SELECT CREATE_DIGEST('', null);
-ERROR HY000: Can't initialize function 'create_digest'; Choose'md5', 'sha1', 'sha224', sha256', 'sha384' or 'sha512' as the first parame
+ERROR HY000: Can't initialize function 'create_digest'; Choose'md5', 'sha1', 'sha224', sha256', 'sha384' or 'sha512' as the first parameter.
+
 SELECT CREATE_DIGEST(null, 1024);
 ERROR HY000: Can't initialize function 'create_digest'; All parameter types should be STRING_RESULT.
 
 SELECT CREATE_DIGEST('error_alg', @clr_msg);
-ERROR HY000: Can't initialize function 'create_digest'; Choose'md5', 'sha1', 'sha224', sha256', 'sha384' or 'sha512' as the first parame
+ERROR HY000: Can't initialize function 'create_digest'; Choose'md5', 'sha1', 'sha224', sha256', 'sha384' or 'sha512' as the first parameter.
+
 SELECT CREATE_DIGEST(@clr_msg);
 ERROR HY000: Can't initialize function 'create_digest'; Requires two parameters: the algo and the clear text.
 

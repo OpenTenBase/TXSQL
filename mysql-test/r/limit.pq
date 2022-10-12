@@ -619,8 +619,8 @@ CREATE TABLE t1 ( pk INTEGER );
 INSERT INTO t1 VALUES (1), (2);
 EXPLAIN FORMAT=tree SELECT JSON_OBJECTAGG(NULL, '') FROM t1, t1 AS t2 GROUP BY t1.pk LIMIT 2 OFFSET 5;
 EXPLAIN
--> Limit/Offset: 2/5 row(s)
-    -> Group aggregate: json_objectagg(NULL,'')
+-> Limit/Offset: 2/5 row(s)  (cost=1.75 rows=0)
+    -> Group aggregate: json_objectagg(NULL,'')  (cost=1.75 rows=4)
         -> Nested loop inner join  (cost=1.35 rows=4)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 2)

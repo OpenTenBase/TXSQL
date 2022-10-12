@@ -75,7 +75,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')) > 1)
 explain select * from t1 where MATCH(a,b) AGAINST ("collections")>=0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')) >= 0)
 explain select * from t1 where MATCH(a,b) AGAINST ("collections")>=1;
@@ -95,7 +95,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (1 < (match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')))
 explain select * from t1 where 0<=MATCH(a,b) AGAINST ("collections");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (0 <= (match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')))
 explain select * from t1 where 1<=MATCH(a,b) AGAINST ("collections");
@@ -429,7 +429,7 @@ drop table t1, t2;
 CREATE TABLE t1 (t VARCHAR(200) CHARACTER SET utf8 COLLATE utf8_unicode_ci, FULLTEXT (t)) ENGINE = InnoDB;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SET NAMES latin1;
 INSERT INTO t1 VALUES('Mit freundlichem Grüß aus Osnabrück');
 SELECT COUNT(*) FROM t1 WHERE MATCH(t) AGAINST ('"osnabrück"' IN BOOLEAN MODE);
@@ -464,14 +464,14 @@ ANALYZE TABLE t1;
 PREPARE stmt from "SELECT a, FORMAT(MATCH(a) AGAINST('test1 test'),6) FROM t1 WHERE MATCH(a) AGAINST('test1 test')";
 EXECUTE stmt;
 a	FORMAT(MATCH(a) AGAINST('test1 test'),6)
+test	0.031008
+test	0.031008
 test1	0.227645
-test	0.031008
-test	0.031008
 EXECUTE stmt;
 a	FORMAT(MATCH(a) AGAINST('test1 test'),6)
+test	0.031008
+test	0.031008
 test1	0.227645
-test	0.031008
-test	0.031008
 DEALLOCATE PREPARE stmt;
 DROP TABLE t1;
 CREATE TABLE t1 (a VARCHAR(255), FULLTEXT(a)) ENGINE = InnoDB;
@@ -692,3 +692,17 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 DROP TABLE t1;
 End of 5.1 tests
+#
+# Bug#33041720: REDUNDANT CALL TO INIT_FTFUNCS() IN MULTI-TABLE DELETE
+#
+CREATE TABLE t1 (id INTEGER);
+CREATE TABLE t2 (id INTEGER, x VARCHAR(10), FULLTEXT(x));
+INSERT INTO t1 VALUES (1), (2), (3), (4), (5);
+INSERT INTO t2 VALUES (1, 'abc'), (2, 'xyz'), (3, 'abc def'), (4, NULL);
+DELETE t1 FROM t1, t2 WHERE t1.id = t2.id AND MATCH (t2.x) AGAINST ('abc');
+SELECT * FROM t1;
+id
+2
+4
+5
+DROP TABLE t1, t2;

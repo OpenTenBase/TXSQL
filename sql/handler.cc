@@ -6545,6 +6545,12 @@ ha_rows handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
           rows = std::max(0.0, std::round(table->file->stats.records * selectivity));
         }
       } else {
+#if defined(HAVE_OPT_CTX)
+        if (OPT_CTX_ENABLED(thd)) {
+          rows = OPT_CTX(thd).records_in_range(this->table, keyno,
+                                               min_endp, max_endp);
+        } else
+#endif
         rows = HA_POS_ERROR;
       }
       if (rows == HA_POS_ERROR) {

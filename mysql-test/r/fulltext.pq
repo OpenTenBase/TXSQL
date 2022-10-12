@@ -15,7 +15,7 @@ t1	1	a	2	b	NULL	5	NULL	NULL	YES	FULLTEXT			YES	NULL
 EXPLAIN FORMAT=tree select * from t1 where MATCH(a,b) AGAINST ("collections");
 EXPLAIN
 -> Filter: (match t1.a,t1.b against ('collections'))  (cost=0.35 rows=1)
-    -> Indexed full text search on t1 using a (a='collections')  (cost=0.35 rows=1)
+    -> Full-text index search on t1 using a (a='collections')  (cost=0.35 rows=1)
 
 select * from t1 where MATCH(a,b) AGAINST ("collections");
 a	b
@@ -75,7 +75,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')) > 1)
 explain select * from t1 where MATCH(a,b) AGAINST ("collections")>=0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')) >= 0)
 explain select * from t1 where MATCH(a,b) AGAINST ("collections")>=1;
@@ -95,7 +95,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (1 < (match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')))
 explain select * from t1 where 0<=MATCH(a,b) AGAINST ("collections");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (0 <= (match `test`.`t1`.`a`,`test`.`t1`.`b` against ('collections')))
 explain select * from t1 where 1<=MATCH(a,b) AGAINST ("collections");
@@ -410,10 +410,10 @@ INSERT t1 VALUES ("üÔÏ ÍÙ - ÏÐÉÌËÉ"),("ïÔÌÅÚØ, ÇÎÉÄÁ!"),
 ("îÅ ×ÌÅÚÁÊ, ÕÂØÅÔ!"),("É ÂÕÄÅÔ ÐÒÁ×!");
 SELECT t, collation(t) FROM t1 WHERE MATCH t AGAINST ('ïðéìëé');
 t	collation(t)
-üÔÏ ÍÙ - ÏÐÉÌËÉ	utf8_general_ci
+üÔÏ ÍÙ - ÏÐÉÌËÉ	utf8mb3_general_ci
 SELECT t, collation(t) FROM t1 WHERE MATCH t AGAINST ('ðÒá*' IN BOOLEAN MODE);
 t	collation(t)
-É ÂÕÄÅÔ ÐÒÁ×!	utf8_general_ci
+É ÂÕÄÅÔ ÐÒÁ×!	utf8mb3_general_ci
 SELECT * FROM t1 WHERE MATCH t AGAINST ('ÜÔÏ' IN BOOLEAN MODE);
 t
 SELECT t, collation(t) FROM t1 WHERE MATCH t AGAINST ('Osnabrück');
@@ -421,12 +421,12 @@ t	collation(t)
 SET NAMES latin1;
 SELECT t, collation(t) FROM t1 WHERE MATCH t AGAINST ('Osnabrück');
 t	collation(t)
-aus Osnabrück	utf8_general_ci
+aus Osnabrück	utf8mb3_general_ci
 SELECT t, collation(t) FROM t1 WHERE MATCH t AGAINST ('Osnabrueck');
 t	collation(t)
 SELECT t, collation(t),FORMAT(MATCH t AGAINST ('Osnabruck'),6) FROM t1 WHERE MATCH t AGAINST ('Osnabruck');
 t	collation(t)	FORMAT(MATCH t AGAINST ('Osnabruck'),6)
-aus Osnabrück	utf8_general_ci	1.591140
+aus Osnabrück	utf8mb3_general_ci	1.591140
 SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
 alter table t1 modify t varchar(200) collate latin1_german2_ci not null;
 Warnings:
@@ -479,7 +479,7 @@ drop table t1, t2;
 CREATE TABLE t1 (t VARCHAR(200) CHARACTER SET utf8 COLLATE utf8_unicode_ci, FULLTEXT (t));
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SET NAMES latin1;
 INSERT INTO t1 VALUES('Mit freundlichem Grüß aus Osnabrück');
 SELECT COUNT(*) FROM t1 WHERE MATCH(t) AGAINST ('"osnabrück"' IN BOOLEAN MODE);
@@ -488,11 +488,9 @@ COUNT(*)
 DROP TABLE t1;
 CREATE TABLE t1 (a VARCHAR(30), FULLTEXT(a));
 INSERT INTO t1 VALUES('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
-SET myisam_repair_threads=2;
 REPAIR TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	repair	status	OK
-SET myisam_repair_threads=@@global.myisam_repair_threads;
 INSERT INTO t1 VALUES('testword\'\'');
 SELECT a FROM t1 WHERE MATCH a AGAINST('testword' IN BOOLEAN MODE);
 a
@@ -859,3 +857,11 @@ fld1
 ABCD
 abCD
 DROP TABLE t1;
+#
+# Bug#32611913: ASSERT FAILURE IN ITEM_FUNC_MATCH::EQ()
+#
+CREATE TABLE t(x VARCHAR(10), FULLTEXT KEY (x));
+SELECT x FROM t GROUP BY x, MATCH(x) AGAINST ('abc')
+HAVING MATCH(x) AGAINST ('abc');
+x
+DROP TABLE t;

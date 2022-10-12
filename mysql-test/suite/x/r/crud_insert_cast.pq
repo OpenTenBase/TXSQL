@@ -171,12 +171,12 @@ send Mysqlx.Crud.Insert {
 Records: 6  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM xtest.my_int
 value
-11
 -11
-123
+11
 12
--123
 -12
+123
+-123
 0 rows affected
 send Mysqlx.Crud.Insert {
   collection {
@@ -282,7 +282,10 @@ send Mysqlx.Crud.Insert {
 
 
 2 rows affected
-Records: 2  Duplicates: 0  Warnings: 0
+Records: 2  Duplicates: 0  Warnings: 2
+Warnings generated:
+WARNING | 4095 | Delimiter '.' in position 4 in datetime value '2011.11.11T3:14' at row 1 is deprecated. Prefer the standard '-'.
+WARNING | 4095 | Delimiter '.' in position 4 in datetime value '2012.12.12' at row 2 is deprecated. Prefer the standard '-'.
 RUN SELECT * FROM xtest.my_datetime
 value
 2011-11-11 03:14:00
@@ -699,11 +702,11 @@ send Mysqlx.Crud.Insert {
 Records: 6  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM xtest.my_char
 value
-two
 one
-three
+two
 -20
 four
+three
 40
 0 rows affected
 RUN drop schema if exists xtest

@@ -169,13 +169,11 @@ ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIA
 set global binlog_row_image='minimal';
 ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
 set session innodb_strict_mode=ON;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session innodb_strict_mode=OFF;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session sql_mode='ALLOW_INVALID_DATES';
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session sql_mode='NO_AUTO_VALUE_ON_ZERO';
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session unique_checks=OFF;
 ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session unique_checks=ON;
@@ -271,13 +269,11 @@ ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIA
 set global binlog_row_image='minimal';
 ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
 set session innodb_strict_mode=ON;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session innodb_strict_mode=OFF;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session sql_mode='ALLOW_INVALID_DATES';
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session sql_mode='NO_AUTO_VALUE_ON_ZERO';
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session unique_checks=OFF;
 ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 set session unique_checks=ON;
@@ -290,10 +286,12 @@ select user();
 user()
 test_user4@localhost
 set global innodb_strict_mode=ON;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@GLOBAL.innodb_strict_mode;
 @@GLOBAL.innodb_strict_mode
-1
+0
 set global innodb_strict_mode=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@GLOBAL.innodb_strict_mode;
 @@GLOBAL.innodb_strict_mode
 0
@@ -322,13 +320,15 @@ SELECT @@GLOBAL.binlog_row_image;
 @@GLOBAL.binlog_row_image
 MINIMAL
 set session innodb_strict_mode=ON;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
 1
 set session innodb_strict_mode=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
-0
+1
 set session sql_mode='ALLOW_INVALID_DATES';
 SELECT @@SESSION.sql_mode;
 @@SESSION.sql_mode
@@ -546,13 +546,15 @@ ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIA
 set global binlog_row_image='MINIMAL';
 ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
 set session innodb_strict_mode=ON;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
 1
 set session innodb_strict_mode=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
-0
+1
 set session sql_mode='ALLOW_INVALID_DATES';
 SELECT @@SESSION.sql_mode;
 @@SESSION.sql_mode
@@ -666,13 +668,15 @@ ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIA
 set global binlog_row_image='MINIMAL';
 ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
 set session innodb_strict_mode=ON;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
 1
 set session innodb_strict_mode=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
-0
+1
 set session sql_mode='ALLOW_INVALID_DATES';
 SELECT @@SESSION.sql_mode;
 @@SESSION.sql_mode
@@ -703,10 +707,12 @@ select user();
 user()
 test_user4@localhost
 set global innodb_strict_mode=ON;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@GLOBAL.innodb_strict_mode;
 @@GLOBAL.innodb_strict_mode
-1
+0
 set global innodb_strict_mode=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@GLOBAL.innodb_strict_mode;
 @@GLOBAL.innodb_strict_mode
 0
@@ -735,13 +741,15 @@ SELECT @@GLOBAL.binlog_row_image;
 @@GLOBAL.binlog_row_image
 MINIMAL
 set session innodb_strict_mode=ON;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
 1
 set session innodb_strict_mode=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 SELECT @@SESSION.innodb_strict_mode;
 @@SESSION.innodb_strict_mode
-0
+1
 set session sql_mode='ALLOW_INVALID_DATES';
 SELECT @@SESSION.sql_mode;
 @@SESSION.sql_mode

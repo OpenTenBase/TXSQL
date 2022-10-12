@@ -1,4 +1,5 @@
 SET optimizer_switch='subquery_to_derived=on';
+TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
 #
 # Tests for WL#12885 Add ability to transform scalar subqueries to inner
 # derived table
@@ -368,8 +369,8 @@ EXPLAIN
 SELECT (SELECT SUM(a) + (SELECT SUM(t1.a) FROM t1) + SUM(t3.a) FROM t2) FROM t3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	DEPENDENT SUBQUERY	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 5	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
@@ -383,8 +384,8 @@ EXPLAIN
 SELECT SUM(a), (SELECT SUM(b) FROM t3) scalar FROM t1 HAVING SUM(a) > scalar;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	SUBQUERY	t3	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `SUM(a)`,(/* select#2 */ select sum(`test`.`t3`.`b`) from `test`.`t3`) AS `scalar` from `test`.`t1` having (sum(`test`.`t1`.`a`) > `scalar`)
@@ -396,8 +397,8 @@ EXPLAIN SELECT t1.a + (@foo:=3) FROM t1
 WHERE t1.a > (SELECT COUNT(a) AS cnt FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	33.33	Parallel scan (4 workers); Using where
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
@@ -910,8 +911,8 @@ MAX(t1.b) + MIN(t1_outer.a) AS tot
 FROM t1) FROM t1 AS t1_outer;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1_outer	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	<derived4>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 2	DEPENDENT SUBQUERY	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 5	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
@@ -941,8 +942,8 @@ AS tot
 FROM t1 top;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	top	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	SUBQUERY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 Warnings:
@@ -1212,22 +1213,15 @@ FROM cc
 GROUP BY i;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	cc	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-2	DEPENDENT SUBQUERY	cc_alias	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
-2	DEPENDENT SUBQUERY	cc	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	FirstMatch(cc_alias); Using join buffer (hash join)
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	5	test.cc.i	2	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+2	DERIVED	cc_alias	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using temporary
+2	DERIVED	cc	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	FirstMatch(cc_alias); Using join buffer (hash join)
 Warnings:
 Note	1276	Field or reference 'test.cc_alias.i' of SELECT #3 was resolved in SELECT #2
 Note	1276	Field or reference 'test.cc.i' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select (/* select#2 */ select count(`test`.`cc_alias`.`i`) from `test`.`cc` `cc_alias` semi join (`test`.`cc`) where (`test`.`cc`.`i` = `test`.`cc_alias`.`i`)) AS `cnt` from `test`.`cc` group by `test`.`cc`.`i`
-PREPARE stmt FROM "SELECT (SELECT COUNT(i) FROM cc AS cc_alias
-WHERE (cc.i IN (SELECT cc_alias.i FROM cc))) AS cnt
-FROM cc
-GROUP BY i";
-EXECUTE stmt;
-cnt
-1
-DROP PREPARE stmt;
+Note	1003	/* select#1 */ select coalesce(`derived_1_2`.`COUNT(i)`,0) AS `cnt` from `test`.`cc` left join (/* select#2 */ select count(`test`.`cc_alias`.`i`) AS `COUNT(i)`,`test`.`cc_alias`.`i` AS `i` from `test`.`cc` `cc_alias` semi join (`test`.`cc`) group by `test`.`cc_alias`.`i`) `derived_1_2` on((`derived_1_2`.`i` = `test`.`cc`.`i`)) where true group by `test`.`cc`.`i`
 DROP TABLE cc;
 # Test: detect correlated aggregates deep inside scalar subquery (was
 # missed before we let has_correlated_aggregate walk subqueries
@@ -1244,8 +1238,8 @@ FROM t) AS i
 FROM (SELECT a AS i FROM t) q;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DEPENDENT SUBQUERY	t	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 3	DEPENDENT SUBQUERY	t	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
@@ -1368,8 +1362,8 @@ EXPLAIN SELECT SUM(j) FROM t1
 HAVING SUM(j) > (SELECT SUM(t2.i) FROM t2);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers)
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`j`) AS `SUM(j)` from `test`.`t1` having (sum(`test`.`t1`.`j`) > (/* select#2 */ select sum(`test`.`t2`.`i`) from `test`.`t2`))
@@ -1421,7 +1415,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`j` AS `j` from `test`.`t1` left join (/* select#2 */ select sum(`test`.`t2`.`i`) AS `SUM(t2.i)` from `test`.`t2`) `derived_1_2` on(true) where true group by `test`.`t1`.`i`,`test`.`t1`.`j` with rollup having (sum(`test`.`t1`.`j`) > `derived_1_2`.`SUM(t2.i)`)
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`j` AS `j` from `test`.`t1` left join (/* select#2 */ select sum(`test`.`t2`.`i`) AS `SUM(t2.i)` from `test`.`t2`) `derived_1_2` on(true) where true group by `test`.`t1`.`i`,`test`.`t1`.`j` with rollup having (rollup_sum_switcher(sum(`j`)) > `derived_1_2`.`SUM(t2.i)`)
 DROP TABLE t1, t2;
 Bigger example (TPC-H Q11) where we get a scalar transformation
 in the grouping derived table also, i.e. nested scalar to
@@ -2577,14 +2571,16 @@ WHERE t1.login=t2.login
 GROUP BY t1.login
 LIMIT 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	index	PRIMARY,numb	PRIMARY	4	NULL	5	100.00	NULL
+1	PRIMARY	t1	NULL	index	PRIMARY,numb	PRIMARY	4	NULL	1	100.00	NULL
 1	PRIMARY	t2	NULL	ref	login	login	4	test.t1.login	1	100.00	Using index
-3	DEPENDENT SUBQUERY	tbl2	NULL	ref	login	login	4	func	1	100.00	NULL
-2	DEPENDENT SUBQUERY	tbl2	NULL	ref	login	login	4	func	1	100.00	NULL
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.login	10	100.00	NULL
+1	PRIMARY	<derived3>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.login	10	100.00	NULL
+3	DERIVED	tbl2	NULL	index	login	login	4	NULL	500	100.00	NULL
+2	DERIVED	tbl2	NULL	index	login	login	4	NULL	500	100.00	NULL
 Warnings:
 Note	1276	Field or reference 'test.t1.login' of SELECT #2 was resolved in SELECT #1
 Note	1276	Field or reference 'test.t1.login' of SELECT #3 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`login` AS `tlogin`,((`test`.`t1`.`numb` - ifnull((/* select#2 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) - ifnull((/* select#3 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) AS `sp` from `test`.`tbl1` `t1` join `test`.`tbl2` `t2` where (`test`.`t2`.`login` = `test`.`t1`.`login`) group by `test`.`t1`.`login` limit 5
+Note	1003	/* select#1 */ select `test`.`t1`.`login` AS `tlogin`,((`test`.`t1`.`numb` - ifnull(`derived_1_2`.`sum(nump)`,0)) - ifnull(`derived_1_3`.`sum(nump)`,0)) AS `sp` from `test`.`tbl1` `t1` join `test`.`tbl2` `t2` left join (/* select#2 */ select sum(`test`.`tbl2`.`nump`) AS `sum(nump)`,`test`.`tbl2`.`login` AS `login` from `test`.`tbl2` group by `test`.`tbl2`.`login`) `derived_1_2` on((`derived_1_2`.`login` = `test`.`t1`.`login`)) left join (/* select#3 */ select sum(`test`.`tbl2`.`nump`) AS `sum(nump)`,`test`.`tbl2`.`login` AS `login` from `test`.`tbl2` group by `test`.`tbl2`.`login`) `derived_1_3` on((`derived_1_3`.`login` = `test`.`t1`.`login`)) where (`test`.`t2`.`login` = `test`.`t1`.`login`) group by `test`.`t1`.`login` limit 5
 SELECT
 t1.login AS tlogin,
 numb -
@@ -2614,14 +2610,16 @@ LIMIT 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	PRIMARY,numb	PRIMARY	4	NULL	500	100.00	Parallel scan (4 workers)
 1	PRIMARY	t2	NULL	ref	login	login	4	test.t1.login	1	100.00	Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort; Using filesort
-3	DEPENDENT SUBQUERY	tbl2	NULL	ref	login	login	4	func	1	100.00	NULL
-2	DEPENDENT SUBQUERY	tbl2	NULL	ref	login	login	4	func	1	100.00	NULL
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.login	10	100.00	NULL
+1	PRIMARY	<derived3>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.login	10	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	125000000	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	125000000	100.00	Receive from (<sender1>); Using merge sort; Using filesort
+3	DERIVED	tbl2	NULL	index	login	login	4	NULL	500	100.00	NULL
+2	DERIVED	tbl2	NULL	index	login	login	4	NULL	500	100.00	NULL
 Warnings:
 Note	1276	Field or reference 'test.t1.login' of SELECT #2 was resolved in SELECT #1
 Note	1276	Field or reference 'test.t1.login' of SELECT #3 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`login` AS `tlogin`,((`test`.`t1`.`numb` - ifnull((/* select#2 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) - ifnull((/* select#3 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) AS `sp` from `test`.`tbl1` `t1` join `test`.`tbl2` `t2` where (`test`.`t2`.`login` = `test`.`t1`.`login`) group by `test`.`t1`.`login` order by `sp` limit 5
+Note	1003	/* select#1 */ select `test`.`t1`.`login` AS `tlogin`,((`test`.`t1`.`numb` - ifnull(`derived_1_2`.`sum(nump)`,0)) - ifnull(`derived_1_3`.`sum(nump)`,0)) AS `sp` from `test`.`tbl1` `t1` join `test`.`tbl2` `t2` left join (/* select#2 */ select sum(`test`.`tbl2`.`nump`) AS `sum(nump)`,`test`.`tbl2`.`login` AS `login` from `test`.`tbl2` group by `test`.`tbl2`.`login`) `derived_1_2` on((`derived_1_2`.`login` = `test`.`t1`.`login`)) left join (/* select#3 */ select sum(`test`.`tbl2`.`nump`) AS `sum(nump)`,`test`.`tbl2`.`login` AS `login` from `test`.`tbl2` group by `test`.`tbl2`.`login`) `derived_1_3` on((`derived_1_3`.`login` = `test`.`t1`.`login`)) where (`test`.`t2`.`login` = `test`.`t1`.`login`) group by `test`.`t1`.`login` order by `sp` limit 5
 SELECT
 t1.login AS tlogin,
 numb -
@@ -2653,14 +2651,16 @@ LIMIT 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	index	PRIMARY,numb	PRIMARY	4	NULL	500	100.00	Parallel scan (4 workers)
 1	PRIMARY	t2	NULL	ref	login	login	4	test.t1.login	1	100.00	Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort; Using filesort
-3	DEPENDENT SUBQUERY	tbl2	NULL	ref	login	login	4	func	1	100.00	NULL
-2	DEPENDENT SUBQUERY	tbl2	NULL	ref	login	login	4	func	1	100.00	NULL
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.login	10	100.00	NULL
+1	PRIMARY	<derived3>	NULL	ref	<auto_key0>	<auto_key0>	4	test.t1.login	10	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	125000000	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	125000000	100.00	Receive from (<sender1>); Using merge sort; Using filesort
+3	DERIVED	tbl2	NULL	index	login	login	4	NULL	500	100.00	NULL
+2	DERIVED	tbl2	NULL	index	login	login	4	NULL	500	100.00	NULL
 Warnings:
 Note	1276	Field or reference 'test.t1.login' of SELECT #2 was resolved in SELECT #1
 Note	1276	Field or reference 'test.t1.login' of SELECT #3 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t1`.`login` AS `tlogin`,((`test`.`t1`.`numb` - ifnull((/* select#2 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) - ifnull((/* select#3 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) AS `sp` from `test`.`tbl1` `t1` join `test`.`tbl2` `t2` where (`test`.`t2`.`login` = `test`.`t1`.`login`) group by `test`.`t1`.`login` order by ((`test`.`t1`.`numb` - ifnull((/* select#2 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) - ifnull((/* select#3 */ select sum(`test`.`tbl2`.`nump`) from `test`.`tbl2` where (`test`.`tbl2`.`login` = `test`.`t1`.`login`)),0)) limit 5
+Note	1003	/* select#1 */ select `test`.`t1`.`login` AS `tlogin`,((`test`.`t1`.`numb` - ifnull(`derived_1_2`.`sum(nump)`,0)) - ifnull(`derived_1_3`.`sum(nump)`,0)) AS `sp` from `test`.`tbl1` `t1` join `test`.`tbl2` `t2` left join (/* select#2 */ select sum(`test`.`tbl2`.`nump`) AS `sum(nump)`,`test`.`tbl2`.`login` AS `login` from `test`.`tbl2` group by `test`.`tbl2`.`login`) `derived_1_2` on((`derived_1_2`.`login` = `test`.`t1`.`login`)) left join (/* select#3 */ select sum(`test`.`tbl2`.`nump`) AS `sum(nump)`,`test`.`tbl2`.`login` AS `login` from `test`.`tbl2` group by `test`.`tbl2`.`login`) `derived_1_3` on((`derived_1_3`.`login` = `test`.`t1`.`login`)) where (`test`.`t2`.`login` = `test`.`t1`.`login`) group by `test`.`t1`.`login` order by ((`test`.`t1`.`numb` - ifnull(`derived_1_2`.`sum(nump)`,0)) - ifnull(`derived_1_3`.`sum(nump)`,0)) limit 5
 DROP TABLE tbl1, tbl2;
 Bug 2
 CREATE TABLE t2 (a INT, b INT);
@@ -2679,14 +2679,15 @@ b	ma
 EXPLAIN SELECT b, MAX(a) AS ma FROM t4
 GROUP BY b HAVING ma < (SELECT MAX(t2.a) FROM t2 WHERE t2.b=t4.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t4	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Parallel scan (4 workers); Using temporary
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary
-2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+1	PRIMARY	t4	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using temporary
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using join buffer (hash join)
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using temporary
+2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
+2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary
 Warnings:
 Note	1276	Field or reference 'test.t4.b' of SELECT #2 was resolved in SELECT #1
 Note	1276	Field or reference 'test.t4.b' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`t4`.`b` AS `b`,max(`test`.`t4`.`a`) AS `ma` from `test`.`t4` group by `test`.`t4`.`b` having (`ma` < (/* select#2 */ select max(`test`.`t2`.`a`) from `test`.`t2` where (`test`.`t2`.`b` = `test`.`t4`.`b`)))
+Note	1003	/* select#1 */ select `test`.`t4`.`b` AS `b`,max(`test`.`t4`.`a`) AS `ma` from `test`.`t4` left join (/* select#2 */ select max(`test`.`t2`.`a`) AS `MAX(t2.a)`,`test`.`t2`.`b` AS `b` from `test`.`t2` group by `test`.`t2`.`b`) `derived_1_2` on((`derived_1_2`.`b` = `test`.`t4`.`b`)) where true group by `test`.`t4`.`b` having (`ma` < `derived_1_2`.`MAX(t2.a)`)
 DROP TABLE t2, t4;
 Bug 3
 
@@ -2721,6 +2722,8 @@ sum_sort_rows BIGINT UNSIGNED NOT NULL,
 sum_sort_scan BIGINT UNSIGNED NOT NULL,
 sum_no_index_used BIGINT UNSIGNED NOT NULL,
 sum_no_good_index_used BIGINT UNSIGNED NOT NULL,
+sum_cpu_time BIGINT UNSIGNED NOT NULL,
+count_secondary BIGINT UNSIGNED NOT NULL,
 first_seen TIMESTAMP NULL DEFAULT NULL,
 last_seen TIMESTAMP NULL DEFAULT NULL,
 quantile_95 BIGINT UNSIGNED NOT NULL,
@@ -3012,9 +3015,9 @@ FROM c2 AS alias1
 HAVING   alias1.col_varchar_key > SOME (SELECT col_varchar_key FROM c2)
 ORDER BY alias1.col_varchar_key;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where; Using filesort
+1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>); Using merge sort
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>); Using filesort
 2	SUBQUERY	c2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`alias1`.`col_varchar_key` AS `col_varchar_key` from `test`.`c2` `alias1` having <nop>((`test`.`alias1`.`col_varchar_key` > (/* select#2 */ select min(`test`.`c2`.`col_varchar_key`) from `test`.`c2`))) order by `test`.`alias1`.`col_varchar_key`
@@ -3724,10 +3727,10 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 4	DERIVED	table1	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
 4	DERIVED	cc1	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index; Using join buffer (hash join)
 4	DERIVED	table3	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index; Using join buffer (hash join)
-4	DERIVED	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
+4	DERIVED	<derived5>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using join buffer (hash join)
 5	DERIVED	cc1	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
 Warnings:
-Note	1003	insert into `test`.`t1` /* select#1 */ select `derived_1_4`.`COUNT(table1.pk)` AS `COUNT(table1.pk)`,`derived_1_6`.`MIN(col_varchar_key)` AS `(SELECT MIN(col_varchar_key) FROM cc1 )` from (/* select#4 */ select count(`test`.`table1`.`pk`) AS `COUNT(table1.pk)` from `test`.`cc1` `table1` join `test`.`cc1` join `test`.`cc1` `table3` join (/* select#5 */ select count(0) AS `COUNT(*)` from `test`.`cc1`) `derived_4_5` where (1 <> `derived_4_5`.`COUNT(*)`)) `derived_1_4` left join (/* select#6 */ select min(`test`.`cc1`.`col_varchar_key`) AS `MIN(col_varchar_key)` from `test`.`cc1`) `derived_1_6` on(true) where true
+Note	1003	insert into `test`.`t1` /* select#1 */ select `derived_1_4`.`COUNT(table1.pk)` AS `COUNT(table1.pk)`,`derived_1_6`.`MIN(col_varchar_key)` AS `(SELECT MIN(col_varchar_key) FROM cc1 )` from (/* select#4 */ select count(`test`.`table1`.`pk`) AS `COUNT(table1.pk)` from `test`.`cc1` `table1` join `test`.`cc1` join `test`.`cc1` `table3` join (/* select#5 */ select count(0) AS `COUNT(*)` from `test`.`cc1` having (1 <> count(0))) `derived_4_5`) `derived_1_4` left join (/* select#6 */ select min(`test`.`cc1`.`col_varchar_key`) AS `MIN(col_varchar_key)` from `test`.`cc1`) `derived_1_6` on(true) where true
 SELECT * from t1;
 field1	field2
 0	NULL
@@ -3785,19 +3788,19 @@ FROM cc,a
 FROM cc STRAIGHT_JOIN bb ON bb.col_varchar = cc.col_varchar_key
 WHERE cc.col_varchar <> 'w';
 EXPLAIN
--> Left hash join (no condition)
-    -> Table scan on derived_1_3  (cost=2.61 rows=1)
-        -> Materialize
-            -> Aggregate: avg(cc.col_varchar_key)
+-> Left hash join (no condition)  (cost=6.23 rows=1)
+    -> Table scan on derived_1_3  (cost=2.51..2.51 rows=1)
+        -> Materialize  (cost=3.51..3.51 rows=1)
+            -> Aggregate: avg(cc.col_varchar_key)  (cost=0.90 rows=1)
                 -> Inner hash join (bb.col_varchar = cc.col_varchar_key)  (cost=0.80 rows=1)
                     -> Table scan on bb  (cost=0.35 rows=1)
                     -> Hash
                         -> Filter: (cc.col_varchar <> 'w')  (cost=0.45 rows=1)
                             -> Table scan on cc  (cost=0.45 rows=2)
     -> Hash
-        -> Table scan on derived_1_4  (cost=2.61 rows=1)
-            -> Materialize
-                -> Aggregate: sum(cc.col_int_key)
+        -> Table scan on derived_1_4  (cost=2.51..2.51 rows=1)
+            -> Materialize  (cost=3.61..3.61 rows=1)
+                -> Aggregate: sum(cc.col_int_key)  (cost=1.00 rows=1)
                     -> Inner hash join (no condition)  (cost=0.80 rows=2)
                         -> Table scan on cc  (cost=0.45 rows=2)
                         -> Hash
@@ -3903,27 +3906,27 @@ table1.col_varchar_key < 'O'
 ORDER BY table1.col_varchar ASC, field2, field1
 LIMIT 1000 OFFSET 2;
 EXPLAIN
--> Limit/Offset: 1000/2 row(s)
-    -> Left hash join (no condition)
-        -> Table scan on derived_1_4  (cost=2.61 rows=1)
-            -> Materialize
-                -> Aggregate: avg(table2.col_int)
+-> Limit/Offset: 1000/2 row(s)  (cost=177.33 rows=0)
+    -> Left hash join (no condition)  (cost=177.33 rows=1)
+        -> Table scan on derived_1_4  (cost=2.51..2.51 rows=1)
+            -> Materialize  (cost=9.11..9.11 rows=1)
+                -> Aggregate: avg(table2.col_int)  (cost=6.50 rows=1)
                     -> Inner hash join (no condition)  (cost=4.50 rows=20)
                         -> Table scan on table2  (cost=2.25 rows=20)
                         -> Hash
                             -> Filter: ((((table1.pk = 1) and ((table1.col_varchar_key = 'D') or (table1.col_varchar_key = table1.col_varchar_key))) or (table1.col_varchar_key < 'O')) and (table1.col_varchar_key = table1.col_varchar_key))  (cost=2.25 rows=1)
                                 -> Table scan on table1  (cost=2.25 rows=20)
         -> Hash
-            -> Table scan on derived_1_5  (cost=2.61 rows=1)
-                -> Materialize
-                    -> Aggregate: count(subquery1_t1.col_varchar_key)
+            -> Table scan on derived_1_5  (cost=2.51..2.51 rows=1)
+                -> Materialize  (cost=174.71..174.71 rows=1)
+                    -> Aggregate: count(subquery1_t1.col_varchar_key)  (cost=172.10 rows=1)
                         -> Nested loop inner join  (cost=168.50 rows=36)
                             -> Filter: (subquery1_t1.col_varchar_key <> subquery1_t2.col_varchar)  (cost=42.50 rows=360)
                                 -> Inner hash join (no condition)  (cost=42.50 rows=360)
                                     -> Table scan on subquery1_t2  (cost=0.10 rows=20)
                                     -> Hash
-                                        -> Index scan on subquery1_t1 using idx_cc_col_varchar_key  (cost=2.25 rows=20)
-                            -> Filter: (cc.col_varchar = subquery1_t2.col_varchar_key)  (cost=0.25 rows=0)
+                                        -> Covering index scan on subquery1_t1 using idx_cc_col_varchar_key  (cost=2.25 rows=20)
+                            -> Filter: (cc.col_varchar = subquery1_t2.col_varchar_key)  (cost=0.25 rows=0.1)
                                 -> Index lookup on cc using idx_cc_col_int_key (col_int_key=subquery1_t2.col_int)  (cost=0.25 rows=1)
 
 DROP VIEW view_cc;
@@ -4408,7 +4411,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 4	DERIVED	sq1_alias1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
 4	DERIVED	sq1_alias2	NULL	index	NULL	idx_cc_col_date_key	4	NULL	1	100.00	Using index; Using join buffer (hash join)
 Warnings:
-Note	1003	/* select#1 */ select `alias1`.`col_int` AS `col_int` from `test`.`c` `alias1` join (/* select#4 */ select min(`sq1_alias1`.`col_int`) AS `sq1_field1` from `test`.`c` `sq1_alias1` join `test`.`c` `sq1_alias2`) `derived_2_4` join `test`.`c` `alias2` join `test`.`c` `alias3` semi join (`test`.`c` `sq2_alias1` join `test`.`c` `sq2_alias2`) where ((`sq2_alias1`.`pk` = `sq2_alias2`.`col_int`) and (`alias2`.`col_int` >= `derived_2_4`.`sq1_field1`))
+Note	1003	/* select#1 */ select `test`.`alias1`.`col_int` AS `col_int` from `test`.`c` `alias1` join (/* select#4 */ select min(`test`.`sq1_alias1`.`col_int`) AS `sq1_field1` from `test`.`c` `sq1_alias1` join `test`.`c` `sq1_alias2`) `derived_2_4` join `test`.`c` `alias2` join `test`.`c` `alias3` semi join (`test`.`c` `sq2_alias1` join `test`.`c` `sq2_alias2`) where ((`test`.`sq2_alias1`.`pk` = `test`.`sq2_alias2`.`col_int`) and (`test`.`alias2`.`col_int` >= `derived_2_4`.`sq1_field1`))
 DROP VIEW view_c;
 DROP TABLE c;
 #
@@ -4504,5 +4507,100 @@ test.t1	analyze	status	OK
 SELECT SUM(pk) FROM t1 WHERE ( pk >= ANY ( SELECT MAX(1) FROM DUAL) );
 SUM(pk)
 15
+DROP TABLE t1;
+#
+# Bug #32859025: MYSQLD CRASH - ASSERTION `N < M_SIZE' FAILED|SQL/SQL_ARRAY.H
+#
+CREATE TABLE t1 ( pk INTEGER );
+SELECT
+(SELECT COUNT(*) FROM t1) AS f1,
+(SELECT COUNT(*) FROM t1) AS f2
+FROM t1
+GROUP BY f1, f2 WITH ROLLUP;
+f1	f2
+DROP TABLE t1;
+#
+# Bug#33057397: FIELD NAMES ARE DISPLAYED INCORRECTLY WITH ROLLUP AND
+#               SUBQUERY_TO_DERIVED
+CREATE TABLE t1 ( f1 INTEGER);
+INSERT INTO t1 VALUES (0);
+SELECT (SELECT MIN(f1) AS min FROM t1 ) AS field1 FROM t1 GROUP BY
+field1 WITH ROLLUP;
+field1
+0
+NULL
+DROP TABLE t1;
+#
+# Bug#33104036: ASSERTION FAILURE IN FIND_SUBQUERY_IN_SELECT_LIST AT
+#               ../SQL/ITEM_SUBSELECT.CC
+CREATE TABLE t1 (f1 INTEGER);
+SELECT (SELECT SUM(f1) AS SQ1_field1 FROM t1) as field1
+FROM t1 GROUP BY f1 WITH ROLLUP ORDER BY f1;
+field1
+DROP TABLE t1;
+Original repro case
+CREATE TABLE t1 (pk integer auto_increment,
+col_int int ,
+col_datetime datetime ,
+col_char_255 char(255) ,
+col_smallint smallint ,
+col_decimal_10_8 decimal(10,8),
+primary key(pk)) ;
+set sql_mode='';
+SELECT alias1.col_decimal_10_8 AS field1 ,
+( SELECT SUM(table1.col_smallint ) AS SQ1_field1
+FROM ( t1 as table1 RIGHT JOIN t1 as table2 ON 1 )
+) AS field2 ,
+GROUPING( LOG(alias1.col_int) ) AS field3
+FROM ( t1 AS alias1
+JOIN
+t1 AS alias2 ON 1  )
+WHERE alias2.pk IN ( SELECT col_char_255 FROM t1 )
+GROUP BY field1, field2, LOG(alias1.col_int)
+WITH ROLLUP
+ORDER BY alias1.col_datetime, field1, field2, LOG(alias1.col_int) ;
+field1	field2	field3
+EXPLAIN SELECT alias1.col_decimal_10_8 AS field1 ,
+( SELECT SUM(table1.col_smallint ) AS SQ1_field1
+FROM ( t1 as table1 RIGHT JOIN t1 as table2 ON 1 )
+) AS field2 ,
+GROUPING( LOG(alias1.col_int) ) AS field3
+FROM ( t1 AS alias1
+JOIN
+t1 AS alias2 ON 1  )
+WHERE alias2.pk IN ( SELECT col_char_255 FROM t1 )
+GROUP BY field1, field2, LOG(alias1.col_int)
+WITH ROLLUP
+ORDER BY alias1.col_datetime, field1, field2, LOG(alias1.col_int) ;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where; FirstMatch(<derived2>); Using join buffer (hash join)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>); Using filesort
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
+1	PRIMARY	alias1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	alias2	NULL	index	PRIMARY	PRIMARY	4	NULL	1	100.00	Using index; Using join buffer (hash join)
+2	DERIVED	table2	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
+2	DERIVED	table1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`alias1`.`col_decimal_10_8` AS `field1`,`derived_1_2`.`SQ1_field1` AS `field2`,grouping(rollup_group_item(`rollup_group_item(log(alias1.col_int),2)`,2)) AS `field3` from `test`.`t1` `alias1` join `test`.`t1` `alias2` left join (/* select#2 */ select sum(`test`.`table1`.`col_smallint`) AS `SQ1_field1` from `test`.`t1` `table2` left join `test`.`t1` `table1` on(true) where true) `derived_1_2` on(true) semi join (`test`.`t1`) where (cast(`test`.`alias2`.`pk` as double) = cast(`test`.`t1`.`col_char_255` as double)) group by `field1`,`field2`,log(`test`.`alias1`.`col_int`) with rollup order by `test`.`alias1`.`col_datetime`,`test`.`alias1`.`col_decimal_10_8`,`derived_1_2`.`SQ1_field1`,log(`test`.`alias1`.`col_int`)
+set sql_mode=default;
+DROP TABLE t1;
+#
+# Bug#33079592: ASSERTION `SELECT->BASE_REF_ITEMS[ITEM_IDX] == ITEM' FAILED
+#
+CREATE TABLE t1 (f1 INTEGER);
+SET optimizer_switch='subquery_to_derived=default';
+SELECT SUM(f1), ROW_NUMBER() OVER (PARTITION BY f1), (SELECT MIN(f1) FROM t1) FROM t1;
+ERROR 42000: In aggregated query without GROUP BY, expression #1 of PARTITION BY or ORDER BY clause of window '<unnamed window>' contains nonaggregated column 'test.t1.f1'; this is incompatible with sql_mode=only_full_group_by
+SELECT SUM(f1), ROW_NUMBER() OVER (), (SELECT MIN(f1) FROM t1) FROM t1 ORDER BY f1;
+SUM(f1)	ROW_NUMBER() OVER ()	(SELECT MIN(f1) FROM t1)
+NULL	1	NULL
+SET optimizer_switch='subquery_to_derived=on';
+SELECT SUM(f1), ROW_NUMBER() OVER (PARTITION BY f1), (SELECT MIN(f1) FROM t1) FROM t1;
+ERROR 42000: In aggregated query without GROUP BY, expression #2 of SELECT list contains nonaggregated column 'test.t1.f1'; this is incompatible with sql_mode=only_full_group_by
+SELECT SUM(f1), ROW_NUMBER() OVER (), (SELECT MIN(f1) FROM t1) FROM t1 ORDER BY f1;
+ERROR 42000: In aggregated query without GROUP BY, expression #2 of SELECT list contains nonaggregated column 'test.t1.f1'; this is incompatible with sql_mode=only_full_group_by
+SELECT SUM(f1), SUM(f1) OVER (), f1, (SELECT MIN(f1) FROM t1) sq FROM t1 ORDER BY f1;
+ERROR 42000: In aggregated query without GROUP BY, expression #2 of SELECT list contains nonaggregated column 'test.t1.f1'; this is incompatible with sql_mode=only_full_group_by
 DROP TABLE t1;
 SET optimizer_switch='subquery_to_derived=default';

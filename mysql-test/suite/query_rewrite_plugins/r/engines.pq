@@ -76,11 +76,11 @@ id	pattern	pattern_database	replacement	enabled	message	normalized_pattern
 CALL query_rewrite.flush_rewrite_rules();
 SELECT * FROM query_rewrite.rewrite_rules;
 id	pattern	pattern_database	replacement	enabled	message	normalized_pattern
-2	SELECT * FROM test.t1 WHERE ( a = ? AND TRUE ) OR b = ?	NULL	SELECT a FROM test.t1 WHERE a = ?	YES	NULL	select * from `test`.`t1` where (((`a` = ?) and true) or (`b` = ?))
+2	SELECT * FROM test.t1 WHERE ( a = ? AND TRUE ) OR b = ?	NULL	SELECT a FROM test.t1 WHERE a = ?	YES	NULL	select `*` from `test`.`t1` where (((`a` = ?) and true) or (`b` = ?))
 3	SELECT a FROM test.t1	NULL	SELECT * FROM test.t1 WHERE a = 'abc'	YES	NULL	select `a` from `test`.`t1`
 4	SELECT a FROM test.t1 WHERE b = ?	NULL	SELECT * FROM test.t1 WHERE b = ?	YES	NULL	select `a` from `test`.`t1` where (`b` = ?)
-5	SELECT * FROM test.t2	NULL	SELECT * FROM test.t1 JOIN test.t2 ON t1.a = t2.a	YES	NULL	select * from `test`.`t2`
-6	SELECT * FROM test.t1 WHERE a = ? OR b = ?	NULL	SELECT * FROM test.t1 WHERE b = ? OR a = ?	YES	NULL	select * from `test`.`t1` where ((`a` = ?) or (`b` = ?))
+5	SELECT * FROM test.t2	NULL	SELECT * FROM test.t1 JOIN test.t2 ON t1.a = t2.a	YES	NULL	select `*` from `test`.`t2`
+6	SELECT * FROM test.t1 WHERE a = ? OR b = ?	NULL	SELECT * FROM test.t1 WHERE b = ? OR a = ?	YES	NULL	select `*` from `test`.`t1` where ((`a` = ?) or (`b` = ?))
 # Check a query that doesn't have a rewrite rule doesn't get rewritten.
 SELECT b FROM test.t1;
 b
@@ -288,11 +288,11 @@ id	pattern	pattern_database	replacement	enabled	message	normalized_pattern
 CALL query_rewrite.flush_rewrite_rules();
 SELECT * FROM query_rewrite.rewrite_rules;
 id	pattern	pattern_database	replacement	enabled	message	normalized_pattern
-11	SELECT * FROM test.t1 WHERE ( a = ? AND TRUE ) OR b = ?	NULL	SELECT a FROM test.t1 WHERE a = ?	YES	NULL	select * from `test`.`t1` where (((`a` = ?) and true) or (`b` = ?))
+11	SELECT * FROM test.t1 WHERE ( a = ? AND TRUE ) OR b = ?	NULL	SELECT a FROM test.t1 WHERE a = ?	YES	NULL	select `*` from `test`.`t1` where (((`a` = ?) and true) or (`b` = ?))
 12	SELECT a FROM test.t1	NULL	SELECT * FROM test.t1 WHERE a = 'abc'	YES	NULL	select `a` from `test`.`t1`
 13	SELECT a FROM test.t1 WHERE b = ?	NULL	SELECT * FROM test.t1 WHERE b = ?	YES	NULL	select `a` from `test`.`t1` where (`b` = ?)
-14	SELECT * FROM test.t2	NULL	SELECT * FROM test.t1 JOIN test.t2 ON t1.a = t2.a	YES	NULL	select * from `test`.`t2`
-15	SELECT * FROM test.t1 WHERE a = ? OR b = ?	NULL	SELECT * FROM test.t1 WHERE b = ? OR a = ?	YES	NULL	select * from `test`.`t1` where ((`a` = ?) or (`b` = ?))
+14	SELECT * FROM test.t2	NULL	SELECT * FROM test.t1 JOIN test.t2 ON t1.a = t2.a	YES	NULL	select `*` from `test`.`t2`
+15	SELECT * FROM test.t1 WHERE a = ? OR b = ?	NULL	SELECT * FROM test.t1 WHERE b = ? OR a = ?	YES	NULL	select `*` from `test`.`t1` where ((`a` = ?) or (`b` = ?))
 # Check a query that doesn't have a rewrite rule doesn't get rewritten.
 SELECT b FROM test.t1;
 b

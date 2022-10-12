@@ -213,6 +213,7 @@ _set set('a', 'b', 'c')
 );
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	4096	Delimiter ' ' in position 0 in datetime value ' 07:08:09' at row 1 is superfluous and is deprecated. Please remove.
 INSERT INTO at (
 _bit,
 _tin,
@@ -1106,7 +1107,7 @@ HEX(BIT_XOR(a))
 # (force use of Item_sum_*::copy_or_same())
 SELECT SQL_BUFFER_RESULT HEX(BIT_AND(a)), HEX(BIT_OR(a)), HEX(BIT_XOR(a)) FROM t;
 HEX(BIT_AND(a))	HEX(BIT_OR(a))	HEX(BIT_XOR(a))
-F000F000	FFF0FFF0	0FF00FF0
+FFFFFFFFFFFFFFFFFFFF	00000000000000000000	00000000000000000000
 DROP TABLE t;
 #
 # bitwise aggregate functions having arguments with different sizes
@@ -1217,6 +1218,12 @@ group_id	HEX(BIT_AND(a))	BIT_AND(192)	BIT_AND(0x303233)	BIT_AND(binary "foo")
 3	34567104ABF0F0F0F0	192	3158579	foo
 4	34567100ABF000F0F0	192	3158579	foo
 5	000002	192	3158579	foo
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 SELECT BIT_COUNT(group_id), BIT_COUNT(a), BIT_COUNT(192), BIT_COUNT(0x303233),
 BIT_COUNT(binary "foo"), BIT_COUNT(NULL)
 FROM t;
@@ -1233,6 +1240,12 @@ BIT_COUNT(group_id)	BIT_COUNT(a)	BIT_COUNT(192)	BIT_COUNT(0x303233)	BIT_COUNT(bi
 2	17	2	9	16	NULL
 2	33	2	9	16	NULL
 2	9	2	9	16	NULL
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 #
 # aggregate functions in prepared statements
 #
@@ -1251,15 +1264,15 @@ group_id	HEX(BIT_AND(a))	HEX(BIT_OR(a))	HEX (BIT_XOR(a))
 1	34567100ABF000F0F0	34567107ABFFF0F0F0	000000040000000000
 2	FFFFFFFFFFFFFFFFFFFF	00000000000000000000	00000000000000000000
 3	34567104ABF0F0F0F0	34567104ABF0F0F0F0	34567104ABF0F0F0F0
-5	000002	FBFDFF	C1689A
 4	34567100ABF000F0F0	34567101ABFFF0F0F0	00000001000FF00000
+5	000002	FBFDFF	C1689A
 EXECUTE s2;
 group_id	HEX(BIT_AND(a))	HEX(BIT_OR(a))	HEX (BIT_XOR(a))
 1	34567100ABF000F0F0	34567107ABFFF0F0F0	000000040000000000
 2	FFFFFFFFFFFFFFFFFFFF	00000000000000000000	00000000000000000000
 3	34567104ABF0F0F0F0	34567104ABF0F0F0F0	34567104ABF0F0F0F0
-5	000002	FBFDFF	C1689A
 4	34567100ABF000F0F0	34567101ABFFF0F0F0	00000001000FF00000
+5	000002	FBFDFF	C1689A
 TRUNCATE TABLE t;
 #
 # testing conversions
@@ -1710,9 +1723,6 @@ SELECT 1 FROM t WHERE ~reverse(a & NULL);
 1
 SELECT 1 FROM t WHERE insert(a & NULL,'','','');
 1
-Warning	1292	Truncated incorrect INTEGER value: ''
-Warning	1292	Truncated incorrect INTEGER value: ''
-Warnings:
 SELECT 1 FROM t WHERE rtrim(a & NULL);
 1
 SELECT (SELECT a & NULL from t);

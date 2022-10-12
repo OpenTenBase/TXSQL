@@ -15,7 +15,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 3)
         -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 set session debug="+d,px_partition_error1";
 set session debug="+d,px_partition_error2";
@@ -29,7 +29,7 @@ set session debug="+d,px_partition_error5";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
 -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+    -> Covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 set session debug="-d,px_partition_error1";
 ###
@@ -39,7 +39,7 @@ set session debug="-d,px_partition_error1";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
 -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+    -> Covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 set session debug="-d,px_partition_error2";
 ###
@@ -49,7 +49,7 @@ set session debug="-d,px_partition_error2";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
 -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+    -> Covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 set session debug="-d,px_partition_error3";
 ###
@@ -59,7 +59,7 @@ set session debug="-d,px_partition_error3";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
 -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+    -> Covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 # Fallback for ER_GET_ERRNO
 EXPLAIN FORMAT=TREE SELECT * FROM t1;
@@ -74,7 +74,7 @@ set session debug="-d,px_partition_error4";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
 EXPLAIN
 -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-    -> Index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+    -> Covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 set session debug="-d,px_partition_error5";
 EXPLAIN FORMAT=TREE SELECT id, col2 FROM t1 FORCE INDEX(idx_col2) WHERE col2 < 3;
@@ -82,7 +82,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 3)
         -> Filter: (t1.col2 < 3)  (cost=0.66 rows=2)
-            -> Parallel index range scan on t1 using idx_col2  (cost=0.66 rows=2)
+            -> Parallel covering index range scan on t1 using idx_col2 over (NULL < col2 < 3)  (cost=0.66 rows=2)
 
 # --include set_px_to_saved.inc
 DROP TABLE t1;

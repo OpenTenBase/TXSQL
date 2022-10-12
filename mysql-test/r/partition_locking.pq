@@ -2494,8 +2494,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	PRIMARY	t1	p0,p1,p4	index	PRIMARY	b	515	NULL	#	41.67	Using where; Using index
 2	UNION	t2	p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 NULL	UNION RESULT	<union1,2>	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (0,1,13,4,26)) union /* select#2 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2`
+Warnings:
 VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
@@ -2506,8 +2506,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 2	DERIVED	t1	p0,p1,p4	index	PRIMARY	b	515	NULL	#	41.67	Using where; Using index
 3	UNION	t2	p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 NULL	UNION RESULT	<union1,3>	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `t3`.`a` AS `a`,`t3`.`b` AS `b` from (/* select#2 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (0,1,13,4,26))) `t3` union /* select#3 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2`
+Warnings:
 VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
@@ -2519,8 +2519,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	DERIVED	t1	p0,p1,p4	index	PRIMARY	b	515	NULL	#	41.67	Using where; Using index
 4	UNION	t2	p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 NULL	UNION RESULT	<union3,4>	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `t4`.`a` AS `a`,`t4`.`b` AS `b` from (/* select#2 */ select `t3`.`a` AS `a`,`t3`.`b` AS `b` from (/* select#3 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (0,1,13,4,26)) union /* select#4 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2`) `t3`) `t4`
+Warnings:
 VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
@@ -2532,8 +2532,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	DERIVED	t1	p0,p1,p4	index	PRIMARY	b	515	NULL	#	41.67	Using where; Using index
 4	UNION	t2	p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 NULL	UNION RESULT	<union2,4>	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `t4`.`a` AS `a`,`t4`.`b` AS `b` from (/* select#2 */ select `t3`.`a` AS `a`,`t3`.`b` AS `b` from (/* select#3 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (0,1,13,4,26))) `t3` union /* select#4 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2`) `t4`
+Warnings:
 VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
@@ -2545,8 +2545,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	DERIVED	t1	p0,p1,p4	index	PRIMARY	b	515	NULL	#	41.67	Using where; Using index
 4	UNION	t2	p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 NULL	UNION RESULT	<union1,4>	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `t4`.`a` AS `a`,`t4`.`b` AS `b` from (/* select#2 */ select `t3`.`a` AS `a`,`t3`.`b` AS `b` from (/* select#3 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (0,1,13,4,26))) `t3`) `t4` union /* select#4 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2`
+Warnings:
 VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
@@ -2558,8 +2558,8 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 3	DERIVED	t1	p0,p1,p4	index	PRIMARY	b	515	NULL	#	41.67	Using where; Using index
 4	UNION	t2	p1	const	PRIMARY	PRIMARY	4	const	#	100.00	NULL
 NULL	UNION RESULT	<union2,4>	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `t4`.`a` AS `a`,`t4`.`b` AS `b` from (/* select#2 */ select `t3`.`a` AS `a`,`t3`.`b` AS `b` from (/* select#3 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` in (0,1,13,4,26))) `t3` union /* select#4 */ select '1' AS `a`,'First row, p1' AS `b` from `test`.`t2` where true) `t4`
+Warnings:
 VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
@@ -4633,12 +4633,12 @@ INSERT INTO t2 VALUES (0, "Zero"), (1, "One"), (2, "Two"),
 FLUSH STATUS;
 ALTER TABLE t2 EXCHANGE PARTITION p1 WITH TABLE t1;
 VARIABLE_NAME	VARIABLE_VALUE
-Handler_commit	24
-Handler_external_lock	148
+Handler_commit	25
+Handler_external_lock	152
 Handler_prepare	4
 Handler_read_first	1
-Handler_read_key	74
-Handler_read_next	17
+Handler_read_key	76
+Handler_read_next	18
 Handler_read_rnd_next	4
 Handler_update	36
 SELECT * FROM t1 ORDER BY a;

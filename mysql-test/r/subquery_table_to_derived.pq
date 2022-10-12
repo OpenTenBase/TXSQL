@@ -266,8 +266,8 @@ EXPLAIN SELECT * FROM t1 WHERE 36 IN (SELECT (SELECT SUM(a) FROM t1)+b FROM t1) 
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (3 workers)
 1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	16	const	1	100.00	Using where; Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using temporary
 2	DERIVED	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Distinct; Using join buffer (hash join)
 3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
@@ -302,8 +302,8 @@ EXPLAIN SELECT * FROM t1 WHERE 36 NOT IN (SELECT COALESCE((SELECT SUM(a) FROM t1
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (3 workers)
 1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	15	const	1	100.00	Using where; Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using temporary
 2	DERIVED	<derived3>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Distinct; Using join buffer (hash join)
 3	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
@@ -449,3 +449,17 @@ Note	1276	Field or reference 'test.t1.a' of SELECT #2 was resolved in SELECT #1
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` left join (/* select#2 */ select distinct 1 AS `Name_exp_1`,`test`.`t2`.`b` AS `Name_exp_2` from `test`.`t2`) `derived_1_2` on((`test`.`t1`.`a` > `derived_1_2`.`Name_exp_2`)) where ((`derived_1_2`.`Name_exp_1` is null) and (`test`.`t1`.`a` > 0))
 DROP TABLE t1,t2;
 SET OPTIMIZER_SWITCH="semijoin=on";
+#
+# Bug #31941934: WL#14071: ASSERTION `JOIN == NULLPTR' FAILED|SQL/SQL_SELECT.CC
+#
+CREATE TABLE t1 ( pk INTEGER );
+CREATE TABLE t2 ( a INTEGER );
+CREATE TABLE t3 ( b INTEGER );
+SELECT *
+FROM t1 LEFT JOIN t2 ON 2 IN (
+SELECT COUNT(*) FROM t1
+WHERE NOT EXISTS ( SELECT b FROM t3 )
+GROUP BY pk
+);
+pk	a
+DROP TABLE t1, t2, t3;

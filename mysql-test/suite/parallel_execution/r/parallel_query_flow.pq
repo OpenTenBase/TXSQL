@@ -2,8 +2,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 root@localhost
@@ -93,7 +93,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: (t3.a between 1 and 9)  (cost=2.06 rows=9)
-            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+            -> Parallel index range scan on t3 using PRIMARY over (1 <= a <= 9)  (cost=2.06 rows=9)
 
 select * from t3 where b > 2 and b < 10;
 a	b	c	d
@@ -108,7 +108,7 @@ explain format=tree select * from t3 where b > 2 and b < 10;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
-        -> Parallel index range scan on t3 using idx, with index condition: ((t3.b > 2) and (t3.b < 10))  (cost=3.41 rows=7)
+        -> Parallel index range scan on t3 using idx over (2 < b < 10), with index condition: ((t3.b > 2) and (t3.b < 10))  (cost=3.41 rows=7)
 
 select * from t3 where a < 10 and b > 2;
 a	b	c	d
@@ -124,7 +124,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Filter: ((t3.a < 10) and (t3.b > 2))  (cost=2.06 rows=7)
-            -> Parallel index range scan on t3 using PRIMARY  (cost=2.06 rows=9)
+            -> Parallel index range scan on t3 using PRIMARY over (a < 10)  (cost=2.06 rows=9)
 
 select * from t3 order by b,c;
 a	b	c	d
@@ -281,7 +281,7 @@ EXPLAIN
 -> Aggregate: sum(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.b)
+            -> Aggregate: sum(t1.b)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select max(b) from t1;
@@ -292,7 +292,7 @@ EXPLAIN
 -> Aggregate: max(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: max(t1.b)
+            -> Aggregate: max(t1.b)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select min(c) from t1;
@@ -303,7 +303,7 @@ EXPLAIN
 -> Aggregate: min(t1.c)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: min(t1.c)
+            -> Aggregate: min(t1.c)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select count(b) from t1;
@@ -314,7 +314,7 @@ EXPLAIN
 -> Aggregate: count(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: count(t1.b)
+            -> Aggregate: count(t1.b)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), sum(c), sum(d) from t1;
@@ -325,7 +325,7 @@ EXPLAIN
 -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)
+            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), sum(t1.d)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), count(c), count(d) from t1;
@@ -336,7 +336,7 @@ EXPLAIN
 -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)
+            -> Aggregate: sum(t1.a), sum(t1.b), count(t1.c), count(t1.d)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), avg(c), avg(d) from t1;
@@ -347,7 +347,7 @@ EXPLAIN
 -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)
+            -> Aggregate: sum(t1.a), sum(t1.b), sum(t1.c), count(t1.c), sum(t1.d), count(t1.d)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a+1), count(b), avg(c+10), avg(d+100) from t1;
@@ -358,7 +358,7 @@ EXPLAIN
 -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))
+            -> Aggregate: sum((t1.a + 1)), count(t1.b), sum((t1.c + 10)), count((t1.c + 10)), sum((t1.d + 100)), count((t1.d + 100))  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select sum(a), sum(b), 1+sum(c) from t1;
@@ -369,7 +369,7 @@ EXPLAIN
 -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)
+            -> Aggregate: sum(t1.c), sum(t1.a), sum(t1.b)  (cost=1.25 rows=1)
                 -> Parallel table scan on t1  (cost=0.75 rows=5)
 
 select variance(a) from t1;
@@ -377,7 +377,7 @@ variance(a)
 2
 explain format=tree select variance(a) from t1;
 EXPLAIN
--> Aggregate: variance(t1.a)
+-> Aggregate: variance(t1.a)  (cost=1.25 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on t1  (cost=0.75 rows=5)
@@ -387,7 +387,7 @@ sum(a)	variance(b)	avg(c)
 15	2	5.0000
 explain format=tree select sum(a), variance(b), avg(c) from t1;
 EXPLAIN
--> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
+-> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)  (cost=1.25 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on t1  (cost=0.75 rows=5)
@@ -397,7 +397,7 @@ sum(a)	variance(b)	avg(c)
 14	1.25	5.5000
 explain format=tree select sum(a), variance(b), avg(c) from t1 where t1.a > 1;
 EXPLAIN
--> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)
+-> Aggregate: sum(t1.a), variance(t1.b), avg(t1.c)  (cost=0.92 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Filter: (t1.a > 1)  (cost=0.75 rows=2)
@@ -813,10 +813,6 @@ preparing	#
 Creating tmp table	#
 end	#
 query end	#
-removing tmp table	#
-query end	#
-removing tmp table	#
-query end	#
 closing tables	#
 freeing items	#
 starting fallback execution	#
@@ -833,8 +829,6 @@ Creating tmp table	#
 executing	#
 end	#
 query end	#
-waiting for handler commit	#
-removing tmp table	#
 waiting for handler commit	#
 closing tables	#
 freeing items	#

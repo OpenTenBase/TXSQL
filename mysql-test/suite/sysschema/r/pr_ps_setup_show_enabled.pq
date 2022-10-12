@@ -32,6 +32,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -56,6 +57,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -156,7 +158,6 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
-statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES
@@ -170,6 +171,7 @@ statement/com/Error	YES
 statement/com/Execute	YES
 statement/com/Fetch	YES
 statement/com/Field List	YES
+statement/com/Group Replication Data Stream subscription	YES
 statement/com/Init DB	YES
 statement/com/Kill	YES
 statement/com/Long Data	YES
@@ -178,7 +180,7 @@ statement/com/Prepare	YES
 statement/com/Processlist	YES
 statement/com/Quit	YES
 statement/com/Refresh	YES
-statement/com/Register Slave	YES
+statement/com/Register Replica	YES
 statement/com/Reset Connection	YES
 statement/com/Reset stmt	YES
 statement/com/Set option	YES
@@ -202,6 +204,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -214,7 +217,6 @@ thread_instrumentation
 enabled_threads	thread_type
 innodb/buf_dump_thread	BACKGROUND
 innodb/buf_resize_thread	BACKGROUND
-innodb/buf_synchronize_thread	BACKGROUND
 innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
@@ -229,6 +231,7 @@ innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/log_checkpointer_thread	BACKGROUND
+innodb/log_files_governor_thread	BACKGROUND
 innodb/log_flush_notifier_thread	BACKGROUND
 innodb/log_flusher_thread	BACKGROUND
 innodb/log_write_notifier_thread	BACKGROUND
@@ -238,8 +241,6 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
-sql/sql_statistics	BACKGROUND
-sql/working_mode	BACKGROUND
 threadpool/timer_thread	BACKGROUND
 CALL sys.ps_setup_show_enabled(TRUE, TRUE);
 performance_schema_enabled
@@ -256,6 +257,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -268,7 +270,6 @@ thread_instrumentation
 enabled_threads	thread_type
 innodb/buf_dump_thread	BACKGROUND
 innodb/buf_resize_thread	BACKGROUND
-innodb/buf_synchronize_thread	BACKGROUND
 innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
@@ -283,6 +284,7 @@ innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/log_checkpointer_thread	BACKGROUND
+innodb/log_files_governor_thread	BACKGROUND
 innodb/log_flush_notifier_thread	BACKGROUND
 innodb/log_flusher_thread	BACKGROUND
 innodb/log_write_notifier_thread	BACKGROUND
@@ -292,8 +294,6 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
-sql/sql_statistics	BACKGROUND
-sql/working_mode	BACKGROUND
 threadpool/timer_thread	BACKGROUND
 enabled_instruments	timed
 idle	YES
@@ -386,7 +386,6 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
-statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES
@@ -400,6 +399,7 @@ statement/com/Error	YES
 statement/com/Execute	YES
 statement/com/Fetch	YES
 statement/com/Field List	YES
+statement/com/Group Replication Data Stream subscription	YES
 statement/com/Init DB	YES
 statement/com/Kill	YES
 statement/com/Long Data	YES
@@ -408,7 +408,7 @@ statement/com/Prepare	YES
 statement/com/Processlist	YES
 statement/com/Quit	YES
 statement/com/Refresh	YES
-statement/com/Register Slave	YES
+statement/com/Register Replica	YES
 statement/com/Reset Connection	YES
 statement/com/Reset stmt	YES
 statement/com/Set option	YES

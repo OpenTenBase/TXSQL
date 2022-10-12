@@ -284,6 +284,7 @@ page_track_checkpoint_partial_flush_request	disabled
 page_track_full_block_writes	disabled
 page_track_partial_block_writes	disabled
 page_track_resets	disabled
+pre_purge_undo_log_pages	disabled
 purge_del_mark_records	disabled
 purge_dml_delay_usec	disabled
 purge_invoked	disabled

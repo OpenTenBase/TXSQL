@@ -200,15 +200,27 @@ static bool has_blob_primary_key(const TABLE *table) {
                      });
 }
 
-PX_table_descriptor *IndexRangeScanIterator::get_table_descriptor() {
-  PX_table_descriptor *descriptor = new (thd()->mem_root)
-      PX_table_descriptor(table(), PX_RANGE_SCAN, index, nullptr, false);
-  if (descriptor == nullptr) {
+#if defined(HAVE_PX)
+std::shared_ptr<PX_table_descriptor> IndexRangeScanIterator::get_table_descriptor() const {
+  auto descriptor = std::shared_ptr<PX_table_descriptor>(
+      new (thd()->mem_root) PX_table_descriptor(table(), PX_RANGE_SCAN,
+          index, false),
+      [](PX_table_descriptor *table_descriptor) { destroy(table_descriptor); });
+
+  if (descriptor.get() == nullptr) {
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
   }
 
   return descriptor;
 }
+
+bool IndexRangeScanIterator::prepare_for_parallel_query() {
+  if (shared_reset()) {
+    return true;
+  }
+  return false;
+}
+#endif /* defined(HAVE_PX) */
 
 bool IndexRangeScanIterator::Init() {
   empty_record(table());

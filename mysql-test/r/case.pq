@@ -11,9 +11,13 @@ CASE "c" when "a" then 1 when "b" then 2 ELSE 3 END
 3
 select CASE BINARY "b" when "a" then 1 when "B" then 2 WHEN "b" then "ok" END;
 CASE BINARY "b" when "a" then 1 when "B" then 2 WHEN "b" then "ok" END
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 ok
 select CASE "b" when "a" then 1 when binary "B" then 2 WHEN "b" then "ok" END;
 CASE "b" when "a" then 1 when binary "B" then 2 WHEN "b" then "ok" END
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 ok
 select CASE concat("a","b") when concat("ab","") then "a" when "b" then "b" end;
 CASE concat("a","b") when concat("ab","") then "a" when "b" then "b" end
@@ -107,8 +111,8 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` varchar(1) CHARACTER SET latin1 COLLATE latin1_danish_ci NOT NULL DEFAULT '',
   `c2` varchar(1) CHARACTER SET latin1 COLLATE latin1_danish_ci NOT NULL DEFAULT '',
-  `c3` varchar(1) CHARACTER SET latin1 NOT NULL DEFAULT '',
-  `c4` varchar(1) CHARACTER SET latin1 NOT NULL DEFAULT '',
+  `c3` varchar(2) CHARACTER SET latin1 NOT NULL DEFAULT '',
+  `c4` varchar(2) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `c5` varchar(4) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `c6` varchar(4) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `c7` decimal(2,1) NOT NULL DEFAULT '0.0',
@@ -161,7 +165,7 @@ t1	CREATE TABLE `t1` (
   `COALESCE(1.0)` decimal(2,1) NOT NULL DEFAULT '0.0',
   `COALESCE('a')` varchar(1) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `COALESCE(1,1.0)` decimal(2,1) NOT NULL DEFAULT '0.0',
-  `COALESCE(1,'1')` varchar(1) CHARACTER SET latin1 NOT NULL DEFAULT '',
+  `COALESCE(1,'1')` varchar(2) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `COALESCE(1.1,'1')` varchar(4) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `COALESCE('a' COLLATE latin1_bin,'b')` varchar(1) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -238,6 +242,7 @@ SET sql_mode = default;
 set @@sql_mode='';
 CREATE TABLE t1(c1 SET('','')CHARACTER SET ucs2) engine=innodb;
 Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Note	1291	Column 'c1' has duplicated value '' in SET
 INSERT INTO t1 VALUES(990101.102);
 Warnings:
@@ -373,7 +378,7 @@ FROM t;
 SHOW CREATE TABLE u;
 Table	Create Table
 u	CREATE TABLE `u` (
-  `HEX(a)` varchar(10) CHARACTER SET latin1 DEFAULT NULL,
+  `HEX(a)` varchar(16) CHARACTER SET latin1 DEFAULT NULL,
   `b` bit(5) DEFAULT NULL,
   `c` int unsigned DEFAULT NULL,
   `d` bigint unsigned DEFAULT NULL,
@@ -470,3 +475,16 @@ SELECT CASE t1.a WHEN 'a' THEN 'c' ELSE 'd' END FROM t1;
 CASE t1.a WHEN 'a' THEN 'c' ELSE 'd' END
 d
 DROP TABLE t1;
+#
+# Bug#32591239: VAL_JSON(JSON_WRAPPER*):ASSERTION
+#               `!CURRENT_THD->IS_ERROR() && HAS_VALUE' FAILED
+#
+CREATE TABLE t1 (col_int int, col_double double, j json);
+INSERT INTO t1 VALUES (382218415, -36452.389, '{"key1": 220655528}');
+SELECT col_int FROM t1
+WHERE CASE WHEN POWER(col_double, col_int) THEN j ELSE j END;
+ERROR 22003: DOUBLE value is out of range in 'pow(`test`.`t1`.`col_double`,`test`.`t1`.`col_int`)'
+DROP TABLE t1;
+# Bug#32865008: GROUP_CONCAT: setup_fields: assertion `!thd->is_error()' failed
+DO GROUP_CONCAT(DISTINCT NULLIF(1, PERIOD_ADD(0x6f09c5f8 ,'7451-01-27')));
+ERROR HY000: Incorrect arguments to period_add

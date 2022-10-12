@@ -379,9 +379,9 @@ COUNT(*)
 (SELECT SQL_CALC_FOUND_ROWS * FROM t1 LIMIT 1) UNION all (SELECT * FROM t2);
 a
 1
-5
-4
 3
+4
+5
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -512,8 +512,8 @@ a
 1
 2
 3
-5
 4
+5
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -534,8 +534,8 @@ COUNT(*)
 (SELECT SQL_CALC_FOUND_ROWS * FROM t1 LIMIT 1) UNION SELECT * FROM t2;
 a
 1
-4
 3
+4
 5
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -557,7 +557,7 @@ COUNT(*)
 (SELECT SQL_CALC_FOUND_ROWS * FROM t1 LIMIT 1) UNION SELECT * FROM t2 LIMIT 2;
 a
 1
-5
+3
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -575,8 +575,8 @@ COUNT(*)
 5
 SELECT SQL_CALC_FOUND_ROWS * FROM t1 UNION SELECT * FROM t2 LIMIT 2,2;
 a
-3
-4
+2
+5
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -667,10 +667,10 @@ Warnings:
 Note	1003	/* select#1 */ select '1' AS `a`,'1' AS `b` from `test`.`t1` where true union /* select#2 */ select '1' AS `a`,'10' AS `b` from `test`.`t2` where true
 explain format=tree (select * from t1 where a=5) union (select * from t2 where a=1);
 EXPLAIN
--> Table scan on <union temporary>  (cost=2.50 rows=0)
-    -> Union materialize with deduplication
-        -> Zero rows (no matching row in const table)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
+-> Table scan on <union temporary>  (cost=2.51..2.51 rows=1)
+    -> Union materialize with deduplication  (cost=2.61..2.61 rows=1)
+        -> Zero rows (no matching row in const table)  (cost=0.00..0.00 rows=0)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
 
 (select * from t1 where a=5) union (select * from t2 where a=1);
 a	b
@@ -684,9 +684,9 @@ a	b
 (select * from t1 where a=1) union (select t1.a,t2.a from t1,t2 where t1.a=t2.a);
 a	b
 1	1
+4	4
 2	2
 3	3
-4	4
 explain (select * from t1 where a=1 and b=10) union (select straight_join t1.a,t2.a from t1,t2 where t1.a=t2.a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	#	NULL	Impossible WHERE noticed after reading const tables
@@ -753,7 +753,7 @@ aa
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(2) NOT NULL DEFAULT ''
+  `a` varchar(3) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 create table t1 SELECT 12 as a UNION select 12.2 as a;
@@ -1409,8 +1409,8 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` enum('ä','ö','ü') CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT 'ü',
-  `b` enum('one','two') CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
+  `a` enum('ä','ö','ü') CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'ü',
+  `b` enum('one','two') CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `c` enum('one','two') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 insert into t1 values ('ä', 'one', 'one'), ('ö', 'two', 'one'), ('ü', NULL, NULL);
@@ -1577,7 +1577,7 @@ SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
 create table t1(f1 char(1), f2 char(5), f3 binary(1), f4 binary(5), f5 timestamp NOT NULL DEFAULT '0000-00-00 00:00:00', f6 varchar(1) character set utf8 collate utf8_general_ci, f7 text);
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 create table t2 as select *, f6 as f8 from t1 union select *, f7 from t1;
 show create table t2;
 Table	Create Table
@@ -1587,7 +1587,7 @@ t2	CREATE TABLE `t2` (
   `f3` binary(1) DEFAULT NULL,
   `f4` binary(5) DEFAULT NULL,
   `f5` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `f6` varchar(1) CHARACTER SET utf8 DEFAULT NULL,
+  `f6` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL,
   `f7` mediumtext,
   `f8` mediumtext
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -1979,14 +1979,14 @@ SELECT * FROM t1 UNION (SELECT * FROM t2 ORDER BY c2, c1);
 c1	c2
 t1a	1
 t1a	2
-t1a	3
 t1b	2
+t1a	3
 t1b	1
 t2a	1
-t2a	3
 t2a	2
-t2b	2
+t2a	3
 t2b	1
+t2b	2
 SELECT c1, c2 FROM (
 SELECT c1, c2 FROM t1
 UNION
@@ -2018,11 +2018,11 @@ UNION
 (SELECT c1, c2 FROM t2 ORDER BY c2 DESC, c1 LIMIT 1)
 ) AS res;
 c1	c2
-t1a	1
 t1a	2
 t1a	3
-t1b	1
 t1b	2
+t1b	1
+t1a	1
 t2a	3
 SELECT c1, c2 FROM (
 SELECT c1, c2 FROM t1
@@ -2133,14 +2133,14 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
         -> Append
-            -> Stream results
+            -> Stream results  (cost=0.45 rows=1)
                 -> Aggregate: sum(t2.a)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 1)
-                            -> Aggregate: sum(t2.a)
+                            -> Aggregate: sum(t2.a)  (cost=0.45 rows=1)
                                 -> Parallel index scan on t2 using PRIMARY  (cost=0.35 rows=1)
-            -> Stream results
-                -> Zero input rows (No matching min/max row), aggregated into one output row
+            -> Stream results  (cost=0.00..0.00 rows=1)
+                -> Zero input rows (No matching min/max row), aggregated into one output row  (cost=0.00..0.00 rows=1)
 
 SELECT a, SUM(a) FROM t2 UNION ALL SELECT a, MIN(a) FROM t1 ;
 a	SUM(a)
@@ -2846,10 +2846,9 @@ DROP TABLE t1, t2;
 # Bug #21156155 UNION GEOMETRY TYPE: UNITIALIZED VALUE IN
 # ITEM_TYPE_HOLDER::JOIN_TYPES
 #
-SELECT NULL UNION SELECT POINT(1,1);
-NULL
-             ð?      ð?
-NULL
+SELECT COUNT(*) FROM (SELECT NULL UNION SELECT POINT(1,1)) AS dt;
+COUNT(*)
+2
 #
 # Bug#22602381 FOUND_ROWS() IS NOT WORKING AS EXPECTED WITHOUT
 #              SQL_CALC_FOUND_ROWS
@@ -3244,6 +3243,8 @@ foo
 foo
 BAR
 SET @param = CONVERT('foo' USING ucs2);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 EXECUTE stmt USING @param;
 foo
 foo
@@ -3414,7 +3415,7 @@ PRIMARY KEY (pk)
 INSERT INTO t1 VALUES (1,'');
 EXPLAIN FORMAT=tree SELECT * FROM ( SELECT * FROM t1 WHERE pk=1 UNION SELECT * FROM t1 WHERE FALSE ) d1;
 EXPLAIN
--> Rows fetched before execution  (cost=0.00 rows=1)
+-> Rows fetched before execution  (cost=0.00..0.00 rows=1)
 
 SELECT * FROM ( SELECT * FROM t1 WHERE pk=1 UNION SELECT * FROM t1 WHERE FALSE ) d1;
 pk	b
@@ -3502,6 +3503,52 @@ h	int	YES		NULL
 i	bigint	YES		NULL	
 j	decimal(20,0)	YES		NULL	
 DROP TABLE t1, t2;
+# Bug#31348202: Wrong result is returned with UNION syntax
+SELECT 19 AS c UNION ALL SELECT 2.9;
+c
+19.0
+2.9
+CREATE TABLE t1 AS SELECT 19 AS c UNION ALL SELECT 2.9;
+DESCRIBE t1;
+Field	Type	Null	Key	Default	Extra
+c	decimal(3,1)	NO		0.0	
+DROP TABLE t1;
+SELECT 19 AS c UNION ALL SELECT 'XX';
+c
+19
+XX
+CREATE TABLE t1 AS SELECT 19 AS c UNION ALL SELECT 'XX';
+DESCRIBE t1;
+Field	Type	Null	Key	Default	Extra
+c	varchar(3)	NO			
+DROP TABLE t1;
+SELECT -19 AS c UNION ALL SELECT 'XX';
+c
+-19
+XX
+CREATE TABLE t1 AS SELECT -19 AS c UNION ALL SELECT 'XX';
+DESCRIBE t1;
+Field	Type	Null	Key	Default	Extra
+c	varchar(3)	NO			
+DROP TABLE t1;
+SELECT 19.0 AS c UNION ALL SELECT 'XX';
+c
+19.0
+XX
+CREATE TABLE t1 AS SELECT 19.0 AS c UNION ALL SELECT 'XX';
+DESCRIBE t1;
+Field	Type	Null	Key	Default	Extra
+c	varchar(5)	NO			
+DROP TABLE t1;
+SELECT -19.0 AS c UNION ALL SELECT 'XX';
+c
+-19.0
+XX
+CREATE TABLE t1 AS SELECT -19.0 AS c UNION ALL SELECT 'XX';
+DESCRIBE t1;
+Field	Type	Null	Key	Default	Extra
+c	varchar(5)	NO			
+DROP TABLE t1;
 #
 # Bug#33066455: REGRESSION: ACCESSPATH*
 #               MOVECOMPOSITEITERATORSFROMTABLEPATH(ACCESSPATH*):
@@ -3509,7 +3556,7 @@ DROP TABLE t1, t2;
 #
 EXPLAIN FORMAT=TREE SELECT 1 UNION SELECT 1 LIMIT 0;
 EXPLAIN
--> Zero rows (Zero limit)
+-> Zero rows (Zero limit)  (cost=0.00..0.00 rows=0)
 
 SELECT 1 UNION SELECT 1 LIMIT 0;
 1

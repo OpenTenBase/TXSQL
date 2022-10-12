@@ -74,12 +74,12 @@ v
 SELECT JSON_VALUE('{"data": 1999}', '$.data' RETURNING YEAR) v;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 1999
-def					v	13	4	4	Y	32896	0	63
+def					v	13	5	4	Y	32896	0	63
 v
 SELECT JSON_VALUE('{"data": -1999}', '$.data' RETURNING YEAR) v;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 NULL
-def					v	13	4	0	Y	32896	0	63
+def					v	13	5	0	Y	32896	0	63
 v
 SELECT JSON_VALUE(JSON_OBJECT('data', 1.0e0/3), '$.data' RETURNING FLOAT) v;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
@@ -433,10 +433,6 @@ CREATE TABLE json_value(json_value JSON);
 SELECT JSON_VALUE(json_value, '$.a') AS json_value FROM json_value;
 json_value
 DROP TABLE json_value;
-CREATE TABLE returning(returning JSON);
-SELECT JSON_VALUE(returning, '$.a' RETURNING CHAR) AS returning FROM returning;
-returning
-DROP TABLE returning;
 # Test ON EMPTY clause
 SELECT JSON_VALUE('{"data": 123}', '$.num' RETURNING SIGNED) v;
 v

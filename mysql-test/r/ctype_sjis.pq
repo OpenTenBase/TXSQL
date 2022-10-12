@@ -224,6 +224,10 @@ SELECT hex(a), hex(lower(a)), hex(upper(a)) FROM t1 ORDER BY binary(a);
 hex(a)	hex(lower(a))	hex(upper(a))
 8352835E	8352835E	8352835E
 8372835E	8372835E	8372835E
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 #
 # Bug#11766519 - Bug#59648: MY_STRTOLL10_MB2: ASSERTION `(*ENDPTR - S) % 2 == 0' FAILED.
@@ -14600,6 +14604,12 @@ EFBE9E	DE
 EFBE9F	DF
 EFBFA3	8150
 EFBFA5	818F
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 #
 # End of 5.5 tests
@@ -14947,9 +14957,9 @@ is_ipv4(inet_ntoa('1'))
 SELECT is_ipv6(inet_ntoa('1'));
 is_ipv6(inet_ntoa('1'))
 0
-SELECT inet6_aton(inet_ntoa('1'));
-inet6_aton(inet_ntoa('1'))
-   
+SELECT HEX(inet6_aton(inet_ntoa('1')));
+HEX(inet6_aton(inet_ntoa('1')))
+00000001
 SELECT inet6_ntoa(inet_ntoa('1'));
 inet6_ntoa(inet_ntoa('1'))
 NULL

@@ -26,8 +26,8 @@ Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` fr
 select * from t1 order by a desc;
 a	b
 6	1
-5	2
 5	1
+5	2
 4	2
 4	3
 3	3
@@ -299,11 +299,11 @@ t2	CREATE TABLE `t2` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 insert ignore into t2 select a from t1;
 Warnings:
-Warning	1062	Duplicate entry '5' for key 't2.PRIMARY'
-Warning	1062	Duplicate entry '4' for key 't2.PRIMARY'
-Warning	1062	Duplicate entry '3' for key 't2.PRIMARY'
-Warning	1062	Duplicate entry '2' for key 't2.PRIMARY'
 Warning	1062	Duplicate entry '1' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '2' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '4' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '5' for key 't2.PRIMARY'
 select * from t2;
 a
 1
@@ -402,36 +402,36 @@ SELECT * FROM t1
 WHERE (i1 BETWEEN 50 AND 52 OR i1 BETWEEN 70 AND 72) AND MOD(i2,2)=1
 ORDER BY i1 DESC;
 i1	i2	i3
-72	711	7
-72	713	7
-72	715	7
-72	717	7
-72	719	7
-71	701	7
-71	703	7
-71	705	7
-71	707	7
-71	709	7
-70	691	6
-70	693	6
-70	695	6
-70	697	6
-70	699	6
-52	511	5
-52	513	5
-52	515	5
-52	517	5
-52	519	5
-51	501	5
-51	503	5
-51	505	5
-51	507	5
-51	509	5
 50	491	4
 50	493	4
 50	495	4
 50	497	4
 50	499	4
+51	501	5
+51	503	5
+51	505	5
+51	507	5
+51	509	5
+52	511	5
+52	513	5
+52	515	5
+52	517	5
+52	519	5
+70	691	6
+70	693	6
+70	695	6
+70	697	6
+70	699	6
+71	701	7
+71	703	7
+71	705	7
+71	707	7
+71	709	7
+72	711	7
+72	713	7
+72	715	7
+72	717	7
+72	719	7
 EXPLAIN SELECT * FROM t1
 WHERE ( (i1=50 AND i2=495) OR i1 BETWEEN 70 AND 72) AND MOD(i2,2)=1
 ORDER BY i1 DESC;
@@ -445,22 +445,22 @@ SELECT * FROM t1
 WHERE ( (i1=50 AND i2=495) OR i1 BETWEEN 70 AND 72) AND MOD(i2,2)=1
 ORDER BY i1 DESC;
 i1	i2	i3
-72	711	7
-72	713	7
-72	715	7
-72	717	7
-72	719	7
-71	701	7
-71	703	7
-71	705	7
-71	707	7
-71	709	7
+50	495	4
 70	691	6
 70	693	6
 70	695	6
 70	697	6
 70	699	6
-50	495	4
+71	701	7
+71	703	7
+71	705	7
+71	707	7
+71	709	7
+72	711	7
+72	713	7
+72	715	7
+72	717	7
+72	719	7
 EXPLAIN SELECT * FROM t1 WHERE i1 >= 50 AND i1 < 52 AND MOD(i2,2)=1 ORDER BY i1 DESC;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	k1	k1	4	NULL	20	100.00	Parallel scan (2 workers); Using index condition
@@ -514,21 +514,21 @@ Note	1003	/* select#1 */ select `test`.`t1`.`i1` AS `i1`,`test`.`t1`.`i2` AS `i2
 SELECT * FROM t1
 WHERE i1 BETWEEN 50 AND 52 AND MOD(i2,2)=1 ORDER BY i1 DESC;
 i1	i2	i3
-52	519	5
-52	517	5
-52	515	5
-52	513	5
 52	511	5
-51	509	5
-51	507	5
-51	505	5
-51	503	5
+52	513	5
+52	515	5
+52	517	5
+52	519	5
 51	501	5
-50	499	4
-50	497	4
-50	495	4
-50	493	4
+51	503	5
+51	505	5
+51	507	5
+51	509	5
 50	491	4
+50	493	4
+50	495	4
+50	497	4
+50	499	4
 ALTER TABLE t1 DROP INDEX k1, ADD INDEX k1(i1, i2 DESC);
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
@@ -940,15 +940,15 @@ Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`t
 flush status;
 select * from t1 where a >= 1 and a < 3 and b >0 order by a desc,b desc;
 a	b	c
-2	3	c
-2	2	a
-2	2	b
 2	1	a
 2	1	b
-1	3	b
+2	2	a
+2	2	b
+2	3	c
 1	1	NULL
 1	1	b
 1	1	b
+1	3	b
 show status like 'handler_read%';
 Variable_name	Value
 Handler_read_first	0

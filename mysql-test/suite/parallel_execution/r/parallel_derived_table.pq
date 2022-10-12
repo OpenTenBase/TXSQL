@@ -1,8 +1,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 root@localhost
@@ -30,10 +30,10 @@ explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
-        -> Nested loop inner join
+        -> Nested loop inner join  (cost=2.65 rows=0)
             -> Parallel table scan on t1  (cost=0.65 rows=4)
             -> Index lookup on tt using <auto_key0> (a=t1.a)
-                -> Materialize
+                -> Materialize  (cost=0.00..0.00 rows=0)
                     -> Table scan on <temporary>
                         -> Aggregate using temporary table
                             -> Table scan on t2  (cost=0.65 rows=4)
@@ -180,8 +180,8 @@ Warnings:
 Note	1003	/* select#1 */ select `tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt`
 explain format=tree select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 EXPLAIN
--> Table scan on tt  (cost=2.95 rows=4)
-    -> Materialize
+-> Table scan on tt  (cost=2.50..2.50 rows=0)
+    -> Materialize  (cost=2.50..2.50 rows=0)
         -> Table scan on <temporary>
             -> Final Aggregate using temporary table
                 -> PX Receiver (slice: 0; workers: 1)
@@ -304,12 +304,12 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
 explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 EXPLAIN
--> Nested loop inner join
+-> Nested loop inner join  (cost=2.65 rows=0)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on t1  (cost=0.65 rows=4)
     -> Index lookup on tt using <auto_key0> (a=t1.a)
-        -> Materialize
+        -> Materialize  (cost=0.00..0.00 rows=0)
             -> Table scan on <temporary>
                 -> Aggregate using temporary table
                     -> Table scan on t2  (cost=0.65 rows=4)
@@ -466,10 +466,10 @@ explain format=tree select * from t1,(select t2.a, count(t2.b) from t2 group by 
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
-        -> Nested loop inner join
+        -> Nested loop inner join  (cost=2.65 rows=0)
             -> Parallel table scan on t1  (cost=0.65 rows=4)
             -> Index lookup on tt using <auto_key0> (a=t1.a)
-                -> Materialize
+                -> Materialize  (cost=0.00..0.00 rows=0)
                     -> Table scan on <temporary>
                         -> Aggregate using temporary table
                             -> Table scan on t2  (cost=0.65 rows=4)
@@ -616,8 +616,8 @@ Warnings:
 Note	1003	/* select#1 */ select `tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from (/* select#2 */ select `test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt`
 explain format=tree select * from (select t2.a, count(t2.b) from t2 group by t2.a) as tt;
 EXPLAIN
--> Table scan on tt  (cost=2.95 rows=4)
-    -> Materialize
+-> Table scan on tt  (cost=2.50..2.50 rows=0)
+    -> Materialize  (cost=2.50..2.50 rows=0)
         -> Table scan on <temporary>
             -> Final Aggregate using temporary table
                 -> PX Receiver (slice: 0; workers: 1)
@@ -740,12 +740,12 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`tt`.`rand()` AS `rand()`,`tt`.`a` AS `a`,`tt`.`count(t2.b)` AS `count(t2.b)` from `test`.`t1` join (/* select#2 */ select rand() AS `rand()`,`test`.`t2`.`a` AS `a`,count(`test`.`t2`.`b`) AS `count(t2.b)` from `test`.`t2` group by `test`.`t2`.`a`) `tt` where (`tt`.`a` = `test`.`t1`.`a`)
 explain format=tree select * from t1,(select rand(), t2.a, count(t2.b) from t2 group by t2.a) as tt where t1.a = tt.a;
 EXPLAIN
--> Nested loop inner join
+-> Nested loop inner join  (cost=2.65 rows=0)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on t1  (cost=0.65 rows=4)
     -> Index lookup on tt using <auto_key0> (a=t1.a)
-        -> Materialize
+        -> Materialize  (cost=0.00..0.00 rows=0)
             -> Table scan on <temporary>
                 -> Aggregate using temporary table
                     -> Table scan on t2  (cost=0.65 rows=4)

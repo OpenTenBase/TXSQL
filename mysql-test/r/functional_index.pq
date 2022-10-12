@@ -125,15 +125,18 @@ SHOW KEYS FROM t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	1	idx1	1	col1	A	0	NULL	NULL	YES	BTREE			YES	NULL
 t1	1	idx1	2	NULL	A	0	NULL	NULL	YES	BTREE			YES	(`col1` + `col2`)
-# Create a funtional index with many functional key parts
+# Create a functional index with many functional key parts. Bug#27168185.
+CREATE INDEX idx2
+ON t1 ((col1 + 1), (col1 + 2), (col1 + 3), (col1 + 4), (col1 + 5));
 # Check that if we try to add a column with the same name as a hidden
 # column, we get an internal error. The column name of the generated
-# column is calculated as MD5(index_name + key_part_number).
-SELECT MD5(CONCAT("idx1", "1"));
-MD5(CONCAT("idx1", "1"))
-56fb28970273a50c6f31dec0fe3b175b
-ALTER TABLE t1 ADD COLUMN `56fb28970273a50c6f31dec0fe3b175b` INT NOT NULL;
-ERROR HY000: Internal error: The column name '56fb28970273a50c6f31dec0fe3b175b' is already in use by a hidden column
+# column is `!hidden!index_name!key_part!counter`.
+ALTER TABLE t1 ADD COLUMN `!hidden!idx1!1!0` INT NOT NULL;
+ERROR HY000: Internal error: The column name '!hidden!idx1!1!0' is already in use by a hidden column
+ALTER TABLE t1 ADD COLUMN `!hidden!idx3!0!0` INT NOT NULL;
+CREATE INDEX idx3 ON t1 ((col1-col2));
+ALTER TABLE t1 ADD COLUMN `!hidden!idx3!0!1` INT NOT NULL;
+ERROR HY000: Internal error: The column name '!hidden!idx3!0!1' is already in use by a hidden column
 DROP TABLE t1;
 # Creating a functional index on already existing columns using
 # ALTER TABLE should work just fine.
@@ -186,7 +189,7 @@ EXPLAIN SELECT col1 FROM t1 WHERE ABS(col1) < 1 ORDER BY ABS(col1) DESC;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	functional_index	functional_index	5	NULL	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1` from `test`.`t1` where (abs(`col1`) < 1) order by abs(`col1`) desc
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1` from `test`.`t1` where (abs(`col1`) < 1) order by abs(`test`.`t1`.`col1`) desc
 DROP TABLE t1;
 # Test integer index over a JSON key
 CREATE TABLE t1(f1 JSON, INDEX idx1 ((CAST(f1->"$.id" AS UNSIGNED))));
@@ -234,8 +237,8 @@ f1
 EXPLAIN SELECT * FROM t1 WHERE CAST(f1->>"$.id" AS CHAR(10)) = "\"n\"";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	idx1	idx1	43	const	1	100.00	NULL
-Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (cast(json_unquote(json_extract(`f1`,_utf8mb4'$.id')) as char(10) charset utf8mb4) = '"n"')
+Warnings:
 SELECT * FROM t1 WHERE CAST(f1->>"$.id" AS CHAR(10)) IN ("'z", "\"n\"","a");
 f1
 {"id": "'z"}
@@ -244,8 +247,8 @@ f1
 EXPLAIN SELECT * FROM t1 WHERE CAST(f1->>"$.id" AS CHAR(10)) IN ("'z", "\"n\"","a");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	idx1	idx1	43	NULL	3	100.00	Using where
-Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (cast(json_unquote(json_extract(`f1`,_utf8mb4'$.id')) as char(10) charset utf8mb4) in ('\'z','"n"','a'))
+Warnings:
 DROP TABLE t1;
 CREATE TABLE t1(f1 JSON, INDEX idx1 ((CAST(f1->>"$.name" AS CHAR(30)) COLLATE utf8mb4_bin)));
 INSERT INTO t1 VALUES
@@ -286,12 +289,9 @@ DROP TABLE t1;
 # Test that doing an UPDATE on a hidden generated column returns "column
 # not found".
 CREATE TABLE t1 (col1 INT, INDEX idx1 ((col1 + col1)));
-# Get the expected name of the hidden generated column.
-SELECT MD5(CONCAT("idx1", "0"));
-MD5(CONCAT("idx1", "0"))
-45197ac678c1210c4a64bf22351853e7
-UPDATE t1 SET 45197ac678c1210c4a64bf22351853e7 = 123;
-ERROR 42S22: Unknown column '45197ac678c1210c4a64bf22351853e7' in 'field list'
+# Update the hidden generated column.
+UPDATE t1 SET `!hidden!idx1!0!0` = 123;
+ERROR 42S22: Unknown column '!hidden!idx1!0!0' in 'field list'
 DROP TABLE t1;
 #
 # Bug#28037245 VIRTUAL COLUMN IS ALLOWED IN THE WHERE CLAUSE FOR SQL
@@ -299,12 +299,8 @@ DROP TABLE t1;
 #
 CREATE TABLE t3 (c1 INT);
 CREATE INDEX int_func_index ON t3 ((ABS(c1)));
-# Get the expected column name of the functional index
-SELECT MD5(CONCAT('int_func_index', '0'));
-MD5(CONCAT('int_func_index', '0'))
-7cf759b4f03e729c90aa40cc68dd8780
-SELECT * FROM t3 WHERE 7cf759b4f03e729c90aa40cc68dd8780=1;
-ERROR 42S22: Unknown column '7cf759b4f03e729c90aa40cc68dd8780' in 'where clause'
+SELECT * FROM t3 WHERE `!hidden!int_func_index!0!0`=1;
+ERROR 42S22: Unknown column '!hidden!int_func_index!0!0' in 'where clause'
 DROP TABLE t3;
 #
 # Bug#28037375 ALTER TABLE DROP OF A NORMAL COLUMN RAISES ERROR
@@ -369,7 +365,7 @@ DROP TABLE t1;
 # generated columns.
 CREATE TABLE t(x INT, KEY((1+1)));
 ALTER TABLE t DROP COLUMN x;
-ERROR 42000: A table must have at least 1 column
+ERROR HY000: A table must have at least one visible column.
 DROP TABLE t;
 # See that we print out the correct error message in case of duplicate
 # index names.
@@ -452,7 +448,9 @@ Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
 EXPLAIN SELECT * FROM t WHERE CONCAT(x,x) = 'XX';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`x` AS `x` from `test`.`t` where (concat(`test`.`t`.`x`,`test`.`t`.`x`) = 'XX')
 DROP TABLE t;
@@ -599,6 +597,17 @@ INDEX sold_on_date ((DATE(sold_on)))
 )
 SELECT NOW() `sold_on`;
 #
+# Bug#30838749: PERFORMANCE DROP WHEN CREATING A FUNCTIONAL INDEX
+#
+CREATE TABLE t1(x INT, KEY k ((x+1)));
+CREATE TABLE t2(j JSON);
+LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/bug30838749' INTO TABLE t2
+LINES STARTING BY 'EXPLAIN' TERMINATED BY 'EOL';
+SELECT j->'$**.used_columns' FROM t2;
+j->'$**.used_columns'
+[["x"]]
+DROP TABLE t1, t2;
+#
 # Bug#32287186: FAILED TO CREATE FUNCTION INDEX,
 # COLUMN NAME IS UPPERCASE CHARACTER
 #
@@ -627,3 +636,84 @@ DROP TABLE t5;
 DROP TABLE t6;
 DROP TABLE t7;
 DROP TABLE t8;
+#
+# Bug#33851055: Correlated subquery does not use functional index
+#
+CREATE TABLE t (
+id INT DEFAULT NULL,
+KEY functional_index ((id * id))
+);
+CREATE TABLE t2 (
+id INT NOT NULL AUTO_INCREMENT,
+val INT,
+PRIMARY KEY (id)
+);
+INSERT INTO t(id) VALUES (1), (1), (2), (-1), (-2);
+INSERT INTO t2(val) VALUES (1), (2), (3), (4);
+ANALYZE TABLE t,t2;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+test.t2	analyze	status	OK
+EXPLAIN SELECT id, val, (SELECT id FROM t WHERE (id * id) = val LIMIT 1) AS tid FROM t2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t	NULL	ref	functional_index	functional_index	9	test.t2.val	2	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t2.val' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t2`.`id` AS `id`,`test`.`t2`.`val` AS `val`,(/* select#2 */ select `test`.`t`.`id` from `test`.`t` where ((`id` * `id`) = `test`.`t2`.`val`) limit 1) AS `tid` from `test`.`t2`
+SELECT id, val, (SELECT id FROM t WHERE (id * id) = val LIMIT 1) AS tid FROM t2;
+id	val	tid
+1	1	1
+2	2	NULL
+3	3	NULL
+4	4	2
+EXPLAIN SELECT id, val, (SELECT id FROM t WHERE (id * id) BETWEEN val and val + 2 LIMIT 1) AS tid FROM t2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t	NULL	ALL	functional_index	NULL	NULL	NULL	5	20.00	Range checked for each record (index map: 0x1)
+Warnings:
+Note	1276	Field or reference 'test.t2.val' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t2.val' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t2`.`id` AS `id`,`test`.`t2`.`val` AS `val`,(/* select#2 */ select `test`.`t`.`id` from `test`.`t` where ((`id` * `id`) between `test`.`t2`.`val` and (`test`.`t2`.`val` + 2)) limit 1) AS `tid` from `test`.`t2`
+SELECT id, val, (SELECT id FROM t WHERE (id * id) BETWEEN val and val + 2 LIMIT 1) AS tid FROM t2;
+id	val	tid
+1	1	1
+2	2	2
+3	3	2
+4	4	2
+EXPLAIN SELECT id, val, (SELECT id FROM t WHERE (id * id) IN (val) LIMIT 1) AS tid FROM t2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t	NULL	ref	functional_index	functional_index	9	test.t2.val	2	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'test.t2.val' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t2`.`id` AS `id`,`test`.`t2`.`val` AS `val`,(/* select#2 */ select `test`.`t`.`id` from `test`.`t` where ((`id` * `id`) = `test`.`t2`.`val`) limit 1) AS `tid` from `test`.`t2`
+SELECT id, val, (SELECT id FROM t WHERE (id * id) IN (val) LIMIT 1) AS tid FROM t2;
+id	val	tid
+1	1	1
+2	2	NULL
+3	3	NULL
+4	4	2
+EXPLAIN SELECT id, val, (SELECT id FROM t WHERE (id * id) = val + (SELECT 1 FROM t WHERE id > 1) LIMIT 1) AS tid FROM t2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t	NULL	ref	functional_index	functional_index	9	func	2	100.00	Using where
+3	SUBQUERY	t	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Using where
+Warnings:
+Note	1276	Field or reference 'test.t2.val' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t2`.`id` AS `id`,`test`.`t2`.`val` AS `val`,(/* select#2 */ select `test`.`t`.`id` from `test`.`t` where ((`id` * `id`) = (`test`.`t2`.`val` + (/* select#3 */ select 1 from `test`.`t` where (`test`.`t`.`id` > 1)))) limit 1) AS `tid` from `test`.`t2`
+SELECT id, val, (SELECT id FROM t WHERE (id * id) = val + (SELECT 1 FROM t WHERE id > 1) LIMIT 1) AS tid FROM t2;
+id	val	tid
+1	1	NULL
+2	2	NULL
+3	3	2
+4	4	NULL
+DROP TABLE t, t2;

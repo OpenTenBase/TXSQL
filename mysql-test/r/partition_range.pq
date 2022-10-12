@@ -138,6 +138,9 @@ explain select * from t1 where a <= '2004-01-01 11:59.59';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	p0	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
+Warning	4095	Delimiter '.' in position 16 in datetime value '2004-01-01 11:59.59' at row 1 is deprecated. Prefer the standard ':'.
+Warning	4095	Delimiter '.' in position 16 in datetime value '2004-01-01 11:59.59' at row 1 is deprecated. Prefer the standard ':'.
+Warning	4095	Delimiter '.' in position 16 in datetime value '2004-01-01 11:59.59' at row 1 is deprecated. Prefer the standard ':'.
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` <= TIMESTAMP'2004-01-01 11:59:59')
 select * from t1 where a <= '2004-01-01 11:59:59';
 a
@@ -1104,8 +1107,8 @@ Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,max(`test`.`t1`.`b`) AS `
 EXPLAIN SELECT a, MAX(b) FROM t2 WHERE a IN (10,100) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	range	a	a	5	NULL	2	100.00	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,max(`test`.`t2`.`b`) AS `MAX(b)` from `test`.`t2` where (`test`.`t2`.`a` in (10,100)) group by `test`.`t2`.`a`
 FLUSH status;

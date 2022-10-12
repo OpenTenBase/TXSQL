@@ -60,7 +60,7 @@ grp	group_concat(a order by d+c-ascii(c),a)
 grp	group_concat(c order by c)
 1	a
 2	b,c
-3	C,D,
+3	C,d,
 0 rows affected
 
 0 rows affected

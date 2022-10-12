@@ -1441,7 +1441,6 @@ Deployed_components *g_deployed_components = nullptr;
 */
 ulong max_prepared_stmt_count;
 #if defined(HAVE_OPT_CTX)
-std::atomic<long long> outline_reload_version{-1L};
 std::atomic<long long> optimizer_cost_reload_version{-1L};
 std::atomic<long long> rewriter_plugin_reload_version{0L};
 ulong txsql_max_optimizer_context_memory_exceeded = 0;

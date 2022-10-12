@@ -184,7 +184,7 @@ CREATE TABLE `t6` (
 
 LOCK TABLES `t6` WRITE;
 /*!40000 ALTER TABLE `t6` DISABLE KEYS */;
-INSERT  IGNORE INTO `t6` VALUES (1,'first value'),(4,'first value'),(2,'first value'),(3,'first value'),(5,'first value');
+INSERT  IGNORE INTO `t6` VALUES (1,'first value'),(2,'first value'),(3,'first value'),(4,'first value'),(5,'first value');
 /*!40000 ALTER TABLE `t6` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -293,7 +293,7 @@ CREATE TABLE `t6` (
 
 LOCK TABLES `t6` WRITE;
 /*!40000 ALTER TABLE `t6` DISABLE KEYS */;
-INSERT INTO `t6` VALUES (2,'first value'),(3,'first value'),(4,'first value'),(1,'first value'),(5,'first value');
+INSERT INTO `t6` VALUES (1,'first value'),(3,'first value'),(4,'first value'),(2,'first value'),(5,'first value');
 /*!40000 ALTER TABLE `t6` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

@@ -74,16 +74,21 @@ IndexScanIterator<Reverse>::~IndexScanIterator() {
   }
 }
 
+#if defined(HAVE_PX)
 template <bool Reverse>
-PX_table_descriptor * IndexScanIterator<Reverse>::get_table_descriptor() {
-  PX_table_descriptor *descriptor = new (thd()->mem_root)
-      PX_table_descriptor(table(), PX_INDEX_SCAN, m_idx, nullptr, m_reverse_scan);
-  if (descriptor == nullptr) {
+std::shared_ptr<PX_table_descriptor> IndexScanIterator<Reverse>::get_table_descriptor() const {
+  auto descriptor = std::shared_ptr<PX_table_descriptor>(
+      new (thd()->mem_root) PX_table_descriptor(table(), PX_INDEX_SCAN,
+          m_idx, m_reverse_scan),
+      [](PX_table_descriptor *table_descriptor) { destroy(table_descriptor); });
+
+  if (descriptor.get() == nullptr) {
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
   }
 
   return descriptor;
 }
+#endif /* defined(HAVE_PX) */
 
 template <bool Reverse>
 bool IndexScanIterator<Reverse>::Init() {
@@ -163,6 +168,13 @@ int IndexScanIterator<true>::Read() {  // Backward read.
 template class IndexScanIterator<true>;
 template class IndexScanIterator<false>;
 
+void TableRowIterator::set_parallel_workers(uint dop) {
+  if (table()) {
+    table()->set_parallel_scan(true);
+    table()->set_parallel_workers(dop);
+  }
+}
+
 /**
   The default implementation of unlock-row method of RowIterator,
   used in all access methods except EQRefIterator.
@@ -224,15 +236,20 @@ TableScanIterator::~TableScanIterator() {
   }
 }
 
-PX_table_descriptor * TableScanIterator::get_table_descriptor() {
-  PX_table_descriptor *descriptor = new (thd()->mem_root)
-      PX_table_descriptor(table(), PX_TABLE_SCAN, table()->s->primary_key, nullptr, false);
-  if (descriptor == nullptr) {
+#if defined(HAVE_PX)
+std::shared_ptr<PX_table_descriptor> TableScanIterator::get_table_descriptor() const {
+  auto descriptor = std::shared_ptr<PX_table_descriptor>(
+      new (thd()->mem_root) PX_table_descriptor(table(), PX_TABLE_SCAN,
+          table()->s->primary_key, false),
+      [](PX_table_descriptor *table_descriptor) { destroy(table_descriptor); });
+
+  if (descriptor.get() == nullptr) {
     my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
   }
 
   return descriptor;
 }
+#endif /* defined(HAVE_PX) */
 
 bool TableScanIterator::Init() {
   empty_record(table());

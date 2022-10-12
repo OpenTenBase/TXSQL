@@ -652,6 +652,16 @@ bool check_px_unsafe_projector(JOIN *join) {
 /**
  * @return false if parallel safe, true otherwise.
  */
+bool check_px_unsafe_items(Ref_item_array *items, size_t fields_count) {
+  for (uint i = 0; i < fields_count; i++) {
+    if (check_px_unsafe_item((*items)[i])) return true;
+  }
+  return false;
+}
+
+/**
+ * @return false if parallel safe, true otherwise.
+ */
 bool check_px_unsafe_group(List<Cached_item> &group_field) {
   List_iterator<Cached_item> li(group_field);
   Cached_item *buff;

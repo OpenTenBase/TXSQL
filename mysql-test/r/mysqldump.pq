@@ -21,10 +21,10 @@ INSERT INTO t1 VALUES (1), (2);
 	</table_structure>
 	<table_data name="t1">
 	<row>
-		<field name="a">1</field>
+		<field name="a">2</field>
 	</row>
 	<row>
-		<field name="a">2</field>
+		<field name="a">1</field>
 	</row>
 	</table_data>
 </database>
@@ -43,7 +43,7 @@ CREATE TABLE `t1` (
   `a` decimal(64,20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-INSERT INTO `t1` VALUES (987654321098765432109876543210987654321.00000000000000000000),(1234567890123456789012345678901234567890.00000000000000000000);
+INSERT INTO `t1` VALUES (1234567890123456789012345678901234567890.00000000000000000000),(987654321098765432109876543210987654321.00000000000000000000);
 DROP TABLE t1;
 #
 # Bug#2055 mysqldump should replace "-inf" numeric field values with "NULL"
@@ -122,10 +122,10 @@ INSERT INTO t1 VALUES ("1\""), ("\"2");
 	</table_structure>
 	<table_data name="t1">
 	<row>
-		<field name="a&quot;b&quot;">&quot;2</field>
+		<field name="a&quot;b&quot;">1&quot;</field>
 	</row>
 	<row>
-		<field name="a&quot;b&quot;">1&quot;</field>
+		<field name="a&quot;b&quot;">&quot;2</field>
 	</row>
 	</table_data>
 </database>
@@ -338,8 +338,8 @@ CREATE TABLE `t1` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 1
-3
 2
+3
 drop table t1;
 #
 # Bug#6101 create database problem
@@ -549,7 +549,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT  IGNORE INTO `t1` VALUES (1),(4),(2),(3),(5),(6);
+INSERT  IGNORE INTO `t1` VALUES (1),(2),(4),(5),(3),(6);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -1467,10 +1467,10 @@ insert into t2 (a, b) values (NULL, NULL),(10, NULL),(NULL, "twenty"),(30, "thir
 		<field name="a" xsi:nil="true" />
 	</row>
 	<row>
-		<field name="a">20</field>
+		<field name="a">10</field>
 	</row>
 	<row>
-		<field name="a">10</field>
+		<field name="a">20</field>
 	</row>
 	</table_data>
 	<table_data name="t2">
@@ -1772,7 +1772,7 @@ CREATE TABLE `t2` (
 
 LOCK TABLES `t2` WRITE;
 /*!40000 ALTER TABLE `t2` DISABLE KEYS */;
-INSERT INTO `t2` VALUES ('alfred'),('angie'),('bingo'),('lemon'),('waffle');
+INSERT INTO `t2` VALUES ('alfred'),('angie'),('bingo'),('waffle'),('lemon');
 /*!40000 ALTER TABLE `t2` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v2`;
@@ -1960,7 +1960,7 @@ CREATE TABLE `t2` (
 
 LOCK TABLES `t2` WRITE;
 /*!40000 ALTER TABLE `t2` DISABLE KEYS */;
-INSERT INTO `t2` VALUES ('angie'),('bingo'),('alfred'),('waffle'),('lemon');
+INSERT INTO `t2` VALUES ('alfred'),('angie'),('bingo'),('waffle'),('lemon');
 /*!40000 ALTER TABLE `t2` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v2`;
@@ -2072,7 +2072,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1,2,'one'),(2,4,'two'),(3,6,'three');
+INSERT INTO `t1` VALUES (1,2,'one'),(3,6,'three'),(2,4,'two');
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v1`;
@@ -2224,7 +2224,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (11,NULL),(1,NULL),(2,NULL),(4,NULL);
+INSERT INTO `t1` VALUES (1,NULL),(11,NULL),(4,NULL),(2,NULL);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -2350,7 +2350,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1,NULL),(11,NULL),(4,NULL),(2,NULL);
+INSERT INTO `t1` VALUES (2,NULL),(4,NULL),(1,NULL),(11,NULL);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `t2`;
@@ -2502,7 +2502,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1),(2),(3),(4),(5);
+INSERT INTO `t1` VALUES (2),(3),(4),(5),(1);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 DROP FUNCTION IF EXISTS `bug9056_func1` */;
@@ -2654,7 +2654,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES ('2003-10-25 23:00:00'),('2003-10-25 22:00:00');
+INSERT INTO `t1` VALUES ('2003-10-25 22:00:00'),('2003-10-25 23:00:00');
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -3228,7 +3228,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (4711),(1232131),(3231),(815);
+INSERT INTO `t1` VALUES (1232131),(4711),(3231),(815);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v1`;
@@ -3358,8 +3358,8 @@ use test;
 create user mysqltest_1@localhost;
 create table t1(a int, b varchar(34));
 reset master;
-mysqldump: Couldn't execute 'FLUSH /*!40101 LOCAL */ TABLES': Access denied; you need (at least one of) the RELOAD privilege(s) for this operation (1227)
-mysqldump: Couldn't execute 'FLUSH /*!40101 LOCAL */ TABLES': Access denied; you need (at least one of) the RELOAD privilege(s) for this operation (1227)
+mysqldump: Couldn't execute 'FLUSH /*!40101 LOCAL */ TABLES': Access denied; you need (at least one of) the RELOAD or FLUSH_TABLES privilege(s) for this operation (1227)
+mysqldump: Couldn't execute 'FLUSH /*!40101 LOCAL */ TABLES': Access denied; you need (at least one of) the RELOAD or FLUSH_TABLES privilege(s) for this operation (1227)
 grant RELOAD on *.* to mysqltest_1@localhost;
 mysqldump: Couldn't execute 'SHOW MASTER STATUS': Access denied; you need (at least one of) the SUPER, REPLICATION CLIENT privilege(s) for this operation (1227)
 mysqldump: Couldn't execute 'SHOW MASTER STATUS': Access denied; you need (at least one of) the SUPER, REPLICATION CLIENT privilege(s) for this operation (1227)
@@ -3714,7 +3714,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-REPLACE INTO `t1` VALUES (1,1),(3,4),(2,3),(4,5);
+REPLACE INTO `t1` VALUES (2,3),(3,4),(1,1),(4,5);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -3983,7 +3983,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1232131),(815),(3231),(4711);
+INSERT INTO `t1` VALUES (1232131),(4711),(3231),(815);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v1`;
@@ -4222,8 +4222,8 @@ a	b	c
 2	NULL	NULL
 # utf8:
 ##################################################
-2	\N	\N
 1	ABC-АБВ	DEF-ÂÃÄ
+2	\N	\N
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET utf8;
@@ -4304,19 +4304,19 @@ USE `test-database`;
 CREATE TABLE `test` (`c1` VARCHAR(10)) ENGINE=MYISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 CREATE TRIGGER `trig` BEFORE INSERT ON `test` FOR EACH ROW BEGIN
 END |
 ALTER DATABASE `test-database` CHARACTER SET latin1 COLLATE latin1_swedish_ci;
 ALTER DATABASE `test-database` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `test` (
-  `c1` varchar(10) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+  `c1` varchar(10) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 ALTER DATABASE `test-database` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -4335,7 +4335,7 @@ DELIMITER ;
 /*!50003 SET character_set_client  = @saved_cs_client */ ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
-ALTER DATABASE `test-database` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `test-database` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 DROP DATABASE `test-database`;
 USE test;
 #
@@ -4921,7 +4921,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1),(3),(2);
+INSERT INTO `t1` VALUES (1),(2),(3);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -5162,7 +5162,7 @@ DROP DATABASE dump_generated;
 #
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.routines WHERE routine_schema = 'sys';
 COUNT(*)
-50
+48
 DROP DATABASE sys;
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.routines WHERE routine_schema = 'sys';
 COUNT(*)
@@ -5172,7 +5172,7 @@ COUNT(*)
 0
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.routines WHERE routine_schema = 'sys';
 COUNT(*)
-50
+48
 #
 # WL#8697: Invisible Indexes
 # Test of mysqldump.
@@ -5272,10 +5272,10 @@ Variable_name	Value
 relay_log_info_repository	TABLE
 SET GLOBAL master_info_repository= 'FILE';
 Warnings:
-Warning	1287	'FILE' is deprecated and will be removed in a future release. Please use 'TABLE' instead
+Warning	1287	'@@master_info_repository' is deprecated and will be removed in a future release.
 SET GLOBAL relay_log_info_repository= 'FILE';
 Warnings:
-Warning	1287	'FILE' is deprecated and will be removed in a future release. Please use 'TABLE' instead
+Warning	1287	'@@relay_log_info_repository' is deprecated and will be removed in a future release.
 SHOW VARIABLES LIKE "master_info_repository";
 Variable_name	Value
 master_info_repository	FILE
@@ -5297,58 +5297,61 @@ relay_log_info_repository	FILE
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE IF NOT EXISTS `slave_master_info` (
   `Number_of_lines` int unsigned NOT NULL COMMENT 'Number of lines in the file.',
-  `Master_log_name` text CHARACTER SET utf8 COLLATE utf8_bin NOT NULL COMMENT 'The name of the master binary log currently being read from the master.',
+  `Master_log_name` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin NOT NULL COMMENT 'The name of the master binary log currently being read from the master.',
   `Master_log_pos` bigint unsigned NOT NULL COMMENT 'The master log position of the last read event.',
-  `Host` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL COMMENT 'The host name of the master.',
-  `User_name` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The user name used to connect to the master.',
-  `User_password` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The password used to connect to the master.',
+  `Host` varchar(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL COMMENT 'The host name of the source.',
+  `User_name` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The user name used to connect to the master.',
+  `User_password` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The password used to connect to the master.',
   `Port` int unsigned NOT NULL COMMENT 'The network port used to connect to the master.',
   `Connect_retry` int unsigned NOT NULL COMMENT 'The period (in seconds) that the slave will wait before trying to reconnect to the master.',
   `Enabled_ssl` tinyint(1) NOT NULL COMMENT 'Indicates whether the server supports SSL connections.',
-  `Ssl_ca` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The file used for the Certificate Authority (CA) certificate.',
-  `Ssl_capath` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The path to the Certificate Authority (CA) certificates.',
-  `Ssl_cert` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the SSL certificate file.',
-  `Ssl_cipher` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the cipher in use for the SSL connection.',
-  `Ssl_key` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the SSL key file.',
+  `Ssl_ca` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The file used for the Certificate Authority (CA) certificate.',
+  `Ssl_capath` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The path to the Certificate Authority (CA) certificates.',
+  `Ssl_cert` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The name of the SSL certificate file.',
+  `Ssl_cipher` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The name of the cipher in use for the SSL connection.',
+  `Ssl_key` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The name of the SSL key file.',
   `Ssl_verify_server_cert` tinyint(1) NOT NULL COMMENT 'Whether to verify the server certificate.',
   `Heartbeat` float NOT NULL,
-  `Bind` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'Displays which interface is employed when connecting to the MySQL server',
-  `Ignored_server_ids` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The number of server IDs to be ignored, followed by the actual server IDs',
-  `Uuid` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The master server uuid.',
+  `Bind` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'Displays which interface is employed when connecting to the MySQL server',
+  `Ignored_server_ids` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The number of server IDs to be ignored, followed by the actual server IDs',
+  `Uuid` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The master server uuid.',
   `Retry_count` bigint unsigned NOT NULL COMMENT 'Number of reconnect attempts, to the master, before giving up.',
-  `Ssl_crl` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The file used for the Certificate Revocation List (CRL)',
-  `Ssl_crlpath` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The path used for Certificate Revocation List (CRL) files',
+  `Ssl_crl` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The file used for the Certificate Revocation List (CRL)',
+  `Ssl_crlpath` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The path used for Certificate Revocation List (CRL) files',
   `Enabled_auto_position` tinyint(1) NOT NULL COMMENT 'Indicates whether GTIDs will be used to retrieve events from the master.',
-  `Channel_name` char(64) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL COMMENT 'The channel on which the slave is connected to a source. Used in Multisource Replication',
-  `Tls_version` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'Tls version',
-  `Public_key_path` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The file containing public key of master server.',
+  `Channel_name` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL COMMENT 'The channel on which the replica is connected to a source. Used in Multisource Replication',
+  `Tls_version` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'Tls version',
+  `Public_key_path` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The file containing public key of master server.',
   `Get_public_key` tinyint(1) NOT NULL COMMENT 'Preference to get public key from master.',
-  `Network_namespace` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'Network namespace used for communication with the master server.',
-  `Master_compression_algorithm` char(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL COMMENT 'Compression algorithm supported for data transfer between master and slave.',
+  `Network_namespace` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'Network namespace used for communication with the master server.',
+  `Master_compression_algorithm` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin NOT NULL COMMENT 'Compression algorithm supported for data transfer between source and replica.',
   `Master_zstd_compression_level` int unsigned NOT NULL COMMENT 'Compression level associated with zstd compression algorithm.',
-  `Tls_ciphersuites` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'Ciphersuites used for TLS 1.3 communication with the master server.',
+  `Tls_ciphersuites` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'Ciphersuites used for TLS 1.3 communication with the master server.',
   `Source_connection_auto_failover` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Indicates whether the channel connection failover is enabled.',
+  `Gtid_only` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Indicates if this channel only uses GTIDs and does not persist positions.',
   PRIMARY KEY (`Channel_name`)
-) /*!50100 TABLESPACE `mysql` */ ENGINE=InnoDB DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC COMMENT='Master Information';
+) /*!50100 TABLESPACE `mysql` */ ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC COMMENT='Master Information';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE IF NOT EXISTS `slave_relay_log_info` (
   `Number_of_lines` int unsigned NOT NULL COMMENT 'Number of lines in the file or rows in the table. Used to version table definitions.',
-  `Relay_log_name` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the current relay log file.',
+  `Relay_log_name` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The name of the current relay log file.',
   `Relay_log_pos` bigint unsigned DEFAULT NULL COMMENT 'The relay log position of the last executed event.',
-  `Master_log_name` text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the master binary log file from which the events in the relay log file were read.',
+  `Master_log_name` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'The name of the master binary log file from which the events in the relay log file were read.',
   `Master_log_pos` bigint unsigned DEFAULT NULL COMMENT 'The master log position of the last executed event.',
   `Sql_delay` int DEFAULT NULL COMMENT 'The number of seconds that the slave must lag behind the master.',
   `Number_of_workers` int unsigned DEFAULT NULL,
   `Id` int unsigned DEFAULT NULL COMMENT 'Internal Id that uniquely identifies this record.',
-  `Channel_name` char(64) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL COMMENT 'The channel on which the slave is connected to a source. Used in Multisource Replication',
-  `Privilege_checks_username` char(32) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT NULL COMMENT 'Username part of PRIVILEGE_CHECKS_USER.',
-  `Privilege_checks_hostname` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL COMMENT 'Hostname part of PRIVILEGE_CHECKS_USER.',
+  `Channel_name` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL COMMENT 'The channel on which the replica is connected to a source. Used in Multisource Replication',
+  `Privilege_checks_username` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL COMMENT 'Username part of PRIVILEGE_CHECKS_USER.',
+  `Privilege_checks_hostname` varchar(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL COMMENT 'Hostname part of PRIVILEGE_CHECKS_USER.',
   `Require_row_format` tinyint(1) NOT NULL COMMENT 'Indicates whether the channel shall only accept row based events.',
   `Require_table_primary_key_check` enum('STREAM','ON','OFF') NOT NULL DEFAULT 'STREAM' COMMENT 'Indicates what is the channel policy regarding tables having primary keys on create and alter table queries',
+  `Assign_gtids_to_anonymous_transactions_type` enum('OFF','LOCAL','UUID') NOT NULL DEFAULT 'OFF' COMMENT 'Indicates whether the channel will generate a new GTID for anonymous transactions. OFF means that anonymous transactions will remain anonymous. LOCAL means that anonymous transactions will be assigned a newly generated GTID based on server_uuid. UUID indicates that anonymous transactions will be assigned a newly generated GTID based on Assign_gtids_to_anonymous_transactions_value',
+  `Assign_gtids_to_anonymous_transactions_value` text CHARACTER SET utf8mb3 COLLATE utf8mb3_bin COMMENT 'Indicates the UUID used while generating GTIDs for anonymous transactions',
   PRIMARY KEY (`Channel_name`)
-) /*!50100 TABLESPACE `mysql` */ ENGINE=InnoDB DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC COMMENT='Relay Log Information';
+) /*!50100 TABLESPACE `mysql` */ ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC COMMENT='Relay Log Information';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -5361,7 +5364,11 @@ CREATE TABLE IF NOT EXISTS `slave_relay_log_info` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 SET GLOBAL master_info_repository= 'TABLE';
+Warnings:
+Warning	1287	'@@master_info_repository' is deprecated and will be removed in a future release.
 SET GLOBAL relay_log_info_repository= 'TABLE';
+Warnings:
+Warning	1287	'@@relay_log_info_repository' is deprecated and will be removed in a future release.
 SHOW VARIABLES LIKE "master_info_repository";
 Variable_name	Value
 master_info_repository	TABLE
@@ -5418,7 +5425,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1000001),(1000000);
+INSERT INTO `t1` VALUES (1000000),(1000001);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -5436,3 +5443,453 @@ DROP DATABASE bug26171967;
 # WL#9465 & WL#8383 coverage tests
 #
 USE test;
+#
+# WL10905 - Support for INVISIBLE columns.
+#           Test case to verify Logical Dump using mysqldump tool
+#
+CREATE TABLE t1(f1 INT INVISIBLE, f2 INT,
+f3 INT AS (f1 + 10), f4 INT AS (f2 + 10) INVISIBLE,
+f5 INT AS (f2 + 10) STORED INVISIBLE);
+CREATE TABLE t2(f1 INT, f2 INT INVISIBLE);
+INSERT INTO t1(f1, f2) VALUES (10, 20), (20, 30);
+INSERT INTO t2(f1, f2) VALUES (10, 20), (20, 30);
+DROP TABLE t1, t2;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT NULL /*!80023 INVISIBLE */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t2;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int DEFAULT NULL /*!80023 INVISIBLE */,
+  `f2` int DEFAULT NULL,
+  `f3` int GENERATED ALWAYS AS ((`f1` + 10)) VIRTUAL,
+  `f4` int GENERATED ALWAYS AS ((`f2` + 10)) VIRTUAL /*!80023 INVISIBLE */,
+  `f5` int GENERATED ALWAYS AS ((`f2` + 10)) STORED /*!80023 INVISIBLE */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t1 ORDER BY f2;
+f2	f3
+20	20
+30	30
+SELECT f1, f2, f3, f4, f5 FROM t1 ORDER BY f2;
+f1	f2	f3	f4	f5
+10	20	20	30	30
+20	30	30	40	40
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT NULL /*!80023 INVISIBLE */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT f1, f2 FROM t2 ORDER BY f2;
+f1	f2
+10	20
+20	30
+DELETE FROM t1;
+DELETE FROM t2;
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp1.xml" INTO TABLE t1 (f1, f2);;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int DEFAULT NULL /*!80023 INVISIBLE */,
+  `f2` int DEFAULT NULL,
+  `f3` int GENERATED ALWAYS AS ((`f1` + 10)) VIRTUAL,
+  `f4` int GENERATED ALWAYS AS ((`f2` + 10)) VIRTUAL /*!80023 INVISIBLE */,
+  `f5` int GENERATED ALWAYS AS ((`f2` + 10)) STORED /*!80023 INVISIBLE */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t1 ORDER BY f2;
+f2	f3
+20	20
+30	30
+SELECT f1, f2, f3, f4, f5 FROM t1 ORDER BY f2;
+f1	f2	f3	f4	f5
+10	20	20	30	30
+20	30	30	40	40
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp1.xml" INTO TABLE t2 (f1, f2);;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT NULL /*!80023 INVISIBLE */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT f1, f2 FROM t2 ORDER BY f2;
+f1	f2
+10	20
+20	30
+DROP TABLE t1, t2;
+#
+# WL13784 - Create auto_increment PK on table creation when no PK is specified
+#
+# Test case to verify Logical Dump using mysqldump tool
+#
+SET @saved_global_sql_generate_invisible_primary_key =
+@@global.sql_generate_invisible_primary_key;
+SET @saved_session_sql_generate_invisible_primary_key =
+@@session.sql_generate_invisible_primary_key;
+CREATE TABLE t1 (my_row_id bigint unsigned NOT NULL AUTO_INCREMENT INVISIBLE, f INT,
+PRIMARY KEY(my_row_id));
+INSERT INTO t1 VALUES (1), (3), (7), (8), (4);
+SET SESSION sql_generate_invisible_primary_key=ON;
+CREATE TABLE t2 (f1 INT, f2 INT INVISIBLE DEFAULT 10);
+INSERT INTO t2 VALUES (1), (3), (7), (8), (4);
+CREATE TABLE t3 AS SELECT * FROM t2;
+# Test case to check table dump with generated primary key.
+# Dump complete test database with generated invisible primary key
+# information using mysqldump tool.
+# Dump test.t3 table with generated invisible primary key information
+# using mysqldump tool.
+DROP TABLE t1, t2, t3;
+# Load from the test.t3 dump created using mysqldump tool."
+# Table t3 should list generated primary key information.
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t3;
+# Load from the complete test database dump created using mysqldump tool."
+# Table t1 should list generated primary key information.
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t1;
+f
+1
+3
+4
+7
+8
+SELECT my_row_id, f FROM t1;
+my_row_id	f
+1	1
+2	3
+3	7
+4	8
+5	4
+# Table t2 should list generated primary key information.
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT '10' /*!80023 INVISIBLE */,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t2;
+f1
+1
+3
+4
+7
+8
+SELECT my_row_id, f1, f2 FROM t2;
+my_row_id	f1	f2
+1	1	10
+2	3	10
+3	7	10
+4	8	10
+5	4	10
+# Table t3 should list generated primary key information.
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t3;
+f1
+1
+3
+4
+7
+8
+SELECT my_row_id, f1 FROM t3;
+my_row_id	f1
+1	1
+2	3
+3	7
+4	8
+5	4
+# Test case to check table dump *without* generated primary key.
+# Dump complete "test" database *without* generated invisible primary
+# key information using mysqldump tool.
+# Dump test.t3 table *without* generated invisible primary key
+# information using mysqldump tool.
+DROP TABLE t1, t2, t3;
+# Load from the test.t3 dump created using mysqldump tool."
+# Table t3 should *not* list generated primary key information.
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `f1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t3;
+f1
+DROP TABLE t3;
+# Load from the complete test database dump created using mysqldump tool."
+# Table t1 should *not* list generated primary key information.
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t1;
+f
+1
+3
+4
+7
+8
+SELECT f FROM t1;
+f
+1
+3
+4
+7
+8
+# Table t2 should *not* list generated primary key information.
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT '10' /*!80023 INVISIBLE */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t2;
+f1
+1
+3
+4
+7
+8
+SELECT f1, f2 FROM t2;
+f1	f2
+1	10
+3	10
+4	10
+7	10
+8	10
+# Table t3 should *not* list generated primary key information.
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `f1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t3;
+f1
+1
+3
+4
+7
+8
+SELECT f1 FROM t3;
+f1
+1
+3
+4
+7
+8
+DROP TABLE t1, t2, t3;
+# Test case to verify Logical Dump in XML format using mysqldump tool
+# Load from the complete test database dump created using mysqldump tool."
+# Dump test.t1 table in XML format using mysqldump tool.
+# Dump test.t2 table in XML format using mysqldump tool.
+# Dump test.t3 table in XML format using mysqldump tool.
+DELETE FROM t1;
+DELETE FROM t2;
+DELETE FROM t3;
+# For columns t1.my_row_id and t1.f, values should be loaded from the dump.
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp1.xml" INTO TABLE t1 (my_row_id, f);;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t1;
+f
+1
+3
+4
+7
+8
+SELECT my_row_id, f FROM t1;
+my_row_id	f
+1	1
+2	3
+3	7
+4	8
+5	4
+# For columns t2.my_row_id, t1.f1 and t1.f2, values should be loaded from the dump.
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp2.xml" INTO TABLE t2 (my_row_id, f1, f2);;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT '10' /*!80023 INVISIBLE */,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t2;
+f1
+1
+3
+4
+7
+8
+SELECT my_row_id, f1 FROM t2;
+my_row_id	f1
+1	1
+2	3
+3	7
+4	8
+5	4
+# For columns t3.my_row_id and t1.f1, values should be loaded from the dump.
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp3.xml" INTO TABLE t3 (my_row_id, f1);;
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t3;
+f1
+1
+3
+4
+7
+8
+SELECT my_row_id, f1 FROM t3;
+my_row_id	f1
+1	1
+2	3
+3	7
+4	8
+5	4
+# Test case to check table dump *without* generated primary key in XML format.
+# Dump test.t1 table *without* generated invisible primary key information in XML format
+# using mysqldump tool.
+# Dump test.t2 table *without* generated invisible primary key information in XML format
+# using mysqldump tool.
+# Dump test.t3 table *without* generated invisible primary key information in XML format
+# using mysqldump tool.
+DROP TABLE t1, t2, t3;
+# Dump file tmp1.xml contains data for only one column "f". For my_row_id,
+# default value is inserted.
+CREATE TABLE t1 (f INT NOT NULL PRIMARY KEY, my_row_id INT DEFAULT 580030);
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp1.xml" INTO TABLE t1(f);;
+SELECT * FROM t1;
+f	my_row_id
+1	580030
+3	580030
+4	580030
+7	580030
+8	580030
+# Dump file tmp2.xml contains data for column "f1" and "f2". For my_row_id,
+# default value is inserted.
+CREATE TABLE t2 (f1 INT NOT NULL PRIMARY KEY, f2 INT, my_row_id INT DEFAULT 580030);
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp2.xml" INTO TABLE t2(f1, f2);;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `f1` int NOT NULL,
+  `f2` int DEFAULT NULL,
+  `my_row_id` int DEFAULT '580030',
+  PRIMARY KEY (`f1`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t2;
+f1	f2	my_row_id
+1	10	580030
+3	10	580030
+4	10	580030
+7	10	580030
+8	10	580030
+# Dump file tmp3.xml contains data for only one column "f1". For my_row_id,
+# default value is inserted.
+CREATE TABLE t3 (f1 INT NOT NULL PRIMARY KEY, my_row_id INT DEFAULT 580030);
+LOAD XML INFILE "MYSQLTEST_VARDIR/tmp/tmp3.xml" INTO TABLE t3(f1);;
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `f1` int NOT NULL,
+  `my_row_id` int DEFAULT '580030',
+  PRIMARY KEY (`f1`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t3;
+f1	my_row_id
+1	580030
+3	580030
+4	580030
+7	580030
+8	580030
+# Test case to verify primary key generation while loading table dump
+# obtained *without* generated primary key on a MySQL server with
+# @@global.sql_generate_invisible_primary_key = ON.
+SET GLOBAL sql_generate_invisible_primary_key = ON;
+# Load from the dump created without generated primary key information.
+# Primary key is generated for table t1 while loading.
+# Table t1 should list generated primary key information.
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT my_row_id, f FROM t1;
+my_row_id	f
+1	1
+2	7
+3	8
+4	4
+5	3
+# Primary key is generated for table t2 while loading.
+# Table t2 should list generated primary key information.
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT '10' /*!80023 INVISIBLE */,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT my_row_id, f1, f2 FROM t2;
+my_row_id	f1	f2
+1	1	10
+2	3	10
+3	4	10
+4	7	10
+5	8	10
+# Primary key is generated for table t3 while loading.
+# Table t3 should list generated primary key information.
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `my_row_id` bigint unsigned NOT NULL AUTO_INCREMENT /*!80023 INVISIBLE */,
+  `f1` int DEFAULT NULL,
+  PRIMARY KEY (`my_row_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT my_row_id, f1 FROM t3;
+my_row_id	f1
+1	1
+2	7
+3	8
+4	3
+5	4
+# cleanup
+DROP TABLE t1, t2, t3;
+SET GLOBAL sql_generate_invisible_primary_key =
+@saved_global_sql_generate_invisible_primary_key;
+SET SESSION sql_generate_invisible_primary_key =
+@saved_session_sql_generate_invisible_primary_key;

@@ -92,6 +92,15 @@ struct IndexSkipScanParameters {
 
   SEL_ROOT *index_range_tree;   ///< The sub-tree corresponding to index_info
   bool has_aggregate_function;  ///< TRUE if there are aggregate functions.
+
+#if defined(HAVE_PX)
+  /*
+    The function only serves the plan equivalence comparison of parallel
+    execution (see px_access_path.cc). The function here is not incomplete
+    equivalence comparison.
+  */
+  bool eq(const IndexSkipScanParameters *other) const;
+#endif /* defined(HAVE_PX) */
 };
 
 AccessPath *get_best_skip_scan(THD *thd, RANGE_OPT_PARAM *param, SEL_TREE *tree,

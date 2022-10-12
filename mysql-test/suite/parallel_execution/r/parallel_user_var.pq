@@ -17,7 +17,7 @@ EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 3)
         -> Filter: (t1.a > 1)  (cost=0.86 rows=3)
-            -> Parallel index range scan on t1 using PRIMARY  (cost=0.86 rows=3)
+            -> Parallel index range scan on t1 using PRIMARY over (1 < a)  (cost=0.86 rows=3)
 
 select @arg00, b from t1 where a > 1 ;
 @arg00	b
@@ -33,8 +33,8 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on outer_table  (cost=0.65 rows=4)
     -> Select #2 (subquery in condition; dependent)
-        -> Filter: (('two' = outer_table.b))  (cost=0.00 rows=1)
-            -> Rows fetched before execution  (cost=0.00 rows=1)
+        -> Filter: (('two' = outer_table.b))  (cost=0.00..0.00 rows=1)
+            -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
 
 Warnings:
 Note	1276	Field or reference 'test.outer_table.b' of SELECT #2 was resolved in SELECT #1

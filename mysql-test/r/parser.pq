@@ -456,11 +456,11 @@ select make_set();
 ERROR 42000: Incorrect parameter count in the call to native function 'make_set'
 select make_set(1);
 ERROR 42000: Incorrect parameter count in the call to native function 'make_set'
-select master_pos_wait();
-ERROR 42000: Incorrect parameter count in the call to native function 'master_pos_wait'
-select master_pos_wait(1);
-ERROR 42000: Incorrect parameter count in the call to native function 'master_pos_wait'
-select master_pos_wait('binlog.999999', 4, -1);
+select source_pos_wait();
+ERROR 42000: Incorrect parameter count in the call to native function 'source_pos_wait'
+select source_pos_wait(1);
+ERROR 42000: Incorrect parameter count in the call to native function 'source_pos_wait'
+select source_pos_wait('binlog.999999', 4, -1);
 select rand(1, 2, 3);
 ERROR 42000: Incorrect parameter count in the call to native function 'rand'
 select round(1, 2, 3);
@@ -2598,10 +2598,7 @@ View	Create View	character_set_client	collation_connection
 v2	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v2` AS select `t1`.`a` AS `a` from `t1` union (select `t2`.`a` AS `a` from `t2` order by `t2`.`a` limit 1)	utf8mb4	utf8mb4_0900_ai_ci
 EXPLAIN (SELECT * FROM t3 ORDER BY a LIMIT 3) ORDER BY b DESC LIMIT 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers); Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
-1	SIMPLE		NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Using filesort
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using filesort
 Warnings:
 Note	1003	(/* select#1 */ select `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b`,`test`.`t3`.`c` AS `c` from `test`.`t3` order by `test`.`t3`.`a` limit 3) order by `b` desc limit 2
 EXPLAIN ((SELECT * FROM t3 ORDER BY a LIMIT 3)
@@ -2787,3 +2784,13 @@ SELECT cast( TIMESTAMP'2019-10-10 10:40:00' AT TIME ZONE 'UTC' AS JSON );
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'JSON )' at line 1
 SELECT cast( TIMESTAMP'2019-10-10 10:40:00' AT TIME ZONE 'UTC' AS REAL );
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'REAL )' at line 1
+#
+# Bug#32230229: MISMATCH EXPLAIN RESULT TO ACTUAL RUN WITH
+#               USER-DEFINED VARIABLE
+#
+EXPLAIN SELECT 1 INTO @x FROM DUAL INTO @y;
+ERROR HY000: Multiple INTO clauses in one query block.
+EXPLAIN SELECT 1 INTO DUMPFILE 'file1' FROM DUAL INTO DUMPFILE 'file2';
+ERROR HY000: Multiple INTO clauses in one query block.
+EXPLAIN SELECT 1 INTO OUTFILE 'file1' FROM DUAL INTO OUTFILE 'file2';
+ERROR HY000: Multiple INTO clauses in one query block.

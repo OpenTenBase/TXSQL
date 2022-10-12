@@ -1,6 +1,7 @@
 #include "px_split_path.h"
 
 #include "sql/filesort.h"
+#include "sql/item.h"
 #include "sql/item_sum.h"
 #include "sql/join_optimizer/access_path.h"
 #include "sql/sql_optimizer.h"
@@ -96,18 +97,27 @@ AccessPath *WalkAccessPathsForAggregationSplit(THD *thd, JOIN *join,
     }
     case AccessPath::STREAM : {
       child = path->stream().child;
-      // create final temp_table_param
-      join->final_tmp_table_param = new (thd->mem_root) Temp_table_param();
-      if (join->final_tmp_table_param == nullptr) goto err;
-      join->final_tmp_table_param->pq_copy_from(path->stream().temp_table_param);
-      new_child = WalkAccessPathsForAggregationSplit(thd, join, child, true);
-      if (!new_child) goto err;
+      int stream_slice = path->stream().ref_slice;
+      if (stream_slice == REF_SLICE_TMP1) {
+        // create final temp_table_param
+        join->final_tmp_table_param = new (thd->mem_root) Temp_table_param();
+        if (join->final_tmp_table_param == nullptr) goto err;
+        join->final_tmp_table_param->pq_copy_from(path->stream().temp_table_param);
+        new_child = WalkAccessPathsForAggregationSplit(thd, join, child, true);
+        if (!new_child) goto err;
+        path->stream().temp_table_param = join->final_tmp_table_param;
+        path->stream().table = join->final_tmpaggr_tmp_table;
+        // reset final_tmpaggr_tmp_table to nullptr, or it will be clear
+        // twice in JOIN::destroy.
+        join->final_tmpaggr_tmp_table = nullptr;
+      } else if (stream_slice == REF_SLICE_TMP2) {
+        new_child = WalkAccessPathsForAggregationSplit(thd, join, child, stream_agg);
+        if (!new_child) goto err;
+        if (FixMaterializeAccessPath(thd, join, path, REF_SLICE_FINAL_AGGREGATE)) {
+          goto err;
+        }
+      }
       path->stream().child = new_child;
-      path->stream().temp_table_param = join->final_tmp_table_param;
-      path->stream().table = join->final_tmpaggr_tmp_table;
-      // reset final_tmpaggr_tmp_table to nullptr, or it will be clear
-      // twice in JOIN::destroy.
-      join->final_tmpaggr_tmp_table = nullptr;
       break;
     }
     case AccessPath::MATERIALIZE : {
@@ -188,6 +198,10 @@ static bool CheckForRebuildAgg(THD *thd, JOIN *join, uint *avg_count) {
   */
   join->saved_base_fields = new (thd->mem_root) mem_root_deque<Item *>(thd->mem_root);
   if (!join->saved_base_fields) return true;
+  if (join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
+    if (join->alloc_ref_item_slice(thd, REF_SLICE_SAVED_BASE)) return true;
+    join->copy_ref_item_slice(REF_SLICE_SAVED_BASE, REF_SLICE_ACTIVE);
+  }
   if (join->transform_ref_items_to_fields(join->saved_base_fields, REF_SLICE_SAVED_BASE)) {
     return true;
   }
@@ -224,11 +238,24 @@ static AccessPath *SplitAggAccessPath(THD *thd, JOIN *join, AccessPath *target_p
   AccessPath *new_final_agg_path = nullptr;
   uint avg_count = 0;
   uint curr_slice = 0;
+  // uint base_slice = REF_SLICE_SAVED_BASE;
+
+  // if (target_path->type == AccessPath::AGGREGATE && !is_stream_agg) {
+  //   base_slice = REF_SLICE_ACTIVE;
+  // }
 
   if (CheckForRebuildAgg(thd, join, &avg_count)) goto err;
 
   if (target_path->type == AccessPath::AGGREGATE) {
     //curr_slice = target_path->aggregate().output_slice;
+    if (is_stream_agg) {
+      if (!join->ref_items[REF_SLICE_TMP1].is_null()) {
+        curr_slice = REF_SLICE_TMP1;
+      }
+    } else {
+      curr_slice = REF_SLICE_LOCAL_AGGREGATE;
+      if (join->alloc_ref_item_slice(thd, REF_SLICE_LOCAL_AGGREGATE)) goto err;
+    }
 
     // [1] rebuild Aggregate
     if (RebuildLocalAggregateAccessPath(thd, join, target_path, curr_slice, avg_count)) {
@@ -274,7 +301,6 @@ static AccessPath *SplitAggAccessPath(THD *thd, JOIN *join, AccessPath *target_p
   return new_final_agg_path;
 
 err:
-  assert(false);
   return nullptr;
 }
 
@@ -311,7 +337,7 @@ static void SetAggregationForFunc(THD *thd, JOIN *join) {
 }
 
 /**
-  Fix connection bettween materialize and aggregate.
+  Fix connection bettween materialize/stream and temptable aggregate.
 
   @param thd 
   @param join 
@@ -377,9 +403,20 @@ static bool FixMaterializeAccessPath(THD *thd, JOIN *join,
 
   join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
 
-  table_path = path->materialize().table_path;
-  table_path->table_scan().table = tmp_table;
-  path->materialize().param->table = tmp_table;
+  switch (path->type) {
+    case AccessPath::MATERIALIZE: {
+      table_path = path->materialize().table_path;
+      table_path->table_scan().table = tmp_table;
+      path->materialize().param->table = tmp_table;
+      break;
+    }
+    case AccessPath::STREAM: {
+      path->stream().table = tmp_table;
+      break;
+    }
+    default:
+      break;
+  }
 
   return false;
 
@@ -520,6 +557,8 @@ static bool RebuildLocalAggregateAccessPath(THD *thd, JOIN *join, AccessPath *co
   join->local_tmp_table_param->copy_fields.clear();
   //join->local_tmp_table_param->grouped_expressions.clear();
 
+  join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
+
   // rebuild sum_funcs for Aggregate.
   if (avg_count && join->rebuild_sum_funcs(thd, REF_SLICE_SAVED_BASE)) {
     return true;
@@ -625,7 +664,7 @@ static bool RebuildLocalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath
   RebuildCurrentRefItems(thd, join, curr_slice, /*is_final_aggr=*/false);
 
   // re-create table path
-  table_path = create_table_access_path(thd, nullptr, tab->range_scan(), tab->table_ref,
+  table_path = create_table_access_path(thd, tmp_table, tab->range_scan(), tab->table_ref,
                                         tab->position(), /*count_examined_rows=*/false);
   if (!table_path) return true;
 
@@ -637,7 +676,8 @@ static bool RebuildLocalTempAggregateAccessPath(THD *thd, JOIN *join, AccessPath
   return false;
 }
 
-static ORDER *CreateOrderForGroupList(THD *thd, ORDER *order);
+static ORDER *CreateOrderForGroupList(THD *thd, JOIN *join, ORDER *order,
+                                      uint pre_slice, uint cur_slice);
 
 static bool FixFuncDivForAvg(THD *thd, JOIN *join, uint avg_count);
 
@@ -697,7 +737,8 @@ static AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join,
   join->set_ref_item_slice(curr_slice);
   old_order = path->temptable_aggregate().table->group;
   if (old_order) {
-    final_order = CreateOrderForGroupList(thd, old_order);
+    final_order = CreateOrderForGroupList(thd, join, old_order,
+                                          REF_SLICE_SAVED_BASE, curr_slice);
     if (final_order == nullptr) {
       return nullptr;
     }
@@ -712,16 +753,6 @@ static AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join,
                                    curr_fields, final_order, save_sum_fields, true, true);
   if (!tmp_table) return nullptr;
   join->final_tmpaggr_tmp_table = tmp_table;
-
-  if (final_tmp_table_param->items_to_copy &&
-      final_tmp_table_param->items_to_copy->size()) {
-    Func_ptr_array *func_ptr = final_tmp_table_param->items_to_copy;
-    uint end = func_ptr->size();
-    for (uint i = 0; i < end; i++) {
-      Func_ptr &func = func_ptr->at(i);
-      func.set_override_result_field(func.func()->get_result_field());
-    }
-  }
 
   if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[REF_SLICE_FINAL_AGGREGATE],
                                &tmp_field, join->query_block->m_added_non_hidden_fields))
@@ -752,6 +783,10 @@ static AccessPath *BuildFinalTempAggregateAccessPath(THD *thd, JOIN *join,
 
 static void FixForConstSumfuncs(JOIN *join, uint avg_count, uint curr_slice);
 
+static bool setup_copy_fields(const mem_root_deque<Item *> &fields, THD *thd,
+                              Temp_table_param *param, Ref_item_array ref_item_array,
+                              mem_root_deque<Item *> *res_fields);
+
 /**
   Build Aggregate.
   [1] create tmp_table_param for final Aggregate, and copy properties
@@ -778,6 +813,8 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
   List_item *curr_fields = nullptr;
   QEP_TAB *tab = nullptr;
   mem_root_deque<Item *> tmp_field(thd->mem_root);
+
+  join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
 
   if (!stream_agg) {
     // use JOIN::tmp_table_param for final aggregate.
@@ -814,7 +851,8 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
     }
     // reset group_list
     if (stream_agg && group) {
-      final_order = CreateOrderForGroupList(thd, group);
+      final_order = CreateOrderForGroupList(thd, join, group, REF_SLICE_SAVED_BASE,
+                                            curr_slice);
       if (final_order == nullptr) {
         assert(false);
         goto build_err;
@@ -847,16 +885,6 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
     join->final_tmpaggr_tmp_table = tmp_table;
     tab->set_table(tmp_table);
 
-    if (join->final_tmp_table_param->items_to_copy &&
-        join->final_tmp_table_param->items_to_copy->size()) {
-      Func_ptr_array *func_ptr = join->final_tmp_table_param->items_to_copy;
-      uint end = func_ptr->size();
-      for (uint i = 0; i < end; i++) {
-        Func_ptr &func = func_ptr->at(i);
-        func.set_override_result_field(func.func()->get_result_field());
-      }
-    }
-
     if (change_to_use_tmp_fields(curr_fields, thd, join->ref_items[REF_SLICE_FINAL_AGGREGATE],
                                  &tmp_field, join->query_block->m_added_non_hidden_fields))
       goto build_err;
@@ -864,11 +892,10 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
     join->tmp_fields[REF_SLICE_FINAL_AGGREGATE] = tmp_field;
     join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
   } else {
-    /*
-    setup_copy_fields(*join->fields, thd, join->final_tmp_table_param,
-                      join->ref_items[REF_SLICE_FINAL_AGGREGATE],
-                      &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]);
-    */
+    if (setup_copy_fields(*join->fields, thd, join->final_tmp_table_param,
+                          join->ref_items[REF_SLICE_FINAL_AGGREGATE],
+                          &join->tmp_fields[REF_SLICE_FINAL_AGGREGATE]))
+      goto build_err;
     FixForConstSumfuncs(join, avg_count, REF_SLICE_FINAL_AGGREGATE);
   }
 
@@ -901,6 +928,24 @@ build_err:
     }
   }
   return nullptr;
+}
+
+static bool setup_copy_fields(const mem_root_deque<Item *> &fields, THD *thd,
+                              Temp_table_param *param, Ref_item_array ref_item_array,
+                              mem_root_deque<Item *> *res_fields) {
+  DBUG_TRACE;
+
+  res_fields->clear();
+  size_t num_hidden_fields = CountHiddenFields(fields);
+
+  for (size_t i = 0; i < fields.size(); i++) {
+    Item *pos = fields[i];
+    res_fields->push_back(pos);
+    ref_item_array[fields[i]->hidden ? fields.size() - i - 1
+                                     : i - num_hidden_fields] = pos;
+  }
+
+  return false;
 }
 
 /**
@@ -1049,18 +1094,37 @@ static void FixForConstSumfuncs(JOIN *join, uint avg_count, uint curr_slice) {
   by.
   
   @param thd
+  @param join
   @param order the first order in group_list
+  @param pre_slice
+  @param cur_slice
 
   @return order object.
 */
-static ORDER *CreateOrderForGroupList(THD *thd, ORDER *order) {
+static ORDER *CreateOrderForGroupList(THD *thd, JOIN *join, ORDER *order,
+                                      uint pre_slice, uint cur_slice) {
   ORDER *new_order = new (thd->mem_root) ORDER;
   if (new_order == nullptr) {
     assert(false);
     return nullptr;
   }
-  new_order->item = order->item;
-  new_order->item_initial = *(order->item);
+  // This order may be created for derived table, and order->item
+  // points to the address of order->item_initial see
+  // @Query_block::decorrelate_derived_scalar_subquery_pre
+  if (order->item == &order->item_initial) {
+    uint i = 0;
+    for (Item *item : join->ref_items[pre_slice]) {
+      if (item == order->item_initial) {
+        new_order->item_initial = join->ref_items[cur_slice][i];
+        break;
+      } else {
+        ++i;
+      }
+    }
+  } else {
+    new_order->item = order->item;
+    new_order->item_initial = *(order->item);
+  }
   new_order->field_in_tmp_table = nullptr;
   new_order->in_field_list = order->in_field_list;
   new_order->used_alias = order->used_alias;
@@ -1068,7 +1132,8 @@ static ORDER *CreateOrderForGroupList(THD *thd, ORDER *order) {
   new_order->is_explicit = order->is_explicit;
 
   if (order->next != nullptr) {
-    new_order->next = CreateOrderForGroupList(thd, order->next);
+    new_order->next = CreateOrderForGroupList(thd, join, order->next,
+                                              pre_slice, cur_slice);
     if (!new_order->next) {
       assert(false);
       return nullptr;
@@ -1176,6 +1241,7 @@ bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
     switch(sub_path->type) {
       case AccessPath::STREAM: {
         table_for_sort = sub_path->stream().table;
+        ref_slice = sub_path->stream().ref_slice;
         do_fixsort = true;
         return true;
       }
@@ -1231,7 +1297,13 @@ bool FixSortAccessPathForAggrInject(THD *thd, JOIN *join, AccessPath *path, int 
       if (!order) return true;
       new_filesort->make_sortorder(order, false);
     } else {
-      new_filesort->make_sortorder(join->order.order, false);
+      ORDER *desired_order = join->order.order;
+      if (desired_order == nullptr &&
+          join->qep_tab[0].filesort_pushed_order != nullptr) {
+        desired_order = join->qep_tab[0].filesort_pushed_order;
+      }
+      if (desired_order == nullptr) return true;
+      new_filesort->make_sortorder(desired_order, false);
     }
     join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
 

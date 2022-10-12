@@ -2,31 +2,83 @@ SET NAMES utf8mb4;
 SET collation_connection='gb18030_unicode_520_ci';
 CREATE TABLE t1(C CHAR(10) CHARACTER SET gb18030 COLLATE gb18030_unicode_520_ci, UNIQUE KEY(c));
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x0149 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x01F0 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x0390 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x03B0 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x0587 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1E96 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1E97 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1E98 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1E99 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1E9A USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1FB2 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1FC2 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1FE4 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x1FF2 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB00 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB01 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB02 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB03 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB04 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB05 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB13 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB14 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB15 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB16 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB17 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x00DF USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT * FROM t1;
 C
 ß
@@ -300,75 +352,139 @@ COUNT(*)
 DROP TABLE t1;
 CREATE TABLE t1 (c1 CHAR(20), c2 CHAR(20)) CHARACTER SET gb18030 COLLATE gb18030_unicode_520_ci;
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0x005300DF00DF00DF00DF00DF00DF USING gb18030), CONVERT(_ucs2 0x00DF00DF00DF00DF00DF00DF0053 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT * FROM t1 WHERE c1 = c2;
 c1	c2
 Sßßßßßß	ßßßßßßS
 DROP TABLE t1;
 CREATE TABLE t1 (c CHAR(10), KEY(c)) CHARACTER SET gb18030 COLLATE gb18030_unicode_520_ci;
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB00 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB01 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB02 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB03 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONVERT(_ucs2 0xFB04 USING gb18030));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0046 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0066 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x0069 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0049 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0069 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0xFB00 USING gb18030), CONVERT(_ucs2 0x0069 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0xFB01 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0xFB01 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x0049 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0049 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x006C USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0xFB00 USING gb18030), CONVERT(_ucs2 0x006C USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0xFB02 USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x004C USING gb18030)));
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES(CONCAT(CONVERT(_ucs2 0x0046 USING gb18030), CONVERT(_ucs2 0x0066 USING gb18030), CONVERT(_ucs2 0x004C USING gb18030)));
-SELECT c, hex(c) FROM t1 ORDER BY c ASC;
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+SELECT c, hex(c) FROM t1 ORDER BY c, hex(c) ASC;
 c	hex(c)
-ﬀ	8430B232
 fF	6646
 ff	6666
-Fﬁ	468430B233
-ﬀi	8430B23269
+ﬀ	8430B232
 FFI	464649
-ﬃ	8430B235
+FfI	466649
+Fﬁ	468430B233
 ffi	666669
 fﬁ	668430B233
-FfI	466649
-ffl	66666C
+ﬀi	8430B23269
+ﬃ	8430B235
+FFL	46464C
 FfL	46664C
 Fﬂ	468430B234
-ﬄ	8430B236
-FFL	46464C
+ffl	66666C
 ﬀl	8430B2326C
+ﬄ	8430B236
+Fi	4669
 fI	6649
 ﬁ	8430B233
-Fi	4669
 ﬂ	8430B234
-SELECT c, hex(c) FROM t1 ORDER BY c DESC;
+SELECT c, hex(c) FROM t1 ORDER BY c, hex(c) DESC;
 c	hex(c)
-ﬂ	8430B234
-ﬁ	8430B233
-fI	6649
-Fi	4669
-ffl	66666C
-FFL	46464C
-ﬄ	8430B236
-FfL	46664C
-ﬀl	8430B2326C
-Fﬂ	468430B234
-FfI	466649
-ﬀi	8430B23269
-Fﬁ	468430B233
-fﬁ	668430B233
-ffi	666669
-FFI	464649
-ﬃ	8430B235
-fF	6646
 ﬀ	8430B232
 ff	6666
+fF	6646
+ﬃ	8430B235
+ﬀi	8430B23269
+fﬁ	668430B233
+ffi	666669
+Fﬁ	468430B233
+FfI	466649
+FFI	464649
+ﬄ	8430B236
+ﬀl	8430B2326C
+ffl	66666C
+Fﬂ	468430B234
+FfL	46664C
+FFL	46464C
+ﬁ	8430B233
+fI	6649
+Fi	4669
+ﬂ	8430B234
 SELECT c, hex(c) FROM t1 WHERE c = 'FFI';
 c	hex(c)
 FFI	464649

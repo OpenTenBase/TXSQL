@@ -531,9 +531,18 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
   vector<ExplainData::Child> children;
   switch (path->type) {
     case AccessPath::TABLE_SCAN: {
+#if defined(HAVE_PX)
+      TABLE *table = path->table_scan().table;
+      if (table && table->get_parallel_scan()) {
+        description.push_back(string("Parallel table scan on ") +
+                            table->alias +
+                            table->file->explain_extra());
+      } else
+#endif /* defined(HAVE_PX) */
       description.push_back(string("Table scan on ") +
                             path->table_scan().table->alias +
                             path->table_scan().table->file->explain_extra());
+      
       AddChildrenFromPushedCondition(path->table_scan().table, &children);
       break;
     }
@@ -542,14 +551,21 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       assert(table->file->pushed_idx_cond == nullptr);
 
       const KEY *key = &table->key_info[path->index_scan().idx];
+#if defined(HAVE_PX)
+      string str = string(
+        table->key_read ?
+          ((table && table->get_parallel_scan()) ?
+              "Parallel covering index scan on " : 
+              "Covering index scan on ") :
+          ((table && table->get_parallel_scan()) ?
+              "Parallel index scan on " :
+              "Index scan on ")
+      ) + table->alias + " using " + key->name;
+#else
       string str = string(table->key_read ? "Covering index scan on "
                                           : "Index scan on ") +
                    table->alias + " using " + key->name;
-      /*
-        QEP_TAB *tab = path->index_scan().qep_tab;
-        string str = ((tab && tab->get_parallel_scan()) ? string("Parallel index scan on ") :
-                      string("Index scan on ")) + table->alias + " using " + key->name;
-      */
+#endif /* defined(HAVE_PX) */
       if (path->index_scan().reverse) {
         str += " (reverse)";
       }
@@ -562,16 +578,23 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
     case AccessPath::REF: {
       TABLE *table = path->ref().table;
       const KEY *key = &table->key_info[path->ref().ref->key];
+#if defined(HAVE_PX)
+      string str = string(
+        table->key_read ?
+            ((table && table->get_parallel_scan()) ?
+                "Parallel covering index lookup on " :
+                "Covering index lookup on ") :
+            ((table && table->get_parallel_scan()) ?
+                "Parallel index lookup on " :
+                "Index lookup on ")
+      ) + table->alias + " using " + key->name + " (" +
+      RefToString(*path->ref().ref, key, /*include_nulls=*/false);
+#else
       string str = string(table->key_read ? "Covering index lookup on "
                                           : "Index lookup on ") +
                    table->alias + " using " + key->name + " (" +
                    RefToString(*path->ref().ref, key, /*include_nulls=*/false);
-      
-      //QEP_TAB *tab = path->ref().qep_tab;
-      //string str = ((tab && tab->get_parallel_scan()) ? string("Parallel index lookup on ") :
-      //              string("Index lookup on ")) + table->alias + " using " + key->name + " (" +
-      //              RefToString(*path->ref().ref, key, /*include_nulls=*/false);
-      //
+#endif
       if (path->ref().reverse) {
         str += "; iterate backwards";
       }
@@ -685,9 +708,21 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
       const auto &param = path->index_range_scan();
       TABLE *table = param.used_key_part[0].field->table;
       KEY *key_info = table->key_info + param.index;
+#if defined(HAVE_PX)
+      string ret = string(
+          table->key_read ?
+              ((table && table->get_parallel_scan()) ?
+                  "Parallel covering index range scan on " :
+                  "Covering index range scan on ") :
+              ((table && table->get_parallel_scan()) ?
+                  "Parallel index range scan on " :
+                  "Index range scan on ")
+      ) + table->alias + " using " + key_info->name + " over ";
+#else
       string ret = string(table->key_read ? "Covering index range scan on "
                                           : "Index range scan on ") +
                    table->alias + " using " + key_info->name + " over ";
+#endif /* defined(HAVE_PX) */
       ret += PrintRanges(param.ranges, param.num_ranges, key_info->key_part,
                          /*single_part_only=*/false);
       if (path->index_range_scan().reverse) {

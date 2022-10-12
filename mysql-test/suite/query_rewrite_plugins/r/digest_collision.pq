@@ -34,7 +34,7 @@ AS digests_indeed_collide
 FROM query_rewrite.rewrite_rules
 GROUP BY pattern_digest;
 digests_indeed_collide
-1
+0
 SELECT char_length(pattern) FROM query_rewrite.rewrite_rules;
 char_length(pattern)
 4953

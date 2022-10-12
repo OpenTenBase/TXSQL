@@ -1638,6 +1638,10 @@ insert into t3 select * from tmp;
 insert into tmp select * from t3;
 insert into t3 select * from tmp;
 
+# Note: Use a single scan thread here to preserve the autoincrement value
+# to existing row order assignment. In practice there is no guarantee of
+# any such order during the alter table.
+set session innodb_parallel_read_threads=1;
 alter table t3 add t2nr int not null auto_increment primary key first;
 drop table tmp;
 analyze table t2,t3;
@@ -1794,4 +1798,25 @@ SET @@global.log_output= @old_log_output;
 SET @@global.slow_query_log= @old_slow_query_log;
 DROP TABLE t1,t2,t3,t17059925;
 
+truncate table mysql.general_log;
+truncate table mysql.slow_log;
+
+--echo #
+--echo # group_by
+--echo #
+create table t1 (id integer primary key not null auto_increment, gender char(1));
+insert into t1 values (NULL, 'M'), (NULL, 'F'),(NULL, 'F'),(NULL, 'F'),(NULL, 'M');
+create table t2 (user_id integer not null, date date);
+insert into t2 values (1, '2002-06-09'),(2, '2002-06-09'),(1, '2002-06-09'),(3, '2002-06-09'),(4, '2002-06-09'),(4, '2002-06-09');
+select u.gender as gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender;
+select u.gender as  gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender  order by percentage;
+drop table t1,t2;
+
+--echo #
+--echo # Exchange between aggregate and materialize
+--echo #
+CREATE TABLE t(a varbinary(10));
+INSERT INTO t VALUES(0xFF00F0F0), (0xF0F0FF00);
+SELECT SQL_BUFFER_RESULT HEX(BIT_AND(a)), HEX(BIT_OR(a)), HEX(BIT_XOR(a)) FROM t;
+DROP TABLE t;
 --source suite/parallel_execution/inc/set_px_to_saved.inc

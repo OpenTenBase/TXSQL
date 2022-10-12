@@ -57,23 +57,23 @@ select
 EVENT_NAME,
 if (count_star > 0, "MANY", "NONE") as COUNT_STAR
 from performance_schema.events_waits_summary_global_by_event_name
-where (event_name like "%MYSQL_BIN_LOG%" or event_name like '%LOCK_thd_done%')
-and event_name not like "%MYSQL_BIN_LOG::update_cond"
-  and event_name not like "%MYSQL_BIN_LOG::LOCK_done"
+where event_name like "%MYSQL_BIN_LOG%"
+  and event_name not like "%MYSQL_BIN_LOG::update_cond"
   order by event_name;
 EVENT_NAME	COUNT_STAR
 wait/synch/cond/sql/MYSQL_BIN_LOG::COND_done	NONE
+wait/synch/cond/sql/MYSQL_BIN_LOG::COND_flush_queue	NONE
 wait/synch/cond/sql/MYSQL_BIN_LOG::prep_xids_cond	NONE
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_binlog_end_pos	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_commit	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_commit_queue	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_done	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_flush_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_xids	NONE
-wait/synch/mutex/sql/THD::LOCK_thd_done	MANY
 "Expect no slave relay log"
 select * from performance_schema.file_summary_by_instance
 where event_name like "%relaylog%" order by file_name;
@@ -96,17 +96,11 @@ where event_name like "%MYSQL_RELAY_LOG%"
   and event_name not like "%MYSQL_RELAY_LOG::update_cond"
   order by event_name;
 EVENT_NAME	COUNT_STAR	SUM_TIMER_WAIT	MIN_TIMER_WAIT	AVG_TIMER_WAIT	MAX_TIMER_WAIT
-wait/synch/cond/sql/MYSQL_RELAY_LOG::COND_done	NONE	NONE	NONE	NONE	NONE
-wait/synch/cond/sql/MYSQL_RELAY_LOG::prep_xids_cond	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_commit	NONE	NONE	NONE	NONE	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_commit_queue	NONE	NONE	NONE	NONE	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_done	NONE	NONE	NONE	NONE	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_flush_queue	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_index	MANY	MANY	MANY	MANY	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log	MANY	MANY	MANY	MANY	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log_end_pos	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_sync	NONE	NONE	NONE	NONE	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_sync_queue	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_xids	NONE	NONE	NONE	NONE	NONE
 "============ Performance schema on slave ============"
 select * from performance_schema.file_summary_by_instance
@@ -162,23 +156,23 @@ select
 EVENT_NAME,
 if (count_star > 0, "MANY", "NONE") as COUNT_STAR
 from performance_schema.events_waits_summary_global_by_event_name
-where (event_name like "%MYSQL_BIN_LOG%" or event_name like '%LOCK_thd_done%')
-and event_name not like "%MYSQL_BIN_LOG::update_cond"
-  and event_name not like "%MYSQL_BIN_LOG::LOCK_done"
+where event_name like "%MYSQL_BIN_LOG%"
+  and event_name not like "%MYSQL_BIN_LOG::update_cond"
   order by event_name;
 EVENT_NAME	COUNT_STAR
 wait/synch/cond/sql/MYSQL_BIN_LOG::COND_done	NONE
+wait/synch/cond/sql/MYSQL_BIN_LOG::COND_flush_queue	NONE
 wait/synch/cond/sql/MYSQL_BIN_LOG::prep_xids_cond	NONE
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_binlog_end_pos	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_commit	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_commit_queue	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_done	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_flush_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_xids	MANY
-wait/synch/mutex/sql/THD::LOCK_thd_done	MANY
 "Expect a slave relay log"
 select
 substring(file_name, locate("slave-", file_name)) as FILE_NAME,
@@ -217,16 +211,10 @@ where event_name like "%MYSQL_RELAY_LOG%"
   and event_name not like "%MYSQL_RELAY_LOG::update_cond"
   order by event_name;
 EVENT_NAME	COUNT_STAR
-wait/synch/cond/sql/MYSQL_RELAY_LOG::COND_done	NONE
-wait/synch/cond/sql/MYSQL_RELAY_LOG::prep_xids_cond	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_commit	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_commit_queue	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_done	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_flush_queue	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log_end_pos	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_sync	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_sync_queue	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_xids	MANY
 include/rpl_end.inc

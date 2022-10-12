@@ -42,6 +42,8 @@ Warnings:
 select cast("A" as binary) = "a", cast(BINARY "a" as CHAR) = "A";
 cast("A" as binary) = "a"	cast(BINARY "a" as CHAR) = "A"
 0	1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 select cast("2001-1-1" as DATE), cast("2001-1-1" as DATETIME);
 cast("2001-1-1" as DATE)	cast("2001-1-1" as DATETIME)
 2001-01-01	2001-01-01 00:00:00
@@ -153,14 +155,13 @@ cast('' as signed)
 0
 Warning	1292	Truncated incorrect INTEGER value: ''
 Warnings:
-set names binary;
-select cast(_latin1'test' as char character set latin2);
-cast(_latin1'test' as char character set latin2)
-test
-select cast(_koi8r'‘≈”‘' as char character set cp1251);
-cast(_koi8r'‘≈”‘' as char character set cp1251)
-ÚÂÒÚ
-create table t1 select cast(_koi8r'‘≈”‘' as char character set cp1251) as t;
+select hex(cast(_latin1'test' as char character set latin2));
+hex(cast(_latin1'test' as char character set latin2))
+74657374
+select hex(cast(_koi8r x'D4C5D3D4' as char character set cp1251));
+hex(cast(_koi8r x'D4C5D3D4' as char character set cp1251))
+F2E5F1F2
+create table t1 select cast(_koi8r x'D4C5D3D4' as char character set cp1251) as t;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -168,28 +169,28 @@ t1	CREATE TABLE `t1` (
 ) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select
-cast(_latin1'ab'  AS char)    as c1,
-cast(_latin1'a '  AS char)    as c2,
-cast(_latin1'abc' AS char(2)) as c3,
-cast(_latin1'a  ' AS char(2)) as c4,
-hex(cast(_latin1'a'   AS char(2))) as c5;
+cast(_latin1'ab'  AS char charset binary)    as c1,
+cast(_latin1'a '  AS char charset binary)    as c2,
+cast(_latin1'abc' AS char(2) charset binary) as c3,
+cast(_latin1'a  ' AS char(2) charset binary) as c4,
+hex(cast(_latin1'a'   AS char(2) charset binary)) as c5;
 c1	c2	c3	c4	c5
 Warning	1292	Truncated incorrect BINARY(2) value: 'a  '
 Warning	1292	Truncated incorrect BINARY(2) value: 'abc'
 Warnings:
 ab	a 	ab	a 	6100
-select cast(1000 as CHAR(3));
-cast(1000 as CHAR(3))
+select cast(1000 as CHAR(3) charset binary);
+cast(1000 as CHAR(3) charset binary)
 100
 Warning	1292	Truncated incorrect BINARY(3) value: '1000'
 Warnings:
 SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
 create table t1 select
-cast(_latin1'ab'  AS char)    as c1,
-cast(_latin1'a '  AS char)    as c2,
-cast(_latin1'abc' AS char(2)) as c3,
-cast(_latin1'a  ' AS char(2)) as c4,
-cast(_latin1'a'   AS char(2)) as c5;
+cast(_latin1'ab'  AS char charset binary)    as c1,
+cast(_latin1'a '  AS char charset binary)    as c2,
+cast(_latin1'abc' AS char(2) charset binary) as c3,
+cast(_latin1'a  ' AS char(2) charset binary) as c4,
+cast(_latin1'a'   AS char(2) charset binary) as c5;
 Warnings:
 Warning	1292	Truncated incorrect BINARY(2) value: 'abc'
 Warning	1292	Truncated incorrect BINARY(2) value: 'a  '
@@ -207,11 +208,11 @@ t1	CREATE TABLE `t1` (
 ) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select
-cast(_koi8r'∆«'  AS nchar)    as c1,
-cast(_koi8r'∆ '  AS nchar)    as c2,
-cast(_koi8r'∆«»' AS nchar(2)) as c3,
-cast(_koi8r'∆  ' AS nchar(2)) as c4,
-cast(_koi8r'∆'   AS nchar(2)) as c5;
+cast(_koi8r x'C6C7'   AS nchar)    as c1,
+cast(_koi8r x'C620'   AS nchar)    as c2,
+cast(_koi8r x'C6C7C8' AS nchar(2)) as c3,
+cast(_koi8r x'C62020' AS nchar(2)) as c4,
+cast(_koi8r x'C6'     AS nchar(2)) as c5;
 c1	c2	c3	c4	c5
 Warning	1292	Truncated incorrect CHAR(3) value: '—Ñ  '
 Warning	1292	Truncated incorrect CHAR(4) value: '—Ñ–≥—Ö'
@@ -223,11 +224,11 @@ Warning	3720	NATIONAL/NCHAR/NVARCHAR implies the character set UTF8MB3, which wi
 Warnings:
 —Ñ–≥	—Ñ 	—Ñ–≥	—Ñ 	—Ñ
 create table t1 select
-cast(_koi8r'∆«'  AS nchar)    as c1,
-cast(_koi8r'∆ '  AS nchar)    as c2,
-cast(_koi8r'∆«»' AS nchar(2)) as c3,
-cast(_koi8r'∆  ' AS nchar(2)) as c4,
-cast(_koi8r'∆'   AS nchar(2)) as c5;
+cast(_koi8r x'C6C7'   AS nchar)    as c1,
+cast(_koi8r x'C620'   AS nchar)    as c2,
+cast(_koi8r x'C6C7C8' AS nchar(2)) as c3,
+cast(_koi8r x'C62020' AS nchar(2)) as c4,
+cast(_koi8r x'C6'     AS nchar(2)) as c5;
 Warnings:
 Warning	3720	NATIONAL/NCHAR/NVARCHAR implies the character set UTF8MB3, which will be replaced by UTF8MB4 in a future release. Please consider using CHAR(x) CHARACTER SET UTF8MB4 in order to be unambiguous.
 Warning	3720	NATIONAL/NCHAR/NVARCHAR implies the character set UTF8MB3, which will be replaced by UTF8MB4 in a future release. Please consider using CHAR(x) CHARACTER SET UTF8MB4 in order to be unambiguous.
@@ -242,11 +243,11 @@ c1	c2	c3	c4	c5
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c2` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c3` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c4` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c5` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT ''
+  `c1` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c2` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c3` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c4` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c5` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT ''
 ) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 #
@@ -288,29 +289,20 @@ c1	c2	c3	c4	c5
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c2` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c3` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c4` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  `c5` varchar(2) CHARACTER SET utf8 NOT NULL DEFAULT ''
+  `c1` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c2` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c3` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c4` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT '',
+  `c5` varchar(2) CHARACTER SET utf8mb3 NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE t1;
 SET sql_mode = default;
 create table t1 (a binary(4), b char(4) character set koi8r);
-insert into t1 values (_binary'‘≈”‘',_binary'‘≈”‘');
-select a,b,cast(a as char character set cp1251),cast(b as binary) from t1;
-a	b	cast(a as char character set cp1251)	cast(b as binary)
-‘≈”‘	‘≈”‘	‘≈”‘	‘≈”‘
-set names koi8r;
-select a,b,cast(a as char character set cp1251),cast(b as binary) from t1;
-a	b	cast(a as char character set cp1251)	cast(b as binary)
-‘≈”‘	‘≈”‘	ÊÂıÊ	‘≈”‘
-set names cp1251;
-select a,b,cast(a as char character set cp1251),cast(b as binary) from t1;
-a	b	cast(a as char character set cp1251)	cast(b as binary)
-‘≈”‘	ÚÂÒÚ	‘≈”‘	‘≈”‘
+insert into t1 values (_binary x'D4C5D3D4',_binary x'D4C5D3D4');
+select hex(a),hex(b),hex(cast(a as char character set cp1251)),hex(cast(b as binary)) from t1;
+hex(a)	hex(b)	hex(cast(a as char character set cp1251))	hex(cast(b as binary))
+D4C5D3D4	D4C5D3D4	D4C5D3D4	D4C5D3D4
 drop table t1;
-set names binary;
 select cast("2001-1-1" as date) = "2001-01-01";
 cast("2001-1-1" as date) = "2001-01-01"
 1
@@ -328,33 +320,33 @@ cast(NULL as BINARY)
 NULL
 CREATE TABLE t1 (a enum ('aac','aab','aaa') not null);
 INSERT INTO t1 VALUES ('aaa'),('aab'),('aac');
-SELECT a, CAST(a AS CHAR) FROM t1 ORDER BY CAST(a AS UNSIGNED) ;
-a	CAST(a AS CHAR)
+SELECT a, CAST(a AS CHAR charset binary) FROM t1 ORDER BY CAST(a AS UNSIGNED) ;
+a	CAST(a AS CHAR charset binary)
 aac	aac
 aab	aab
 aaa	aaa
-SELECT a, CAST(a AS CHAR(3)) FROM t1 ORDER BY CAST(a AS CHAR(2)), a;
-a	CAST(a AS CHAR(3))
+SELECT a, CAST(a AS CHAR(3) charset binary) FROM t1 ORDER BY CAST(a AS CHAR(2) charset binary), a;
+a	CAST(a AS CHAR(3) charset binary)
 aac	aac
 aab	aab
 aaa	aaa
 Warnings:
 Warning	1292	Truncated incorrect BINARY(2) value: 'aaa'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aac'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aac'
+Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aaa'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aac'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aaa'
-SELECT a, CAST(a AS UNSIGNED) FROM t1 ORDER BY CAST(a AS CHAR) ;
+Warning	1292	Truncated incorrect BINARY(2) value: 'aac'
+SELECT a, CAST(a AS UNSIGNED) FROM t1 ORDER BY CAST(a AS CHAR charset binary) ;
 a	CAST(a AS UNSIGNED)
 aaa	3
 aab	2
 aac	1
-SELECT a, CAST(a AS CHAR(2)) FROM t1 ORDER BY CAST(a AS CHAR(3)), a;
-a	CAST(a AS CHAR(2))
+SELECT a, CAST(a AS CHAR(2) charset binary ) FROM t1 ORDER BY CAST(a AS CHAR(3) charset binary), a;
+a	CAST(a AS CHAR(2) charset binary )
 aaa	aa
 aab	aa
 aac	aa
@@ -914,7 +906,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using filesort
 Warnings:
 Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
-Note	1003	/* select#1 */ select `test`.`t1`.`date` AS `date`,(cast(`test`.`t1`.`spID` as double) = cast(first_value(`test`.`t1`.`date`) OVER (ORDER BY `test`.`t1`.`date` )  as double)) AS `spid = FIRST_VALUE(date) OVER (ORDER BY date )` from `test`.`t1`
+Note	1003	/* select#1 */ select `test`.`t1`.`date` AS `date`,(cast(`test`.`t1`.`spid` as double) = cast(first_value(`test`.`t1`.`date`) OVER (ORDER BY `test`.`t1`.`date` )  as double)) AS `spid = FIRST_VALUE(date) OVER (ORDER BY date )` from `test`.`t1`
 #
 # No casts when constants or constant functions are involved
 #
@@ -1802,18 +1794,21 @@ NULL
 NULL
 Warning	1292	Incorrect datetime value: 'L'
 Warnings:
+
 SELECT col_char /*CAST(col_char as datetime)*/ <> col_datetime FROM t;
 col_char /*CAST(col_char as datetime)*/ <> col_datetime
 1
 NULL
 Warning	1292	Incorrect datetime value: 'L'
 Warnings:
+
 SELECT CAST(col_char AS DATE) FROM t;
 CAST(col_char AS DATE)
 NULL
 NULL
 Warning	1292	Incorrect datetime value: 'L'
 Warnings:
+
 SELECT col_char <> col_date FROM t;
 col_char <> col_date
 1
@@ -1843,6 +1838,8 @@ SELECT COUNT(table1.pk) FROM CC table1 JOIN BB table3 JOIN CC table2
 WHERE (table3.col_char_key < table2.col_datetime_key);
 COUNT(table1.pk)
 4
+Warning	1292	Incorrect datetime value: 'X'
+Warning	1292	Incorrect datetime value: 'X'
 Warning	1292	Incorrect datetime value: 'X'
 Warning	1292	Incorrect datetime value: 'X'
 Warnings:
@@ -1976,6 +1973,7 @@ CAST("2020extra" AS YEAR)
 2020
 Warning	1292	Truncated incorrect YEAR value: '2020extra'
 Warnings:
+SET timestamp = UNIX_TIMESTAMP('2020-12-22 03:30:00');
 SELECT CAST(TIMESTAMP'2010-01-01 00:00' AS YEAR);
 CAST(TIMESTAMP'2010-01-01 00:00' AS YEAR)
 2010
@@ -1989,10 +1987,11 @@ CAST(TIMESTAMP'2010-01-01 08:09:10' AS YEAR)
 2010
 SELECT CAST(TIME'08:09:10' AS YEAR);
 CAST(TIME'08:09:10' AS YEAR)
-2022
+2020
 SELECT CAST(TIME'00:00:00' AS YEAR);
 CAST(TIME'00:00:00' AS YEAR)
-2022
+2020
+SET timestamp = DEFAULT;
 SELECT CAST(ST_PointFromText('POINT(10 10)') AS YEAR);
 ERROR HY000: Incorrect arguments to cast_as_year
 CREATE TABLE t AS SELECT CAST("2010" AS YEAR);
@@ -2385,3 +2384,129 @@ Warning	1292	Incorrect datetime value: 'YYYY-MM-DD'
 Warning	1292	Incorrect datetime value: 'YYYY-MM-DD'
 Warnings:
 SET SQL_MODE=DEFAULT;
+#
+# Bug#32371039: ITEM->MAX_LENGTH FIELD IS NOT ACCURATE FOR
+#               FROM_BASE64 FUNCTION
+#
+CREATE TABLE t AS
+SELECT CONCAT(CAST(-1 AS UNSIGNED)) AS col1,
+1.0 + CAST(-1 AS UNSIGNED) AS col2,
+CONCAT(CAST(9223372036854775808 AS SIGNED)) AS col3;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `col1` varchar(21) CHARACTER SET latin1 DEFAULT NULL,
+  `col2` decimal(23,1) NOT NULL DEFAULT '0.0',
+  `col3` varchar(21) CHARACTER SET latin1 DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT * FROM t;
+col1	col2	col3
+18446744073709551615	18446744073709551616.0	-9223372036854775808
+DROP TABLE t;
+#
+# Bug#32942327: CAST: ITEM_TYPECAST_UNSIGNED:
+#               ASSERTION `!NULL_VALUE || IS_NULLABLE()' FAILED
+#
+CREATE TABLE t (x VARCHAR(10) NOT NULL);
+INSERT INTO t VALUES ('');
+SELECT CAST(x <= 0x4891f642 AS UNSIGNED) FROM t;
+ERROR HY000: Cannot convert string 'H\x91\xF6B' from binary to utf8mb4
+SELECT CAST(STRCMP(x, 0x4891f642) AS UNSIGNED) FROM t;
+ERROR HY000: Cannot convert string 'H\x91\xF6B' from binary to utf8mb4
+DROP TABLE t;
+#
+# Bug#33199145: CONVERT(.. USING charset) gets wrong max_length
+#
+CREATE TABLE tmp(beer CHAR(1));
+INSERT INTO tmp VALUES (CONVERT(X'F09F8DBA' USING utf8mb4));
+SELECT HEX(beer), beer FROM tmp;
+HEX(beer)	beer
+F09F8DBA	?
+# Used this round-about way originally to get a utfmb4 character to
+# convert in next DML/DDL query to avoid change encoding of this file
+# and to avoid bug in max_length of CONVERT(X'F09F8DBA' USING UTF8MB4)
+# which (used to) set to 4 instead of one (beer), fixed now, though,
+# see round-trip test below.
+CREATE TABLE t AS
+SELECT CONVERT((SELECT beer FROM tmp) USING binary) AS beer;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `beer` varbinary(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT HEX(beer) FROM t;
+HEX(beer)
+F09F8DBA
+DROP TABLE t, tmp;
+CREATE TABLE t AS
+SELECT CONVERT(X'F09F8DBA' USING utf8mb4) AS beer;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `beer` varchar(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT HEX(beer) FROM t;
+HEX(beer)
+F09F8DBA
+DROP TABLE t;
+# Check round trip.
+CREATE TABLE t AS
+SELECT CONVERT(CONVERT(X'F09F8DBA' USING utf8mb4) USING binary) AS beer;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `beer` varbinary(16) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT HEX(beer) FROM t;
+HEX(beer)
+F09F8DBA
+DROP TABLE t;
+# Check round trip.
+CREATE TABLE t AS
+SELECT CONVERT(CONVERT(X'F09F8DBA', CHAR(1) CHARACTER SET utf8mb4) USING binary) AS beer;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `beer` varbinary(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT HEX(beer) FROM t;
+HEX(beer)
+F09F8DBA
+DROP TABLE t;
+# Check round trip: should stay VARCHAR(1).
+CREATE TABLE t AS
+SELECT CONVERT(CONVERT(_utf8mb3'a' USING utf8mb4) USING utf8mb3) AS a;
+Warnings:
+Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `a` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT a FROM t;
+a
+a
+DROP TABLE t;
+# Character set with different min char size (utf-16: 2):
+CREATE TABLE t AS
+SELECT CONVERT(X'D83CDF7A' USING utf16) as beer;
+SHOW CREATE TABLE t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `beer` varchar(2) CHARACTER SET utf16 DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT HEX(beer), CHAR_LENGTH(beer) FROM t;
+HEX(beer)	CHAR_LENGTH(beer)
+D83CDF7A	1
+DROP TABLE t;
+#
+# Bug #33406728 Item_charset_conversion::compute_max_char_length:
+#     Assertion `from->max_length == from->max_char_length()' failed.
+#
+set @a:= st_aswkb(st_astext(@b:=log10(0.0)));
+Warnings:
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	3020	Invalid argument for logarithm
+set @a:= @b;
+do convert(@a using latin1);

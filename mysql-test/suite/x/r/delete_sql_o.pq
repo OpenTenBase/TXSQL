@@ -84,8 +84,8 @@ While executing DELETE FROM ExtraCategoryInfo WHERE EXISTS
 Got expected error: You are using safe update mode and you tried to update a table without a WHERE that uses a KEY column.  (code 1175)
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-4	3	House
 3	2	House
+4	3	House
 0 rows affected
 RUN START TRANSACTION
 
@@ -100,19 +100,19 @@ last insert id: 6
 Records: 2  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-5	4	Hotel
 3	2	House
-4	3	House
 6	4	Hotel
+4	3	House
+5	4	Hotel
 0 rows affected
 RUN DELETE FROM ExtraCategoryInfo WHERE ExtraCategoryInfoID = 5
 
 1 rows affected
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-6	4	Hotel
-3	2	House
 4	3	House
+3	2	House
+6	4	Hotel
 0 rows affected
 RUN COMMIT
 
@@ -127,11 +127,11 @@ last insert id: 8
 Records: 2  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-6	4	Hotel
-4	3	House
 3	2	House
+4	3	House
 8	1	GROUND
 7	1	GROUND
+6	4	Hotel
 0 rows affected
 RUN START TRANSACTION
 
@@ -141,20 +141,20 @@ RUN DELETE FROM ExtraCategoryInfo WHERE ExtraCategoryInfoID = 7
 1 rows affected
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-3	2	House
-4	3	House
-8	1	GROUND
 6	4	Hotel
+3	2	House
+8	1	GROUND
+4	3	House
 0 rows affected
 RUN ROLLBACK
 
 0 rows affected
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-6	4	Hotel
 3	2	House
 8	1	GROUND
 4	3	House
+6	4	Hotel
 7	1	GROUND
 0 rows affected
 Mysqlx.Ok {
@@ -219,9 +219,9 @@ COUNT(*)
 0 rows affected
 RUN SELECT * FROM Categories
 CategoryID	CategoryName	CategoryDescription	CategoryIMEI	CategoryDecimal
-2	Entertaiment	Entertaiment related category	2	235.15
 3	Home	Home related category	3	235.15
 4	Kitchen	Kitchen related category	4	235.15
+2	Entertaiment	Entertaiment related category	2	235.15
 0 rows affected
 RUN DELETE QUICK FROM Categories ORDER BY CategoryName DESC LIMIT 2
 
@@ -272,11 +272,11 @@ RUN ALTER TABLE ExtraCategoryInfo
 Records: 9  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM Categories
 CategoryID	CategoryName	CategoryDescription	CategoryIMEI	CategoryDecimal
-2	Entertaiment	Entertaiment related category	2	235.15
-4	Kitchen	Kitchen related category	4	235.15
-5	Office	office related category	5	235.15
 1	Sports	Sports related category	1	235.15
 3	Home	Home related category	3	235.15
+5	Office	office related category	5	235.15
+4	Kitchen	Kitchen related category	4	235.15
+2	Entertaiment	Entertaiment related category	2	235.15
 0 rows affected
 RUN SELECT * FROM ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName

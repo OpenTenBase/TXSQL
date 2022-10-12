@@ -131,12 +131,12 @@ Warnings generated:
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'c'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 Got expected warning: 1292 
 RUN select grp,group_concat(a order by c-ascii(c),a) from test.t1 group by grp order by grp
 grp	group_concat(a order by c-ascii(c),a)
@@ -148,11 +148,11 @@ Warnings generated:
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'c'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'E'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'C'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'E'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
 Got expected warning: 1292 
 RUN set group_concat_max_len = 4
@@ -162,7 +162,7 @@ RUN select grp,group_concat(c order by c) from test.t1 group by grp order by grp
 grp	group_concat(c order by c)
 1	a
 2	b,c
-3	C,d,
+3	C,D,
 0 rows affected
 Warnings generated:
 WARNING | 1260 | Row 6 was cut by GROUP_CONCAT()
@@ -1496,12 +1496,8 @@ RUN create index idx1 on worklog5743_1(a2(4000))
 While executing create index idx1 on worklog5743_1(a2(4000)):
 Got expected error: Specified key was too long; max key length is 3072 bytes (code 1071)
 RUN set global innodb_large_prefix=1
-Warnings generated:
-WARNING | 1193 | Unknown system variable 'innodb_large_prefix'
-WARNING | 1193 | Unknown system variable 'innodb_large_prefix'
 While executing set global innodb_large_prefix=1:
 Got expected error: Unknown system variable 'innodb_large_prefix' (code 1193)
-Got expected warning: 1193 
 RUN drop table worklog5743_1
 
 0 rows affected
@@ -1602,7 +1598,7 @@ default_storage_engine	InnoDB
 
 ##
 ## Verify the notices statistics
-Verify [Status variable "Mysqlx_notice_warning_sent" needs to have a value of 859]
+Verify [Status variable "Mysqlx_notice_warning_sent" needs to have a value of 857]
 Verify [Status variable "Mysqlx_notice_other_sent" needs to have a value of 168]
 Verify [Status variable "Mysqlx_stmt_disable_notices" needs to have a value of 0]
 Verify [Status variable "Mysqlx_stmt_enable_notices" needs to have a value of 1]
