@@ -23894,6 +23894,11 @@ static MYSQL_SYSVAR_ULONG(hot_update_wait_timeout, srv_hot_update_wait_timeout,
                           NULL, 1000000, 1000, 100000000, 0);
 /* Changes from txsql end. */
 
+static MYSQL_SYSVAR_BOOL(quickly_stoped,
+    innodb_quickly_stoped, PLUGIN_VAR_RQCMDARG,
+    "whether quickly stopd innodb,if set ,innodb resource cleaning will be safely ignored",
+    NULL, NULL, false);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -24145,6 +24150,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_recover_abort),
     MYSQL_SYSVAR(buffer_pool_recover_after_transmit),
     MYSQL_SYSVAR(buffer_pool_recover_pct),
+    MYSQL_SYSVAR(quickly_stoped),
     nullptr};
 
 mysql_declare_plugin(innobase){

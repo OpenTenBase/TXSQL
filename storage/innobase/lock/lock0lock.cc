@@ -399,7 +399,7 @@ void lock_sys_close(void) {
   ut::delete_(lock_sys->prdt_hash);
   ut::delete_(lock_sys->prdt_page_hash);
 
-  {
+  if (srv_hot_update_detect) {
     locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
     mutex_enter(&lock_sys->hot_update_mutex);
     lock_sys_reset_hot_update();
