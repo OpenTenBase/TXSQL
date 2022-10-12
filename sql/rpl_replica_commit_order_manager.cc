@@ -86,6 +86,7 @@ bool Commit_order_manager::wait_on_graph(Slave_worker *worker) {
 
   if (this->m_workers.front() != worker->id) {
     if (worker->found_commit_order_deadlock()) {
+      my_error(ER_LOCK_DEADLOCK, MYF(0));
       /* purecov: begin inspected */
       rollback_status = true;
       return true;
@@ -346,6 +347,10 @@ void Commit_order_manager::check_and_report_deadlock(THD *thd_self,
 
 void Commit_order_manager::report_deadlock(Slave_worker *worker) {
   DBUG_TRACE;
+  DBUG_EXECUTE_IF("rpl_before_report_commit_order_deadlock", {
+    const char act[] = "now signal reach_report_deadlock wait_for worker_commit";
+    assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+  });
   worker->report_commit_order_deadlock();
   DBUG_EXECUTE_IF("rpl_fake_cod_deadlock", {
     const char act[] = "now signal reported_deadlock";
@@ -360,6 +365,11 @@ bool Commit_order_manager::wait(THD *thd) {
   assert(thd);
 
   if (has_commit_order_manager(thd)) {
+    DBUG_EXECUTE_IF(("rpl_before_commit_order_manager_wait_"
+          + std::to_string(current_thd->start_time.tv_sec)).c_str(), {
+      const char act[] = "now signal worker_commit wait_for reported_deadlock";
+      assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    });
     /*
       We only care about read/write transactions and those that
       have been registered in the commit order manager.
