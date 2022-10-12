@@ -101,6 +101,12 @@ class SortingIterator final : public RowIterator {
 
   const Filesort *filesort() const { return m_filesort; }
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "Sort"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_SORT; }
+  virtual void adjust_children() override { add_child(m_source_iterator.get()); }
+#endif /* defined(HAVE_PX) */
+
  private:
   int DoSort();
   void ReleaseBuffers();

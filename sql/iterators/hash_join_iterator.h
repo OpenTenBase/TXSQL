@@ -340,6 +340,14 @@ class HashJoinIterator final : public RowIterator {
 
   int ChunkCount() { return m_chunk_files_on_disk.size(); }
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "HashJoin"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_HASH_JOIN; }
+  virtual void adjust_children() override {
+    add_child(m_build_input.get());
+    add_child(m_probe_input.get());
+  }
+#endif /* defined(HAVE_PX) */
  private:
   /// Read all rows from the build input and store the rows into the in-memory
   /// hash table. If the hash table goes full, the rest of the rows are written

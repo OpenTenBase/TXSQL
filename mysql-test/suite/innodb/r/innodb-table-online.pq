@@ -156,8 +156,8 @@ INSERT INTO t1 SELECT 40 + c1, c2, c3 FROM t1;
 EXPLAIN SELECT COUNT(*) FROM t1 WHERE c2 > 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	80	33.33	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t1` where (`test`.`t1`.`c2` > 3)
 ANALYZE TABLE t1;
@@ -227,7 +227,7 @@ SET DEBUG_SYNC = 'row_log_table_apply1_before SIGNAL rebuilt3 WAIT_FOR dml3_done
 ALTER TABLE t1 ADD PRIMARY KEY(c22f), CHANGE c2 c22f INT;
 ERROR 42000: Multiple primary key defined
 ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(c22f), CHANGE c2 c22f INT;
-ERROR 23000: Duplicate entry '5' for key 't1.PRIMARY'
+ERROR 23000: Duplicate entry 'N' for key 't1.PRIMARY'
 ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(c1,c22f,c4(5)),
 CHANGE c2 c22f INT, CHANGE c3 c3 TEXT NULL, CHANGE c1 c1 INT AFTER c22f,
 ADD COLUMN c4 VARCHAR(6) DEFAULT 'Online';

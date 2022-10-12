@@ -12,19 +12,19 @@ set global tencent_root_whitelist=concat(@@tencent_root_whitelist, ";", "<local_
 # case1: normal user show processlist shouldn't show tencentroot information
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#:#	NULL	Wait	#	Waiting on empty queue	NULL
-#	root	#:#	test	Wait	#		NULL
-#	root	#:#	test	Wait	#	init	show processlist
+#	event_scheduler	#:#	NULL	Daemon	#	Waiting on empty queue	NULL
+#	root	#:#	test	Sleep	#		NULL
+#	root	#:#	test	Query	#	init	show processlist
 #
 # case2: tencentroot user show processlist should show host information
 show processlist;
 Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#:#	NULL	Wait	#	Waiting on empty queue	NULL
-#	root	#:#	test	Wait	#		NULL
-#	root	#:#	test	Wait	#		NULL
-#	tencentroot	#:#	test	Wait	#	init	show processlist
-#	tencentroot	#:#	test	Wait	#		NULL
-#	tencentroot	#:#	test	Wait	#		NULL
+#	event_scheduler	#:#	NULL	Daemon	#	Waiting on empty queue	NULL
+#	root	#:#	test	Sleep	#		NULL
+#	root	#:#	test	Sleep	#		NULL
+#	tencentroot	#:#	test	Query	#	init	show processlist
+#	tencentroot	#:#	test	Sleep	#		NULL
+#	tencentroot	#:#	test	Sleep	#		NULL
 #
 # Cleanup
 #

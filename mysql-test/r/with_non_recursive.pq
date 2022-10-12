@@ -38,8 +38,8 @@ WITH qn AS (SELECT 10*a as a FROM t1),
 qn2 AS (SELECT 3*a FROM qn)
 SELECT * from qn2;
 3*a
-60
 NULL
+60
 WITH qn AS (SELECT a FROM t1), qn2 AS (SELECT a FROM qn)
 SELECT * from qn2;
 a
@@ -479,8 +479,8 @@ foo	bar	foo	bar
 1	2	1	2
 with qn (foo, bar) as (select a, b from t1) select qn1.bar,foo from qn qn1;
 bar	foo
-NULL	NULL
 3	2
+NULL	NULL
 create table t3
 with qn (foo, bar) as (select a, b from t1) select bar,foo from qn;
 desc t3;
@@ -676,7 +676,9 @@ select /*+ no_merge(tt) */ tt.a
 from t1 straight_join tt where t1.a=tt.a
 limit 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	5	test.t1.a	#	100.00	Using index
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 Warnings:
@@ -701,7 +703,7 @@ from t1 straight_join tt straight_join tt as tt_
 where t1.a=tt.a and tt.a=tt_.a
 limit 1;
 a
-1
+2
 # One merged, one materialized: index creation on the second
 # should of course ignore the first
 with q as (select * from t1)
@@ -1172,8 +1174,8 @@ NULL
 WITH qn AS (SELECT a FROM t1), qn2 AS (SELECT a FROM qn)
 SELECT * from qn2;
 a
-2
 NULL
+2
 WITH qn AS (SELECT b as a FROM t1),
 qn2 AS (SELECT a FROM qn WHERE a IS NULL or a>0)
 SELECT qn.a, qn2.a  FROM qn, qn2;
@@ -1805,7 +1807,9 @@ select /*+ no_merge(tt) */ tt.a
 from t1 straight_join tt where t1.a=tt.a
 limit 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers); Using where
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	5	test.t1.a	#	100.00	Using index
 2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
 Warnings:
@@ -1830,7 +1834,7 @@ from t1 straight_join tt straight_join tt as tt_
 where t1.a=tt.a and tt.a=tt_.a
 limit 1;
 a
-1
+2
 # One merged, one materialized: index creation on the second
 # should of course ignore the first
 with q as (select * from t1)

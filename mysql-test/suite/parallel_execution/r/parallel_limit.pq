@@ -1,8 +1,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 root@localhost
@@ -125,8 +125,8 @@ explain format=tree (select * from t1 order by a limit 2) union (select * from t
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.37..2.59 rows=7)
+            -> Union materialize with deduplication  (cost=2.77..4.99 rows=7)
                 -> Limit: 2 row(s)  (cost=0.95 rows=2)
                     -> PX Receiver (merge sort; slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 4)
@@ -147,9 +147,9 @@ a	b	c	d
 limit after union
 explain format=tree (select * from t1) union (select * from t2) limit 2;
 EXPLAIN
--> Limit: 2 row(s)
+-> Limit: 2 row(s)  (cost=3.11..5.40 rows=12)
     -> Table scan on <union temporary>  (cost=2.50 rows=0)
-        -> Union materialize with deduplication
+        -> Union materialize with deduplication  (cost=3.11..5.40 rows=12)
             -> Limit table size: 2 unique row(s)
                 -> Table scan on t1  (cost=0.95 rows=7)
             -> Limit table size: 2 unique row(s)
@@ -157,9 +157,9 @@ EXPLAIN
 
 explain format=tree (select * from t1 order by a) union (select * from t2 order by a) limit 2;
 EXPLAIN
--> Limit: 2 row(s)
+-> Limit: 2 row(s)  (cost=3.11..5.40 rows=12)
     -> Table scan on <union temporary>  (cost=2.50 rows=0)
-        -> Union materialize with deduplication
+        -> Union materialize with deduplication  (cost=3.11..5.40 rows=12)
             -> Limit table size: 2 unique row(s)
                 -> Table scan on t1  (cost=0.95 rows=7)
             -> Limit table size: 2 unique row(s)

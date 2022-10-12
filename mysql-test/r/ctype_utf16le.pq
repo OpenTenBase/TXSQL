@@ -28,6 +28,10 @@ select 'a  a' > 'a', 'a  \0' < 'a';
 select binary 'a  a' > 'a', binary 'a  \0' > 'a', binary 'a\0' > 'a';
 binary 'a  a' > 'a'	binary 'a  \0' > 'a'	binary 'a\0' > 'a'
 1	1	1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 #
 # Check that incomplete utf16le characters in HEX notation
 # are left-padded with zeros
@@ -52,6 +56,9 @@ HEX(_utf16le 0x113344)
 #
 CREATE TABLE t1 (word VARCHAR(64), word2 CHAR(64)) CHARACTER SET utf16le;
 INSERT INTO t1 VALUES (_koi8r 0xF2, _koi8r 0xF2), (_ucs2 X'2004',_ucs2 X'2004');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT HEX(word) FROM t1 ORDER BY word;
 HEX(word)
 2004
@@ -65,7 +72,13 @@ DELETE FROM t1;
 # Check that real spaces are correctly trimmed.
 #
 INSERT INTO t1 VALUES (_ucs2 X'042000200020', _ucs2 X'042000200020');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 X'200400200020', _ucs2 X'200400200020');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT HEX(word) FROM t1 ORDER BY word;
 HEX(word)
 200420002000
@@ -80,13 +93,28 @@ DROP TABLE t1;
 #
 CREATE TABLE t1 (a VARCHAR(10), pad INT, b VARCHAR(10)) CHARACTER SET utf16le;
 INSERT INTO t1 VALUES (_ucs2 X'0420', 10, _ucs2 X'0421');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 X'0420', 10, _ucs2 X'04210422');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 X'0420', 10, _ucs2 X'042104220423');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT IGNORE INTO t1 VALUES (_ucs2 X'0420042104220423042404250426042704280429042A042B',10,_ucs2 X'042104220423');
 Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES (_utf32 X'010000', 10, _ucs2 X'0421');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 X'0421', 10, _utf32 X'010000');
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT a, pad, b, LPAD(a, pad, b), HEX(LPAD(a, pad, b)) FROM t1;
 a	pad	b	LPAD(a, pad, b)	HEX(LPAD(a, pad, b))
 ?	10	С	ССССССССС?	21042104210421042104210421042104210400D800DC
@@ -277,6 +305,12 @@ a
 фывапролДж
 фывапролдЖ
 фывапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT * FROM t1 WHERE a LIKE '%фЫв%' ORDER BY BINARY a;
 a
 ФЫВА
@@ -297,6 +331,12 @@ a
 фывапролДж
 фывапролдЖ
 фывапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT * FROM t1 WHERE a LIKE 'фЫва%' ORDER BY BINARY a;
 a
 ФЫВА
@@ -317,10 +357,22 @@ a
 фывапролДж
 фывапролдЖ
 фывапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT * FROM t1 WHERE a LIKE 'фЫва%' COLLATE utf16le_bin ORDER BY BINARY a;
 a
 фЫва
 фЫвапролдж
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 CREATE TABLE t1 (word VARCHAR(64) NOT NULL, PRIMARY KEY (word))
 CHARACTER SET utf16le;
@@ -336,9 +388,15 @@ word
 cat
 SELECT * FROM t1 WHERE word LIKE _ucs2 x'00630025';
 word
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warnings:
 cat
 SELECT * FROM t1 WHERE word LIKE _ucs2 x'00630061005F';
 word
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+Warnings:
 cat
 DROP TABLE t1;
 #
@@ -629,11 +687,23 @@ drop table t1;
 #
 CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf16le, pos INT);
 INSERT INTO t1 VALUES (_ucs2 0x00e400e50068,1);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 0x00e400e50068,2);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 0x00e400e50068,3);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 0x00e400e50068,-1);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 0x00e400e50068,-2);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_ucs2 0x00e400e50068,-3);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (_utf32 0x000000e4000000e500010000, 1);
 INSERT INTO t1 VALUES (_utf32 0x000000e4000000e500010000, 2);
 INSERT INTO t1 VALUES (_utf32 0x000000e4000000e500010000, 3);
@@ -874,6 +944,8 @@ DROP TABLE t1;
 #
 SET sql_mode = '';
 CREATE TABLE t1 (s1 VARCHAR(50) CHARACTER SET ucs2);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 VALUES (0xDF84);
 ALTER TABLE t1 MODIFY column s1 VARCHAR(50) CHARACTER SET utf16le;
 Warnings:
@@ -886,6 +958,8 @@ DROP TABLE t1;
 # via UPDATE
 #
 CREATE TABLE t1 (s1 VARCHAR(5) CHARACTER SET ucs2, s2 VARCHAR(5) CHARACTER SET utf16le);
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 INSERT INTO t1 (s1) VALUES (0xdf84);
 UPDATE t1 set s2 = s1;
 Warnings:

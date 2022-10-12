@@ -73,7 +73,7 @@ id	col1	col2
 10	10	10
 explain format=tree select sum(col1+RAND(1)) from t1;
 EXPLAIN
--> Aggregate: sum((t1.col1 + rand(1)))
+-> Aggregate: sum((t1.col1 + rand(1)))  (cost=2.25 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -86,7 +86,8 @@ EXPLAIN
 -> Aggregate: sum(t1.col1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Parallel table scan on t1  (cost=1.25 rows=10)
+            -> Aggregate: sum(t1.col1)  (cost=2.25 rows=1)
+                -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select sum(col1)+RAND(1) from t1;
 sum(col1)+RAND(1)
@@ -105,50 +106,52 @@ EXPLAIN
 -> Group aggregate: sum(t1.col1)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
+            -> Group aggregate: sum(t1.col1)  (cost=2.25 rows=10)
+                -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
 
 select sum(col1) + RAND(1) from t1 group by col2 order by col2;
 sum(col1) + RAND(1)
 1.4054035371219773
-2.8716141803857074
-3.141860321296249
-4.0944590960577685
-5.046714547133739
-6.950195478229034
-7.6108337804776
-8.203582498434542
-9.185411181473556
-10.3163084427978
+2.4054035371219773
+3.4054035371219773
+4.405403537121977
+5.871614180385707
+6.871614180385707
+7.871614180385707
+8.871614180385707
+9.14186032129625
+10.14186032129625
 explain format=tree select sum(col1) + RAND(1) from t1 group by col2 order by sum(col1);
 EXPLAIN
--> Sort: `sum(t1.col1)`
-    -> Stream results
+-> Sort: sum(`sum(t1.col1)`)
+    -> Stream results  (cost=2.25 rows=10)
         -> Group aggregate: sum(t1.col1), sum(t1.col1)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
-                    -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
+                    -> Group aggregate: sum(t1.col1), sum(t1.col1)  (cost=2.25 rows=10)
+                        -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
 
 select sum(col1) + RAND(1) from t1 group by col2 order by sum(col1);
 sum(col1) + RAND(1)
-1.4054035371219773
-2.8716141803857074
-3.141860321296249
-4.0944590960577685
-5.046714547133739
-6.950195478229034
-7.6108337804776
-8.203582498434542
-9.185411181473556
-10.3163084427978
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
+10.14186032129625
 explain format=tree select sum(col1) from t1 group by col2 having RAND(1) > 1 order by sum(col1);
 EXPLAIN
--> Sort: `sum(col1)`
+-> Sort: sum(`sum(col1)`)
     -> Filter: (rand(1) > 1)
-        -> Stream results
+        -> Stream results  (cost=2.25 rows=10)
             -> Group aggregate: sum(t1.col1)
                 -> PX Receiver (merge sort; slice: 0; workers: 1)
                     -> PX Sender (slice: 1; workers: 4)
-                        -> Group aggregate: sum(t1.col1)
+                        -> Group aggregate: sum(t1.col1)  (cost=2.25 rows=10)
                             -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
 
 select sum(col1) from t1 group by col2 having RAND(1) > 1 order by sum(col1);
@@ -162,7 +165,7 @@ EXPLAIN
             -> Sort: t1.col1  (cost=1.25 rows=10)
                 -> Filter: (t1.col2 is not null)  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
-    -> Index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
+    -> Covering index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
 
 select t1.col1, RAND(1) from t1 join t2 on t1.col2=t2.col2 order by t1.col1;
 col1	RAND(1)
@@ -183,7 +186,7 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 4)
             -> Sort: t1.col1  (cost=1.25 rows=10)
                 -> Parallel table scan on t1  (cost=1.25 rows=10)
-    -> Single-row index lookup on t2 using PRIMARY (id=t1.id)  (cost=0.26 rows=1)
+    -> Single-row covering index lookup on t2 using PRIMARY (id=t1.id)  (cost=0.26 rows=1)
 
 select t1.col1, RAND(1) from t1 join t2 on t1.id=t2.id order by t1.col1;
 col1	RAND(1)
@@ -274,9 +277,9 @@ col2
 1
 explain format=tree select distinct col1 from t1 limit 1;
 EXPLAIN
--> Limit: 1 row(s)  (cost=1.25 rows=1)
-    -> Table scan on <temporary>
-        -> Temporary table with deduplication  (cost=1.25 rows=10)
+-> Limit: 1 row(s)  (cost=2.51..2.51 rows=1)
+    -> Table scan on <temporary>  (cost=0.26..2.62 rows=10)
+        -> Temporary table with deduplication  (cost=2.51..4.88 rows=10)
             -> Limit table size: 1 unique row(s)
                 -> Table scan on t1  (cost=1.25 rows=10)
 
@@ -290,8 +293,8 @@ explain format=tree select * from t1 union select * from t2;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.14..2.75 rows=20)
+            -> Union materialize with deduplication  (cost=4.64..7.25 rows=20)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -351,8 +354,8 @@ explain format=tree select * from t1 union (select * from t2 where id > RAND(1))
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.20..2.66 rows=13)
+            -> Union materialize with deduplication  (cost=3.37..5.83 rows=13)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=1.25 rows=10)
@@ -387,8 +390,8 @@ explain format=tree (select * from t1 where id > RAND(1)) union (select * from t
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.39..2.58 rows=7)
+            -> Union materialize with deduplication  (cost=2.22..4.41 rows=7)
                 -> Filter: (t1.id > rand(1))  (cost=0.58 rows=3)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 4)
@@ -497,11 +500,11 @@ id	col1	col2
 9	9	9
 explain format=tree (SELECT 1 as a) UNION (SELECT 1) ORDER BY (SELECT a+0);
 EXPLAIN
--> Sort: (a + 0)
+-> Sort: (a + 0)  (cost=1.45..2.70 rows=2)
     -> Table scan on <union temporary>  (cost=2.50 rows=0)
-        -> Union materialize with deduplication
-            -> Rows fetched before execution  (cost=0.00 rows=1)
-            -> Rows fetched before execution  (cost=0.00 rows=1)
+        -> Union materialize with deduplication  (cost=1.45..2.70 rows=2)
+            -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+            -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
 
 Warnings:
 Note	1276	Field or reference 'a' of SELECT #3 was resolved in SELECT #1
@@ -513,8 +516,8 @@ a
 explain format=tree select * from t1 union select * from t2 union all select * from t1;
 EXPLAIN
 -> Append
-    -> Table scan on <union temporary>  (cost=2.50 rows=0)
-        -> Union materialize with deduplication
+    -> Table scan on <union temporary>  (cost=0.14..2.75 rows=20)
+        -> Union materialize with deduplication  (cost=4.64..7.25 rows=20)
             -> Table scan on t1  (cost=1.25 rows=10)
             -> Table scan on t2  (cost=1.25 rows=10)
     -> Stream results  (cost=1.25 rows=10)
@@ -545,9 +548,9 @@ id	col1	col2
 # LIMIT
 explain format=tree select * from t1 union select * from t2 limit 2;
 EXPLAIN
--> Limit: 2 row(s)
+-> Limit: 2 row(s)  (cost=4.62..7.00 rows=20)
     -> Table scan on <union temporary>  (cost=2.50 rows=0)
-        -> Union materialize with deduplication
+        -> Union materialize with deduplication  (cost=4.62..7.00 rows=20)
             -> Limit table size: 2 unique row(s)
                 -> Table scan on t1  (cost=1.25 rows=10)
             -> Limit table size: 2 unique row(s)
@@ -578,9 +581,9 @@ set optimizer_switch='semijoin=on,materialization=on,loosescan=off,firstmatch=of
 explain format=tree select * from t1 where id in (select col1 from t2);
 EXPLAIN
 -> Nested loop inner join  (cost=3.25 rows=10)
-    -> Filter: (`<subquery2>`.col1 is not null)  (cost=2.00 rows=10)
-        -> Table scan on <subquery2>  (cost=2.00 rows=10)
-            -> Materialize with deduplication  (cost=1.25 rows=10)
+    -> Filter: (`<subquery2>`.col1 is not null)  (cost=2.23..2.00 rows=10)
+        -> Table scan on <subquery2>  (cost=0.26..2.62 rows=10)
+            -> Materialize with deduplication  (cost=2.51..4.88 rows=10)
                 -> PX Receiver (slice: 0; workers: 1)
                     -> PX Sender (slice: 1; workers: 4)
                         -> Filter: (t2.col1 is not null)  (cost=1.25 rows=10)
@@ -602,9 +605,9 @@ id	col1	col2
 explain format=tree select * from t1 where id in (select col1 from t2 where col1 > RAND(1));
 EXPLAIN
 -> Nested loop inner join  (cost=1.18 rows=3)
-    -> Filter: (`<subquery2>`.col1 is not null)  (cost=0.63 rows=3)
-        -> Table scan on <subquery2>  (cost=0.63 rows=3)
-            -> Materialize with deduplication  (cost=0.58 rows=3)
+    -> Filter: (`<subquery2>`.col1 is not null)  (cost=0.82..0.63 rows=3)
+        -> Table scan on <subquery2>  (cost=0.76..2.54 rows=3)
+            -> Materialize with deduplication  (cost=1.68..3.45 rows=3)
                 -> Filter: (t2.col1 is not null)  (cost=0.58 rows=3)
                     -> Filter: (t2.col1 > rand(1))  (cost=0.58 rows=3)
                         -> PX Receiver (slice: 0; workers: 1)
@@ -632,7 +635,7 @@ EXPLAIN
             -> Filter: (t1.col1 is not null)  (cost=1.25 rows=10)
                 -> Parallel table scan on t1  (cost=1.25 rows=10)
     -> Single-row index lookup on <subquery2> using <auto_distinct_key> (col1=t1.col1)
-        -> Materialize with deduplication  (cost=0.58 rows=3)
+        -> Materialize with deduplication  (cost=0.92..0.92 rows=3)
             -> Filter: (t2.col1 is not null)  (cost=0.58 rows=3)
                 -> Filter: (t2.col1 > rand(1))  (cost=0.58 rows=3)
                     -> Table scan on t2  (cost=0.58 rows=10)
@@ -651,7 +654,7 @@ id	col1	col2
 9	9	9
 explain format=tree SELECT SUM(EXISTS(SELECT RAND() FROM t1)) FROM t1;
 EXPLAIN
--> Aggregate: sum(exists(select #2))
+-> Aggregate: sum(exists(select #2))  (cost=2.25 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
@@ -664,7 +667,7 @@ SUM(EXISTS(SELECT RAND() FROM t1))
 10
 explain format=tree SELECT SUM(EXISTS(SELECT 1 FROM t1)) FROM t1;
 EXPLAIN
--> Aggregate: sum(exists(select #2))
+-> Aggregate: sum(exists(select #2))  (cost=2.25 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
             -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
@@ -726,10 +729,10 @@ id	col1	col2
 #
 explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2;
 EXPLAIN
--> Table scan on t  (cost=2.84 rows=3)
-    -> Materialize  (cost=1.25 rows=3)
-        -> Table scan on <temporary>
-            -> Temporary table with deduplication  (cost=1.25 rows=3)
+-> Table scan on t  (cost=0.76..2.54 rows=3)
+    -> Materialize  (cost=5.22..6.99 rows=3)
+        -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+            -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                 -> PX Receiver (slice: 0; workers: 1)
                     -> PX Sender (slice: 1; workers: 4)
                         -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
@@ -747,8 +750,8 @@ col1
 9
 explain format=tree select * from (select sum(col2) as a from t1 group by col1) as t where t.a>2;
 EXPLAIN
--> Table scan on t  (cost=3.62 rows=10)
-    -> Materialize
+-> Table scan on t  (cost=2.50..2.50 rows=0)
+    -> Materialize  (cost=2.50..2.50 rows=0)
         -> Filter: (sum(t1.col2) > 2)
             -> Table scan on <temporary>
                 -> Final Aggregate using temporary table
@@ -771,11 +774,11 @@ a
 explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 EXPLAIN
 -> Nested loop inner join  (cost=3.89 rows=3)
-    -> Filter: (t.col1 is not null)  (cost=2.84 rows=3)
-        -> Table scan on t  (cost=2.84 rows=3)
-            -> Materialize  (cost=1.25 rows=3)
-                -> Table scan on <temporary>
-                    -> Temporary table with deduplication  (cost=1.25 rows=3)
+    -> Filter: (t.col1 is not null)  (cost=3.92..2.84 rows=3)
+        -> Table scan on t  (cost=0.76..2.54 rows=3)
+            -> Materialize  (cost=5.22..6.99 rows=3)
+                -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                    -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                         -> PX Receiver (slice: 0; workers: 1)
                             -> PX Sender (slice: 1; workers: 4)
                                 -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
@@ -795,10 +798,10 @@ id	col1	col2	col1
 explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 EXPLAIN
 -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-    -> Table scan on t  (cost=0.26 rows=3)
-        -> Materialize  (cost=1.25 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=1.25 rows=3)
+    -> Table scan on t  (cost=0.76..2.54 rows=3)
+        -> Materialize  (cost=5.22..6.99 rows=3)
+            -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                     -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
                         -> Table scan on t1  (cost=1.25 rows=10)
     -> Hash
@@ -819,8 +822,8 @@ id	col1	col2	col1
 # Aggregate(stream or temptable) below Materialize can NOT be split now.
 explain format=tree select * from (select sum(col2) as a from t1 group by col1) as t;
 EXPLAIN
--> Table scan on t  (cost=3.62 rows=10)
-    -> Materialize
+-> Table scan on t  (cost=2.50..2.50 rows=0)
+    -> Materialize  (cost=2.50..2.50 rows=0)
         -> Table scan on <temporary>
             -> Final Aggregate using temporary table
                 -> PX Receiver (slice: 0; workers: 1)
@@ -844,12 +847,12 @@ a
 # LIMIT
 explain format=tree select * from (select distinct col1 from t1) as t where t.col1>2 order by t.col1 limit 1;
 EXPLAIN
--> Limit: 1 row(s)  (cost=1.25 rows=1)
-    -> Sort: t.col1, limit input to 1 row(s) per chunk  (cost=1.25 rows=3)
+-> Limit: 1 row(s)  (cost=4.45..4.45 rows=1)
+    -> Sort: t.col1, limit input to 1 row(s) per chunk  (cost=4.45..4.45 rows=3)
         -> Table scan on t  (cost=2.84 rows=3)
-            -> Materialize  (cost=1.25 rows=3)
-                -> Table scan on <temporary>
-                    -> Temporary table with deduplication  (cost=1.25 rows=3)
+            -> Materialize  (cost=4.45..4.45 rows=3)
+                -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                    -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                         -> PX Receiver (slice: 0; workers: 1)
                             -> PX Sender (slice: 1; workers: 4)
                                 -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
@@ -860,14 +863,14 @@ col1
 3
 explain format=tree select * from t1 join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1 order by t.col1 limit 1;
 EXPLAIN
--> Limit: 1 row(s)  (cost=2.33 rows=1)
-    -> Nested loop inner join  (cost=2.33 rows=3)
-        -> Sort: t.col1  (cost=1.25 rows=3)
+-> Limit: 1 row(s)  (cost=5.54 rows=1)
+    -> Nested loop inner join  (cost=5.54 rows=3)
+        -> Sort: t.col1  (cost=4.45..4.45 rows=3)
             -> Filter: (t.col1 is not null)  (cost=2.84 rows=3)
                 -> Table scan on t  (cost=2.84 rows=3)
-                    -> Materialize  (cost=1.25 rows=3)
-                        -> Table scan on <temporary>
-                            -> Temporary table with deduplication  (cost=1.25 rows=3)
+                    -> Materialize  (cost=4.45..4.45 rows=3)
+                        -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                            -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                                 -> PX Receiver (slice: 0; workers: 1)
                                     -> PX Sender (slice: 1; workers: 4)
                                         -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
@@ -883,10 +886,10 @@ EXPLAIN
     -> Sort: t.col1, limit input to 1 row(s) per chunk
         -> Stream results  (cost=7.12 rows=11)
             -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-                -> Table scan on t  (cost=0.26 rows=3)
-                    -> Materialize  (cost=1.25 rows=3)
-                        -> Table scan on <temporary>
-                            -> Temporary table with deduplication  (cost=1.25 rows=3)
+                -> Table scan on t  (cost=0.76..2.54 rows=3)
+                    -> Materialize  (cost=5.22..6.99 rows=3)
+                        -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                            -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                                 -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
                                     -> Table scan on t1  (cost=1.25 rows=10)
                 -> Hash
@@ -940,7 +943,7 @@ a
 b
 explain format=tree select sum(length(a)) from t1;
 EXPLAIN
--> Aggregate: sum(length(t1.a))
+-> Aggregate: sum(length(t1.a))  (cost=0.65 rows=1)
     -> Table scan on t1  (cost=0.45 rows=2)
 
 select sum(length(a)) from t1;
@@ -974,10 +977,10 @@ b	2
 explain format=tree select 1 union all select 2;
 EXPLAIN
 -> Append
-    -> Stream results  (cost=0.00 rows=1)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
-    -> Stream results  (cost=0.00 rows=1)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Stream results  (cost=0.00..0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+    -> Stream results  (cost=0.00..0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
 
 select 1 union all select 2;
 1
@@ -985,10 +988,10 @@ select 1 union all select 2;
 2
 explain format=tree select 1 union select 2;
 EXPLAIN
--> Table scan on <union temporary>  (cost=2.50 rows=0)
-    -> Union materialize with deduplication
-        -> Rows fetched before execution  (cost=0.00 rows=1)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
+-> Table scan on <union temporary>  (cost=1.26..2.52 rows=2)
+    -> Union materialize with deduplication  (cost=1.46..2.73 rows=2)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
 
 select 1 union select 2;
 1
@@ -1010,8 +1013,8 @@ b	2
 b	2
 explain format=tree select * from t1 union select * from t1;
 EXPLAIN
--> Table scan on <union temporary>  (cost=2.50 rows=0)
-    -> Union materialize with deduplication
+-> Table scan on <union temporary>  (cost=0.64..2.55 rows=4)
+    -> Union materialize with deduplication  (cost=1.94..3.85 rows=4)
         -> Table scan on t1  (cost=0.45 rows=2)
         -> Table scan on t1  (cost=0.45 rows=2)
 
@@ -1049,7 +1052,7 @@ test.t4	analyze	status	OK
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t2 USING(a) WHERE a=1;
 EXPLAIN
 -> Nested loop left join  (cost=0.80 rows=3)
-    -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
     -> Index lookup on t2 using a_idx (a=1)  (cost=0.80 rows=3)
 
 SELECT * FROM t1 LEFT JOIN t2 USING(a) WHERE a=1;
@@ -1060,7 +1063,7 @@ a	b	b
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t3 USING(a) LEFT JOIN t2 USING(a) WHERE a=1;
 EXPLAIN
 -> Nested loop left join  (cost=0.80 rows=3)
-    -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
     -> Index lookup on t2 using a_idx (a=1)  (cost=0.80 rows=3)
 
 SELECT * FROM t1 LEFT JOIN t3 USING(a) LEFT JOIN t2 USING(a) WHERE a=1;
@@ -1072,9 +1075,9 @@ EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t2 USING(a) LEFT JOIN t3 USING(a)
 EXPLAIN
 -> Nested loop left join  (cost=1.35 rows=3)
     -> Nested loop left join  (cost=0.80 rows=3)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
         -> Index lookup on t2 using a_idx (a=1)  (cost=0.80 rows=3)
-    -> Constant row from t3  (cost=0.12 rows=1)
+    -> Constant row from t3  (cost=0.12..0.12 rows=1)
 
 SELECT * FROM t1 LEFT JOIN t2 USING(a) LEFT JOIN t3 USING(a) WHERE a=1;
 a	b	b	b
@@ -1084,11 +1087,11 @@ a	b	b	b
 EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=1;
 EXPLAIN
 -> Nested loop left join  (cost=0.55 rows=3)
-    -> Rows fetched before execution  (cost=0.00 rows=1)
-    -> Index lookup on t using <auto_key0> (b='1')
-        -> Materialize  (cost=0.55 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=0.55 rows=3)
+    -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+    -> Covering index lookup on t using <auto_key0> (b='1')
+        -> Materialize  (cost=3.69..3.69 rows=3)
+            -> Table scan on <temporary>  (cost=0.85..2.54 rows=3)
+                -> Temporary table with deduplication  (cost=1.70..3.39 rows=3)
                     -> Table scan on t2  (cost=0.55 rows=3)
 
 SELECT * FROM t1 LEFT JOIN (SELECT DISTINCT b FROM t2) AS t USING(b) WHERE t1.a=1;
@@ -1097,7 +1100,7 @@ b	a
 EXPLAIN FORMAT=TREE SELECT /*+JOIN_ORDER(t1,t4)*/ * FROM t1 LEFT JOIN t4 USING(a) WHERE a=1;
 EXPLAIN
 -> Nested loop left join  (cost=0.35 rows=1)
-    -> Rows fetched before execution  (cost=0.00 rows=1)
+    -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
     -> Index lookup on t4 using a_idx (a=1)  (cost=0.35 rows=1)
 
 SELECT /*+JOIN_ORDER(t1,t4)*/ * FROM t1 LEFT JOIN t4 USING(a) WHERE a=1;
@@ -1114,7 +1117,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 EXPLAIN FORMAT=TREE SELECT SUM(AVG(a)) OVER () FROM t1;
 EXPLAIN
--> Aggregate: avg(t1.a)
+-> Aggregate: avg(t1.a)  (cost=1.45 rows=1)
     -> Table scan on t1  (cost=0.85 rows=6)
 
 SELECT SUM(AVG(a)) OVER () FROM t1;

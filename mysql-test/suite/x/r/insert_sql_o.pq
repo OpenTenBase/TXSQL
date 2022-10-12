@@ -42,8 +42,8 @@ RUN INSERT into Categories values (20,'Sports','Sports related category',1,235.1
 last insert id: 20
 RUN SELECT * FROM Categories
 CategoryID	CategoryName	CategoryDescription	CategoryIMEI	CategoryDecimal
-1	Sports	Sports related category	1	235.15
 20	Sports	Sports related category	1	235.15
+1	Sports	Sports related category	1	235.15
 0 rows affected
 RUN ROLLBACK
 

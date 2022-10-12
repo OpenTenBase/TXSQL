@@ -267,33 +267,33 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where ('' <= `test`.`tbl_varchar`.`col1`)
-# Expect "80.0" in column "filtered"
+# Expect "70.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_varchar WHERE col1 != "lorem ipsum";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` <> 'lorem ipsum')
 EXPLAIN SELECT * FROM tbl_varchar WHERE "lorem ipsum" != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where ('lorem ipsum' <> `test`.`tbl_varchar`.`col1`)
 EXPLAIN SELECT * FROM tbl_varchar WHERE col1 <> "lorem ipsum";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` <> 'lorem ipsum')
 EXPLAIN SELECT * FROM tbl_varchar WHERE "lorem ipsum" <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where ('lorem ipsum' <> `test`.`tbl_varchar`.`col1`)
 # Expect "10.0" in column "filtered", due to the fact that the optimizer
@@ -344,23 +344,23 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` not between 'a' and 'b')
-# Expect "10.0" in column "filtered"
+# Expect "30.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_varchar WHERE col1 IN ("ag", "ef", "🍣");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8
+Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8mb3
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` in ('ag','ef','?'))
-# Expect "80.0" in column "filtered"
+# Expect "50.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_varchar WHERE col1 NOT IN ("ag", "ef", "🍣");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_varchar	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
-Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8
+Warning	1300	Cannot convert string '\xF0\x9F\x8D\xA3' from utf8mb4 to utf8mb3
 Note	1003	/* select#1 */ select `test`.`tbl_varchar`.`col1` AS `col1` from `test`.`tbl_varchar` where (`test`.`tbl_varchar`.`col1` not in ('ag','ef','?'))
 DROP TABLE tbl_varchar;
 CREATE TABLE tbl_varchar (col1 VARCHAR(255));
@@ -483,33 +483,33 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (-2 <= `test`.`tbl_double`.`col1`)
-# Expect "80.0" in column "filtered"
+# Expect "70.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_double WHERE col1 != 0.0e0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (`test`.`tbl_double`.`col1` <> 0.0e0)
 EXPLAIN SELECT * FROM tbl_double WHERE 0.0e0 != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (0.0e0 <> `test`.`tbl_double`.`col1`)
 EXPLAIN SELECT * FROM tbl_double WHERE col1 <> 0.0e0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (`test`.`tbl_double`.`col1` <> 0.0e0)
 EXPLAIN SELECT * FROM tbl_double WHERE 0.0e0 <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (0.0e0 <> `test`.`tbl_double`.`col1`)
 # Expect "10.0" in column "filtered", due to the fact that the optimizer
@@ -560,20 +560,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (`test`.`tbl_double`.`col1` not between 1.1e0 and 3.3e0)
-# Expect "10.0" in column "filtered"
+# Expect "40.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_double WHERE col1 IN (-1.1e0, 0.0e0, 1.1e0, 2.2e0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (`test`.`tbl_double`.`col1` in (<cache>(-(1.1e0)),0.0e0,1.1e0,2.2e0))
-# Expect "80.0" in column "filtered"
+# Expect "40.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_double WHERE col1 NOT IN (-1.1e0, 0.0e0, 1.1e0, 2.2e0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_double	NULL	ALL	NULL	NULL	NULL	NULL	10	40.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_double`.`col1` AS `col1` from `test`.`tbl_double` where (`test`.`tbl_double`.`col1` not in (<cache>(-(1.1e0)),0.0e0,1.1e0,2.2e0))
 DROP TABLE tbl_double;
@@ -665,33 +665,33 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (TIME'-01:00:00' <= `test`.`tbl_time`.`col1`)
-# Expect "80.0" in column "filtered"
+# Expect "70.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_time WHERE col1 != "01:01:00";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (`test`.`tbl_time`.`col1` <> TIME'01:01:00')
 EXPLAIN SELECT * FROM tbl_time WHERE "01:01:00" != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (TIME'01:01:00' <> `test`.`tbl_time`.`col1`)
 EXPLAIN SELECT * FROM tbl_time WHERE col1 <> "01:01:00";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (`test`.`tbl_time`.`col1` <> TIME'01:01:00')
 EXPLAIN SELECT * FROM tbl_time WHERE "01:01:00" <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (TIME'01:01:00' <> `test`.`tbl_time`.`col1`)
 # Expect "10.0" in column "filtered", due to the fact that the optimizer
@@ -746,20 +746,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (`test`.`tbl_time`.`col1` not between '00:00:01' and '02:00:00')
-# Expect "10.0" in column "filtered"
+# Expect "30.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_time WHERE col1 IN ("-01:00:00", "00:00:00", "03:00:00");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (`test`.`tbl_time`.`col1` in ('-01:00:00','00:00:00','03:00:00'))
-# Expect "80.0" in column "filtered"
+# Expect "50.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_time WHERE col1 NOT IN ("-01:00:00", "00:00:00", "03:00:00");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_time	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`col1` AS `col1` from `test`.`tbl_time` where (`test`.`tbl_time`.`col1` not in ('-01:00:00','00:00:00','03:00:00'))
 DROP TABLE tbl_time;
@@ -869,33 +869,33 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (DATE'1000-01-01' <= `test`.`tbl_date`.`col1`)
-# Expect "80.0" in column "filtered"
+# Expect "70.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_date WHERE col1 != "2017-01-02";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (`test`.`tbl_date`.`col1` <> DATE'2017-01-02')
 EXPLAIN SELECT * FROM tbl_date WHERE "2017-01-02" != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (DATE'2017-01-02' <> `test`.`tbl_date`.`col1`)
 EXPLAIN SELECT * FROM tbl_date WHERE col1 <> "2017-01-02";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (`test`.`tbl_date`.`col1` <> DATE'2017-01-02')
 EXPLAIN SELECT * FROM tbl_date WHERE "2017-01-02" <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (DATE'2017-01-02' <> `test`.`tbl_date`.`col1`)
 # Expect "10.0" in column "filtered", due to the fact that the optimizer
@@ -950,20 +950,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (`test`.`tbl_date`.`col1` not between '2017-01-01' and '3019-01-01')
-# Expect "10.0" in column "filtered"
+# Expect "30.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_date WHERE col1 IN ("1000-01-01", "2017-01-02", "2018-01-01");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (`test`.`tbl_date`.`col1` in ('1000-01-01','2017-01-02','2018-01-01'))
-# Expect "80.0" in column "filtered"
+# Expect "50.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_date WHERE col1 NOT IN ("1000-01-01", "2017-01-02", "2018-01-01");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_date	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_date`.`col1` AS `col1` from `test`.`tbl_date` where (`test`.`tbl_date`.`col1` not in ('1000-01-01','2017-01-02','2018-01-01'))
 DROP TABLE tbl_date;
@@ -1057,33 +1057,33 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (TIMESTAMP'1000-01-01 00:00:00' <= `test`.`tbl_datetime`.`col1`)
-# Expect "80.0" in column "filtered"
+# Expect "70.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_datetime WHERE col1 != "3019-01-01 10:10:10.101010";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`col1` <> TIMESTAMP'3019-01-01 10:10:10.10101')
 EXPLAIN SELECT * FROM tbl_datetime WHERE "3019-01-01 10:10:10.101010" != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (TIMESTAMP'3019-01-01 10:10:10.10101' <> `test`.`tbl_datetime`.`col1`)
 EXPLAIN SELECT * FROM tbl_datetime WHERE col1 <> "3019-01-01 10:10:10.101010";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`col1` <> TIMESTAMP'3019-01-01 10:10:10.10101')
 EXPLAIN SELECT * FROM tbl_datetime WHERE "3019-01-01 10:10:10.101010" <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (TIMESTAMP'3019-01-01 10:10:10.10101' <> `test`.`tbl_datetime`.`col1`)
 # Expect "10.0" in column "filtered", due to the fact that the optimizer
@@ -1138,20 +1138,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`col1` not between '2017-01-01 00:00:00.000001' and '3019-01-01 10:10:10.101010')
-# Expect "10.0" in column "filtered"
+# Expect "30.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_datetime WHERE col1 IN ("1000-01-01 00:00:00.000000", "2018-01-01 00:00:00.999999", "9999-12-31 23:59:59.999998");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`col1` in ('1000-01-01 00:00:00.000000','2018-01-01 00:00:00.999999','9999-12-31 23:59:59.999998'))
-# Expect "80.0" in column "filtered"
+# Expect "50.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_datetime WHERE col1 NOT IN ("1000-01-01 00:00:00.000000", "2018-01-01 00:00:00.999999", "9999-12-31 23:59:59.999998");
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_datetime	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`col1` AS `col1` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`col1` not in ('1000-01-01 00:00:00.000000','2018-01-01 00:00:00.999999','9999-12-31 23:59:59.999998'))
 DROP TABLE tbl_datetime;
@@ -1241,33 +1241,33 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (-1.000000000000000000000000000000 <= `test`.`tbl_decimal`.`col1`)
-# Expect "80.0" in column "filtered"
+# Expect "70.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_decimal WHERE col1 != 2.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (`test`.`tbl_decimal`.`col1` <> 2.000000000000000000000000000000)
 EXPLAIN SELECT * FROM tbl_decimal WHERE 2.0 != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (2.000000000000000000000000000000 <> `test`.`tbl_decimal`.`col1`)
 EXPLAIN SELECT * FROM tbl_decimal WHERE col1 <> 2.0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (`test`.`tbl_decimal`.`col1` <> 2.000000000000000000000000000000)
 EXPLAIN SELECT * FROM tbl_decimal WHERE 2.0 <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	70.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (2.000000000000000000000000000000 <> `test`.`tbl_decimal`.`col1`)
 # Expect "10.0" in column "filtered", due to the fact that the optimizer
@@ -1322,22 +1322,22 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (`test`.`tbl_decimal`.`col1` not between <cache>(-(1.0)) and 4.0)
-# Expect "10.0" in column "filtered"
+# Expect "30.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_decimal WHERE col1 IN
 (-99999999999999999999999999999999999.999999999999999999999999999999, 1.0, 2.0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	30.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (`test`.`tbl_decimal`.`col1` in (<cache>(-(99999999999999999999999999999999999.999999999999999999999999999999)),1.0,2.0))
-# Expect "80.0" in column "filtered"
+# Expect "50.0" in column "filtered"
 EXPLAIN SELECT * FROM tbl_decimal WHERE col1 NOT IN
 (-99999999999999999999999999999999999.999999999999999999999999999999, 1.0, 2.0);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	80.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_decimal	NULL	ALL	NULL	NULL	NULL	NULL	10	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_decimal`.`col1` AS `col1` from `test`.`tbl_decimal` where (`test`.`tbl_decimal`.`col1` not in (<cache>(-(99999999999999999999999999999999999.999999999999999999999999999999)),1.0,2.0))
 DROP TABLE tbl_decimal;
@@ -1555,48 +1555,48 @@ test.tbl_set	histogram	status	Histogram statistics created for column 'col1'.
 ANALYZE TABLE tbl_set;
 Table	Op	Msg_type	Msg_text
 test.tbl_set	analyze	status	OK
-# Expect "9.09" in column "filtered"
+# Expect "11.36" in column "filtered"
 EXPLAIN SELECT * FROM tbl_set WHERE col1 = 'red,green';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	9.09	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	11.36	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` = 'red,green')
 EXPLAIN SELECT * FROM tbl_set WHERE 'red,green' = col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	9.09	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	11.36	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` = 'red,green')
-# Expect "67.68" in column "filtered"
+# Expect "61.36" in column "filtered"
 EXPLAIN SELECT * FROM tbl_set WHERE col1 != 'red';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` <> 'red')
 EXPLAIN SELECT * FROM tbl_set WHERE 'red' != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where ('red' <> `test`.`tbl_set`.`col1`)
 EXPLAIN SELECT * FROM tbl_set WHERE col1 <> 'red';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` <> 'red')
 EXPLAIN SELECT * FROM tbl_set WHERE 'red' <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where ('red' <> `test`.`tbl_set`.`col1`)
 # Expect "72.73" in column "filtered"
@@ -1628,20 +1628,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` <> 0)
-# Expect "32.32" in column "filtered"
+# Expect "38.64" in column "filtered"
 EXPLAIN SELECT * FROM tbl_set WHERE col1 IN ('green', 'black,blue,green');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	32.32	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` in ('green','black,blue,green'))
-# Expect "40.40" in column "filtered"
-EXPLAIN SELECT * FROM tbl_set WHERE col1 NOT IN ('green', 'black,blue,green');
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	40.40	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	38.64	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` in ('green','black,blue,green'))
+# Expect "34.09" in column "filtered"
+EXPLAIN SELECT * FROM tbl_set WHERE col1 NOT IN ('green', 'black,blue,green');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	34.09	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` not in ('green','black,blue,green'))
 # Expect "27.27" in column "filtered"
@@ -1662,48 +1662,48 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` is not null)
 # Test that the numerical representation of set values also gives the
 # correct result.
-# Expect "9.09" in column "filtered"
+# Expect "11.36" in column "filtered"
 EXPLAIN SELECT * FROM tbl_set WHERE col1 = 9;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	9.09	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	11.36	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` = 9)
 EXPLAIN SELECT * FROM tbl_set WHERE 9 = col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	9.09	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	11.36	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (9 = `test`.`tbl_set`.`col1`)
-# Expect "67.68" in column "filtered"
+# Expect "61.36" in column "filtered"
 EXPLAIN SELECT * FROM tbl_set WHERE col1 != 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` <> 1)
 EXPLAIN SELECT * FROM tbl_set WHERE 1 != col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (1 <> `test`.`tbl_set`.`col1`)
 EXPLAIN SELECT * FROM tbl_set WHERE col1 <> 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` <> 1)
 EXPLAIN SELECT * FROM tbl_set WHERE 1 <> col1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	67.68	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>)
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	61.36	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (1 <> `test`.`tbl_set`.`col1`)
 # Expect "72.73" in column "filtered"
@@ -1751,20 +1751,20 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (100 = `test`.`tbl_set`.`col1`)
-# Expect "32.32" in column "filtered"
+# Expect "38.64" in column "filtered"
 EXPLAIN SELECT * FROM tbl_set WHERE col1 IN (8, 14);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	32.32	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
-Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` in (8,14))
-# Expect "40.40" in column "filtered"
-EXPLAIN SELECT * FROM tbl_set WHERE col1 NOT IN (8, 14);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	40.40	Parallel scan (4 workers); Using where
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	38.64	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` in (8,14))
+# Expect "34.09" in column "filtered"
+EXPLAIN SELECT * FROM tbl_set WHERE col1 NOT IN (8, 14);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_set	NULL	ALL	NULL	NULL	NULL	NULL	11	34.09	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_set`.`col1` AS `col1` from `test`.`tbl_set` where (`test`.`tbl_set`.`col1` not in (8,14))
 DROP TABLE tbl_set;
@@ -1941,3 +1941,295 @@ Warning	1292	Truncated incorrect time value: ''
 Warning	1292	Truncated incorrect time value: ''
 Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1` from `test`.`t1` where (`test`.`t1`.`col1` not between '00:00:00' and '')
 DROP TABLE t1;
+#
+# Bug# 33302021 - Equi-height histogram is not equi-height
+#
+CREATE PROCEDURE insert_repeat(IN value INT, IN num_insertions INT)
+BEGIN
+DECLARE i INT DEFAULT 0;
+SET i = 1;
+WHILE i <= num_insertions DO
+INSERT INTO t1 VALUES (value);
+SET i = i + 1;
+END WHILE;
+END//
+CREATE PROCEDURE insert_range(IN first INT, IN last INT)
+BEGIN
+DECLARE i INT DEFAULT 0;
+SET i = first;
+WHILE i <= last DO
+INSERT INTO t1 VALUES (i);
+SET i = i + 1;
+END WHILE;
+END//
+CREATE TABLE t1(x INT);
+CALL insert_range(1, 10);
+CALL insert_repeat(11, 10);
+CALL insert_repeat(12, 20);
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON x WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'x'.
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT * FROM t1 WHERE x = 11;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	40	25.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x` from `test`.`t1` where (`test`.`t1`.`x` = 11)
+EXPLAIN SELECT * FROM t1 WHERE x = 12;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	40	50.00	Parallel scan (4 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`x` AS `x` from `test`.`t1` where (`test`.`t1`.`x` = 12)
+TRUNCATE TABLE t1;
+CALL insert_range(1, 100);
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON x WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'x'.
+SELECT JSON_PRETTY(JSON_REMOVE(histogram, '$."last-updated"'))
+FROM INFORMATION_SCHEMA.column_statistics
+WHERE table_name = 't1' AND column_name = 'x';
+JSON_PRETTY(JSON_REMOVE(histogram, '$."last-updated"'))
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1,
+      1.0,
+      10
+      10
+      10
+      10
+      10
+      10
+      10
+      10
+      10
+      10
+      10,
+      100,
+      11,
+      20,
+      21,
+      30,
+      31,
+      40,
+      41,
+      50,
+      51,
+      60,
+      61,
+      70,
+      71,
+      80,
+      81,
+      90,
+      91,
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    ]
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+  "buckets": [
+  "collation-id": 8,
+  "data-type": "int",
+  "histogram-type": "equi-height",
+  "null-values": 0.0,
+  "number-of-buckets-specified": 10
+  "sampling-rate": 1.0,
+  ],
+{
+}
+TRUNCATE TABLE t1;
+CALL insert_range(1, 100);
+CALL insert_repeat(101, 100);
+CALL insert_repeat(102, 100);
+CALL insert_repeat(103, 100);
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON x WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'x'.
+SELECT JSON_PRETTY(JSON_REMOVE(histogram, '$."last-updated"'))
+FROM INFORMATION_SCHEMA.column_statistics
+WHERE table_name = 't1' AND column_name = 'x';
+JSON_PRETTY(JSON_REMOVE(histogram, '$."last-updated"'))
+      0.0375,
+      0.075,
+      0.1125,
+      0.15,
+      0.1875,
+      0.225,
+      0.25,
+      0.5,
+      0.75,
+      1
+      1
+      1
+      1,
+      1.0,
+      10
+      100,
+      101,
+      101,
+      102,
+      102,
+      103,
+      103,
+      15
+      15
+      15
+      15
+      15
+      15
+      15,
+      16,
+      30,
+      31,
+      45,
+      46,
+      60,
+      61,
+      75,
+      76,
+      90,
+      91,
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    ]
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+  "buckets": [
+  "collation-id": 8,
+  "data-type": "int",
+  "histogram-type": "equi-height",
+  "null-values": 0.0,
+  "number-of-buckets-specified": 10
+  "sampling-rate": 1.0,
+  ],
+{
+}
+TRUNCATE TABLE t1;
+CALL insert_range(1, 100);
+CALL insert_repeat(2, 100);
+CALL insert_repeat(5, 100);
+CALL insert_repeat(10, 100);
+ANALYZE TABLE t1 UPDATE HISTOGRAM ON x WITH 10 BUCKETS;
+Table	Op	Msg_type	Msg_text
+test.t1	histogram	status	Histogram statistics created for column 'x'.
+SELECT JSON_PRETTY(JSON_REMOVE(histogram, '$."last-updated"'))
+FROM INFORMATION_SCHEMA.column_statistics
+WHERE table_name = 't1' AND column_name = 'x';
+JSON_PRETTY(JSON_REMOVE(histogram, '$."last-updated"'))
+      0.0025,
+      0.255,
+      0.26,
+      0.5125,
+      0.5225,
+      0.775,
+      0.8325,
+      0.89,
+      0.9475,
+      1
+      1
+      1
+      1
+      1,
+      1,
+      1.0,
+      10,
+      10,
+      100,
+      11,
+      2
+      2,
+      2,
+      21
+      23
+      23
+      23
+      3,
+      33,
+      34,
+      4
+      4,
+      5,
+      5,
+      56,
+      57,
+      6,
+      79,
+      80,
+      9,
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    [
+    ]
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+    ],
+  "buckets": [
+  "collation-id": 8,
+  "data-type": "int",
+  "histogram-type": "equi-height",
+  "null-values": 0.0,
+  "number-of-buckets-specified": 10
+  "sampling-rate": 1.0,
+  ],
+{
+}
+TRUNCATE TABLE t1;
+DROP TABLE t1;
+DROP PROCEDURE insert_repeat;
+DROP PROCEDURE insert_range;

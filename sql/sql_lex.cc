@@ -446,6 +446,8 @@ void LEX::reset() {
   safe_to_cache_query = true;
   insert_table = nullptr;
   insert_table_leaf = nullptr;
+  is_from_ps = false;
+  is_from_sp = false;
   parsing_options.reset();
   alter_info = nullptr;
   part_info = nullptr;
@@ -862,6 +864,12 @@ bool LEX::check_px_execution() const {
 
   // backquery has not supported yet!
   if (thd && thd->has_backquery()) {
+    return false;
+  }
+
+  // Statements that use the hypergraph optimizer are temporarily not
+  // supported to enter parallel.
+  if (using_hypergraph_optimizer) {
     return false;
   }
 

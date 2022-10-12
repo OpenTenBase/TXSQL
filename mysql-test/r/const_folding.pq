@@ -2558,8 +2558,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_less_eq USING @maxint;
 colA
 0
@@ -2569,18 +2567,11 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_greater USING @maxint_plus_1;
 colA
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_gret_eq USING @maxint;
 colA
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_greater USING @minint_minus_1;
 colA
 0
@@ -2605,8 +2596,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_greater USING @minint;
 colA
 1
@@ -2616,12 +2605,8 @@ colA
 255
 EXECUTE p_eq      USING @maxint_plus_1;
 colA
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_equal   USING @maxint_plus_1;
 colA
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_n_eq    USING @maxint_plus_1;
 colA
 0
@@ -2631,8 +2616,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_n_equal USING @maxint_plus_1;
 colA
 0
@@ -2643,21 +2626,12 @@ colA
 254
 255
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_eq      USING @maxint;
 colA
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_equal   USING @maxint;
 colA
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_n_eq    USING @maxint;
 colA
 0
@@ -2666,9 +2640,6 @@ colA
 1
 3
 254
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_n_equal USING @maxint;
 colA
 0
@@ -2678,24 +2649,14 @@ colA
 3
 254
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_eq      USING @minint;
 colA
 0
 0
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_equal   USING @minint;
 colA
 0
 0
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_n_eq    USING @minint;
 colA
 1
@@ -2703,9 +2664,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_n_equal USING @minint;
 colA
 1
@@ -2714,9 +2672,6 @@ colA
 254
 255
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_eq      USING @minint_minus_1;
 colA
 EXECUTE p_equal   USING @minint_minus_1;
@@ -3011,8 +2966,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_gret_eq USING @maxint;
 colA
 0
@@ -3022,18 +2975,11 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_less    USING @maxint_plus_1;
 colA
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_less_eq USING @maxint;
 colA
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_less    USING @minint_minus_1;
 colA
 0
@@ -3058,8 +3004,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_less    USING @minint;
 colA
 1
@@ -3069,12 +3013,8 @@ colA
 255
 EXECUTE p_eq      USING @maxint_plus_1;
 colA
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_equal   USING @maxint_plus_1;
 colA
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_n_eq    USING @maxint_plus_1;
 colA
 0
@@ -3084,8 +3024,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_n_equal USING @maxint_plus_1;
 colA
 0
@@ -3096,21 +3034,12 @@ colA
 254
 255
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '256.1'
 EXECUTE p_eq      USING @maxint;
 colA
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_equal   USING @maxint;
 colA
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_n_eq    USING @maxint;
 colA
 0
@@ -3119,9 +3048,6 @@ colA
 1
 3
 254
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_n_equal USING @maxint;
 colA
 0
@@ -3131,24 +3057,14 @@ colA
 3
 254
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
-Warning	1292	Truncated incorrect INTEGER value: '255.0'
 EXECUTE p_eq      USING @minint;
 colA
 0
 0
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_equal   USING @minint;
 colA
 0
 0
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_n_eq    USING @minint;
 colA
 1
@@ -3156,9 +3072,6 @@ colA
 3
 254
 255
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_n_equal USING @minint;
 colA
 1
@@ -3167,9 +3080,6 @@ colA
 254
 255
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_eq      USING @minint_minus_1;
 colA
 EXECUTE p_equal   USING @minint_minus_1;
@@ -26335,15 +26245,11 @@ colA
 3
 18446744073709551614
 18446744073709551615
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '18446744073709551615.0'
 EXECUTE p_greater USING @maxint_plus_1;
 colA
 EXECUTE p_gret_eq USING @maxint;
 colA
 18446744073709551615
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '18446744073709551615.0'
 EXECUTE p_greater USING @minint_minus_1;
 colA
 0
@@ -26368,8 +26274,6 @@ colA
 3
 18446744073709551614
 18446744073709551615
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_greater USING @minint;
 colA
 1
@@ -26749,15 +26653,11 @@ colA
 3
 18446744073709551614
 18446744073709551615
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '18446744073709551615.0'
 EXECUTE p_less    USING @maxint_plus_1;
 colA
 EXECUTE p_less_eq USING @maxint;
 colA
 18446744073709551615
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '18446744073709551615.0'
 EXECUTE p_less    USING @minint_minus_1;
 colA
 0
@@ -26782,8 +26682,6 @@ colA
 3
 18446744073709551614
 18446744073709551615
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: '0.0'
 EXECUTE p_less    USING @minint;
 colA
 1
@@ -30454,11 +30352,9 @@ INSERT INTO t VALUES (18446744073709551.3);
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
-0x constant too large; gets truncated to 0xFFFFFFFFFFFFFFFF
-i.e. 18446744073709551615.
+0x constant too large; gets truncated to zero
 SELECT * FROM t WHERE d <= 0x1FFFFFFFFFFFFFFFF;
 d
-18446744073709551.300000000000000000000000000000
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
@@ -30470,7 +30366,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
-Note	1003	/* select#1 */ select `test`.`t`.`d` AS `d` from `test`.`t` where (`test`.`t`.`d` <= 18446744073709551615.000000000000000000000000000000)
+Note	1003	/* select#1 */ select `test`.`t`.`d` AS `d` from `test`.`t` where (`test`.`t`.`d` <= 0.000000000000000000000000000000)
 0x constant within bounds, expect to warnings
 SELECT * FROM t WHERE d > 0x7FFFFFFFFFFFFFFF;
 d
@@ -30999,11 +30895,9 @@ INSERT INTO t VALUES (18446744073709551.3);
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
-0x constant too large; gets truncated to 0xFFFFFFFFFFFFFFFF
-i.e. 18446744073709551615.
+0x constant too large; gets truncated to zero
 SELECT * FROM t WHERE d <= 0x1FFFFFFFFFFFFFFFF;
 d
-18446744073709551.300000000000000000000000000000
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
@@ -31015,7 +30909,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
-Note	1003	/* select#1 */ select `test`.`t`.`d` AS `d` from `test`.`t` where (`test`.`t`.`d` <= 18446744073709551615.000000000000000000000000000000)
+Note	1003	/* select#1 */ select `test`.`t`.`d` AS `d` from `test`.`t` where (`test`.`t`.`d` <= 0.000000000000000000000000000000)
 0x constant within bounds, expect to warnings
 SELECT * FROM t WHERE d > 0x7FFFFFFFFFFFFFFF;
 d
@@ -38683,210 +38577,210 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> -1.7976931348623156E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> -1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= 1.7976931348623157E+308;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
@@ -39536,210 +39430,210 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> '-1.7976931348623156E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623155e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` < -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >= '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` >= -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA >  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` > -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA =  '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	10.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` = -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <> '-1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	90.00	Parallel scan (4 workers); Using where
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.7976931348623157e308)
+Note	1003	/* select#1 */ select `test`.`double_tbl`.`colA` AS `colA` from `test`.`double_tbl` where (`test`.`double_tbl`.`colA` <> -1.797693134862316e308)
 EXPLAIN SELECT * FROM double_tbl WHERE colA <= '1.7976931348623157E+308';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	double_tbl	NULL	ALL	NULL	NULL	NULL	NULL	10	33.33	Parallel scan (4 workers); Using where
@@ -58842,7 +58736,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
-Note	1003	/* select#1 */ select rollup_sum_switcher(sum(`test`.`t`.`i`)) AS `s`,rollup_group_item(`test`.`t`.`j`,0) AS `j` from `test`.`t` group by `test`.`t`.`j` with rollup having (rollup_group_item(`test`.`t`.`j`,0) <> 128)
+Note	1003	/* select#1 */ select rollup_sum_switcher(sum(`test`.`t`.`i`)) AS `s`,rollup_group_item(`test`.`t`.`j`,0) AS `j` from `test`.`t` group by `test`.`t`.`j` with rollup having (rollup_group_item(rollup_group_item(`test`.`t`.`j`,0),0) <> 128)
 SELECT SUM(i) s, j FROM t GROUP BY j WITH ROLLUP HAVING j IS NOT NULL;
 s	j
 3	1
@@ -58853,7 +58747,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
-Note	1003	/* select#1 */ select rollup_sum_switcher(sum(`test`.`t`.`i`)) AS `s`,rollup_group_item(`test`.`t`.`j`,0) AS `j` from `test`.`t` group by `test`.`t`.`j` with rollup having (rollup_group_item(`test`.`t`.`j`,0) is not null)
+Note	1003	/* select#1 */ select rollup_sum_switcher(sum(`test`.`t`.`i`)) AS `s`,rollup_group_item(`test`.`t`.`j`,0) AS `j` from `test`.`t` group by `test`.`t`.`j` with rollup having (rollup_group_item(rollup_group_item(`test`.`t`.`j`,0),0) is not null)
 DROP TABLE t;
 CREATE TABLE a(col_int INT, col_date DATE);
 SELECT col_date FROM a WHERE
@@ -58871,8 +58765,8 @@ should default to old behavior (comparing as double).
 EXPLAIN SELECT col_time FROM t11 HAVING col_time > 156970;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t11	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Note	1003	/* select#1 */ select `test`.`t11`.`col_time` AS `col_time` from `test`.`t11` having (`test`.`t11`.`col_time` > 156970)

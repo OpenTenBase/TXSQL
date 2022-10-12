@@ -14,8 +14,8 @@ SELECT CURRENT_ROLE() AS CURRENT_ROLE, ROLES_GRAPHML() AS ROLES_GRAPHML;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `CURRENT_ROLE` longtext CHARACTER SET utf8,
-  `ROLES_GRAPHML` longtext CHARACTER SET utf8
+  `CURRENT_ROLE` longtext CHARACTER SET utf8mb3,
+  `ROLES_GRAPHML` longtext CHARACTER SET utf8mb3
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE t1;
 # create some roles
@@ -182,6 +182,49 @@ UPDATE bug_test.test_table SET row_is_verified = TRUE WHERE test_id=1;
 DROP USER `TestUserFails`@`localhost`, `TestUserWorks`@`localhost`;
 DROP ROLE `r_verifier`@`localhost`;
 DROP DATABASE bug_test;
+#
+# Bug #31222230: A USER CAN GRANT ITSELF TO ITSELF AS A ROLE
+#
+CREATE ROLE r1,r2,r3,r4;
+GRANT r1 TO r2;
+GRANT r2 TO r3;
+GRANT r4 TO r3;
+GRANT r1 TO r1;
+ERROR HY000: User account `r1`@`%` is directly or indirectly granted to the role `r1`@`%`. The GRANT would create a loop
+GRANT r2 TO r1;
+ERROR HY000: User account `r1`@`%` is directly or indirectly granted to the role `r2`@`%`. The GRANT would create a loop
+GRANT r3 TO r1;
+ERROR HY000: User account `r1`@`%` is directly or indirectly granted to the role `r3`@`%`. The GRANT would create a loop
+SET @save_mandatory_roles = @@global.mandatory_roles;
+SET GLOBAL mandatory_roles = 'r4';
+GRANT r3 TO r4;
+ERROR HY000: User account `r4`@`%` is directly or indirectly granted to the role `r3`@`%`. The GRANT would create a loop
+SET GLOBAL mandatory_roles = @save_mandatory_roles;
+DROP ROLE r1,r2,r3,r4;
+#
+# Bug #33159353: SHOW CREATE DATABASE fails with a role that has global
+#                level privilege
+#
+CREATE ROLE test_role;
+GRANT SELECT ON *.* TO test_role;
+CREATE USER test_user DEFAULT ROLE test_role;
+# connect with test_user
+SELECT current_role(), current_user();
+current_role()	current_user()
+`test_role`@`%`	test_user@%
+SHOW GRANTS FOR test_role;
+Grants for test_role@%
+GRANT SELECT ON *.* TO `test_role`@`%`
+SHOW GRANTS FOR test_user;
+Grants for test_user@%
+GRANT USAGE ON *.* TO `test_user`@`%`
+GRANT `test_role`@`%` TO `test_user`@`%`
+SHOW CREATE DATABASE mysql;
+Database	Create Database
+mysql	CREATE DATABASE `mysql` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+# Cleanup
+DROP ROLE test_role;
+DROP USER test_user;
 
 # End of 8.0 tests
 

@@ -16,6 +16,7 @@
 #include "template_utils.h"          // array_elements
 #include "sql/table.h"               // TABLE
 #include "sql/sql_opt_exec_shared.h" // TABLE_REF
+#include "sql/sql_optimizer.h"       // JOIN
 
 #include "sql/sql_class.h"  // THD
 
@@ -261,27 +262,6 @@ int show_txsql_parallel_threads_currently_used(THD *, SHOW_VAR *var, char *buff)
   return 0;
 }
 
-bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                  uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions) {
-  assert(table);
-  int error = 0;
-  table->file->px_scan_type = type;
-  if (ref) {
-    assert(type == PX_REF_SCAN);
-    table->file->px_ref_key.key = ref->key_buff;
-    table->file->px_ref_key.keypart_map = make_prev_keypart_map(ref->key_parts);
-    table->file->px_ref_key.length = ref->key_length;
-    table->file->px_ref_key.flag = HA_READ_KEY_OR_NEXT;
-  }
-
-  error = table->file->ha_px_do_partition(dop, keyno, scan_ctx, partitions, reverse_scan);
-  if (error) {
-    table->file->print_error(error, MYF(0));
-  }
-
-  return error;
-}
-
 int show_txsql_parallel_stmt_thread_refused(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
@@ -329,4 +309,19 @@ void reset_txsql_parallel_stmt_hint_executed()
   mysql_mutex_lock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
   txsql_parallel_stmt_hint_executed = 0;
   mysql_mutex_unlock(&LOCK_inc_txsql_parallel_stmt_hint_executed);
+}
+
+/**
+  Check if there is a QEP_TAB matching TABLE in the Query block.
+
+  @return qep_tab exists, nullptr otherwise.
+*/
+QEP_TAB *get_matched_tab(JOIN *join, TABLE *table) {
+  assert(join && table);
+  for (uint i = 0; i < join->tables; ++i) {
+    if (join->qep_tab[i].table() == table) {
+      return &join->qep_tab[i];
+    }
+  }
+  return nullptr;
 }

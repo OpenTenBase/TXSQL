@@ -5,7 +5,6 @@ SELECT * FROM information_schema.table_constraints
 WHERE table_schema = 'mysql' AND table_name != 'ndb_binlog_index'
 ORDER BY table_schema,table_name,constraint_name COLLATE utf8_general_ci;
 CONSTRAINT_CATALOG	CONSTRAINT_SCHEMA	CONSTRAINT_NAME	TABLE_SCHEMA	TABLE_NAME	CONSTRAINT_TYPE	ENFORCED
-def	mysql	PRIMARY	mysql	column_statistics_history	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	columns_priv	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	component	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	db	PRIMARY KEY	YES
@@ -20,13 +19,15 @@ def	mysql	PRIMARY	mysql	help_relation	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	help_topic	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	innodb_index_stats	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	innodb_table_stats	PRIMARY KEY	YES
-def	mysql	PRIMARY	mysql	outline	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	password_history	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	plugin	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	procs_priv	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	proxies_priv	PRIMARY KEY	YES
-def	mysql	PRIMARY	mysql	recycle_bin_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_asynchronous_connection_failover	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	replication_asynchronous_connection_failover_managed	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	replication_group_configuration_version	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	replication_group_member_actions	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	resource_groups_extra	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	role_edges	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	server_cost	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	servers	PRIMARY KEY	YES
@@ -43,7 +44,6 @@ def	mysql	PRIMARY	mysql	user	PRIMARY KEY	YES
 def	mysql	name	mysql	help_category	UNIQUE	YES
 def	mysql	name	mysql	help_keyword	UNIQUE	YES
 def	mysql	name	mysql	help_topic	UNIQUE	YES
-def	mysql	ui1	mysql	outline	UNIQUE	YES
 # Test 03
 SET optimizer_switch = 'derived_merge=off';
 SELECT DISTINCT
@@ -465,6 +465,12 @@ SELECT DISTINCT c1, c2 FROM t1 WHERE id BETWEEN 1 And 2 ORDER BY 1;
 c1	c2
 abcdefghij	ABCDEFGHIJ
 mnopqrstuv	MNOPQRSTUV
+DROP TABLE t1;
+CREATE TABLE t1 (c1 VARCHAR(10) COLLATE utf8mb4_bin) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (''), (' ');
+SELECT DISTINCT(c1) FROM t1;
+c1
+
 DROP TABLE t1;
 SET SESSION internal_tmp_mem_storage_engine = default;
 USE test;

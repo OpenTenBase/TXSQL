@@ -288,7 +288,7 @@ UPDATE t1, t2 SET t1.a=10, t2.a=20;
 DROP TABLE t1,t2;
 flush logs;
 CREATE TABLE raw_mode_exit (exit_code INT);
-SELECT ((@id := id) - id) from information_schema.processlist where processlist.command like '%Binlog%' and state like '%Master has sent%';
+SELECT ((@id := id) - id) from information_schema.processlist where processlist.command like '%Binlog%' and state like '%Source has sent%';
 ((@id := id) - id)
 0
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.

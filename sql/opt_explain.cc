@@ -1355,6 +1355,13 @@ bool Explain_join::explain_qep_tab(size_t tabnum)
 #else
   tab = join->qep_tab + tabnum;
 #endif /* defined(HAVE_PX) */
+  type = tab->type();
+  range_scan_path = tab->range_scan();
+  condition = tab->condition_optim();
+  dynamic_range = tab->dynamic_range();
+  skip_records_in_range = tab->skip_records_in_range();
+  reversed_access = tab->reversed_access();
+  table_ref = tab->table_ref;
   if (!tab->position()) return false;
   table = tab->table();
   usable_keys = tab->keys();
@@ -1553,7 +1560,8 @@ bool Explain_join::explain_extra() {
 #if defined(HAVE_PX)
   if (tab->get_parallel_scan()) {
     StringBuffer<64> buff(cs);
-    buff.append_ulonglong(tab->get_parallel_workers());
+    assert(tab->table() && tab->table()->get_parallel_scan());
+    buff.append_ulonglong(tab->table()->get_parallel_workers());
     buff.append(" workers");
     if (push_extra(ET_PARALLEL_SCAN, buff))
       return true;

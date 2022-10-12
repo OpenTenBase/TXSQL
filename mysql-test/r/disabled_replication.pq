@@ -10,10 +10,10 @@ STOP SLAVE;
 ERROR HY000: Slave is not configured or failed to initialize properly. You must at least set --server-id to enable either a master or a slave. Additional error messages can be found in the MySQL error log.
 START SLAVE;
 ERROR HY000: Slave is not configured or failed to initialize properly. You must at least set --server-id to enable either a master or a slave. Additional error messages can be found in the MySQL error log.
-SELECT MASTER_POS_WAIT('non-existent', 0);
-MASTER_POS_WAIT('non-existent', 0)
+SELECT SOURCE_POS_WAIT('non-existent', 0);
+SOURCE_POS_WAIT('non-existent', 0)
 NULL
-CHANGE MASTER TO MASTER_CONNECT_RETRY = 1, MASTER_HEARTBEAT_PERIOD = 1.01;
+CHANGE REPLICATION SOURCE TO SOURCE_CONNECT_RETRY = 1, SOURCE_HEARTBEAT_PERIOD = 1.01;
 ERROR HY000: Slave is not configured or failed to initialize properly. You must at least set --server-id to enable either a master or a slave. Additional error messages can be found in the MySQL error log.
 FLUSH LOGS;
 FLUSH RELAY LOGS;
@@ -35,10 +35,10 @@ SET @@GLOBAL.master_info_repository= "TABLE";
 SET @@GLOBAL.relay_log_info_repository= "TABLE";
 SET @@GLOBAL.max_relay_log_size= 536870912;
 SET @@GLOBAL.max_relay_log_size= 0;
-SET @@GLOBAL.slave_net_timeout= 10;
-SET @@GLOBAL.slave_net_timeout= 60;
-SET @@GLOBAL.sql_slave_skip_counter= 10;
-SET @@GLOBAL.sql_slave_skip_counter= 0;
+SET @@GLOBAL.replica_net_timeout= 10;
+SET @@GLOBAL.replica_net_timeout= 60;
+SET @@GLOBAL.sql_replica_skip_counter= 10;
+SET @@GLOBAL.sql_replica_skip_counter= 0;
 SET @@SESSION.sql_log_bin= 0;
 SET @@SESSION.sql_log_bin= 1;
 SHOW MASTER LOGS;
@@ -46,7 +46,7 @@ ERROR HY000: You are not using binary logging
 SHOW MASTER STATUS;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Role
+Server_id	Host	Port	Master_id	Slave_UUID
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 RESET MASTER;

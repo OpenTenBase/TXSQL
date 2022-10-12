@@ -331,6 +331,7 @@ bool sp_lex_instr::reset_lex_and_exec_core(THD *thd, uint *nextp,
   thd->lex = m_lex;
   m_lex->thd = thd;
 
+  m_lex->is_from_sp = true;
   /* Set new query id. */
 
   thd->set_query_id(next_query_id());

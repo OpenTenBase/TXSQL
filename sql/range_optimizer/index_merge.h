@@ -108,6 +108,16 @@ class IndexMergeIterator : public TableRowIterator {
   bool Init() override;
   int Read() override;
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "IndexMerge"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_INDEX_MERGE; }
+  virtual void adjust_children() override {
+    for (auto &child : m_children) {
+      add_child(child.get());
+    }
+  }
+#endif /* defined(HAVE_PX) */
+
  private:
   unique_ptr_destroy_only<Unique> unique;
 

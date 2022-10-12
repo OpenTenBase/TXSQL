@@ -95,9 +95,11 @@ class FilterIterator final : public RowIterator {
   }
   void UnlockRow() override { m_source->UnlockRow(); }
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "Filter"; }
   virtual PhysicalRowIteratorType type() override { return PHY_FILTER; }
   virtual void adjust_children() override { add_child(m_source.get()); }
+#endif /* defined(HAVE_PX) */
 
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
@@ -153,9 +155,11 @@ class LimitOffsetIterator final : public RowIterator {
   }
   void UnlockRow() override { m_source->UnlockRow(); }
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "Limit"; }
   virtual PhysicalRowIteratorType type() override { return PHY_LIMIT_OFFSET; }
   virtual void adjust_children() override { add_child(m_source.get()); }
+#endif /* defined(HAVE_PX) */
 
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
@@ -232,11 +236,11 @@ class AggregateIterator final : public RowIterator {
     // and we also can't unlock the _current_ row, since that belongs to a
     // different group. Thus, do nothing.
   }
-
+#if defined(HAVE_PX)
   virtual std::string str() override { return "Aggregate"; }
   virtual PhysicalRowIteratorType type() override { return PHY_AGGREGATE; }
   virtual void adjust_children() override { add_child(m_source.get()); }
-
+#endif /* defined(HAVE_PX) */
  private:
   enum {
     READING_FIRST_ROW,
@@ -381,6 +385,7 @@ class NestedLoopIterator final : public RowIterator {
     }
   }
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "NestedLoop"; }
   virtual PhysicalRowIteratorType type() override { return PHY_NESTED_LOOP_JOIN; }
   virtual void adjust_children() override {
@@ -393,6 +398,7 @@ class NestedLoopIterator final : public RowIterator {
     }
     add_child(m_source_inner.get());
   }
+#endif /* defined(HAVE_PX) */
 
  private:
   enum {
@@ -603,6 +609,12 @@ class StreamingIterator final : public TableRowIterator {
   }
   void UnlockRow() override { m_subquery_iterator->UnlockRow(); }
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "Streaming"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_STREAM; }
+  virtual void adjust_children() override { add_child(m_subquery_iterator.get()); }
+#endif /* defined(HAVE_PX) */
+
  private:
   unique_ptr_destroy_only<RowIterator> m_subquery_iterator;
   Temp_table_param *m_temp_table_param;
@@ -689,7 +701,11 @@ class WeedoutIterator final : public RowIterator {
     m_source->EndPSIBatchModeIfStarted();
   }
   void UnlockRow() override { m_source->UnlockRow(); }
-
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "Weedout"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_WEEDOUT; }
+  virtual void adjust_children() override { add_child(m_source.get()); }
+#endif /* defined(HAVE_PX) */
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
   SJ_TMP_TABLE *m_sj;
@@ -725,7 +741,11 @@ class RemoveDuplicatesIterator final : public RowIterator {
     m_source->EndPSIBatchModeIfStarted();
   }
   void UnlockRow() override { m_source->UnlockRow(); }
-
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "RemoveDuplicates"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_REMOVE_DUPLICATES; }
+  virtual void adjust_children() override { add_child(m_source.get()); }
+#endif /* defined(HAVE_PX) */
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
   Bounds_checked_array<Cached_item *> m_caches;
@@ -756,6 +776,14 @@ class RemoveDuplicatesOnIndexIterator final : public RowIterator {
     m_source->EndPSIBatchModeIfStarted();
   }
   void UnlockRow() override { m_source->UnlockRow(); }
+
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "RemoveDuplicatesOnIndex"; }
+  virtual PhysicalRowIteratorType type() override {
+    return PHY_REMOVE_DUPLICATES_ON_INDEX;
+  }
+  virtual void adjust_children() override { add_child(m_source.get()); }
+#endif /* defined(HAVE_PX) */
 
  private:
   unique_ptr_destroy_only<RowIterator> m_source;
@@ -860,11 +888,11 @@ class MaterializeInformationSchemaTableIterator final : public RowIterator {
   // The temporary table is private to us, so there's no need to worry about
   // locks to other transactions.
   void UnlockRow() override {}
-
+#if defined(HAVE_PX)
   virtual std::string str() override { return "MaterializeInformationSchemaTable"; }
   virtual PhysicalRowIteratorType type() override { return PHY_MATERIALIZE_INFORMATION_SCHEMA_TABLE; }
   virtual void adjust_children() override { add_child(m_table_iterator.get()); }
-
+#endif /* defined(HAVE_PX) */
  private:
   /// The iterator that reads from the materialized table.
   unique_ptr_destroy_only<RowIterator> m_table_iterator;
@@ -892,6 +920,7 @@ class AppendIterator final : public RowIterator {
   void SetNullRowFlag(bool is_null_row) override;
   void UnlockRow() override;
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "Append"; }
   virtual PhysicalRowIteratorType type() override { return PHY_APPEND; }
   virtual void adjust_children() override {
@@ -899,7 +928,7 @@ class AppendIterator final : public RowIterator {
       add_child(sub_iterator.get());
     }
   }
-
+#endif /* defined(HAVE_PX) */
  private:
   std::vector<unique_ptr_destroy_only<RowIterator>> m_sub_iterators;
   size_t m_current_iterator_index = 0;

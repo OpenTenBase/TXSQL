@@ -12,6 +12,10 @@ a	b
 7	7
 8	9
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 select found_rows();
 found_rows()
@@ -32,6 +36,10 @@ select SQL_BUFFER_RESULT SQL_CALC_FOUND_ROWS * from t1 limit 1;
 a	b
 1	2
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 select found_rows();
 found_rows()
@@ -43,6 +51,10 @@ a	b
 8	9
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 select found_rows();
 found_rows()
 8
@@ -51,6 +63,10 @@ Warnings:
 select SQL_CALC_FOUND_ROWS distinct b from t1 limit 1;
 b
 2
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 select found_rows();
@@ -62,6 +78,10 @@ select SQL_CALC_FOUND_ROWS b,count(*) as c from t1 group by b order by c desc li
 b	c
 5	3
 Warnings:
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 select found_rows();
 found_rows()
@@ -78,10 +98,13 @@ found_rows()
 8
 Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release. Consider using COUNT(*) instead.
 Warnings:
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN FORMAT=tree select SQL_CALC_FOUND_ROWS * from t1 limit 10 offset 100;
 EXPLAIN
--> Limit/Offset: 10/100 row(s) (no early end due to SQL_CALC_FOUND_ROWS)  (cost=1.30 rows=8)
-    -> Table scan on t1  (cost=1.30 rows=8)
+-> Limit/Offset: 10/100 row(s) (no early end due to SQL_CALC_FOUND_ROWS)  (cost=1.05 rows=0)
+    -> Table scan on t1  (cost=1.05 rows=8)
 
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
@@ -114,6 +137,10 @@ a
 2
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 select FOUND_ROWS();
 FOUND_ROWS()
 3
@@ -138,13 +165,19 @@ UNIQUE KEY e_n (email,name)
 ) charset utf8mb4;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 EXPLAIN SELECT SQL_CALC_FOUND_ROWS DISTINCT email FROM t2 LEFT JOIN t1  ON kid = t2.id WHERE t1.id IS NULL LIMIT 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	system	kid	NULL	NULL	NULL	0	0.00	const row not found
-1	SIMPLE	t2	NULL	index	e_n	e_n	404	NULL	200	100.00	NULL
+1	SIMPLE	t2	NULL	index	e_n	e_n	404	NULL	200	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	t1	NULL	ref	kid	kid	2	test.t2.id	1	100.00	Using where; Not exists; Using index; Distinct
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	200	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	200	100.00	Receive from (<sender1>)
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Note	1003	/* select#1 */ select distinct sql_calc_found_rows `test`.`t2`.`email` AS `email` from `test`.`t2` where (NULL is null) limit 10
+Note	1003	/* select#1 */ select distinct sql_calc_found_rows `test`.`t2`.`email` AS `email` from `test`.`t2` left join `test`.`t1` on((`test`.`t1`.`kid` = `test`.`t2`.`id`)) where (`test`.`t1`.`id` is null) limit 10
 FLUSH STATUS;
 SELECT SQL_CALC_FOUND_ROWS DISTINCT email FROM t2 LEFT JOIN t1  ON kid = t2.id WHERE t1.id IS NULL LIMIT 10;
 SHOW SESSION STATUS LIKE 'Sort_scan%';
@@ -152,6 +185,10 @@ Variable_name	Value
 Sort_scan	0
 SELECT SQL_CALC_FOUND_ROWS DISTINCT email FROM t2 LEFT JOIN t1  ON kid = t2.id WHERE t1.id IS NULL LIMIT 10;
 email
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 email1
@@ -183,6 +220,10 @@ email106
 email107
 Warnings:
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 SELECT FOUND_ROWS();
 FOUND_ROWS()
 200
@@ -192,14 +233,14 @@ SELECT DISTINCT email FROM t2 LEFT JOIN t1  ON kid = t2.id WHERE t1.id IS NULL L
 email
 email1
 email10
-email2
-email3
-email4
-email5
-email6
-email7
-email8
-email9
+email100
+email101
+email102
+email103
+email104
+email105
+email106
+email107
 SELECT DISTINCT email FROM t2 LEFT JOIN t1  ON kid = t2.id WHERE t1.id IS NULL ORDER BY email LIMIT 10;
 email
 email1
@@ -216,17 +257,21 @@ INSERT INTO `t1` (`id`, `kid`) VALUES ('0', '150');
 SELECT SQL_CALC_FOUND_ROWS DISTINCT email FROM t2 LEFT JOIN t1  ON kid = t2.id WHERE t1.id IS NULL LIMIT 10;
 email
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 email1
 email10
-email2
-email3
-email4
-email5
-email6
-email7
-email8
-email9
+email100
+email101
+email102
+email103
+email104
+email105
+email106
+email107
 SELECT FOUND_ROWS();
 FOUND_ROWS()
 199
@@ -359,6 +404,10 @@ INSERT INTO t1 VALUES (0), (0), (1), (2);
 SELECT SQL_CALC_FOUND_ROWS * FROM t1 WHERE a = 0 GROUP BY a HAVING a > 10;
 a
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 SELECT FOUND_ROWS();
 FOUND_ROWS()
@@ -411,6 +460,10 @@ CREATE TABLE t1 (a int, b int);
 INSERT INTO t1 VALUES (1,2), (1,3), (1,4), (1,5);
 SELECT SQL_CALC_FOUND_ROWS DISTINCT 'a' FROM t1 GROUP BY b LIMIT 2;
 a
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
+Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 a

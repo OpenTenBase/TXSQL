@@ -53,7 +53,7 @@ EXPLAIN
                         -> Nested loop inner join  (cost=2.05 rows=4)
                             -> Filter: (t1.userID is not null)  (cost=0.65 rows=4)
                                 -> Parallel table scan on t1  (cost=0.65 rows=4)
-                            -> Single-row index lookup on t2 using PRIMARY (userID=t1.userID)  (cost=0.28 rows=1)
+                            -> Single-row covering index lookup on t2 using PRIMARY (userID=t1.userID)  (cost=0.28 rows=1)
 
 SELECT t2.userid, MIN(t1.score) FROM t1, t2 WHERE t1.userID=t2.userID GROUP BY t2.userid;
 userid	MIN(t1.score)
@@ -75,16 +75,16 @@ userid	MIN(t1.score+0.0)
 2	2.0
 SELECT t2.userid, MIN(t1.score+0.0) FROM t1, t2 WHERE t1.userID=t2.userID AND t1.spID=2  GROUP BY t2.userid ORDER BY NULL;
 userid	MIN(t1.score+0.0)
-2	2.0
 1	1.0
+2	2.0
 EXPLAIN SELECT t2.userid, MIN(t1.score+0.0) FROM t1, t2 WHERE t1.userID=t2.userID AND t1.spID=2  GROUP BY t2.userid ORDER BY NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Parallel scan (4 workers); Using where; Using temporary
 1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1.userID	1	100.00	Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary
-Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`userID` AS `userid`,min((`test`.`t1`.`score` + 0.0)) AS `MIN(t1.score+0.0)` from `test`.`t1` join `test`.`t2` where ((`test`.`t1`.`spID` = 2) and (`test`.`t2`.`userID` = `test`.`t1`.`userID`)) group by `test`.`t2`.`userID` order by NULL
+Warnings:
 drop table t1,t2;
 CREATE TABLE t1 (
 PID int(10) unsigned NOT NULL auto_increment,
@@ -283,14 +283,14 @@ BBBBBBBBBBBBB - generic		2
 Documentation		0
 Host communication		0
 Test Procedures		0
-select row_number() over (), value,description,COUNT(bug_id) from t2 left join t1 on t2.program=t1.product and t2.value=t1.component where program="AAAAA" group by value having COUNT(bug_id) IN (0,2);
-row_number() over ()	value	description	COUNT(bug_id)
+select row_number() over (), value,description,COUNT(DISTINCT bug_id) from t2 left join t1 on t2.program=t1.product and t2.value=t1.component where program="AAAAA" group by value having COUNT(DISTINCT bug_id) IN (0,2);
+row_number() over ()	value	description	COUNT(DISTINCT bug_id)
 1	BBBBBBBBBBBBB - conversion		2
-2	BBBBBBBBBBBBB - generic		2
-3	BBBBBBBBBBBBB - eeeeeeeee		0
-4	Test Procedures		0
-5	Documentation		0
-6	Host communication		0
+2	BBBBBBBBBBBBB - eeeeeeeee		0
+3	BBBBBBBBBBBBB - generic		2
+4	Documentation		0
+5	Host communication		0
+6	Test Procedures		0
 drop table t1,t2;
 create table t1 (foo int);
 insert into t1 values (1);
@@ -344,22 +344,22 @@ userid	count(*)
 explain select spid,count(*) from t1 where spid between 1 and 2 group by spid order by spid desc;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	spID	spID	5	NULL	3	100.00	Parallel scan (3 workers); Using where; Backward index scan; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`spID` AS `spid`,count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`spID` between 1 and 2) group by `test`.`t1`.`spID` desc order by `test`.`t1`.`spID` desc
 explain select spid,count(*) from t1 where spid between 1 and 2 group by spid;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	spID	spID	5	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`spID` AS `spid`,count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`spID` between 1 and 2) group by `test`.`t1`.`spID`
 explain select spid,count(*) from t1 where spid between 1 and 2 group by spid order by null;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	spID	spID	5	NULL	3	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`spID` AS `spid`,count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`spID` between 1 and 2) group by `test`.`t1`.`spID` order by NULL
 select spid,count(*) from t1 where spid between 1 and 2 group by spid;
@@ -373,15 +373,15 @@ spid	count(*)
 explain select sql_big_result spid,sum(userid) from t1 group by spid order by spid desc;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	spID	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers); Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`spID` AS `spid`,sum(`test`.`t1`.`userID`) AS `sum(userid)` from `test`.`t1` group by `test`.`t1`.`spID` desc order by `test`.`t1`.`spID` desc
 explain select sql_big_result spid,sum(userid) from t1 group by spid order by null;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	spID	NULL	NULL	NULL	8	100.00	Parallel scan (4 workers); Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`spID` AS `spid`,sum(`test`.`t1`.`userID`) AS `sum(userid)` from `test`.`t1` group by `test`.`t1`.`spID` order by NULL
 select sql_big_result spid,sum(userid) from t1 group by spid order by spid desc;
@@ -396,15 +396,15 @@ spid	sum(userid)
 explain select sql_big_result score,count(*) from t1 group by score order by score desc;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	score	score	3	NULL	8	100.00	Parallel scan (4 workers); Using index; Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`score` AS `score`,count(0) AS `count(*)` from `test`.`t1` group by `test`.`t1`.`score` desc order by `test`.`t1`.`score` desc
 explain select sql_big_result score,count(*) from t1 group by score order by null;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	score	score	3	NULL	8	100.00	Parallel scan (4 workers); Using index; Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`score` AS `score`,count(0) AS `count(*)` from `test`.`t1` group by `test`.`t1`.`score` order by NULL
 select sql_big_result score,count(*) from t1 group by score order by score desc;
@@ -435,6 +435,12 @@ a
 A
 B
 NULL
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a
 b
 SELECT a,count(*) FROM t1 GROUP BY binary a;
@@ -442,6 +448,12 @@ a	count(*)
 A	4
 B	4
 NULL	3
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a	1
 b	1
 SELECT binary a FROM t1 GROUP BY 1;
@@ -449,6 +461,12 @@ binary a
 A
 B
 NULL
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a
 b
 SELECT binary a,count(*) FROM t1 GROUP BY 1;
@@ -456,45 +474,85 @@ binary a	count(*)
 A	4
 B	4
 NULL	3
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a	1
 b	1
 SET BIG_TABLES=1;
 SELECT a FROM t1 GROUP BY a ORDER BY a;
 a
-NULL
 A
 B
+NULL
 SELECT a,count(*) FROM t1 GROUP BY a ORDER BY a;
 a	count(*)
-NULL	3
-A	5
 B	5
+NULL	3
+a	5
 SELECT a FROM t1 GROUP BY binary a ORDER BY binary a;
 a
-NULL
 A
 B
+NULL
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a
 b
 SELECT a,count(*) FROM t1 GROUP BY binary a ORDER BY binary a;
 a	count(*)
-NULL	3
 A	4
 B	4
+NULL	3
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a	1
 b	1
 SELECT binary a FROM t1 GROUP BY 1 ORDER BY 1;
 binary a
-NULL
 A
 B
+NULL
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a
 b
 SELECT binary a,count(*) FROM t1 GROUP BY 1 ORDER BY 1;
 binary a	count(*)
-NULL	3
 A	4
 B	4
+NULL	3
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 a	1
 b	1
 SET BIG_TABLES=0;
@@ -540,10 +598,12 @@ create table t2 (user_id integer not null, date date);
 insert into t2 values (1, '2002-06-09'),(2, '2002-06-09'),(1, '2002-06-09'),(3, '2002-06-09'),(4, '2002-06-09'),(4, '2002-06-09');
 select u.gender as gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender;
 gender	dist_count	percentage
-F	3	60.0000
-M	1	20.0000
+F	3	0.0000
+M	1	0.0000
 select u.gender as  gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender  order by percentage;
 gender	dist_count	percentage
+M	1	20.0000
+F	1	20.0000
 M	1	20.0000
 F	3	60.0000
 drop table t1,t2;
@@ -576,7 +636,7 @@ c2id int(11) unsigned default NULL,
 value int(11) unsigned NOT NULL default '0',
 UNIQUE KEY pid2 (pid,c1id,c2id),
 UNIQUE KEY pid (pid,value)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -587,7 +647,7 @@ CREATE TABLE t2 (
 id int(11) unsigned NOT NULL default '0',
 active enum('Yes','No') NOT NULL default 'Yes',
 PRIMARY KEY  (id)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t2 VALUES (1, 'Yes'),(2, 'No'),(4, 'Yes'),(5, 'No');
@@ -761,7 +821,7 @@ SELECT i, COUNT(DISTINCT(i)) FROM t1 GROUP BY j ORDER BY NULL;
 i	COUNT(DISTINCT(i))
 1	1
 2	1
-4	4
+3	4
 explain SELECT i, COUNT(DISTINCT(i)) FROM t1 GROUP BY j ORDER BY NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers); Using filesort
@@ -813,11 +873,9 @@ a	r2	r1
 SELECT a, ROUND(RAND(100)*10) r2, SUM(1) r1 FROM t1 WHERE a = 1
 GROUP BY a HAVING r1>1 AND r2<=2;
 a	r2	r1
-1	2	2
 SELECT a, ROUND(RAND(100)*10) r2, SUM(1) r1 FROM t1 WHERE a = 1
 GROUP BY a HAVING r1>1 AND r2<=2 ORDER BY a+r2+r1;
 a	r2	r1
-1	2	2
 SELECT a,SUM(b) FROM t1 WHERE a=1 GROUP BY c;
 a	SUM(b)
 1	5
@@ -854,7 +912,7 @@ splus0	plain
 0	1
 NULL	NULL
 DROP TABLE t1;
-create table t1(a int) engine=myisam;
+create table t1(a int) ENGINE=INNODB;
 insert into t1 values (0),(1),(2),(3),(4),(5),(6),(8),(9);
 create table t2 (
 a int,
@@ -863,7 +921,7 @@ c varchar(50) NOT NULL,
 d varchar(100) NOT NULL,
 primary key (a,b(132),c,d),
 key a (a,b)
-) engine=myisam charset=utf8;
+) ENGINE=INNODB charset=utf8;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 insert into t2 select 
@@ -876,9 +934,15 @@ order by x3.a, x4.a, C.a, D.a;
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 delete from t2  where a = 2 and b = 'val-2' order by a,b,c,d limit 30;
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain select c from t2 where a = 2 and b = 'val-2' group by c;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	PRIMARY,a	PRIMARY	402	const,const	4	100.00	Using where
+1	SIMPLE	t2	NULL	ref	PRIMARY,a	PRIMARY	402	const,const	6	100.00	Parallel scan (1 workers); Using where
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`c` AS `c` from `test`.`t2` where ((`test`.`t2`.`a` = 2) and (`test`.`t2`.`b` = 'val-2')) group by `test`.`t2`.`c`
 select c from t2 where a = 2 and b = 'val-2' group by c;
@@ -948,6 +1012,7 @@ SELECT n+1 AS n FROM t1 GROUP BY n;
 n
 2
 Warning	1052	Column 'n' in group statement is ambiguous
+Warning	1052	Column 'n' in group statement is ambiguous
 Warnings:
 DROP TABLE t1;
 create table t1(f1 varchar(5) key);
@@ -966,7 +1031,7 @@ a
 1
 SELECT a FROM t1 GROUP BY "a";
 a
-1
+2
 SELECT a FROM t1 GROUP BY `a`;
 a
 1
@@ -1035,6 +1100,8 @@ select t1.c1 as c2 from t1, t2 where t1.c2 = t2.c4
 group by c2;
 c2
 Warning	1052	Column 'c2' in group statement is ambiguous
+Warning	1052	Column 'c2' in group statement is ambiguous
+Warning	1052	Column 'c2' in group statement is ambiguous
 Warnings:
 aaa
 aaa
@@ -1065,8 +1132,8 @@ where t2.b=v1.a GROUP BY t2.b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	index	b	b	2	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
 1	SIMPLE	t1	NULL	eq_ref	PRIMARY	PRIMARY	1	test.t2.b	#	100.00	NULL
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select straight_join `test`.`t1`.`a` AS `a`,concat(`test`.`t1`.`b`,'') AS `b`,`test`.`t1`.`b` AS `real_b` from `test`.`t2` join `test`.`t1` where (`test`.`t1`.`a` = `test`.`t2`.`b`) group by `test`.`t2`.`b`
 SELECT straight_join v1.a, v1.b, v1.real_b from t2, v1
@@ -1099,15 +1166,15 @@ test.t1	analyze	status	OK
 EXPLAIN SELECT b, sum(1) FROM t1 GROUP BY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	b	b	5	NULL	128	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	128	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	128	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,sum(1) AS `sum(1)` from `test`.`t1` group by `test`.`t1`.`b`
 EXPLAIN SELECT SQL_BIG_RESULT b, sum(1) FROM t1 GROUP BY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	b	b	5	NULL	128	100.00	Parallel scan (4 workers); Using index; Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	128	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	128	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`b` AS `b`,sum(1) AS `sum(1)` from `test`.`t1` group by `test`.`t1`.`b`
 SELECT b, sum(1) FROM t1 GROUP BY b;
@@ -1245,7 +1312,7 @@ SELECT (SELECT SUM(t1_outer.a+0*t1_inner.a) FROM t1 AS t1_inner LIMIT 1)
 FROM t1 AS t1_outer GROUP BY t1_outer.b;
 (SELECT SUM(t1_outer.a+0*t1_inner.a) FROM t1 AS t1_inner LIMIT 1)
 18
-30
+36
 6
 SET SQL_MODE = 'ONLY_FULL_GROUP_BY';
 SELECT 1 FROM t1 as t1_outer 
@@ -1341,19 +1408,19 @@ id	c1	c2
 2	4	1
 SELECT * FROM t1 GROUP BY c2  ORDER BY c2, c1;
 id	c1	c2
-2	4	1
-5	1	3
+1	5	1
+4	2	3
 3	3	5
 SELECT * FROM t1 GROUP BY c2  ORDER BY c2 DESC, c1;
 id	c1	c2
 3	3	5
-5	1	3
-2	4	1
+4	2	3
+1	5	1
 SELECT * FROM t1 GROUP BY c2  ORDER BY c2 DESC, c1 DESC;
 id	c1	c2
 3	3	5
 5	1	3
-2	4	1
+1	5	1
 DROP TABLE t1;
 #
 # Bug#27219: Aggregate functions in ORDER BY.  
@@ -1408,8 +1475,8 @@ a
 3
 2
 3
-2
 3
+2
 4
 SELECT t1.a FROM t1 ORDER BY (SELECT t2.a FROM t2 ORDER BY SUM(t2.b) LIMIT 1);
 ERROR HY000: Expression #1 of ORDER BY contains aggregate function and applies to the result of a non-aggregated query
@@ -1624,7 +1691,7 @@ FLUSH STATUS;
 SELECT a FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY,i2) ORDER BY a;
 SHOW SESSION STATUS LIKE 'Sort_scan%';
 Variable_name	Value
-Sort_scan	1
+Sort_scan	0
 SELECT a FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY,i2) ORDER BY a;
 a
 1
@@ -2013,8 +2080,8 @@ NULL	1
 EXPLAIN SELECT a,b from t2 GROUP BY a,b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	index	a	a	10	NULL	6	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` group by `test`.`t2`.`a`,`test`.`t2`.`b`
 SELECT a,b from t2 GROUP BY a,b;
@@ -2135,21 +2202,21 @@ SELECT (SELECT t1.a) aa, COUNT(DISTINCT b) FROM t1 GROUP BY aa+0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers)
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>); Using filesort
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #2 was resolved in SELECT #1
 Note	1249	Select 2 was reduced during optimization
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `aa`,count(distinct `test`.`t1`.`b`) AS `COUNT(DISTINCT b)` from `test`.`t1` group by (`test`.`t1`.`a` + 0)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `aa`,count(distinct `test`.`t1`.`b`) AS `COUNT(DISTINCT b)` from `test`.`t1` group by (`a` + 0)
 EXPLAIN
 SELECT (SELECT t1.a) aa, COUNT(DISTINCT b) FROM t1 GROUP BY -aa;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers)
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>); Using filesort
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #2 was resolved in SELECT #1
 Note	1249	Select 2 was reduced during optimization
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `aa`,count(distinct `test`.`t1`.`b`) AS `COUNT(DISTINCT b)` from `test`.`t1` group by -(`test`.`t1`.`a`)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `aa`,count(distinct `test`.`t1`.`b`) AS `COUNT(DISTINCT b)` from `test`.`t1` group by -(`a`)
 # should return only one record
 SELECT (SELECT tt.a FROM t1 tt LIMIT 1) aa, COUNT(DISTINCT b) FROM t1
 GROUP BY aa;
@@ -2358,6 +2425,8 @@ SELECT 1 FROM t1 GROUP BY SUBSTRING('',SLEEP(0),'');
 Warning	1292	Truncated incorrect INTEGER value: ''
 Warning	1292	Truncated incorrect INTEGER value: ''
 Warning	1292	Truncated incorrect INTEGER value: ''
+Warning	1292	Truncated incorrect INTEGER value: ''
+Warning	1292	Truncated incorrect INTEGER value: ''
 Warnings:
 SELECT 1 FROM t1 GROUP BY SUBSTRING(SYSDATE() FROM 'K' FOR 'jxW<');
 1
@@ -2365,6 +2434,10 @@ SELECT 1 FROM t1 GROUP BY SUBSTRING(SYSDATE() FROM 'K' FOR 'jxW<');
 Warning	1292	Truncated incorrect INTEGER value: 'K'
 Warning	1292	Truncated incorrect INTEGER value: 'K'
 Warning	1292	Truncated incorrect INTEGER value: 'K'
+Warning	1292	Truncated incorrect INTEGER value: 'K'
+Warning	1292	Truncated incorrect INTEGER value: 'K'
+Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
+Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
 Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
 Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
 Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
@@ -2535,19 +2608,19 @@ SUM(alias2.col_varchar_nokey)	field2
 0	9
 Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: 'f'
-Warning	1292	Truncated incorrect DOUBLE value: 'e'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'f'
-Warning	1292	Truncated incorrect DOUBLE value: 'y'
-Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
 Warning	1292	Truncated incorrect DOUBLE value: 'd'
-Warning	1292	Truncated incorrect DOUBLE value: 'f'
-Warning	1292	Truncated incorrect DOUBLE value: 'p'
 Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warning	1292	Truncated incorrect DOUBLE value: 'e'
+Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'b'
+Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'e'
+Warning	1292	Truncated incorrect DOUBLE value: 'y'
+Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'f'
+Warning	1292	Truncated incorrect DOUBLE value: 'f'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
 DROP TABLE t1,t2;
@@ -2636,8 +2709,8 @@ EXPLAIN SELECT SQL_BIG_RESULT col1 AS field1, col1 AS field2
 FROM t1 GROUP BY field1, field2;;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	idx	idx	5	NULL	20	100.00	Parallel scan (4 workers); Using index; Using filesort
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	20	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`col1` AS `field1`,`test`.`t1`.`col1` AS `field2` from `test`.`t1` group by `field1`
 FLUSH STATUS;
@@ -2711,12 +2784,12 @@ CREATE TABLE it (
 pk INT NOT NULL,
 col_int_nokey INT NOT NULL,
 PRIMARY KEY (pk)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 CREATE TABLE ot (
 pk int(11) NOT NULL,
 col_int_nokey int(11) NOT NULL,
 PRIMARY KEY (pk)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -2733,9 +2806,9 @@ DROP TABLE it,ot;
 # Bug#13430588: WRONG RESULT FROM IMPLICITLY GROUPED QUERY WITH
 #               CONST TABLE AND NO MATCHING ROWS
 #
-CREATE TABLE t1 (i INT) ENGINE=MyISAM;
+CREATE TABLE t1 (i INT) ENGINE=INNODB;
 INSERT INTO t1 VALUES (1);
-CREATE TABLE t2 (j INT) ENGINE=MyISAM;
+CREATE TABLE t2 (j INT) ENGINE=INNODB;
 INSERT INTO t2 VALUES (1),(2);
 
 SELECT i, j, COUNT(i) FROM t1 JOIN t2 WHERE j=3;
@@ -2749,12 +2822,12 @@ DROP TABLE t1,t2;
 #
 CREATE TABLE t1 (
 a varchar(1)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 INSERT INTO t1 VALUES ('a'), ('b');
 CREATE TABLE t2 (
 a varchar(1),
 b int(11)
-) ENGINE=MyISAM;
+) ENGINE=INNODB;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t2 VALUES ('a',1);
@@ -2766,11 +2839,13 @@ test.t2	analyze	status	OK
 EXPLAIN SELECT (SELECT MAX(b) FROM t2 WHERE t2.a != t1.a) as MAX 
 FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
-2	DEPENDENT SUBQUERY	t2	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
+2	DEPENDENT SUBQUERY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select (/* select#2 */ select max('1') from dual where ('a' <> `test`.`t1`.`a`)) AS `MAX` from `test`.`t1`
+Note	1003	/* select#1 */ select (/* select#2 */ select max(`test`.`t2`.`b`) from `test`.`t2` where (`test`.`t2`.`a` <> `test`.`t1`.`a`)) AS `MAX` from `test`.`t1`
 SELECT (SELECT MAX(b) FROM t2 WHERE t2.a != t1.a) as MAX 
 FROM t1;
 MAX
@@ -3038,8 +3113,8 @@ FROM (SELECT * FROM t1) AS alias1
 GROUP BY field5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1249	Select 2 was reduced during optimization
 Note	1003	/* select#1 */ select 150 AS `field5` from `test`.`t1` group by `field5`
@@ -3173,7 +3248,7 @@ test.t1	analyze	status	OK
 
 EXPLAIN SELECT SQL_BUFFER_RESULT MIN(a), b FROM t1 WHERE t1.b = 'a' GROUP BY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	b	b	12	NULL	2	100.00	Using where; Using index for group-by; Using temporary
+1	SIMPLE	t1	NULL	range	b	b	12	NULL	1	100.00	Using where; Using index for group-by; Using temporary
 Warnings:
 Note	1003	/* select#1 */ select sql_buffer_result min(`test`.`t1`.`a`) AS `MIN(a)`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` = 'a') group by `test`.`t1`.`b`
 
@@ -3183,7 +3258,7 @@ MIN(a)	b
 
 EXPLAIN SELECT MIN(a), b FROM t1 WHERE t1.b = 'a' GROUP BY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	b	b	12	NULL	2	100.00	Using where; Using index for group-by
+1	SIMPLE	t1	NULL	range	b	b	12	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a`) AS `MIN(a)`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` = 'a') group by `test`.`t1`.`b`
 
@@ -3223,8 +3298,8 @@ test.t1	analyze	status	OK
 EXPLAIN SELECT kp1, SUM(kp2) FROM t1 GROUP BY kp1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	idx_noncov,idx_cov	idx_cov	10	NULL	16	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	16	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`kp1` AS `kp1`,sum(`test`.`t1`.`kp2`) AS `SUM(kp2)` from `test`.`t1` group by `test`.`t1`.`kp1`
 DROP TABLE t1;
@@ -3410,14 +3485,12 @@ key (col_varchar_10_utf8_key ),
 key (col_int_key ),
 key (col_varchar_1024_utf8_key ),
 primary key (pk),
-key (col_varchar_10_latin1_key )) ENGINE=myisam;
+key (col_varchar_10_latin1_key )) ENGINE=INNODB;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	1071	Specified key was too long; max key length is 1000 bytes
-Warning	1071	Specified key was too long; max key length is 1000 bytes
 INSERT INTO B VALUES  ('at', repeat('a',1000), 'the',
 -1622540288, 'as', repeat('a',1000), 'want', 1810890752, NULL, 'v', 'just');
 Warnings:
@@ -3490,8 +3563,8 @@ test.t1	analyze	status	OK
 EXPLAIN SELECT DISTINCT a, MAX(b) FROM t1 WHERE a >= 0 GROUP BY a,a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	idx1,idx2,idx3	idx1	5	NULL	100	100.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	100	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,max(`test`.`t1`.`b`) AS `MAX(b)` from `test`.`t1` where (`test`.`t1`.`a` >= 0) group by `test`.`t1`.`a`
 SELECT DISTINCT a, MAX(b) FROM t1 WHERE a >= 0 GROUP BY a,a;
@@ -3731,13 +3804,20 @@ SELECT 1 FROM t HAVING (SELECT SUM(a)) > 0;
 SELECT (SELECT SUM(a)) FROM t;
 (SELECT SUM(a))
 4
-# These queries where accepted before the fix, and they still are,
-# but their results are wrong both before and after the fix
-# because of bug#22588319.
-# Returns (4, NULL), should have returned (4, 1):
-SELECT SUM(a) s, (SELECT 1 HAVING s > 0) s2 FROM t;
-s	s2
+# Bug #22588319: OUTER REFERENCE TO AGGREGATE INCORRECTLY 0 OR NULL IN SUBQUERY
+SELECT SUM(a) AS s, (SELECT 1 HAVING s) FROM t;
+s	(SELECT 1 HAVING s)
+4	1
+SELECT SUM(a) AS s, (SELECT 1 HAVING s IS NULL) FROM t;
+s	(SELECT 1 HAVING s IS NULL)
 4	NULL
+SELECT COUNT(a) AS c, (SELECT 1 HAVING c) FROM t;
+c	(SELECT 1 HAVING c)
+4	1
+SELECT COUNT(a) AS c, (SELECT 1 HAVING c = 0) FROM t;
+c	(SELECT 1 HAVING c = 0)
+4	NULL
+# Shows that #22588319 isn't fixed for ORDER BY.
 # Should have ordered ascending on -a, but comes out in random order
 # because the ORDER BY clause always evaluates to NULL. Have to use
 # the --sorted_result directive to produce stable test results.
@@ -3913,6 +3993,16 @@ DROP TABLE t;
 #
 CREATE TABLE t(a TEXT, b INT);
 INSERT INTO t VALUES ('1', 10), ('1', 11), ('2', 20), ('2', 20), ('3', 30);
+EXPLAIN FORMAT=tree SELECT (SELECT a) AS col1, COUNT(DISTINCT b) FROM t GROUP BY -col1;
+EXPLAIN
+-> Group aggregate: count(distinct t.b)
+    -> Sort: `-(a)`
+        -> Stream results  (cost=*** rows=***)
+            -> Table scan on t  (cost=*** rows=***)
+
+Warnings:
+Note	1276	Field or reference 'test.t.a' of SELECT #2 was resolved in SELECT #1
+Note	1249	Select 2 was reduced during optimization
 SELECT (SELECT a) AS col1, COUNT(DISTINCT b) FROM t GROUP BY -col1;
 col1	COUNT(DISTINCT b)
 1	2
@@ -3937,6 +4027,16 @@ col1	COUNT(b)
 DROP TABLE t;
 CREATE TABLE t(a JSON, b INT);
 INSERT INTO t VALUES ('1', 10), ('1', 11), ('2', 20), ('2', 20), ('3', 30);
+EXPLAIN FORMAT=tree SELECT (SELECT a) AS col1, COUNT(DISTINCT b) FROM t GROUP BY -col1;
+EXPLAIN
+-> Group aggregate: count(distinct t.b)
+    -> Sort: `-(a)`
+        -> Stream results  (cost=*** rows=***)
+            -> Table scan on t  (cost=*** rows=***)
+
+Warnings:
+Note	1276	Field or reference 'test.t.a' of SELECT #2 was resolved in SELECT #1
+Note	1249	Select 2 was reduced during optimization
 SELECT (SELECT a) AS col1, COUNT(DISTINCT b) FROM t GROUP BY -col1;
 col1	COUNT(DISTINCT b)
 1	2
@@ -4046,8 +4146,8 @@ test.t1	analyze	status	OK
 EXPLAIN FORMAT=tree SELECT f1, f1 + 1, COUNT(DISTINCT f2) AS x FROM t1 GROUP BY f1 ORDER BY x;
 EXPLAIN
 -> Sort: x
-    -> Stream results
-        -> Group aggregate: count(distinct t1.f2)
+    -> Stream results  (cost=1.45 rows=6)
+        -> Group aggregate: count(distinct t1.f2)  (cost=1.45 rows=6)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
                     -> Parallel index scan on t1 using k1  (cost=0.85 rows=6)
@@ -4180,6 +4280,68 @@ LIMIT 39;
 ERROR 22003: latitude value is out of range in 'st_geohash'
 DROP TABLE w;
 #
+# Bug #32179240: ADDING ROLLUP BREAKS GROUP LABELS
+#
+CREATE TABLE t1 (a DOUBLE);
+INSERT INTO t1 ( a ) VALUES ( 0.1 );
+SELECT TRUNCATE(a, 1) FROM t1 GROUP BY TRUNCATE(a, 1) WITH ROLLUP;
+TRUNCATE(a, 1)
+0.1
+NULL
+DROP TABLE t1;
+#
+# Bug#32193123: DIFFERENT RESULTSET WITH HYPERGRAPH_OPTIMIZER SWITCH ENABLED
+#
+CREATE TABLE t1 (a INTEGER, b VARCHAR(1));
+INSERT INTO t1 VALUES (1, 'x');
+SELECT SUM(t1.a) AS field1, CONCAT(d1.b) AS field2
+FROM (SELECT * FROM t1) AS d1, t1
+GROUP BY field2 HAVING field2 > '' AND field1 < 4;
+field1	field2
+1	x
+DROP TABLE t1;
+#
+# Bug #32234709: TEMPTABLEAGGREGATEITERATOR::INIT(): ASSERTION `!THD()->IS_ERROR()' FAILED.
+#
+CREATE TABLE t1 (
+a INTEGER,
+e INTEGER
+);
+INSERT INTO t1 VALUES (1,0);
+INSERT INTO t1 VALUES (1,8388607);
+SELECT COUNT(*) FROM
+t1
+LEFT JOIN json_table(
+'{}','$[0][1]'
+    COLUMNS(a FOR ORDINALITY)
+) AS t2 ON TRUE
+GROUP BY e*from_unixtime(0);
+ERROR 22003: BIGINT value is out of range in '(`test`.`t1`.`e` * from_unixtime(0))'
+DROP TABLE t1;
+#
+# Bug #32244407: ASSERTION FAILURE IN `!THD()->IS_ERROR()' AT AGGREGATEITERATOR::READ()
+#
+CREATE TABLE t1 (
+a INTEGER,
+b VARCHAR(1)
+);
+CREATE INDEX i1 ON t1 (b);
+INSERT INTO t1 VALUES (1,'0');
+INSERT INTO t1 VALUES (1,'y');
+INSERT INTO t1 VALUES (1,'Q');
+INSERT INTO t1 VALUES (1,'H');
+INSERT INTO t1 VALUES (1,'j');
+INSERT INTO t1 VALUES (1,'a');
+INSERT INTO t1 VALUES (1,'b');
+INSERT INTO t1 VALUES (1,'j');
+INSERT INTO t1 VALUES (1,'q');
+INSERT INTO t1 VALUES (1,'e');
+SELECT AVG(a2.a)
+FROM t1 AS a1
+LEFT JOIN t1 AS a2 ON a2.b = ( SELECT a1.b FROM t1 );
+ERROR 21000: Subquery returns more than 1 row
+DROP TABLE t1;
+#
 # Bug #32335256: COUNT(*) RETURNS NULL IN NESTED QUERY
 #
 CREATE TABLE t1 (
@@ -4206,4 +4368,223 @@ FROM t1
 SELECT COUNT(*)
 SELECT COUNT(*) +
 WHERE f1 = c.f2
+DROP TABLE t1;
+#
+# Bug#32248291: ENABLE THE HYPERGRAPH OPTIMIZER FOR SQL_BUFFER_RESULT
+#
+# Verify that expressions in the SELECT list are evaluated only once
+# per row.
+#
+CREATE TABLE t(x INTEGER);
+INSERT INTO t VALUES (1), (2), (3);
+SELECT RAND(1) r, COUNT(*) FROM t GROUP BY x ORDER BY r;
+r	COUNT(*)
+0.1418603212962489	1
+0.40540353712197724	1
+0.8716141803857071	1
+DROP TABLE t;
+#
+# Bug #32598902: WL#14325: ASSERTION `RECEIVER.HASSECONDARYENGINECOSTHOOK()' FAILED|JOIN_OPTIMIZE
+#
+CREATE TABLE t1 (
+a INTEGER,
+b INTEGER
+);
+SELECT t1.b
+FROM t1, t1 AS t2
+WHERE t1.a = t1.b AND t1.a = t2.b
+GROUP BY t1.b
+ORDER BY t2.b;
+b
+DROP TABLE t1;
+# Bug#32717969: Wrong result of execute prepare on 'smallint'
+CREATE TABLE t1(
+c1 smallint NOT NULL
+);
+INSERT INTO t1 VALUES(32767),(14742),(14743);
+SELECT COUNT(*), SUM(c1), AVG(c1), MIN(c1), MAX(c1) FROM t1 WHERE c1 > 32767;
+COUNT(*)	SUM(c1)	AVG(c1)	MIN(c1)	MAX(c1)
+0	NULL	NULL	NULL	NULL
+PREPARE stmt from
+'SELECT COUNT(*), SUM(c1), AVG(c1), MIN(c1), MAX(c1) FROM t1 WHERE c1 > ?';
+SET @a=14742;
+EXECUTE stmt USING @a;
+COUNT(*)	SUM(c1)	AVG(c1)	MIN(c1)	MAX(c1)
+2	47510	23755.0000	14743	32767
+set @a=32767;
+EXECUTE stmt USING @a;
+COUNT(*)	SUM(c1)	AVG(c1)	MIN(c1)	MAX(c1)
+0	NULL	NULL	NULL	NULL
+SELECT BIT_AND(c1), BIT_OR(c1), BIT_XOR(c1) FROM t1 WHERE c1 > 32767;
+BIT_AND(c1)	BIT_OR(c1)	BIT_XOR(c1)
+18446744073709551615	0	0
+PREPARE stmt from
+'SELECT BIT_AND(c1), BIT_OR(c1), BIT_XOR(c1) FROM t1 WHERE c1 > ?';
+SET @a=14742;
+EXECUTE stmt USING @a;
+BIT_AND(c1)	BIT_OR(c1)	BIT_XOR(c1)
+14743	32767	18024
+set @a=32767;
+EXECUTE stmt USING @a;
+BIT_AND(c1)	BIT_OR(c1)	BIT_XOR(c1)
+18446744073709551615	0	0
+SELECT GROUP_CONCAT(c1), JSON_ARRAYAGG(c1), JSON_OBJECTAGG('key', c1)
+FROM t1
+WHERE c1 > 32767;
+GROUP_CONCAT(c1)	JSON_ARRAYAGG(c1)	JSON_OBJECTAGG('key', c1)
+NULL	NULL	NULL
+PREPARE stmt from
+"SELECT GROUP_CONCAT(c1), JSON_ARRAYAGG(c1), JSON_OBJECTAGG('key', c1)
+ FROM t1
+ WHERE c1 > ?";
+SET @a=14742;
+EXECUTE stmt USING @a;
+GROUP_CONCAT(c1)	JSON_ARRAYAGG(c1)	JSON_OBJECTAGG('key', c1)
+32767,14743	[32767, 14743]	{"key": 14743}
+set @a=32767;
+EXECUTE stmt USING @a;
+GROUP_CONCAT(c1)	JSON_ARRAYAGG(c1)	JSON_OBJECTAGG('key', c1)
+NULL	NULL	NULL
+SELECT STDDEV_POP(c1), STDDEV_SAMP(c1), VAR_POP(c1), VAR_SAMP(c1)
+FROM t1
+WHERE c1 > 32767;
+STDDEV_POP(c1)	STDDEV_SAMP(c1)	VAR_POP(c1)	VAR_SAMP(c1)
+NULL	NULL	NULL	NULL
+PREPARE stmt from
+'SELECT STDDEV_POP(c1), STDDEV_SAMP(c1), VAR_POP(c1), VAR_SAMP(c1)
+ FROM t1
+ WHERE c1 > ?';
+SET @a=14742;
+EXECUTE stmt USING @a;
+STDDEV_POP(c1)	STDDEV_SAMP(c1)	VAR_POP(c1)	VAR_SAMP(c1)
+9012	12744.892624106333	81216144	162432288
+set @a=32767;
+EXECUTE stmt USING @a;
+STDDEV_POP(c1)	STDDEV_SAMP(c1)	VAR_POP(c1)	VAR_SAMP(c1)
+NULL	NULL	NULL	NULL
+DROP TABLE t1;
+#
+# Verify that ROLLUP and DISTINCT on nullable GROUP BY expressions
+# work as expected (the sort is not elided).
+#
+CREATE TABLE t1 (a INTEGER);
+INSERT INTO t1 VALUES (NULL), (1), (2);
+SELECT DISTINCT a, COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+a	COUNT(*)
+1	1
+2	1
+NULL	1
+NULL	3
+DROP TABLE t1;
+#
+# Bug #33007298: RECENT REGRESSION: CRASH IN QEP_SHARED_OWNER::TABLE
+#
+select is_uuid(avg(distinct json_storage_free('$b*<*#]E')));
+ERROR 22032: Invalid JSON text in argument 1 to function json_storage_free: "Invalid value." at position 0.
+#
+# Bug#31894023 THE RESULTS OF AGGREGATION ON BIT TYPE ARE INCONSISTENT WHEN JOIN TYPE DIFFERS
+#
+CREATE TABLE t1(id INT, b1 BIT, b9 BIT(9), b64 BIT(64));
+INSERT INTO t1 VALUES
+(1, b'0', b'000000000', b'0000000000000000000000000000000000000000000000000000000000000000'),
+(2, b'1', b'100000000', b'1000000000000000000000000000000000000000000000000000000000000000');
+CREATE INDEX i1 ON t1(id);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SELECT HEX(CONCAT(MIN(b1))), HEX(CONCAT(MIN(b9))), HEX(CONCAT(MIN(b64))) FROM t1 GROUP BY id;
+HEX(CONCAT(MIN(b1)))	HEX(CONCAT(MIN(b9)))	HEX(CONCAT(MIN(b64)))
+00	0000	0000000000000000
+01	0100	8000000000000000
+SELECT HEX(CONCAT(MIN(b1))), HEX(CONCAT(MIN(b9))), HEX(CONCAT(MIN(b64))) FROM t1 IGNORE INDEX(i1) GROUP BY id;
+HEX(CONCAT(MIN(b1)))	HEX(CONCAT(MIN(b9)))	HEX(CONCAT(MIN(b64)))
+00	0000	0000000000000000
+01	0100	8000000000000000
+DROP TABLE t1;
+#
+# Bug#33515752: Data insertion exception in version 8.0.27
+#
+CREATE TABLE t1(f1 INTEGER);
+INSERT INTO t1 VALUES(1);
+SELECT SQL_BUFFER_RESULT MAX(f1)+1, 1 AS f2  FROM t1 GROUP BY f2;
+MAX(f1)+1	f2
+2	1
+DROP TABLE t1;
+#
+# Bug #33603911: Incorrect result with aggregation by temporary table
+#
+CREATE TABLE t1 ( a INTEGER, b VARCHAR(1) );
+INSERT INTO t1 VALUES (3, 'Q'), (4, '5');
+CREATE TABLE t2 ( a INTEGER );
+INSERT INTO t2 VALUES (3), (4);
+SELECT
+t2d.a,
+SUM(t1.b) AS field2
+FROM
+t1
+JOIN ( SELECT * FROM t2 ) AS t2d ON t1.a = t2d.a
+GROUP BY t2d.a
+HAVING t2d.a <> 3 OR field2 < 5;
+a	field2
+3	0
+4	5
+Warning	1292	Truncated incorrect DOUBLE value: 'Q'
+Warnings:
+DROP TABLE t1, t2;
+#
+# Bug#33738447:
+# Assertion `!(used_tabs & (~ read_tables & ~filter_for_table))' failed.
+#
+CREATE TABLE t (i INTEGER, blobfield LONGTEXT);
+INSERT INTO t VALUES (1, '');
+PREPARE ps FROM '
+SELECT d.i, COUNT(*)
+FROM t, LATERAL (SELECT i, blobfield) AS d
+GROUP BY d.i
+HAVING d.i < 100
+ORDER BY d.i
+';
+EXECUTE ps;
+i	COUNT(*)
+1	1
+EXECUTE ps;
+i	COUNT(*)
+1	1
+DEALLOCATE PREPARE ps;
+DROP TABLE t;
+#
+# Bug#33674441: Wrong result with outer join and streaming aggregation
+#
+CREATE TABLE t1 (a INTEGER PRIMARY KEY, b INTEGER);
+INSERT INTO t1 VALUES (1, 2), (2, 1), (3, 1);
+CREATE TABLE t2 (a INTEGER, b INTEGER, KEY (b));
+INSERT INTO t2 VALUES (1, 11);
+CREATE TABLE t3 (a INTEGER PRIMARY KEY, b INTEGER);
+INSERT INTO t3 VALUES (1, 10), (2, 11), (3, 0), (4, 0), (5, 0), (6, 0);
+SELECT t1.a, MAX(t2.a)
+FROM t1 LEFT JOIN (t2 JOIN t3 ON t2.b = t3.b) ON t1.b = t3.a
+GROUP BY t1.a;
+a	MAX(t2.a)
+1	1
+2	NULL
+3	NULL
+SELECT SQL_BUFFER_RESULT t1.a, MAX(t2.a)
+FROM t1 LEFT JOIN (t2 JOIN t3 ON t2.b = t3.b) ON t1.b = t3.a
+GROUP BY t1.a;
+a	MAX(t2.a)
+1	1
+2	NULL
+3	NULL
+DROP TABLE t1, t2, t3;
+#
+# Bug #33621358: Hypergraph: Assertion `!null_value || is_nullable()'
+#                failed
+#
+CREATE TABLE t1 (f1 INTEGER, PRIMARY KEY(f1));
+SELECT SUM(t1.f1)
+FROM t1 JOIN t1 AS t2
+ON t1.f1 = t2.f1
+ORDER BY RANK() OVER(), CAST(t1.f1 AS UNSIGNED);
+SUM(t1.f1)
+NULL
 DROP TABLE t1;

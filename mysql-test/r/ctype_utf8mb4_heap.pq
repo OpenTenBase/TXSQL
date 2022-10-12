@@ -929,6 +929,12 @@ uf	7566
 æ	C3A6
 Œ	C592
 œ	C593
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select group_concat(s1 order by binary s1) from t1 group by s1;
 group_concat(s1 order by binary s1)
 a,ä
@@ -948,6 +954,12 @@ ue
 uf
 Æ,æ
 Œ,œ
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1), hex(weight_string(s1)) FROM t1 ORDER BY s1, BINARY(s1);
 s1	hex(s1)	hex(weight_string(s1))
 a	61	0041
@@ -973,9 +985,21 @@ uf	7566	00550046
 æ	C3A6	00C6
 Œ	C592	0152
 œ	C593	0152
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1) FROM t1 WHERE s1='ae' ORDER BY s1, BINARY(s1);
 s1	hex(s1)
 ae	6165
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 "END ctype_german.inc"
 SET collation_connection='utf8mb4_bin';
@@ -1728,7 +1752,7 @@ Warning	3720	NATIONAL/NCHAR/NVARCHAR implies the character set UTF8MB3, which wi
 Warnings:
 ay
 select concat(a, if(b>10, N'æ', N'ß')) from t1;
-ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8_general_ci,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8mb3_general_ci,COERCIBLE) for operation 'concat'
 drop table t1;
 set names utf8mb4;
 create table t1 (a varchar(10) character set latin1, b int) engine heap;
@@ -2098,6 +2122,8 @@ u_decimal	hex(utf8mb4_encoding)
 120735	F09D9E9F
 65131	EFB9ABF09D849EF09D859EF09D859EF09D8480F09D859FEFB9ABEFB9ABF09D85A0EFB9AB
 917999	F3A087AF
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 INSERT IGNORE INTO t1 VALUES (1114111, x'f5808080');
 Warnings:
 Warning	1366	Incorrect string value: '\xF5\x80\x80\x80' for column 'utf8mb4_encoding' at row 1
@@ -2190,7 +2216,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `u_decimal` int NOT NULL,
   `utf8mb4_encoding` varchar(10) NOT NULL
-) ENGINE=MEMORY DEFAULT CHARSET=utf8
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb3
 SELECT u_decimal,hex(utf8mb4_encoding),utf8mb4_encoding FROM t1;
 u_decimal	hex(utf8mb4_encoding)	utf8mb4_encoding
 1114111		
@@ -2226,7 +2252,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `u_decimal` int NOT NULL,
   `utf8mb3_encoding` varchar(10) NOT NULL
-) ENGINE=MEMORY DEFAULT CHARSET=utf8
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb3
 SELECT u_decimal,hex(utf8mb3_encoding) FROM t2;
 u_decimal	hex(utf8mb3_encoding)
 1114111	
@@ -2237,8 +2263,8 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `u_decimal` int NOT NULL,
-  `utf8mb4_encoding` varchar(10) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL
-) ENGINE=MEMORY DEFAULT CHARSET=utf8
+  `utf8mb4_encoding` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb3
 SELECT u_decimal,hex(utf8mb4_encoding) FROM t1;
 u_decimal	hex(utf8mb4_encoding)
 1114111	
@@ -2259,7 +2285,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `u_decimal` int NOT NULL,
   `utf8mb4_encoding` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL
-) ENGINE=MEMORY DEFAULT CHARSET=utf8
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb3
 SELECT u_decimal,hex(utf8mb4_encoding) FROM t1;
 u_decimal	hex(utf8mb4_encoding)
 1114111	
@@ -2280,7 +2306,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `u_decimal` int NOT NULL,
   `utf8mb3_encoding` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL
-) ENGINE=MEMORY DEFAULT CHARSET=utf8
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb3
 SELECT u_decimal,hex(utf8mb3_encoding) FROM t2;
 u_decimal	hex(utf8mb3_encoding)
 1114111	
@@ -2334,7 +2360,7 @@ SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TEMPORARY TABLE `t3` (
   `utf8mb4` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `utf8mb3` varchar(10) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
+  `utf8mb3` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `concat(utf8mb4,utf8mb3)` varchar(20) DEFAULT NULL
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TEMPORARY TABLE t3;
@@ -2354,9 +2380,9 @@ DROP TABLE t2;
 CREATE TABLE t1 (utf8mb4 VARCHAR(10) CHARACTER SET utf8mb4) ENGINE heap;
 INSERT INTO t1 VALUES (x'f48fbfbf');
 SELECT CONCAT(utf8mb4, _utf8 '�') FROM t1;
-ERROR HY000: Illegal mix of collations (utf8mb4_0900_ai_ci,IMPLICIT) and (utf8_general_ci,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (utf8mb4_0900_ai_ci,IMPLICIT) and (utf8mb3_general_ci,COERCIBLE) for operation 'concat'
 SELECT CONCAT('a', _utf8 '�') FROM t1;
-ERROR HY000: Illegal mix of collations (utf8mb4_0900_ai_ci,COERCIBLE) and (utf8_general_ci,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (utf8mb4_0900_ai_ci,COERCIBLE) and (utf8mb3_general_ci,COERCIBLE) for operation 'concat'
 DROP TABLE t1;
 #
 # End of 5.5 tests

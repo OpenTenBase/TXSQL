@@ -1309,36 +1309,36 @@ Note	1003	/* select#1 */ select count(`test`.`t1`.`c1`) AS `COUNT(c1)` from `tes
 EXPLAIN SELECT COUNT(c2) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	k2	5	NULL	#	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(`test`.`t1`.`c2`) AS `COUNT(c2)` from `test`.`t1`
 EXPLAIN SELECT COUNT(c3) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(`test`.`t1`.`c3`) AS `COUNT(c3)` from `test`.`t1`
 EXPLAIN SELECT SUM(c1) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	k2	5	NULL	#	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`c1`) AS `SUM(c1)` from `test`.`t1`
 EXPLAIN SELECT SUM(c2) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	k2	5	NULL	#	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`c2`) AS `SUM(c2)` from `test`.`t1`
 EXPLAIN SELECT AVG(c1), MAX(c1), MIN(c2), AVG(c3), SUM(c4) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select avg(`test`.`t1`.`c1`) AS `AVG(c1)`,max(`test`.`t1`.`c1`) AS `MAX(c1)`,min(`test`.`t1`.`c2`) AS `MIN(c2)`,avg(`test`.`t1`.`c3`) AS `AVG(c3)`,sum(`test`.`t1`.`c4`) AS `SUM(c4)` from `test`.`t1`
 EXPLAIN SELECT AVG(c1), MAX(c1), MIN(c2), AVG(c3), SUM(c4) FROM t3;
@@ -1381,16 +1381,16 @@ Note	1003	/* select#1 */ select count(`test`.`t1`.`c2`) AS `COUNT(c2)` from `tes
 EXPLAIN SELECT COUNT(*) FROM t1 WHERE c1 > (SELECT AVG(c1) FROM t1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	range	PRIMARY,k2	PRIMARY	4	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 2	SUBQUERY	t1	NULL	index	NULL	k2	5	NULL	#	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t1` where (`test`.`t1`.`c1` > (/* select#2 */ select avg(`test`.`t1`.`c1`) from `test`.`t1`))
 EXPLAIN SELECT COUNT(*) FROM t1 WHERE c1 > (SELECT AVG(c1) FROM t3);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	range	PRIMARY,k2	PRIMARY	4	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 2	SUBQUERY	t3	p0,p1,p2,p3	index	NULL	k2	5	NULL	#	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t1` where (`test`.`t1`.`c1` > (/* select#2 */ select avg(`test`.`t3`.`c1`) from `test`.`t3`))

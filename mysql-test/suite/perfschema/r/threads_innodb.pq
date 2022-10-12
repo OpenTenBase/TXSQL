@@ -9,7 +9,6 @@ GROUP BY name;
 name	type	processlist_user	processlist_host	processlist_db	processlist_command	processlist_state	processlist_info	parent_thread_id	role	instrumented
 thread/innodb/buf_dump_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/buf_resize_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
-thread/innodb/buf_synchronize_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/dict_stats_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/fts_optimize_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/io_ibuf_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
@@ -17,11 +16,13 @@ thread/innodb/io_log_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Y
 thread/innodb/io_read_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/io_write_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/log_checkpointer_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
+thread/innodb/log_files_governor_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/log_flush_notifier_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/log_flusher_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/log_write_notifier_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/log_writer_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/page_flush_coordinator_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
+thread/innodb/srv_backquery_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/srv_error_monitor_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/srv_lock_timeout_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/srv_master_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES

@@ -7,14 +7,15 @@
 #include "sql/sql_lex.h"  // LEX
 #include "sql/sql_class.h"  // THD
 
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
+static bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                         uint keyno, bool reverse_scan, uint &partitions);
 
 bool is_scan_iterator(RowIterator *iterator) {
   return (iterator->type() == RowIterator::PHY_TABLE_SCAN ||
        iterator->type() == RowIterator::PHY_CONST_TABLE ||
        iterator->type() == RowIterator::PHY_INDEX_SCAN ||
        iterator->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
+       iterator->type() == RowIterator::PHY_INDEX_REVERSE_RANGE_SCAN ||
        iterator->type() == RowIterator::PHY_REF ||
        iterator->type() == RowIterator::PHY_REF_OR_NULL ||
        iterator->type() == RowIterator::PHY_EQ_REF);
@@ -22,9 +23,10 @@ bool is_scan_iterator(RowIterator *iterator) {
 
 bool is_partitionable_scan_iterator(RowIterator *iterator) {
   return (iterator->type() == RowIterator::PHY_INDEX_RANGE_SCAN ||
-        iterator->type() == RowIterator::PHY_TABLE_SCAN ||
-        iterator->type() == RowIterator::PHY_INDEX_SCAN ||
-        iterator->type() == RowIterator::PHY_REF);
+          iterator->type() == RowIterator::PHY_INDEX_REVERSE_RANGE_SCAN ||
+          iterator->type() == RowIterator::PHY_TABLE_SCAN ||
+          iterator->type() == RowIterator::PHY_INDEX_SCAN ||
+          iterator->type() == RowIterator::PHY_REF);
 }
 
 /**
@@ -205,13 +207,11 @@ bool Dfo_mgr::analyze_resource_allocation(int64_t *cores)
         TableRowIterator *scan;
         if (child->is_leaf_dfo() && (scan = analyze_parallel_table(child))) {
           size_t dop = 1;
-          /*
           if (px_partition(m_thd, scan, dop, child->m_px_scan_ctx,
                            m_thd->px_trx)) {
             return true;
           }
-          scan->get_qep_tab()->set_parallel_workers(dop);
-          */
+          scan->set_parallel_workers(dop);
           child->set_dfo_dop(dop);
           exchange_info->set_num_senders(dop);
           exchange_info->set_scan_context(child->m_px_scan_ctx);
@@ -294,4 +294,113 @@ TableRowIterator *analyze_parallel_table(Dfo *dfo)
   } while (iterator);
 
   return nullptr;
+}
+
+/**
+  Dynamic partition a parallel table.
+
+  @param[in]  thd       To provide default dop and hints
+  @param[in]  scan      To provide parallel table
+  @param[out] dop       Real degree of parallelism
+  @param[out] scan_ctx  Pointer to parallel scan context
+  @param[inout] trx     Pointer to the reference transaction for parallel scan.
+                        Should be initialized as nullptr.
+ */
+bool px_partition(THD *thd, TableRowIterator *scan, size_t &dop,
+                  void *&scan_ctx, void *&trx) {
+  const size_t default_dop = thd->variables.txsql_parallel_degree;
+  /*
+    Refine leaf dop to min(real_dop,default_dop).
+
+    Note that the dfo graph is private to each parallel thread, while exchange
+    graph is shared. Although dynamic partitioning provides real dop, it is
+    done only on the coordinator, the workers have to inherit real dop through
+    exchange.
+  */
+  uint partitions = 0;
+  auto descriptor = scan->get_table_descriptor();
+  if (descriptor.get() == nullptr) {
+    PX_PRINT_ERROR("get parallel table descriptor error");
+    return true;
+  }
+
+  TABLE *tab = descriptor->table();
+  size_t given_dop = get_parallel_degree_hint(thd, /*should_effect=*/true);
+  // If given_dop was 0, this place could not be entered.
+  assert(given_dop > 0);
+  if (given_dop == UINT_MAX32) {
+    given_dop = default_dop;
+  }
+  // Zero dop by definition prevents parallel execution.
+  assert(given_dop > 0);
+
+  /*
+    Parallel threads of a single statement should use the same ReadView to
+    access data. This is achieved by obtaining the first ReadView and reusing
+    it in all threads. Specifically, the ReadView is obtained in the
+    coordinator thread which receives the user request, then reused in all
+    background worker threads.
+
+    By saving source transaction in the coordinator (THD::px_coordinator_trx)
+    a worker is able to get a ReadView copy through its reference to the
+    coordinator. The worker then implicitly replaces its default ReadView with
+    the one from the coordinator before any data access.
+
+    See also trx_assign_read_view().
+  */
+  if (!trx) {
+    int err = tab->file->ha_px_trx_init(trx);
+    if (err) {
+      tab->file->print_error(err, MYF(0));
+      return true;
+    }
+  }
+
+  if (scan->prepare_for_parallel_query()) {
+    return true;
+  }
+
+  // Dynamic partition
+  int err = px_partition(given_dop, scan_ctx, tab,
+                         descriptor->type(),
+                         descriptor->keyno(),
+                         descriptor->reverse_scan(),
+                         partitions);
+  if (err) {
+    PX_PRINT_ERROR(
+        "partitioning table %s (%llu rows) with dop %lu got error %d",
+        tab->alias, tab->file->stats.records, given_dop, err);
+    return true;
+  }
+
+  assert(scan_ctx);
+  PX_PRINT_INFO(
+      "partitioning table %s (%llu rows) with dop %lu got %u partitions",
+      tab->alias, tab->file->stats.records, given_dop, partitions);
+  size_t real_dop = partitions;
+  /*
+    No dynamic partition suggests EOF for the iterator. There still should
+    be one thread to process the empty source.
+  */
+  real_dop = real_dop < 1 ? 1 : real_dop;
+  real_dop = real_dop > given_dop ? given_dop : real_dop;
+
+  dop = real_dop;
+  return false;
+}
+
+static bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
+                         uint keyno, bool reverse_scan, uint &partitions) {
+  assert(table);
+  int error = 0;
+  table->file->px_scan_type = type;
+
+  // Set scan ctx to every handler, not only one scan ctx in each THD.
+  error = table->file->ha_px_do_partition(dop, keyno,
+    table->file->px_scan_ctx, partitions, reverse_scan);
+  // Note: print_error() will invoke my_error().
+  if (error) table->file->print_error(error, MYF(0));
+  scan_ctx = table->file->px_scan_ctx;
+
+  return error;
 }

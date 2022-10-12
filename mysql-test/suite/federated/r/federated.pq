@@ -2017,7 +2017,7 @@ a	b
 update ignore federated.t1 set a=a+1;
 select * from federated.t1;
 a	b
-1	Moe
+2	Moe
 3	Curly
 drop table federated.t1;
 drop table federated.t1;

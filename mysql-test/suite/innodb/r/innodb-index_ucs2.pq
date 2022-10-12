@@ -1,4 +1,6 @@
 create table t1(a int not null, b int, c char(10), d varchar(20), primary key (a)) engine = innodb default charset=ucs2;
+Warnings:
+Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 insert into t1 values (1,1,'ab','ab'),(2,2,'ac','ac'),(3,2,'ad','ad'),(4,4,'afe','afe');
 commit;
 alter table t1 add unique index (b);
@@ -33,8 +35,8 @@ a	b	c	d
 select * from t1 force index(b) order by b;
 a	b	c	d
 1	1	ab	ab
-2	2	ac	ac
 3	2	ad	ad
+2	2	ac	ac
 4	4	afe	afe
 8	9	fff	fff
 10	10	kkk	iii
@@ -69,8 +71,8 @@ a	b	c	d
 select * from t1 force index(b) order by b;
 a	b	c	d
 1	1	ab	ab
-2	2	ac	ac
 3	2	ad	ad
+2	2	ac	ac
 4	4	afe	afe
 8	9	fff	fff
 10	10	kkk	iii

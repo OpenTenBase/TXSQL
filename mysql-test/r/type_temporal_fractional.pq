@@ -132,13 +132,13 @@ INSERT INTO t1 (a) VALUES ('10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999999
+a	10:10:10.999994
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
 a	10:10:10.999499
 a	10:10:10.999949
-a	10:10:10.999994
+a	10:10:10.999999
 t0	10:10:10
 t0	10:10:11
 t0	10:10:11
@@ -191,13 +191,13 @@ t6	10:10:10.999999
 ALTER TABLE t1 MODIFY a TIME(6);
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999949
+a	10:10:10.999999
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
 a	10:10:10.999499
+a	10:10:10.999949
 a	10:10:10.999994
-a	10:10:10.999999
 t0	10:10:10
 t0	10:10:11
 t0	10:10:11
@@ -318,11 +318,11 @@ INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	2001-01-01 10:10:10.999499
+a	2001-01-01 10:10:10.999949
 a	2001-01-01 10:10:10.499999
 a	2001-01-01 10:10:10.949999
 a	2001-01-01 10:10:10.994999
-a	2001-01-01 10:10:10.999949
+a	2001-01-01 10:10:10.999499
 a	2001-01-01 10:10:10.999994
 a	2001-01-01 10:10:10.999999
 t0	10:10:10
@@ -763,38 +763,6 @@ a	CAST(a AS TIME)
 -10:10:10.8	-10:10:11
 -10:10:10.9	-10:10:11
 DROP TABLE t1;
-#
-# Testing rounding with FROM_UNIXTIME
-#
-SET time_zone='+00:00';
-CREATE TABLE t1 (a DECIMAL(20,7));
-INSERT INTO t1 VALUES
-(2147483647.999999),
-(2147483647.9999990),
-(2147483647.9999991),
-(2147483647.9999992),
-(2147483647.9999993),
-(2147483647.9999994),
-(2147483647.9999995),
-(2147483647.9999996),
-(2147483647.9999997),
-(2147483647.9999998),
-(2147483647.9999999);
-SELECT a, FROM_UNIXTIME(a) FROM t1;
-a	FROM_UNIXTIME(a)
-2147483647.9999990	2038-01-19 03:14:07.999999
-2147483647.9999990	2038-01-19 03:14:07.999999
-2147483647.9999991	2038-01-19 03:14:07.999999
-2147483647.9999992	2038-01-19 03:14:07.999999
-2147483647.9999993	2038-01-19 03:14:07.999999
-2147483647.9999994	2038-01-19 03:14:07.999999
-2147483647.9999995	NULL
-2147483647.9999996	NULL
-2147483647.9999997	NULL
-2147483647.9999998	NULL
-2147483647.9999999	NULL
-DROP TABLE t1;
-SET time_zone=DEFAULT;
 #
 # Testing internal representation format for TIME(N)
 #
@@ -2863,6 +2831,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (a TIME(6));
 INSERT INTO t1 VALUES ('00:00:00.111111 xxx');
 Warnings:
+Warning	4096	Delimiter ' ' in position 15 in datetime value '00:00:00.111111 xxx' at row 1 is superfluous and is deprecated. Please remove.
 Warning	1265	Data truncated for column 'a' at row 1
 SELECT * FROM t1;
 a
@@ -4023,24 +3992,18 @@ CAST('00:00:00' AS TIME) + INTERVAL 2000 HOUR
 NULL
 Warning	1441	Datetime function: time field overflow
 Warnings:
-SELECT CAST('00:00:00' AS TIME) + INTERVAL 34 DAY;
-CAST('00:00:00' AS TIME) + INTERVAL 34 DAY
-816:00:00
-SELECT CAST('00:00:00' AS TIME) + INTERVAL 35 DAY;
-CAST('00:00:00' AS TIME) + INTERVAL 35 DAY
-NULL
-Warning	1441	Datetime function: time field overflow
-Warnings:
-SELECT CAST('00:00:00' AS TIME) + INTERVAL 1 MONTH;
-CAST('00:00:00' AS TIME) + INTERVAL 1 MONTH
-NULL
-Warning	1441	Datetime function: time field overflow
-Warnings:
-SELECT CAST('00:00:00' AS TIME) + INTERVAL 1 YEAR;
-CAST('00:00:00' AS TIME) + INTERVAL 1 YEAR
-NULL
-Warning	1441	Datetime function: time field overflow
-Warnings:
+SELECT TIME(CAST('00:00:00' AS TIME) + INTERVAL 34 DAY);
+TIME(CAST('00:00:00' AS TIME) + INTERVAL 34 DAY)
+00:00:00
+SELECT TIME(CAST('00:00:00' AS TIME) + INTERVAL 35 DAY);
+TIME(CAST('00:00:00' AS TIME) + INTERVAL 35 DAY)
+00:00:00
+SELECT TIME(CAST('00:00:00' AS TIME) + INTERVAL 1 MONTH);
+TIME(CAST('00:00:00' AS TIME) + INTERVAL 1 MONTH)
+00:00:00
+SELECT TIME(CAST('00:00:00' AS TIME) + INTERVAL 1 YEAR);
+TIME(CAST('00:00:00' AS TIME) + INTERVAL 1 YEAR)
+00:00:00
 SET @@timestamp=UNIX_TIMESTAMP('2001-01-01 00:00:00');
 SELECT CAST(CAST('00:00:00.123456' AS TIME(6)) + INTERVAL 1 DAY AS DATETIME(6));
 CAST(CAST('00:00:00.123456' AS TIME(6)) + INTERVAL 1 DAY AS DATETIME(6))
@@ -5342,6 +5305,7 @@ a
 SET @a=112233.123456;
 SELECT * FROM t1 WHERE a=@a;
 a
+11:22:33.123456
 SET @a=112233.123456e0;
 SELECT * FROM t1 WHERE a=@a;
 a
@@ -7281,9 +7245,11 @@ Warnings:
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('1999-01-01 00:00:00.123456 xxx');
 Warnings:
+Warning	4096	Delimiter ' ' in position 26 in datetime value '1999-01-01 00:00:00.123456 xxx' at row 1 is superfluous and is deprecated. Please remove.
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('1999-01-01 00:00:00 xxx');
 Warnings:
+Warning	4096	Delimiter ' ' in position 19 in datetime value '1999-01-01 00:00:00 xxx' at row 1 is superfluous and is deprecated. Please remove.
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('1999-01-01 xxx');
 Warnings:
@@ -7638,13 +7604,13 @@ INSERT INTO t1 (a) VALUES ('10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999999
+a	10:10:10.999499
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
-a	10:10:10.999499
 a	10:10:10.999949
 a	10:10:10.999994
+a	10:10:10.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -7775,6 +7741,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (a DATETIME(6));
 INSERT INTO t1 VALUES ('0000-00-00 00:00:00.111111 xxx');
 Warnings:
+Warning	4096	Delimiter ' ' in position 26 in datetime value '0000-00-00 00:00:00.111111 xxx' at row 1 is superfluous and is deprecated. Please remove.
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('0000-00-00 00:00:00.1111110');
 INSERT INTO t1 VALUES ('0000-00-00 00:00:00.1111111');
@@ -8450,6 +8417,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 ADD KEY (a);
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -8465,6 +8439,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t2 ADD KEY(b);
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -8480,6 +8461,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 DROP KEY a;
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -8495,6 +8483,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1, t2;
 #
 # Testing arithmetic with INT, DECIMAL, FLOAT
@@ -9244,7 +9239,7 @@ INSERT INTO t1 VALUES ('45:00:00', '45:00:00.123456', 450000, '45:00:00', 45*360
 INSERT INTO t1 VALUES ('-15:00:00', '-15:00:00.123456', -150000, '-15:00:00', -15*3600);
 INSERT INTO t1 VALUES ('-45:00:00', '-45:00:00.123456', -450000, '-45:00:00', -45*3600);
 SELECT a, CAST(a AS DATETIME), CAST(b AS DATETIME), CAST(c AS DATETIME), CAST(d AS DATETIME), CAST(SEC_TO_TIME(e) AS DATETIME), CAST(CAST(a AS TIME) AS DATETIME) FROM t1;;
-a	-15:00:00
+a	45:00:00
 CAST(CAST(a AS TIME) AS DATETIME)	2000-12-30 03:00:00
 CAST(CAST(a AS TIME) AS DATETIME)	2000-12-31 09:00:00
 CAST(CAST(a AS TIME) AS DATETIME)	2001-01-01 15:00:00
@@ -9273,18 +9268,24 @@ Code	1292
 Code	1292
 Code	1292
 Code	1292
+Code	4095
+Code	4095
 Level	Warning
 Level	Warning
 Level	Warning
 Level	Warning
+Level	Warning
+Level	Warning
+Message	Delimiter ':' in position 2 in datetime value '15:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Message	Delimiter ':' in position 2 in datetime value '45:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Message	Incorrect datetime value: '-150000'
 Message	Incorrect datetime value: '-15:00:00'
 Message	Incorrect datetime value: '-450000'
 Message	Incorrect datetime value: '-45:00:00'
 Warnings:
+a	-15:00:00
 a	-45:00:00
 a	15:00:00
-a	45:00:00
 SELECT a, CAST(a AS DATETIME(6)), CAST(b AS DATETIME(6)), CAST(c AS DATETIME(6)), CAST(d AS DATETIME(6)), CAST(SEC_TO_TIME(e) AS DATETIME(6)), CAST(CAST(a AS TIME) AS DATETIME(6)) FROM t1;;
 a	45:00:00
 CAST(CAST(a AS TIME) AS DATETIME(6))	2000-12-30 03:00:00.000000
@@ -9315,10 +9316,16 @@ Code	1292
 Code	1292
 Code	1292
 Code	1292
+Code	4095
+Code	4095
 Level	Warning
 Level	Warning
 Level	Warning
 Level	Warning
+Level	Warning
+Level	Warning
+Message	Delimiter ':' in position 2 in datetime value '15:00:00' at row 1 is deprecated. Prefer the standard '-'.
+Message	Delimiter ':' in position 2 in datetime value '45:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Message	Incorrect datetime value: '-150000'
 Message	Incorrect datetime value: '-15:00:00'
 Message	Incorrect datetime value: '-450000'
@@ -10281,6 +10288,7 @@ a
 SET @a=20010101112233.123456;
 SELECT * FROM t1 WHERE a=@a;
 a
+2001-01-01 11:22:33.123456
 SET @a=0.123456e0;
 SELECT * FROM t1 WHERE a=@a;
 a
@@ -11959,13 +11967,13 @@ INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	2001-01-01 10:10:10.999999
+a	2001-01-01 10:10:10.999994
 a	2001-01-01 10:10:10.499999
 a	2001-01-01 10:10:10.949999
 a	2001-01-01 10:10:10.994999
 a	2001-01-01 10:10:10.999499
 a	2001-01-01 10:10:10.999949
-a	2001-01-01 10:10:10.999994
+a	2001-01-01 10:10:10.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -12018,13 +12026,13 @@ t6	2001-01-01 10:10:10.999999
 ALTER TABLE t1 MODIFY a TIMESTAMP(6);
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	2001-01-01 10:10:10.999499
+a	2001-01-01 10:10:10.999999
 a	2001-01-01 10:10:10.499999
 a	2001-01-01 10:10:10.949999
 a	2001-01-01 10:10:10.994999
+a	2001-01-01 10:10:10.999499
 a	2001-01-01 10:10:10.999949
 a	2001-01-01 10:10:10.999994
-a	2001-01-01 10:10:10.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -12106,12 +12114,12 @@ INSERT INTO t1 (a) VALUES ('10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999949
+a	10:10:10.999994
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
 a	10:10:10.999499
-a	10:10:10.999994
+a	10:10:10.999949
 a	10:10:10.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
@@ -12418,9 +12426,11 @@ Warnings:
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('1999-01-01 00:00:00.123456 xxx');
 Warnings:
+Warning	4096	Delimiter ' ' in position 26 in datetime value '1999-01-01 00:00:00.123456 xxx' at row 1 is superfluous and is deprecated. Please remove.
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('1999-01-01 00:00:00 xxx');
 Warnings:
+Warning	4096	Delimiter ' ' in position 19 in datetime value '1999-01-01 00:00:00 xxx' at row 1 is superfluous and is deprecated. Please remove.
 Warning	1265	Data truncated for column 'a' at row 1
 INSERT INTO t1 VALUES ('1999-01-01 xxx');
 Warnings:
@@ -13178,6 +13188,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 ADD KEY (a);
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -13193,6 +13210,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t2 ADD KEY (b);
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -13208,6 +13232,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 DROP KEY a;
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -13223,6 +13254,13 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.1230
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1, t2;
 #
 # Testing arithmetic with INT, DECIMAL, FLOAT
@@ -14683,6 +14721,7 @@ a
 SET @a=20010101112233.123456;
 SELECT * FROM t1 WHERE a=@a;
 a
+2001-01-01 11:22:33.123456
 SET @a=20010101000000.1e0;
 SELECT @a;
 @a
@@ -15404,12 +15443,16 @@ DROP TABLE t1;
 #
 CREATE TABLE t1 (datetime_column DATETIME(1));
 INSERT INTO t1 VALUES ('0000/1/1T1.23');
+Warnings:
+Warning	4095	Delimiter '/' in position 4 in datetime value '0000/1/1T1.23' at row 1 is deprecated. Prefer the standard '-'.
 SELECT * FROM t1;
 datetime_column
 0000-01-01 01:23:00.0
 DROP TABLE t1;
 CREATE TABLE t1 (datetime_column DATETIME(1));
 INSERT INTO t1 VALUES ('1111.11.11 11.11.11.55');
+Warnings:
+Warning	4095	Delimiter '.' in position 4 in datetime value '1111.11.11 11.11.11.55' at row 1 is deprecated. Prefer the standard '-'.
 SELECT * FROM t1;
 datetime_column
 1111-11-11 11:11:11.6
@@ -15749,10 +15792,10 @@ SET @@timestamp=default;
 SET TIMESTAMP=UNIX_TIMESTAMP('2001-01-01 00:00:00');
 SELECT ADDTIME(UTC_DATE, '23:28:14.014837') FROM dual;
 ADDTIME(UTC_DATE, '23:28:14.014837')
-23:28:14.014837
+2000-12-31 23:28:14.014837
 SELECT SUBTIME(UTC_DATE, '04:44:03.014042') FROM dual ;
 SUBTIME(UTC_DATE, '04:44:03.014042')
--04:44:03.014042
+2000-12-30 19:15:56.985958
 SELECT TIMEDIFF(CURRENT_DATE, '2004-12-07') FROM dual;
 TIMEDIFF(CURRENT_DATE, '2004-12-07')
 -838:59:59
@@ -15768,6 +15811,8 @@ CREATE TABLE t1 (
 pk TIMESTAMP(1) NOT NULL DEFAULT '0000-00-00  00:00:00.0',
 PRIMARY KEY (pk)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 /*!50100 PARTITION BY KEY (pk)PARTITIONS 2 */;
+Warnings:
+Warning	4096	Delimiter ' ' in position 11 in datetime value '0000-00-00  00:00:00.0' at row 1 is superfluous and is deprecated. Please remove.
 INSERT INTO t1 VALUES ('2011-07-13 13:17:58.3'), ('2011-07-13 13:17:59.3');
 SELECT EXTRACT(HOUR_SECOND FROM CURRENT_DATE) FROM t1;
 EXTRACT(HOUR_SECOND FROM CURRENT_DATE)
@@ -15822,12 +15867,11 @@ SELECT col_datetime_5_not_null
 FROM t1 
 WHERE TIMESTAMPADD(QUARTER, 5, col_time_3_key);
 col_datetime_5_not_null
-Warning	1441	Datetime function: time field overflow
-Warning	1441	Datetime function: time field overflow
-Warning	1441	Datetime function: time field overflow
-Warning	1441	Datetime function: time field overflow
-Warning	1441	Datetime function: time field overflow
-Warnings:
+0000-00-00 00:00:00.00000
+0000-00-00 00:00:00.00000
+0000-00-00 00:00:00.00000
+0000-00-00 00:00:00.00000
+2001-12-22 00:00:00.00000
 DROP TABLE t1;
 #
 # bug10
@@ -15967,17 +16011,6 @@ OR
 col_datetime_5 = CURRENT_DATE()
 ORDER BY 1;
 c1	c2
-Warnings:
-Warning	1411	Incorrect datetime value: '03:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '12:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '08:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '08:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '12:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '08:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '12:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '12:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '12:07' for function str_to_date
-Warning	1411	Incorrect datetime value: '12:07' for function str_to_date
 DROP TABLE t1;
 SET timestamp=DEFAULT;
 #
@@ -16991,6 +17024,8 @@ AND
 col_timestamp_3_not_null_key < col_datetime;
 c1	c2
 Warning	1411	Incorrect datetime value: '00-0' for function str_to_date
+Warning	4095	Delimiter ':' in position 2 in datetime value '00:00:00.000000' at row 1 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 2 in datetime value '00:00:00.000000' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 DROP TABLE t1;
 #
@@ -17288,8 +17323,8 @@ GREATEST(a, 20010101120000)
 (SELECT GREATEST(a, 20010101120000) FROM t1) UNION ALL (SELECT GREATEST(a, 20010101120000) FROM t1 LIMIT 0);
 GREATEST(a, 20010101120000)
 2001-01-01 12:00:00.000
-2008-08-21 00:00:00.000
 2001-01-01 12:00:00.000
+2008-08-21 00:00:00.000
 SELECT LEAST(a, 20010101120000) FROM t1;
 LEAST(a, 20010101120000)
 0000-00-00 00:00:00.000
@@ -17308,8 +17343,8 @@ GREATEST(a, 20010101120000.123456)
 2008-08-21 00:00:00.000000
 (SELECT GREATEST(a, 20010101120000.123456) FROM t1) UNION ALL (SELECT GREATEST(a, 20010101120000.123456) FROM t1 LIMIT 0);
 GREATEST(a, 20010101120000.123456)
-2001-01-01 12:00:00.123456
 2008-08-21 00:00:00.000000
+2001-01-01 12:00:00.123456
 2001-01-01 12:00:00.123456
 SELECT LEAST(a, 20010101120000.123456) FROM t1;
 LEAST(a, 20010101120000.123456)
@@ -17319,8 +17354,8 @@ LEAST(a, 20010101120000.123456)
 (SELECT LEAST(a, 20010101120000.123456) FROM t1) UNION ALL (SELECT LEAST(a, 20010101120000.123456) FROM t1 LIMIT 0);
 LEAST(a, 20010101120000.123456)
 2000-07-16 05:58:04.035000
-2001-01-01 12:00:00.123456
 0000-00-00 00:00:00.000
+2001-01-01 12:00:00.123456
 # Testing REAL number
 SELECT GREATEST(a, 20010101120000e0) FROM t1;
 GREATEST(a, 20010101120000e0)
@@ -17329,8 +17364,8 @@ GREATEST(a, 20010101120000e0)
 2008-08-21 00:00:00.000000
 (SELECT GREATEST(a, 20010101120000e0) FROM t1) UNION ALL (SELECT GREATEST(a, 20010101120000e0) FROM t1 LIMIT 0);
 GREATEST(a, 20010101120000e0)
-2001-01-01 12:00:00.000000
 2008-08-21 00:00:00.000000
+2001-01-01 12:00:00.000000
 2001-01-01 12:00:00.000000
 SELECT LEAST(a, 20010101120000e0) FROM t1;
 LEAST(a, 20010101120000e0)
@@ -17339,9 +17374,9 @@ LEAST(a, 20010101120000e0)
 2001-01-01 12:00:00.000000
 (SELECT LEAST(a, 20010101120000e0) FROM t1) UNION ALL (SELECT LEAST(a, 20010101120000e0) FROM t1 LIMIT 0);
 LEAST(a, 20010101120000e0)
-0000-00-00 00:00:00.000
 2000-07-16 05:58:04.035000
 2001-01-01 12:00:00.000000
+0000-00-00 00:00:00.000
 DROP TABLE t1;
 # Make sure precision of 6 fractional digits does not get lost
 CREATE TABLE t1 (a DATETIME(6));
@@ -17401,6 +17436,8 @@ ERROR HY000: Incorrect DATETIME value: '2012071001021.1'
 SELECT TIMESTAMP '2013:07:10 01.02.0.31';
 TIMESTAMP '2013:07:10 01.02.0.31'
 2013-07-10 01:02:00.31
+Warning	4095	Delimiter ':' in position 4 in datetime value '2013:07:10 01.02.0.31' at row 1 is deprecated. Prefer the standard '-'.
+Warnings:
 SELECT TIMESTAMP '20130710010203.';
 TIMESTAMP '20130710010203.'
 2013-07-10 01:02:03
@@ -17451,6 +17488,8 @@ Warning	1265	Data truncated for column 'col' at row 3
 Warning	1265	Data truncated for column 'col' at row 4
 Warning	1265	Data truncated for column 'col' at row 5
 Warning	1265	Data truncated for column 'col' at row 6
+Warning	4095	Delimiter ':' in position 4 in datetime value '2013:07:10 01.02.031' at row 7 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2013:07:10 01.02.031.2' at row 8 is deprecated. Prefer the standard '-'.
 Warning	1265	Data truncated for column 'col' at row 9
 Warning	1265	Data truncated for column 'col' at row 10
 Warning	1265	Data truncated for column 'col' at row 11
@@ -17494,6 +17533,8 @@ Warning	1265	Data truncated for column 'col' at row 3
 Warning	1265	Data truncated for column 'col' at row 4
 Warning	1265	Data truncated for column 'col' at row 5
 Warning	1265	Data truncated for column 'col' at row 6
+Warning	4095	Delimiter ':' in position 4 in datetime value '2013:07:10 01.02.031' at row 7 is deprecated. Prefer the standard '-'.
+Warning	4095	Delimiter ':' in position 4 in datetime value '2013:07:10 01.02.031.2' at row 8 is deprecated. Prefer the standard '-'.
 Warning	1265	Data truncated for column 'col' at row 9
 Warning	1265	Data truncated for column 'col' at row 10
 Warning	1265	Data truncated for column 'col' at row 11
@@ -17655,40 +17696,6 @@ Warnings:
 SET @@session.sql_buffer_result=default;
 DROP TABLE t1;
 #
-# Bug #28671811 FROM_UNIXTIME ACCEPTS AN OUT OF RANGE PARAMETER
-#               THROUGH ROUNDING
-#
-SET time_zone='+00:00';
-SELECT
-FROM_UNIXTIME(2147483647) AS c1,
-FROM_UNIXTIME(2147483648) AS c2,
-FROM_UNIXTIME(2147483647.9999999) AS c3;
-c1	c2	c3
-2038-01-19 03:14:07	NULL	NULL
-SET time_zone=default;
-SELECT
-FROM_UNIXTIME(2147483647) AS c1,
-FROM_UNIXTIME(2147483648) AS c2,
-FROM_UNIXTIME(2147483647.9999999) AS c3;
-c1	c2	c3
-2038-01-19 06:14:07	NULL	NULL
-SET sql_mode=time_truncate_fractional;
-SET time_zone='+00:00';
-SELECT
-FROM_UNIXTIME(2147483647) AS c1,
-FROM_UNIXTIME(2147483648) AS c2,
-FROM_UNIXTIME(2147483647.9999999) AS c3;
-c1	c2	c3
-2038-01-19 03:14:07	NULL	2038-01-19 03:14:07.999999
-SET time_zone=default;
-SELECT
-FROM_UNIXTIME(2147483647) AS c1,
-FROM_UNIXTIME(2147483648) AS c2,
-FROM_UNIXTIME(2147483647.9999999) AS c3;
-c1	c2	c3
-2038-01-19 06:14:07	NULL	2038-01-19 06:14:07.999999
-SET sql_mode=default;
-#
 # Bug#29120569 SETTING OUT OF RANGE FRACTIONAL PART PRODUCES
 #              INCORRECT TIMESTAMPS
 #
@@ -17789,7 +17796,7 @@ DROP TABLE t1;
 #
 do date_add(utc_time(), interval(oct(-11779)) microsecond);
 Warnings:
-Warning	1441	Datetime function: time field overflow
+Warning	1292	Truncated incorrect INTEGER value: '1777777777777777750775'
 #
 # Bug #31054071 UBSAN: SIGNED INTEGER OVERFLOW IN
 #               ITEM_DATE_ADD_INTERVAL::GET_TIME_INTERNAL

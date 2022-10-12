@@ -14,8 +14,8 @@ test.t1	analyze	status	OK
 explain select count(a) as b from t1 where a=0 having b >=0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `b` from `test`.`t1` where (`test`.`t1`.`a` = 0) having (`b` >= 0)
 drop table t1;
@@ -324,9 +324,9 @@ select sum(col1) from t1
 group by col_t1
 having (select col_t1 from t2 where col_t1 = col_t2 order by col_t2 limit 1);
 sum(col1)
-20
-30
 40
+30
+20
 select t1.col1 from t1
 where t1.col2 in 
 (select t2.col2 from t2 
@@ -804,9 +804,12 @@ val	c
 UPDATE series set val=0;
 SELECT next_seq_value() r, MIN(u) FROM t1 GROUP BY t HAVING r = 1;
 r	MIN(u)
-1	11
-1	15
-1	17
+0	11
+0	12
+0	15
+0	16
+0	17
+0	18
 DROP TABLE t1;
 DROP FUNCTION next_seq_value;
 DROP TABLE series, seq_calls;
@@ -937,3 +940,40 @@ DELETE FROM v LIMIT 1;
 ERROR HY000: The target table v of the DELETE is not updatable
 DROP VIEW v;
 DROP TABLE t;
+# Bug#32239484: Item_sum_json::val_json: assertion `!m_wrapper->empty()'
+SELECT 1 HAVING COUNT(*) = 1;
+1
+1
+SELECT 1 WHERE TRUE HAVING COUNT(*) = 1;
+1
+1
+SELECT 1 WHERE FALSE HAVING COUNT(*) = 0;
+1
+1
+SELECT 1 HAVING json_objectagg(utc_date(), 1416) <> 0;
+1
+1
+#
+# Bug #33152269: No result set returned when using HAVING COUNT(DISTINCT ...)
+#
+CREATE TABLE t1 (a INTEGER);
+INSERT INTO t1 VALUES (1), (2);
+SELECT DISTINCT
+COUNT(DISTINCT t1.a) AS da
+FROM
+t1
+JOIN t1 AS t2 ON t1.a = t2.a
+GROUP BY t1.a
+HAVING COUNT(DISTINCT t1.a) = 1;
+da
+1
+DROP TABLE t1;
+#
+# Bug #30617496: BAD ITEM REF FROM CORRELATED SUBQUERY TO OUTER DISTINCT TABLE
+#
+CREATE TABLE t1 (f1 INT, f2 TEXT, f3 INT, PRIMARY KEY(f1));
+CREATE TABLE t2 LIKE t1;
+SELECT DISTINCT f3 FROM t1 HAVING (SELECT 1 FROM t2 HAVING f2 LIMIT 1) ORDER BY f3;
+ERROR 42S22: Unknown column 'f2' in 'having clause'
+DROP TABLE t1;
+DROP TABLE t2;

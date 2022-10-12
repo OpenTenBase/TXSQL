@@ -46,7 +46,7 @@ EXPLAIN
             -> Sort: t1.col1  (cost=1.25 rows=10)
                 -> Filter: (t1.col2 is not null)  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
-    -> Index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
+    -> Covering index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
 
 # UNION
 explain format=tree (select * from t1 where id > 2) union all (select * from t2 where id > 3);
@@ -58,12 +58,12 @@ EXPLAIN
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Filter: (t1.id > 2)  (cost=1.86 rows=8)
-                            -> Parallel index range scan on t1 using PRIMARY  (cost=1.86 rows=8)
+                            -> Parallel index range scan on t1 using PRIMARY over (2 < id)  (cost=1.86 rows=8)
             -> Stream results  (cost=1.66 rows=7)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 3; workers: 4)
                         -> Filter: (t2.id > 3)  (cost=1.66 rows=7)
-                            -> Parallel index range scan on t2 using PRIMARY  (cost=1.66 rows=7)
+                            -> Parallel index range scan on t2 using PRIMARY over (3 < id)  (cost=1.66 rows=7)
 
 # Subquery
 set @old_optimizer_switch = @@optimizer_switch;
@@ -76,7 +76,7 @@ EXPLAIN
             -> Filter: (t1.col1 is not null)  (cost=1.25 rows=10)
                 -> Parallel table scan on t1  (cost=1.25 rows=10)
             -> Single-row index lookup on <subquery2> using <auto_distinct_key> (col1=t1.col1)
-                -> Materialize with deduplication  (cost=1.25 rows=3)
+                -> Materialize with deduplication  (cost=1.58..1.58 rows=3)
                     -> Filter: (t2.col1 is not null)  (cost=1.25 rows=3)
                         -> Filter: (t2.col1 > 2)  (cost=1.25 rows=3)
                             -> Table scan on t2  (cost=1.25 rows=10)
@@ -86,10 +86,10 @@ set optimizer_switch = @old_optimizer_switch;
 explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 EXPLAIN
 -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-    -> Table scan on t  (cost=0.26 rows=3)
-        -> Materialize  (cost=1.25 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=1.25 rows=3)
+    -> Table scan on t  (cost=0.76..2.54 rows=3)
+        -> Materialize  (cost=5.22..6.99 rows=3)
+            -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                     -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
                         -> Table scan on t1  (cost=1.25 rows=10)
     -> Hash
@@ -113,7 +113,7 @@ EXPLAIN
             -> Sort: t1.col1  (cost=1.25 rows=10)
                 -> Filter: (t1.col2 is not null)  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
-    -> Index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
+    -> Covering index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
 
 # UNION
 explain format=tree (select * from t1 where id > 2) union all (select * from t2 where id > 3);
@@ -121,10 +121,10 @@ EXPLAIN
 -> Append
     -> Stream results  (cost=1.86 rows=8)
         -> Filter: (t1.id > 2)  (cost=1.86 rows=8)
-            -> Index range scan on t1 using PRIMARY  (cost=1.86 rows=8)
+            -> Index range scan on t1 using PRIMARY over (2 < id)  (cost=1.86 rows=8)
     -> Stream results  (cost=1.66 rows=7)
         -> Filter: (t2.id > 3)  (cost=1.66 rows=7)
-            -> Index range scan on t2 using PRIMARY  (cost=1.66 rows=7)
+            -> Index range scan on t2 using PRIMARY over (3 < id)  (cost=1.66 rows=7)
 
 # Subquery
 set @old_optimizer_switch = @@optimizer_switch;
@@ -135,7 +135,7 @@ EXPLAIN
     -> Filter: (t1.col1 is not null)  (cost=1.25 rows=10)
         -> Table scan on t1  (cost=1.25 rows=10)
     -> Single-row index lookup on <subquery2> using <auto_distinct_key> (col1=t1.col1)
-        -> Materialize with deduplication  (cost=1.25 rows=3)
+        -> Materialize with deduplication  (cost=1.58..1.58 rows=3)
             -> Filter: (t2.col1 is not null)  (cost=1.25 rows=3)
                 -> Filter: (t2.col1 > 2)  (cost=1.25 rows=3)
                     -> Table scan on t2  (cost=1.25 rows=10)
@@ -145,10 +145,10 @@ set optimizer_switch = @old_optimizer_switch;
 explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 EXPLAIN
 -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-    -> Table scan on t  (cost=0.26 rows=3)
-        -> Materialize  (cost=1.25 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=1.25 rows=3)
+    -> Table scan on t  (cost=0.76..2.54 rows=3)
+        -> Materialize  (cost=5.22..6.99 rows=3)
+            -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                     -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
                         -> Table scan on t1  (cost=1.25 rows=10)
     -> Hash
@@ -172,7 +172,7 @@ EXPLAIN
             -> Sort: t1.col1  (cost=1.25 rows=10)
                 -> Filter: (t1.col2 is not null)  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
-    -> Index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
+    -> Covering index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
 
 # UNION
 explain format=tree (select * from t1 where id > 2) union all (select * from t2 where id > 3);
@@ -180,10 +180,10 @@ EXPLAIN
 -> Append
     -> Stream results  (cost=1.86 rows=8)
         -> Filter: (t1.id > 2)  (cost=1.86 rows=8)
-            -> Index range scan on t1 using PRIMARY  (cost=1.86 rows=8)
+            -> Index range scan on t1 using PRIMARY over (2 < id)  (cost=1.86 rows=8)
     -> Stream results  (cost=1.66 rows=7)
         -> Filter: (t2.id > 3)  (cost=1.66 rows=7)
-            -> Index range scan on t2 using PRIMARY  (cost=1.66 rows=7)
+            -> Index range scan on t2 using PRIMARY over (3 < id)  (cost=1.66 rows=7)
 
 # Subquery
 set @old_optimizer_switch = @@optimizer_switch;
@@ -194,7 +194,7 @@ EXPLAIN
     -> Filter: (t1.col1 is not null)  (cost=1.25 rows=10)
         -> Table scan on t1  (cost=1.25 rows=10)
     -> Single-row index lookup on <subquery2> using <auto_distinct_key> (col1=t1.col1)
-        -> Materialize with deduplication  (cost=1.25 rows=3)
+        -> Materialize with deduplication  (cost=1.58..1.58 rows=3)
             -> Filter: (t2.col1 is not null)  (cost=1.25 rows=3)
                 -> Filter: (t2.col1 > 2)  (cost=1.25 rows=3)
                     -> Table scan on t2  (cost=1.25 rows=10)
@@ -204,10 +204,10 @@ set optimizer_switch = @old_optimizer_switch;
 explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 EXPLAIN
 -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-    -> Table scan on t  (cost=0.26 rows=3)
-        -> Materialize  (cost=1.25 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=1.25 rows=3)
+    -> Table scan on t  (cost=0.76..2.54 rows=3)
+        -> Materialize  (cost=5.22..6.99 rows=3)
+            -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                     -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
                         -> Table scan on t1  (cost=1.25 rows=10)
     -> Hash
@@ -227,7 +227,7 @@ EXPLAIN
     -> Sort: t1.col1  (cost=1.25 rows=10)
         -> Filter: (t1.col2 is not null)  (cost=1.25 rows=10)
             -> Table scan on t1  (cost=1.25 rows=10)
-    -> Index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
+    -> Covering index lookup on t2 using idx (col2=t1.col2)  (cost=0.26 rows=1)
 
 # UNION
 explain format=tree (select * from t1 where id > 2) union all (select * from t2 where id > 3);
@@ -235,10 +235,10 @@ EXPLAIN
 -> Append
     -> Stream results  (cost=1.86 rows=8)
         -> Filter: (t1.id > 2)  (cost=1.86 rows=8)
-            -> Index range scan on t1 using PRIMARY  (cost=1.86 rows=8)
+            -> Index range scan on t1 using PRIMARY over (2 < id)  (cost=1.86 rows=8)
     -> Stream results  (cost=1.66 rows=7)
         -> Filter: (t2.id > 3)  (cost=1.66 rows=7)
-            -> Index range scan on t2 using PRIMARY  (cost=1.66 rows=7)
+            -> Index range scan on t2 using PRIMARY over (3 < id)  (cost=1.66 rows=7)
 
 # Subquery
 set @old_optimizer_switch = @@optimizer_switch;
@@ -249,7 +249,7 @@ EXPLAIN
     -> Filter: (t1.col1 is not null)  (cost=1.25 rows=10)
         -> Table scan on t1  (cost=1.25 rows=10)
     -> Single-row index lookup on <subquery2> using <auto_distinct_key> (col1=t1.col1)
-        -> Materialize with deduplication  (cost=1.25 rows=3)
+        -> Materialize with deduplication  (cost=1.58..1.58 rows=3)
             -> Filter: (t2.col1 is not null)  (cost=1.25 rows=3)
                 -> Filter: (t2.col1 > 2)  (cost=1.25 rows=3)
                     -> Table scan on t2  (cost=1.25 rows=10)
@@ -259,10 +259,10 @@ set optimizer_switch = @old_optimizer_switch;
 explain format=tree select * from t1 straight_join (select distinct col1 from t1) as t where t.col1>2 and t1.id=t.col1;
 EXPLAIN
 -> Inner hash join (t.col1 = t1.id)  (cost=7.12 rows=11)
-    -> Table scan on t  (cost=0.26 rows=3)
-        -> Materialize  (cost=1.25 rows=3)
-            -> Table scan on <temporary>
-                -> Temporary table with deduplication  (cost=1.25 rows=3)
+    -> Table scan on t  (cost=0.76..2.54 rows=3)
+        -> Materialize  (cost=5.22..6.99 rows=3)
+            -> Table scan on <temporary>  (cost=0.76..2.54 rows=3)
+                -> Temporary table with deduplication  (cost=2.34..4.12 rows=3)
                     -> Filter: (t1.col1 > 2)  (cost=1.25 rows=3)
                         -> Table scan on t1  (cost=1.25 rows=10)
     -> Hash

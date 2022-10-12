@@ -100,8 +100,8 @@ Stmt 4: Execute (one param)
 Verify [Status variable "Mysqlx_prep_execute" needs to have a value of 7]
 phrase
 Alice has a cat
-Bob has a dog
 Christina has a hamster
+Bob has a dog
 0 rows affected
 
 Stmt 4: Deallocate
@@ -122,8 +122,8 @@ Rows matched: 1  Changed: 1  Warnings: 0
 Verify [Status variable "Mysqlx_prep_execute" needs to have a value of 8]
 phrase
 David has a parot
-Bob has a dog
 Christina has a hamster
+Bob has a dog
 0 rows affected
 
 Stmt 5: Deallocate
@@ -154,4 +154,3 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-DROP SCHEMA IF EXISTS xtest;

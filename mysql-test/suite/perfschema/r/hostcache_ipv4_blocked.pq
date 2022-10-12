@@ -1,5 +1,5 @@
 flush status;
-flush hosts;
+TRUNCATE TABLE performance_schema.host_cache;
 flush user_resources;
 flush privileges;
 select @@global.debug;
@@ -180,7 +180,7 @@ HOST	santa.claus.ipv4.example.com
 HOST_VALIDATED	YES
 LAST_ERROR_SEEN	set
 SUM_CONNECT_ERRORS	3
-flush hosts;
+TRUNCATE TABLE performance_schema.host_cache;
 ERROR 08S01: Bad handshake
 "Dumping performance_schema.host_cache"
 IP	192.0.2.4

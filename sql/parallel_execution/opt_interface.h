@@ -51,7 +51,7 @@ enum enum_opt_call_type {
 /// Identify optimizer rule repositories which are likely to get plan changes.
 enum enum_opt_repo_type {
   /// mysql.outline
-  OPT_REPO_OUTLINE,
+  //OPT_REPO_OUTLINE,
   /// mysql.server_cost mysql.engine_cost
   OPT_REPO_COST,
   /// query_rewrite.rewrite_rules

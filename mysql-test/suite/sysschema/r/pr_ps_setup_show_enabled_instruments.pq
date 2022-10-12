@@ -96,7 +96,6 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
-statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES
@@ -110,6 +109,7 @@ statement/com/Error	YES
 statement/com/Execute	YES
 statement/com/Fetch	YES
 statement/com/Field List	YES
+statement/com/Group Replication Data Stream subscription	YES
 statement/com/Init DB	YES
 statement/com/Kill	YES
 statement/com/Long Data	YES
@@ -118,7 +118,7 @@ statement/com/Prepare	YES
 statement/com/Processlist	YES
 statement/com/Quit	YES
 statement/com/Refresh	YES
-statement/com/Register Slave	YES
+statement/com/Register Replica	YES
 statement/com/Reset Connection	YES
 statement/com/Reset stmt	YES
 statement/com/Set option	YES

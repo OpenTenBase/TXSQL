@@ -430,7 +430,7 @@ EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t1.b)
+            -> Group aggregate: sum(t1.b)  (cost=2.25 rows=10)
                 -> Sort: t1.a  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
 
@@ -451,7 +451,7 @@ EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t1.b)
+            -> Group aggregate: sum(t1.b)  (cost=2.25 rows=10)
                 -> Sort: t1.a  (cost=1.25 rows=10)
                     -> Parallel table scan on t1  (cost=1.25 rows=10)
 
@@ -473,12 +473,12 @@ EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t1.b)
+            -> Group aggregate: sum(t1.b)  (cost=5.75 rows=10)
                 -> Nested loop inner join  (cost=4.75 rows=10)
                     -> Sort: t1.a  (cost=1.25 rows=10)
                         -> Filter: ((t1.a > 1) and (t1.a is not null))  (cost=1.25 rows=10)
                             -> Parallel table scan on t1  (cost=1.25 rows=10)
-                    -> Single-row index lookup on t2 using PRIMARY (a=t1.a)  (cost=0.26 rows=1)
+                    -> Single-row covering index lookup on t2 using PRIMARY (a=t1.a)  (cost=0.26 rows=1)
 
 select sql_big_result t1.a, sum(t1.b) from t2 join t1 on t2.a = t1.a where t2.a > 1 group by t1.a order by t1.a;
 a	sum(t1.b)
@@ -497,7 +497,7 @@ EXPLAIN
 -> Group aggregate: sum(t3.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t3.b)
+            -> Group aggregate: sum(t3.b)  (cost=15.85 rows=78)
                 -> Sort: t3.a, t3.c  (cost=8.05 rows=78)
                     -> Parallel table scan on t3  (cost=8.05 rows=78)
 
@@ -513,7 +513,7 @@ EXPLAIN
 -> Group aggregate: sum(t3.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t3.b)
+            -> Group aggregate: sum(t3.b)  (cost=15.85 rows=78)
                 -> Sort: t3.c, t3.a  (cost=8.05 rows=78)
                     -> Parallel table scan on t3  (cost=8.05 rows=78)
 
@@ -527,11 +527,11 @@ a	c	sum(b)
 explain format=tree select sql_big_result a,c, sum(b) from t3 group by a,c order by c,a;
 EXPLAIN
 -> Sort: t3.c, t3.a
-    -> Stream results
+    -> Stream results  (cost=15.85 rows=78)
         -> Group aggregate: sum(t3.b)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
-                    -> Group aggregate: sum(t3.b)
+                    -> Group aggregate: sum(t3.b)  (cost=15.85 rows=78)
                         -> Sort: t3.a, t3.c  (cost=8.05 rows=78)
                             -> Parallel table scan on t3  (cost=8.05 rows=78)
 
@@ -547,7 +547,7 @@ EXPLAIN
 -> Group aggregate: sum(t3.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t3.b)
+            -> Group aggregate: sum(t3.b)  (cost=15.85 rows=78)
                 -> Sort: t3.a, t3.c, t3.d  (cost=8.05 rows=78)
                     -> Parallel table scan on t3  (cost=8.05 rows=78)
 
@@ -564,7 +564,7 @@ EXPLAIN
 -> Group aggregate: sum(t3.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t3.b)
+            -> Group aggregate: sum(t3.b)  (cost=15.85 rows=78)
                 -> Sort: t3.d, t3.a, t3.c  (cost=8.05 rows=78)
                     -> Parallel table scan on t3  (cost=8.05 rows=78)
 
@@ -579,11 +579,11 @@ a	c	d	sum(b)
 explain format=tree select sql_big_result a,c,d, sum(b) from t3 group by d,a,c order by a,c,d;
 EXPLAIN
 -> Sort: t3.a, t3.c, t3.d
-    -> Stream results
+    -> Stream results  (cost=15.85 rows=78)
         -> Group aggregate: sum(t3.b)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
-                    -> Group aggregate: sum(t3.b)
+                    -> Group aggregate: sum(t3.b)  (cost=15.85 rows=78)
                         -> Sort: t3.d, t3.a, t3.c  (cost=8.05 rows=78)
                             -> Parallel table scan on t3  (cost=8.05 rows=78)
 
@@ -600,12 +600,12 @@ a	c	d	sum(b)
 #
 explain format=tree select sql_big_result a, sum(b) from t1 group by a order by sum(b);
 EXPLAIN
--> Sort: `sum(b)`
-    -> Stream results
+-> Sort: sum(`sum(b)`)
+    -> Stream results  (cost=2.25 rows=10)
         -> Group aggregate: sum(t1.b)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
-                    -> Group aggregate: sum(t1.b)
+                    -> Group aggregate: sum(t1.b)  (cost=2.25 rows=10)
                         -> Sort: t1.a  (cost=1.25 rows=10)
                             -> Parallel table scan on t1  (cost=1.25 rows=10)
 
@@ -637,6 +637,8 @@ EXPLAIN
         -> Sort: if((t1.u = 1),cast(t1.st as char charset binary),t1.st)  (cost=0.85 rows=6)
             -> Parallel table scan on t1  (cost=0.85 rows=6)
 
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select if(u=1,binary st,st) s from t1 order by s;
 s
 A
@@ -645,6 +647,12 @@ BBB
 a
 aa
 aaa
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 create table t1(a int, b int, c int);
 insert into t1 values (1,1,1), (2,1,1), (3,3,3), (3,4,4), (4,5,5), (5,5,5);
@@ -674,7 +682,7 @@ EXPLAIN
 -> Group aggregate: sum(t1.b)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Group aggregate: sum(t1.b)
+            -> Group aggregate: sum(t1.b)  (cost=280.85 rows=1398)
                 -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a, sum(b) from t1 group by a;
@@ -689,7 +697,7 @@ EXPLAIN
 -> Group aggregate: sum(t1.c)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Group aggregate: sum(t1.c)
+            -> Group aggregate: sum(t1.c)  (cost=280.85 rows=1398)
                 -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a, b, sum(c) from t1 group by a, b;
@@ -705,7 +713,7 @@ EXPLAIN
 -> Group aggregate: sum(t1.c)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Group aggregate: sum(t1.c)
+            -> Group aggregate: sum(t1.c)  (cost=280.85 rows=1398)
                 -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
 select a, b, sum(c) from t1 group by a, b order by a, b;
@@ -721,7 +729,7 @@ EXPLAIN
 -> Group (no aggregates)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Group (no aggregates)
+            -> Group (no aggregates)  (cost=187.65 rows=466)
                 -> Filter: (t1.b > 2)  (cost=141.05 rows=466)
                     -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
@@ -735,7 +743,7 @@ EXPLAIN
 -> Group (no aggregates)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Group (no aggregates)
+            -> Group (no aggregates)  (cost=187.65 rows=466)
                 -> Filter: (t1.c > 2)  (cost=141.05 rows=466)
                     -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
 
@@ -2157,7 +2165,7 @@ EXPLAIN
 -> Filter: (t1.a < 4)  (cost=188.17 rows=932)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Parallel index range scan on t1 using idx  (cost=188.17 rows=932)
+            -> Parallel covering index range scan on t1 using idx over (NULL < a < 4)  (cost=188.17 rows=932)
 
 select a from t1 where a<4 order by a;
 a
@@ -3098,7 +3106,7 @@ EXPLAIN
 -> Filter: (t1.a < 4)  (cost=188.17 rows=932)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Parallel index range scan on t1 using idx  (cost=188.17 rows=932)
+            -> Parallel covering index range scan on t1 using idx over (NULL < a < 4) (reverse)  (cost=188.17 rows=932)
 
 select a from t1 where a<4 order by a desc;
 a
@@ -4037,14 +4045,13 @@ a
 # Deduplication has been optimized away.
 explain format=tree select distinct a from t1 where a=2;
 EXPLAIN
--> Group (computed in earlier step, no aggregates)
-    -> Filter: (t1.a = 2)  (cost=2.18 rows=1)
-        -> Index range scan on t1 using index_for_group_by(idx)  (cost=2.18 rows=1)
+-> Filter: (t1.a = 2)  (cost=2.18 rows=1)
+    -> Covering index skip scan for deduplication on t1 using idx over (a = 2)  (cost=2.18 rows=1)
 
 # Not supported
 explain format=tree select count(distinct b) from t1;
 EXPLAIN
--> Aggregate: count(distinct t1.b)
+-> Aggregate: count(distinct t1.b)  (cost=280.85 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
             -> Parallel index scan on t1 using idx  (cost=141.05 rows=1398)
@@ -4103,6 +4110,7 @@ insert into tmp select * from t3;
 insert into t3 select * from tmp;
 insert into tmp select * from t3;
 insert into t3 select * from tmp;
+set session innodb_parallel_read_threads=1;
 alter table t3 add t2nr int not null auto_increment primary key first;
 drop table tmp;
 analyze table t2,t3;
@@ -4115,11 +4123,11 @@ EXPLAIN
 -> PX Receiver (merge sort; slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 4)
         -> Sort: t2.fld3, t3.period, t3.price
-            -> Stream results  (cost=255.79 rows=24)
-                -> Nested loop inner join  (cost=255.79 rows=24)
+            -> Stream results  (cost=255.38 rows=24)
+                -> Nested loop inner join  (cost=255.38 rows=24)
                     -> Filter: (t2.companynr = 37)  (cost=123.90 rows=120)
                         -> Parallel table scan on t2  (cost=123.90 rows=1199)
-                    -> Filter: ((t2.fld1 = t3.t2nr) and (t3.period >= 1001) and (t3.period <= 1002))  (cost=1.00 rows=0)
+                    -> Filter: ((t2.fld1 = t3.t2nr) and (t3.period >= 1001) and (t3.period <= 1002))  (cost=1.00 rows=0.2)
                         -> Single-row index lookup on t3 using PRIMARY (t2nr=t2.fld1)  (cost=1.00 rows=1)
 
 select fld3,period,price,price2 from t2,t3 where t2.fld1=t3.t2nr and period >= 1001 and period <= 1002 and t2.companynr = 37 order by fld3,period, price;
@@ -4243,11 +4251,10 @@ EXPLAIN
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 3)
             -> Sort: t1.b
-                -> Table scan on <temporary>
-                    -> Temporary table  (cost=1.60 rows=3)
-                        -> Nested loop inner join  (cost=1.60 rows=3)
-                            -> Parallel table scan on t2  (cost=0.55 rows=3)
-                            -> Single-row index lookup on t1 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
+                -> Stream results  (cost=1.60 rows=3)
+                    -> Nested loop inner join  (cost=1.60 rows=3)
+                        -> Parallel table scan on t2  (cost=0.55 rows=3)
+                        -> Single-row index lookup on t1 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
 
 SELECT t1.b, COUNT(DISTINCT t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b;
 b	COUNT(DISTINCT t1.a)
@@ -4255,17 +4262,16 @@ b	COUNT(DISTINCT t1.a)
 2	1
 EXPLAIN FORMAT=TREE SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
 EXPLAIN
--> Table scan on <temporary>
-    -> Temporary table
+-> Table scan on <temporary>  (cost=2.50..2.50 rows=0)
+    -> Temporary table  (cost=2.50..2.50 rows=0)
         -> Group aggregate with rollup: count(t1.a)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 3)
                     -> Sort: t1.b
-                        -> Table scan on <temporary>
-                            -> Temporary table  (cost=1.60 rows=3)
-                                -> Nested loop inner join  (cost=1.60 rows=3)
-                                    -> Parallel table scan on t2  (cost=0.55 rows=3)
-                                    -> Single-row index lookup on t1 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
+                        -> Stream results  (cost=1.60 rows=3)
+                            -> Nested loop inner join  (cost=1.60 rows=3)
+                                -> Parallel table scan on t2  (cost=0.55 rows=3)
+                                -> Single-row index lookup on t1 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
 
 SELECT t1.b, COUNT(t1.a) FROM t1, t2 WHERE t1.a=t2.a GROUP BY t1.b WITH ROLLUP;
 b	COUNT(t1.a)
@@ -4286,11 +4292,11 @@ test.t1	analyze	status	OK
 test.t2	analyze	status	OK
 EXPLAIN FORMAT=TREE (SELECT SQL_CALC_FOUND_ROWS * FROM t1 LIMIT 1) UNION SELECT * FROM t2 LIMIT 1;
 EXPLAIN
--> Limit: 1 row(s) (no early end due to SQL_CALC_FOUND_ROWS)
+-> Limit: 1 row(s) (no early end due to SQL_CALC_FOUND_ROWS)  (cost=2.12..4.00 rows=4)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 1)
             -> Table scan on <union temporary>  (cost=2.50 rows=0)
-                -> Union materialize with deduplication
+                -> Union materialize with deduplication  (cost=2.12..4.00 rows=4)
                     -> Limit: 1 row(s)  (cost=0.55 rows=1)
                         -> Table scan on t1  (cost=0.55 rows=3)
                     -> PX Receiver (slice: 1; workers: 1)
@@ -4310,11 +4316,11 @@ Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future r
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 EXPLAIN FORMAT=TREE SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t where a>RAND(1);
 EXPLAIN
--> Filter: (t.a > rand(1))
+-> Filter: (t.a > rand(1))  (cost=2.24..2.77 rows=2)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 1)
-            -> Table scan on t  (cost=2.77 rows=6)
-                -> Union materialize with deduplication
+            -> Table scan on t  (cost=0.43..2.58 rows=6)
+                -> Union materialize with deduplication  (cost=2.13..4.28 rows=6)
                     -> PX Receiver (slice: 1; workers: 1)
                         -> PX Sender (slice: 2; workers: 3)
                             -> Parallel table scan on t1  (cost=0.55 rows=3)
@@ -4332,11 +4338,11 @@ a
 EXPLAIN FORMAT=TREE SELECT * FROM ((SELECT * FROM t1) UNION SELECT * FROM t2) AS t ORDER BY RAND(1);
 EXPLAIN
 -> Sort: `rand(1)`
-    -> Stream results
+    -> Stream results  (cost=2.13..4.28 rows=6)
         -> PX Receiver (slice: 0; workers: 1)
             -> PX Sender (slice: 1; workers: 1)
-                -> Table scan on t  (cost=3.18 rows=6)
-                    -> Union materialize with deduplication
+                -> Table scan on t  (cost=0.43..2.58 rows=6)
+                    -> Union materialize with deduplication  (cost=2.13..4.28 rows=6)
                         -> PX Receiver (slice: 1; workers: 1)
                             -> PX Sender (slice: 2; workers: 3)
                                 -> Parallel table scan on t1  (cost=0.55 rows=3)
@@ -4463,21 +4469,21 @@ EXPLAIN FORMAT=tree
 SELECT a + (SELECT SUM(a) FROM t1) FROM t1 UNION ALL SELECT a + (SELECT SUM(a) FROM t1) FROM t1;
 EXPLAIN
 -> Append
-    -> Stream results
-        -> Left hash join (no condition)
+    -> Stream results  (cost=6.58 rows=4)
+        -> Left hash join (no condition)  (cost=6.58 rows=4)
             -> Table scan on t1  (cost=0.65 rows=4)
             -> Hash
-                -> Table scan on derived_1_2  (cost=0.65 rows=1)
-                    -> Materialize
-                        -> Aggregate: sum(t1.a)
+                -> Table scan on derived_1_2  (cost=2.51..2.51 rows=1)
+                    -> Materialize  (cost=3.66..3.66 rows=1)
+                        -> Aggregate: sum(t1.a)  (cost=1.05 rows=1)
                             -> Table scan on t1  (cost=0.65 rows=4)
-    -> Stream results
-        -> Left hash join (no condition)
+    -> Stream results  (cost=6.58 rows=4)
+        -> Left hash join (no condition)  (cost=6.58 rows=4)
             -> Table scan on t1  (cost=0.65 rows=4)
             -> Hash
-                -> Table scan on derived_3_4  (cost=0.65 rows=1)
-                    -> Materialize
-                        -> Aggregate: sum(t1.a)
+                -> Table scan on derived_3_4  (cost=2.51..2.51 rows=1)
+                    -> Materialize  (cost=3.66..3.66 rows=1)
+                        -> Aggregate: sum(t1.a)  (cost=1.05 rows=1)
                             -> Table scan on t1  (cost=0.65 rows=4)
 
 SELECT a + (SELECT SUM(a) FROM t1) FROM t1 UNION ALL SELECT a + (SELECT SUM(a) FROM t1) FROM t1;
@@ -4547,4 +4553,31 @@ SET @@long_query_time= @old_long_query_time;
 SET @@global.log_output= @old_log_output;
 SET @@global.slow_query_log= @old_slow_query_log;
 DROP TABLE t1,t2,t3,t17059925;
+truncate table mysql.general_log;
+truncate table mysql.slow_log;
+#
+# group_by
+#
+create table t1 (id integer primary key not null auto_increment, gender char(1));
+insert into t1 values (NULL, 'M'), (NULL, 'F'),(NULL, 'F'),(NULL, 'F'),(NULL, 'M');
+create table t2 (user_id integer not null, date date);
+insert into t2 values (1, '2002-06-09'),(2, '2002-06-09'),(1, '2002-06-09'),(3, '2002-06-09'),(4, '2002-06-09'),(4, '2002-06-09');
+select u.gender as gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender;
+gender	dist_count	percentage
+F	3	60.0000
+M	1	20.0000
+select u.gender as  gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender  order by percentage;
+gender	dist_count	percentage
+M	1	20.0000
+F	3	60.0000
+drop table t1,t2;
+#
+# Exchange between aggregate and materialize
+#
+CREATE TABLE t(a varbinary(10));
+INSERT INTO t VALUES(0xFF00F0F0), (0xF0F0FF00);
+SELECT SQL_BUFFER_RESULT HEX(BIT_AND(a)), HEX(BIT_OR(a)), HEX(BIT_XOR(a)) FROM t;
+HEX(BIT_AND(a))	HEX(BIT_OR(a))	HEX(BIT_XOR(a))
+F000F000	FFF0FFF0	0FF00FF0
+DROP TABLE t;
 # --include set_px_to_saved.inc

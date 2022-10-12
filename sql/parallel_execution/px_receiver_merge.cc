@@ -3,6 +3,7 @@
 #include "px_mq.h"
 #include "px_exchange_info.h"
 #include "px_codec.h"
+#include "scope_guard.h"  // create_scope_guard
 #include "sql/filesort.h"
 #include "sql/sql_optimizer.h"
 #include "sql/log.h"
@@ -26,6 +27,9 @@ PX_receiver_merge::PX_receiver_merge(
 bool PX_receiver_merge::Init() {
   TABLE *table = get_table();
   uint curr_slice = 0;
+  auto switch_to_output_slice = create_scope_guard([&] {
+    if (m_join) SwitchSlice(m_join, m_ref_slice);
+  });
 
   /*
     Register the PX_process to PX_exchange_info and attach to responding channels.

@@ -9338,8 +9338,6 @@ EXPLAIN SELECT * FROM t8 WHERE c1 IN (SELECT c1 FROM t12);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
 SELECT * FROM t8 WHERE c1 IN (SELECT c1 FROM t12);
 c1
 EXPLAIN SELECT * FROM t8 GROUP BY c1 HAVING c1 IN (SELECT c1 FROM t12);
@@ -9750,8 +9748,6 @@ EXPLAIN SELECT * FROM t9 WHERE c1 IN (SELECT c1 FROM t12);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
 SELECT * FROM t9 WHERE c1 IN (SELECT c1 FROM t12);
 c1
 EXPLAIN SELECT * FROM t9 GROUP BY c1 HAVING c1 IN (SELECT c1 FROM t12);
@@ -10156,8 +10152,6 @@ SELECT * FROM t10 STRAIGHT_JOIN t12 WHERE t10.c1=t12.c1;
 c1	c1
 EXPLAIN SELECT * FROM t10 WHERE c1 IN (SELECT c1 FROM t12);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
 SELECT * FROM t10 WHERE c1 IN (SELECT c1 FROM t12);
@@ -10653,8 +10647,6 @@ SELECT * FROM t11 STRAIGHT_JOIN t12 WHERE t11.c1=t12.c1;
 c1	c1
 EXPLAIN SELECT * FROM t11 WHERE c1 IN (SELECT c1 FROM t12);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
-#	SIMPLE	#	#	#	#	#	#	#	#	#	#
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
 #	SIMPLE	#	#	#	#	#	#	#	#	#	#
 SELECT * FROM t11 WHERE c1 IN (SELECT c1 FROM t12);

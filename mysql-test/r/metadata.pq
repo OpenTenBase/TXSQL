@@ -3,7 +3,7 @@ Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is
 1	1.0	-1	hello	NULL
 1	1.0	-1	hello	NULL
 def					-1	8	2	2	N	32897	0	63
-def					1	8	1	1	N	32897	0	63
+def					1	8	2	1	N	32897	0	63
 def					1.0	246	4	3	N	32897	1	63
 def					NULL	6	0	0	Y	32896	0	63
 def					hello	253	20	5	N	1	31	255
@@ -84,12 +84,12 @@ select 1 union select 1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 1
 1
-def				1	1	8	1	1	N	32769	0	63
+def				1	1	8	2	1	N	32769	0	63
 select * from (select 1 union select 1) aaa;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 1
 1
-def			aaa	1	1	8	1	1	N	32769	0	63
+def			aaa	1	1	8	2	1	N	32769	0	63
 drop table t1;
 create table t1 (i int);
 insert into t1 values (1),(2),(3);
@@ -105,12 +105,12 @@ affected rows: 0
 select a.* from (select 2147483648 as v_large) a;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 2147483648
-def			a	v_large	v_large	8	10	10	N	32769	0	63
+def			a	v_large	v_large	8	11	10	N	32769	0	63
 v_large
 select a.* from (select 214748364 as v_small) a;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 214748364
-def			a	v_small	v_small	3	9	9	N	32769	0	63
+def			a	v_small	v_small	8	10	9	N	32769	0	63
 v_small
 CREATE TABLE t1 (c1 CHAR(1));
 CREATE TABLE t2 (c2 CHAR(1));

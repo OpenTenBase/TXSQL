@@ -75,6 +75,7 @@ drop table t1;
 create table t1 (v varchar(10) binary ascii);
 Warnings:
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
+Warning	1287	'ASCII' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -83,6 +84,7 @@ t1	CREATE TABLE `t1` (
 drop table t1;
 create table t1 (v varchar(10) ascii binary);
 Warnings:
+Warning	1287	'ASCII' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
 show create table t1;
 Table	Create Table
@@ -93,6 +95,7 @@ drop table t1;
 create table t1 (v varchar(10) binary unicode);
 Warnings:
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
+Warning	1287	'UNICODE' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -101,6 +104,7 @@ t1	CREATE TABLE `t1` (
 drop table t1;
 create table t1 (v varchar(10) unicode binary);
 Warnings:
+Warning	1287	'UNICODE' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
 show create table t1;
 Table	Create Table
@@ -124,6 +128,7 @@ t1	CREATE TABLE `t1` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 alter table t1 modify v varchar(10) unicode binary;
 Warnings:
+Warning	1287	'UNICODE' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
 show create table t1;
 Table	Create Table
@@ -133,6 +138,7 @@ t1	CREATE TABLE `t1` (
 alter table t1 modify v varchar(10) binary ascii;
 Warnings:
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
+Warning	1287	'ASCII' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -151,6 +157,8 @@ Warnings:
 utf8mb4_0900_ai_ci	utf8mb4_bin
 select collation(convert('a',char(2) ascii)), collation(convert('a',char(2) ascii binary));
 collation(convert('a',char(2) ascii))	collation(convert('a',char(2) ascii binary))
+Warning	1287	'ASCII' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
+Warning	1287	'ASCII' is deprecated and will be removed in a future release. Please use CHARACTER SET charset_name instead
 Warning	1287	'BINARY as attribute of a type' is deprecated and will be removed in a future release. Please use a CHARACTER SET clause with _bin collation instead
 Warnings:
 latin1_swedish_ci	latin1_bin

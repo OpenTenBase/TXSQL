@@ -4145,6 +4145,11 @@ void TABLE::reset() {
 
   pos_in_table_list = nullptr;
   table_sample_arg = nullptr;
+
+#if defined(HAVE_PX)
+  m_parallel_scan = false;
+  m_parallel_workers = 0;
+#endif /* defined(HAVE_PX) */
 }
 
 /**

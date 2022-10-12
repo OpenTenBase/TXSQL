@@ -61,6 +61,46 @@
 
 #include <vector>
 
+#if defined(HAVE_PX)
+bool JoinPredicate::eq(const JoinPredicate *other) const {
+  if (expr->type != other->expr->type ||
+      semijoin_group_size != other->semijoin_group_size ||
+      ordering_idx_needed_for_semijoin_rewrite !=
+          other->ordering_idx_needed_for_semijoin_rewrite ||
+      expr->equijoin_conditions.size() !=
+          other->expr->equijoin_conditions.size() ||
+      expr->join_conditions.size() !=
+          other->expr->join_conditions.size() ||
+      expr->tables_in_subtree != other->expr->tables_in_subtree) {
+    return false;
+  }
+  int i = 0;
+  for (Item_func_eq *cond : expr->equijoin_conditions) {
+    HashJoinCondition hj_cond(cond, *THR_MALLOC);
+    HashJoinCondition other_cond(other->expr->equijoin_conditions[i], *THR_MALLOC);
+    if (hj_cond.store_full_sort_key() != other_cond.store_full_sort_key()) {
+      return false;
+    } else if (!hj_cond.store_full_sort_key()) {
+      if (!hj_cond.left_extractor()->eq(other_cond.left_extractor(), true) ||
+          !hj_cond.right_extractor()->eq(other_cond.right_extractor(), true)) {
+        return false;
+      }
+    } else if (!cond->eq(other->expr->equijoin_conditions[i], true)) {
+      return false;
+    }
+    i++;
+  }
+  i = 0;
+  for (Item *cond : expr->join_conditions) {
+    if (!cond->eq(other->expr->join_conditions[i], true)) {
+      return false;
+    }
+    i++;
+  }
+  return true;
+}
+#endif /* defined(HAVE_PX) */
+
 using pack_rows::TableCollection;
 using std::vector;
 
@@ -143,7 +183,58 @@ static AccessPath *FindSingleAccessPathOfType(AccessPath *path,
 
 static RowIterator *FindSingleIteratorOfType(AccessPath *path,
                                              AccessPath::Type type) {
-  return FindSingleAccessPathOfType(path, type)->iterator->real_iterator();
+    AccessPath *found_path = FindSingleAccessPathOfType(path, type);
+  if (found_path == nullptr) {
+    return nullptr;
+  } else {
+    return found_path->iterator->real_iterator();
+  }
+}
+
+TABLE *GetBasicTable(const AccessPath *path) {
+  switch (path->type) {
+    // Basic access paths (those with no children, at least nominally).
+    case AccessPath::TABLE_SCAN:
+      return path->table_scan().table;
+    case AccessPath::INDEX_SCAN:
+      return path->index_scan().table;
+    case AccessPath::REF:
+      return path->ref().table;
+    case AccessPath::REF_OR_NULL:
+      return path->ref_or_null().table;
+    case AccessPath::EQ_REF:
+      return path->eq_ref().table;
+    case AccessPath::PUSHED_JOIN_REF:
+      return path->pushed_join_ref().table;
+    case AccessPath::FULL_TEXT_SEARCH:
+      return path->full_text_search().table;
+    case AccessPath::CONST_TABLE:
+      return path->const_table().table;
+    case AccessPath::MRR:
+      return path->mrr().table;
+    case AccessPath::FOLLOW_TAIL:
+      return path->follow_tail().table;
+    case AccessPath::INDEX_RANGE_SCAN:
+      return path->index_range_scan().used_key_part[0].field->table;
+    case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
+      return path->dynamic_index_range_scan().table;
+
+    case AccessPath::INDEX_MERGE:
+      return path->index_merge().table;
+
+    // Basic access paths that don't correspond to a specific table.
+    case AccessPath::TABLE_VALUE_CONSTRUCTOR:
+    case AccessPath::FAKE_SINGLE_ROW:
+    case AccessPath::ZERO_ROWS:
+    case AccessPath::ZERO_ROWS_AGGREGATED:
+    case AccessPath::MATERIALIZED_TABLE_FUNCTION:
+    case AccessPath::UNQUALIFIED_COUNT:
+
+    // Note, some other AccessPaths may use its own temporary (derived) table.
+    // We intentionally do not return such TABLEs.
+    default:
+      return nullptr;
+  }
 }
 
 table_map GetUsedTableMap(const AccessPath *path, bool include_pruned_tables) {
@@ -1149,31 +1240,51 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         break;
       }
       case AccessPath::PX_RECEIVE: {
-        unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-            thd, mem_root, path->px_receiver().child, join, eligible_for_batch_mode);
-        iterator = NewIterator<PX_receiver>(thd, mem_root, 0, nullptr, join, move(child),
+        const auto &param = path->px_receiver();
+        if (job.children.is_null()) {
+          SetupJobsForChildren(mem_root, param.child, join,
+                               eligible_for_batch_mode, &job, &todo);
+          continue;
+        }
+        iterator = NewIterator<PX_receiver>(thd, mem_root, 0, nullptr,
+                                            join, move(job.children[0]),
             path->px_receiver().tables, path->px_receiver().ref_slice);
         iterator->adjust_children();
         break;
       }
       case AccessPath::PX_SEND: {
+        const auto &param = path->px_send();
         if (path->px_send().table_path) {
+          if (job.children.is_null()) {
+            job.AllocChildren(mem_root, 2);
+            todo.push_back(job);
+            todo.push_back({path->px_send().table_path,
+                            join,
+                            eligible_for_batch_mode,
+                            &job.children[0],
+                            {}});
+            todo.push_back({path->px_send().child,
+                            join,
+                            eligible_for_batch_mode,
+                            &job.children[1],
+                            {}});
+            continue;
+          }
           unique_ptr_destroy_only<RowIterator> table_iterator =
-              CreateIteratorFromAccessPath(thd, path->px_send().table_path,
-                                        join, eligible_for_batch_mode);
-          unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-              thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
-
+            move(job.children[0]);
           iterator = NewIterator<PX_sender>(
-              thd, mem_root, 0, nullptr, move(child), path->px_send().tables,
+              thd, mem_root, 0, nullptr, move(job.children[1]), path->px_send().tables,
               path->px_send().send_fields, nullptr, path->px_send().temp_table_param,
               path->px_send().use_item, move(table_iterator));
           iterator->adjust_children();
         } else {
-          unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-              thd, mem_root, path->px_send().child, join, eligible_for_batch_mode);
+          if (job.children.is_null()) {
+            SetupJobsForChildren(mem_root, param.child, join,
+                                 eligible_for_batch_mode, &job, &todo);
+            continue;
+          }
           iterator = NewIterator<PX_sender>(
-              thd, mem_root, 0, nullptr, move(child), path->px_send().tables,
+              thd, mem_root, 0, nullptr, move(job.children[0]), path->px_send().tables,
               path->px_send().send_fields, nullptr, path->px_send().temp_table_param,
               path->px_send().use_item, nullptr);
           iterator->adjust_children();
@@ -1181,10 +1292,15 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         break;
       }
       case AccessPath::PX_RECEIVER_MERGE: {
-        unique_ptr_destroy_only<RowIterator> child = CreateIteratorFromAccessPath(
-            thd, mem_root, path->px_receiver_merge().child, join, eligible_for_batch_mode);
-        iterator = NewIterator<PX_receiver_merge>(thd, mem_root, 0, nullptr, path->px_receiver_merge().tables,
-            path->px_receiver_merge().filesort, move(child), join, path->px_receiver_merge().ref_slice);
+        const auto &param = path->px_receiver_merge();
+        if (job.children.is_null()) {
+          SetupJobsForChildren(mem_root, param.child, join,
+                               eligible_for_batch_mode, &job, &todo);
+          continue;
+        }
+        iterator = NewIterator<PX_receiver_merge>(thd, mem_root, 0, nullptr,
+            path->px_receiver_merge().tables, path->px_receiver_merge().filesort,
+            move(job.children[0]), join, path->px_receiver_merge().ref_slice);
         iterator->adjust_children();
         break;
       }

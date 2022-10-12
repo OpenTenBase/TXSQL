@@ -827,8 +827,6 @@ prepare stmt1 from 'select c4 FROM t9 where
     c13 = (select MAX(b) from t1 where a = ?) and c22 = ? ' ;
 execute stmt1 using @arg01, @arg02;
 c4
-Warnings:
-Warning	1292	Truncated incorrect DOUBLE value: 'two'
 prepare stmt1 from ' select a, b FROM t1 outer_table where
    a = (select a from t1 where b = outer_table.b ) order by a ';
 execute stmt1 ;
@@ -1741,7 +1739,7 @@ const09	1991-08-05 01:01:01
 const10	662680861
 const11	1991
 const12	NULL
-def	test	t5	t5	const01	const01	3	1	1	N	32769	0	63
+def	test	t5	t5	const01	const01	3	2	1	N	32769	0	63
 def	test	t5	t5	const02	const02	246	4	3	N	32769	1	63
 def	test	t5	t5	const03	const03	5	17	1	N	32769	31	63
 def	test	t5	t5	const04	const04	253	12	3	N	1	0	255
@@ -3045,7 +3043,6 @@ Note	1265	Data truncated for column 'c16' at row 1
 Warning	1265	Data truncated for column 'c17' at row 1
 Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
-Note	1265	Data truncated for column 'c16' at row 1
 Warning	1265	Data truncated for column 'c17' at row 1
 Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
@@ -3057,7 +3054,6 @@ Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
 Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
-Note	1265	Data truncated for column 'c16' at row 1
 Warning	1265	Data truncated for column 'c17' at row 1
 Warnings:
 Warning	1265	Data truncated for column 'c13' at row 1
@@ -3096,7 +3092,7 @@ Warning	1265	Data truncated for column 'c15' at row 1
 Warning	1264	Out of range value for column 'c16' at row 1
 Warning	1264	Out of range value for column 'c17' at row 1
 Warnings:
-Warning	1265	Data truncated for column 'c15' at row 1
+Warning	1264	Out of range value for column 'c15' at row 1
 Warning	1264	Out of range value for column 'c16' at row 1
 Warning	1264	Out of range value for column 'c17' at row 1
 select c1, c13, c14, c15, c16, c17 from t9 order by c1 ;
@@ -4013,8 +4009,6 @@ prepare stmt1 from 'select c4 FROM t9 where
     c13 = (select MAX(b) from t1 where a = ?) and c22 = ? ' ;
 execute stmt1 using @arg01, @arg02;
 c4
-Warnings:
-Warning	1292	Truncated incorrect DOUBLE value: 'two'
 prepare stmt1 from ' select a, b FROM t1 outer_table where
    a = (select a from t1 where b = outer_table.b ) order by a ';
 execute stmt1 ;
@@ -4927,7 +4921,7 @@ const09	1991-08-05 01:01:01
 const10	662680861
 const11	1991
 const12	NULL
-def	test	t5	t5	const01	const01	3	1	1	N	32769	0	63
+def	test	t5	t5	const01	const01	3	2	1	N	32769	0	63
 def	test	t5	t5	const02	const02	246	4	3	N	32769	1	63
 def	test	t5	t5	const03	const03	5	17	1	N	32769	31	63
 def	test	t5	t5	const04	const04	253	12	3	N	1	0	255
@@ -6231,7 +6225,6 @@ Note	1265	Data truncated for column 'c16' at row 1
 Warning	1265	Data truncated for column 'c17' at row 1
 Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
-Note	1265	Data truncated for column 'c16' at row 1
 Warning	1265	Data truncated for column 'c17' at row 1
 Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
@@ -6243,7 +6236,6 @@ Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
 Warnings:
 Note	1265	Data truncated for column 'c13' at row 1
-Note	1265	Data truncated for column 'c16' at row 1
 Warning	1265	Data truncated for column 'c17' at row 1
 Warnings:
 Warning	1265	Data truncated for column 'c13' at row 1
@@ -6282,7 +6274,7 @@ Warning	1265	Data truncated for column 'c15' at row 1
 Warning	1264	Out of range value for column 'c16' at row 1
 Warning	1264	Out of range value for column 'c17' at row 1
 Warnings:
-Warning	1265	Data truncated for column 'c15' at row 1
+Warning	1264	Out of range value for column 'c15' at row 1
 Warning	1264	Out of range value for column 'c16' at row 1
 Warning	1264	Out of range value for column 'c17' at row 1
 select c1, c13, c14, c15, c16, c17 from t9 order by c1 ;

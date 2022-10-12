@@ -48,17 +48,17 @@ NULL	NULL
 select id-5,facility from t1 order by "id-5";
 id-5	facility
 NULL	NULL
--6	
 -5	
 -4	/L
--3	A01
+-6	
 -2	ANC
+-3	A01
 -1	F01
 0	FBX
 1	MT
 2	P
-3	RV
 4	SRV
+3	RV
 5	VMT
 select id,concat(facility) from t1 group by id ;
 id	concat(facility)
@@ -180,11 +180,18 @@ b
 1
 INSERT INTO t2 values (1),(2),(3);
 INSERT INTO t3 VALUES (1,'1'),(2,'2'),(1,'1'),(2,'2');
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 explain SELECT distinct t3.a FROM t3,t2,t1 WHERE t3.a=t1.b AND t1.a=t2.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	a	a	4	NULL	5	100.00	Using index; Using temporary
+1	SIMPLE	t2	NULL	index	a	a	4	NULL	5	100.00	Parallel scan (4 workers); Using index
 1	SIMPLE	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.a	1	100.00	Using where
-1	SIMPLE	t3	NULL	ref	a	a	5	test.t1.b	2	100.00	Using index
+1	SIMPLE	t3	NULL	ref	a	a	5	test.t1.b	3	100.00	Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	15	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	15	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t3`.`a` AS `a` from `test`.`t3` join `test`.`t2` join `test`.`t1` where ((`test`.`t1`.`a` = `test`.`t2`.`a`) and (`test`.`t3`.`a` = `test`.`t1`.`b`))
 SELECT distinct t3.a FROM t3,t2,t1 WHERE t3.a=t1.b AND t1.a=t2.a;
@@ -205,8 +212,10 @@ test.t2	analyze	status	OK
 test.t3	analyze	status	OK
 explain select distinct t1.a from t1,t3 where t1.a=t3.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Using index; Using temporary
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Parallel scan (4 workers); Using index
 1	SIMPLE	t3	NULL	ref	a	a	5	test.t1.a	102	100.00	Using index; Distinct
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` join `test`.`t3` where (`test`.`t3`.`a` = `test`.`t1`.`a`)
 flush status;
@@ -217,9 +226,9 @@ a
 show status like 'Handler_read%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	4
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	4
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	3
@@ -230,25 +239,31 @@ select distinct 1 from t1,t3 where t1.a=t3.a;
 show status like 'Handler_read%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	4
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	208
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	1
+Handler_read_rnd_next	0
 explain SELECT distinct t1.a from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1`
 explain SELECT distinct t1.a from t1 order by a desc;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Backward index scan; Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Parallel scan (4 workers); Backward index scan; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` order by `test`.`t1`.`a` desc
 explain SELECT t1.a from t1 group by a order by a desc;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Backward index scan; Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Parallel scan (4 workers); Backward index scan; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` group by `test`.`t1`.`a` order by `test`.`t1`.`a` desc
 explain SELECT distinct t1.a from t1 order by a desc limit 1;
@@ -278,10 +293,10 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t3` group by `test`.`t3`.`a`,`test`.`t3`.`b` order by (`test`.`t3`.`a` + 1)
  SELECT distinct t1.a from t1;
 a
-1
 2
-3
 4
+1
+3
  SELECT distinct t1.a from t1 order by a desc;
 a
 4
@@ -395,13 +410,15 @@ WHERE
 ((t1.id=j_lj_t2.id AND t2_lj.id IS NULL) OR (t1.id=t2.id AND t2.idx=2))
 AND ((t1.id=j_lj_t3.id AND t3_lj.id IS NULL) OR (t1.id=t3.id AND t3.idx=2));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	id	id	4	NULL	2	100.00	Using index; Using temporary
+1	SIMPLE	t1	NULL	index	id	id	4	NULL	2	100.00	Parallel scan (2 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 1	SIMPLE	t2	NULL	index	id	id	8	NULL	1	100.00	Using index; Distinct; Using join buffer (hash join)
 1	SIMPLE	t3	NULL	index	id	id	8	NULL	1	100.00	Using index; Distinct; Using join buffer (hash join)
 1	SIMPLE	j_lj_t2	NULL	index	id	id	4	NULL	2	100.00	Using where; Using index; Distinct; Using join buffer (hash join)
-1	SIMPLE	t2_lj	NULL	index	id	id	8	NULL	1	100.00	Using where; Using index; Distinct; Using join buffer (hash join)
+1	SIMPLE	t2_lj	NULL	ref	id	id	4	test.j_lj_t2.id	1	100.00	Using where; Using index; Distinct
 1	SIMPLE	j_lj_t3	NULL	index	id	id	4	NULL	2	100.00	Using where; Using index; Distinct; Using join buffer (hash join)
-1	SIMPLE	t3_lj	NULL	index	id	id	8	NULL	1	100.00	Using where; Using index; Distinct; Using join buffer (hash join)
+1	SIMPLE	t3_lj	NULL	ref	id	id	4	test.j_lj_t3.id	1	100.00	Using where; Using index; Distinct
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`id` AS `id` from `test`.`t1` straight_join `test`.`t2` straight_join `test`.`t3` straight_join `test`.`t1` `j_lj_t2` left join `test`.`t2` `t2_lj` on((`test`.`t2_lj`.`id` = `test`.`j_lj_t2`.`id`)) straight_join `test`.`t1` `j_lj_t3` left join `test`.`t3` `t3_lj` on((`test`.`t3_lj`.`id` = `test`.`j_lj_t3`.`id`)) where ((((`test`.`j_lj_t2`.`id` = `test`.`t1`.`id`) and (`test`.`t2_lj`.`id` is null)) or ((`test`.`t2`.`idx` = 2) and (`test`.`t2`.`id` = `test`.`t1`.`id`))) and (((`test`.`j_lj_t3`.`id` = `test`.`t1`.`id`) and (`test`.`t3_lj`.`id` is null)) or ((`test`.`t3`.`idx` = 2) and (`test`.`t3`.`id` = `test`.`t1`.`id`))))
 SELECT DISTINCT
@@ -663,81 +680,118 @@ a	2	b
 DROP TABLE t1,t2;
 CREATE TABLE t1(a INT PRIMARY KEY, b INT);
 INSERT INTO t1 VALUES (1,1), (2,1), (3,1);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT DISTINCT a FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	3	100.00	Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1`
 EXPLAIN SELECT DISTINCT a,b FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1`
 EXPLAIN SELECT DISTINCT t1_1.a, t1_1.b FROM t1 t1_1, t1 t1_2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1_1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using temporary
+1	SIMPLE	t1_1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 1	SIMPLE	t1_2	NULL	index	NULL	PRIMARY	4	NULL	3	100.00	Using index; Distinct; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1_1`.`a` AS `a`,`test`.`t1_1`.`b` AS `b` from `test`.`t1` `t1_1` join `test`.`t1` `t1_2`
 EXPLAIN SELECT DISTINCT t1_1.a, t1_1.b FROM t1 t1_1, t1 t1_2
 WHERE t1_1.a = t1_2.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1_1	NULL	ALL	PRIMARY	NULL	NULL	NULL	3	100.00	Using temporary
+1	SIMPLE	t1_1	NULL	ALL	PRIMARY	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
 1	SIMPLE	t1_2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t1_1.a	1	100.00	Using index; Distinct
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1_1`.`a` AS `a`,`test`.`t1_1`.`b` AS `b` from `test`.`t1` `t1_1` join `test`.`t1` `t1_2` where (`test`.`t1_2`.`a` = `test`.`t1_1`.`a`)
 EXPLAIN SELECT a FROM t1 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	3	100.00	Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` group by `test`.`t1`.`a`
 EXPLAIN SELECT a,b FROM t1 GROUP BY a,b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` group by `test`.`t1`.`a`,`test`.`t1`.`b`
 EXPLAIN SELECT DISTINCT a,b FROM t1 GROUP BY a,b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` group by `test`.`t1`.`a`,`test`.`t1`.`b`
 CREATE TABLE t2(a INT, b INT NOT NULL, c INT NOT NULL, d INT, 
 PRIMARY KEY (a,b));
 INSERT INTO t2 VALUES (1,1,1,50), (1,2,3,40), (2,1,3,4);
+ANALYZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
 EXPLAIN SELECT DISTINCT a FROM t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	PRIMARY	PRIMARY	8	NULL	3	100.00	Using index
+1	SIMPLE	t2	NULL	index	PRIMARY	PRIMARY	8	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a` from `test`.`t2`
 EXPLAIN SELECT DISTINCT a,a FROM t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	PRIMARY	PRIMARY	8	NULL	3	100.00	Using index
+1	SIMPLE	t2	NULL	index	PRIMARY	PRIMARY	8	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a`,`test`.`t2`.`a` AS `a` from `test`.`t2`
 EXPLAIN SELECT DISTINCT b,a FROM t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	index	PRIMARY	PRIMARY	8	NULL	3	100.00	Using index
+1	SIMPLE	t2	NULL	index	PRIMARY	PRIMARY	8	NULL	3	100.00	Parallel scan (3 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`b` AS `b`,`test`.`t2`.`a` AS `a` from `test`.`t2`
 EXPLAIN SELECT DISTINCT a,c FROM t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using temporary
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a`,`test`.`t2`.`c` AS `c` from `test`.`t2`
 EXPLAIN SELECT DISTINCT c,a,b FROM t2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`c` AS `c`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2`
 EXPLAIN SELECT DISTINCT a,b,d FROM t2 GROUP BY c,b,d;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using temporary
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`d` AS `d` from `test`.`t2` group by `test`.`t2`.`c`,`test`.`t2`.`b`,`test`.`t2`.`d`
 CREATE UNIQUE INDEX c_b_unq ON t2 (c,b);
+ANALYZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
 EXPLAIN SELECT DISTINCT a,b,d FROM t2 GROUP BY c,b,d;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`d` AS `d` from `test`.`t2` group by `test`.`t2`.`c`,`test`.`t2`.`b`,`test`.`t2`.`d`
 DROP TABLE t1,t2;
@@ -751,9 +805,14 @@ id	IFNULL(dsc, '-')
 drop table t1;
 CREATE TABLE t1 (a int primary key, b int);
 INSERT INTO t1 (a,b) values (1,1), (2,3), (3,2);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 explain SELECT DISTINCT a, b FROM t1 ORDER BY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using filesort
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` order by `test`.`t1`.`b`
 SELECT DISTINCT a, b FROM t1 ORDER BY b;
@@ -791,9 +850,14 @@ INSERT INTO t1 SELECT a + 1, a + 101 FROM t1;
 INSERT INTO t1 SELECT a + 2, a + 102 FROM t1;
 INSERT INTO t1 SELECT a + 4, a + 104 FROM t1;
 INSERT INTO t1 SELECT a + 8, a + 108 FROM t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT DISTINCT a,a FROM t1 WHERE b < 12 ORDER BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	8	NULL	16	33.33	Using where; Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	8	NULL	16	33.33	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`b` < 12) order by `test`.`t1`.`a`
 SELECT DISTINCT a,a FROM t1 WHERE b < 12 ORDER BY a;
@@ -821,6 +885,14 @@ fruit_name = 'APPLE';
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 SELECT @v5, @v6, @v7, @v8;
 @v5	@v6	@v7	@v8
 2	APPLE	2	APPLE
@@ -832,6 +904,14 @@ SELECT @v5, @v6, @v7, @v8, @v9, @v10;
 SELECT DISTINCT @v11:= @v5 + fruit_id, @v12:= CONCAT(@v6, fruit_name) INTO 
 @v13, @v14 FROM t1 WHERE fruit_name = 'APPLE';
 Warnings:
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 SELECT @v11, @v12, @v13, @v14;
@@ -855,6 +935,14 @@ LOAD DATA INFILE '../../tmp/data1.tmp' INTO TABLE t2;
 SELECT DISTINCT @v19:= fruit_id, @v20:= fruit_name INTO OUTFILE 
 '../../tmp/data2.tmp' FROM t1 WHERE fruit_name = 'APPLE';
 Warnings:
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 LOAD DATA INFILE '../../tmp/data2.tmp' INTO TABLE t2;
@@ -884,6 +972,9 @@ Warnings:
 DROP TABLE t1;
 CREATE TABLE t1 (a DATE);
 INSERT INTO t1 VALUES ('1972-07-29'), ('1972-02-06');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT (SELECT DISTINCT a FROM t1 WHERE a = '2002-08-03');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
@@ -913,9 +1004,14 @@ set names utf8mb4;
 DROP TABLE t1, t2;
 CREATE TABLE t1 (a INT, UNIQUE (a));
 INSERT INTO t1 VALUES (4),(null),(2),(1),(null),(3);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT DISTINCT a FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	a	a	5	NULL	6	100.00	Using index
+1	SIMPLE	t1	NULL	index	a	a	5	NULL	6	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1`
 SELECT DISTINCT a FROM t1;
@@ -927,7 +1023,9 @@ a
 NULL
 EXPLAIN SELECT a FROM t1 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	a	a	5	NULL	6	100.00	Using index
+1	SIMPLE	t1	NULL	index	a	a	5	NULL	6	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` group by `test`.`t1`.`a`
 SELECT a FROM t1 GROUP BY a;
@@ -965,9 +1063,14 @@ INSERT IGNORE INTO t1(a, b, c) VALUES (1, 1, 1),
 Warnings:
 Warning	1364	Field 'd' doesn't have a default value
 Warning	1364	Field 'e' doesn't have a default value
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT DISTINCT a, b, d, c FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY,a	a	16	NULL	6	100.00	Using index
+1	SIMPLE	t1	NULL	index	PRIMARY,a	a	16	NULL	6	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`c` AS `c` from `test`.`t1`
 SELECT DISTINCT a, b, d, c FROM t1;
@@ -996,6 +1099,9 @@ INSERT INTO t1 SELECT 5 + 10000 * RAND(), '5' FROM t1;
 INSERT INTO t1 SELECT 5 + 10000 * RAND(), '5' FROM t1;
 INSERT INTO t1 SELECT 5 + 10000 * RAND(), '5' FROM t1;
 INSERT INTO t1 SELECT 5 + 10000 * RAND(), '5' FROM t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 SELECT c1, c2, COUNT(*) FROM t1 GROUP BY c1 LIMIT 4;
 c1	c2	COUNT(*)
 1	1	2
@@ -1007,8 +1113,12 @@ EXPLAIN
 -> Sort with duplicate removal: t1.c2
     -> Filter: (count(0) > 1)
         -> Table scan on <temporary>
-            -> Aggregate using temporary table
-                -> Table scan on t1  (cost=155.98 rows=1536)
+            -> Final Aggregate using temporary table
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
+                        -> Table scan on <temporary>
+                            -> Aggregate using temporary table
+                                -> Parallel table scan on t1  (cost=154.85 rows=1536)
 
 SELECT DISTINCT c2 FROM t1 GROUP BY c1 HAVING COUNT(*) > 1;
 c2
@@ -1083,6 +1193,9 @@ b INT NOT NULL
 INSERT INTO t1 VALUES (1,2), (3,3);
 SET @save_optimizer_switch= @@optimizer_switch;
 SET @@SESSION.optimizer_switch="derived_merge=off";
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 
 EXPLAIN SELECT DISTINCT subselect.b
 FROM t1 LEFT JOIN 
@@ -1090,8 +1203,10 @@ FROM t1 LEFT JOIN
 ON t1.a = subselect.b
 ;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using temporary
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
 1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	5	test.t1.a	2	100.00	NULL
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>)
 2	DERIVED	it_a	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
 2	DERIVED	it_b	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where; Using join buffer (hash join)
 Warnings:
@@ -1119,17 +1234,22 @@ b INT,
 PRIMARY KEY (b)
 );
 INSERT INTO t3 VALUES (2001,1), (2007,2);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 EXPLAIN SELECT DISTINCT t3.a AS t3_date
 FROM t1
 LEFT JOIN t2 ON false
 LEFT JOIN t3 ON t2.b = t3.b
 LIMIT 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	system	NULL	NULL	NULL	NULL	0	0.00	const row not found
-1	SIMPLE	t3	NULL	const	PRIMARY	NULL	NULL	NULL	1	100.00	Impossible ON condition
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using temporary
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
+1	SIMPLE	t3	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.b	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select distinct NULL AS `t3_date` from `test`.`t1` left join `test`.`t3` on(multiple equal(NULL, NULL)) where true limit 1
+Note	1003	/* select#1 */ select distinct `test`.`t3`.`a` AS `t3_date` from `test`.`t1` left join `test`.`t2` on(false) left join `test`.`t3` on((`test`.`t3`.`b` = `test`.`t2`.`b`)) where true limit 1
 SELECT DISTINCT t3.a AS t3_date
 FROM t1
 LEFT JOIN t2 ON false
@@ -1194,6 +1314,9 @@ f3 varchar(255)
 INSERT INTO t1 VALUES (14,7,'G','W');
 INSERT INTO t1 VALUES (16,8,'W','p');
 INSERT INTO t1 VALUES (23,NULL,'q','w');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 SELECT DISTINCT table1.pk FROM t1 AS table1 LEFT JOIN t1 AS table2 ON table1.f2=table2.f3 WHERE table2.f1 IS NULL;
 pk
 14
@@ -1201,13 +1324,15 @@ pk
 23
 EXPLAIN FORMAT=tree SELECT DISTINCT table1.pk FROM t1 AS table1 LEFT JOIN t1 AS table2 ON table1.f2=table2.f3 WHERE table2.f1 IS NULL;
 EXPLAIN
--> Table scan on <temporary>
-    -> Temporary table with deduplication  (cost=3.81 rows=3)
-        -> Filter: (table2.f1 is null)  (cost=3.81 rows=3)
-            -> Nested loop left join  (cost=3.81 rows=3)
-                -> Table scan on table1  (cost=0.80 rows=3)
-                -> Filter: (table1.f2 = table2.f3)  (cost=0.74 rows=1)
-                    -> Table scan on table2  (cost=0.74 rows=3)
+-> Table scan on <temporary>  (cost=0.85..2.54 rows=3)
+    -> Temporary table with deduplication  (cost=3.95..5.64 rows=3)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 3)
+                -> Filter: (table2.f1 is null)  (cost=2.80 rows=3)
+                    -> Nested loop left join  (cost=2.80 rows=3)
+                        -> Parallel table scan on table1  (cost=0.55 rows=3)
+                        -> Filter: (table1.f2 = table2.f3)  (cost=0.48 rows=1)
+                            -> Table scan on table2  (cost=0.48 rows=3)
 
 DROP TABLE t1;
 CREATE TABLE t1 (
@@ -1226,16 +1351,28 @@ f3 integer
 );
 INSERT INTO t3 VALUES (56,0,4);
 INSERT INTO t3 VALUES (97,3,4);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 SELECT /*+JOIN_ORDER(t2,t3,t1) */ DISTINCT t2.pk FROM t1 LEFT JOIN t2 RIGHT OUTER JOIN t3 ON t2.f1 = t3.f3 ON t1.pk = t3.f2 WHERE t3.pk <> t2.pk;
 pk
 12
 EXPLAIN FORMAT=tree SELECT /*+JOIN_ORDER(t2,t3,t1) */ DISTINCT t2.pk FROM t1 LEFT JOIN t2 RIGHT OUTER JOIN t3 ON t2.f1 = t3.f3 ON t1.pk = t3.f2 WHERE t3.pk <> t2.pk;
 EXPLAIN
--> Limit: 1 row(s)  (cost=0.70 rows=1)
-    -> Table scan on <temporary>
-        -> Temporary table  (cost=0.70 rows=1)
-            -> Filter: ((t3.f2 = '3') and (t3.f3 = '4') and (t3.pk <> '12'))  (cost=0.70 rows=1)
-                -> Table scan on t3  (cost=0.70 rows=2)
+-> Table scan on <temporary>  (cost=2.51..2.51 rows=1)
+    -> Temporary table with deduplication  (cost=3.76..3.76 rows=1)
+        -> PX Receiver (slice: 0; workers: 1)
+            -> PX Sender (slice: 1; workers: 1)
+                -> Nested loop inner join  (cost=1.15 rows=1)
+                    -> Nested loop inner join  (cost=0.80 rows=1)
+                        -> Parallel table scan on t2  (cost=0.35 rows=1)
+                        -> Filter: ((t3.f3 = t2.f1) and (t3.pk <> t2.pk))  (cost=0.35 rows=1)
+                            -> Table scan on t3  (cost=0.35 rows=2)
+                    -> Limit: 1 row(s)  (cost=0.35 rows=1)
+                        -> Filter: (t1.pk = t3.f2)  (cost=0.35 rows=1)
+                            -> Table scan on t1  (cost=0.35 rows=1)
 
 DROP TABLE t1, t2, t3;
 SET optimizer_switch=@old_optimizer_switch;
@@ -1252,13 +1389,20 @@ INSERT INTO t1 SELECT RAND() FROM t1 AS t1, t1 AS t2;
 INSERT INTO t1 SELECT RAND() FROM t1 AS t1, t1 AS t2;
 INSERT INTO t1 SELECT RAND() FROM t1;
 INSERT INTO t1 SELECT RAND() FROM t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN FORMAT=tree SELECT DISTINCT COUNT(*) AS num FROM t1 GROUP BY f HAVING num=1;
 EXPLAIN
 -> Sort with duplicate removal: num
     -> Filter: (num = 1)
         -> Table scan on <temporary>
-            -> Aggregate using temporary table
-                -> Table scan on t1  (cost=725.99 rows=7224)
+            -> Final Aggregate using temporary table
+                -> PX Receiver (slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 4)
+                        -> Table scan on <temporary>
+                            -> Aggregate using temporary table
+                                -> Parallel table scan on t1  (cost=726.40 rows=7224)
 
 SELECT DISTINCT COUNT(*) AS num FROM t1 GROUP BY f HAVING num=1;
 num
@@ -1287,10 +1431,13 @@ EXPLAIN FORMAT=tree SELECT DISTINCT SQL_BIG_RESULT a FROM t1 GROUP BY a,b ORDER 
 EXPLAIN
 -> Sort: t1.a DESC, t1.b
     -> Sort with duplicate removal: t1.a DESC
-        -> Stream results
+        -> Stream results  (cost=0.85 rows=3)
             -> Group (no aggregates)
-                -> Sort: t1.a DESC, t1.b  (cost=0.80 rows=3)
-                    -> Table scan on t1  (cost=0.80 rows=3)
+                -> PX Receiver (merge sort; slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 3)
+                        -> Group (no aggregates)  (cost=0.85 rows=3)
+                            -> Sort: t1.a DESC, t1.b  (cost=0.55 rows=3)
+                                -> Parallel table scan on t1  (cost=0.55 rows=3)
 
 SELECT DISTINCT SQL_BIG_RESULT a FROM t1 GROUP BY a,b ORDER BY a DESC;
 a
@@ -1307,4 +1454,37 @@ SELECT DISTINCT f1, LENGTH(F2) FROM t1 GROUP BY f1,LENGTH(F2) ORDER BY 1,2;
 f1	LENGTH(F2)
 1	3
 1	4
+DROP TABLE t1;
+#
+# Bug #33148369: HYPERGRAPH-OPTIMIZER: HIT ASSERT(COUNT>0) IN MAKE_SORTORDER() WHILE FINALIZEPLAN
+#
+CREATE TABLE t1 ( a INTEGER );
+CREATE TABLE t2 ( a INTEGER );
+CREATE TABLE t3 ( a INTEGER );
+SELECT DISTINCT t1.a
+FROM t1, t2, t3
+WHERE t1.a = t2.a AND t2.a IS NULL
+HAVING t1.a = 8
+ORDER BY t1.a;
+a
+DROP TABLE t1, t2, t3;
+#
+# Bug#33914410: Hypergraph: Duplicate rows in query with DISTINCT, ROLLUP and ORDER BY
+#
+CREATE TABLE t1(f1 INTEGER);
+INSERT INTO t1 VALUES (1),(NULL);
+SELECT DISTINCT f1 FROM t1 GROUP BY f1 WITH ROLLUP ORDER BY f1, ANY_VALUE(GROUPING(f1));
+f1
+NULL
+1
+DROP TABLE t1;
+# Bug#34039275: Hypergraph: SELECT DISTINCT on self join gives dups
+CREATE TABLE t1(f1 integer,f2 integer);
+INSERT INTO t1 VALUES (1,100000), (2,100000);
+SELECT SQL_SMALL_RESULT DISTINCT t1.f1/t1.f2 FROM t1;
+t1.f1/t1.f2
+0.0000
+SELECT SQL_BIG_RESULT DISTINCT t1.f1/t1.f2 FROM t1;
+t1.f1/t1.f2
+0.0000
 DROP TABLE t1;

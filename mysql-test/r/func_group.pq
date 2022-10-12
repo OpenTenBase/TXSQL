@@ -26,20 +26,20 @@ sum(a)
 NULL
 select a from t1 order by rand(10);
 a
-2
-6
-1
 3
+6
+2
+1
 5
 4
 select distinct a from t1 order by rand(10);
 a
-2
-6
-1
 3
-5
+1
+2
 4
+5
+6
 select count(distinct a),count(distinct grp) from t1;
 count(distinct a)	count(distinct grp)
 6	3
@@ -188,6 +188,10 @@ drop table t1;
 create table t1 (a1 int, a2 char(3), key k1(a1), key k2(a2));
 insert into t1 values(10,'aaa'), (10,null), (10,'bbb'), (20,'zzz');
 create table t2(a1 char(3), a2 int, a3 real, key k1(a1), key k2(a2, a1));
+analyze table t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 select * from t1;
 a1	a2
 10	NULL
@@ -299,9 +303,14 @@ a	count(b)	sum(b)	avg(b)	std(b)	min(b)	max(b)	bit_and(b)	bit_or(b)	bit_xor(b)
 1	0	NULL	NULL	NULL	NULL	NULL	18446744073709551615	0	0
 2	1	1	1.00000	0	1	1	1	1	1
 3	1	1	1.00000	0	1	1	1	1	1
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 explain select SQL_BIG_RESULT a,count(b), sum(b), avg(b), std(b), min(b), max(b), bit_and(b), bit_or(b), bit_xor(b) from t1 group by a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using filesort
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Parallel scan (4 workers); Using filesort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sql_big_result `test`.`t1`.`a` AS `a`,count(`test`.`t1`.`b`) AS `count(b)`,sum(`test`.`t1`.`b`) AS `sum(b)`,avg(`test`.`t1`.`b`) AS `avg(b)`,std(`test`.`t1`.`b`) AS `std(b)`,min(`test`.`t1`.`b`) AS `min(b)`,max(`test`.`t1`.`b`) AS `max(b)`,bit_and(`test`.`t1`.`b`) AS `bit_and(b)`,bit_or(`test`.`t1`.`b`) AS `bit_or(b)`,bit_xor(`test`.`t1`.`b`) AS `bit_xor(b)` from `test`.`t1` group by `test`.`t1`.`a`
 drop table t1;
@@ -361,6 +370,10 @@ insert into t2 values('SDC','San Diego','CA','TWU');
 insert into t2 values('NOL','New Orleans','LA','GTM');
 insert into t2 values('LAK','Los Angeles','CA','TWU');
 insert into t2 values('AAA','AAA','AA','AME');
+analyze table t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 select * from t1;
 a1	a2	a3	a4	a5
 AME	0	SEA	0.1	1942-02-19
@@ -675,84 +688,114 @@ Note	1003	/* select#1 */ select min(`test`.`t1`.`a1`) AS `min(t1.a1)`,min(`test`
 select min(t1.a1), min(t2.a4) from t1,t2 where t1.a1 < 'KKK' and t2.a4 < 'KKK';
 min(t1.a1)	min(t2.a4)
 AME	AME
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
 explain 
 select min(a1) from t1 where a1 > 'KKK' or a1 < 'XXX';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	12	NULL	15	55.55	Using where; Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	k1	16	NULL	15	55.55	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a1`) AS `min(a1)` from `test`.`t1` where ((`test`.`t1`.`a1` > 'KKK') or (`test`.`t1`.`a1` < 'XXX'))
 explain 
 select min(a1) from t1 where a1 != 'KKK';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	12	NULL	15	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	PRIMARY	k1	16	NULL	15	93.33	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a1`) AS `min(a1)` from `test`.`t1` where (`test`.`t1`.`a1` <> 'KKK')
 explain
 select max(a3) from t1 where a2 < 2 and a3 < 'SEA';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	k1	k1	3	NULL	6	33.33	Using where; Using index
+1	SIMPLE	t1	NULL	range	k1	k1	3	NULL	7	33.33	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`a3`) AS `max(a3)` from `test`.`t1` where ((`test`.`t1`.`a2` < 2) and (`test`.`t1`.`a3` < 'SEA'))
 explain
 select max(t1.a3), min(t2.a2) from t1, t2 where t1.a2 = 2 and t1.a3 < 'MIN' and t2.a3 > 'CA';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	k1	k1	16	NULL	1	100.00	Using where; Using index
-1	SIMPLE	t2	NULL	range	k1	k1	9	NULL	4	100.00	Using where; Using index; Using join buffer (hash join)
+1	SIMPLE	t1	NULL	range	k1	k1	16	NULL	1	100.00	Parallel scan (2 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	t2	NULL	range	k1	k1	9	NULL	3	100.00	Using where; Using index; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`a3`) AS `max(t1.a3)`,min(`test`.`t2`.`a2`) AS `min(t2.a2)` from `test`.`t1` join `test`.`t2` where ((`test`.`t1`.`a2` = 2) and (`test`.`t1`.`a3` < 'MIN') and (`test`.`t2`.`a3` > 'CA'))
 explain
 select min(a4 - 0.01) from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k2	21	NULL	15	100.00	Using index
+1	SIMPLE	t1	NULL	index	NULL	k2	21	NULL	15	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min((`test`.`t1`.`a4` - 0.01)) AS `min(a4 - 0.01)` from `test`.`t1`
 explain
 select max(a4 + 0.01) from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k2	21	NULL	15	100.00	Using index
+1	SIMPLE	t1	NULL	index	NULL	k2	21	NULL	15	100.00	Parallel scan (4 workers); Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max((`test`.`t1`.`a4` + 0.01)) AS `max(a4 + 0.01)` from `test`.`t1`
 explain
 select min(a3) from t1 where (a2 +1 ) is null;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a3`) AS `min(a3)` from `test`.`t1` where ((`test`.`t1`.`a2` + 1) is null)
 explain
 select min(a3) from t1 where (a2 + 1) = 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a3`) AS `min(a3)` from `test`.`t1` where ((`test`.`t1`.`a2` + 1) = 2)
 explain
 select min(a3) from t1 where 2 = (a2 + 1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a3`) AS `min(a3)` from `test`.`t1` where (2 = (`test`.`t1`.`a2` + 1))
 explain
 select min(a2) from t1 where a2 < 2 * a2 - 8;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	33.33	Using where; Using index
+1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	33.33	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a2`) AS `min(a2)` from `test`.`t1` where (`test`.`t1`.`a2` < ((2 * `test`.`t1`.`a2`) - 8))
 explain
 select min(a1) from t1  where a1 between a3 and 'KKK';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	PRIMARY	NULL	NULL	NULL	15	11.11	Using where
+1	SIMPLE	t1	NULL	index	PRIMARY	k1	16	NULL	15	11.11	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a1`) AS `min(a1)` from `test`.`t1` where (`test`.`t1`.`a1` between `test`.`t1`.`a3` and 'KKK')
 explain
 select min(a4) from t1  where (a4 + 0.01) between 0.07 and 0.08;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	k2	21	NULL	15	100.00	Using where; Using index
+1	SIMPLE	t1	NULL	index	NULL	k2	21	NULL	15	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a4`) AS `min(a4)` from `test`.`t1` where ((`test`.`t1`.`a4` + 0.01) between 0.07 and 0.08)
 explain
 select concat(min(t1.a1),min(t2.a4)) from t1, t2 where t2.a4 <> 'AME';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	range	k2	k2	13	NULL	6	100.00	Using where; Using index
-1	SIMPLE	t1	NULL	index	NULL	PRIMARY	12	NULL	15	100.00	Using index; Using join buffer (hash join)
+1	SIMPLE	t2	NULL	range	k2	k2	13	NULL	6	100.00	Parallel scan (4 workers); Using where; Using index
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Receive from (<sender1>)
+1	SIMPLE	t1	NULL	index	NULL	k1	16	NULL	15	100.00	Using index; Using join buffer (hash join)
 Warnings:
 Note	1003	/* select#1 */ select concat(min(`test`.`t1`.`a1`),min(`test`.`t2`.`a4`)) AS `concat(min(t1.a1),min(t2.a4))` from `test`.`t1` join `test`.`t2` where (`test`.`t2`.`a4` <> 'AME')
 drop table t1, t2;
@@ -772,21 +815,21 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` char(1) CHARACTER SET latin2 COLLATE latin2_general_ci DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 create table t2 select max(a),min(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `max(a)` char(1) CHARACTER SET latin2 DEFAULT NULL,
   `min(a)` char(1) CHARACTER SET latin2 DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t2;
 create table t2 select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `concat(a)` varchar(1) CHARACTER SET latin2 DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t2,t1;
 create table t1 (a int);
 insert into t1 values (1);
@@ -881,7 +924,7 @@ show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `MAX(b)` datetime DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1, t2;
 SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
 create table t1(f1 datetime);
@@ -940,12 +983,17 @@ aa
 DROP TABLE t1;
 CREATE TABLE t1 (id int PRIMARY KEY, b char(16), INDEX(b(4)));
 INSERT INTO t1 VALUES (1, 'xxxxbbbb'), (2, 'xxxxaaaa');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 SELECT MAX(b) FROM t1;
 MAX(b)
 xxxxbbbb
 EXPLAIN SELECT MAX(b) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`b`) AS `MAX(b)` from `test`.`t1`
 DROP TABLE t1;
@@ -956,9 +1004,14 @@ INSERT INTO t1 VALUES
 SELECT MAX(b) FROM t1;
 MAX(b)
 __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________zz
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT MAX(b) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`b`) AS `MAX(b)` from `test`.`t1`
 DROP TABLE t1;
@@ -1122,21 +1175,21 @@ SELECT
 WHERE ttt.a = ccc.b AND ttt.a = t.a GROUP BY ttt.a) AS minid   
 FROM t1 t, t2 c WHERE t.a = c.b;
 minid
-1
+NULL
 DROP TABLE t1,t2;
 create table t1 select variance(0);
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `variance(0)` double DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 create table t1 select stddev(0);
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `stddev(0)` double DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 create table bug22555 (i smallint primary key auto_increment, s1 smallint, s2 smallint, e decimal(30,10), o double);
 insert into bug22555 (s1, s2, e, o) values (53, 78, 11.4276528, 6.828112), (17, 78, 5.916793, 1.8502951), (18, 76, 2.679231, 9.17975591), (31, 62, 6.07831, 0.1), (19, 41, 5.37463, 15.1), (83, 73, 14.567426, 7.959222), (92, 53, 6.10151, 13.1856852), (7, 12, 13.92272, 3.442007), (92, 35, 11.95358909, 6.01376678), (38, 84, 2.572, 7.904571);
@@ -1352,7 +1405,7 @@ i	count(*)	std(e1/e2)
 3	4	0
 select round(std(s1/s2), 17) from bug22555;
 round(std(s1/s2), 17)
-0.2132576358664934
+0.21325763586649335
 select std(o1/o2) from bug22555;
 std(o1/o2)
 0.2132576358664934
@@ -1441,9 +1494,14 @@ a	average
 DROP TABLE t1;
 CREATE TABLE t1 ( a INT, b INT, KEY(a) );
 INSERT INTO t1 VALUES (NULL, 1), (NULL, 2);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT MIN(a), MIN(b) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t1`.`a`) AS `MIN(a)`,min(`test`.`t1`.`b`) AS `MIN(b)` from `test`.`t1`
 SELECT MIN(a), MIN(b) FROM t1;
@@ -1451,9 +1509,14 @@ MIN(a)	MIN(b)
 NULL	1
 CREATE TABLE t2( a INT, b INT, c INT, KEY(a, b) );
 INSERT INTO t2 ( a, b, c ) VALUES ( 1, NULL, 2 ), ( 1, 3, 4 ), ( 1, 4, 4 );
+ANALYZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
 EXPLAIN SELECT MIN(b), MIN(c) FROM t2 WHERE a = 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	NULL	ref	a	a	5	const	2	100.00	NULL
+1	SIMPLE	t2	NULL	ref	a	a	5	const	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select min(`test`.`t2`.`b`) AS `MIN(b)`,min(`test`.`t2`.`c`) AS `MIN(c)` from `test`.`t2` where (`test`.`t2`.`a` = 1)
 SELECT MIN(b), MIN(c) FROM t2 WHERE a = 1;
@@ -1461,6 +1524,9 @@ MIN(b)	MIN(c)
 3	2
 CREATE TABLE t3 (a INT, b INT, c int, KEY(a, b));
 INSERT INTO t3 VALUES (1, NULL, 1), (2, NULL, 2),  (2, NULL, 2),  (3, NULL, 3);
+ANALYZE TABLE t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	OK
 EXPLAIN SELECT MIN(a), MIN(b) FROM t3 where a = 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Select tables optimized away
@@ -1471,6 +1537,9 @@ MIN(a)	MIN(b)
 2	NULL
 CREATE TABLE t4 (a INT, b INT, c int, KEY(a, b));
 INSERT INTO t4 VALUES (1, 1, 1), (2, NULL, 2),  (2, NULL, 2),  (3, 1, 3);
+ANALYZE TABLE t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
 EXPLAIN SELECT MIN(a), MIN(b) FROM t4 where a = 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Select tables optimized away
@@ -1484,6 +1553,9 @@ MIN(b)	min(c)
 NULL	2
 CREATE TABLE t5( a INT, b INT, KEY( a, b) );
 INSERT INTO t5 VALUES( 1, 1 ), ( 1, 2 );
+ANALYZE TABLE t5;
+Table	Op	Msg_type	Msg_text
+test.t5	analyze	status	OK
 EXPLAIN SELECT MIN(a), MIN(b) FROM t5 WHERE a = 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Select tables optimized away
@@ -1520,15 +1592,20 @@ a
 1
 SELECT COUNT(*), a FROM t1;
 COUNT(*)	a
-4	1
+4	2
 DROP TABLE t1;
 set SQL_MODE=ONLY_FULL_GROUP_BY;
 CREATE TABLE t1 (a INT);
 INSERT INTO t1 VALUES (1),(2),(3),(4);
 CREATE VIEW v1 AS SELECT a,(a + 1) AS y FROM t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT y FROM v1 GROUP BY v1.y;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Using temporary
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select (`test`.`t1`.`a` + 1) AS `y` from `test`.`t1` group by (`test`.`t1`.`a` + 1)
 DROP VIEW v1;
@@ -1626,12 +1703,17 @@ ORDER BY max;
 max	i
 3	#
 
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN
 SELECT MAX(pk) as max, i
 FROM t1
 ORDER BY max;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`pk`) AS `max`,`test`.`t1`.`i` AS `i` from `test`.`t1`
 
@@ -2065,6 +2147,9 @@ SQL SECURITY INVOKER
 BEGIN
 RETURN par + 1;
 END|
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
 EXPLAIN SELECT f1(MAX(f1)) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Select tables optimized away
@@ -2089,3 +2174,153 @@ f1	STD(f2)
 3	0
 NULL	16.99673171197595
 DROP TABLE t1;
+# Bug#32713860: Executing prepare returns wrong result
+CREATE TABLE t1 (
+i8 BIGINT UNIQUE,
+dc DECIMAL(10,4) UNIQUE,
+f8 DOUBLE UNIQUE,
+vc VARCHAR(10) UNIQUE
+);
+INSERT INTO t1 VALUES(123456, 123456.7890, 123456, '123456');
+SET @i8=123456;
+SET @dc='123456.7890';
+SET @f8=123456.0E0;
+SET @vc='123456';
+PREPARE si8 FROM 'SELECT MAX(i8) FROM t1 WHERE i8 > ?';
+PREPARE ei8 FROM 'EXPLAIN SELECT MAX(i8) FROM t1 WHERE i8 > ?';
+PREPARE sdc FROM 'SELECT MAX(dc) FROM t1 WHERE dc > ?';
+PREPARE edc FROM 'EXPLAIN SELECT MAX(dc) FROM t1 WHERE dc > ?';
+PREPARE sf8 FROM 'SELECT MAX(f8) FROM t1 WHERE f8 > ?';
+PREPARE ef8 FROM 'EXPLAIN SELECT MAX(f8) FROM t1 WHERE f8 > ?';
+PREPARE svc FROM 'SELECT MAX(vc) FROM t1 WHERE vc > ?';
+PREPARE evc FROM 'EXPLAIN SELECT MAX(vc) FROM t1 WHERE vc > ?';
+SELECT MAX(i8) FROM t1 WHERE i8 > 123456;
+MAX(i8)
+NULL
+EXECUTE si8 USING @i8;
+MAX(i8)
+NULL
+EXPLAIN SELECT MAX(i8) FROM t1 WHERE i8 > 123456;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`i8`) AS `MAX(i8)` from `test`.`t1` where (`test`.`t1`.`i8` > 123456)
+EXECUTE ei8 USING @i8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`i8`) AS `MAX(i8)` from `test`.`t1` where (`test`.`t1`.`i8` > 123456)
+SELECT MAX(dc) FROM t1 WHERE dc > 123456.7890;
+MAX(dc)
+NULL
+EXECUTE sdc USING @dc;
+MAX(dc)
+NULL
+EXPLAIN SELECT MAX(dc) FROM t1 WHERE dc > 123456.7890;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`dc`) AS `MAX(dc)` from `test`.`t1` where (`test`.`t1`.`dc` > 123456.7890)
+EXECUTE edc USING @dc;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`dc`) AS `MAX(dc)` from `test`.`t1` where (`test`.`t1`.`dc` > 123456.7890)
+SELECT MAX(f8) FROM t1 WHERE f8 > 123456e0;
+MAX(f8)
+NULL
+EXECUTE sf8 USING @f8;
+MAX(f8)
+NULL
+EXPLAIN SELECT MAX(f8) FROM t1 WHERE f8 > 123456e0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`f8`) AS `MAX(f8)` from `test`.`t1` where (`test`.`t1`.`f8` > 123456e0)
+EXECUTE ef8 USING @f8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`f8`) AS `MAX(f8)` from `test`.`t1` where (`test`.`t1`.`f8` > 123456)
+SELECT MAX(vc) FROM t1 WHERE vc > '123456';
+MAX(vc)
+NULL
+EXECUTE svc USING @vc;
+MAX(vc)
+NULL
+EXPLAIN SELECT MAX(vc) FROM t1 WHERE vc > '123456';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`vc`) AS `MAX(vc)` from `test`.`t1` where (`test`.`t1`.`vc` > '123456')
+EXECUTE evc USING @vc;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No matching min/max row
+Warnings:
+Note	1003	/* select#1 */ select max(`test`.`t1`.`vc`) AS `MAX(vc)` from `test`.`t1` where (`test`.`t1`.`vc` > '123456')
+DROP TABLE t1;
+#
+# Bug#32552332 - CAN'T WRITE; DUPLICATE KEY IN TABLE '/TMP/#SQL...'
+#
+CREATE TABLE tr (c1 INT);
+INSERT INTO tr VALUES (1);
+CREATE FUNCTION seq_1_to_2() RETURNS INT
+BEGIN
+DECLARE limit_value, return_value INT;
+SET limit_value = 2;
+SELECT c1 INTO return_value FROM tr;
+IF (return_value < limit_value) THEN
+UPDATE tr SET c1 = c1 + 1;
+ELSE
+UPDATE tr SET c1 = 1;
+END IF;
+RETURN (return_value);
+END|
+CREATE TABLE t1 (c1 INT);
+INSERT INTO t1 VALUES (10);
+INSERT INTO t1 VALUES (11);
+SELECT seq_1_to_2() as seq, COUNT(*) FROM t1 GROUP BY seq;
+seq	COUNT(*)
+1	1
+2	1
+SELECT FLOOR(seq_1_to_2() * 2) AS val, COUNT(*) FROM t1 GROUP BY val;
+val	COUNT(*)
+2	1
+4	1
+SELECT val, COUNT(*) FROM (SELECT FLOOR(seq_1_to_2())+1 val FROM t1) x
+GROUP BY x.val;
+val	COUNT(*)
+2	1
+3	1
+DROP TABLE t1, tr;
+DROP FUNCTION seq_1_to_2;
+#
+# Bug #34030363 virtual double Item_sum_std::val_real():
+#               Assertion `nr >= 0.0' failed
+#
+CREATE TABLE t1(value double);
+INSERT INTO t1 VALUES
+(9.33174e+07),
+(4.5e+95),
+(7.31463e+09),
+(1.79769e+308),
+(-2.59078e+12),
+(2.34165e+21),
+(-1.79769e+308),
+(0.0);
+SELECT STDDEV(value) from t1;
+ERROR 22003: DOUBLE value is out of range in 'std(`test`.`t1`.`value`)'
+DROP TABLE t1;
+CREATE TABLE t2(grp int, value double);
+INSERT INTO t2 VALUES
+(0, 9.33174e+07),
+(1, 4.5e+95),
+(0, 7.31463e+09),
+(1, 1.79769e+308),
+(0, -2.59078e+12),
+(1, 2.34165e+21),
+(0, -1.79769e+308),
+(1, 0.0);
+SELECT VARIANCE(value) FROM t2 GROUP BY grp;
+ERROR 22003: DOUBLE value is out of range in 'variance(`test`.`t2`.`value`)'
+DROP TABLE t2;

@@ -68,6 +68,16 @@ struct GroupIndexSkipScanParameters {
   Quick_ranges prefix_ranges;
   Quick_ranges_array key_infix_ranges;
   Quick_ranges min_max_ranges;
+
+#if defined(HAVE_PX)
+  /*
+    The function only serves the plan equivalence comparison of parallel
+    execution (see px_access_path.cc). The function here is not incomplete
+    equivalence comparison.
+  */
+  bool eq(const GroupIndexSkipScanParameters *other,
+          unsigned num_used_key_parts) const;
+#endif /* defined(HAVE_PX) */
 };
 
 AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,

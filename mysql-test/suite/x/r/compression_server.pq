@@ -58,18 +58,18 @@ Column1	Column2	Column3
 RUN SELECT phrase FROM xtest.xtable
 phrase
 Alice has a cat
-Peppa has a teddy
-Row to delete
-Bob has a dog 2
 Bob has a dog 1
+Peppa has a teddy
+Bob has a dog 2
+Row to delete
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
-Peppa has a teddy	1
 Alice has a cat	1
+Peppa has a teddy	1
+Bob has a dog 1	2
 Row to delete	4
 Bob has a dog 2	3
-Bob has a dog 1	2
 0 rows affected
 
 #
@@ -148,10 +148,10 @@ Column1	Column2	Column3
 RUN SELECT phrase FROM xtest.xtable
 phrase
 Alice has a cat
-Row to delete
 Bob has a dog 1
-Peppa has a teddy
 Bob has a dog 2
+Row to delete
+Peppa has a teddy
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
@@ -237,19 +237,19 @@ Column1	Column2	Column3
 0 rows affected
 RUN SELECT phrase FROM xtest.xtable
 phrase
-Alice has a cat
 Bob has a dog 1
+Alice has a cat
 Peppa has a teddy
-Bob has a dog 2
 Row to delete
+Bob has a dog 2
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
 Alice has a cat	1
+Row to delete	4
 Bob has a dog 1	2
 Peppa has a teddy	1
 Bob has a dog 2	3
-Row to delete	4
 0 rows affected
 
 #
@@ -327,18 +327,18 @@ Column1	Column2	Column3
 0 rows affected
 RUN SELECT phrase FROM xtest.xtable
 phrase
-Peppa has a teddy
-Row to delete
 Alice has a cat
 Bob has a dog 1
+Row to delete
+Peppa has a teddy
 Bob has a dog 2
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
 Alice has a cat	1
+Row to delete	4
 Bob has a dog 1	2
 Peppa has a teddy	1
-Row to delete	4
 Bob has a dog 2	3
 0 rows affected
 
@@ -419,17 +419,17 @@ RUN SELECT phrase FROM xtest.xtable
 phrase
 Peppa has a teddy
 Alice has a cat
-Row to delete
-Bob has a dog 1
 Bob has a dog 2
+Bob has a dog 1
+Row to delete
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
-Bob has a dog 1	2
 Alice has a cat	1
+Bob has a dog 1	2
 Peppa has a teddy	1
-Bob has a dog 2	3
 Row to delete	4
+Bob has a dog 2	3
 0 rows affected
 
 #
@@ -508,17 +508,17 @@ Column1	Column2	Column3
 RUN SELECT phrase FROM xtest.xtable
 phrase
 Alice has a cat
-Peppa has a teddy
 Bob has a dog 1
+Peppa has a teddy
 Bob has a dog 2
 Row to delete
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
-Peppa has a teddy	1
 Alice has a cat	1
 Bob has a dog 1	2
 Row to delete	4
+Peppa has a teddy	1
 Bob has a dog 2	3
 0 rows affected
 
@@ -598,18 +598,18 @@ Column1	Column2	Column3
 RUN SELECT phrase FROM xtest.xtable
 phrase
 Alice has a cat
-Row to delete
-Bob has a dog 1
 Peppa has a teddy
 Bob has a dog 2
+Row to delete
+Bob has a dog 1
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
 Alice has a cat	1
-Row to delete	4
+Bob has a dog 2	3
 Peppa has a teddy	1
 Bob has a dog 1	2
-Bob has a dog 2	3
+Row to delete	4
 0 rows affected
 
 #
@@ -688,18 +688,18 @@ Column1	Column2	Column3
 RUN SELECT phrase FROM xtest.xtable
 phrase
 Alice has a cat
-Peppa has a teddy
 Bob has a dog 1
-Row to delete
 Bob has a dog 2
+Peppa has a teddy
+Row to delete
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
-Bob has a dog 1	2
 Alice has a cat	1
-Row to delete	4
-Peppa has a teddy	1
+Bob has a dog 1	2
 Bob has a dog 2	3
+Peppa has a teddy	1
+Row to delete	4
 0 rows affected
 
 #
@@ -778,17 +778,17 @@ Column1	Column2	Column3
 RUN SELECT phrase FROM xtest.xtable
 phrase
 Alice has a cat
+Bob has a dog 1
 Peppa has a teddy
 Bob has a dog 2
-Bob has a dog 1
 Row to delete
 0 rows affected
 RUN SELECT phrase, prio FROM xtest.xtable
 phrase	prio
 Alice has a cat	1
 Bob has a dog 1	2
-Row to delete	4
 Peppa has a teddy	1
+Row to delete	4
 Bob has a dog 2	3
 0 rows affected
 
@@ -828,4 +828,3 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-DROP SCHEMA xtest;

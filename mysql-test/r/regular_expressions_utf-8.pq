@@ -1159,3 +1159,71 @@ do regexp_like(0, "^{18446744073709551616");
 ERROR HY000: Decimal number in regular expression is too large.
 do regexp_instr(0, "^{18446744073709551616");
 ERROR HY000: Decimal number in regular expression is too large.
+#
+# Bug #32053093 ASSERTION `MAYBE_NULL' FAILED.
+#               WHEN USING REGEXP_LIKE FUNCTION
+#
+SET SQL_MODE='';
+DO INSERT(regexp_like(1, '['), 0, 1, '');
+ERROR HY000: The regular expression contains an unclosed bracket expression.
+DO INSERT(regexp_instr(1, '['), 0, 1, '');
+ERROR HY000: The regular expression contains an unclosed bracket expression.
+SET NAMES latin1;
+DO INSERT(regexp_replace(1, '[', 42), 0, 1, '');
+ERROR HY000: The regular expression contains an unclosed bracket expression.
+SET NAMES DEFAULT;
+SET SQL_MODE=DEFAULT;
+#
+# Bug #33290245 Item_func_st_distance_sphere::val_real():
+#               Assertion `is_nullable()' failed.
+select ( _utf32', ,*') regexp 13946;
+ERROR HY000: Cannot convert string '\x2C\x20\x2C\x2A' from utf32 to utf16
+select regexp_instr( ( _utf32', ,*'), 13946);
+ERROR HY000: Cannot convert string '\x2C\x20\x2C\x2A' from utf32 to utf16
+select regexp_replace( ( _utf32', ,*'), 13946, 42);
+ERROR HY000: Cannot convert string '\x2C\x20\x2C\x2A' from utf32 to utf16
+select regexp_substr( ( _utf32', ,*'), 13946);
+ERROR HY000: Cannot convert string '\x2C\x20\x2C\x2A' from utf32 to utf16
+#
+# Bug #33326003 regexp::check_icu_status,
+#               handle Unicode Character Names without debug assert
+#
+SELECT 'a' regexp '\\N{latin small letter a}';
+'a' regexp '\\N{latin small letter a}'
+1
+select 'ǅ' regexp '\\N{Latin Capital Letter D with Small Letter Z with Caron}';
+'ǅ' regexp '\\N{Latin Capital Letter D with Small Letter Z with Caron}'
+1
+SELECT 'a' regexp '\\p{alphabetic}';
+'a' regexp '\\p{alphabetic}'
+1
+SELECT 'a' regexp '\\P{alphabetic}';
+'a' regexp '\\P{alphabetic}'
+0
+SELECT '👌🏾' regexp '\\p{Emoji}\\p{Emoji_modifier}';
+'??' regexp '\\p{Emoji}\\p{Emoji_modifier}'
+1
+SELECT 'a' regexp '\\p{Lowercase_letter}';
+'a' regexp '\\p{Lowercase_letter}'
+1
+SELECT 'a' regexp '\\p{Uppercase_letter}';
+'a' regexp '\\p{Uppercase_letter}'
+1
+SELECT 'A' regexp '\\p{Lowercase_letter}';
+'A' regexp '\\p{Lowercase_letter}'
+1
+SELECT 'A' regexp '\\p{Uppercase_letter}';
+'A' regexp '\\p{Uppercase_letter}'
+1
+SELECT 'a' collate utf8mb4_0900_as_cs regexp '\\p{Lowercase_letter}';
+'a' collate utf8mb4_0900_as_cs regexp '\\p{Lowercase_letter}'
+1
+SELECT 'A' collate utf8mb4_0900_as_cs regexp '\\p{Lowercase_letter}';
+'A' collate utf8mb4_0900_as_cs regexp '\\p{Lowercase_letter}'
+0
+SELECT 'a' collate utf8mb4_0900_as_cs regexp '\\p{Uppercase_letter}';
+'a' collate utf8mb4_0900_as_cs regexp '\\p{Uppercase_letter}'
+0
+SELECT 'A' collate utf8mb4_0900_as_cs regexp '\\p{Uppercase_letter}';
+'A' collate utf8mb4_0900_as_cs regexp '\\p{Uppercase_letter}'
+1

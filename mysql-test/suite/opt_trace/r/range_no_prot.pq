@@ -181,6 +181,7 @@ EXPLAIN SELECT * FROM t1 WHERE key2 < 5 OR key2 > 1020	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 47,
                         "cost": 16.96,
                         "chosen": true
@@ -615,6 +616,7 @@ EXPLAIN SELECT * FROM t1 WHERE key1 < 3 OR key2 > 1020	{
                               "rowid_ordered": false,
                               "using_mrr": false,
                               "index_only": true,
+                              "in_memory": -1,
                               "rows": 3,
                               "cost": 0.57,
                               "chosen": true
@@ -634,6 +636,7 @@ EXPLAIN SELECT * FROM t1 WHERE key1 < 3 OR key2 > 1020	{
                               "rowid_ordered": false,
                               "using_mrr": false,
                               "index_only": true,
+                              "in_memory": -1,
                               "rows": 42,
                               "cost": 4.68,
                               "chosen": true
@@ -1360,11 +1363,11 @@ GROUP BY key2	{
                         "covering": true,
                         "index_dives_for_eq_ranges": true,
                         "ranges": [
-                          "1 <= key2 <= 1",
-                          "2 <= key2 <= 2",
-                          "3 <= key2 <= 3",
-                          "4 <= key2 <= 4",
-                          "5 <= key2 <= 5"
+                          "key2 = 1",
+                          "key2 = 2",
+                          "key2 = 3",
+                          "key2 = 4",
+                          "key2 = 5"
                         ] /* ranges */,
                         "rows": 5,
                         "cost": 8.5
@@ -1374,11 +1377,11 @@ GROUP BY key2	{
                         "covering": true,
                         "index_dives_for_eq_ranges": true,
                         "ranges": [
-                          "1 <= key2 <= 1",
-                          "2 <= key2 <= 2",
-                          "3 <= key2 <= 3",
-                          "4 <= key2 <= 4",
-                          "5 <= key2 <= 5"
+                          "key2 = 1",
+                          "key2 = 2",
+                          "key2 = 3",
+                          "key2 = 4",
+                          "key2 = 5"
                         ] /* ranges */,
                         "rows": 5,
                         "cost": 8.5
@@ -1398,11 +1401,11 @@ GROUP BY key2	{
                       "key2"
                     ] /* key_parts_used_for_access */,
                     "ranges": [
-                      "1 <= key2 <= 1",
-                      "2 <= key2 <= 2",
-                      "3 <= key2 <= 3",
-                      "4 <= key2 <= 4",
-                      "5 <= key2 <= 5"
+                      "key2 = 1",
+                      "key2 = 2",
+                      "key2 = 3",
+                      "key2 = 4",
+                      "key2 = 5"
                     ] /* ranges */,
                     "chosen": true
                   } /* best_group_range_summary */,
@@ -1415,16 +1418,17 @@ GROUP BY key2	{
                       {
                         "index": "i2_1",
                         "ranges": [
-                          "1 <= key2 <= 1",
-                          "2 <= key2 <= 2",
-                          "3 <= key2 <= 3",
-                          "4 <= key2 <= 4",
-                          "5 <= key2 <= 5"
+                          "key2 = 1",
+                          "key2 = 2",
+                          "key2 = 3",
+                          "key2 = 4",
+                          "key2 = 5"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": -1,
                         "rows": 47,
                         "cost": 5.29,
                         "chosen": true
@@ -1432,16 +1436,17 @@ GROUP BY key2	{
                       {
                         "index": "i2_2",
                         "ranges": [
-                          "1 <= key2 <= 1",
-                          "2 <= key2 <= 2",
-                          "3 <= key2 <= 3",
-                          "4 <= key2 <= 4",
-                          "5 <= key2 <= 5"
+                          "key2 = 1",
+                          "key2 = 2",
+                          "key2 = 3",
+                          "key2 = 4",
+                          "key2 = 5"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": -1,
                         "rows": 47,
                         "cost": 5.29,
                         "chosen": false,
@@ -1459,11 +1464,11 @@ GROUP BY key2	{
                       "index": "i2_1",
                       "rows": 47,
                       "ranges": [
-                        "1 <= key2 <= 1",
-                        "2 <= key2 <= 2",
-                        "3 <= key2 <= 3",
-                        "4 <= key2 <= 4",
-                        "5 <= key2 <= 5"
+                        "key2 = 1",
+                        "key2 = 2",
+                        "key2 = 3",
+                        "key2 = 4",
+                        "key2 = 5"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 47,
@@ -1718,12 +1723,13 @@ EXPLAIN SELECT * FROM t2 WHERE key2 = 1 AND (key2_1 = 1 OR key3 = 5)	{
                       {
                         "index": "i2_1",
                         "ranges": [
-                          "1 <= key2 <= 1"
+                          "key2 = 1"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 10,
                         "cost": 3.76,
                         "chosen": true
@@ -1731,12 +1737,13 @@ EXPLAIN SELECT * FROM t2 WHERE key2 = 1 AND (key2_1 = 1 OR key3 = 5)	{
                       {
                         "index": "i2_2",
                         "ranges": [
-                          "1 <= key2 <= 1"
+                          "key2 = 1"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 10,
                         "cost": 3.76,
                         "chosen": false,
@@ -1754,7 +1761,7 @@ EXPLAIN SELECT * FROM t2 WHERE key2 = 1 AND (key2_1 = 1 OR key3 = 5)	{
                       "index": "i2_1",
                       "rows": 10,
                       "ranges": [
-                        "1 <= key2 <= 1"
+                        "key2 = 1"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 10,
@@ -2012,12 +2019,13 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
                             {
                               "index": "i2",
                               "ranges": [
-                                "10 <= key2 <= 10"
+                                "key2 = 10"
                               ] /* ranges */,
                               "index_dives_for_eq_ranges": true,
                               "rowid_ordered": true,
                               "using_mrr": false,
                               "index_only": true,
+                              "in_memory": -1,
                               "rows": 1,
                               "cost": 0.36,
                               "chosen": true
@@ -2031,12 +2039,13 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
                             {
                               "index": "i3",
                               "ranges": [
-                                "3 <= key3 <= 3"
+                                "key3 = 3"
                               ] /* ranges */,
                               "index_dives_for_eq_ranges": true,
                               "rowid_ordered": true,
                               "using_mrr": false,
                               "index_only": true,
+                              "in_memory": -1,
                               "rows": 1,
                               "cost": 0.36,
                               "chosen": true
@@ -2055,7 +2064,7 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
                           "index": "i2",
                           "rows": 1,
                           "ranges": [
-                            "10 <= key2 <= 10"
+                            "key2 = 10"
                           ] /* ranges */,
                           "analyzing_roworder_intersect": {
                             "usable": false,
@@ -2067,7 +2076,7 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
                           "index": "i3",
                           "rows": 1,
                           "ranges": [
-                            "3 <= key3 <= 3"
+                            "key3 = 3"
                           ] /* ranges */,
                           "analyzing_roworder_intersect": {
                             "usable": false,
@@ -2089,7 +2098,7 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
                           "index": "i2",
                           "rows": 1,
                           "ranges": [
-                            "10 <= key2 <= 10"
+                            "key2 = 10"
                           ] /* ranges */
                         },
                         {
@@ -2097,7 +2106,7 @@ EXPLAIN SELECT * FROM t1 WHERE key2=10 OR key3=3 OR key4 <=> null	{
                           "index": "i3",
                           "rows": 1,
                           "ranges": [
-                            "3 <= key3 <= 3"
+                            "key3 = 3"
                           ] /* ranges */
                         }
                       ] /* union_of */
@@ -2498,12 +2507,13 @@ EXPLAIN SELECT * FROM t2 WHERE key1a = 5 and key1b < 10	{
                       {
                         "index": "PRIMARY",
                         "ranges": [
-                          "5 <= key1a <= 5 AND key1b < 10"
+                          "key1a = 5 AND key1b < 10"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -2517,6 +2527,7 @@ EXPLAIN SELECT * FROM t2 WHERE key1a = 5 and key1b < 10	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 9,
                         "cost": 3.41,
                         "chosen": false,
@@ -2534,7 +2545,7 @@ EXPLAIN SELECT * FROM t2 WHERE key1a = 5 and key1b < 10	{
                       "index": "PRIMARY",
                       "rows": 1,
                       "ranges": [
-                        "5 <= key1a <= 5 AND key1b < 10"
+                        "key1a = 5 AND key1b < 10"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 1,
@@ -2557,7 +2568,7 @@ EXPLAIN SELECT * FROM t2 WHERE key1a = 5 and key1b < 10	{
                       "access_type": "ref",
                       "index": "PRIMARY",
                       "rows": 10,
-                      "cost": 3.56,
+                      "cost": 3.5,
                       "chosen": true
                     },
                     {
@@ -2753,13 +2764,14 @@ EXPLAIN SELECT * FROM t2 WHERE (key1a = 5 and key1b < 10 and key1b > 2) or
                       {
                         "index": "PRIMARY",
                         "ranges": [
-                          "4 <= key1a <= 4 AND 3 < key1b < 7",
-                          "5 <= key1a <= 5 AND 2 < key1b < 10"
+                          "key1a = 4 AND 3 < key1b < 7",
+                          "key1a = 5 AND 2 < key1b < 10"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 1.21,
                         "chosen": true
@@ -2775,6 +2787,7 @@ EXPLAIN SELECT * FROM t2 WHERE (key1a = 5 and key1b < 10 and key1b > 2) or
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 6,
                         "cost": 2.86,
                         "chosen": false,
@@ -2792,8 +2805,8 @@ EXPLAIN SELECT * FROM t2 WHERE (key1a = 5 and key1b < 10 and key1b > 2) or
                       "index": "PRIMARY",
                       "rows": 2,
                       "ranges": [
-                        "4 <= key1a <= 4 AND 3 < key1b < 7",
-                        "5 <= key1a <= 5 AND 2 < key1b < 10"
+                        "key1a = 4 AND 3 < key1b < 7",
+                        "key1a = 5 AND 2 < key1b < 10"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 2,
@@ -3005,13 +3018,14 @@ EXPLAIN SELECT * FROM t2 WHERE (key1b < 10 and key1b > 7) and
                       {
                         "index": "PRIMARY",
                         "ranges": [
-                          "4 <= key1a <= 4 AND 7 < key1b < 10",
-                          "5 <= key1a <= 5 AND 7 < key1b < 10"
+                          "key1a = 4 AND 7 < key1b < 10",
+                          "key1a = 5 AND 7 < key1b < 10"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 1.21,
                         "chosen": true
@@ -3025,6 +3039,7 @@ EXPLAIN SELECT * FROM t2 WHERE (key1b < 10 and key1b > 7) and
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 0.96,
                         "chosen": true
@@ -3286,6 +3301,7 @@ EXPLAIN SELECT * FROM t1 WHERE (key1 > 1 OR key2  > 2)	{
                               "rowid_ordered": false,
                               "using_mrr": false,
                               "index_only": true,
+                              "in_memory": -1,
                               "rows": 1023,
                               "cost": 108,
                               "chosen": false,
@@ -3306,6 +3322,7 @@ EXPLAIN SELECT * FROM t1 WHERE (key1 > 1 OR key2  > 2)	{
                               "rowid_ordered": false,
                               "using_mrr": false,
                               "index_only": true,
+                              "in_memory": -1,
                               "rows": 1022,
                               "cost": 107.89,
                               "chosen": false,
@@ -3554,6 +3571,7 @@ WHERE t1.key1=t2.key1a AND t1.key2 > 1020	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 42,
                         "cost": 14.96,
                         "chosen": true
@@ -3632,7 +3650,7 @@ WHERE t1.key1=t2.key1a AND t1.key2 > 1020	{
                       "access_type": "ref",
                       "index": "PRIMARY",
                       "rows": 10,
-                      "cost": 149.52,
+                      "cost": 147,
                       "chosen": true
                     },
                     {
@@ -3651,7 +3669,7 @@ WHERE t1.key1=t2.key1a AND t1.key2 > 1020	{
                 } /* best_access_path */,
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 420,
-                "cost_for_plan": 168.68
+                "cost_for_plan": 166.16
               }
             ] /* considered_execution_plans */
           },
@@ -3723,7 +3741,7 @@ Inserting records
 
 EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index_merge	cola,colb	cola,colb	12,12	NULL	29	100.00	Using intersect(cola,colb); Using where
+1	SIMPLE	t1	NULL	index_merge	cola,colb	cola,colb	12,12	NULL	29	99.37	Using intersect(cola,colb); Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`cola` AS `cola`,`test`.`t1`.`colb` AS `colb`,`test`.`t1`.`filler` AS `filler` from `test`.`t1` where ((`test`.`t1`.`colb` = 'bar') and (`test`.`t1`.`cola` = 'foo'))
 
@@ -3846,12 +3864,13 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
                       {
                         "index": "cola",
                         "ranges": [
-                          "foo <= cola <= foo"
+                          "cola = 'foo'"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 504,
                         "cost": 176.66,
                         "chosen": true
@@ -3859,12 +3878,13 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
                       {
                         "index": "colb",
                         "ranges": [
-                          "bar <= colb <= bar"
+                          "colb = 'bar'"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 504,
                         "cost": 176.66,
                         "chosen": false,
@@ -3900,7 +3920,7 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
                         "clustered_pk_added_to_intersect": false,
                         "cause": "no_clustered_pk_index"
                       } /* clustered_pk */,
-                      "rows": 29,
+                      "rows": 29.1838,
                       "cost": 17.0072,
                       "covering": false,
                       "chosen": true
@@ -3909,7 +3929,7 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
                   "chosen_range_access_summary": {
                     "range_access_plan": {
                       "type": "index_roworder_intersect",
-                      "rows": 29,
+                      "rows": 29.1838,
                       "cost": 17.0072,
                       "covering": false,
                       "clustered_pk_scan": false,
@@ -3919,7 +3939,7 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
                           "index": "cola",
                           "rows": 504,
                           "ranges": [
-                            "foo <= cola <= foo"
+                            "cola = 'foo'"
                           ] /* ranges */
                         },
                         {
@@ -3927,12 +3947,12 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'foo' AND colb = 'bar'	{
                           "index": "colb",
                           "rows": 504,
                           "ranges": [
-                            "bar <= colb <= bar"
+                            "colb = 'bar'"
                           ] /* ranges */
                         }
                       ] /* intersect_of */
                     } /* range_access_plan */,
-                    "rows_for_plan": 29,
+                    "rows_for_plan": 29.1838,
                     "cost_for_plan": 17.0072,
                     "chosen": true
                   } /* chosen_range_access_summary */
@@ -4138,12 +4158,13 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'f\no'	{
                       {
                         "index": "cola",
                         "ranges": [
-                          "f\no <= cola <= f\no"
+                          "cola = 'f\\no'"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -4160,7 +4181,7 @@ EXPLAIN SELECT * FROM t1 WHERE cola = 'f\no'	{
                       "index": "cola",
                       "rows": 1,
                       "ranges": [
-                        "f\no <= cola <= f\no"
+                        "cola = 'f\\no'"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 1,
@@ -5052,6 +5073,7 @@ EXPLAIN SELECT * FROM t1 WHERE i1 > '2' ORDER BY i1, i2	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 0.96,
                         "chosen": true
@@ -5065,6 +5087,7 @@ EXPLAIN SELECT * FROM t1 WHERE i1 > '2' ORDER BY i1, i2	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 0.96,
                         "chosen": false,
@@ -5210,6 +5233,7 @@ EXPLAIN SELECT * FROM t1 WHERE i1 > '2' ORDER BY i1, i2	{
                             "rowid_ordered": false,
                             "using_mrr": false,
                             "index_only": false,
+                            "in_memory": -1,
                             "rows": 2,
                             "cost": 0.96,
                             "chosen": true
@@ -5436,6 +5460,7 @@ EXPLAIN SELECT DISTINCT i1 FROM t1 WHERE i1 >= '1' ORDER BY i1 DESC	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 0.465814,
                         "chosen": false,
@@ -5450,6 +5475,7 @@ EXPLAIN SELECT DISTINCT i1 FROM t1 WHERE i1 >= '1' ORDER BY i1 DESC	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 0.468065,
                         "chosen": false,
@@ -5781,6 +5807,7 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND v = 'a' AND pk < 3	{
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": 1,
                         "rows": 2,
                         "cost": 0.71,
                         "chosen": true
@@ -5788,12 +5815,13 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND v = 'a' AND pk < 3	{
                       {
                         "index": "i1_idx",
                         "ranges": [
-                          "1 <= i1 <= 1 AND pk < 3"
+                          "i1 = 1 AND pk < 3"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": 1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -5801,12 +5829,13 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND v = 'a' AND pk < 3	{
                       {
                         "index": "v_idx",
                         "ranges": [
-                          "a <= v <= a AND 1 <= i1 <= 1 AND pk < 3"
+                          "v = 'a' AND i1 = 1 AND pk < 3"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 1,
                         "cost": 0.36,
                         "chosen": true
@@ -5840,7 +5869,7 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND v = 'a' AND pk < 3	{
                       "index": "v_idx",
                       "rows": 1,
                       "ranges": [
-                        "a <= v <= a AND 1 <= i1 <= 1 AND pk < 3"
+                        "v = 'a' AND i1 = 1 AND pk < 3"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 1,
@@ -6081,7 +6110,7 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND pk < 3	{
                       "i1"
                     ] /* key_parts_used_for_access */,
                     "range": [
-                      "1 <= i1 <= 1"
+                      "i1 = 1"
                     ] /* range */,
                     "chosen": false,
                     "cause": "cost"
@@ -6097,6 +6126,7 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND pk < 3	{
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": 1,
                         "rows": 2,
                         "cost": 0.71,
                         "chosen": true
@@ -6104,12 +6134,13 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND pk < 3	{
                       {
                         "index": "i1_idx",
                         "ranges": [
-                          "1 <= i1 <= 1 AND pk < 3"
+                          "i1 = 1 AND pk < 3"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": 1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -6160,7 +6191,7 @@ EXPLAIN SELECT v FROM t1 WHERE i1 = 1 AND pk < 3	{
                           "index": "i1_idx",
                           "rows": 1,
                           "ranges": [
-                            "1 <= i1 <= 1 AND pk < 3"
+                            "i1 = 1 AND pk < 3"
                           ] /* ranges */
                         }
                       ] /* intersect_of */
@@ -6259,9 +6290,7 @@ INSERT INTO t1 VALUES (1,1),(1,2),(1,0),(1,3);
 # ignore ref access on index with overly optimistic cost-estimate
 EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY,b	b	4	NULL	2	25.00	Parallel scan (3 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	t1	NULL	range	PRIMARY,b	PRIMARY	8	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`b`) AS `MAX(b)`,`test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`a` = 1) and (`test`.`t1`.`b` < 2)) group by `test`.`t1`.`a`
 
@@ -6369,10 +6398,10 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
                         "covering": true,
                         "index_dives_for_eq_ranges": true,
                         "ranges": [
-                          "1 <= a <= 1 AND b < 2"
+                          "a = 1 AND b < 2"
                         ] /* ranges */,
-                        "rows": 2,
-                        "cost": 0.55
+                        "rows": 1,
+                        "cost": 0.4
                       },
                       {
                         "index": "b",
@@ -6389,13 +6418,14 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
                     "min_aggregate": false,
                     "max_aggregate": true,
                     "distinct_aggregate": false,
-                    "rows": 2,
-                    "cost": 0.55,
+                    "rows": 1,
+                    "cost": 0.4,
                     "key_parts_used_for_access": [
-                      "a"
+                      "a",
+                      "b"
                     ] /* key_parts_used_for_access */,
                     "ranges": [
-                      "1 <= a <= 1 AND b < 2"
+                      "a = 1 AND b < 2"
                     ] /* ranges */,
                     "chosen": true
                   } /* best_group_range_summary */,
@@ -6408,12 +6438,13 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
                       {
                         "index": "PRIMARY",
                         "ranges": [
-                          "1 <= a <= 1 AND b < 2"
+                          "a = 1 AND b < 2"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 2,
                         "cost": 0.71,
                         "chosen": false,
@@ -6428,9 +6459,11 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 2,
                         "cost": 0.460366,
-                        "chosen": true
+                        "chosen": false,
+                        "cause": "cost"
                       }
                     ] /* range_scan_alternatives */,
                     "analyzing_roworder_intersect": {
@@ -6440,15 +6473,24 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
                   } /* analyzing_range_alternatives */,
                   "chosen_range_access_summary": {
                     "range_access_plan": {
-                      "type": "range_scan",
-                      "index": "b",
-                      "rows": 2,
+                      "type": "index_group",
+                      "index": "PRIMARY",
+                      "group_attribute": "b",
+                      "min_aggregate": false,
+                      "max_aggregate": true,
+                      "distinct_aggregate": false,
+                      "rows": 1,
+                      "cost": 0.4,
+                      "key_parts_used_for_access": [
+                        "a",
+                        "b"
+                      ] /* key_parts_used_for_access */,
                       "ranges": [
-                        "b < 2"
+                        "a = 1 AND b < 2"
                       ] /* ranges */
                     } /* range_access_plan */,
-                    "rows_for_plan": 2,
-                    "cost_for_plan": 0.460366,
+                    "rows_for_plan": 1,
+                    "cost_for_plan": 0.4,
                     "chosen": true
                   } /* chosen_range_access_summary */
                 } /* range_analysis */
@@ -6470,26 +6512,26 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
                       "cause": "range_uses_more_keyparts"
                     },
                     {
-                      "rows_to_scan": 2,
+                      "rows_to_scan": 1,
                       "filtering_effect": [
                       ] /* filtering_effect */,
-                      "final_filtering_effect": 0.25,
+                      "final_filtering_effect": 1,
                       "access_type": "range",
                       "range_details": {
-                        "used_index": "b"
+                        "used_index": "index_for_group_by(PRIMARY)"
                       } /* range_details */,
-                      "resulting_rows": 0.5,
-                      "cost": 0.660366,
+                      "resulting_rows": 1,
+                      "cost": 0.5,
                       "chosen": true,
                       "use_tmp_table": true
                     }
                   ] /* considered_access_paths */
                 } /* best_access_path */,
                 "condition_filtering_pct": 100,
-                "rows_for_plan": 0.5,
-                "cost_for_plan": 0.660366,
-                "sort_cost": 0.5,
-                "new_cost_for_plan": 1.16037,
+                "rows_for_plan": 1,
+                "cost_for_plan": 0.5,
+                "sort_cost": 1,
+                "new_cost_for_plan": 1.5,
                 "chosen": true
               }
             ] /* considered_execution_plans */
@@ -6541,7 +6583,6 @@ EXPLAIN SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,
@@ -6691,12 +6732,13 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = '1' ORDER BY i1	{
                       {
                         "index": "k1",
                         "ranges": [
-                          "1 <= c1 <= 1"
+                          "c1 = '1'"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -6704,12 +6746,13 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = '1' ORDER BY i1	{
                       {
                         "index": "k2",
                         "ranges": [
-                          "1 <= c1 <= 1"
+                          "c1 = '1'"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": false,
@@ -6727,7 +6770,7 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = '1' ORDER BY i1	{
                       "index": "k1",
                       "rows": 1,
                       "ranges": [
-                        "1 <= c1 <= 1"
+                        "c1 = '1'"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 1,
@@ -6851,12 +6894,13 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = '1' ORDER BY i1	{
                             {
                               "index": "k2",
                               "ranges": [
-                                "1 <= c1 <= 1"
+                                "c1 = '1'"
                               ] /* ranges */,
                               "index_dives_for_eq_ranges": true,
                               "rowid_ordered": false,
                               "using_mrr": false,
                               "index_only": false,
+                              "in_memory": -1,
                               "rows": 1,
                               "cost": 0.61,
                               "chosen": true
@@ -6873,7 +6917,7 @@ EXPLAIN SELECT * FROM t1 WHERE c1 = '1' ORDER BY i1	{
                             "index": "k2",
                             "rows": 1,
                             "ranges": [
-                              "1 <= c1 <= 1"
+                              "c1 = '1'"
                             ] /* ranges */
                           } /* range_access_plan */,
                           "rows_for_plan": 1,
@@ -7057,12 +7101,13 @@ trace
                       {
                         "index": "i_b",
                         "ranges": [
-                          "0xd95b94336a9946a39cf5b58cfe772d8c <= b <= 0xd95b94336a9946a39cf5b58cfe772d8c"
+                          "b = 0xd95b94336a9946a39cf5b58cfe772d8c"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -7079,7 +7124,7 @@ trace
                       "index": "i_b",
                       "rows": 1,
                       "ranges": [
-                        "0xd95b94336a9946a39cf5b58cfe772d8c <= b <= 0xd95b94336a9946a39cf5b58cfe772d8c"
+                        "b = 0xd95b94336a9946a39cf5b58cfe772d8c"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 1,
@@ -7276,12 +7321,13 @@ trace
                       {
                         "index": "i_b",
                         "ranges": [
-                          "NULL <= b <= NULL"
+                          "b = NULL"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true
@@ -7298,7 +7344,7 @@ trace
                       "index": "i_b",
                       "rows": 1,
                       "ranges": [
-                        "NULL <= b <= NULL"
+                        "b = NULL"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 1,
@@ -7417,6 +7463,7 @@ show_json_object('"range_scan_alternatives": [', TRACE)
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 1,
                         "cost": 0.61,
                         "chosen": true

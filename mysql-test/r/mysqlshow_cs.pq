@@ -81,11 +81,7 @@ Database: information_schema
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
-| CDB_OUTLINE_INFO                      |
-| CDB_PLAN_CACHE_STAT                   |
 | CDB_SLAVE_THREAD_STATUS               |
-| CDB_SQL_FILTER_INFO                   |
-| CDB_SQL_STATISTICS                    |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -119,9 +115,7 @@ Database: information_schema
 | INNODB_FT_DELETED                     |
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_FT_INDEX_TABLE                 |
-| INNODB_HOT_ROW_UPDATE_STATS           |
 | INNODB_INDEXES                        |
-| INNODB_INSTANT_MODIFIED_COLS          |
 | INNODB_METRICS                        |
 | INNODB_SESSION_TEMP_TABLESPACES       |
 | INNODB_TABLES                         |
@@ -172,11 +166,7 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
-| CDB_OUTLINE_INFO                      |
-| CDB_PLAN_CACHE_STAT                   |
 | CDB_SLAVE_THREAD_STATUS               |
-| CDB_SQL_FILTER_INFO                   |
-| CDB_SQL_STATISTICS                    |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -210,9 +200,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_FT_DELETED                     |
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_FT_INDEX_TABLE                 |
-| INNODB_HOT_ROW_UPDATE_STATS           |
 | INNODB_INDEXES                        |
-| INNODB_INSTANT_MODIFIED_COLS          |
 | INNODB_METRICS                        |
 | INNODB_SESSION_TEMP_TABLESPACES       |
 | INNODB_TABLES                         |
@@ -351,11 +339,11 @@ SET GLOBAL sql_mode = @OLD_SQL_MODE;
 CREATE USER 'user_with_length_32_abcdefghijkl'@'localhost';
 GRANT ALL ON *.* TO 'user_with_length_32_abcdefghijkl'@'localhost';
 Database: mysql  Table: user  Wildcard: user
-+-------+----------+-----------+------+-----+---------+-------+---------------------------------+---------+
-| Field | Type     | Collation | Null | Key | Default | Extra | Privileges                      | Comment |
-+-------+----------+-----------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8_bin  | NO   | PRI |         |       | select,insert,update,references |         |
-+-------+----------+-----------+------+-----+---------+-------+---------------------------------+---------+
++-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
+| Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
++-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
+| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
++-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 DROP USER 'user_with_length_32_abcdefghijkl'@'localhost';
 
 End of tests

@@ -175,19 +175,19 @@ Mysqlx.Resultset.Row {
 }
 
 Mysqlx.Resultset.Row {
-  field: " "
-  field: "Haarlem\000"
-  field: "NLD\000"
-  field: "Noord-Holland\000"
-  field: "\310\224\022"
-}
-
-Mysqlx.Resultset.Row {
   field: "\036"
   field: "Enschede\000"
   field: "NLD\000"
   field: "Overijssel\000"
   field: "\320\240\022"
+}
+
+Mysqlx.Resultset.Row {
+  field: " "
+  field: "Haarlem\000"
+  field: "NLD\000"
+  field: "Noord-Holland\000"
+  field: "\310\224\022"
 }
 
 Mysqlx.Resultset.FetchDone {
@@ -200,4 +200,3 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-drop schema if exists xtest;

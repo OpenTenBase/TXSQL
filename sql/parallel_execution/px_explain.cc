@@ -4,7 +4,10 @@
 #include "sql/sql_optimizer.h"
 #include "sql/sql_select.h"
 #include "sql/sql_optimizer.h"
+#include "sql/range_optimizer/range_optimizer.h"
 #include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
+
+extern QEP_TAB *get_matched_tab(JOIN *join, TABLE *table);
 
 static void reset_position(POSITION *pos, double exchange_rows) {
   pos->rows_fetched = exchange_rows;
@@ -213,8 +216,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::TABLE_SCAN: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->table_scan().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->table_scan().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -222,8 +225,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::INDEX_SCAN: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->index_scan().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->index_scan().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -231,8 +234,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::REF: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->ref().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->ref().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -240,8 +243,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::REF_OR_NULL: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->ref_or_null().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->ref_or_null().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -249,8 +252,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::FOLLOW_TAIL: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->follow_tail().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->follow_tail().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -258,8 +261,9 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::INDEX_RANGE_SCAN: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->index_range_scan().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          TABLE *table = path->index_range_scan().used_key_part[0].field->table;
+          QEP_TAB *tab = get_matched_tab(join, table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -267,8 +271,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::DYNAMIC_INDEX_RANGE_SCAN: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = path->dynamic_index_range_scan().qep_tab;
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = path->dynamic_index_range_scan().qep_tab;
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;
@@ -285,8 +289,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::EQ_REF: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          //QEP_TAB *tab = join->get_matched_tab(path->eq_ref().table);
-          //if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->eq_ref().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
     }

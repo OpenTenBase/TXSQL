@@ -1404,6 +1404,17 @@ struct TABLE {
   handler *file{nullptr};
   TABLE *next{nullptr}, *prev{nullptr};
 
+#if defined(HAVE_PX)
+ public:
+  bool m_parallel_scan{false};
+  /// parallel workers launched to scan the table.
+  uint m_parallel_workers{0};
+  void set_parallel_scan(bool parallel_scan) { m_parallel_scan = parallel_scan; }
+  bool get_parallel_scan() const  { return m_parallel_scan; }
+  void set_parallel_workers(uint workers) { m_parallel_workers = workers; }
+  uint get_parallel_workers() const { return m_parallel_workers; }
+#endif /* defined(HAVE_PX) */
+
  private:
   /**
      Links for the lists of used/unused TABLE objects for the particular

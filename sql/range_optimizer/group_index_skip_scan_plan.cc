@@ -1681,6 +1681,69 @@ static bool add_range(MEM_ROOT *return_mem_root, SEL_ARG *sel_range,
   return false;
 }
 
+#if defined(HAVE_PX)
+bool GroupIndexSkipScanParameters::eq(
+    const GroupIndexSkipScanParameters *other,
+    unsigned num_used_key_parts) const {
+  if (!other) {
+    return false;
+  }
+
+  if (have_agg_distinct != other->have_agg_distinct ||
+      group_prefix_len != other->group_prefix_len ||
+      group_key_parts != other->group_key_parts ||
+      key_infix_len != other->key_infix_len ||
+      is_index_scan != other->is_index_scan ||
+      real_key_parts != other->real_key_parts ||
+      max_used_key_length != other->max_used_key_length ||
+      min_functions.size() != other->min_functions.size() ||
+      max_functions.size() != other->max_functions.size()) {
+    return false;
+  }
+
+  if (index_info) {
+    if (!other->index_info ||
+        strlen(index_info->name) != strlen(other->index_info->name) ||
+        strncmp(index_info->name,
+                other->index_info->name,
+                strlen(index_info->name)) != 0) {
+      return false;
+    }
+
+    const KEY_PART_INFO *key_part = index_info->key_part;
+    const KEY_PART_INFO *other_key_part = other->index_info->key_part;
+    for (uint partno = 0;
+         partno < num_used_key_parts; partno++) {
+      /*
+        They have the same num_used_key_parts, which has been compared
+        before calling the func.
+      */
+      const KEY_PART_INFO *cur_key_part = key_part + partno;
+      const KEY_PART_INFO *other_cur_key_part = other_key_part + partno;
+      if (!cur_key_part->field->eq(other_cur_key_part->field)) {
+        return false;
+      }
+    }
+  }
+  else if (other->index_info) {
+    return false;
+  } 
+
+  if (min_max_arg_part) {
+    if (!other->min_max_arg_part ||
+        !min_max_arg_part->field->eq(other->min_max_arg_part->field) ||
+        min_max_arg_part->store_length != other->min_max_arg_part->store_length) {
+      return false;
+    }
+  }
+  else if (other->min_max_arg_part) {
+    return false;
+  }
+
+  return true;
+}
+#endif /* defined(HAVE_PX) */
+
 #ifndef NDEBUG
 void dbug_dump_group_index_skip_scan(int indent, bool, const AccessPath *path) {
   const GroupIndexSkipScanParameters *param =

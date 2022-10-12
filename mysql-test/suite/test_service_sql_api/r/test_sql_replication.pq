@@ -41,8 +41,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -73,8 +73,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -143,18 +143,18 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
-
-		[data][t1.c1][  1][2]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  1][5]
+		[data][t1.c1][  1][2]
 		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
@@ -162,8 +162,8 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
+		[data][t1.c1][  1][5]
+		[data][t1.c2][  1][2]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -202,18 +202,18 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][2]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][2]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
@@ -288,15 +288,12 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
@@ -309,6 +306,9 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -347,21 +347,21 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
@@ -403,8 +403,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -435,8 +435,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -505,38 +505,35 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][2]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][6]
+		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
@@ -544,6 +541,9 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][5]
 		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -582,18 +582,12 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
@@ -601,13 +595,25 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][2]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][1]
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][5]
@@ -615,12 +621,6 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -686,17 +686,17 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  1][1]
+		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][4]
+		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  3][100]
@@ -708,11 +708,8 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
@@ -720,11 +717,14 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -763,30 +763,33 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
@@ -796,9 +799,6 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
@@ -879,8 +879,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -911,8 +911,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -981,12 +981,33 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
@@ -1003,32 +1024,11 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][2]
 		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
@@ -1076,8 +1076,8 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][1]
@@ -1092,11 +1092,11 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
@@ -1104,14 +1104,14 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
@@ -1128,11 +1128,11 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][5]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][5]
+		[data][t1.c2][  1][2]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1198,12 +1198,15 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][t1.c1][  1][1]
+		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
@@ -1211,28 +1214,7 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][6]
@@ -1244,7 +1226,16 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
 		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  3][100]
@@ -1255,6 +1246,15 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1293,51 +1293,15 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
@@ -1350,6 +1314,42 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1385,8 +1385,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -1417,8 +1417,8 @@ EXECUTING:[35][SELECT 'first complex command' as a]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][.a][ 21][first complex command]
@@ -1487,21 +1487,18 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
@@ -1515,20 +1512,14 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
@@ -1536,11 +1527,17 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
@@ -1548,20 +1545,23 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  1][2]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][5]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
+		[data][t1.c1][  1][2]
+		[data][t1.c2][  1][2]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1600,15 +1600,36 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
@@ -1619,47 +1640,26 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][2]
 		[data][t1.c2][  1][2]
@@ -1670,11 +1670,11 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
 		[data][t1.c1][  1][5]
 		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1740,25 +1740,10 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
@@ -1767,9 +1752,6 @@ EXECUTING:[16][SELECT * FROM t1]
 
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
@@ -1786,14 +1768,20 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
@@ -1804,11 +1792,23 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
@@ -1853,15 +1853,36 @@ EXECUTING:[16][SELECT * FROM t1]
 
 
 		[meta][charset result] number: 33
-		[meta][charset result] name: utf8
-		[meta][charset result] collation: utf8_general_ci
+		[meta][charset result] name: utf8mb3
+		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][1]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
+
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
+
+		[data][t1.c1][  1][6]
+		[data][t1.c2][  1][3]
+
+		[data][t1.c1][  1][3]
+		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
@@ -1875,8 +1896,8 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
+		[data][t1.c1][  3][100]
+		[data][t1.c2][  1][2]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
@@ -1885,6 +1906,9 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][4]
+		[data][t1.c2][  1][1]
+
+		[data][t1.c1][  1][1]
 		[data][t1.c2][  1][1]
 
 		[data][t1.c1][  1][6]
@@ -1893,38 +1917,14 @@ EXECUTING:[16][SELECT * FROM t1]
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][4]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][3]
 		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  3][100]
 		[data][t1.c2][  1][2]
 
-		[data][t1.c1][  1][6]
-		[data][t1.c2][  1][3]
-
-		[data][t1.c1][  1][1]
-		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
 		[data][t1.c1][  1][4]
 		[data][t1.c2][  1][1]
-
-		[data][t1.c1][  3][100]
-		[data][t1.c2][  1][2]
-
-		[data][t1.c1][  1][3]
-		[data][t1.c2][  1][3]
 
 		[data][t1.c1][  1][6]
 		[data][t1.c2][  1][3]

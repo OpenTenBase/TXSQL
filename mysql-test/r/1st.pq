@@ -1,6 +1,5 @@
 select schema_name from information_schema.schemata order by schema_name;
 SCHEMA_NAME
-__cdb_recycle_bin__
 information_schema
 mtr
 mysql
@@ -9,7 +8,6 @@ sys
 test
 show tables in mysql where Tables_in_mysql != 'ndb_binlog_index';
 Tables_in_mysql
-column_statistics_history
 columns_priv
 component
 db
@@ -25,13 +23,15 @@ help_relation
 help_topic
 innodb_index_stats
 innodb_table_stats
-outline
 password_history
 plugin
 procs_priv
 proxies_priv
-recycle_bin_info
 replication_asynchronous_connection_failover
+replication_asynchronous_connection_failover_managed
+replication_group_configuration_version
+replication_group_member_actions
+resource_groups_extra
 role_edges
 server_cost
 servers

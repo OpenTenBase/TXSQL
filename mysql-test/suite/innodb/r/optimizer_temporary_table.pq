@@ -724,7 +724,7 @@ select a from t1 group by b order by sum(a);
 a
 1
 2
-3
+4
 explain format = json select a from t7 group by b order by sum(a);
 EXPLAIN
 {
@@ -769,9 +769,9 @@ EXPLAIN
             "exchange_table": {
               "table_name": "<sender1>",
               "access_type": "ALL",
-              "rows_examined_per_scan": 0,
+              "rows_examined_per_scan": 5,
               "rows_produced_per_join": 0,
-              "filtered": "0.00",
+              "filtered": "100.00",
               "send_to": "<receiver1>",
               "cost_info": {
                 "read_cost": "0.00",
@@ -785,9 +785,9 @@ EXPLAIN
             "exchange_table": {
               "table_name": "<receiver1>",
               "access_type": "ALL",
-              "rows_examined_per_scan": 0,
+              "rows_examined_per_scan": 5,
               "rows_produced_per_join": 0,
-              "filtered": "0.00",
+              "filtered": "100.00",
               "receive_from": "<sender1>",
               "using_merge_sort": true,
               "cost_info": {
@@ -809,7 +809,7 @@ select a from t7 group by b order by sum(a);
 a
 1
 2
-4
+3
 explain format = json select sql_big_result distinct * from t1, t2;
 EXPLAIN
 {
@@ -3144,7 +3144,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,group_concat(`test`.`t1`.`a` separator ',') AS `group_concat(a)` from `test`.`t1`
 select b, group_concat(a) from t1;
 b	group_concat(a)
-a	9,2,4,3,3
+a	9,3,2,3,4
 select * from t1;
 a	b
 2	b
@@ -3648,7 +3648,7 @@ select a from t1 group by b order by sum(a);
 a
 2
 9
-4
+3
 explain format = json select a from t7 group by b order by sum(a);
 EXPLAIN
 {
@@ -3693,9 +3693,9 @@ EXPLAIN
             "exchange_table": {
               "table_name": "<sender1>",
               "access_type": "ALL",
-              "rows_examined_per_scan": 0,
+              "rows_examined_per_scan": 5,
               "rows_produced_per_join": 0,
-              "filtered": "0.00",
+              "filtered": "100.00",
               "send_to": "<receiver1>",
               "cost_info": {
                 "read_cost": "0.00",
@@ -3709,9 +3709,9 @@ EXPLAIN
             "exchange_table": {
               "table_name": "<receiver1>",
               "access_type": "ALL",
-              "rows_examined_per_scan": 0,
+              "rows_examined_per_scan": 5,
               "rows_produced_per_join": 0,
-              "filtered": "0.00",
+              "filtered": "100.00",
               "receive_from": "<sender1>",
               "using_merge_sort": true,
               "cost_info": {

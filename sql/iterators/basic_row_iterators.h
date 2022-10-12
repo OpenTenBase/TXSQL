@@ -66,9 +66,11 @@ class TableScanIterator final : public TableRowIterator {
 
   bool Init() override;
   int Read() override;
+#if defined(HAVE_PX)
   virtual std::string str() override { return "TableScan"; }
   virtual PhysicalRowIteratorType type() override { return PHY_TABLE_SCAN; }
-  virtual PX_table_descriptor * get_table_descriptor() override;
+  virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const override;
+#endif /* defined(HAVE_PX) */
 
  private:
   uchar *const m_record;
@@ -99,9 +101,12 @@ class IndexScanIterator final : public TableRowIterator {
   bool Init() override;
   int Read() override;
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "IndexScan"; }
   virtual PhysicalRowIteratorType type() override { return PHY_INDEX_SCAN; }
-  virtual PX_table_descriptor * get_table_descriptor() override;
+  virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const override;
+#endif /* defined(HAVE_PX) */
+
  private:
   uchar *const m_record;
   const int m_idx;
@@ -307,7 +312,9 @@ class FakeSingleRowIterator final : public RowIterator {
 
   void UnlockRow() override {}
 
+#if defined(HAVE_PX)
   PhysicalRowIteratorType type() override { return PHY_FAKE_SINGLE_ROW; }
+#endif /* defined(HAVE_PX) */
 
  private:
   bool m_has_row;

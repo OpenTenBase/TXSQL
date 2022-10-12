@@ -883,7 +883,7 @@ EXPLAIN
         "exchange_table": {
           "table_name": "<sender1>",
           "access_type": "ALL",
-          "rows_examined_per_scan": 5,
+          "rows_examined_per_scan": 17,
           "rows_produced_per_join": 0,
           "filtered": "100.00",
           "send_to": "<receiver1>",
@@ -899,7 +899,7 @@ EXPLAIN
         "exchange_table": {
           "table_name": "<receiver1>",
           "access_type": "ALL",
-          "rows_examined_per_scan": 5,
+          "rows_examined_per_scan": 17,
           "rows_produced_per_join": 0,
           "filtered": "100.00",
           "receive_from": "<sender1>",
@@ -934,7 +934,7 @@ EXPLAIN
   }
 }
 Warnings:
-Note	1003	/* select#1 */ select `t2`.`f1` AS `f1` from `mysqltest1`.`t1` straight_join `mysqltest1`.`t1` `t2` where (`mysqltest1`.`t1`.`f1` > (/* select#2 */ select `mysqltest1`.`t3`.`f1` from `mysqltest1`.`t1` `t3` limit 1))
+Note	1003	/* select#1 */ select `mysqltest1`.`t2`.`f1` AS `f1` from `mysqltest1`.`t1` straight_join `mysqltest1`.`t1` `t2` where (`mysqltest1`.`t1`.`f1` > (/* select#2 */ select `mysqltest1`.`t3`.`f1` from `mysqltest1`.`t1` `t3` limit 1))
 EXPLAIN FORMAT=JSON FOR QUERY 'SELECT 1 FROM t1 WHERE
 ROW(f1,f1) >= ROW('1', (SELECT 1 FROM t1 WHERE f1 > 1234))'
 EXPLAIN
@@ -1017,7 +1017,7 @@ EXPLAIN
       "used_columns": [
         "f1"
       ],
-      "attached_condition": "((`mysqltest1`.`t1`.`f1`,`mysqltest1`.`t1`.`f1`) >= ('1',(/* select#2 */ select 1 from `mysqltest1`.`t1` where (`t1`.`f1` > 1234))))"
+      "attached_condition": "((`mysqltest1`.`t1`.`f1`,`mysqltest1`.`t1`.`f1`) >= ('1',(/* select#2 */ select 1 from `mysqltest1`.`t1` where (`mysqltest1`.`t1`.`f1` > 1234))))"
     },
     "parallel_information": [
       {
@@ -1077,7 +1077,7 @@ EXPLAIN
             "used_columns": [
               "f1"
             ],
-            "attached_condition": "(`t1`.`f1` > 1234)"
+            "attached_condition": "(`mysqltest1`.`t1`.`f1` > 1234)"
           }
         }
       }
@@ -1085,7 +1085,7 @@ EXPLAIN
   }
 }
 Warnings:
-Note	1003	/* select#1 */ select 1 AS `1` from `mysqltest1`.`t1` where ((`mysqltest1`.`t1`.`f1`,`mysqltest1`.`t1`.`f1`) >= ('1',(/* select#2 */ select 1 from `mysqltest1`.`t1` where (`t1`.`f1` > 1234))))
+Note	1003	/* select#1 */ select 1 AS `1` from `mysqltest1`.`t1` where ((`mysqltest1`.`t1`.`f1`,`mysqltest1`.`t1`.`f1`) >= ('1',(/* select#2 */ select 1 from `mysqltest1`.`t1` where (`mysqltest1`.`t1`.`f1` > 1234))))
 CREATE TABLE t3 (pk INT PRIMARY KEY);
 INSERT INTO t3 SELECT DISTINCT * FROM t1;
 EXPLAIN FORMAT=JSON FOR QUERY 'SELECT * FROM t3 WHERE pk=(SELECT f1 FROM t1 limit 1)'

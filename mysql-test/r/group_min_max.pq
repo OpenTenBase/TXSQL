@@ -138,8 +138,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,min(`test`.`t1`.`a2`) AS `min(a2)` from `test`.`t1` group by `test`.`t1`.`a1`
 explain format=tree select a1, min(a2) from t1 group by a1;
 EXPLAIN
--> Group aggregate (computed in earlier step): min(t1.a2)
-    -> Index range scan on t1 using index_for_group_by(idx_t1_1)  (cost=3.25 rows=5)
+-> Covering index skip scan for grouping on t1 using idx_t1_1  (cost=3.25 rows=5)
 
 explain select a1, max(a2) from t1 group by a1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -1697,9 +1696,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`a2` AS `a2`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (((`test`.`t1`.`a1` >= 'c') or (`test`.`t1`.`a2` < 'b')) and (`test`.`t1`.`b` > 'a')) group by `test`.`t1`.`a1`,`test`.`t1`.`a2`,`test`.`t1`.`b`
 explain format=tree select a1,a2,b from t1 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
 EXPLAIN
--> Group (computed in earlier step, no aggregates)
-    -> Filter: (((t1.a1 >= 'c') or (t1.a2 < 'b')) and (t1.b > 'a'))  (cost=11.05 rows=17)
-        -> Index range scan on t1 using index_for_group_by(idx_t1_1)  (cost=11.05 rows=17)
+-> Filter: (((t1.a1 >= 'c') or (t1.a2 < 'b')) and (t1.b > 'a'))  (cost=11.05 rows=17)
+    -> Covering index skip scan for deduplication on t1 using idx_t1_1  (cost=11.05 rows=17)
 
 explain select a1,a2,b from t1 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -2818,7 +2816,7 @@ a	b
 3	9
 explain select sql_buffer_result a, max(b)+1 from t1 where a = 0 group by a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	PRIMARY,index	index	4	NULL	3	100.00	Using where; Using index for group-by; Using temporary
+1	SIMPLE	t1	NULL	range	PRIMARY,index	PRIMARY	4	NULL	1	100.00	Using where; Using index for group-by; Using temporary
 Warnings:
 Note	1003	/* select#1 */ select sql_buffer_result `test`.`t1`.`a` AS `a`,(max(`test`.`t1`.`b`) + 1) AS `max(b)+1` from `test`.`t1` where (`test`.`t1`.`a` = 0) group by `test`.`t1`.`a`
 drop table t1;
@@ -3781,7 +3779,7 @@ INSERT INTO t1(c1,c2) VALUES
 (4,14), (4,15), (4,16), (4,17), (4,18), (4,19), (4,20),(5,5);
 EXPLAIN SELECT MAX(c2), c1 FROM t1 WHERE c1 = 4 GROUP BY c1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	range	c1	c1	5	NULL	7	100.00	Using where; Using index for group-by
+1	SIMPLE	t1	NULL	range	c1	c1	5	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select max(`test`.`t1`.`c2`) AS `MAX(c2)`,`test`.`t1`.`c1` AS `c1` from `test`.`t1` where (`test`.`t1`.`c1` = 4) group by `test`.`t1`.`c1`
 FLUSH STATUS;
@@ -4169,8 +4167,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col) FROM a
 WHERE (group_by_col IN (70 ,9)) OR (aggr_col > 2) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	aggr_col_key,group_by_col_key	group_by_col_key	10	NULL	6	55.55	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` in (70,9)) or (`test`.`a`.`aggr_col` > 2)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'disjuntive_predicate_present' AS OK
@@ -4187,8 +4185,8 @@ EXPLAIN SELECT group_by_col, MAX(aggr_col) FROM a
 WHERE (group_by_col IN (70 , 9)) OR (aggr_col < 9) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	aggr_col_key,group_by_col_key	group_by_col_key	10	NULL	6	55.55	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` in (70,9)) or (`test`.`a`.`aggr_col` < 9)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'disjuntive_predicate_present' AS OK
@@ -4207,8 +4205,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col) FROM a
 WHERE (group_by_col IN (70, 9)) OR (aggr_col > 2) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	6	55.55	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` in (70,9)) or (`test`.`a`.`aggr_col` > 2)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4225,8 +4223,8 @@ EXPLAIN SELECT group_by_col, MAX(aggr_col) FROM a
 WHERE (group_by_col IN (70, 9)) OR (aggr_col < 9) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	6	55.55	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` in (70,9)) or (`test`.`a`.`aggr_col` < 9)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4243,8 +4241,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE (group_by_col IN (3, 9)) OR (aggr_col = 9) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	6	44.44	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` in (3,9)) or (`test`.`a`.`aggr_col` = 9)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4262,8 +4260,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE (group_by_col = 3) OR (aggr_col > 8) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	6	55.55	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` = 3) or (`test`.`a`.`aggr_col` > 8)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4289,8 +4287,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE group_by_col = 9 OR aggr_col GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	9	91.11	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((`test`.`a`.`group_by_col` = 9) or (0 <> `test`.`a`.`aggr_col`)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4310,8 +4308,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE group_by_col OR (aggr_col < 9) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	9	92.59	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	8	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((0 <> `test`.`a`.`group_by_col`) or (`test`.`a`.`aggr_col` < 9)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4328,8 +4326,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col = group_by_col GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	12	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where (`test`.`a`.`group_by_col` = `test`.`a`.`aggr_col`) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4348,8 +4346,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col < group_by_col GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	12	33.33	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where (`test`.`a`.`aggr_col` < `test`.`a`.`group_by_col`) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4372,8 +4370,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE aggr_col OR group_by_col GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	15	99.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	14	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	14	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((0 <> `test`.`a`.`aggr_col`) or (0 <> `test`.`a`.`group_by_col`)) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4433,8 +4431,8 @@ EXPLAIN SELECT group_by_col, MIN(aggr_col), MAX(aggr_col) FROM a
 WHERE group_by_col OR (group_by_col < (aggr_col = 1)) GROUP BY group_by_col;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	a	NULL	index	group_by_col_key	group_by_col_key	10	NULL	15	93.33	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	13	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	13	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`a`.`group_by_col` AS `group_by_col`,min(`test`.`a`.`aggr_col`) AS `MIN(aggr_col)`,max(`test`.`a`.`aggr_col`) AS `MAX(aggr_col)` from `test`.`a` where ((0 <> `test`.`a`.`group_by_col`) or (`test`.`a`.`group_by_col` < (`test`.`a`.`aggr_col` = 1))) group by `test`.`a`.`group_by_col`
 SELECT TRACE RLIKE 'minmax_keypart_in_disjunctive_query' AS OK
@@ -4456,3 +4454,132 @@ SELECT a, MAX(TRIM('1' FROM ~1)) FROM t GROUP BY a;
 a	MAX(TRIM('1' FROM ~1))
 a	8446744073709551614
 DROP TABLE t;
+#
+# Bug#30242457 ASSERTION "!TABLE->CONST_TABLE"
+#
+CREATE TABLE t2(id1 INT, id2 CHAR (1), id3 INT, value INT,
+KEY (id1,id2,id3)) COLLATE LATIN1_BIN;
+CREATE TABLE t1(a INT,b INT, PRIMARY KEY(a)) ENGINE=MEMORY;
+# One row in an in-memory table: row will be read before
+# optimizing MAX in subquery. No result set, either when t2 is
+# empty or not, since t1.a <> t1.b
+INSERT INTO t1 VALUES(1,0);
+SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+a	b
+INSERT INTO t2 VALUES (0, 'a', 3, 4);
+SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+a	b
+EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+EXPLAIN
+-> Zero rows (Impossible WHERE noticed after reading const tables)  (cost=0.00..0.00 rows=0)
+
+Warnings:
+Note	1276	Field or reference 'test.t1.b' of SELECT #2 was resolved in SELECT #1
+DELETE FROM t1;
+DELETE FROM t2;
+# Now t1.a = t1.b, still not result if t2 is empty
+INSERT INTO t1 VALUES(1,1);
+SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+a	b
+# If t2 has at least one row, we will get a result row
+INSERT INTO t2 VALUES (0, 'a', 3, 4);
+SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+a	b
+1	1
+EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+EXPLAIN
+-> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'test.t1.b' of SELECT #2 was resolved in SELECT #1
+# If we have two rows in t1, t1 will not be read before
+# optimization of the subquery, so this didn't use to fail
+# before this patch.
+INSERT INTO t1 VALUES(0,0);
+SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+a	b
+0	0
+1	1
+EXPLAIN FORMAT=TREE SELECT * FROM t1 WHERE t1.a IN (SELECT MAX(t1.b) FROM t2);
+EXPLAIN
+-> Filter: <in_optimizer>(t1.a,<exists>(select #2))  (cost=2.73 rows=2)
+    -> Table scan on t1  (cost=2.73 rows=2)
+    -> Select #2 (subquery in condition; dependent)
+        -> Limit: 1 row(s)  (cost=0.10..0.10 rows=1)
+            -> Filter: (<cache>(t1.a) = <ref_null_helper>(max(t1.b)))  (cost=0.10..0.10 rows=1)
+                -> Aggregate: max(t1.b)  (cost=0.10..0.10 rows=1)
+                    -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'test.t1.b' of SELECT #2 was resolved in SELECT #1
+DROP TABLE t1, t2;
+# End of test for Bug#30242457
+#
+# Bug #32769369: SIG11 IN ITEM_FIELD::ITEM_FIELD|SQL/ITEM.CC WITH HYPERGRAPH
+#
+CREATE TABLE t1 (a INTEGER, KEY (a));
+INSERT INTO t1 VALUES (1);
+SELECT SQL_BUFFER_RESULT MIN(t1.a) FROM t1, t1 AS t2;
+MIN(t1.a)
+1
+DROP TABLE t1;
+# Bug#32266286 : ADDING GROUP BY SLOWS DOWN A QUERY.
+#
+CREATE TABLE t0 (i0 INTEGER);
+INSERT INTO t0 VALUES (1), (2), (3), (4), (5);
+INSERT INTO t0 VALUES (6), (7), (8), (9);
+CREATE TABLE t1 (f1 INTEGER, f2 INTEGER, KEY (f1,f2));
+INSERT INTO t1 SELECT 1, i0 from t0;
+INSERT INTO t1 SELECT i0+1, i0*rand()*10 from t0;
+INSERT INTO t1 VALUES (1,0);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN FORMAT=tree SELECT MIN(f2) FROM t1 WHERE f1=1 GROUP BY f1;
+EXPLAIN
+-> Filter: (t1.f1 = 1)
+    -> Covering index skip scan for grouping on t1 using f1 over (f1 = 1)
+
+SELECT MIN(f2) FROM t1 WHERE f1=1 GROUP BY f1;
+MIN(f2)
+0
+INSERT INTO t1 VALUES (NULL, 1);
+INSERT INTO t1 VALUES (NULL, 2);
+EXPLAIN FORMAT=tree SELECT MIN(f2) FROM t1 WHERE f1 IS NULL GROUP BY f1;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Temporary table with deduplication
+        -> Filter: (t1.f1 is null)
+            -> Covering index skip scan for grouping on t1 using f1 over (f1 = NULL)
+
+SELECT MIN(f2) FROM t1 WHERE f1 IS NULL GROUP BY f1;
+MIN(f2)
+1
+DROP TABLE t0,t1;
+#
+# Bug#33139598: REGRESSION: CRASH IN GET_BEST_GROUP_MIN_MAX
+#
+CREATE TABLE t1 (f1 ENUM(''), KEY(f1));
+INSERT INTO t1 VALUES(''),('');
+SELECT 1 FROM t1 WHERE f1=UUID() GROUP BY f1 LIMIT 1;
+1
+DROP TABLE t1;
+#
+# Bug#33139598: Assertion `table_independent_conds == nullptr' failed.
+#
+CREATE TABLE t1 (f1 INTEGER, KEY(f1));
+INSERT INTO t1 VALUES (1), (2);
+CREATE FUNCTION f()
+RETURNS INT DETERMINISTIC
+BEGIN
+SET @f:=1;
+RETURN @f;
+END$
+SELECT MAX(f1) FROM t1 WHERE f() = 1;
+MAX(f1)
+2
+SELECT MAX(f1) FROM t1 WHERE f() = 0;
+MAX(f1)
+NULL
+DROP TABLE t1;
+DROP FUNCTION f;

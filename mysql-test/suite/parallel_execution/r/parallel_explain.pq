@@ -1,8 +1,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 root@localhost
@@ -167,14 +167,14 @@ EXPLAIN
 -> Aggregate: sum(t1.a)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a)
+            -> Aggregate: sum(t1.a)  (cost=1.65 rows=1)
                 -> Parallel table scan on t1  (cost=0.95 rows=7)
 
 EXPLAIN SELECT sum(a) FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1`
 EXPLAIN FORMAT=json SELECT sum(a) FROM t1;
@@ -207,9 +207,9 @@ EXPLAIN
         "exchange_table": {
           "table_name": "<sender1>",
           "access_type": "ALL",
-          "rows_examined_per_scan": 0,
+          "rows_examined_per_scan": 1,
           "rows_produced_per_join": 0,
-          "filtered": "0.00",
+          "filtered": "100.00",
           "send_to": "<receiver1>",
           "cost_info": {
             "read_cost": "0.00",
@@ -223,9 +223,9 @@ EXPLAIN
         "exchange_table": {
           "table_name": "<receiver1>",
           "access_type": "ALL",
-          "rows_examined_per_scan": 0,
+          "rows_examined_per_scan": 1,
           "rows_produced_per_join": 0,
-          "filtered": "0.00",
+          "filtered": "100.00",
           "receive_from": "<sender1>",
           "cost_info": {
             "read_cost": "0.00",
@@ -417,8 +417,8 @@ explain format=tree select * from t1 union select * from t2;
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=0.24..2.64 rows=11)
+            -> Union materialize with deduplication  (cost=2.94..5.34 rows=11)
                 -> PX Receiver (slice: 1; workers: 1)
                     -> PX Sender (slice: 2; workers: 4)
                         -> Parallel table scan on t1  (cost=0.95 rows=7)
@@ -752,7 +752,7 @@ EXPLAIN
         -> Nested loop inner join  (cost=2.05 rows=4)
             -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.65 rows=4)
                 -> Parallel table scan on t2  (cost=0.65 rows=4)
-            -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
+            -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
 
 explain select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -869,7 +869,7 @@ EXPLAIN
             -> Sort: t2.a  (cost=0.65 rows=4)
                 -> Filter: ((t2.a > 1) and (t2.a is not null))  (cost=0.65 rows=4)
                     -> Parallel table scan on t2  (cost=0.65 rows=4)
-    -> Single-row index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
+    -> Single-row covering index lookup on t3 using PRIMARY (a=t2.a)  (cost=0.28 rows=1)
 
 explain select t2.* from t3 join t2 on t3.a = t2.a where t3.a > 1 order by t2.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -990,8 +990,8 @@ explain format=tree select sum(a) from t1 group by b union select variance(a) fr
 EXPLAIN
 -> PX Receiver (slice: 0; workers: 1)
     -> PX Sender (slice: 1; workers: 1)
-        -> Table scan on <union temporary>  (cost=2.50 rows=0)
-            -> Union materialize with deduplication
+        -> Table scan on <union temporary>  (cost=2.50..2.50 rows=0)
+            -> Union materialize with deduplication  (cost=2.50..2.50 rows=0)
                 -> Table scan on <temporary>
                     -> Final Aggregate using temporary table
                         -> PX Receiver (slice: 1; workers: 1)

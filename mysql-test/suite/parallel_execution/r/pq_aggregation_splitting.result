@@ -369,4 +369,44 @@ SELECT AVG(c1), MAX(c1)/2, MIN(c2), AVG(c3)/max(c1), SUM(c4) FROM t1;
 AVG(c1)	MAX(c1)/2	MIN(c2)	AVG(c3)/max(c1)	SUM(c4)
 5.5000	5.0000	1	0.10000000	10
 DROP TABLE t1;
+#
+# case from main.subquery_scalar_to_derived
+# check creation of group list for subquery
+#
+SET @optimizer_switch_saved= @@optimizer_switch;
+SET @@optimizer_switch="subquery_to_derived=on";
+CREATE TABLE t2 (a INT, b INT);
+CREATE TABLE t4 (a INT NOT NULL, b INT NOT NULL);
+INSERT INTO t2 VALUES (1, 7), (2, 7), (2,10);
+INSERT INTO t4 VALUES (4, 8), (3, 8), (5, 9), (12, 7), (1, 7),
+(10, 9), (9, 6), (7, 6), (3, 9), (1, 10);
+ANALYZE TABLE t2, t4;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+test.t4	analyze	status	OK
+explain format=tree SELECT b, MAX(a) AS ma FROM t4 GROUP BY b HAVING ma < (SELECT MAX(t2.a) FROM t2 WHERE t2.b=t4.b);
+EXPLAIN
+-> Filter: (ma < derived_1_2.`MAX(t2.a)`)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Left hash join (derived_1_2.b = t4.b)  (cost=*** rows=***)
+                -> Table scan on t4  (cost=*** rows=***)
+                -> Hash
+                    -> Table scan on derived_1_2  (cost=***..2.50 rows=***)
+                        -> Materialize  (cost=***..2.50 rows=***)
+                            -> Table scan on <temporary>
+                                -> Final Aggregate using temporary table
+                                    -> PX Receiver (slice: 0; workers: 1)
+                                        -> PX Sender (slice: 1; workers: 3)
+                                            -> Table scan on <temporary>
+                                                -> Aggregate using temporary table
+                                                    -> Parallel table scan on t2  (cost=*** rows=***)
+
+Warnings:
+Note	1276	Field or reference 'test.t4.b' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t4.b' of SELECT #2 was resolved in SELECT #1
+SELECT b, MAX(a) AS ma FROM t4 GROUP BY b HAVING ma < (SELECT MAX(t2.a) FROM t2 WHERE t2.b=t4.b);
+b	ma
+10	1
+SET @@optimizer_switch=@optimizer_switch_saved;
 # --include set_px_to_saved.inc

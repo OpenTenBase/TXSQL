@@ -8,7 +8,7 @@ DROP DATABASE IF EXISTS mysqltest1|
 CREATE DATABASE mysqltest1 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 use mysqltest1|
 CREATE TABLE t1(кол INT)|
 INSERT INTO t1 VALUES(1)|
@@ -65,7 +65,7 @@ SELECT COLLATION(c1) FROM v2|
 COLLATION(c1)
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
-utf8_general_ci
+utf8mb3_general_ci
 
 SELECT * FROM v3|
 тест
@@ -125,7 +125,7 @@ SELECT COLLATION(c1) FROM v2|
 COLLATION(c1)
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
-utf8_general_ci
+utf8mb3_general_ci
 
 SELECT * FROM v3|
 тест
@@ -190,7 +190,7 @@ SELECT COLLATION(c1) FROM v2|
 COLLATION(c1)
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
-utf8_general_ci
+utf8mb3_general_ci
 
 SELECT * FROM v3|
 тест
@@ -211,11 +211,11 @@ DROP DATABASE IF EXISTS mysqltest2|
 CREATE DATABASE mysqltest1 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 CREATE DATABASE mysqltest2 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 use mysqltest1|
 
 CREATE PROCEDURE p1(
@@ -328,7 +328,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE p2|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -349,7 +349,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE mysqltest2.p3|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -370,7 +370,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE mysqltest2.p4|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -391,24 +391,24 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SHOW PROCEDURE STATUS LIKE 'p1'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest1	p1	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	p1	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p2'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest1	p2	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	p2	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p3'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest2	p3	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest2	p3	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p4'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest2	p4	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest2	p4	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_name = 'p1'|
@@ -422,7 +422,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -440,7 +440,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -458,7 +458,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -476,7 +476,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -490,61 +490,53 @@ SET @b = '2'|
 
 CALL p1(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci
 
 CALL p2(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci
 
 CALL mysqltest2.p3(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci
 
 CALL mysqltest2.p4(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci
 
 
 ALTER DATABASE mysqltest1 COLLATE cp866_general_ci|
@@ -556,44 +548,36 @@ SET @@character_set_results= cp1251|
 SET @@collation_connection= cp1251_general_ci|
 CALL p1(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CALL p2(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CALL mysqltest2.p3(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CALL mysqltest2.p4(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 set names koi8r|
@@ -618,7 +602,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE p2|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -639,7 +623,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE mysqltest2.p3|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -660,7 +644,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE mysqltest2.p4|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -681,24 +665,24 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SHOW PROCEDURE STATUS LIKE 'p1'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest1	p1	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	p1	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p2'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest1	p2	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	p2	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p3'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest2	p3	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest2	p3	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p4'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest2	p4	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest2	p4	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_name = 'p1'|
@@ -712,7 +696,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -730,7 +714,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -748,7 +732,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -766,7 +750,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -780,46 +764,46 @@ SET @b = '2'|
 
 CALL p1(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci
 
 CALL p2(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci
 
 CALL mysqltest2.p3(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci
 
 CALL mysqltest2.p4(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci
 
 ---> Dump of mysqltest1
 
 CREATE DATABASE /*!32312 IF NOT EXISTS*/ `mysqltest1` /*!40100 DEFAULT CHARACTER SET cp866 */ /*!80016 DEFAULT ENCRYPTION='N' */;
 
 USE `mysqltest1`;
-ALTER DATABASE `mysqltest1` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest1` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -853,7 +837,7 @@ DELIMITER ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
 ALTER DATABASE `mysqltest1` CHARACTER SET cp866 COLLATE cp866_general_ci ;
-ALTER DATABASE `mysqltest1` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest1` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -895,7 +879,7 @@ ALTER DATABASE `mysqltest1` CHARACTER SET cp866 COLLATE cp866_general_ci ;
 CREATE DATABASE /*!32312 IF NOT EXISTS*/ `mysqltest2` /*!40100 DEFAULT CHARACTER SET cp866 */ /*!80016 DEFAULT ENCRYPTION='N' */;
 
 USE `mysqltest2`;
-ALTER DATABASE `mysqltest2` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest2` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -929,7 +913,7 @@ DELIMITER ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
 ALTER DATABASE `mysqltest2` CHARACTER SET cp866 COLLATE cp866_general_ci ;
-ALTER DATABASE `mysqltest2` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest2` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -980,44 +964,36 @@ SET @@character_set_results= cp1251|
 SET @@collation_connection= cp1251_general_ci|
 CALL p1(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CALL p2(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CALL mysqltest2.p3(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CALL mysqltest2.p4(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 set names koi8r|
@@ -1042,7 +1018,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE p2|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -1063,7 +1039,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE mysqltest2.p3|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -1084,7 +1060,7 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE PROCEDURE mysqltest2.p4|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
@@ -1105,24 +1081,24 @@ COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c6,
 @@character_set_client AS c8;
 SET парам1 = 'a';
 SET парам2 = 'b';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SHOW PROCEDURE STATUS LIKE 'p1'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest1	p1	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	p1	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p2'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest1	p2	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	p2	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p3'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest2	p3	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest2	p3	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW PROCEDURE STATUS LIKE 'p4'|
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-mysqltest2	p4	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest2	p4	PROCEDURE	root@localhost	MODIFIED	CREATED	DEFINER		koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_name = 'p1'|
@@ -1136,7 +1112,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -1154,7 +1130,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -1172,7 +1148,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -1190,7 +1166,7 @@ COLLATION(парам1) AS c2,
 COLLATION(парам2) AS c3;
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	NULL	SQL	SQL	NO	CONTAINS SQL	NULL	DEFINER	CREATED	ALTERED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION		root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 SELECT
 SET парам1 = 'a';
@@ -1204,39 +1180,39 @@ SET @b = '2'|
 
 CALL p1(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci
 
 CALL p2(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci
 
 CALL mysqltest2.p3(@a, @b)|
 c1	c2	c3
-utf8_unicode_ci	utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci	utf8mb3_unicode_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_unicode_ci	utf8_unicode_ci
+utf8mb3_unicode_ci	utf8mb3_unicode_ci
 
 CALL mysqltest2.p4(@a, @b)|
 c1	c2	c3
-utf8_general_ci	utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci	utf8mb3_general_ci
 c4	c5	c6	c7	c8
-koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r
+koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r
 SELECT COLLATION(@a) AS ca, COLLATION(@b) cb|
 ca	cb
-utf8_general_ci	utf8_general_ci
+utf8mb3_general_ci	utf8mb3_general_ci
 
 ---> connection: default
 use test|
@@ -1252,11 +1228,11 @@ DROP DATABASE IF EXISTS mysqltest2|
 CREATE DATABASE mysqltest1 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 CREATE DATABASE mysqltest2 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 use mysqltest1|
 CREATE TABLE t1(c INT)|
 CREATE TABLE mysqltest2.t1(c INT)|
@@ -1348,7 +1324,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 = _koi8r    'текст';
 SET @a2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER trg2|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -1363,7 +1339,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 = _koi8r    'текст';
 SET @b2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER mysqltest2.trg3|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -1378,7 +1354,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 = _koi8r    'текст';
 SET @a2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER mysqltest2.trg4|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -1393,7 +1369,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 = _koi8r    'текст';
 SET @b2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 
 SHOW TRIGGERS|
@@ -1409,7 +1385,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 =     'текст';
 SET @a2 =  'текст';
-END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 trg2	INSERT	t1	BEGIN
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
 INSERT INTO log VALUES(COLLATION(перем1));
@@ -1421,7 +1397,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 =     'текст';
 SET @b2 =  'текст';
-END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 use mysqltest2|
 
@@ -1438,7 +1414,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 =     'текст';
 SET @a2 =  'текст';
-END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 trg4	INSERT	t1	BEGIN
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
 INSERT INTO log VALUES(COLLATION(перем1));
@@ -1450,14 +1426,14 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 =     'текст';
 SET @b2 =  'текст';
-END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 use mysqltest1|
 
 
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg1'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10);
-END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1472,7 +1448,7 @@ def	mysqltest1	trg1	INSERT	def	mysqltest1	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg2'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1487,7 +1463,7 @@ def	mysqltest1	trg2	INSERT	def	mysqltest1	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg3'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10);
-END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1502,7 +1478,7 @@ def	mysqltest2	trg3	INSERT	def	mysqltest2	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg4'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1536,10 +1512,10 @@ koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_unicode_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_unicode_ci
 
 SELECT
 COLLATION(@a1) AS ca1,
@@ -1549,7 +1525,7 @@ COLLATION(@b1) AS cb1,
 COLLATION(@b2) AS cb2,
 COLLATION(@b3) AS cb3|
 ca1	ca2	ca3	cb1	cb2	cb3
-koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci
+koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci
 
 DELETE FROM log|
 
@@ -1567,10 +1543,10 @@ koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_unicode_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_unicode_ci
 
 SELECT
 COLLATION(@a1) AS ca1,
@@ -1580,7 +1556,7 @@ COLLATION(@b1) AS cb1,
 COLLATION(@b2) AS cb2,
 COLLATION(@b3) AS cb3|
 ca1	ca2	ca3	cb1	cb2	cb3
-koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci
+koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci
 
 DELETE FROM mysqltest2.log|
 
@@ -1617,7 +1593,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 = _koi8r    'текст';
 SET @a2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER trg2|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -1632,7 +1608,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 = _koi8r    'текст';
 SET @b2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER mysqltest2.trg3|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -1647,7 +1623,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 = _koi8r    'текст';
 SET @a2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER mysqltest2.trg4|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -1662,7 +1638,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 = _koi8r    'текст';
 SET @b2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 
 SHOW TRIGGERS|
@@ -1678,7 +1654,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 =     'текст';
 SET @a2 =  'текст';
-END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 trg2	INSERT	t1	BEGIN
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
 INSERT INTO log VALUES(COLLATION(перем1));
@@ -1690,7 +1666,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 =     'текст';
 SET @b2 =  'текст';
-END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 use mysqltest2|
 
@@ -1707,7 +1683,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 =     'текст';
 SET @a2 =  'текст';
-END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 trg4	INSERT	t1	BEGIN
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
 INSERT INTO log VALUES(COLLATION(перем1));
@@ -1719,14 +1695,14 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 =     'текст';
 SET @b2 =  'текст';
-END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 use mysqltest1|
 
 
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg1'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10);
-END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1741,7 +1717,7 @@ def	mysqltest1	trg1	INSERT	def	mysqltest1	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg2'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1756,7 +1732,7 @@ def	mysqltest1	trg2	INSERT	def	mysqltest1	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg3'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10);
-END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1771,7 +1747,7 @@ def	mysqltest2	trg3	INSERT	def	mysqltest2	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg4'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -1805,10 +1781,10 @@ koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_unicode_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_unicode_ci
 
 SELECT
 COLLATION(@a1) AS ca1,
@@ -1818,7 +1794,7 @@ COLLATION(@b1) AS cb1,
 COLLATION(@b2) AS cb2,
 COLLATION(@b3) AS cb3|
 ca1	ca2	ca3	cb1	cb2	cb3
-koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci
+koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci
 
 DELETE FROM log|
 
@@ -1836,10 +1812,10 @@ koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_unicode_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_unicode_ci
 
 SELECT
 COLLATION(@a1) AS ca1,
@@ -1849,7 +1825,7 @@ COLLATION(@b1) AS cb1,
 COLLATION(@b2) AS cb2,
 COLLATION(@b3) AS cb3|
 ca1	ca2	ca3	cb1	cb2	cb3
-koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci
+koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci
 
 DELETE FROM mysqltest2.log|
 
@@ -1861,17 +1837,17 @@ USE `mysqltest1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `log` (
-  `msg` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+  `msg` varchar(255) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `t1` (
   `c` int DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `t1` VALUES (1),(0),(1);
-ALTER DATABASE `mysqltest1` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest1` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -1899,7 +1875,7 @@ DELIMITER ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
 ALTER DATABASE `mysqltest1` CHARACTER SET cp866 COLLATE cp866_general_ci ;
-ALTER DATABASE `mysqltest1` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest1` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -1938,17 +1914,17 @@ USE `mysqltest2`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `log` (
-  `msg` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+  `msg` varchar(255) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `t1` (
   `c` int DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-INSERT INTO `t1` VALUES (1),(0),(1);
-ALTER DATABASE `mysqltest2` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+INSERT INTO `t1` VALUES (1),(1),(0);
+ALTER DATABASE `mysqltest2` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -1976,7 +1952,7 @@ DELIMITER ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
 ALTER DATABASE `mysqltest2` CHARACTER SET cp866 COLLATE cp866_general_ci ;
-ALTER DATABASE `mysqltest2` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;
+ALTER DATABASE `mysqltest2` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -2044,7 +2020,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 = _koi8r    'текст';
 SET @a2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER trg2|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -2059,7 +2035,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 = _koi8r    'текст';
 SET @b2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER mysqltest2.trg3|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -2074,7 +2050,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 = _koi8r    'текст';
 SET @a2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 SHOW CREATE TRIGGER mysqltest2.trg4|
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
@@ -2089,7 +2065,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 = _koi8r    'текст';
 SET @b2 = _utf8 'я┌п╣п╨я│я┌';
-END	koi8r	koi8r_general_ci	utf8_unicode_ci	CREATED
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci	CREATED
 
 
 SHOW TRIGGERS|
@@ -2105,7 +2081,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 =     'текст';
 SET @a2 =  'текст';
-END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 trg2	INSERT	t1	BEGIN
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
 INSERT INTO log VALUES(COLLATION(перем1));
@@ -2117,7 +2093,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 =     'текст';
 SET @b2 =  'текст';
-END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 use mysqltest2|
 
@@ -2134,7 +2110,7 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @a1 = 'текст';
 SET @a1 =     'текст';
 SET @a2 =  'текст';
-END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	BEFORE	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 trg4	INSERT	t1	BEGIN
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
 INSERT INTO log VALUES(COLLATION(перем1));
@@ -2146,14 +2122,14 @@ INSERT INTO log VALUES(@@character_set_client);
 SET @b1 = 'текст';
 SET @b1 =     'текст';
 SET @b2 =  'текст';
-END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	AFTER	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 use mysqltest1|
 
 
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg1'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10);
-END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -2168,7 +2144,7 @@ def	mysqltest1	trg1	INSERT	def	mysqltest1	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg2'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -2183,7 +2159,7 @@ def	mysqltest1	trg2	INSERT	def	mysqltest1	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg3'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10);
-END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	BEFORE	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -2198,7 +2174,7 @@ def	mysqltest2	trg3	INSERT	def	mysqltest2	t1	1	NULL	BEGIN
 SELECT * FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_name = 'trg4'|
 TRIGGER_CATALOG	TRIGGER_SCHEMA	TRIGGER_NAME	EVENT_MANIPULATION	EVENT_OBJECT_CATALOG	EVENT_OBJECT_SCHEMA	EVENT_OBJECT_TABLE	ACTION_ORDER	ACTION_CONDITION	ACTION_STATEMENT	ACTION_ORIENTATION	ACTION_TIMING	ACTION_REFERENCE_OLD_TABLE	ACTION_REFERENCE_NEW_TABLE	ACTION_REFERENCE_OLD_ROW	ACTION_REFERENCE_NEW_ROW	CREATED	SQL_MODE	DEFINER	CHARACTER_SET_CLIENT	COLLATION_CONNECTION	DATABASE_COLLATION
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ROW	AFTER	NULL	NULL	OLD	NEW	CREATED	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 INSERT INTO log VALUES(@@character_set_client);
 INSERT INTO log VALUES(@@collation_connection);
 INSERT INTO log VALUES(COLLATION(    'текст'));
@@ -2232,10 +2208,10 @@ koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_unicode_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_unicode_ci
 
 SELECT
 COLLATION(@a1) AS ca1,
@@ -2245,7 +2221,7 @@ COLLATION(@b1) AS cb1,
 COLLATION(@b2) AS cb2,
 COLLATION(@b3) AS cb3|
 ca1	ca2	ca3	cb1	cb2	cb3
-koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci
+koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci
 
 DELETE FROM log|
 
@@ -2263,10 +2239,10 @@ koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
 koi8r_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_general_ci
-utf8_unicode_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_general_ci
+utf8mb3_unicode_ci
 
 SELECT
 COLLATION(@a1) AS ca1,
@@ -2276,7 +2252,7 @@ COLLATION(@b1) AS cb1,
 COLLATION(@b2) AS cb2,
 COLLATION(@b3) AS cb3|
 ca1	ca2	ca3	cb1	cb2	cb3
-koi8r_general_ci	utf8_general_ci	koi8r_general_ci	koi8r_general_ci	utf8_general_ci	koi8r_general_ci
+koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci	koi8r_general_ci	utf8mb3_general_ci	koi8r_general_ci
 
 DELETE FROM mysqltest2.log|
 
@@ -2294,11 +2270,11 @@ DROP DATABASE IF EXISTS mysqltest2|
 CREATE DATABASE mysqltest1 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 CREATE DATABASE mysqltest2 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 use mysqltest1|
 
 CREATE EVENT ev1 ON SCHEDULE AT '2030-01-01 00:00:00' DO
@@ -2373,7 +2349,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT ev2|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2386,7 +2362,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT mysqltest2.ev3|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2399,7 +2375,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT mysqltest2.ev3|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2412,16 +2388,16 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SHOW EVENTS LIKE 'ev1'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
-mysqltest1	ev1	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	ev1	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW EVENTS LIKE 'ev2'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
-mysqltest1	ev2	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	ev2	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW EVENTS LIKE 'ev3'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
@@ -2439,7 +2415,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest1	ev1	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2452,7 +2428,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest1	ev2	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2465,7 +2441,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest2	ev3	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2478,7 +2454,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest2	ev4	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2508,7 +2484,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT ev2|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2521,7 +2497,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT mysqltest2.ev3|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2534,7 +2510,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT mysqltest2.ev3|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2547,16 +2523,16 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SHOW EVENTS LIKE 'ev1'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
-mysqltest1	ev1	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	ev1	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW EVENTS LIKE 'ev2'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
-mysqltest1	ev2	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	ev2	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW EVENTS LIKE 'ev3'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
@@ -2574,7 +2550,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest1	ev1	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2587,7 +2563,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest1	ev2	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2600,7 +2576,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest2	ev3	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2613,7 +2589,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest2	ev4	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2624,7 +2600,7 @@ CREATE DATABASE /*!32312 IF NOT EXISTS*/ `mysqltest1` /*!40100 DEFAULT CHARACTER
 USE `mysqltest1`;
 /*!50106 SET @save_time_zone= @@TIME_ZONE */ ;
 DELIMITER ;;
-ALTER DATABASE `mysqltest1` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;;
+ALTER DATABASE `mysqltest1` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;;
@@ -2652,7 +2628,7 @@ END */ ;;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;;
 ALTER DATABASE `mysqltest1` CHARACTER SET cp866 COLLATE cp866_general_ci ;;
 DELIMITER ;;
-ALTER DATABASE `mysqltest1` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;;
+ALTER DATABASE `mysqltest1` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;;
@@ -2691,7 +2667,7 @@ CREATE DATABASE /*!32312 IF NOT EXISTS*/ `mysqltest2` /*!40100 DEFAULT CHARACTER
 USE `mysqltest2`;
 /*!50106 SET @save_time_zone= @@TIME_ZONE */ ;
 DELIMITER ;;
-ALTER DATABASE `mysqltest2` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;;
+ALTER DATABASE `mysqltest2` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;;
@@ -2719,7 +2695,7 @@ END */ ;;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;;
 ALTER DATABASE `mysqltest2` CHARACTER SET cp866 COLLATE cp866_general_ci ;;
 DELIMITER ;;
-ALTER DATABASE `mysqltest2` CHARACTER SET utf8 COLLATE utf8_unicode_ci ;;
+ALTER DATABASE `mysqltest2` CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci ;;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;;
@@ -2781,7 +2757,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT ev2|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2794,7 +2770,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT mysqltest2.ev3|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2807,7 +2783,7 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW CREATE EVENT mysqltest2.ev3|
 Event	sql_mode	time_zone	Create Event	character_set_client	collation_connection	Database Collation
@@ -2820,16 +2796,16 @@ COLLATION(_koi8r    'текст') AS c3,
 COLLATION(_utf8 'я┌п╣п╨я│я┌') AS c4,
 @@collation_connection AS c5,
 @@character_set_client AS c6;
-END	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 
 SHOW EVENTS LIKE 'ev1'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
-mysqltest1	ev1	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	ev1	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW EVENTS LIKE 'ev2'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
-mysqltest1	ev2	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8_unicode_ci
+mysqltest1	ev2	root@localhost	SYSTEM	ONE TIME	2030-01-01 00:00:00	NULL	NULL	NULL	NULL	ENABLED	1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 
 SHOW EVENTS LIKE 'ev3'|
 Db	Name	Definer	Time zone	Type	Execute at	Interval value	Interval field	Starts	Ends	Status	Originator	character_set_client	collation_connection	Database Collation
@@ -2847,7 +2823,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10);
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest1	ev1	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2860,7 +2836,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest1	ev2	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2873,7 +2849,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest2	ev3	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2886,7 +2862,7 @@ COLLATION( 'текст') AS c4,
 COLLATION('текст') AS c2,
 COLLATION(перем1) AS c1,
 DECLARE перем1 CHAR(10) CHARACTER SET utf8;
-END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8_unicode_ci
+END	ONE TIME	2030-01-01 00:00:00	NULL	NULL	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	NULL	NULL	ENABLED	NOT PRESERVE	CREATED	LAST_ALTERED	NULL		1	koi8r	koi8r_general_ci	utf8mb3_unicode_ci
 SELECT
 def	mysqltest2	ev4	root@localhost	SYSTEM	SQL	BEGIN
 
@@ -2899,11 +2875,11 @@ DROP DATABASE IF EXISTS mysqltest2|
 CREATE DATABASE mysqltest1 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 CREATE DATABASE mysqltest2 DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_unicode_ci|
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 use mysqltest1|
 
 CREATE PROCEDURE p1()
@@ -2921,27 +2897,27 @@ END|
 CALL p1()|
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `col1` varchar(10) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
+  `col1` varchar(10) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci
 
 SHOW CREATE TABLE t1|
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `col1` varchar(10) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
+  `col1` varchar(10) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci
 
 
 CALL mysqltest2.p2()|
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `col1` varchar(10) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
+  `col1` varchar(10) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci
 
 SHOW CREATE TABLE mysqltest2.t2|
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `col1` varchar(10) COLLATE utf8_unicode_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
+  `col1` varchar(10) COLLATE utf8mb3_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci
 
 ALTER DATABASE mysqltest1 COLLATE cp1251_general_cs|
 ALTER DATABASE mysqltest2 COLLATE cp1251_general_cs|

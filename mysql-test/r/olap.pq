@@ -35,6 +35,7 @@ Calculator	275
 Computer	6900
 Phone	10
 TV	600
+
 SELECT product, SUM(profit) FROM t1 GROUP BY product WITH ROLLUP;
 product	SUM(profit)
 Calculator	275
@@ -42,6 +43,7 @@ Computer	6900
 NULL	7785
 Phone	10
 TV	600
+
 SELECT product, SUM(profit) FROM t1 GROUP BY 1 WITH ROLLUP;
 product	SUM(profit)
 Calculator	275
@@ -49,6 +51,7 @@ Computer	6900
 NULL	7785
 Phone	10
 TV	600
+
 SELECT product, SUM(profit),AVG(profit) FROM t1 GROUP BY product WITH ROLLUP;
 product	SUM(profit)	AVG(profit)
 Calculator	275	68.75000
@@ -69,6 +72,7 @@ Phone	3	2003	10
 TV	1	1999	250
 TV	1	2000	150
 TV	2	2000	200
+
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP;
 product	country_id	year	SUM(profit)
@@ -105,22 +109,24 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	15	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select rollup_group_item(`test`.`t1`.`product`,0) AS `product`,rollup_group_item(`test`.`t1`.`country_id`,1) AS `country_id`,rollup_group_item(`test`.`t1`.`year`,2) AS `year`,rollup_sum_switcher(sum(`test`.`t1`.`profit`)) AS `SUM(profit)` from `test`.`t1` group by `test`.`t1`.`product`,`test`.`t1`.`country_id`,`test`.`t1`.`year` with rollup
+
 SELECT product, country_id , SUM(profit) FROM t1
 GROUP BY product, country_id WITH ROLLUP
 ORDER BY product DESC, GROUPING (country_id), country_id;
 product	country_id	SUM(profit)
-TV	1	400
-TV	2	200
-TV	NULL	600
-Phone	3	10
-Phone	NULL	10
-Computer	1	4200
-Computer	2	2700
-Computer	NULL	6900
 Calculator	1	125
 Calculator	2	150
 Calculator	NULL	275
+Computer	1	4200
+Computer	2	2700
+Computer	NULL	6900
 NULL	NULL	7785
+Phone	3	10
+Phone	NULL	10
+TV	1	400
+TV	2	200
+TV	NULL	600
+
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP LIMIT 5;
 product	country_id	year	SUM(profit)
@@ -129,6 +135,7 @@ Calculator	1	2000	75
 Calculator	1	NULL	125
 Calculator	2	2000	150
 Calculator	2	NULL	150
+
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP limit 3,3;
 product	country_id	year	SUM(profit)
@@ -145,6 +152,7 @@ Computer	2	2	1
 Phone	3	1	1
 TV	1	3	2
 TV	2	2	1
+
 SELECT product, country_id, COUNT(*), COUNT(distinct year)
 FROM t1 GROUP BY product, country_id WITH ROLLUP;
 product	country_id	COUNT(*)	COUNT(distinct year)
@@ -160,6 +168,7 @@ Phone	NULL	1	1
 TV	1	3	2
 TV	2	2	1
 TV	NULL	5	2
+
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP HAVING country_id = 1;
 product	country_id	year	SUM(profit)
@@ -172,6 +181,7 @@ Computer	1	NULL	4200
 TV	1	1999	250
 TV	1	2000	150
 TV	1	NULL	400
+
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP HAVING SUM(profit) > 200;
 product	country_id	year	SUM(profit)
@@ -186,6 +196,7 @@ NULL	NULL	NULL	7785
 TV	1	1999	250
 TV	1	NULL	400
 TV	NULL	NULL	600
+
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP HAVING SUM(profit) > 7000;
 product	country_id	year	SUM(profit)
@@ -821,18 +832,17 @@ INSERT INTO t2 VALUES (100);
 EXPLAIN FORMAT=tree
 SELECT a, b FROM t1, t2 GROUP BY a, b WITH ROLLUP;
 EXPLAIN
--> Table scan on <temporary>
-    -> Temporary table
+-> Table scan on <temporary>  (cost=2.50..2.50 rows=0)
+    -> Temporary table  (cost=2.50..2.50 rows=0)
         -> Group (no aggregates)
             -> Sort: t1.a, t2.b
-                -> Table scan on <temporary>
-                    -> Temporary table  (cost=0.80 rows=2)
-                        -> Inner hash join (no condition)  (cost=0.80 rows=2)
-                            -> Index scan on t1 using PRIMARY  (cost=0.45 rows=2)
-                            -> Hash
-                                -> PX Receiver (slice: 0; workers: 1)
-                                    -> PX Sender (slice: 1; workers: 1)
-                                        -> Parallel table scan on t2  (cost=0.35 rows=1)
+                -> Stream results  (cost=0.80 rows=2)
+                    -> Inner hash join (no condition)  (cost=0.80 rows=2)
+                        -> Index scan on t1 using PRIMARY  (cost=0.45 rows=2)
+                        -> Hash
+                            -> PX Receiver (slice: 0; workers: 1)
+                                -> PX Sender (slice: 1; workers: 1)
+                                    -> Parallel table scan on t2  (cost=0.35 rows=1)
 
 SELECT a, b FROM t1, t2 GROUP BY a, b WITH ROLLUP;
 a	b
@@ -872,8 +882,8 @@ INSERT INTO  t1 VALUES ('2012-12-20 00:00:00'), (NULL);
 SELECT f1 FROM t1 GROUP BY
 (SELECT f1 FROM t1 HAVING f1 < '2012-12-21 00:00:00') WITH ROLLUP;
 f1
-2012-12-20 00:00:00
-2012-12-20 00:00:00
+NULL
+NULL
 DROP TABLE t1;
 CREATE TABLE t1 (f1 DATE);
 INSERT INTO  t1 VALUES ('2012-12-20'), (NULL);
@@ -1322,6 +1332,31 @@ Department	Employees	SUM(c)	GP_A	GP_B
 555	NULL	168	0	1
 NULL	NULL	622	1	1
 NULL	NULL	NULL	0	1
+#
+# Bug #31073167: WRONG RESULT FOR EXPRESSION INVOLVING GROUP BY COLUMNS WITH ROLLUP
+#
+SELECT a, b, a + COALESCE(b, 0), AVG(b) OVER () FROM t1 GROUP BY a, b WITH ROLLUP;
+a	b	a + COALESCE(b, 0)	AVG(b) OVER ()
+111	11	122	40.6364
+111	12	123	40.6364
+111	NULL	111	40.6364
+1111	NULL	1111	40.6364
+1111	NULL	1111	40.6364
+222	22	244	40.6364
+222	23	245	40.6364
+222	NULL	222	40.6364
+333	33	366	40.6364
+333	34	367	40.6364
+333	NULL	333	40.6364
+444	44	488	40.6364
+444	45	489	40.6364
+444	NULL	444	40.6364
+555	55	610	40.6364
+555	56	611	40.6364
+555	NULL	555	40.6364
+NULL	112	NULL	40.6364
+NULL	NULL	NULL	40.6364
+NULL	NULL	NULL	40.6364
 DROP TABLE t0,t1;
 #
 # Bug#25174118 ROLLUP NULL'S GET REPLACED WITH LAST ROW'S VALUE FOR PREPARED STMTS ON A VIEW
@@ -1412,21 +1447,21 @@ SELECT i, j, SUM(k)/COUNT(*) as avg FROM t1 GROUP BY i,j WITH ROLLUP
 ORDER BY avg;
 i	j	avg
 111	11	11.0000
-111	12	12.5000
 111	NULL	12.0000
+111	12	12.5000
 222	22	22.0000
-222	23	23.5000
 222	NULL	23.0000
+222	23	23.5000
 333	33	33.0000
-333	34	34.5000
 333	NULL	34.0000
-444	44	44.0000
-444	45	45.5000
-444	NULL	45.0000
-555	55	55.0000
-555	56	56.5000
-555	NULL	56.0000
 NULL	NULL	34.0000
+333	34	34.5000
+444	44	44.0000
+444	NULL	45.0000
+444	45	45.5000
+555	55	55.0000
+555	NULL	56.0000
+555	56	56.5000
 SELECT CONCAT(i,':',j) as ij, CONCAT(j,':',i) as ji FROM t1 GROUP BY ij, ji
 WITH ROLLUP ORDER BY ij,ji;
 ij	ji
@@ -1541,17 +1576,16 @@ EXPLAIN FORMAT=tree SELECT i, j, i+j, AVG(j) over () from t1 GROUP BY i,j
 WITH ROLLUP HAVING i+j is NULL ORDER BY i;
 EXPLAIN
 -> Sort: i
-    -> Table scan on <temporary>
-        -> Temporary table
-            -> Window aggregate with buffering: avg(t1.j) OVER () 
+    -> Table scan on <temporary>  (cost=2.50..2.50 rows=0)
+        -> Temporary table  (cost=2.50..2.50 rows=0)
+            -> Window aggregate with buffering: avg(j) OVER () 
                 -> Filter: ((rollup_group_item(t1.i,0) + rollup_group_item(t1.j,1)) is null)
-                    -> Table scan on <temporary>
-                        -> Temporary table
+                    -> Table scan on <temporary>  (cost=2.50..2.50 rows=0)
+                        -> Temporary table  (cost=2.50..2.50 rows=0)
                             -> Group (no aggregates)
                                 -> Sort: t1.i, t1.j
-                                    -> Table scan on <temporary>
-                                        -> Temporary table  (cost=1.75 rows=15)
-                                            -> Table scan on t1  (cost=1.75 rows=15)
+                                    -> Stream results  (cost=1.75 rows=15)
+                                        -> Table scan on t1  (cost=1.75 rows=15)
 
 SELECT i, j, i+j, AVG(j) over () from t1 GROUP BY i,j WITH ROLLUP
 HAVING i+j is NULL ORDER BY i;
@@ -1801,16 +1835,16 @@ GROUPING(j),j);
 i
 222
 222
-333
 222
 333
 333
+333
+444
 444
 444
 555
 555
 555
-444
 SELECT a, SUM(a), SUM(a)+1, CONCAT(SUM(a),'x'), SUM(a)+SUM(a), SUM(a)
 FROM (SELECT 1 a, 2 b UNION SELECT 2,3 UNION SELECT 5,6 ) d
 GROUP BY a WITH ROLLUP ORDER BY GROUPING(a),a;
@@ -2004,7 +2038,7 @@ SELECT (((@e:=`b`)) NOT BETWEEN 0x0b5f09 AND (CHAR(md5(@pub1),
 FROM t GROUP BY b,a WITH ROLLUP;
 (((@e:=`b`)) NOT BETWEEN 0x0b5f09 AND (CHAR(md5(@pub1),
 (CONNECTION_ID()+LEAD(5225.750000,110) RESPECT NULLS OVER(ORDER BY b, a)))))
-NULL
+1
 1
 1
 1
@@ -2139,6 +2173,16 @@ a	b	2*a+b	SUM(a+b) OVER ()
 NULL	NULL	NULL	16
 DROP TABLE t1;
 #
+# Bug #31868610: DATA TYPE CHANGED IN A GROUP BY WITH ROLLUP
+#
+CREATE TABLE IF NOT EXISTS t1 (a DECIMAL(6,3));
+INSERT INTO t1 VALUES (1.1);
+SELECT a FROM t1 GROUP BY a WITH ROLLUP;
+a
+1.100
+NULL
+DROP TABLE t1;
+#
 # Bug #32049313: WITH ROLLUP, IS (NOT) NULL DOES NOT WORK FOR AGGREGATIONS IN A HAVING CONDITION
 #
 CREATE TABLE t1 (f1 INTEGER,f2 INTEGER);
@@ -2159,3 +2203,102 @@ View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select `t1`.`f1` AS `f1` from `t1` group by `t1`.`f1` with rollup	utf8mb4	utf8mb4_0900_ai_ci
 DROP VIEW v1;
 DROP TABLE t1;
+#
+# Bug #32548377: WL#14417: RESULT MISMATCH WITH ROLLUP
+#
+CREATE TABLE t1 (a INTEGER);
+INSERT INTO t1 VALUES (1), (2), (3);
+SELECT ( SELECT 'a' ) AS f1
+FROM t1 AS alias1, t1 alias2
+GROUP BY f1 WITH ROLLUP
+HAVING f1 < 7;
+f1
+Warning	1292	Truncated incorrect DOUBLE value: 'a'
+Warnings:
+a
+DROP TABLE t1;
+#
+# Bug #32565875: DISTINCT WITH GROUP BY AND ROLLUP ON PRIMARY KEY RETURNS WRONG RESULT
+#
+CREATE TABLE t1 ( i INTEGER NOT NULL PRIMARY KEY );
+INSERT INTO t1 VALUES (1), (2), (3);
+SELECT DISTINCT i FROM t1 WHERE i = 1 GROUP BY i WITH ROLLUP;
+i
+1
+NULL
+DROP TABLE t1;
+#
+# Bug #32918927: ASSERTION `!THD->IS_ERROR()' FAILED|SQL/SQL_EXECUTOR.CC
+#
+CREATE TABLE t1 ( a TIME );
+SELECT
+t1.a
+FROM
+t1, t1 AS t2
+GROUP BY t1.a WITH ROLLUP
+HAVING COUNT(*) = 0 AND t1.a = '刔';
+a
+Warning	1292	Incorrect time value: '刔' for column 'a' at row 1
+Warning	1292	Incorrect time value: '刔' for column 'a' at row 1
+Warnings:
+DROP TABLE t1;
+#
+# Bug#33036184: GROUP BY WITH ROLLUP AND CONCAT OVER GROUP BY KEY DOES NOT PRODUCE NULL
+#
+CREATE TABLE t1 (f1 INTEGER PRIMARY KEY);
+INSERT INTO t1 values (1);
+SELECT CONCAT(INSTR(f1,'w')) FROM t1 GROUP BY f1 WITH ROLLUP;
+CONCAT(INSTR(f1,'w'))
+0
+NULL
+DROP TABLE t1;
+#
+# Bug #33041336: WL#14419: ASSERTION `THD->CHANGE_LIST.IS_EMPTY()' FAILED
+#
+CREATE TABLE t1 ( a INTEGER );
+PREPARE ps FROM "SELECT RANK() OVER (ORDER BY a) FROM t1 GROUP BY a WITH ROLLUP";
+DROP TABLE t1;
+#
+# Bug #33123934: QUERY WITH ROLLUP - SEGFAULT IN CHANGE_TO_USE_TMP_FIELDS_EXCEPT_SUMS
+#
+CREATE TABLE t1 ( a VARCHAR(10), b TIMESTAMP );
+SELECT
+REPLACE( IF( t2.a = t2.b, _latin1 'a', 'e'), 'd', 'b' )
+FROM
+t1, t1 AS t2
+GROUP BY
+REPLACE( IF( t2.a = t2.b, _latin1 'a', 'e'), 'd', 'b' )
+WITH ROLLUP;
+REPLACE( IF( t2.a = t2.b, _latin1 'a', 'e'), 'd', 'b' )
+DROP TABLE t1;
+#
+# Bug #33149402: SELECT'S GROUPING() NOT TAKEN IN ACCOUNT IN HAVING WHEN JOIN USED
+#
+CREATE TABLE t1 (a INTEGER, b INTEGER);
+INSERT INTO t1 VALUES (2020, 2);
+CREATE TABLE t2 (b INTEGER);
+INSERT INTO t2 VALUES (2);
+SELECT a, GROUPING(a) AS ga
+FROM t1 JOIN t2 USING (b)
+GROUP BY a WITH ROLLUP
+HAVING ga = 0;
+a	ga
+2020	0
+DROP TABLE t1, t2;
+#
+# Bug#33729162: Hypergraph misses rows for SELECT DISTINCT ... GROUP BY WITH ROLLUP
+#
+CREATE TABLE t (x INTEGER);
+INSERT INTO t VALUES (NULL), (0), (1), (2), (3);
+SELECT DISTINCT x AS a, x AS b FROM t GROUP BY a, b WITH ROLLUP;
+a	b
+0	0
+0	NULL
+1	1
+1	NULL
+2	2
+2	NULL
+3	3
+3	NULL
+NULL	NULL
+DROP TABLE t;

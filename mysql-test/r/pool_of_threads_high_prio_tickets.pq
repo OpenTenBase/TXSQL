@@ -556,6 +556,7 @@ insert into tmp select * from t3;
 insert into t3 select * from tmp;
 insert into tmp select * from t3;
 insert into t3 select * from tmp;
+set session innodb_parallel_read_threads=1;
 alter table t3 add t2nr int not null auto_increment primary key first;
 drop table tmp;
 SET BIG_TABLES=1;
@@ -1635,7 +1636,7 @@ companynr	count(*)
 50	11
 select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
-70	absentee	vest	17788966	254128.0857	3272.5939722089965	10709871.306938658
+70	absentee	vest	17788966	254128.0857	3272.5939722090234	10709871.306938833
 explain select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Parallel scan (4 workers); Using where

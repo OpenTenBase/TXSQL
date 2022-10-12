@@ -2520,7 +2520,7 @@ bool Prepared_statement::prepare(const char *query_str, size_t query_length,
 
   lex_start(thd);
   lex->context_analysis_only |= CONTEXT_ANALYSIS_ONLY_PREPARE;
-
+  lex->is_from_ps = true;
   thd->m_digest = nullptr;
   thd->m_statement_psi = nullptr;
 

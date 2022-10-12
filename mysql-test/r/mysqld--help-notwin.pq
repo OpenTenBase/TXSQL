@@ -10,7 +10,8 @@ The following options may be given as the first argument:
 
  --abort-slave-event-count=# 
  Option used by mysql-test for debugging and testing of
- replication.
+ replication.This option is deprecated and will be removed
+ in a future version. 
  --activate-all-roles-on-login 
  Automatically set all granted roles as active after the
  user has authenticated successfully.
@@ -44,9 +45,6 @@ The following options may be given as the first argument:
  --admin-ssl-crlpath=name 
  --admin-ssl-key=name 
  --admin-tls-ciphersuites=name 
- --admin-tls-version=name 
- TLS version for --admin-port, permitted values are TLSv1,
- TLSv1.1, TLSv1.2, TLSv1.3
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -54,6 +52,16 @@ The following options may be given as the first argument:
  library, for example exit() from libc.so
  -a, --ansi          Use ANSI SQL syntax instead of MySQL syntax. This mode
  will also set transaction isolation level 'serializable'.
+ --authentication-policy=name 
+ Defines policies around how user account can be
+ configured with Multi Factor authentication methods
+ during CREATE/ALTER USER statement. This variable accepts
+ at-most 3 comma separated list of authentication plugin
+ names where each value refers to what authentication
+ plugin should be used in place of 1st Factor
+ Authentication (FA), 2FA and 3FA method. Value *
+ indicates any plugin is allowed for 1FA, 2FA and 3FA
+ method. An empty value means nth FA method is optional.
  --auto-increment-increment[=#] 
  Auto-increment columns are incremented by this
  --auto-increment-offset[=#] 
@@ -106,20 +114,27 @@ The following options may be given as the first argument:
  CRC32; default is CRC32.
  --binlog-direct-non-transactional-updates 
  Causes updates to non-transactional engines using
- statement format to be written directly to binary log.
- Before using this option make sure that there are no
- dependencies between transactional and non-transactional
- tables such as in the statement INSERT INTO t_myisam
- SELECT * FROM t_innodb; otherwise, slaves may diverge
- from the master.
- --binlog-do-db=name Tells the master it should log updates for the specified
- database, and exclude all others not explicitly
- mentioned.
+ statement format to be written directly to binary log,
+ after executing them and before committing the
+ transaction. Before using this option make sure that
+ there are no dependencies between transactional and
+ non-transactional tables such as in the statement INSERT
+ INTO t_myisam SELECT * FROM t_innodb; otherwise, replicas
+ may diverge.
+ --binlog-do-db=name Include only updates to the specified database when
+ writing the binary log.
  --binlog-encryption Enable/disable binary and relay logs encryption.
  --binlog-error-action=name 
  When statements cannot be written to the binary log due
- to a fatal error, the server can either ignore the error
- and let the master continue, or abort.
+ to a fatal error, this option determines whether the
+ server ignores the error and closes the binary log, or
+ aborts.
+ --binlog-expire-logs-auto-purge 
+ Controls whether the server shall automatically purge
+ binary log files or not. If this variable is set to FALSE
+ then the server will not purge binary log files
+ automatically.
+ (Defaults to on; use --skip-binlog-expire-logs-auto-purge to disable.)
  --binlog-expire-logs-seconds=# 
  If non-zero, binary logs will be purged after
  binlog_expire_logs_seconds seconds; If both this option
@@ -127,17 +142,14 @@ The following options may be given as the first argument:
  option takes priority. Purges happen at startup and at
  binary log rotation.
  --binlog-format=name 
- What form of binary logging the master will use: either
- ROW for row-based binary logging, STATEMENT for
- statement-based binary logging, or MIXED. MIXED is
- statement-based binary logging except for those
- statements where only row-based is correct: those which
- involve user-defined functions (i.e. UDFs) or the UUID()
- function; for those, row-based binary logging is
- automatically used. If NDBCLUSTER is enabled and
- binlog-format is MIXED, the format switches to row-based
- and back implicitly per each query accessing an
- NDBCLUSTER table
+ The format used when writing the binary log. ROW writes
+ each changed row in a binary format. STATEMENT writes SQL
+ statements. MIXED writes SQL statements for most
+ statements, and row format for statements that cannot be
+ replayed in a deterministic manner using SQL. If
+ NDBCLUSTER is enabled and binlog-format is MIXED, the
+ format switches to row-based and back implicitly for each
+ query accessing an NDBCLUSTER table.
  --binlog-group-commit-sync-delay=# 
  The number of microseconds the server waits for the
  binary log group commit sync queue to fill before
@@ -167,8 +179,8 @@ The following options may be given as the first argument:
  later restarted with this option disabled.
  (Defaults to on; use --skip-binlog-gtid-simple-recovery to disable.)
  --binlog-ignore-db=name 
- Tells the master that updates to the given database
- should not be logged to the binary log.
+ Exclude updates to the specified database when writing
+ the binary log.
  --binlog-max-flush-queue-time=# 
  The maximum time that the binary log group commit will
  keep reading transactions before it flush the
@@ -197,10 +209,10 @@ The following options may be given as the first argument:
  changed columns are logged in the after image. (Default:
  FULL).
  --binlog-row-metadata=name 
- Controls whether metadata is logged using FULL or MINIMAL
- format. FULL causes all metadata to be logged; MINIMAL
- means that only metadata actually required by slave is
- logged. Default: MINIMAL.
+ Controls how much type information is written to the
+ binary log when using ROW format. FULL causes all
+ metadata to be logged. MINIMAL means that only metadata
+ actually needed by replicas is logged.
  --binlog-row-value-options=name 
  When set to PARTIAL_JSON, this option enables a
  space-efficient row-based binary log format for UPDATE
@@ -226,14 +238,18 @@ The following options may be given as the first argument:
  Maximum number of rows to keep in the writeset history.
  --binlog-transaction-dependency-tracking=name 
  Selects the source of dependency information from which
- to assess which transactions can be executed in parallel
- by the slave's multi-threaded applier. Possible values
- are COMMIT_ORDER, WRITESET and WRITESET_SESSION.
+ to compute logical timestamps, which replicas can use to
+ decide which transactions can be executed in parallel
+ when using replica_parallel_type=LOGICAL_CLOCK. Possible
+ values are COMMIT_ORDER, WRITESET and WRITESET_SESSION.
  --block-encryption-mode=name 
  mode for AES_ENCRYPT/AES_DECRYPT
  --bulk-insert-buffer-size=# 
  Size of tree cache used in bulk insert optimisation. Note
  that this is a limit per thread!
+ --caching-sha2-password-digest-rounds=# 
+ Number of SHA2 rounds to be done when storing a password
+ hash onto disk.
  --caching-sha2-password-private-key-path=name 
  A fully qualified path to the private RSA key used for
  authentication.
@@ -248,121 +264,63 @@ The following options may be given as the first argument:
  audit switch
  --cdb-audit-truncat-sql-len[=#] 
  Audit sql text truncate length 
- --cdb-compressed-histogram-enabled 
- Enable to use compressed histogram, which consists of
- most common values and equi-height buckets for other
- values.
- --cdb-convert-memory-to-innodb 
- memory storage convert innodb
  --cdb-enable-key-rotate 
  Whether enable key roate (default ON).
  (Defaults to on; use --skip-cdb-enable-key-rotate to disable.)
  --cdb-enable-lock-statistics 
  Enable lock statistics
+ --cdb-enable-precise-memory-usage 
+ Enable precise memory usage calculation 
+ (Defaults to on; use --skip-cdb-enable-precise-memory-usage to disable.)
  --cdb-enable-resource-statistics 
  enable_resource_statistics.
  (Defaults to on; use --skip-cdb-enable-resource-statistics to disable.)
- --cdb-fire-wall-enabled 
- CDB fire wall switch. Can be ON/OFF.
- --cdb-forbid-mysql-write 
- only tencentroot can modify mysql schema when this value
- is true
- --cdb-forbid-system-database-write 
- only tencentroot can modify information_schema,
- performance_schema and sys database when this value is
- true 
- --cdb-hash-scan-max-agg-event-size[=#] 
- Maximum event size allowed after aggregation. Default is
- 0 and if variable is 0, the event aggregation never work
- --cdb-instant-modify-column-enabled 
- Enable instant modify column. Default is FALSE
  --cdb-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
- --cdb-kill-user-extra=name 
- Kill any session except tencentroot user
- --cdb-max-mem-size-per-thread=# 
- Maximum amount of memory used by the physical thread to
- allocate cachedPrepared_statement.
- --cdb-max-prefetch-rows[=#] 
- set max number of prefetch rows by limiting the size of
- record_buffer, so it can reduce the negative impact on
- performance when prefetching a large number of records on
- an index. 0 means turn off the limit.
- --cdb-opt-outline-enabled 
- outline switch
- --cdb-optimize-large-trans-binlog 
- Optimize large transaction binlog format from row to
- statement.
- --cdb-optimize-large-trans-binlog-aver-affected-rows-threshold=# 
- Optimize large transaction binlog format from row to
- statement, and it's one of thresholds of sql tatistics.
- --cdb-optimize-large-trans-binlog-last-affected-rows-threshold=# 
- Optimize large transaction binlog format from row to
- statement, and it's one of thresholds of sql tatistics.
- --cdb-plan-cache    Plan cache switch. When cdb_plan_cache turns on, some SQL
- execution plan will be saved and optimize once. Currently
- it works on some limited prepare statement. 
- --cdb-plan-cache-query-length-limit=# 
- The SQL length which excceed
- cdb_plan_cache_query_length_limit will notbe considerred
- to save in plan cache.
- --cdb-plan-cache-stats 
- Statistics of plan cache hit info. When
- cdb_plan_cache_stats turns on, THD level statistics can
- be showed.
- --cdb-recycle-bin-db-not-visible 
- switch of recycle bin
- (Defaults to on; use --skip-cdb-recycle-bin-db-not-visible to disable.)
- --cdb-recycle-bin-enabled 
- switch of recycle bin
- --cdb-replica-host-detection 
- Autocomplete the Hostname or IP of the slave if the
- option report_host is not set, deriving from the
- connection. Auto-detection has the limitation documented
- with report_host.
- (Defaults to on; use --skip-cdb-replica-host-detection to disable.)
- --cdb-role=name     Set the role of the current node in a flat replication
- cluster. CDB_ROLE_MASTER and CDB_ROLE_SLAVE nodes form a
- HA group. Changes come from CCDB_ROLE_MASTER and get
- applied to CDB_ROLE_SLAVE. CDB_ROLE_RO form another group
- of nodes that also apply changes but do not participate
- in HA. In most cases, there is only one CDB_ROLE_SLAVE in
- an HA group, and it does not serve user requests.
- Changing the role requires stopping or reconnecting the
- replication channel.
+ --cdb-lock-connect-detect-enabled 
+ Enable connection check when transaction is blocked by
+ row lock. Default is TRUE
+ (Defaults to on; use --skip-cdb-lock-connect-detect-enabled to disable.)
+ --cdb-pt-filter     Swither of filter pt operation. If turning off, all the
+ events include pt special event will be send to secondary
+ backup instance.
+ (Defaults to on; use --skip-cdb-pt-filter to disable.)
+ --cdb-pt-table-checksum 
+ Flag this session's binnlog will be treaded specially.
+ After settingthis variables. All the binlog generated by
+ this session, their threadid will be set to 0xFFFFFFFF.
+ AND these binlog will be ignored laterly when sending to
+ user diy slave.
+ --cdb-pt-white-list-user[=name] 
+ White list of users who will recieve all the events  from
+ primary.
+ --cdb-query-memory-log-enabled 
+ Enable query memory log.
+ --cdb-query-memory-log-threshold[=#] 
+ Threshold to log query memory usage
+ --cdb-query-memory-profile-enabled 
+ Print query memory profile for queries exceed memory
+ limit of cdb_query_memory_log_threshold.
+ --cdb-query-memory-profile-max-stage-num[=#] 
+ Max recorded stages of query memory profile
+ --cdb-query-memory-stack-enabled 
+ Print stackframe at the timepoint ofmax query memory
+ usage. (THIS WILL HEAVILY IMPACT PERFORMANCE! DO NOT
+ ENABLEIF YOU DON'T KNOW WHAT YOU ARE DOING!)
+ --cdb-session-var-privilege-check-enabled 
+ Enable SESSION_VARIABLES_ADMIN privilege check for some
+ session variables which may cause replication problems,
+ including sql_mode, unique_checks. Default is OFF, when
+ it's ON, only users with SUPER or SYSTEM_VARIABLES_ADMIN
+ or SESSION_VARIABLES_ADMIN privileges can change these
+ variables.
  --cdb-skip-event-scheduler 
  Enable the event scheduler.Possible values are ON,OFF
- --cdb-sql-filter=name 
- Add one filter rule or delete one
- --cdb-sql-filter-enable 
- set to ON if cdb_sql_filter_enable
- --cdb-sql-filter-seperator=name 
- seperator in sql filter rule,only the first character of
- this var is seperator.If var length is 0, ',' is default
- seperatorSee Cdb_Sql_Filter_Manager::get_seperator
- --cdb-sql-statistics 
- sql statistics switch.
- --cdb-sql-statistics-info-threshold=# 
- cdb_sql_statistics_info threshold in the map.
  --cdb-tencentroot-audit-action-enabled 
  tencentroot audit switch
  --cdb-tencentroot-slow-log-enabled 
  Enable to log tencentroot's slow query.
- --cdb-threadpool-prepare-enabled 
- Use threadpool memory management for plan cache,
- Prepared_statement'splan which can be saved in plan cache
- will be stored in threadpoollevel, not in THD.
- --cdb-working-mode-default[=name] 
- cdb_working_mode value to assign when mysqld works.
- CDB_WORKMODE_OFFLINE means don't accept any requests,
- CDB_WORKMODE_READONLY means just accept read requests,
- CDB_WORKMODE_READWRITE means accept requests as usual.
- users with super privilege will be handled uninfluential 
- --cdb-working-mode-enabled 
- switching on and off for mysqld workmode 
- --cdb-workmode-life-interval[=#] 
- life circle for cdb work mode.
  --character-set-client-handshake 
  Don't ignore client side character set value sent during
  handshake.
@@ -390,6 +348,11 @@ The following options may be given as the first argument:
  NEVER, AUTO, ALWAYS
  --connect-timeout=# The number of seconds the mysqld server is waiting for a
  connect packet before responding with 'Bad handshake'
+ --connection-memory-chunk-size=# 
+ Chunk size regulating frequency of updating the global
+ memory counter
+ --connection-memory-limit=# 
+ Maximum amount of memory connection can consume
  --console           Write error output on screen; don't remove the console
  window on windows.
  --core-file         Write core on errors.
@@ -446,7 +409,8 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-disconnect-on-expired-password to disable.)
  --disconnect-slave-event-count=# 
  Option used by mysql-test for debugging and testing of
- replication.
+ replication.This option is deprecated and will be removed
+ in a future version.
  --div-precision-increment=# 
  Precision of the result of '/' operator will be increased
  on that value
@@ -522,6 +486,11 @@ The following options may be given as the first argument:
  --generated-random-password-length=# 
  Determines the length randomly generated passwords in
  CREATE USER-,SET PASSWORD- or ALTER USER statements
+ --global-connection-memory-limit=# 
+ Maximum amount of memory all connections can consume
+ --global-connection-memory-tracking 
+ Enable updating the global memory counter and checking
+ the global connection memory limit exceeding
  --group-concat-max-len=# 
  The maximum length of the result of function 
  GROUP_CONCAT()
@@ -530,11 +499,23 @@ The following options may be given as the first argument:
  EVENTUAL, BEFORE_ON_PRIMARY_FAILOVER, BEFORE, AFTER,
  BEFORE_AND_AFTER
  --gtid-executed-compression-period[=#] 
- When binlog is disabled, a background thread wakes up to
- compress the gtid_executed table every
- gtid_executed_compression_period transactions, as a
- special case, if variable is 0, the thread never wakes up
- to compress the gtid_executed table.
+ Compress the mysql.gtid_executed table whenever this
+ number of transactions have been added, by waking up a
+ foreground thread (compress_gtid_table). This compression
+ method only operates when binary logging is disabled on
+ the replica; if binary logging is enabled, the table is
+ compressed every time the binary log is rotated, and this
+ value is ignored. Before MySQL 8.0.23, the default is
+ 1000, and from MySQL 8.0.23, the default is zero, which
+ disables this compression method. This is because in
+ releases from MySQL 8.0.17, InnoDB transactions are
+ written to the mysql.gtid_executed table by a separate
+ process to non-InnoDB transactions. If the server has a
+ mix of InnoDB and non-InnoDB transactions, attempting to
+ compress the table with the compress_gtid_table thread
+ can slow this process, so from MySQL 8.0.17 it is
+ recommended that you set gtid_executed_compression_period
+ to 0.
  --gtid-mode=name    Controls whether Global Transaction Identifiers (GTIDs)
  are enabled. Can be OFF, OFF_PERMISSIVE, ON_PERMISSIVE,
  or ON. OFF means that no transaction has a GTID.
@@ -545,8 +526,8 @@ The following options may be given as the first argument:
  that new transactions are assigned a GTID, and replicated
  transactions are allowed to have or not have a GTID. ON
  means that all transactions have a GTID. ON is required
- on a master before any slave can use
- MASTER_AUTO_POSITION=1. To safely switch from OFF to ON,
+ on a source before any replica can use
+ SOURCE_AUTO_POSITION=1. To safely switch from OFF to ON,
  first set all servers to OFF_PERMISSIVE, then set all
  servers to ON_PERMISSIVE, then wait for all transactions
  without a GTID to be replicated and executed on all
@@ -555,12 +536,6 @@ The following options may be given as the first argument:
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
- --histogram-history-enabled 
- When enabled, automatically save and remove versions of
- histograms in mysql.column_statistics_history.
- --histogram-history-versions-limit=# 
- The maximum number of records per column in the table
- mysql.column_statistics_history.
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --information-schema-stats-expiry=# 
  The number of seconds after which mysqld server will
@@ -568,8 +543,9 @@ The following options may be given as the first argument:
  cache.
  --init-connect=name Command(s) that are executed for each new connection
  --init-file=name    Read SQL commands from this file at startup
- --init-slave=name   Command(s) that are executed by a slave server each time
- the SQL thread starts
+ --init-replica=name Command(s) that are executed by the replication applier
+ thread each time the applier threads start.
+ --init-slave=name   This option is deprecated. Use init_replica instead.
  -I, --initialize    Create the default database and exit. Create a super user
  with a random expired password and store it into the log.
  --initialize-insecure 
@@ -601,9 +577,8 @@ The following options may be given as the first argument:
  --key-cache-division-limit=# 
  The minimum percentage of warm blocks in key cache
  --keyring-migration-destination=name 
- Keyring plugin to which the keys are migrated to. This
- option must be specified along with
- --keyring-migration-source.
+ Keyring plugin or component to which the keys are
+ migrated to.
  --keyring-migration-host=name 
  Connect to host.
  -p, --keyring-migration-password[=name] 
@@ -616,6 +591,8 @@ The following options may be given as the first argument:
  Keyring plugin from where the keys needs to be migrated
  to. This option must be specified along with
  --keyring-migration-destination.
+ --keyring-migration-to-component 
+ Migrate from keyring plugin to keyring component.
  --keyring-migration-user=name 
  User to login to server.
  -L, --language=name Client error messages in given language. May be given as
@@ -681,19 +658,26 @@ The following options may be given as the first argument:
  --log-raw           Log to general log before any rewriting of the query. For
  use in debugging, not production as sensitive information
  may be logged.
+ --log-replica-updates 
+ If enabled, the replication applier threads will write to
+ this server's binary log.
+ (Defaults to on; use --skip-log-replica-updates to disable.)
  --log-short-format  Don't log extra information to update and slow-query
  logs.
- --log-slave-updates Tells the slave to log the updates from the slave thread
- to the binary log.
+ --log-slave-updates This option is deprecated. Use log_replica_updates
+ instead.
  (Defaults to on; use --skip-log-slave-updates to disable.)
  --log-slow-admin-statements 
  Log slow OPTIMIZE, ANALYZE, ALTER and other
  administrative statements to the slow log if it is open.
  --log-slow-extra    Print more attributes to the slow query log file. Has no
  effect on logging to table.
+ --log-slow-replica-statements 
+ Log slow statements executed by the replication applier
+ threads to the slow log if it is open.
  --log-slow-slave-statements 
- Log slow statements executed by slave thread to the slow
- log if it is open.
+ This option is deprecated. Use
+ log_slow_replica_statements instead.
  --log-statements-unsafe-for-binlog 
  Log statements considered unsafe when using statement
  based binary logging.
@@ -731,21 +715,22 @@ The following options may be given as the first argument:
  default roles. The granted roles will not be visible in
  the mysql.role_edges table.
  --master-info-file=name 
- The location and name of the file that remembers the
- master and where the I/O replication thread is in the
- master's binlogs. Deprecated option that shall be removed
- eventually without a replacement.
+ The path and filename where the replication receiver
+ thread stores connection configuration and positions, in
+ case --master-info-repository=FILE. This option is
+ deprecated and will be removed in a future version.
  --master-info-repository=name 
- Defines the type of the repository for the master
- information.
+ The repository format for the replication connection
+ configuration.
  --master-retry-count=# 
- The number of tries the slave will make to connect to the
- master before giving up. Deprecated option, use 'CHANGE
- MASTER TO master_retry_count = <num>' instead.
+ The number of times this replica will attempt to connect
+ to a source before giving up. This option is deprecated
+ and will be removed in a future version. Use 'CHANGE
+ REPLICATION SOURCE TO SOURCE_RETRY_COUNT = <num>'
+ instead.
  --master-verify-checksum 
- Force checksum verification of logged events in binary
- log before sending them to slaves or printing them in
- output of SHOW BINLOG EVENTS. Disabled by default.
+ This option is deprecated. Use source_verify_checksum
+ instead.
  --max-allowed-packet=# 
  Max packet length to send to or receive from the server
  --max-binlog-cache-size=# 
@@ -804,16 +789,11 @@ The following options may be given as the first argument:
  After this many write locks, allow some read locks to run
  in between
  --memlock           Lock mysqld in memory.
- --merge-join-buffer-size=# 
- The size of the buffer that is used for the sort merge
- join
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
  --myisam-block-size=# 
  Block size to be used for MyISAM index pages
- --myisam-conversion-innodb=name 
- myisam conversion innodb mode,Can be ON/OFF/WARN/TRY
  --myisam-data-pointer-size=# 
  Default pointer size to be used for MyISAM tables
  --myisam-max-sort-file-size=# 
@@ -825,10 +805,6 @@ The following options may be given as the first argument:
  --myisam-recover-options[=name] 
  Syntax: myisam-recover-options[=option[,option...]],
  where option can be DEFAULT, BACKUP, FORCE, QUICK, or OFF
- --myisam-repair-threads=# 
- If larger than 1, when repairing a MyISAM table all
- indexes will be created in parallel, with one thread per
- index. The value of 1 disables parallel repair
  --myisam-sort-buffer-size=# 
  The buffer that is allocated when sorting the index when
  doing a REPAIR or when creating indexes with CREATE INDEX
@@ -857,6 +833,10 @@ The following options may be given as the first argument:
  Number of seconds to wait for a block to be written to a
  connection before aborting the write
  -n, --new           Use very new possible "unsafe" functions
+ --new-connection-action-when-resource-group-overrun[=name] 
+ New connection action when resource group overrun
+ happens, reject: Reject the connection, move-to-default:
+ Add to default resource group
  --no-dd-upgrade     Abort restart if automatic upgrade or downgrade of the
  data dictionary is needed. Deprecated option. Use
  --upgrade=NONE instead.
@@ -865,14 +845,24 @@ The following options may be given as the first argument:
  --old-alter-table   Use old, non-optimized alter table
  --old-style-user-limits 
  Enable old-style user limits (before 5.0.3, user
- resources were counted per each user+host vs. per
- account).
+ resources were counted for each user + host vs. per
+ account). This option is deprecated and will be removed
+ in a future version.
  --open-files-limit=# 
  If this is not 0, then mysqld will use this value to
  reserve file descriptors to use with setrlimit(). If this
  value is 0 then mysqld will reserve max_connections*5 or
  max_connections + table_open_cache*2 (whichever is
  larger) number of file descriptors
+ --optimizer-max-subgraph-pairs=# 
+ Maximum depth of subgraph pairs a query can have before
+ the hypergraph join optimizer starts reducing the search
+ space heuristically. Larger values may result in better
+ query plans for large queries, but also more time and
+ memory spent during planning. Increasing this larger than
+ the actual number of subgraph pairs in the query will
+ have no further effect. Ignored by the old
+ (non-hypergraph) join optimizer
  --optimizer-prune-level=# 
  Controls the heuristic(s) applied during query
  optimization to prune less-promising partial plans from
@@ -898,8 +888,8 @@ The following options may be given as the first argument:
  block_nested_loop, batched_key_access,
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
- prefer_ordering_index, derived_condition_pushdown,
- sort_merge_join} and val is one of {on, off, default}
+ prefer_ordering_index, derived_condition_pushdown} and
+ val is one of {on, off, default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -946,6 +936,9 @@ The following options may be given as the first argument:
  consumer.
  --performance-schema-consumer-events-stages-history-long 
  Default startup value for the events_stages_history_long
+ consumer.
+ --performance-schema-consumer-events-statements-cpu 
+ Default startup value for the events_statements_cpu
  consumer.
  --performance-schema-consumer-events-statements-current 
  Default startup value for the events_statements_current
@@ -1114,6 +1107,11 @@ The following options may be given as the first argument:
  --persist-only-admin-x509-subject[=name] 
  The client peer certificate name required to enable
  setting all system variables via SET PERSIST[_ONLY]
+ --persist-sensitive-variables-in-plaintext 
+ If set to FALSE, server will refuse to persist SENSITIVE
+ variables in plaintext and refuse to start if encrypted
+ part of persited file cannot be processed.
+ (Defaults to on; use --skip-persist-sensitive-variables-in-plaintext to disable.)
  --persisted-globals-load 
  When this option is enabled, config file mysqld-auto.cnf
  is read and applied to server, else this file is ignored
@@ -1171,11 +1169,6 @@ The following options may be given as the first argument:
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
- --range-estimation-by-histogram 
- Enable range estimation by histogram instead of index
- dive. If histogram for the first index column is missing,
- fall back to index dive. Use guesstimates for other
- columns without histograms.
  --range-optimizer-max-mem-size=# 
  Maximum amount of memory used by the range optimizer to
  allocate predicates during range analysis. The larger the
@@ -1190,8 +1183,8 @@ The following options may be given as the first argument:
  many sequential scans, you may want to increase this
  value
  --read-only         Make all non-temporary tables read-only, with the
- exception for replication (slave) threads and users with
- the SUPER privilege
+ exception for replication applier threads and users with
+ the SUPER privilege.
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
@@ -1213,88 +1206,188 @@ The following options may be given as the first argument:
  them as soon as they are no more needed
  (Defaults to on; use --skip-relay-log-purge to disable.)
  --relay-log-recovery 
- Enables automatic relay log recovery right after the
- database startup, which means that the IO Thread starts
- re-fetching from the master right after the last
- transaction processed
+ If enabled, existing relay logs will be skipped by the
+ replication threads. The receiver will start a new relay
+ log and the applier will start reading from the beginning
+ of that file. The receiver's position relative to the
+ source will be reset to the applier's position relative
+ to the source; the receiver uses this in case
+ SOURCE_AUTO_POSITION=0.
  --relay-log-space-limit=# 
  Maximum space to use for all relay logs
+ --replica-allow-batching 
+ Allow this replica to batch requests when using the NDB
+ storage engine.
+ (Defaults to on; use --skip-replica-allow-batching to disable.)
+ --replica-checkpoint-group=# 
+ When using multi-threaded applier
+ (replica_parallel_workers>0), it will update the worker
+ progress status periodically. This option specifies the
+ maximum number of committed transactions between updates.
+ --replica-checkpoint-period=# 
+ When using a multi-threaded applier
+ (replica_parallel_workers>0), it will update the worker
+ progress status periodically. This option specifies the
+ maximum number of milliseconds between updates.
+ --replica-compressed-protocol 
+ Use compression in the source/replica protocol.
+ --replica-exec-mode=name 
+ Modes for how replication events should be executed.
+ Legal values are STRICT (default) and IDEMPOTENT. In
+ IDEMPOTENT mode, replication will ignore duplicate key
+ errors and key not found errors. In STRICT mode,
+ replication will stop at those errors.
+ --replica-load-tmpdir=name 
+ The location where this replica will store temporary
+ files when replicating a LOAD DATA INFILE command from a
+ source having binlog_format=STATEMENT.
+ --replica-max-allowed-packet=# 
+ The maximum size of packets sent from an upstream source
+ server to this server.
+ --replica-net-timeout=# 
+ Number of seconds to wait for more data from a
+ replication connection before aborting the read.
+ --replica-parallel-type=name 
+ The method used by the replication applier to parallelize
+ transactions. DATABASE, indicates that it may apply
+ transactions in parallel in case they update different
+ databases. LOGICAL_CLOCK, which is the default, indicates
+ that it decides whether two transactions can be applied
+ in parallel using the logical timestamps computed by the
+ source, according to
+ binlog_transaction_dependency_tracking.
+ --replica-parallel-workers=# 
+ Number of worker threads for executing events in parallel
+ --replica-pending-jobs-size-max=# 
+ Soft limit on the size, in bytes, of per-worker queues of
+ events that have not yet been applied. The queue size may
+ exceed this limit in case a single event is bigger than
+ the limit.
+ --replica-preserve-commit-order 
+ Force replication worker threads to commit in the same
+ order as on the source. Enabled by default
+ (Defaults to on; use --skip-replica-preserve-commit-order to disable.)
+ --replica-skip-errors=name 
+ Comma-separated list of error numbers. If an applier
+ thread on this replica encounters one of these errors
+ while applying a Query_log_event, it will ignore the
+ error, rather than stop.
+ --replica-sql-verify-checksum 
+ Force checksum verification of replication events after
+ reading them from relay log. Note: The replica always
+ verifies checksums for events received from the network,
+ if the event has a checksum at all, before it writes the
+ event to the relay log. Enabled by default.
+ (Defaults to on; use --skip-replica-sql-verify-checksum to disable.)
+ --replica-transaction-retries=# 
+ Number of times the replication applier will retry a
+ transaction in case it failed with a deadlock or other
+ transient error, before it gives up and stops.
+ --replica-type-conversions=name 
+ Set of type conversions that may be used by the
+ replication applier thread for row events. Allowed values
+ are: ALL_LOSSY to enable lossy conversions, ALL_NON_LOSSY
+ to enable non-lossy conversions, ALL_UNSIGNED to treat
+ all integer column type data to be unsigned values, and
+ ALL_SIGNED to treat all integer column type data to be
+ signed values. Default treatment is ALL_SIGNED. If
+ ALL_SIGNED and ALL_UNSIGNED both are specified,
+ ALL_SIGNED will take higher priority than ALL_UNSIGNED.
+ If the variable is assigned the empty set, no conversions
+ are allowed and it is expected that the types match
+ exactly.
  --replicate-do-db=name 
- Tells the slave thread to restrict replication to the
- specified database. To specify more than one database,
- use the directive multiple times, once for each database.
- Note that this will only work if you do not use
+ Make replication applier threads apply only changes to
+ the specified database. To specify more than one
+ database, use the directive multiple times, once for each
+ database. Note that this will only work if you do not use
  cross-database queries such as UPDATE some_db.some_table
  SET foo='bar' while having selected a different or no
  database. If you need cross database updates to work,
  make sure you have 3.23.28 or later, and use
  replicate-wild-do-table=db_name.%.
  --replicate-do-table=name 
- Tells the slave thread to restrict replication to the
- specified table. To specify more than one table, use the
- directive multiple times, once for each table. This will
- work for cross-database updates, in contrast to
+ Make replication applier threads apply only changes to
+ the specified table. To specify more than one table, use
+ the directive multiple times, once for each table. This
+ will work for cross-database updates, in contrast to
  replicate-do-db.
  --replicate-ignore-db=name 
- Tells the slave thread to not replicate to the specified
- database. To specify more than one database to ignore,
- use the directive multiple times, once for each database.
- This option will not work if you use cross database
- updates. If you need cross database updates to work, make
- sure you have 3.23.28 or later, and use
- replicate-wild-ignore-table=db_name.%. 
+ Make replication applier threads skip changes to the
+ specified database. To specify more than one database to
+ ignore, use this option multiple times, once for each
+ database. If there are statements that update multiple
+ databases, this will work correctly only when the source
+ server uses binlog_format=ROW.
  --replicate-ignore-table=name 
- Tells the slave thread to not replicate to the specified
- table. To specify more than one table to ignore, use the
- directive multiple times, once for each table. This will
- work for cross-database updates, in contrast to
- replicate-ignore-db.
+ Make replication applier threads skip changes to the
+ specified table.To ignore more than one table, use the
+ option multiple times, once for each table. If there are
+ statements that update multiple tables, this will work
+ correctly only when the source server uses
+ binlog_format=ROW.
  --replicate-rewrite-db=name 
- Updates to a database with a different name than the
- original. Example:
- replicate-rewrite-db=master_db_name->slave_db_name.
+ Make replication applier threads rename a database, so
+ changes in one database on the source will be applied in
+ another database on this replica. Example:
+ replicate-rewrite-db=source_db_name->replica_db_name.
  --replicate-same-server-id 
  In replication, if set to 1, do not skip events having
  our server id. Default value is 0 (to break infinite
  loops in circular replication). Can't be set to 1 if
- --log-slave-updates is used.
+ --log-replica-updates is used.
  --replicate-wild-do-table=name 
- Tells the slave thread to restrict replication to the
+ Make replication applier threads apply changes only in
  tables that match the specified wildcard pattern. To
- specify more than one table, use the directive multiple
- times, once for each table. This will work for
- cross-database updates. Example:
+ specify more than one pattern, use the option multiple
+ times, once for each pattern. If there are statements
+ that update both tables that are included and excluded by
+ the pattern, this will only work correctly when the
+ source server uses binlog_format=ROW. Example:
  replicate-wild-do-table=foo%.bar% will replicate only
  updates to tables in all databases that start with foo
  and whose table names start with bar.
  --replicate-wild-ignore-table=name 
- Tells the slave thread to not replicate to the tables
- that match the given wildcard pattern. To specify more
- than one table to ignore, use the directive multiple
- times, once for each table. This will work for
- cross-database updates. Example:
- replicate-wild-ignore-table=foo%.bar% will not do updates
- to tables in databases that start with foo and whose
- table names start with bar.
- --report-host=name  Hostname or IP of the slave to be reported to the master
- during slave registration. Will appear in the output of
- SHOW SLAVE HOSTS. Leave unset if you do not want the
- slave to register itself with the master. Note that it is
- not sufficient for the master to simply read the IP of
- the slave off the socket once the slave connects. Due to
- NAT and other routing issues, that IP may not be valid
- for connecting to the slave from the master or other
- hosts
+ Make replication applier threads skip changes to tables
+ that match the specified wildcard pattern. To specify
+ more than one pattern, use the option multiple times,
+ once for each pattern. If there are statements that
+ update both tables that are included and tables that are
+ excluded by the pattern, this will only work correctly
+ when the source server uses binlog_format=ROW. Example:
+ when using replicate-wild-ignore-table=foo%.bar%, the
+ applier thread will not apply updates to tables in
+ databases that start with foo and whose table names start
+ with bar.
+ --replication-optimize-for-static-plugin-config 
+ Optional flag that blocks plugin install/uninstall and
+ allows skipping the acquisition of the lock to read from
+ the plugin list and the usage of read-optimized
+ spin-locks. Use only when plugin hook callback needs
+ optimization (a lot of semi-sync replicas, for instance).
+ --replication-sender-observe-commit-only 
+ Optional flag that allows for only calling back observer
+ hooks at commit.
+ --report-host=name  Hostname or IP that this replica will report to the
+ source while initiating the replication connection. Will
+ appear in the output of SHOW REPLICAS. Leave this unset
+ if you do not want the replica to register itself with
+ the source. Note that it is not sufficient for the source
+ to simply read the IP of the replica off the socket once
+ the replica connects: in the presence of NAT other
+ routing features, that IP may not be valid for connecting
+ to the replica from the source or other hosts.
  --report-password=name 
- The account password of the slave to be reported to the
- master during slave registration
- --report-port=#     Port for connecting to slave reported to the master
- during slave registration. Set it only if the slave is
+ The account password that this replica will report to the
+ source while initiating the replication connection.
+ --report-port=#     The port for connecting to the replica, which this
+ replica will report to the source while initiating the
+ replication connection. Set it only if the replica is
  listening on a non-default port or if you have a special
- tunnel from the master or other clients to the slave. If
- not sure, leave this option unset
- --report-user=name  The account user name of the slave to be reported to the
- master during slave registration
+ tunnel from the source or other clients to this replica.
+ If not sure, leave this option unset.
+ --report-user=name  The account user name that this replica will report to
+ the source while initiating the replication connection.
  --require-secure-transport 
  When this option is enabled, connections attempted using
  insecure transport will be rejected.  Secure transports
@@ -1302,13 +1395,24 @@ The following options may be given as the first argument:
  --reserved-connection-count[=#] 
  Reserve more connections for tencent root user, default
  is 20. 
+ --resource-group-iops-control-timeunit[=#] 
+ The time unit to collect IOPS, in milliseconds
+ --resource-group-iops-wait-counts[=#] 
+ Maximum number of waits when resource group IO exceeds
+ the limit
+ --resource-group-iops-wait-timeunit[=#] 
+ The time unit to wait each time when the resource group
+ IO exceeds the limit, in milliseconds
  --rpl-read-size=#   The size for reads done from the binlog and relay log. It
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
  not in the OS buffer cache
+ --rpl-stop-replica-timeout=# 
+ Timeout in seconds to wait for replication threads to
+ stop, before STOP REPLICA returns a warning.
  --rpl-stop-slave-timeout=# 
- Timeout in seconds to wait for slave to stop before
- returning a warning.
+ This option is deprecated. Use rpl_stop_replica_timeout
+ instead.
  --safe-user-create  Don't allow new user creation by the user who has no
  write privileges to the mysql.user table.
  --schema-definition-cache=# 
@@ -1368,15 +1472,22 @@ The following options may be given as the first argument:
  --show-create-table-verbosity 
  When this option is enabled, it increases the verbosity
  of 'SHOW CREATE TABLE'.
+ --show-gipk-in-create-table-and-information-schema 
+ When set, if a primary key is generated for a table then
+ SHOW commands and INFORMATION_SCHEMA tables shows
+ generated invisible primary key definition.
+ (Defaults to on; use --skip-show-gipk-in-create-table-and-information-schema to disable.)
  --show-old-temporals 
  When this option is enabled, the pre-5.6.4 temporal types
  will be marked in the 'SHOW CREATE TABLE' and
  'INFORMATION_SCHEMA.COLUMNS' table as a comment in
  COLUMN_TYPE field. This variable is deprecated and will
  be removed in a future release.
+ --show-replica-auth-info 
+ Include user and password in SHOW REPLICAS statements.
  --show-slave-auth-info 
- Show user and password in SHOW SLAVE HOSTS on this
- master.
+ This option is deprecated and will be removed in a future
+ version. Use show-replica-auth-info instead.
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
@@ -1384,84 +1495,71 @@ The following options may be given as the first argument:
  'localhost'.
  --skip-networking   Don't allow connection with TCP/IP
  --skip-new          Don't use new, possibly wrong routines.
+ --skip-replica-start 
+ Do not start replication threads automatically when the
+ server starts.
  --skip-show-database 
  Don't allow 'SHOW DATABASE' commands
- --skip-slave-start  If set, slave is not autostarted.
+ --skip-slave-start  This option is deprecated. Use skip_replica_start
+ instead.
  --skip-stack-trace  Don't print a stack trace on failure.
  --slave-allow-batching 
- Allow slave to batch requests
+ This option is deprecated. Use replica_allow_batching
+ instead.
+ (Defaults to on; use --skip-slave-allow-batching to disable.)
  --slave-checkpoint-group=# 
- Maximum number of processed transactions by
- Multi-threaded slave before a checkpoint operation is
- called to update progress status.
+ This option is deprecated. Use replica_checkpoint_group
+ instead.
  --slave-checkpoint-period=# 
- Gather workers' activities to Update progress status of
- Multi-threaded slave and flush the relay log info to disk
- after every #th milli-seconds.
+ This option is deprecated. Use replica_checkpoint_period
+ instead.
  --slave-compressed-protocol 
- Use compression on master/slave protocol
+ This option is deprecated. Use
+ replica_compressed_protocol instead.
  --slave-exec-mode=name 
- Modes for how replication events should be executed.
- Legal values are STRICT (default) and IDEMPOTENT. In
- IDEMPOTENT mode, replication will not stop for operations
- that are idempotent. In STRICT mode, replication will
- stop on any unexpected difference between the master and
- the slave
+ This option is deprecated. Use replica_exec_mode instead.
  --slave-load-tmpdir=name 
- The location where the slave should put its temporary
- files when replicating a LOAD DATA INFILE command
+ This option is deprecated. Use replica_load_tmpdir
+ instead.
  --slave-max-allowed-packet=# 
- The maximum packet length to sent successfully from the
- master to slave.
+ This option is deprecated. Use replica_max_allowed_packet
+ instead.
  --slave-net-timeout=# 
- Number of seconds to wait for more data from a
- master/slave connection before aborting the read
+ This option is deprecated. Use replica_net_timeout
+ instead.
  --slave-parallel-type=name 
- Specifies if the slave will use database partitioning or
- information from master to parallelize
- transactions.(Default: DATABASE).
+ This option is deprecated. Use replica_parallel_type
+ instead.
  --slave-parallel-workers=# 
- Number of worker threads for executing events in parallel
+ This option is deprecated. Use replica_parallel_workers
+ instead.
  --slave-pending-jobs-size-max=# 
- Max size of Slave Worker queues holding not yet applied
- events. The least possible value must be not less than
- the master side max_allowed_packet.
+ This option is deprecated. Use
+ replica_pending_jobs_size_max instead.
  --slave-preserve-commit-order 
- Force slave workers to make commits in the same order as
- on the master. Disabled by default.
+ This option is deprecated. Use
+ replica_preserve_commit_order instead.
+ (Defaults to on; use --skip-slave-preserve-commit-order to disable.)
  --slave-rows-search-algorithms=name 
- Set of searching algorithms that the slave will use while
- searching for records from the storage engine to either
- updated or deleted them. Possible values are: INDEX_SCAN,
- TABLE_SCAN and HASH_SCAN. Any combination is allowed, and
- the slave will always pick the most suitable algorithm
- for any given scenario. (Default: INDEX_SCAN, HASH_SCAN).
+ The set of algorithms used by the replication applier
+ while searching the table for rows to update or delete.
+ Possible values are: INDEX_SCAN, TABLE_SCAN and
+ HASH_SCAN. Any combination is allowed, and the applier
+ picks the most efficient among them for any given
+ scenario. (Default: INDEX_SCAN, HASH_SCAN).
  --slave-skip-errors=name 
- Tells the slave thread to continue replication when a
- query event returns an error from the provided list
+ This option is deprecated. Use replica_skip_errors
+ instead.
  --slave-sql-verify-checksum 
- Force checksum verification of replication events after
- reading them from relay log. Note: Events are always
- checksum-verified by slave on receiving them from the
- network before writing them to the relay log. Enabled by
- default.
+ This option is deprecated. Use
+ replica_sql_verify_checksum instead.
  (Defaults to on; use --skip-slave-sql-verify-checksum to disable.)
  --slave-transaction-retries=# 
- Number of times the slave SQL thread will retry a
- transaction in case it failed with a deadlock or elapsed
- lock wait timeout, before giving up and stopping
+ This option is deprecated. Use
+ replica_transaction_retries instead.
  --slave-type-conversions=name 
- Set of slave type conversions that are enabled. Legal
- values are: ALL_LOSSY to enable lossy conversions,
- ALL_NON_LOSSY to enable non-lossy conversions,
- ALL_UNSIGNED to treat all integer column type data to be
- unsigned values, and ALL_SIGNED to treat all integer
- column type data to be signed values. Default treatment
- is ALL_SIGNED. If ALL_SIGNED and ALL_UNSIGNED both are
- specified, ALL_SIGNED will take higher priority than
- ALL_UNSIGNED. If the variable is assigned the empty set,
- no conversions are allowed and it is expected that the
- types match exactly.
+ This option is deprecated. Use replica_type_conversions
+ instead.
  --slow-launch-time=# 
  If creating the thread takes longer than this value (in
  seconds), the Slow_launch_threads counter will be
@@ -1478,9 +1576,17 @@ The following options may be given as the first argument:
  --sort-buffer-size=# 
  Each thread that needs to do a sort allocates a buffer of
  this size
+ --source-verify-checksum 
+ Force checksum verification of events in binary log
+ before sending them to replicas or printing them in
+ output of SHOW BINLOG EVENTS. Disabled by default.
  --sporadic-binlog-dump-fail 
  Option used by mysql-test for debugging and testing of
  replication.
+ --sql-generate-invisible-primary-key 
+ When set, if a table is created without a primary key
+ then server generates invisible auto-increment column as
+ a primary key for the table.
  --sql-mode=name     Syntax: sql-mode=mode[,mode[,mode...]]. See the manual
  for the complete list of valid sql modes
  --sql-require-primary-key 
@@ -1493,7 +1599,7 @@ The following options may be given as the first argument:
  --stored-program-definition-cache=# 
  The number of cached stored program definitions
  --super-read-only   Make all non-temporary tables read-only, with the
- exception for replication (slave) threads.  Users with
+ exception for replication applier threads.  Users with
  the SUPER privilege are affected, unlike read_only. 
  Setting super_read_only to ON also sets read_only to ON.
  -s, --symbolic-links 
@@ -1502,13 +1608,16 @@ The following options may be given as the first argument:
  --sync-binlog=#     Synchronously flush binary log to disk after every #th
  write to the file. Use 0 to disable synchronous flushing
  --sync-master-info=# 
- Synchronously flush master info to disk after every #th
- event. Use 0 to disable synchronous flushing
+ This option is deprecated. Use sync_source_info instead.
  --sync-relay-log=#  Synchronously flush relay log to disk after every #th
  event. Use 0 to disable synchronous flushing
  --sync-relay-log-info=# 
  Synchronously flush relay log info to disk after every
  #th transaction. Use 0 to disable synchronous flushing
+ --sync-source-info=# 
+ Synchronize replication receiver positions to disk
+ periodically, after the specified number of events. Use 0
+ to disable periodic synchronization.
  --sysdate-is-now    Non-default option to alias SYSDATE() to NOW() to make it
  safe-replicable. Since 5.0, SYSDATE() returns a `dynamic'
  value different for different invocations, even within
@@ -1531,16 +1640,18 @@ The following options may be given as the first argument:
  --tc-heuristic-recover=name 
  Decision to use in heuristic recover process. Possible
  values are OFF, COMMIT or ROLLBACK.
+ --temptable-max-mmap=# 
+ Maximum amount of memory (in bytes) the TempTable storage
+ engine is allowed to allocate from MMAP-backed files
+ before starting to store data on disk.
  --temptable-max-ram=# 
  Maximum amount of memory (in bytes) the TempTable storage
  engine is allowed to allocate from the main memory (RAM)
  before starting to store data on disk.
  --temptable-use-mmap 
- Use mmap files for temptables
+ Use mmap files for temptables. This variable is
+ deprecated and will be removed in a future release.
  (Defaults to on; use --skip-temptable-use-mmap to disable.)
- --tencent-myisam-conversion-innodb=name 
- control tencentroot/system user,myisam conversion innodb
- mode,Can be ON/OFF/WARN/TRY
  --tencent-reserved-connection=# 
  Reserve more connections for tencent root user, default
  is 20. 
@@ -1555,6 +1666,21 @@ The following options may be given as the first argument:
  Users of tencent root account
  --tencent-root-whitelist=name 
  White list which can login MySQL remotely
+ --terminology-use-previous=name 
+ Make monitoring tables and statements use the identifiers
+ that were in use before they were changed in a given
+ release. That includes names for mutexes, read/write
+ locks, condition variables, memory allocations, thread
+ names, thread stages, and thread commands. When the
+ session option is set to BEFORE_8_0_26, the session uses
+ the names that were in use until 8.0.25, when it selects
+ from performance_schema tables, or selects from
+ INFORMATION_SCHEMA.PROCESSLIST, or issues SHOW
+ PROCESSLIST or SHOW REPLICA STATUS. When the global
+ option is set to BEFORE_8_0_26, new sessions use
+ BEFORE_8_0_26 as default for the session option, and in
+ addition the thread commands that were in use until
+ 8.0.25 are written to the slow query log.
  --thread-cache-size=# 
  How many threads we should keep in a cache for reuse
  --thread-handling=name 
@@ -1563,10 +1689,6 @@ The following options may be given as the first argument:
  --thread-handling-switch-mode=name 
  Define switching mode for thread_handling, one of
  disabled, stable, fast, sharp
- --thread-pool-eager-mode 
- Always take on requests, and wake up and/or create even
- more threads when there is pending requests, even already
- over subscribed(eager mode).
  --thread-pool-high-prio-mode=name 
  High priority queue mode: one of 'transactions',
  'statements' or 'none'. In the 'transactions' mode the
@@ -1587,32 +1709,12 @@ The following options may be given as the first argument:
  --thread-pool-idle-timeout=# 
  Timeout in seconds for an idle thread in the thread
  pool.Worker thread will be shut down after timeout
- --thread-pool-listen-eager-mode 
- listener will wake more thread
- (Defaults to on; use --skip-thread-pool-listen-eager-mode to disable.)
  --thread-pool-max-threads=# 
  Maximum allowed number of worker threads in the thread
  pool
  --thread-pool-oversubscribe=# 
  How many additional active worker threads in a group are
  allowed.
- --thread-pool-oversubscribe-parall 
- If request queue is congested, always take on requests,
- and at most thread_pool_oversubscribe_parall_num worker
- threads will be wakenup or created regardless of the
- thread_pool_oversubscribe limit.
- (Defaults to on; use --skip-thread-pool-oversubscribe-parall to disable.)
- --thread-pool-oversubscribe-parall-num=# 
- The number of extra threads allowed to create in eager
- mode.
- --thread-pool-oversubscribe-parall-timeout=# 
- If a client's request is not processed after this many
- milli-seconds since it was put into thread pool's request
- queue, the queue is seen as congested.
- --thread-pool-queue-congest-threshold=# 
- If any of the threadpool's request queue has more than
- this many requests to process, the queue is seen as
- congested.
  --thread-pool-size=# 
  Number of thread groups in the pool. This parameter is
  roughly equivalent to maximum number of concurrently
@@ -1624,16 +1726,14 @@ The following options may be given as the first argument:
  worker thread is stalled, additional worker thread may be
  created to handle remaining clients.
  --thread-stack=#    The stack size for each thread
- --threshold-of-interesting-order-for-merge-join[=#] 
- For the two paths involved in the join, the VAR describes
- the ratio of disordered path to ordered path (interesting
- order). Sort Merge Join is not used below the threshold.
+ --threadpool-workaround-epoll-bug 
+ Workaround Linux kernel bug: missing events in epollm if
+ EPOLL_CTL_MOD is used.The bug if fiexed in the newest 3.x
+ kernel series
  --tls-ciphersuites=name 
- --tls-version=name  TLS version, permitted values are TLSv1, TLSv1.1,
- TLSv1.2, TLSv1.3
- --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY
- storage engine exceeds this size, MySQL will
- automatically convert it to an on-disk table
+ --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY or
+ TempTable storage engine exceeds this size, MySQL will
+ automatically convert it to an on-disk table 
  -t, --tmpdir=name   Path for temporary files. Several paths may be specified,
  separated by a colon (:), in this case they are used in a
  round-robin fashion
@@ -1652,6 +1752,7 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-found-rows  Sets the total size of the transactional cache
  --txsql-max-parallel-worker-threads[=#] 
  Specify the maximum number of worker threads for parallel
  execution on the server. A zero value disables parallel
@@ -1663,6 +1764,8 @@ The following options may be given as the first argument:
  complete optimization, execution in parallel will not be
  considered for this query. A value of 0 means optimizer
  context does not have any cap on memory.
+ --txsql-optimizer-context-prealloc-size[=#] 
+ Default buffer size of the optimizer context
  --txsql-parallel-cost-threshold[=#] 
  Only statements with estimated cost above the specified
  threshold can be executed in parallel.
@@ -1693,6 +1796,8 @@ The following options may be given as the first argument:
  Allow count start to use pread parallel optimization It
  is for Unqualified count star only.
  (Defaults to on; use --skip-txsql-pread-count-enabled to disable.)
+ --txsql-row-count   Sets the total size of the transactional cache
+ --txsql-use-db      Sets current database by session variable
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
@@ -1720,6 +1825,18 @@ The following options may be given as the first argument:
  inversion optimization for moving window frames also for
  floating values.
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
+ --xa-detach-on-prepare 
+ When set, XA transactions will be detached (AKA
+ dissociated or disconnected) from connection as part of
+ XA PREPARE. This means that the XA transaction can be
+ committed/rolled back by any connection, even if the
+ starting connection has not terminated, and the starting
+ connection can start new transactions. As a side effect,
+ temporary tables cannot be used inside XA transactions.
+ When disabled, XA transactions are associated with the
+ same connection until the session disconnects. ON is the
+ only safe choice for replication.
+ (Defaults to on; use --skip-xa-detach-on-prepare to disable.)
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
@@ -1738,6 +1855,7 @@ admin-ssl-crlpath (No default value)
 admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
 allow-suspicious-udfs FALSE
+authentication-policy *,,
 auto-increment-increment 1
 auto-increment-offset 1
 autocommit TRUE
@@ -1751,6 +1869,7 @@ binlog-checksum CRC32
 binlog-direct-non-transactional-updates FALSE
 binlog-encryption FALSE
 binlog-error-action ABORT_SERVER
+binlog-expire-logs-auto-purge TRUE
 binlog-expire-logs-seconds 2592000
 binlog-format ROW
 binlog-group-commit-sync-delay 0
@@ -1771,48 +1890,30 @@ binlog-transaction-dependency-history-size 25000
 binlog-transaction-dependency-tracking COMMIT_ORDER
 block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
+caching-sha2-password-digest-rounds 5000
 caching-sha2-password-private-key-path private_key.pem
 caching-sha2-password-public-key-path public_key.pem
 cdb-admin-port-allow-for-normal-user TRUE
 cdb-audit-action-enabled FALSE
 cdb-audit-truncat-sql-len 1024
-cdb-compressed-histogram-enabled FALSE
-cdb-convert-memory-to-innodb FALSE
 cdb-enable-key-rotate TRUE
 cdb-enable-lock-statistics FALSE
+cdb-enable-precise-memory-usage TRUE
 cdb-enable-resource-statistics TRUE
-cdb-fire-wall-enabled FALSE
-cdb-forbid-mysql-write FALSE
-cdb-forbid-system-database-write FALSE
-cdb-hash-scan-max-agg-event-size 0
-cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
-cdb-kill-user-extra (No default value)
-cdb-max-mem-size-per-thread 33554432
-cdb-max-prefetch-rows 0
-cdb-opt-outline-enabled FALSE
-cdb-optimize-large-trans-binlog FALSE
-cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
-cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
-cdb-plan-cache FALSE
-cdb-plan-cache-query-length-limit 102400
-cdb-plan-cache-stats FALSE
-cdb-recycle-bin-db-not-visible TRUE
-cdb-recycle-bin-enabled FALSE
-cdb-replica-host-detection TRUE
-cdb-role CDB_ROLE_UNKNOWN
+cdb-lock-connect-detect-enabled TRUE
+cdb-pt-filter TRUE
+cdb-pt-table-checksum FALSE
+cdb-pt-white-list-user 
+cdb-query-memory-log-enabled FALSE
+cdb-query-memory-log-threshold 1073741824
+cdb-query-memory-profile-enabled FALSE
+cdb-query-memory-profile-max-stage-num 100
+cdb-query-memory-stack-enabled FALSE
+cdb-session-var-privilege-check-enabled FALSE
 cdb-skip-event-scheduler FALSE
-cdb-sql-filter (No default value)
-cdb-sql-filter-enable FALSE
-cdb-sql-filter-seperator ,
-cdb-sql-statistics FALSE
-cdb-sql-statistics-info-threshold 10000
 cdb-tencentroot-audit-action-enabled FALSE
 cdb-tencentroot-slow-log-enabled FALSE
-cdb-threadpool-prepare-enabled FALSE
-cdb-working-mode-default READWRITE
-cdb-working-mode-enabled FALSE
-cdb-workmode-life-interval 10
 character-set-client-handshake TRUE
 character-set-filesystem binary
 character-set-server utf8mb4
@@ -1823,6 +1924,8 @@ collation-server utf8mb4_0900_ai_ci
 completion-type NO_CHAIN
 concurrent-insert AUTO
 connect-timeout 10
+connection-memory-chunk-size 8912
+connection-memory-limit 18446744073709551615
 console FALSE
 create-admin-listener-thread FALSE
 cte-max-recursion-depth 1000
@@ -1860,18 +1963,19 @@ ft-stopword-file (No default value)
 gdb FALSE
 general-log FALSE
 generated-random-password-length 20
+global-connection-memory-limit 18446744073709551615
+global-connection-memory-tracking FALSE
 group-concat-max-len 1024
 group-replication-consistency EVENTUAL
-gtid-executed-compression-period 1000
+gtid-executed-compression-period 0
 gtid-mode OFF
 help TRUE
 histogram-generation-max-mem-size 20000000
-histogram-history-enabled FALSE
-histogram-history-versions-limit 5
 host-cache-size 279
 information-schema-stats-expiry 86400
 init-connect 
 init-file (No default value)
+init-replica 
 init-slave 
 initialize TRUE
 initialize-insecure TRUE
@@ -1887,6 +1991,7 @@ keyring-migration-destination (No default value)
 keyring-migration-host (No default value)
 keyring-migration-port 0
 keyring-migration-source (No default value)
+keyring-migration-to-component FALSE
 keyring-migration-user (No default value)
 large-pages FALSE
 lc-messages en_US
@@ -1905,10 +2010,12 @@ log-isam myisam.log
 log-output FILE
 log-queries-not-using-indexes FALSE
 log-raw FALSE
+log-replica-updates FALSE
 log-short-format FALSE
 log-slave-updates FALSE
 log-slow-admin-statements FALSE
 log-slow-extra FALSE
+log-slow-replica-statements FALSE
 log-slow-slave-statements FALSE
 log-statements-unsafe-for-binlog TRUE
 log-tc tc.log
@@ -1946,15 +2053,12 @@ max-sp-recursion-depth 0
 max-user-connections 0
 max-write-lock-count 18446744073709551615
 memlock FALSE
-merge-join-buffer-size 262144
 min-examined-row-limit 0
 myisam-block-size 1024
-myisam-conversion-innodb OFF
 myisam-data-pointer-size 6
 myisam-max-sort-file-size 9223372036853727232
 myisam-mmap-size 18446744073709551615
 myisam-recover-options OFF
-myisam-repair-threads 1
 myisam-sort-buffer-size 8388608
 myisam-stats-method nulls_unequal
 myisam-use-mmap FALSE
@@ -1964,11 +2068,13 @@ net-read-timeout 30
 net-retry-count 10
 net-write-timeout 60
 new FALSE
+new-connection-action-when-resource-group-overrun move-to-default
 no-dd-upgrade FALSE
 offline-mode FALSE
 old FALSE
 old-alter-table FALSE
 old-style-user-limits FALSE
+optimizer-max-subgraph-pairs 100000
 optimizer-prune-level 1
 optimizer-search-depth 62
 optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on
@@ -1987,6 +2093,7 @@ performance-schema-accounts-size -1
 performance-schema-consumer-events-stages-current FALSE
 performance-schema-consumer-events-stages-history FALSE
 performance-schema-consumer-events-stages-history-long FALSE
+performance-schema-consumer-events-statements-cpu FALSE
 performance-schema-consumer-events-statements-current TRUE
 performance-schema-consumer-events-statements-history TRUE
 performance-schema-consumer-events-statements-history-long FALSE
@@ -2011,7 +2118,7 @@ performance-schema-events-waits-history-long-size -1
 performance-schema-events-waits-history-size -1
 performance-schema-hosts-size -1
 performance-schema-instrument 
-performance-schema-max-cond-classes 100
+performance-schema-max-cond-classes 150
 performance-schema-max-cond-instances -1
 performance-schema-max-digest-length 1024
 performance-schema-max-digest-sample-age 60
@@ -2021,7 +2128,7 @@ performance-schema-max-file-instances -1
 performance-schema-max-index-stat -1
 performance-schema-max-memory-classes 450
 performance-schema-max-metadata-locks -1
-performance-schema-max-mutex-classes 300
+performance-schema-max-mutex-classes 350
 performance-schema-max-mutex-instances -1
 performance-schema-max-prepared-statements-instances -1
 performance-schema-max-program-instances -1
@@ -2031,7 +2138,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 227
+performance-schema-max-statement-classes 222
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2044,6 +2151,7 @@ performance-schema-setup-objects-size -1
 performance-schema-show-processlist FALSE
 performance-schema-users-size -1
 persist-only-admin-x509-subject 
+persist-sensitive-variables-in-plaintext TRUE
 persisted-globals-load TRUE
 port ####
 port-open-timeout 0
@@ -2055,7 +2163,6 @@ proxy-protocol-networks
 query-alloc-block-size 8192
 query-prealloc-size 8192
 range-alloc-block-size 4096
-range-estimation-by-histogram FALSE
 range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
@@ -2069,14 +2176,35 @@ relay-log-info-repository TABLE
 relay-log-purge TRUE
 relay-log-recovery FALSE
 relay-log-space-limit 0
+replica-allow-batching TRUE
+replica-checkpoint-group 512
+replica-checkpoint-period 300
+replica-compressed-protocol FALSE
+replica-exec-mode STRICT
+replica-max-allowed-packet 1073741824
+replica-net-timeout 60
+replica-parallel-type LOGICAL_CLOCK
+replica-parallel-workers 4
+replica-pending-jobs-size-max 134217728
+replica-preserve-commit-order TRUE
+replica-skip-errors (No default value)
+replica-sql-verify-checksum TRUE
+replica-transaction-retries 10
+replica-type-conversions 
 replicate-same-server-id FALSE
+replication-optimize-for-static-plugin-config FALSE
+replication-sender-observe-commit-only FALSE
 report-host (No default value)
 report-password (No default value)
 report-port 0
 report-user (No default value)
 require-secure-transport FALSE
 reserved-connection-count 20
+resource-group-iops-control-timeunit 100
+resource-group-iops-wait-counts 50
+resource-group-iops-wait-timeunit 100
 rpl-read-size 8192
+rpl-stop-replica-timeout 31536000
 rpl-stop-slave-timeout 31536000
 safe-user-create FALSE
 schema-definition-cache 256
@@ -2095,24 +2223,27 @@ session-track-transaction-info OFF
 session-track-udf-var FALSE
 sha256-password-proxy-users FALSE
 show-create-table-verbosity FALSE
+show-gipk-in-create-table-and-information-schema TRUE
 show-old-temporals FALSE
+show-replica-auth-info FALSE
 show-slave-auth-info FALSE
 skip-grant-tables TRUE
 skip-name-resolve FALSE
 skip-networking FALSE
+skip-replica-start FALSE
 skip-show-database FALSE
 skip-slave-start FALSE
-slave-allow-batching FALSE
+slave-allow-batching TRUE
 slave-checkpoint-group 512
 slave-checkpoint-period 300
 slave-compressed-protocol FALSE
 slave-exec-mode STRICT
 slave-max-allowed-packet 1073741824
 slave-net-timeout 60
-slave-parallel-type DATABASE
-slave-parallel-workers 0
+slave-parallel-type LOGICAL_CLOCK
+slave-parallel-workers 4
 slave-pending-jobs-size-max 134217728
-slave-preserve-commit-order FALSE
+slave-preserve-commit-order TRUE
 slave-rows-search-algorithms INDEX_SCAN,HASH_SCAN
 slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
@@ -2121,7 +2252,9 @@ slave-type-conversions
 slow-launch-time 2
 slow-query-log FALSE
 sort-buffer-size 262144
+source-verify-checksum FALSE
 sporadic-binlog-dump-fail FALSE
+sql-generate-invisible-primary-key FALSE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
 stored-program-cache 256
@@ -2132,38 +2265,34 @@ sync-binlog 1
 sync-master-info 10000
 sync-relay-log 10000
 sync-relay-log-info 10000
+sync-source-info 10000
 sysdate-is-now FALSE
 table-encryption-privilege-check FALSE
 table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
+temptable-max-mmap 1073741824
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
-tencent-myisam-conversion-innodb OFF
 tencent-reserved-connection 20
 tencent-root-cnf (No default value)
 tencent-root-connected 0
 tencent-root-limit 
 tencent-root-user (No default value)
 tencent-root-whitelist (No default value)
+terminology-use-previous NONE
 thread-cache-size 9
 thread-handling one-thread-per-connection
 thread-handling-switch-mode fast
-thread-pool-eager-mode FALSE
 thread-pool-high-prio-mode transactions
 thread-pool-high-prio-tickets 18446744073709551615
 thread-pool-idle-timeout 60
-thread-pool-listen-eager-mode TRUE
 thread-pool-max-threads 100000
 thread-pool-oversubscribe 3
-thread-pool-oversubscribe-parall TRUE
-thread-pool-oversubscribe-parall-num 3
-thread-pool-oversubscribe-parall-timeout 5
-thread-pool-queue-congest-threshold 5
 thread-pool-size ####
 thread-pool-stall-limit 500
-thread-stack 262144
-threshold-of-interesting-order-for-merge-join 10
+thread-stack 1048576
+threadpool-workaround-epoll-bug FALSE
 tls-ciphersuites (No default value)
 tmp-table-size 16777216
 transaction-alloc-block-size 8192
@@ -2171,8 +2300,10 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-found-rows 0
 txsql-max-parallel-worker-threads 0
 txsql-optimizer-context-max-mem-size 8388608
+txsql-optimizer-context-prealloc-size 4096
 txsql-parallel-cost-threshold 50000
 txsql-parallel-degree 4
 txsql-parallel-exchange-buffer-size 1048576
@@ -2182,6 +2313,8 @@ txsql-parallel-fallback-in-execution FALSE
 txsql-parallel-lob-enabled FALSE
 txsql-parallel-table-record-threshold 5000
 txsql-pread-count-enabled TRUE
+txsql-row-count 0
+txsql-use-db 
 updatable-views-with-limit YES
 upgrade AUTO
 validate-config FALSE
@@ -2189,6 +2322,7 @@ validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
 windowing-use-high-precision TRUE
+xa-detach-on-prepare TRUE
 
 To see what values a running MySQL server is using, type
 'mysqladmin variables' instead of 'mysqld --verbose --help'.

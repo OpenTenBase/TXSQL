@@ -86,7 +86,7 @@ repl_speedlimit_slave_trace_level	0
 SHOW STATUS LIKE 'repl_speed%';
 Variable_name	Value
 repl_speed_limit_slave_bandwidth	0
-repl_speed_limit_slave_bytes_received	169
+repl_speed_limit_slave_bytes_received	170
 repl_speed_limit_slave_clients	1
 repl_speed_limit_slave_sleep_count	1
 repl_speed_limit_slave_sleep_time	20
@@ -129,7 +129,7 @@ repl_speedlimit_slave_trace_level	0
 SHOW STATUS LIKE 'repl_speed%';
 Variable_name	Value
 repl_speed_limit_slave_bandwidth	0
-repl_speed_limit_slave_bytes_received	834
+repl_speed_limit_slave_bytes_received	835
 repl_speed_limit_slave_clients	1
 repl_speed_limit_slave_sleep_count	1
 repl_speed_limit_slave_sleep_time	20

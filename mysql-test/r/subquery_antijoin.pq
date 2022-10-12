@@ -27,7 +27,7 @@ test.t2	analyze	status	OK
 set optimizer_switch="firstmatch=on,materialization=off";
 select @@optimizer_switch;
 @@optimizer_switch
-index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=off,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on,sort_merge_join=off
+index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=off,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on
 EXPLAIN SELECT 1 as a FROM dual
 WHERE NOT EXISTS (SELECT * FROM t1 AS it);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -198,7 +198,7 @@ pk
 set optimizer_switch="firstmatch=off,materialization=on";
 select @@optimizer_switch;
 @@optimizer_switch
-index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=off,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on,sort_merge_join=off
+index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=off,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on
 EXPLAIN SELECT 1 as a FROM dual
 WHERE NOT EXISTS (SELECT * FROM t1 AS it);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -1123,32 +1123,13 @@ ON 1 AND t1.col_int > ( SELECT @var FROM t1 as t3 ) AND
 NOT EXISTS ( SELECT * FROM t1 as t4);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
 3	SUBQUERY	t4	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
 2	UNCACHEABLE SUBQUERY	t3	NULL	index	NULL	PRIMARY	4	NULL	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col_int` AS `col_int`,`test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col_int` AS `col_int` from `test`.`t1` left join `test`.`t1` `t2` on(((`test`.`t1`.`col_int` > (/* select#2 */ select (@`var`) from `test`.`t1` `t3`)) and exists(/* select#3 */ select 1 from `test`.`t1` `t4`) is false)) where true
-EXPLAIN FORMAT=TREE SELECT * FROM t1 LEFT JOIN t1 AS t2
-ON 1 AND t1.col_int > ( SELECT @var FROM t1 as t3 ) AND
-NOT EXISTS ( SELECT * FROM t1 as t4);
-EXPLAIN
--> PX Receiver (slice: 0; workers: 1)
-    -> PX Sender (slice: 1; workers: 1)
-        -> Nested loop left join  (cost=0.70 rows=1)
-            -> Parallel table scan on t1  (cost=0.35 rows=1)
-            -> Filter: (exists(select #3) is false and ((t1.col_int > (select #2)) and exists(select #3) is false))  (cost=0.35 rows=1)
-                -> Table scan on t2  (cost=0.35 rows=1)
-                -> Select #3 (subquery in condition; run only once)
-                    -> Limit: 1 row(s)  (cost=0.35 rows=1)
-                        -> Index scan on t4 using PRIMARY  (cost=0.35 rows=1)
-                -> Select #2 (subquery in condition; uncacheable)
-                    -> Index scan on t3 using PRIMARY  (cost=0.35 rows=1)
-                -> Select #3 (subquery in condition; run only once)
-                    -> Limit: 1 row(s)  (cost=0.35 rows=1)
-                        -> Index scan on t4 using PRIMARY  (cost=0.35 rows=1)
-
 SELECT * FROM t1 LEFT JOIN t1 AS t2
 ON 1 AND t1.col_int > ( SELECT @var FROM t1 as t3 ) AND
 NOT EXISTS ( SELECT * FROM t1 as t4);
@@ -1358,13 +1339,13 @@ create table t(a int, b int);
 insert into t values(1,1),(2,2),(3,3),(4,4),(5,5);
 explain format=tree select a from t where (not exists (select b from t));
 EXPLAIN
--> Zero rows (Impossible WHERE)
+-> Zero rows (Impossible WHERE)  (cost=0.00..0.00 rows=0)
 
 select a from t where (not exists (select b from t));
 a
 explain format=tree select a from t where 1 not in (select 1 from t);
 EXPLAIN
--> Zero rows (Impossible WHERE)
+-> Zero rows (Impossible WHERE)  (cost=0.00..0.00 rows=0)
 
 select a from t where 1 not in (select 1 from t);
 a

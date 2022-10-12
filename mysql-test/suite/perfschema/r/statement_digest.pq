@@ -139,8 +139,8 @@ WITH cte (x,y,z)AS (SELECT a,1,1 FROM t1) SELECT 1, cte.* FROM cte;
 1	2	1	1
 WITH cte (x,y,z)AS (SELECT a,2,2 FROM t1) SELECT 2, cte.* FROM cte;
 2	x	y	z
-2	2	2	2
 2	1	2	2
+2	2	2	2
 WITH cte (x,y,z)AS (SELECT a,1,1 FROM t1) SELECT 1, cte.*, cte2.* FROM cte, cte AS cte2;
 1	x	y	z	x	y	z
 1	1	1	1	1	1	1

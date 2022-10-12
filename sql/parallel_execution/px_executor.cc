@@ -30,9 +30,6 @@
 PSI_stage_info stage_running_task = {0, "Task runing", 0, PSI_DOCUMENT_ME};
 PSI_stage_info schedule_dfo_inner = {0, "Scheduling", 0, PSI_DOCUMENT_ME};
 
-extern bool px_partition(uint dop, void *&scan_ctx, TABLE *table, PX_SCAN_TYPE type,
-                         uint keyno, TABLE_REF *ref, bool reverse_scan, uint &partitions);
-
 /**
   Main work flow in each worker, in mysql_execute_command function, a loop has
   been embeded in execute_inner point. After execution over in worker, cleanup

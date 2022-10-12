@@ -46,11 +46,11 @@ INSERT INTO t4 values (2);
 INSERT INTO t3 values (2);
 SELECT * FROM t1;
 SELECT * FROM t2;
-c1	101
 c1	102
+c1	101
 SELECT * FROM t3;
-c1	1
 c1	2
+c1	1
 SELECT * FROM t4;
 c1	1
 c1	2

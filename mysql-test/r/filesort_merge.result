@@ -50,7 +50,6 @@ CREATE TABLE t1 (topic BIGINT NOT NULL DEFAULT 0);
 SET @@session.sort_buffer_size=32768;
 SELECT * from t1 WHERE topic IN
 (SELECT topic FROM t1 GROUP BY topic HAVING topic < 2000)
-LIMIT 2
 ;
 topic
 1370

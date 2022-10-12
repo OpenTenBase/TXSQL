@@ -3,7 +3,7 @@ SET GLOBAL cdb_kill_idle_trans_timeout= 100000;
 SET SESSION wait_timeout= 2;
 BEGIN;
 show tables;
-ERROR HY000: MySQL server has gone away
+ERROR HY000: The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
 # Current connection idle transaction killed, reconnecting
 SET GLOBAL cdb_kill_idle_trans_timeout= 1;
 #
@@ -23,7 +23,7 @@ a
 2
 3
 SELECT * FROM t1;
-ERROR HY000: MySQL server has gone away
+ERROR HY000: The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
 # Current connection idle transaction killed, reconnecting
 DROP TABLE t1;
 #
@@ -43,7 +43,7 @@ a
 2
 3
 SELECT * FROM t1;
-ERROR HY000: MySQL server has gone away
+ERROR HY000: The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
 # Current connection idle transaction killed, reconnecting
 #
 # Test that row locks are released on idle transaction kill
@@ -62,7 +62,7 @@ a
 4
 # Show that connection conn1 has been killed
 SELECT * FROM t1;
-ERROR HY000: MySQL server has gone away
+ERROR HY000: The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
 # connection default
 # Cleanup
 DROP TABLE t1;

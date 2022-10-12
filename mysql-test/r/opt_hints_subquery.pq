@@ -61,9 +61,9 @@ WHERE t3.a IN (SELECT /*+ NO_SEMIJOIN() */ a FROM t1 tx)
 AND t3.b IN (SELECT a FROM t1 ty);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
-1	PRIMARY	ty	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.b	1	100.00	Using index
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	ty	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.b	1	100.00	Using index
 2	DEPENDENT SUBQUERY	tx	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`select#2`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `ty` join `test`.`t3` where ((`test`.`ty`.`a` = `test`.`t3`.`b`) and <in_optimizer>(`test`.`t3`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t3`.`a`) in t1 on PRIMARY))))
@@ -73,9 +73,9 @@ WHERE t3.a IN (SELECT /*+ QB_NAME(`subq1`) */ a FROM t1 tx)
 AND t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t1 ty);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
-1	PRIMARY	ty	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.b	1	100.00	Using index
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	ty	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.b	1	100.00	Using index
 2	DEPENDENT SUBQUERY	tx	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`subq1`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `ty` join `test`.`t3` where ((`test`.`ty`.`a` = `test`.`t3`.`b`) and <in_optimizer>(`test`.`t3`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t3`.`a`) in t1 on PRIMARY))))
@@ -86,9 +86,9 @@ WHERE t3.a IN (SELECT a FROM t1 tx)
 AND t3.b IN (SELECT /*+ NO_SEMIJOIN() */ a FROM t1 ty);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
-1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using index
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using index
 3	DEPENDENT SUBQUERY	ty	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`select#3`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `tx` join `test`.`t3` where ((`test`.`tx`.`a` = `test`.`t3`.`a`) and <in_optimizer>(`test`.`t3`.`b`,<exists>(<primary_index_lookup>(<cache>(`test`.`t3`.`b`) in t1 on PRIMARY))))
@@ -98,9 +98,9 @@ WHERE t3.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t1 tx)
 AND t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t1 ty);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
-1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using index
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using index
 3	DEPENDENT SUBQUERY	ty	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`subq2`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `tx` join `test`.`t3` where ((`test`.`tx`.`a` = `test`.`t3`.`a`) and <in_optimizer>(`test`.`t3`.`b`,<exists>(<primary_index_lookup>(<cache>(`test`.`t3`.`b`) in t1 on PRIMARY))))
@@ -162,9 +162,9 @@ WHERE t3.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t1 tx
 WHERE tx.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t1 ty));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
-1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using where
 3	DEPENDENT SUBQUERY	ty	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`subq2`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `tx` join `test`.`t3` where ((`test`.`tx`.`a` = `test`.`t3`.`a`) and <in_optimizer>(`test`.`tx`.`b`,<exists>(<primary_index_lookup>(<cache>(`test`.`tx`.`b`) in t1 on PRIMARY))))
@@ -870,9 +870,9 @@ WHERE t1.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t3
 WHERE t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t2));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	PRIMARY	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-1	PRIMARY	t3	NULL	ref	a	a	4	test.t1.a	1	100.00	Using where; FirstMatch(t1)
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	PRIMARY	t3	NULL	ref	a	a	4	test.t1.a	1	100.00	Using where; FirstMatch(t1)
 3	DEPENDENT SUBQUERY	t2	NULL	index_subquery	a	a	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`subq2`) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` semi join (`test`.`t3`) where ((`test`.`t3`.`a` = `test`.`t1`.`a`) and <in_optimizer>(`test`.`t3`.`b`,<exists>(<index_lookup>(<cache>(`test`.`t3`.`b`) in t2 on a))))
@@ -883,10 +883,10 @@ WHERE t1.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t3
 WHERE t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t2));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	PRIMARY	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 2	MATERIALIZED	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Using where
 1	PRIMARY	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	4	test.t1.a	1	100.00	NULL
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	t2	NULL	index_subquery	a	a	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`subq2`) NO_SEMIJOIN(@`subq1` FIRSTMATCH) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` semi join (`test`.`t3`) where ((`<subquery2>`.`a` = `test`.`t1`.`a`) and <in_optimizer>(`test`.`t3`.`b`,<exists>(<index_lookup>(<cache>(`test`.`t3`.`b`) in t2 on a))))
@@ -922,10 +922,10 @@ WHERE t1.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t3
 WHERE t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t2));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	NULL	ALL	PRIMARY	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
+1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
+1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
 2	MATERIALIZED	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Using where
 1	PRIMARY	<subquery2>	NULL	eq_ref	<auto_distinct_key>	<auto_distinct_key>	4	test.t1.a	1	100.00	NULL
-1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Send to (<receiver1>)
-1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	12	100.00	Receive from (<sender1>)
 3	DEPENDENT SUBQUERY	t2	NULL	index_subquery	a	a	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`subq2`) SEMIJOIN(@`subq1` LOOSESCAN, MATERIALIZATION, DUPSWEEDOUT) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` semi join (`test`.`t3`) where ((`<subquery2>`.`a` = `test`.`t1`.`a`) and <in_optimizer>(`test`.`t3`.`b`,<exists>(<index_lookup>(<cache>(`test`.`t3`.`b`) in t2 on a))))
@@ -1061,9 +1061,9 @@ WHERE t3.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t1 tx)
 AND t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t1 ty);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
-1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using index
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using index
 3	DEPENDENT SUBQUERY	ty	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ SEMIJOIN(@`subq1`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `tx` join `test`.`t3` where ((`test`.`tx`.`a` = `test`.`t3`.`a`) and <in_optimizer>(`test`.`t3`.`b`,<exists>(<primary_index_lookup>(<cache>(`test`.`t3`.`b`) in t1 on PRIMARY))))
@@ -1074,9 +1074,9 @@ WHERE t3.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t1 tx)
 AND t3.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t1 ty);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers); Using where
-1	PRIMARY	ty	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.b	1	100.00	Using index
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	ty	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.b	1	100.00	Using index
 2	DEPENDENT SUBQUERY	tx	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ SEMIJOIN(@`subq2`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `ty` join `test`.`t3` where ((`test`.`ty`.`a` = `test`.`t3`.`b`) and <in_optimizer>(`test`.`t3`.`a`,<exists>(<primary_index_lookup>(<cache>(`test`.`t3`.`a`) in t1 on PRIMARY))))
@@ -1113,9 +1113,9 @@ WHERE t3.a IN (SELECT /*+ QB_NAME(subq1) */ a FROM t1 tx
 WHERE tx.b IN (SELECT /*+ QB_NAME(subq2) */ a FROM t1 ty));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t3	NULL	ALL	a	NULL	NULL	NULL	3	100.00	Parallel scan (3 workers)
-1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using where
 1	PRIMARY	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Send to (<receiver1>)
 1	PRIMARY	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Receive from (<sender1>)
+1	PRIMARY	tx	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t3.a	1	100.00	Using where
 3	DEPENDENT SUBQUERY	ty	NULL	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select /*+ SEMIJOIN(@`subq1`) */ `test`.`t3`.`a` AS `a`,`test`.`t3`.`b` AS `b` from `test`.`t1` `tx` join `test`.`t3` where ((`test`.`tx`.`a` = `test`.`t3`.`a`) and <in_optimizer>(`test`.`tx`.`b`,<exists>(<primary_index_lookup>(<cache>(`test`.`tx`.`b`) in t1 on PRIMARY))))

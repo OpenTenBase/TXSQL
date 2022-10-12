@@ -53,6 +53,9 @@
 #include "sql/sql_optimizer.h"
 #include "sql/table.h"
 #include "sql_string.h"
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
+#endif
 
 class Opt_trace_context;
 
@@ -536,6 +539,14 @@ static double ror_scan_selectivity(const ROR_INTERSECT_INFO *info,
         assert(min_range.length > 0);
         assert(
             !table->pos_in_table_list->is_derived_unfinished_materialization());
+#if defined(HAVE_OPT_CTX)
+        assert(current_thd);
+        if (OPT_CTX_ENABLED(current_thd)) {
+          records = OPT_CTX(current_thd).records_in_range(info->param->table,
+                                                          scan->keynr,
+                                                          &min_range, &max_range);
+        } else
+#endif
         records =
             table->file->records_in_range(scan->keynr, &min_range, &max_range);
       } else {

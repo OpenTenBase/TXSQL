@@ -9,6 +9,8 @@
 #include "sql/table_function.h"
 #include "sql/range_optimizer/path_helpers.h"
 
+extern QEP_TAB *get_matched_tab(JOIN *join, TABLE *table);
+
 /**
  * @return true if exchange safe, false otherwise.
  */
@@ -47,7 +49,7 @@ static bool compat_for_parallel_table_fields(TABLE *table) {
  * @return true if the table can be chosen as the parallelized table, false
  * otherwise.
  */
-static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
+static bool compat_for_parallel_table(const THD *thd, TABLE *tb, TABLE_REF *ref = nullptr) {
   TABLE_LIST *tbl = tb->pos_in_table_list;
   assert(tb && tbl);
 
@@ -75,6 +77,11 @@ static bool compat_for_parallel_table(const THD *thd, TABLE *tb) {
       tbl->is_fulltext_searched() || tbl->is_view_or_derived()) {
     return false;
   }
+
+  if (ref && (tb->key_info[ref->key].flags & HA_MULTI_VALUED_KEY)) {
+    return false;
+  }
+
   /*
     Check records in table.
     If it is less than cdb_min_parallel_table_rows, refuse to do parallel
@@ -210,7 +217,11 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
       } else if (compat_for_parallel_table(thd, param.table)) {
         parallel_safe = true;
-        //split_positions->emplace_back(cur_join, param.qep_tab);
+        if (cur_join) {
+          QEP_TAB *tab = get_matched_tab(cur_join, param.table);
+          split_positions->emplace_back(cur_join, tab);
+        }
+
         if (exchange_safe) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
@@ -230,7 +241,11 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
       } else if (compat_for_parallel_table(thd, param.table)) {
         parallel_safe = true;
-        //split_positions->emplace_back(cur_join, param.qep_tab);
+        if (cur_join) {
+          QEP_TAB *tab = get_matched_tab(cur_join, param.table);
+          split_positions->emplace_back(cur_join, tab);
+        }
+
         if (exchange_safe) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
@@ -249,9 +264,13 @@ bool px_access_path::WalkAccessPathsForCompat(
       ref_slice = REF_SLICE_SAVED_BASE;
       if (!parallel_scan) {
         parallel_safe = true;
-      } else if (compat_for_parallel_table(thd, param.table)) {
+      } else if (compat_for_parallel_table(thd, param.table, param.ref)) {
         parallel_safe = true;
-        //split_positions->emplace_back(cur_join, param.qep_tab);
+        if (cur_join) {
+          QEP_TAB *tab = get_matched_tab(cur_join, param.table);
+          split_positions->emplace_back(cur_join, tab);
+        }
+
         if (exchange_safe) {
           max_px_subpath = path;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
@@ -271,13 +290,19 @@ bool px_access_path::WalkAccessPathsForCompat(
       ref_slice = REF_SLICE_SAVED_BASE;
       if (!parallel_scan) {
         parallel_safe = true;
-      } else if (compat_for_parallel_table(thd, table)) {
+      } else if (!param.geometry && compat_for_parallel_table(thd, table)) {
         parallel_safe = true;
-        //split_positions->emplace_back(cur_join, param.qep_tab);
+        bool use_order =  false;
+
+        if (cur_join) {
+          QEP_TAB *tab = get_matched_tab(cur_join, table);
+          split_positions->emplace_back(cur_join, tab);
+          use_order = tab->use_order();
+        }
+
         if (exchange_safe) {
           max_px_subpath = path;
           // @TODO
-          bool use_order =  true;
           split_positions->emplace_back(cur_join, path, parent, ref_slice,
                                         false, use_order, false, nullptr,
                                         nullptr);
@@ -308,12 +333,70 @@ bool px_access_path::WalkAccessPathsForCompat(
       parallel_safe = !parallel_scan;
       break;
     }
+    case AccessPath::INDEX_MERGE: {
+      if (!parallel_scan) {
+        parallel_safe = true;
+        for (AccessPath *child : *path->index_merge().children) {
+          parallel_safe &= WalkAccessPathsForCompat(
+              thd, child, path, cur_join, parallel_scan, false, false,
+              ref_slice, max_px_subpath, is_stream, mat_access_path,
+              split_positions, exchange_safe);
+        }
+      }
+      exchange_safe = compat_for_table_fields(path->index_merge().table);
+      is_stream = false;
+      break;
+    }
+    case AccessPath::ROWID_INTERSECTION: {
+      if (!parallel_scan) {
+        parallel_safe = true;
+        for (AccessPath *child : *path->rowid_intersection().children) {
+          parallel_safe &= WalkAccessPathsForCompat(
+              thd, child, path, cur_join, parallel_scan, false, false,
+              ref_slice, max_px_subpath, is_stream, mat_access_path,
+              split_positions, exchange_safe);
+        }
+      }
+      exchange_safe = compat_for_table_fields(path->rowid_intersection().table);
+      is_stream = true;
+      break;
+    }
+    case AccessPath::ROWID_UNION: {
+      if (!parallel_scan) {
+        parallel_safe = true;
+        for (AccessPath *child : *path->rowid_union().children) {
+          parallel_safe &= WalkAccessPathsForCompat(
+              thd, child, path, cur_join, parallel_scan, false, false,
+              ref_slice, max_px_subpath, is_stream, mat_access_path,
+              split_positions, exchange_safe);
+        }
+      }
+      exchange_safe = compat_for_table_fields(path->rowid_union().table);
+      is_stream = true;
+      break;
+    }
+    case AccessPath::INDEX_SKIP_SCAN: {
+      is_stream = true;
+      exchange_safe = compat_for_table_fields(path->index_skip_scan().table);
+      ref_slice = REF_SLICE_SAVED_BASE;
+      parallel_safe = !parallel_scan;
+      break;
+    }
+    case AccessPath::GROUP_INDEX_SKIP_SCAN: {
+      is_stream = true;
+      exchange_safe =
+          compat_for_table_fields(path->group_index_skip_scan().table);
+      ref_slice = REF_SLICE_SAVED_BASE;
+      parallel_safe = !parallel_scan;
+      break;
+    }
     case AccessPath::PUSHED_JOIN_REF:
     case AccessPath::FULL_TEXT_SEARCH:
     case AccessPath::MRR:
     case AccessPath::FOLLOW_TAIL:
     case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
     case AccessPath::TABLE_VALUE_CONSTRUCTOR:
+    case AccessPath::TABLE_SAMPLE:
     case AccessPath::FAKE_SINGLE_ROW:
     case AccessPath::ZERO_ROWS:
     case AccessPath::ZERO_ROWS_AGGREGATED:
@@ -405,6 +488,10 @@ bool px_access_path::WalkAccessPathsForCompat(
       is_stream = false;
       break;
     }
+    case AccessPath::SORT_MERGE_JOIN: {
+      // SORT_MERGE_JOIN is not supported in parallel query.
+      break;
+    }
     case AccessPath::FILTER: {
       if (WalkAccessPathsForCompat(thd, path->filter().child, path, cur_join,
                                    parallel_scan, false, root_all, ref_slice,
@@ -452,11 +539,21 @@ bool px_access_path::WalkAccessPathsForCompat(
         break;
       }
       const auto &param = path->aggregate();
+
+      // Temporary table will be created if the aggregate is parallelised, see
+      // RebuildLocalAggregateAccessPath()
+      Ref_item_array *agg_items = nullptr;
+      if (cur_join->ref_items[REF_SLICE_SAVED_BASE].is_null()) {
+        agg_items = &cur_join->ref_items[REF_SLICE_ACTIVE];
+      } else {
+        agg_items = &cur_join->ref_items[REF_SLICE_SAVED_BASE];
+      }
       if (WalkAccessPathsForCompat(thd, param.child, path, cur_join,
                                    parallel_scan, false, false, ref_slice,
                                    max_px_subpath, is_stream, mat_access_path,
                                    split_positions, exchange_safe) &&
           !param.rollup && !check_px_unsafe_sum_funcs(cur_join) &&
+          !check_px_unsafe_items(agg_items, cur_join->fields->size()) &&
           !check_px_unsafe_group(cur_join->group_fields)) {
         parallel_safe = true;
         if (parallel_scan) {
@@ -533,20 +630,7 @@ bool px_access_path::WalkAccessPathsForCompat(
               split_positions, child_exchange_safe) &&
           !check_px_unsafe_temp_param(param.temp_table_param)) {
         parallel_safe = true;
-        // ref_slice should be switched. It is unreasonable that ref_slice
-        // needs to be inferred, in the latest community code, ref_slice is
-        // recorded directly in the variable.
-        /*
-        if (param.copy_fields_and_items_in_materialize) {
-          if (ref_slice == REF_SLICE_SAVED_BASE) {
-            ref_slice = REF_SLICE_TMP1;
-          } else if (ref_slice == REF_SLICE_TMP1) {
-            ref_slice = REF_SLICE_TMP2;
-          } else {
-            assert(false);
-          }
-        }
-        */
+        ref_slice = param.ref_slice;
         if (parallel_scan) {
           exchange_safe = compat_for_table_fields(param.table);
           if (exchange_safe) {
@@ -635,9 +719,10 @@ bool px_access_path::WalkAccessPathsForCompat(
         parallel_safe = true;
         bool child_exchange_safe = false;
         for (auto qb : param.param->query_blocks) {
-          if (is_derived && !qb.join) {
-            // Join is null in derived table means it is a union. See
-            // GetAccessPathForDerivedTable()
+          if ((is_derived &&
+               !qb.join) ||  // Join is null in derived table means it is a
+                             // union. See GetAccessPathForDerivedTable()
+              (!is_derived && cur_join != qb.join)) {  // fake query block
             parallel_safe = false;
             break;
           }
@@ -776,15 +861,26 @@ bool px_access_path::WalkAccessPathsForCompat(
       }
       break;
     }
-    case AccessPath::ALTERNATIVE: {
-      parallel_safe = false;
+    case AccessPath::REMOVE_DUPLICATES_ON_INDEX: {
+      // Deduplicate by ordered input (using index)
+      if (!parallel_scan) {
+        parallel_safe = WalkAccessPathsForCompat(
+            thd, path->remove_duplicates_on_index().child, path, cur_join,
+            parallel_scan, false, false, ref_slice, max_px_subpath, is_stream,
+            mat_access_path, split_positions, exchange_safe);
+      }
       break;
     }
-    case AccessPath::CACHE_INVALIDATOR: {
+    case AccessPath::ALTERNATIVE:
+    case AccessPath::CACHE_INVALIDATOR:
+    case AccessPath::DELETE_ROWS:
+    case AccessPath::UPDATE_ROWS:
       parallel_safe = false;
       break;
-    }
-    default:
+    case AccessPath::PX_RECEIVE:
+    case AccessPath::PX_SEND:
+    case AccessPath::PX_RECEIVER_MERGE:
+      assert(false);
       break;
   }
 
@@ -1054,6 +1150,101 @@ bool AccessPath::operator==(const AccessPath &other) const {
       }
       break;
     }
+    case INDEX_MERGE: {
+      // equivalence check: same status and TABLE_SHARE
+      if (u.index_merge.forced_by_hint != other.index_merge().forced_by_hint ||
+          u.index_merge.allow_clustered_primary_key_scan !=
+              other.index_merge().allow_clustered_primary_key_scan) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.index_merge.table,
+              other.index_merge().table)) {
+        return false;
+      }
+      break;
+    }
+    case ROWID_INTERSECTION: {
+      // equivalence check: same status, TABLE_SHARE, and cpk PATH
+      if (u.rowid_intersection.forced_by_hint !=
+              other.rowid_intersection().forced_by_hint ||
+          u.rowid_intersection.retrieve_full_rows !=
+              other.rowid_intersection().retrieve_full_rows ||
+          u.rowid_intersection.need_rows_in_rowid_order !=
+              other.rowid_intersection().need_rows_in_rowid_order ||
+          u.rowid_intersection.reuse_handler !=
+              other.rowid_intersection().reuse_handler ||
+          u.rowid_intersection.is_covering !=
+              other.rowid_intersection().is_covering) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.rowid_intersection.table,
+              other.rowid_intersection().table)) {
+        return false;
+      }
+      if (u.rowid_intersection.cpk_child != nullptr) {
+        if (other.rowid_intersection().cpk_child == nullptr) {
+          return false;
+        }
+        return true;
+      }
+      if (other.rowid_intersection().cpk_child != nullptr) {
+        return false;
+      }
+      break;
+    }
+    case ROWID_UNION: {
+      // equivalence check: same status and TABLE_SHARE
+      if (u.rowid_union.forced_by_hint != other.rowid_union().forced_by_hint) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.rowid_union.table,
+              other.rowid_union().table)) {
+        return false;
+      }
+      break;
+    }
+    case INDEX_SKIP_SCAN: {
+      // equivalence check: same status, TABLE_SHARE, and IndexSkipScanParameters
+      if (u.index_skip_scan.index !=
+              other.index_skip_scan().index ||
+          u.index_skip_scan.num_used_key_parts !=
+              other.index_skip_scan().num_used_key_parts ||
+          u.index_skip_scan.forced_by_hint !=
+              other.index_skip_scan().forced_by_hint) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.index_skip_scan.table,
+              other.index_skip_scan().table) ||
+          !u.index_skip_scan.param->eq(
+              other.index_skip_scan().param)) {
+        return false;
+      }
+      break;
+    }
+    case GROUP_INDEX_SKIP_SCAN: {
+      // equivalence check: same status, TABLE_SHARE, and GroupIndexSkipScanParameters
+      if (u.group_index_skip_scan.index !=
+              other.group_index_skip_scan().index ||
+          u.group_index_skip_scan.num_used_key_parts !=
+              other.group_index_skip_scan().num_used_key_parts ||
+          u.group_index_skip_scan.forced_by_hint !=
+              other.group_index_skip_scan().forced_by_hint) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.group_index_skip_scan.table,
+              other.group_index_skip_scan().table) ||
+          !u.group_index_skip_scan.param->eq(
+              other.group_index_skip_scan().param,
+              other.group_index_skip_scan().num_used_key_parts)) {
+        return false;
+      }
+      break;
+    }
     case DYNAMIC_INDEX_RANGE_SCAN: {
       // equivalence check: same TABLE_SHARE and idx_cond
       if (!EquivalenceCheckHelper::eq_table_share(
@@ -1143,9 +1334,9 @@ bool AccessPath::operator==(const AccessPath &other) const {
     }
     case HASH_JOIN: {
       // equivalence check: same JoinPredicate
-      //const JoinPredicate *join_predicate = u.hash_join.join_predicate;
-      //const JoinPredicate *other_join_predicate = other.hash_join().join_predicate;
-      if (/*!join_predicate->eq(other_join_predicate) ||*/
+      const JoinPredicate *join_predicate = u.hash_join.join_predicate;
+      const JoinPredicate *other_join_predicate = other.hash_join().join_predicate;
+      if (!join_predicate->eq(other_join_predicate) ||
           u.hash_join.store_rowids != other.hash_join().store_rowids ||
           u.hash_join.tables_to_get_rowid_for != other.hash_join().tables_to_get_rowid_for ||
           u.hash_join.allow_spill_to_disk != other.hash_join().allow_spill_to_disk) {
@@ -1219,17 +1410,32 @@ bool AccessPath::operator==(const AccessPath &other) const {
       break;
     }
     case REMOVE_DUPLICATES: {
-      // equivalence check: same TABLE_SHARE and key.name
-      /*
-      if (u.remove_duplicates.loosescan_key_len !=
-              other.remove_duplicates().loosescan_key_len ||
-          strlen(u.remove_duplicates.key->name) !=
-              strlen(other.remove_duplicates().key->name) ||
-          strcmp(u.remove_duplicates.key->name,
-              other.remove_duplicates().key->name) != 0) {
+      // equivalence check: same status and item
+      if (u.remove_duplicates.group_items_size !=
+              other.remove_duplicates().group_items_size) {
         return false;
       }
-      */
+      if (!EquivalenceCheckHelper::eq_item(*u.remove_duplicates.group_items,
+              *other.remove_duplicates().group_items)) {
+        return false;
+      }
+      break;
+    }
+    case REMOVE_DUPLICATES_ON_INDEX: {
+      // equivalence check: same TABLE_SHARE and key.name
+      if (u.remove_duplicates_on_index.loosescan_key_len !=
+              other.remove_duplicates_on_index().loosescan_key_len ||
+          strlen(u.remove_duplicates_on_index.key->name) !=
+              strlen(other.remove_duplicates_on_index().key->name) ||
+          strcmp(u.remove_duplicates_on_index.key->name,
+              other.remove_duplicates_on_index().key->name) != 0) {
+        return false;
+      }
+      if (!EquivalenceCheckHelper::eq_table_share(
+              u.remove_duplicates_on_index.table,
+              other.remove_duplicates_on_index().table)) {
+        return false;
+      }
       break;
     }
     case ALTERNATIVE: {
@@ -1353,6 +1559,8 @@ bool AccessPath::operator==(const AccessPath &other) const {
       }
       return true;
     }
+    case DELETE_ROWS:
+    case UPDATE_ROWS:
     default:
       return false; // not supported
       break;
@@ -1386,6 +1594,23 @@ void GetExchangeTables(px_access_path::Split_Position *split_pos) {
         return false;
       case AccessPath::INDEX_RANGE_SCAN:
         split_pos->m_tables->push_back(subpath->index_range_scan().used_key_part[0].field->table);
+        return false;
+      // The children of INDEX_MERGE\ROWID_INTERSECTION\ROWID_UNION use the same
+      // table as their parent.
+      case AccessPath::INDEX_MERGE:
+        split_pos->m_tables->push_back(subpath->index_merge().table);
+        return true;
+      case AccessPath::ROWID_INTERSECTION:
+        split_pos->m_tables->push_back(subpath->rowid_intersection().table);
+        return true;
+      case AccessPath::ROWID_UNION:
+        split_pos->m_tables->push_back(subpath->rowid_union().table);
+        return true;
+      case AccessPath::INDEX_SKIP_SCAN:
+        split_pos->m_tables->push_back(subpath->index_skip_scan().table);
+        return false;
+      case AccessPath::GROUP_INDEX_SKIP_SCAN:
+        split_pos->m_tables->push_back(subpath->group_index_skip_scan().table);
         return false;
       case AccessPath::NESTED_LOOP_JOIN:
         return false;
@@ -1553,6 +1778,12 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       }
       break;
     }
+    case AccessPath::INDEX_MERGE: {
+      use_tmp_table = false;
+      child = (*path->index_merge().children)[0];
+      child_slice = REF_SLICE_SAVED_BASE;
+      break;
+    }
     case AccessPath::NESTED_LOOP_JOIN: {
       use_tmp_table = false;
 
@@ -1655,26 +1886,29 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       // Tmp table has been created in the stage of split
       use_tmp_table = false;
       table = join->aggr_tmp_table;
-      //output_slice = path->aggregate().output_slice;
 
-      child = path->aggregate().child;
-      /*
-      if (output_slice == REF_SLICE_ORDERED_GROUP_BY) {
-        if (!join->ref_items[REF_SLICE_TMP2].is_null()) {
-          child_slice = REF_SLICE_TMP2;
-        } else if (!join->ref_items[REF_SLICE_TMP1].is_null()) {
-          child_slice = REF_SLICE_TMP1;
-        } else {
-          child_slice = REF_SLICE_SAVED_BASE;
+      // Get the ref slice of AggregateIterator. See AggregateIterator::Init()
+      switch (path->aggregate().px_agg_type) {
+        case AggType::PX_NONE: {
+          output_slice = cur_slice;
+          break;
         }
-      } else*/if (output_slice == REF_SLICE_TMP2) {
-        child_slice = REF_SLICE_TMP1;
-      } else if (output_slice == REF_SLICE_TMP1) {
-        child_slice = REF_SLICE_SAVED_BASE;
-      } else if (output_slice != REF_SLICE_FINAL_AGGREGATE) {
-        assert(0);
+        case AggType::PX_LOCAL_AGG: {
+          if (!join->ref_items[REF_SLICE_LOCAL_AGGREGATE].is_null()) {
+            output_slice = REF_SLICE_LOCAL_AGGREGATE;
+          } else if (!join->ref_items[REF_SLICE_TMP1].is_null()) {
+            output_slice = REF_SLICE_TMP1;
+          }
+          break;
+        }
+        case AggType::PX_FINAL_AGG: {
+          output_slice = REF_SLICE_FINAL_AGGREGATE;
+          break;
+        }
       }
 
+      child = path->aggregate().child;
+      child_slice = cur_slice;
       break;
     }
     case AccessPath::TEMPTABLE_AGGREGATE: {
@@ -1701,9 +1935,13 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
       break;
     }
     case AccessPath::STREAM: {
-
       child = path->stream().child;
-      child_slice = REF_SLICE_SAVED_BASE;
+      cur_slice = path->stream().ref_slice;
+      if (cur_slice == REF_SLICE_TMP2) {
+        child_slice = REF_SLICE_TMP1;
+      } else {
+        child_slice = REF_SLICE_SAVED_BASE;
+      }
 
       break;
     }
@@ -1713,6 +1951,7 @@ AccessPath *WalkAccessPathsForExchange(THD *thd, JOIN *join,
           param.param->query_blocks[0].join != join) {
         return nullptr;
       }
+      output_slice = param.param->ref_slice;
 
       child = param.param->query_blocks[0].subquery_path;
       if (param.param->ref_slice == REF_SLICE_TMP2) {
@@ -2235,6 +2474,9 @@ static void FixAccessPathForExchange(AccessPath *const path,
       switch (path->type) {
         case AccessPath::AGGREGATE: {
           //temp_table_param = path->aggregate().temp_table_param;
+          temp_table_param =
+              (path->aggregate().px_agg_type == AggType::PX_LOCAL_AGG) ? join->local_tmp_table_param
+                                                                       : join->final_tmp_table_param;
           is_final_agg = (path->aggregate().px_agg_type == AggType::PX_FINAL_AGG);
           break;
         }
@@ -2378,6 +2620,11 @@ static void FixAccessPathForExchange(AccessPath *const path,
         switch (path->type) {
           case AccessPath::AGGREGATE: {
             //agg_ref_slice = path->aggregate().output_slice;
+            if (path->aggregate().px_agg_type == AggType::PX_LOCAL_AGG) {
+              agg_ref_slice = REF_SLICE_LOCAL_AGGREGATE;
+            } else {
+              agg_ref_slice = REF_SLICE_FINAL_AGGREGATE;
+            }
             break;
           }
           case AccessPath::TEMPTABLE_AGGREGATE: {

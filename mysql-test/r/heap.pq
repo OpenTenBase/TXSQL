@@ -355,7 +355,7 @@ t1	CREATE TABLE `t1` (
 select count(*) from t1;
 count(*)
 270
-insert into t1 values(concat('a',char(1)),concat('a',char(1)),concat('a',char(1)));
+insert into t1 values(concat('a','!'),concat('a','!'),concat('a','!'));
 select count(*) from t1 where v='a';
 count(*)
 10
@@ -443,8 +443,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`t` AS `t` from `test`.`t1` where (`test`.`t1`.`v` = 'a')
 select v,count(*) from t1 group by v order by v limit 9;
 v	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -454,8 +454,8 @@ g	10
 h	10
 select v,count(t) from t1 group by v order by v limit 10;
 v	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -466,8 +466,8 @@ h	10
 i	10
 select v,count(c) from t1 group by v order by v limit 10;
 v	count(c)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -478,8 +478,8 @@ h	10
 i	10
 select sql_big_result trim(v),count(t) from t1 group by v order by v limit 10;
 trim(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -490,8 +490,8 @@ h	10
 i	10
 select sql_big_result trim(v),count(c) from t1 group by v order by v limit 10;
 trim(v)	count(c)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -502,8 +502,8 @@ h	10
 i	10
 select c,count(*) from t1 group by c order by c limit 10;
 c	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -514,8 +514,8 @@ h	10
 i	10
 select c,count(t) from t1 group by c order by c limit 10;
 c	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -526,8 +526,8 @@ h	10
 i	10
 select sql_big_result c,count(t) from t1 group by c order by c limit 10;
 c	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -538,8 +538,8 @@ h	10
 i	10
 select t,count(*) from t1 group by t order by t limit 10;
 t	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -550,8 +550,8 @@ h	10
 i	10
 select t,count(t) from t1 group by t order by t limit 10;
 t	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -562,8 +562,8 @@ h	10
 i	10
 select sql_big_result trim(t),count(t) from t1 group by t order by t limit 10;
 trim(t)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10

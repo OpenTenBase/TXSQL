@@ -433,8 +433,8 @@ from t2 force index (k1)
 where a>='a-1000-a' and a <'a-1001-a';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	range	k1	k1	33	NULL	100	100.00	Parallel scan (1 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count((length(`test`.`t2`.`a`) + length(`test`.`t2`.`filler`))) AS `count(length(a) + length(filler))` from `test`.`t2` FORCE INDEX (`k1`) where ((`test`.`t2`.`a` >= 'a-1000-a') and (`test`.`t2`.`a` < 'a-1001-a'))
 select count(length(a) + length(filler))
@@ -699,7 +699,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using join buffer (hash join)
 1	SIMPLE	t4	NULL	ALL	k1	NULL	NULL	NULL	1	100.00	Range checked for each record (index map: 0x2)
 Warnings:
-Note	1003	/* select#1 */ select straight_join `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i1` AS `i1`,`test`.`t1`.`c1` AS `c1`,`test`.`t2`.`pk` AS `pk`,`test`.`t2`.`c1` AS `c1`,`test`.`t2`.`c2` AS `c2`,`test`.`t3`.`pk` AS `pk`,`test`.`t3`.`c1` AS `c1`,`test`.`t4`.`pk` AS `pk`,`test`.`t4`.`c1_key` AS `c1_key`,`test`.`t4`.`c2` AS `c2`,`test`.`t4`.`c3` AS `c3`,`test`.`t5`.`pk` AS `pk`,`test`.`t5`.`c1` AS `c1` from `test`.`t5` join `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t4`.`c3` = `test`.`t2`.`c1`) and (`test`.`t4`.`c2` = `test`.`t1`.`c1`) and (`test`.`t1`.`i1` = 1) and (`test`.`t2`.`c2` <= `test`.`t5`.`c1`) and (convert(`test`.`t3`.`c1` using utf8) <= `test`.`t4`.`c1_key`))
+Note	1003	/* select#1 */ select straight_join `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`i1` AS `i1`,`test`.`t1`.`c1` AS `c1`,`test`.`t2`.`pk` AS `pk`,`test`.`t2`.`c1` AS `c1`,`test`.`t2`.`c2` AS `c2`,`test`.`t3`.`pk` AS `pk`,`test`.`t3`.`c1` AS `c1`,`test`.`t4`.`pk` AS `pk`,`test`.`t4`.`c1_key` AS `c1_key`,`test`.`t4`.`c2` AS `c2`,`test`.`t4`.`c3` AS `c3`,`test`.`t5`.`pk` AS `pk`,`test`.`t5`.`c1` AS `c1` from `test`.`t5` join `test`.`t1` join `test`.`t2` join `test`.`t3` join `test`.`t4` where ((`test`.`t4`.`c3` = `test`.`t2`.`c1`) and (`test`.`t4`.`c2` = `test`.`t1`.`c1`) and (`test`.`t1`.`i1` = 1) and (`test`.`t2`.`c2` <= `test`.`t5`.`c1`) and (`test`.`t3`.`c1` <= `test`.`t4`.`c1_key`))
 SELECT STRAIGHT_JOIN *
 FROM 
 (t1 LEFT JOIN 

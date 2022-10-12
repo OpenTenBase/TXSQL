@@ -220,9 +220,9 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 2)
         -> Parallel table scan on tt1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
-    -> Single-row index lookup on dt1 using <auto_distinct_key> (a=tt1.a)
-        -> Materialize recursive CTE dt with deduplication
-            -> Rows fetched before execution  (cost=*** rows=***)
+    -> Single-row covering index lookup on dt1 using <auto_distinct_key> (a=tt1.a)
+        -> Materialize recursive CTE dt with deduplication  (cost=***..2.93 rows=***)
+            -> Rows fetched before execution  (cost=***..0.00 rows=***)
             -> Repeat until convergence
                 -> Filter: (dt.a < 10)  (cost=*** rows=***)
                     -> Scan new records on dt  (cost=*** rows=***)
@@ -262,7 +262,7 @@ EXPLAIN
 -> Aggregate: sum(t1.b)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 1)
-            -> Aggregate: sum(t1.b)
+            -> Aggregate: sum(t1.b)  (cost=*** rows=***)
                 -> Parallel table scan on t1  (cost=*** rows=***)
 
 select any_value(a), sum(b) from (select * from t1 order by a desc) as d;
@@ -282,8 +282,8 @@ EXPLAIN
         -> PX Sender (slice: 1; workers: 2)
             -> Parallel table scan on t0  (cost=*** rows=***)
     -> Select #2 (subquery in condition; dependent)
-        -> Filter: ((<cache>(t0.a) = column_0) and (<cache>(t0.b) = column_1) and <is_not_null_test>(column_0) and <is_not_null_test>(column_1))
-            -> Rows fetched before execution  (cost=*** rows=***)
+        -> Filter: ((<cache>(t0.a) = column_0) and (<cache>(t0.b) = column_1) and <is_not_null_test>(column_0) and <is_not_null_test>(column_1))  (cost=***..0.00 rows=***)
+            -> Rows fetched before execution  (cost=***..0.00 rows=***)
 
 SELECT * FROM t0 WHERE (a, b) IN (VALUES ROW(1, 10), ROW(2, 20));
 a	b

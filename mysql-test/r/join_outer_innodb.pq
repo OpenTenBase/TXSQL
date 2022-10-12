@@ -17,8 +17,8 @@ WHERE t1.name LIKE 'A%';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY,name	name	83	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
 1	SIMPLE	t2	NULL	ref	fkey	fkey	5	test.t1.id	1	100.00	Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t2` join `test`.`t1` where ((`test`.`t2`.`fkey` = `test`.`t1`.`id`) and (`test`.`t1`.`name` like 'A%'))
 EXPLAIN
@@ -27,8 +27,8 @@ WHERE t1.name LIKE 'A%' OR FALSE;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY,name	name	83	NULL	2	100.00	Parallel scan (3 workers); Using where; Using index
 1	SIMPLE	t2	NULL	ref	fkey	fkey	5	test.t1.id	1	100.00	Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t2` join `test`.`t1` where ((`test`.`t2`.`fkey` = `test`.`t1`.`id`) and (`test`.`t1`.`name` like 'A%'))
 DROP TABLE t1,t2;

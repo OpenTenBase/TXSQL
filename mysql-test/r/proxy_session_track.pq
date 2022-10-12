@@ -65,9 +65,9 @@ set @txsql_proxy_var3=1.1;
 ##multi user variable
 set @multi1='a', @multi2=1, @multi3=1.1;
 -- Tracker : SESSION_TRACK_TXSQL_UDF_VARS
--- multi3=1.1
--- multi2=1
 -- multi1=a
+-- multi2=1
+-- multi3=1.1
 
 
 #clean up and restore 

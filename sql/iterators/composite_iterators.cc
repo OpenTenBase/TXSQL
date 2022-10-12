@@ -212,6 +212,18 @@ bool AggregateIterator::Init() {
     m_output_slice = m_join->get_ref_item_slice();
   }
 
+#if defined(HAVE_PX)
+  if (m_agg_type == AggType::PX_LOCAL_AGG) {
+    if (!m_join->ref_items[REF_SLICE_LOCAL_AGGREGATE].is_null()) {
+      m_output_slice = REF_SLICE_LOCAL_AGGREGATE;
+    } else if (!m_join->ref_items[REF_SLICE_TMP1].is_null()) {
+      m_output_slice = REF_SLICE_TMP1;
+    }
+  } else if (m_agg_type == AggType::PX_FINAL_AGG) {
+    m_output_slice = REF_SLICE_FINAL_AGGREGATE;
+  }
+#endif /* defined(HAVE_PX) */
+
   m_seen_eof = false;
   m_save_nullinfo = 0;
 
@@ -223,7 +235,30 @@ bool AggregateIterator::Init() {
   return false;
 }
 
+#if defined(HAVE_PX)
+static void px_copy_sum_funcs(JOIN *m_join, bool is_final) {
+  for (Item_sum **item = is_final ? m_join->final_aggr_sum_funcs
+                                  : m_join->sum_funcs;
+          *item != nullptr; ++item) {
+    Field *f = (*item)->get_result_field();
+    if (f != nullptr) {
+      (*item)->save_in_field(f, true);
+    }
+  }
+}
+#endif /* defined(HAVE_PX) */
+
 int AggregateIterator::Read() {
+#if defined(HAVE_PX)
+  if (m_agg_type == AggType::PX_FINAL_AGG) {
+    if (!m_join->ref_items[REF_SLICE_LOCAL_AGGREGATE].is_null()) {
+      m_join->set_ref_item_slice(REF_SLICE_LOCAL_AGGREGATE);
+    } else if (!m_join->ref_items[REF_SLICE_TMP1].is_null()) {
+      m_join->set_ref_item_slice(REF_SLICE_TMP1);
+    }
+  }
+#endif /* defined(HAVE_PX) */
+
   switch (m_state) {
     case READING_FIRST_ROW: {
       // Start the first group, if possible. (If we're not at the first row,
@@ -260,23 +295,59 @@ int AggregateIterator::Read() {
             // hypergraph optimizer, so we don't need its special logic either.
             m_source->SetNullRowFlag(true);
           } else {
-            if (m_join->clear_fields(&m_save_nullinfo, m_agg_type)) {
+            if (m_join->clear_fields(&m_save_nullinfo
+#if defined(HAVE_PX)
+                                     ,
+                                     m_agg_type
+#endif /* defined(HAVE_PX) */
+                                    )) {
               return 1;
             }
           }
-          for (Item_sum **item = m_join->sum_funcs; *item != nullptr; ++item) {
+          for (Item_sum **item =
+                  (
+#if defined(HAVE_PX)
+                  m_agg_type == AggType::PX_FINAL_AGG ?
+                  m_join->final_aggr_sum_funcs :
+#endif /* defined(HAVE_PX) */
+                  m_join->sum_funcs); *item != nullptr; ++item) {
             (*item)->clear();
           }
           if (m_output_slice != -1) {
             m_join->set_ref_item_slice(m_output_slice);
           }
+
+#if defined(HAVE_PX)
+          /*
+            There is no row in results, so the final aggregate don't need to
+            do LAST_ROW_STARTED_NEW_GROUP and READING_ROWS.
+            Reset current_ref_item_slice to m_input_slice of final
+            aggregate.
+          */
+          if (m_agg_type == AggType::PX_LOCAL_AGG) {
+            if (thd()->lex->using_hypergraph_optimizer) {
+              // See the call to clear_fields().
+              m_source->SetNullRowFlag(false);
+            } else if (m_save_nullinfo != 0) {
+              m_join->restore_fields(m_save_nullinfo, m_agg_type);
+              m_save_nullinfo = 0;
+            }
+            return -1;
+          }
+#endif /* defined(HAVE_PX) */
+
           return 0;
         }
       }
       if (err != 0) return err;
 
       // Set the initial value of the group fields.
-      (void)update_item_cache_if_changed(m_join->group_fields);
+      (void)update_item_cache_if_changed(
+#if defined(HAVE_PX)
+          (m_agg_type == AggType::PX_FINAL_AGG) ?
+          m_join->final_group_feilds :
+#endif /* defined(HAVE_PX) */
+          m_join->group_fields);
 
       StoreFromTableBuffers(m_tables, &m_first_row_next_group);
 
@@ -295,7 +366,13 @@ int AggregateIterator::Read() {
       LoadIntoTableBuffers(
           m_tables, pointer_cast<const uchar *>(m_first_row_this_group.ptr()));
 
-      for (Item_sum **item = m_join->sum_funcs; *item != nullptr; ++item) {
+      for (Item_sum **item =
+                  (
+#if defined(HAVE_PX)
+                  m_agg_type == AggType::PX_FINAL_AGG ?
+                  m_join->final_aggr_sum_funcs :
+#endif /* defined(HAVE_PX) */
+              m_join->sum_funcs); *item != nullptr; ++item) {
         if (m_rollup) {
           if (down_cast<Item_rollup_sum_switcher *>(*item)
                   ->reset_and_add_for_rollup(m_last_unchanged_group_item_idx))
@@ -321,6 +398,18 @@ int AggregateIterator::Read() {
           LoadIntoTableBuffers(m_tables, pointer_cast<const uchar *>(
                                              m_first_row_this_group.ptr()));
 
+#if defined(HAVE_PX)
+          if (m_agg_type != AggType::PX_NONE) {
+            Temp_table_param *param =
+                (m_agg_type == AggType::PX_LOCAL_AGG) ? m_join->local_tmp_table_param
+                                                      : m_join->final_tmp_table_param;
+            if (param->items_to_copy != nullptr) {
+              if (copy_funcs(param, thd())) return 1; // Error.
+            }
+            px_copy_sum_funcs(m_join, m_agg_type == AggType::PX_FINAL_AGG);
+          }
+#endif /* defined(HAVE_PX) */
+
           if (m_rollup && m_join->send_group_parts > 0) {
             // Also output the final groups, including the total row
             // (with NULLs in all fields).
@@ -338,7 +427,12 @@ int AggregateIterator::Read() {
         }
 
         int first_changed_idx =
-            update_item_cache_if_changed(m_join->group_fields);
+            update_item_cache_if_changed(
+#if defined(HAVE_PX)
+                (m_agg_type == AggType::PX_FINAL_AGG) ?
+                m_join->final_group_feilds :
+#endif /* defined(HAVE_PX) */
+                m_join->group_fields);
         if (first_changed_idx >= 0) {
           // The group changed. Store the new row (we can't really use it yet;
           // next Read() will deal with it), then load back the group values
@@ -355,6 +449,18 @@ int AggregateIterator::Read() {
           StoreFromTableBuffers(m_tables, &m_first_row_next_group);
           LoadIntoTableBuffers(m_tables, pointer_cast<const uchar *>(
                                              m_first_row_this_group.ptr()));
+
+#if defined(HAVE_PX)
+          if (m_agg_type != AggType::PX_NONE) {
+            Temp_table_param *param =
+                (m_agg_type == AggType::PX_LOCAL_AGG) ? m_join->local_tmp_table_param
+                                                      : m_join->final_tmp_table_param;
+            if (param->items_to_copy != nullptr) {
+              if (copy_funcs(param, thd())) return 1; // Error.
+            }
+            px_copy_sum_funcs(m_join, m_agg_type == AggType::PX_FINAL_AGG);
+          }
+#endif /* defined(HAVE_PX) */
 
           // If we have rollup, we may need to output more than one row.
           // Mark so that the next calls to Read() will return those rows.
@@ -382,7 +488,13 @@ int AggregateIterator::Read() {
         }
 
         // Give the new values to all the new aggregate functions.
-        for (Item_sum **item = m_join->sum_funcs; *item != nullptr; ++item) {
+        for (Item_sum **item =
+                  (
+#if defined(HAVE_PX)
+                  m_agg_type == AggType::PX_FINAL_AGG ?
+                  m_join->final_aggr_sum_funcs :
+#endif /* defined(HAVE_PX) */
+                m_join->sum_funcs); *item != nullptr; ++item) {
           if (m_rollup) {
             if (down_cast<Item_rollup_sum_switcher *>(*item)
                     ->aggregator_add_all()) {
@@ -656,8 +768,15 @@ class MaterializeIterator final : public TableRowIterator {
     return &m_table_iter_profiler;
   }
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "Materialize"; }
   virtual PhysicalRowIteratorType type() override { return PHY_MATERIALIZE; }
+  virtual void adjust_children() override {
+    for (const auto &qb : m_query_blocks_to_materialize) {
+      add_child(qb.subquery_iterator.get());
+    }
+  }
+#endif /* defined(HAVE_PX) */
 
  private:
   Mem_root_array<materialize_iterator::QueryBlock>
@@ -1373,10 +1492,11 @@ class TemptableAggregateIterator final : public TableRowIterator {
   const Profiler *GetTableIterProfiler() const {
     return &m_table_iter_profiler;
   }
-
+#if defined(HAVE_PX)
   virtual std::string str() override { return "TempTable_Aggregate"; }
   virtual PhysicalRowIteratorType type() override { return PHY_TEMPTABLE_AGGREGATE; }
   virtual void adjust_children() override { add_child(m_subquery_iterator.get()); }
+#endif /* defined(HAVE_PX) */
 
  private:
   /// The iterator we are reading rows from.
@@ -1402,8 +1522,10 @@ class TemptableAggregateIterator final : public TableRowIterator {
   */
   Profiler m_table_iter_profiler;
 
+#if defined(HAVE_PX)
   /// Whether this is a final aggregate
   AggType m_agg_type;
+#endif /* defined(HAVE_PX) */
 
   // See MaterializeIterator::doing_hash_deduplication().
   bool using_hash_key() const { return table()->hash_field; }
@@ -1448,8 +1570,12 @@ TemptableAggregateIterator<Profiler>::TemptableAggregateIterator(
       m_table_iterator(move(table_iterator)),
       m_temp_table_param(temp_table_param),
       m_join(join),
-      m_ref_slice(ref_slice),
-      m_agg_type(agg_type) {}
+      m_ref_slice(ref_slice)
+#if defined(HAVE_PX)
+      ,
+      m_agg_type(agg_type)
+#endif /* defined(HAVE_PX) */
+      {}
 
 template <typename Profiler>
 bool TemptableAggregateIterator<Profiler>::Init() {
@@ -1536,7 +1662,12 @@ bool TemptableAggregateIterator<Profiler>::Init() {
       // Update the existing record. (If it's unchanged, that's a
       // nonfatal error.)
       restore_record(table(), record[1]);
-      update_tmptable_sum_func(m_join->sum_funcs, table());
+      update_tmptable_sum_func(
+#if defined(HAVE_PX)
+          (m_agg_type == AggType::PX_FINAL_AGG) ?
+          m_join->final_aggr_sum_funcs :
+#endif /* defined(HAVE_PX) */
+        m_join->sum_funcs, table());
       if (thd()->is_error()) {
         return true;
       }
@@ -1580,7 +1711,12 @@ bool TemptableAggregateIterator<Profiler>::Init() {
           re-evaluate the functions.
         */
         restore_record(table(), record[1]);
-        update_tmptable_sum_func(m_join->sum_funcs, table());
+        update_tmptable_sum_func(
+#if defined(HAVE_PX)
+        (m_agg_type == AggType::PX_FINAL_AGG) ?
+        m_join->final_aggr_sum_funcs :
+#endif /* defined(HAVE_PX) */
+          m_join->sum_funcs, table());
         if (thd()->is_error()) {
           return true;
         }
@@ -1631,7 +1767,12 @@ bool TemptableAggregateIterator<Profiler>::Init() {
       if (copy_funcs(m_temp_table_param, thd())) return true;
     }
     assert(!thd()->is_error());
-    init_tmptable_sum_functions(m_join->sum_funcs);
+    init_tmptable_sum_functions(
+#if defined(HAVE_PX)
+        (m_agg_type == AggType::PX_FINAL_AGG) ?
+        m_join->final_aggr_sum_funcs :
+#endif /* defined(HAVE_PX) */
+      m_join->sum_funcs);
     if (thd()->is_error()) {
       return true;
     }

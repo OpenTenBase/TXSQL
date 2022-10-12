@@ -344,7 +344,7 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 4)
         -> Nested loop inner join  (cost=3.40 rows=7)
             -> Parallel index scan on t2 using PRIMARY  (cost=0.95 rows=7)
-            -> Single-row index lookup on t1 using PRIMARY (a=t2.a, b=t2.b)  (cost=0.26 rows=1)
+            -> Single-row covering index lookup on t1 using PRIMARY (a=t2.a, b=t2.b)  (cost=0.26 rows=1)
 
 EXPLAIN SELECT * FROM t1,t2 WHERE (t1.a,t1.b)=(t2.a,t2.b);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -360,7 +360,7 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 4)
         -> Nested loop inner join  (cost=3.40 rows=7)
             -> Parallel index scan on t2 using PRIMARY  (cost=0.95 rows=7)
-            -> Single-row index lookup on t1 using PRIMARY (a=t2.a, b=t2.b)  (cost=0.26 rows=1)
+            -> Single-row covering index lookup on t1 using PRIMARY (a=t2.a, b=t2.b)  (cost=0.26 rows=1)
 
 SELECT * FROM t1,t2 WHERE t1.a=t2.a and t1.b=t2.b;
 a	b	a	b	c
@@ -502,7 +502,7 @@ SELECT @x;
 @x
 99
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b INT) ENGINE=MyISAM;
+CREATE TABLE t1 (a INT, b INT);
 INSERT INTO t1 VALUES (1,1);
 SELECT ROW(a, 1) IN (SELECT SUM(b), 1) FROM t1 GROUP BY a;
 ROW(a, 1) IN (SELECT SUM(b), 1)

@@ -117,9 +117,7 @@ id	c1
 3	ccc
 4	ddd
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	Receive from (<sender1>)
+1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	4	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t7`.`id` AS `id`,`test`.`t7`.`c1` AS `c1` from `test`.`t7`
 test update select

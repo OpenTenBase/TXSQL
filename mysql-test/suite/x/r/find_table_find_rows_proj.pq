@@ -151,13 +151,13 @@ Mysqlx.Resultset.Row {
 }
 
 Mysqlx.Resultset.Row {
-  field: "Enschede\000"
-  field: "\320\240\022"
+  field: "Haarlem\000"
+  field: "\310\224\022"
 }
 
 Mysqlx.Resultset.Row {
-  field: "Haarlem\000"
-  field: "\310\224\022"
+  field: "Enschede\000"
+  field: "\320\240\022"
 }
 
 Mysqlx.Resultset.FetchDone {
@@ -170,4 +170,3 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-drop schema if exists xtest;

@@ -6,6 +6,7 @@
 #include "px_codec.h"
 #include "include/my_dbug.h"
 #include "sql/field.h"
+#include "scope_guard.h"  // create_scope_guard
 
 #include "sql/sql_class.h"
 #include "sql/sql_optimizer.h"
@@ -155,6 +156,10 @@ int PX_receiver::Read() {
   int result = 0;
   uchar *data = nullptr;
   Size len = 0;
+
+  auto switch_to_output_slice = create_scope_guard([&] {
+    if (m_join) SwitchSlice(m_join, m_ref_slice);
+  });
   if (m_join) SwitchSlice(m_join, m_input_slice);
 
   assert(m_pei->format() == PX_COMPACT_ROW);
@@ -173,8 +178,6 @@ int PX_receiver::Read() {
     result = 1;
     goto err;
   }
-
-  if (m_join) SwitchSlice(m_join, m_ref_slice);
 
   PX_PRINT_DEBUG("read one row");
   return result;

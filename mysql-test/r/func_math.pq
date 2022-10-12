@@ -1974,3 +1974,143 @@ SET @b='a';
 EXECUTE st1 USING @a,@b;
 ERROR 22007: Truncated incorrect DOUBLE value: 'a'
 DROP TABLE t;
+#
+# Bug #19186271 MANY, MANY CLASSES OF STRING-TO-INTEGER CONVERSION BUG
+#
+SET sql_mode = '';
+CREATE TABLE t1 (i INT, iu INT UNSIGNED,
+b BIGINT, bu BIGINT UNSIGNED);
+DELETE FROM t1;
+INSERT INTO t1 (i,iu,b,bu)
+# The second '.' and anything after it should be ignored.
+VALUES ('1.2.3.4', '1.2.3.4', '1.2.3.4', '1.2.3.4');
+Warnings:
+Warning	1265	Data truncated for column 'i' at row 1
+Warning	1265	Data truncated for column 'iu' at row 1
+Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'bu' at row 1
+SELECT i,iu,b,bu FROM t1;
+i	iu	b	bu
+1	1	1	1
+DELETE FROM t1;
+INSERT INTO t1 (b,bu) VALUES ('92233720368547758000e+', '92233720368547758000e+');
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+Warning	1264	Out of range value for column 'bu' at row 1
+SELECT b,bu FROM t1;
+b	bu
+9223372036854775807	18446744073709551615
+DELETE FROM t1;
+INSERT INTO t1 (b,bu) VALUES ('92233720368547758000', '92233720368547758000');
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+Warning	1264	Out of range value for column 'bu' at row 1
+SELECT b,bu FROM t1;
+b	bu
+9223372036854775807	18446744073709551615
+DELETE FROM t1;
+INSERT INTO t1 (i,b) VALUES ('0.9223372036854775807', '0.9223372036854775807');
+INSERT INTO t1 (i,b) VALUES ('0.9223372036854775808', '0.9223372036854775808');
+SELECT i,b FROM t1;
+i	b
+1	1
+1	1
+DELETE FROM t1;
+INSERT INTO t1 (iu,bu) VALUES ('-1e19', '-1e19');
+Warnings:
+Warning	1264	Out of range value for column 'iu' at row 1
+Warning	1264	Out of range value for column 'bu' at row 1
+INSERT INTO t1 (iu,bu) VALUES ('-2e19', '-2e19');
+Warnings:
+Warning	1264	Out of range value for column 'iu' at row 1
+Warning	1264	Out of range value for column 'bu' at row 1
+INSERT INTO t1 (iu,bu) VALUES ('-18446744073709551615','-18446744073709551615');
+Warnings:
+Warning	1264	Out of range value for column 'iu' at row 1
+Warning	1264	Out of range value for column 'bu' at row 1
+INSERT INTO t1 (iu,bu) VALUES ('-18446744073709551616','-18446744073709551616');
+Warnings:
+Warning	1264	Out of range value for column 'iu' at row 1
+Warning	1264	Out of range value for column 'bu' at row 1
+SELECT iu,bu FROM t1;
+iu	bu
+0	0
+0	0
+0	0
+0	0
+DROP TABLE t1;
+SET sql_mode = DEFAULT;
+#
+# Bug #30156563 TYPE RESOLUTION OF DIV OPERATOR
+#               PRODUCES ONE LESS PRECISION.
+#
+SELECT 5.0 + 96 DIV 1;
+5.0 + 96 DIV 1
+101.0
+CREATE TABLE t1 SELECT
+5.0 + 96 DIV 1,                     # Dividend is integer
+5.0 + 96.1234 DIV 1,                # Dividend is decimal
+5.0 + '96' DIV 1,                   # Dividend is string
+5.0 + CAST('96' AS SIGNED) DIV 1,   # Dividend is function
+5.0 + CAST('96' AS UNSIGNED) DIV 1;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `5.0 + 96 DIV 1` decimal(4,1) DEFAULT NULL,
+  `5.0 + 96.1234 DIV 1` decimal(4,1) DEFAULT NULL,
+  `5.0 + '96' DIV 1` decimal(4,1) DEFAULT NULL,
+  `5.0 + CAST('96' AS SIGNED) DIV 1` decimal(22,1) DEFAULT NULL,
+  `5.0 + CAST('96' AS UNSIGNED) DIV 1` decimal(23,1) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Bug #32693863 MINUS BETWEEN CONST VALUE 0 AND FIELD WITH
+#               MIN BIGINT VALUE GETS WRONG RESULT
+#
+CREATE TABLE t1(a BIGINT);
+INSERT INTO t1 VALUES (-9223372036854775808);
+SELECT a, 0-a FROM t1;
+ERROR 22003: BIGINT value is out of range in '(0 - `test`.`t1`.`a`)'
+DELETE FROM t1;
+INSERT INTO t1 VALUES (-9223372036854775807);
+SELECT a, 1-a FROM t1;
+ERROR 22003: BIGINT value is out of range in '(1 - `test`.`t1`.`a`)'
+DROP TABLE t1;
+# Bug#31641064: Decimal returned function value overflow with GROUP BY
+CREATE TABLE t1(c1 INTEGER, c2 INTEGER);
+INSERT INTO t1 VALUES(97, 1);
+SET SQL_MODE='';
+SELECT 27 DIV (c2/c1) / 17 AS c1 FROM t1 GROUP BY c1;
+c1
+154.0588
+Warning	1052	Column 'c1' in group statement is ambiguous
+Warning	1052	Column 'c1' in group statement is ambiguous
+Warnings:
+SELECT 27 DIV CAST(c2/c1 AS CHAR) / 17 AS c1 FROM t1 GROUP BY c1;
+c1
+154.1765
+Warning	1052	Column 'c1' in group statement is ambiguous
+Warning	1052	Column 'c1' in group statement is ambiguous
+Warnings:
+SELECT 27 DIV CAST(c2/c1 AS DOUBLE) / 17 AS c1 FROM t1 GROUP BY c1;
+c1
+154.0588
+Warning	1052	Column 'c1' in group statement is ambiguous
+Warning	1052	Column 'c1' in group statement is ambiguous
+Warnings:
+SET SQL_MODE=DEFAULT;
+DROP TABLE t1;
+# Bug#32863037: Assertion `scale >= 0 && precision > 0 &&
+#               scale <= precision' failed
+SELECT * FROM (SELECT -TRUE AS a, --TRUE AS b) AS dt;
+a	b
+-1	1
+# Bug#33142010: Failure on complex const argument to string functions
+CREATE VIEW v AS SELECT -(1 NOT IN (0)) AS c;
+SHOW CREATE TABLE v;
+View	Create View	character_set_client	collation_connection
+v	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select -((1 <> 0)) AS `c`	utf8mb4	utf8mb4_0900_ai_ci
+SELECT * FROM v;
+c
+-1
+DROP VIEW v;

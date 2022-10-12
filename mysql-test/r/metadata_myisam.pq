@@ -8,7 +8,7 @@ CREATE  VIEW v3 AS select t1.id + 12 as renamed from t1;
 select * from v1 group by id limit 1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 1
-def	test	t1	v1	id	id	3	10	1	Y	32768	0	63
+def	test	v1	v1	id	id	3	10	1	Y	32768	0	63
 id
 select * from v1 group by id limit 0;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
@@ -21,12 +21,12 @@ id
 select * from v1 where id=1 group by id;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 1
-def	test	t1	v1	id	id	3	10	1	Y	32768	0	63
+def	test	v1	v1	id	id	3	10	1	Y	32768	0	63
 id
 select * from v2 where renamed=1 group by renamed;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 1
-def	test	t1	v2	id	renamed	3	10	1	Y	32768	0	63
+def	test	v2	v2	renamed	renamed	3	10	1	Y	32768	0	63
 renamed
 select * from v3 where renamed=1 group by renamed;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr

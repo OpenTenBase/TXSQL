@@ -454,12 +454,13 @@ Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 select @query, @trace;
 @query	@trace
-                          "c <= ÁÂÃÄ"
+                          "c <= 'ÁÂÃÄ'"
                         "c"
                         "cause": "cost"
                         "cause": "prefix_not_const_equality"
                         "chosen": false,
                         "cost": 0.71,
+                        "in_memory": 1,
                         "index": "PRIMARY",
                         "index": "PRIMARY",
                         "index_dives_for_eq_ranges": true,
@@ -791,6 +792,7 @@ select `col
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": true,
+                        "in_memory": 1,
                         "rows": 2,
                         "cost": 0.460336,
                         "chosen": false,

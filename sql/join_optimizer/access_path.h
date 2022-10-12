@@ -121,6 +121,15 @@ struct JoinPredicate {
   // on the MEM_ROOT. Can be empty, in which case a LIMIT 1 would do.
   Item **semijoin_group = nullptr;
   int semijoin_group_size = 0;
+
+#if defined(HAVE_PX)
+  /*
+    The function only serves the plan equivalence comparison of parallel
+    execution (see px_access_path.cc). The function here is not incomplete
+    equivalence comparison.
+  */
+  bool eq(const JoinPredicate *other) const;
+#endif /* defined(HAVE_PX) */
 };
 
 /**

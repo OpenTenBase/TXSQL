@@ -51,9 +51,13 @@ a	b
 aaa	bbb
 select charset(a), charset(b), charset(binary 'ccc') from t1 limit 1;
 charset(a)	charset(b)	charset(binary 'ccc')
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 cp1251	binary	binary
 select collation(a), collation(b), collation(binary 'ccc') from t1 limit 1;
 collation(a)	collation(b)	collation(binary 'ccc')
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 cp1251_bin	binary	binary
 drop table t1;
 create table t1 (
@@ -382,18 +386,23 @@ Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 set global LC_TIME_NAMES=convert((-8388608) using cp1251);
 ERROR HY000: Unknown locale: '-8388608'
@@ -413,7 +422,7 @@ create table t1 as select concat(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 select hex(c1) from t1;
 hex(c1)
@@ -492,7 +501,7 @@ create table t1 as select concat(1 div 2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(1 % 2));
@@ -502,7 +511,7 @@ create table t1 as select concat(1 % 2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(-1));
@@ -522,7 +531,7 @@ create table t1 as select concat(-(1+2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(1|2));
@@ -919,7 +928,7 @@ create table t1 as select concat(cast('-1' as signed)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(21) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(cast('1' as unsigned)));
@@ -929,7 +938,7 @@ create table t1 as select concat(cast('1' as unsigned)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(21) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(cast(1/2 as decimal(5,5))));
@@ -988,7 +997,7 @@ create table t1 as select concat(least(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(greatest(1,2)));
@@ -998,7 +1007,7 @@ create table t1 as select concat(greatest(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(case when 11 then 22 else 33 end));
@@ -1008,7 +1017,7 @@ create table t1 as select concat(case when 11 then 22 else 33 end) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(coalesce(1,2)));
@@ -1018,7 +1027,7 @@ create table t1 as select concat(coalesce(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat_ws(1,2,3));
@@ -1028,7 +1037,7 @@ create table t1 as select concat_ws(1,2,3) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(6) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(group_concat(1,2,3));
@@ -1045,7 +1054,7 @@ create table t1 as select 1 as c1 union select 'a';
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 NOT NULL DEFAULT ''
+  `c1` varchar(2) CHARACTER SET cp1251 NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 select hex(c1) from t1 order by c1;
 hex(c1)
@@ -1199,7 +1208,7 @@ create table t1 as select concat(uuid()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(36) CHARACTER SET utf8 DEFAULT NULL
+  `c1` varchar(36) CHARACTER SET utf8mb3 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select coercibility(uuid()), coercibility(cast('a' as char character set latin1));
@@ -1215,7 +1224,7 @@ t1	CREATE TABLE `t1` (
   `c1` varchar(37) CHARACTER SET latin1 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
-create table t1 as select concat(master_pos_wait('non-existent',0,2)) as c1;
+create table t1 as select concat(source_pos_wait('non-existent',0,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -1237,7 +1246,7 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL,
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL,
   `c2` int NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
@@ -1466,7 +1475,7 @@ create table t1 as select ifnull(1,'a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 NOT NULL DEFAULT ''
+  `c1` varchar(2) CHARACTER SET cp1251 NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(ifnull(1,1)));
@@ -1476,7 +1485,7 @@ create table t1 as select concat(ifnull(1,1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(ifnull(1.1,1.1)));
@@ -1496,7 +1505,7 @@ create table t1 as select if(1,'b',1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 NOT NULL DEFAULT ''
+  `c1` varchar(2) CHARACTER SET cp1251 NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(if(1,1,'b'));
@@ -1506,7 +1515,7 @@ create table t1 as select if(1,1,'b') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 NOT NULL DEFAULT ''
+  `c1` varchar(2) CHARACTER SET cp1251 NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(if(1,1,1)));
@@ -1516,7 +1525,7 @@ create table t1 as select concat(if(1,1,1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(nullif(1,2)));
@@ -1526,7 +1535,7 @@ create table t1 as select concat(nullif(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(ST_Dimension(ST_GeomFromText('LINESTRING(0 0,10 10)'))));
@@ -1581,7 +1590,7 @@ create table t1 as select concat(ST_IsEmpty(ST_GeomFromText('Point(1 1)'))) as c
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(ST_IsSimple(ST_GeomFromText('POINT(1 1)'))));
@@ -1601,7 +1610,7 @@ create table t1 as select concat(ST_IsClosed(ST_GeomFromText('LineString(1 1,2 2
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(MBREquals(ST_GeomFromText('Point(1 1)'),ST_GeomFromText('Point(1 1)'))));
@@ -1676,7 +1685,7 @@ create table t1 as select concat(period_add(200902, 2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(21) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 SET sql_mode = '';
@@ -1684,12 +1693,10 @@ select hex(concat(period_diff(200902, 200802)));
 hex(concat(period_diff(200902, 200802)))
 3132
 create table t1 as select concat(period_add(200902, 200802)) as c1;
-Warnings:
-Warning	1265	Data truncated for column 'c1' at row 1
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET cp1251 NOT NULL DEFAULT ''
+  `c1` varchar(21) CHARACTER SET cp1251 NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 SET sql_mode = default;
@@ -1700,7 +1707,7 @@ create table t1 as select concat(to_days(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(8) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(dayofmonth(20090224)));
@@ -1710,7 +1717,7 @@ create table t1 as select concat(dayofmonth(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(dayofyear(20090224)));
@@ -1720,7 +1727,7 @@ create table t1 as select concat(dayofyear(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(hour('10:11:12')));
@@ -1730,7 +1737,7 @@ create table t1 as select concat(hour('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(minute('10:11:12')));
@@ -1740,7 +1747,7 @@ create table t1 as select concat(minute('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(second('10:11:12')));
@@ -1750,7 +1757,7 @@ create table t1 as select concat(second('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(quarter(20090224)));
@@ -1760,7 +1767,7 @@ create table t1 as select concat(quarter(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(week(20090224)));
@@ -1770,7 +1777,7 @@ create table t1 as select concat(week(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(yearweek(20090224)));
@@ -1780,7 +1787,7 @@ create table t1 as select concat(yearweek(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(7) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(year(20090224)));
@@ -1800,7 +1807,7 @@ create table t1 as select concat(weekday(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(dayofweek(20090224)));
@@ -1810,7 +1817,7 @@ create table t1 as select concat(dayofweek(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(unix_timestamp(20090224)));
@@ -1840,7 +1847,7 @@ create table t1 as select concat(extract(year from 20090702)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(5) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(concat(microsecond('12:00:00.123456')));
@@ -1860,7 +1867,7 @@ create table t1 as select concat(month(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 create table t1 as select concat(last_day('2003-02-05')) as c1;
@@ -2054,7 +2061,7 @@ create table t1 as select elt(1,2,3) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(export_set(1,2,3,4,2));
@@ -2064,7 +2071,7 @@ create table t1 as select export_set(1,2,3,4,2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(127) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(254) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(insert(1133,3,0,22));
@@ -2074,7 +2081,7 @@ create table t1 as select insert(1133,3,0,22) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(7) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(lcase(123));
@@ -2084,7 +2091,7 @@ create table t1 as select lcase(123) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(left(123,1));
@@ -2104,7 +2111,7 @@ create table t1 as select lower(123) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(lpad(1,2,0));
@@ -2124,7 +2131,7 @@ create table t1 as select ltrim(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(mid(1,1,1));
@@ -2144,7 +2151,7 @@ create table t1 as select repeat(1,2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(4) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(replace(1,1,2));
@@ -2154,7 +2161,7 @@ create table t1 as select replace(1,1,2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(reverse(12));
@@ -2164,7 +2171,7 @@ create table t1 as select reverse(12) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(3) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(right(123,1));
@@ -2194,7 +2201,7 @@ create table t1 as select rtrim(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(soundex(1));
@@ -2224,7 +2231,7 @@ create table t1 as select trim(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(ucase(1));
@@ -2234,7 +2241,7 @@ create table t1 as select ucase(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 select hex(upper(1));
@@ -2244,7 +2251,7 @@ create table t1 as select upper(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET cp1251 DEFAULT NULL
+  `c1` varchar(2) CHARACTER SET cp1251 DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 create table t1 as select repeat(' ', 64) as a limit 0;
@@ -3183,9 +3190,9 @@ is_ipv4(inet_ntoa('1'))
 SELECT is_ipv6(inet_ntoa('1'));
 is_ipv6(inet_ntoa('1'))
 0
-SELECT inet6_aton(inet_ntoa('1'));
-inet6_aton(inet_ntoa('1'))
-   
+SELECT HEX(inet6_aton(inet_ntoa('1')));
+HEX(inet6_aton(inet_ntoa('1')))
+00000001
 SELECT inet6_ntoa(inet_ntoa('1'));
 inet6_ntoa(inet_ntoa('1'))
 NULL

@@ -1908,7 +1908,7 @@ innodb_thread_concurrency	0
 set global innodb_thread_concurrency=1001;
 Warnings:
 Warning	1292	Truncated incorrect innodb_thread_concurrency value: '1001'
-Warning	1210	Current innodb_thread_concurrency is too big for safety of log files. Consider decreasing it or increase number of log files.
+Warning	1210	Current innodb_thread_concurrency is too big for safety of redo log files. Consider decreasing it or increasing innodb_redo_log_capacity.
 show variables like "innodb_thread_concurrency";
 Variable_name	Value
 innodb_thread_concurrency	1000
@@ -2036,7 +2036,7 @@ t1	CREATE TABLE `t1` (
 select count(*) from t1;
 count(*)
 270
-insert into t1 values(concat('a',char(1)),concat('a',char(1)),concat('a',char(1)));
+insert into t1 values(concat('a','!'),concat('a','!'),concat('a','!'));
 select count(*) from t1 where v='a';
 count(*)
 10
@@ -2076,15 +2076,15 @@ count(*)
 explain select count(*) from t1 where v='a  ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	13	const	#	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` = 'a  ')
 explain select count(*) from t1 where c='a  ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	c	c	11	const	#	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`c` = 'a  ')
 explain select count(*) from t1 where t='a  ';
@@ -2095,22 +2095,22 @@ Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`
 explain select count(*) from t1 where v like 'a%';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	13	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` like 'a%')
 explain select count(*) from t1 where v between 'a' and 'a ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	13	const	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` between 'a' and 'a ')
 explain select count(*) from t1 where v between 'a' and 'a ' and v between 'a  ' and 'b\n';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	13	const	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where ((`test`.`t1`.`v` between 'a' and 'a ') and (`test`.`t1`.`v` between 'a  ' and 'b\n'))
 alter table t1 add unique(v);
@@ -2137,8 +2137,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`t` AS `t` from `test`.`t1` where (`test`.`t1`.`v` = 'a')
 select TRIM(v),count(*) from t1 group by TRIM(v) order by TRIM(v) limit 10;
 TRIM(v)	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2149,8 +2149,8 @@ h	10
 i	10
 select TRIM(v),count(t) from t1 group by TRIM(v) order by TRIM(v) limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2161,8 +2161,8 @@ h	10
 i	10
 select TRIM(v),count(c) from t1 group by TRIM(v) order by TRIM(v) limit 10;
 TRIM(v)	count(c)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2173,8 +2173,8 @@ h	10
 i	10
 select sql_big_result TRIM(v),count(t) from t1 group by TRIM(v) order by TRIM(v) limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2185,8 +2185,8 @@ h	10
 i	10
 select sql_big_result TRIM(v),count(c) from t1 group by TRIM(v) order by TRIM(v) limit 10;
 TRIM(v)	count(c)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2197,8 +2197,8 @@ h	10
 i	10
 select c,count(*) from t1 group by c order by c limit 10;
 c	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2209,8 +2209,8 @@ h	10
 i	10
 select c,count(t) from t1 group by c order by c limit 10;
 c	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2221,8 +2221,8 @@ h	10
 i	10
 select sql_big_result c,count(t) from t1 group by c limit 10;
 c	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2233,8 +2233,8 @@ h	10
 i	10
 select TRIM(t),count(*) from t1 group by TRIM(t) order by TRIM(t) limit 10;
 TRIM(t)	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2245,8 +2245,8 @@ h	10
 i	10
 select TRIM(t),count(t) from t1 group by TRIM(t) order by TRIM(t) limit 10;
 TRIM(t)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2257,8 +2257,8 @@ h	10
 i	10
 select sql_big_result TRIM(t),count(t) from t1 group by TRIM(t) order by TRIM(t) limit 10;
 TRIM(t)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2299,29 +2299,29 @@ count(*)
 explain select count(*) from t1 where v='a  ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	303	const	#	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` = 'a  ')
 explain select count(*) from t1 where v like 'a%';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	303	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` like 'a%')
 explain select count(*) from t1 where v between 'a' and 'a ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	303	const	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` between 'a' and 'a ')
 explain select count(*) from t1 where v between 'a' and 'a ' and v between 'a  ' and 'b\n';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	303	const	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where ((`test`.`t1`.`v` between 'a' and 'a ') and (`test`.`t1`.`v` between 'a  ' and 'b\n'))
 explain select * from t1 where v='a';
@@ -2331,8 +2331,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`t` AS `t` from `test`.`t1` where (`test`.`t1`.`v` = 'a')
 select v,count(*) from t1 group by v order by v limit 10;
 v	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2343,8 +2343,8 @@ h	10
 i	10
 select TRIM(v),count(t) from t1 group by v order by v limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2355,8 +2355,8 @@ h	10
 i	10
 select sql_big_result TRIM(v),count(t) from t1 group by v order by v limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2397,29 +2397,29 @@ count(*)
 explain select count(*) from t1 where v='a  ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	33	const	#	100.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` = 'a  ')
 explain select count(*) from t1 where v like 'a%';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	v	v	33	NULL	#	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` like 'a%')
 explain select count(*) from t1 where v between 'a' and 'a ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	33	const	#	100.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where (`test`.`t1`.`v` between 'a' and 'a ')
 explain select count(*) from t1 where v between 'a' and 'a ' and v between 'a  ' and 'b\n';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	v	v	33	const	#	100.00	Parallel scan (4 workers); Using where
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` where ((`test`.`t1`.`v` between 'a' and 'a ') and (`test`.`t1`.`v` between 'a  ' and 'b\n'))
 explain select * from t1 where v='a';
@@ -2429,8 +2429,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`v` AS `v`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`t` AS `t` from `test`.`t1` where (`test`.`t1`.`v` = 'a')
 select TRIM(v),count(*) from t1 group by v order by v limit 10;
 TRIM(v)	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2441,8 +2441,8 @@ h	10
 i	10
 select TRIM(v),count(t) from t1 group by v order by v limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2453,8 +2453,8 @@ h	10
 i	10
 select sql_big_result TRIM(v),count(t) from t1 group by v order by v limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2476,8 +2476,8 @@ t1	CREATE TABLE `t1` (
 ) /*!50100 TABLESPACE `innodb_system` */ ENGINE=InnoDB DEFAULT CHARSET=latin1 STATS_PERSISTENT=0
 select TRIM(v),count(*) from t1 group by v order by v limit 10;
 TRIM(v)	count(*)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2488,8 +2488,8 @@ h	10
 i	10
 select TRIM(v),count(t) from t1 group by v order by v limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2500,8 +2500,8 @@ h	10
 i	10
 select sql_big_result TRIM(v),count(t) from t1 group by v order by v limit 10;
 TRIM(v)	count(t)
-a	1
 a	10
+a!	1
 b	10
 c	10
 d	10
@@ -2561,7 +2561,7 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `v` char(10) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL
+  `v` char(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 create table t1 (v varchar(10), c char(10)) row_format=fixed;
@@ -2621,7 +2621,7 @@ Note	1246	Converting column 'v' from VARCHAR to TEXT
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `v` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci
+  `v` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
 SET sql_mode = default;
@@ -3222,6 +3222,8 @@ a	b	c
 SELECT * FROM t2 WHERE BINARY b = 'customer_over';
 a	b	c
 1	customer_over	1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 SELECT DISTINCT p0.a FROM t2 p0 WHERE p0.b = 'customer_over';
 a
 1
@@ -3229,9 +3231,21 @@ a
 SELECT DISTINCT p0.a FROM t2 p0 WHERE BINARY p0.b = 'customer_over';
 a
 1
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT p0.a FROM t2 p0 WHERE BINARY p0.b = 'customer_over';
 a
 1
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 drop table t2, t1;
 CREATE TABLE t1 ( a int ) ENGINE=innodb;
 BEGIN;
@@ -3270,7 +3284,7 @@ DROP TABLE t2,t1;
 CREATE TABLE t1 (a VARCHAR(5) COLLATE utf8_unicode_ci PRIMARY KEY)
 ENGINE=InnoDB;
 Warnings:
-Warning	3778	'utf8_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_unicode_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 INSERT INTO t1 VALUES (0xEFBCA4EFBCA4EFBCA4);
 DELETE FROM t1;
 INSERT INTO t1 VALUES ('DDD');

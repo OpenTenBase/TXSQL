@@ -181,8 +181,8 @@ select
 as subq
 from t1;
 subq
-2
 1
+2
 # In window functions
 explain select
 (select dt.b from
@@ -290,14 +290,14 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 2)
         -> Parallel table scan on t1  (cost=0.45 rows=2)
 -> Select #2 (subquery in projection; dependent)
-    -> Filter: (dt1.a = (select #4))  (cost=0.70 rows=2)
-        -> Index lookup on dt1 using <auto_key0> (a=(select #4))
-            -> Materialize CTE dt if needed  (cost=0.45 rows=1)
+    -> Filter: (dt1.a = (select #4))  (cost=0.62..0.70 rows=2)
+        -> Covering index lookup on dt1 using <auto_key0> (a=(select #4))
+            -> Materialize CTE dt if needed  (cost=0.55..0.55 rows=1)
                 -> Limit: 1 row(s)  (cost=0.45 rows=1)
                     -> Table scan on t2  (cost=0.45 rows=2)
         -> Select #4 (subquery in condition; dependent)
-            -> Table scan on dt2  (cost=2.73 rows=2)
-                -> Materialize CTE dt if needed (query plan printed elsewhere)  (cost=0.45 rows=1)
+            -> Table scan on dt2  (cost=2.51..2.51 rows=1)
+                -> Materialize CTE dt if needed (query plan printed elsewhere)  (cost=3.06..3.06 rows=1)
 
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #3 was resolved in SELECT #1
@@ -561,8 +561,8 @@ EXPLAIN
 -> Nested loop inner join  (cost=6.35 rows=2)
     -> Invalidate materialized tables (row from t1)  (cost=0.45 rows=2)
         -> Table scan on t1  (cost=0.45 rows=2)
-    -> Table scan on dt2  (cost=2.95 rows=2)
-        -> Materialize (invalidate on row from t1)  (cost=0.45 rows=1)
+    -> Table scan on dt2  (cost=2.51..2.51 rows=1)
+        -> Materialize (invalidate on row from t1)  (cost=3.06..3.06 rows=1)
             -> Limit: 1 row(s)  (cost=0.45 rows=1)
                 -> Table scan on t2  (cost=0.45 rows=2)
 
@@ -1912,14 +1912,14 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 2)
         -> Parallel table scan on t1  (cost=0.45 rows=2)
 -> Select #2 (subquery in projection; dependent)
-    -> Filter: (dt1.a = (select #4))  (cost=0.70 rows=2)
-        -> Index lookup on dt1 using <auto_key0> (a=(select #4))
-            -> Materialize CTE dt if needed  (cost=0.45 rows=1)
+    -> Filter: (dt1.a = (select #4))  (cost=0.62..0.70 rows=2)
+        -> Covering index lookup on dt1 using <auto_key0> (a=(select #4))
+            -> Materialize CTE dt if needed  (cost=0.55..0.55 rows=1)
                 -> Limit: 1 row(s)  (cost=0.45 rows=1)
                     -> Table scan on t2  (cost=0.45 rows=2)
         -> Select #4 (subquery in condition; dependent)
-            -> Table scan on dt2  (cost=2.73 rows=2)
-                -> Materialize CTE dt if needed (query plan printed elsewhere)  (cost=0.45 rows=1)
+            -> Table scan on dt2  (cost=2.51..2.51 rows=1)
+                -> Materialize CTE dt if needed (query plan printed elsewhere)  (cost=3.06..3.06 rows=1)
 
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #3 was resolved in SELECT #1
@@ -2184,13 +2184,13 @@ EXPLAIN
 -> Nested loop inner join  (cost=8.62 rows=2)
     -> Invalidate materialized tables (row from t1)  (cost=0.45 rows=2)
         -> Table scan on t1  (cost=0.45 rows=2)
-    -> Table scan on dt3  (cost=4.09 rows=2)
-        -> Materialize (invalidate on row from t1)  (cost=0.45 rows=1)
-            -> Table scan on dt2  (cost=2.73 rows=2)
-                -> Materialize  (cost=0.45 rows=1)
-                    -> Limit: 1 row(s)  (cost=0.45 rows=1)
-                        -> Table scan on dt  (cost=2.73 rows=2)
-                            -> Materialize  (cost=0.45 rows=2)
+    -> Table scan on dt3  (cost=2.51..2.51 rows=1)
+        -> Materialize (invalidate on row from t1)  (cost=7.14..7.14 rows=1)
+            -> Table scan on dt2  (cost=2.51..2.51 rows=1)
+                -> Materialize  (cost=4.53..4.53 rows=1)
+                    -> Limit: 1 row(s)  (cost=1.91..1.91 rows=1)
+                        -> Table scan on dt  (cost=1.26..2.52 rows=2)
+                            -> Materialize  (cost=1.91..3.17 rows=2)
                                 -> Table scan on t2  (cost=0.45 rows=2)
 
 Warnings:
@@ -3369,13 +3369,6 @@ SELECT /*+ MERGE(qn) */ * FROM qn
 )
 GROUP BY grandparent1.col_int;
 g1
-Warning	1292	Incorrect time value: '2004-11-14' for column 'col_time_key' at row 1
-Warning	1292	Incorrect time value: '2004-11-14' for column 'col_time_key' at row 1
-Warning	1292	Incorrect time value: '2004-11-14' for column 'col_time_key' at row 1
-Warning	1292	Incorrect time value: '2008-03-18' for column 'col_time_key' at row 1
-Warning	1292	Incorrect time value: '2008-03-18' for column 'col_time_key' at row 1
-Warning	1292	Incorrect time value: '2008-03-18' for column 'col_time_key' at row 1
-Warnings:
 DROP TABLE bb;
 SET SQL_MODE=DEFAULT;
 #
@@ -3554,12 +3547,12 @@ CREATE ALGORITHM=TEMPTABLE VIEW v1 AS SELECT * FROM t1;
 CREATE ALGORITHM=TEMPTABLE VIEW v2 AS SELECT ( SELECT f2 FROM v1 WHERE v1.f1 = t2.f1 ) AS f3 FROM t2;
 EXPLAIN FORMAT=TREE SELECT * FROM v2 WHERE f3 = 3;
 EXPLAIN
--> Index lookup on v2 using <auto_key0> (f3=3)
-    -> Materialize  (cost=0.35 rows=1)
+-> Covering index lookup on v2 using <auto_key0> (f3=3)
+    -> Materialize  (cost=0.45..0.45 rows=1)
         -> Table scan on t2  (cost=0.35 rows=1)
         -> Select #3 (subquery in projection; dependent)
             -> Index lookup on v1 using <auto_key0> (f1=t2.f1)
-                -> Materialize  (cost=0.35 rows=1)
+                -> Materialize  (cost=0.45..0.45 rows=1)
                     -> Table scan on t1  (cost=0.35 rows=1)
 
 Warnings:
@@ -3618,3 +3611,76 @@ ON 1;
 ERROR 42S22: Unknown column 'table1.c1' in 'on clause'
 DROP VIEW v1;
 DROP TABLE t1;
+#
+# Bug #32113029: WRONG RESULT PRODUCED WHEN LEFT JOINING INFORMATION_SCHEMA TABLES
+#
+CREATE TABLE t1 ( id INTEGER );
+INSERT INTO t1 VALUES (1);
+CREATE TABLE t2 ( table_id integer );
+INSERT INTO t2 VALUES (363);
+CREATE TABLE t3 ( id integer );
+INSERT INTO t3 VALUES (362);
+INSERT INTO t3 VALUES (363);
+ANALYZE TABLE t1, t2, t3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+set optimizer_switch='derived_merge=off';
+SELECT *
+FROM t1
+LEFT JOIN (
+t3, LATERAL (
+SELECT * FROM t2 WHERE table_id = t3.id
+) l1
+) ON TRUE;
+id	id	table_id
+1	363	363
+SELECT *
+FROM t1
+LEFT JOIN (
+t3, LATERAL (
+SELECT * FROM t2 WHERE table_id = t3.id
+) l1
+) ON TRUE and t3.id=363;
+id	id	table_id
+1	363	363
+set optimizer_switch=DEFAULT;
+DROP TABLE t1, t2, t3;
+#
+# Bug #32729739: ASSERTION `PATH != NULLPTR' FAILED|SQL/SQL_EXECUTOR.CC
+#
+CREATE TABLE t1 ( a INTEGER );
+SELECT *
+FROM
+t1
+LEFT JOIN (
+t1 AS t2
+LEFT JOIN t1 AS t3 ON TRUE
+) ON TRUE,
+LATERAL (
+SELECT SUM(t1.a), t2.a FROM t1
+) AS d1;
+a	a	a	SUM(t1.a)	a
+DROP TABLE t1;
+#
+# Bug 32407774 - MANY INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+#                RELATED QUERIES ARE BROKEN
+#
+CREATE TABLE t1(id int NOT NULL);
+INSERT into t1 VALUES (364), (365);
+CREATE TABLE t2 (id int NOT NULL);
+INSERT into t2 VALUES (365);
+SELECT * FROM t1 AS tbl1
+LEFT JOIN t1 AS tbl3 ON FALSE WHERE tbl1.id NOT IN
+(SELECT id FROM t1 AS tbl2 JOIN LATERAL
+(SELECT 1 FROM t2 WHERE id = tbl2.id LIMIT 10) AS d1);
+id	id
+364	NULL
+SELECT /*+ JOIN_PREFIX(tbl1, tbl2) */ * FROM t1 AS tbl1
+LEFT JOIN t1 AS tbl3 ON FALSE WHERE tbl1.id NOT IN
+(SELECT id FROM t1 AS tbl2 JOIN LATERAL
+(SELECT 1 FROM t2 WHERE id = tbl2.id LIMIT 10) AS d1);
+id	id
+364	NULL
+DROP TABLE t1, t2;

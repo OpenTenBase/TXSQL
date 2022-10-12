@@ -44,13 +44,13 @@ c	d
 2	16
 3	54
 **** On Slave ****
-START SLAVE UNTIL MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=MASTER_LOG_POS;
+START SLAVE UNTIL SOURCE_LOG_FILE='master-bin.000001', SOURCE_LOG_POS=MASTER_LOG_POS;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 include/wait_for_slave_sql_to_stop.inc
 include/check_slave_param.inc [Exec_Master_Log_Pos]
 include/check_slave_no_error.inc
-SET GLOBAL SQL_SLAVE_SKIP_COUNTER=2;
+SET GLOBAL SQL_REPLICA_SKIP_COUNTER=2;
 START SLAVE;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
@@ -82,11 +82,11 @@ master-bin.000001	#	Query	#	#	BEGIN
 master-bin.000001	#	User var	#	#	@`foo`=12
 master-bin.000001	#	Query	#	#	use `test`; INSERT INTO t1 VALUES(@foo, 2*@foo)
 master-bin.000001	#	Query	#	#	COMMIT
-START SLAVE UNTIL MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=MASTER_LOG_POS;
+START SLAVE UNTIL SOURCE_LOG_FILE='master-bin.000001', SOURCE_LOG_POS=MASTER_LOG_POS;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 include/wait_for_slave_sql_to_stop.inc
-SET GLOBAL SQL_SLAVE_SKIP_COUNTER=2;
+SET GLOBAL SQL_REPLICA_SKIP_COUNTER=2;
 START SLAVE;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
@@ -135,7 +135,7 @@ a	b
 2	master only
 3	master/slave
 *** On Slave ***
-SET GLOBAL SQL_SLAVE_SKIP_COUNTER=2;
+SET GLOBAL SQL_REPLICA_SKIP_COUNTER=2;
 include/start_slave.inc
 SELECT * FROM t1 ORDER BY a;
 a	b
@@ -166,7 +166,7 @@ a	b
 2	master only
 3	master only
 *** On Slave ***
-SET GLOBAL SQL_SLAVE_SKIP_COUNTER=2;
+SET GLOBAL SQL_REPLICA_SKIP_COUNTER=2;
 include/start_slave.inc
 SELECT * FROM t10 ORDER BY a;
 a	b

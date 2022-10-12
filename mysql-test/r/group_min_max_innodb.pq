@@ -178,8 +178,8 @@ EXPLAIN SELECT c1, max(i2) FROM t1 WHERE (c1 = 'C' AND i2 = 17) OR ( c1 = 'F')
 GROUP BY c1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	k1	k1	8	NULL	ROWS	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,max(`test`.`t1`.`i2`) AS `max(i2)` from `test`.`t1` where (((`test`.`t1`.`i2` = 17) and (`test`.`t1`.`c1` = 'C')) or (`test`.`t1`.`c1` = 'F')) group by `test`.`t1`.`c1`
 SELECT c1, max(i2) FROM t1 WHERE (c1 = 'C' AND i2 = 17) OR ( c1 = 'F')
@@ -195,8 +195,8 @@ EXPLAIN SELECT c1, max(i2) FROM t1 WHERE (c1 = 'C' OR ( c1 = 'F' AND i2 = 17))
 GROUP BY c1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	k1	k1	8	NULL	ROWS	100.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,max(`test`.`t1`.`i2`) AS `max(i2)` from `test`.`t1` where ((`test`.`t1`.`c1` = 'C') or ((`test`.`t1`.`i2` = 17) and (`test`.`t1`.`c1` = 'F'))) group by `test`.`t1`.`c1`
 SELECT c1, max(i2) FROM t1 WHERE (c1 = 'C' OR ( c1 = 'F' AND i2 = 17))
@@ -228,8 +228,8 @@ WHERE ((c1 = 'C' AND (i2 = 40 OR i2 = 30)) OR ( c1 = 'F' AND (i2 = 40 )))
 GROUP BY c1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	k1	k1	8	NULL	ROWS	100.00	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,max(`test`.`t1`.`i2`) AS `max(i2)` from `test`.`t1` where (((`test`.`t1`.`c1` = 'C') and ((`test`.`t1`.`i2` = 40) or (`test`.`t1`.`i2` = 30))) or ((`test`.`t1`.`i2` = 40) and (`test`.`t1`.`c1` = 'F'))) group by `test`.`t1`.`c1`
 SELECT c1, max(i2) FROM t1 
@@ -246,8 +246,8 @@ WHERE (c1 = 'C' OR ( c1 = 'F' AND i1 < 35)) AND ( i2 = 17 )
 GROUP BY c1,i1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	range	k2	k2	8	NULL	ROWS	10.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`c1` AS `c1`,`test`.`t2`.`i1` AS `i1`,max(`test`.`t2`.`i2`) AS `max(i2)` from `test`.`t2` where ((`test`.`t2`.`i2` = 17) and ((`test`.`t2`.`c1` = 'C') or ((`test`.`t2`.`c1` = 'F') and (`test`.`t2`.`i1` < 35)))) group by `test`.`t2`.`c1`,`test`.`t2`.`i1`
 SELECT c1, i1, max(i2) FROM t2
@@ -265,8 +265,8 @@ WHERE (((c1 = 'C' AND i1 < 40) OR ( c1 = 'F' AND i1 < 35)) AND ( i2 = 17 ))
 GROUP BY c1,i1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	range	k2	k2	8	NULL	ROWS	10.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`c1` AS `c1`,`test`.`t2`.`i1` AS `i1`,max(`test`.`t2`.`i2`) AS `max(i2)` from `test`.`t2` where ((`test`.`t2`.`i2` = 17) and (((`test`.`t2`.`c1` = 'C') and (`test`.`t2`.`i1` < 40)) or ((`test`.`t2`.`c1` = 'F') and (`test`.`t2`.`i1` < 35)))) group by `test`.`t2`.`c1`,`test`.`t2`.`i1`
 SELECT c1, i1, max(i2) FROM t2 
@@ -284,8 +284,8 @@ WHERE ((c1 = 'C' AND i1 < 40) OR ( c1 = 'F' AND i1 < 35) OR ( i2 = 17 ))
 GROUP BY c1,i1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	index	k2	k2	12	NULL	ROWS	19.72	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	ROWS	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`c1` AS `c1`,`test`.`t2`.`i1` AS `i1`,max(`test`.`t2`.`i2`) AS `max(i2)` from `test`.`t2` where (((`test`.`t2`.`c1` = 'C') and (`test`.`t2`.`i1` < 40)) or ((`test`.`t2`.`c1` = 'F') and (`test`.`t2`.`i1` < 35)) or (`test`.`t2`.`i2` = 17)) group by `test`.`t2`.`c1`,`test`.`t2`.`i1`
 SELECT c1, i1, max(i2) FROM t2 
@@ -397,8 +397,8 @@ FROM t1
 WHERE (pk_col = 2 OR pk_col = 22) AND a1 = 'a';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY,a1_idx	a1_idx	261	NULL	2	100.00	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a1` AS `a1` from `test`.`t1` where ((`test`.`t1`.`a1` = 'a') and ((`test`.`t1`.`pk_col` = 2) or (`test`.`t1`.`pk_col` = 22)))
 SELECT DISTINCT a1
@@ -456,8 +456,8 @@ FROM t1
 WHERE (pk_col = 2 OR pk_col = 22) AND a1 = 'a';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ref	PRIMARY,a1_idx	a1_idx	257	const	5	40.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a1` AS `a1` from `test`.`t1` where ((`test`.`t1`.`a1` = 'a') and ((`test`.`t1`.`pk_col` = 2) or (`test`.`t1`.`pk_col` = 22)))
 SELECT DISTINCT a1
@@ -668,8 +668,8 @@ FROM t1 FORCE INDEX(ukey)
 WHERE pk IN (1,231) and c1 IS NOT NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	ukey	ukey	14	NULL	260	20.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	52	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	52	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`c1` AS `c1` from `test`.`t1` FORCE INDEX (`ukey`) where ((`test`.`t1`.`pk` in (1,231)) and (`test`.`t1`.`c1` is not null))
 EXPLAIN SELECT DISTINCT c1

@@ -266,7 +266,7 @@ c1
     "dd_object": {
         "name": "test/t1",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",
@@ -582,7 +582,7 @@ c1
     "dd_object": {
         "name": "test/pt1#p#p1",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",
@@ -1085,7 +1085,7 @@ c1
     "dd_object": {
         "name": "src/src_t2#p#p0#sp#p0sp0",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",
@@ -1367,7 +1367,7 @@ c1
     "dd_object": {
         "name": "test/t1",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",
@@ -1683,7 +1683,7 @@ c1
     "dd_object": {
         "name": "test/pt1#p#p1",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",
@@ -2185,7 +2185,7 @@ c1
     "dd_object": {
         "name": "dst/dst_t2#p#p0#sp#p0sp0",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",
@@ -2215,7 +2215,7 @@ c1
     "dd_object": {
         "name": "dst/dst_t2#p#p1#sp#p1sp0",
         "comment": "",
-        "options": "encryption=N;",
+        "options": "autoextend_size=0;encryption=N;",
         "se_private_data": "flags=16417;ID
         "engine": "InnoDB",
         "engine_attribute": "",

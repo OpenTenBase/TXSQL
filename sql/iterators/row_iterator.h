@@ -96,6 +96,12 @@ class RowIterator {
     PHY_MRR,
     PHY_FOLLOW_TAIL,
     PHY_INDEX_RANGE_SCAN,
+    PHY_INDEX_REVERSE_RANGE_SCAN,
+    PHY_INDEX_MERGE,
+    PHY_ROWID_INTERSECTION,
+    PHY_ROWID_UNION,
+    PHY_INDEX_SKIP_SCAN,
+    PHY_GROUP_INDEX_SKIP_SCAN,
     PHY_DYNAMIC_INDEX_RANGE_SCAN,
     PHY_TABLE_SAMPLE,
 
@@ -128,6 +134,7 @@ class RowIterator {
     PHY_WINDOWING,
     PHY_WEEDOUT,
     PHY_REMOVE_DUPLICATES,
+    PHY_REMOVE_DUPLICATES_ON_INDEX,
     PHY_ALTERNATIVE,
     PHY_CACHE_INVALIDATOR,
 
@@ -285,12 +292,15 @@ class RowIterator {
   virtual RowIterator *real_iterator() { return this; }
   virtual const RowIterator *real_iterator() const { return this; }
 
+#if defined(HAVE_PX)
   // Type of the row iterator.
   virtual PhysicalRowIteratorType type() { return PHY_NO_TYPE; }
+#endif /* defined(HAVE_PX) */
   virtual RowIterator *child(size_t i) { return m_children.at(i); }
   virtual void add_child(RowIterator *itr) { m_children.push_back(itr); }
   virtual void adjust_children() {}
   virtual std::string str() { return ""; }
+  virtual bool prepare_for_parallel_query() { return false; }
 
  protected:
   THD *thd() const { return m_thd; }
@@ -311,8 +321,11 @@ class TableRowIterator : public RowIterator {
   void StartPSIBatchMode() override;
   void EndPSIBatchModeIfStarted() override;
 
+#if defined(HAVE_PX)
   virtual void set_parallel_scan() { m_parallel_scan = true; }
-  virtual PX_table_descriptor *get_table_descriptor() { return nullptr; }
+  virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const { return nullptr; }
+  virtual void set_parallel_workers(uint dop);
+#endif /* defined(HAVE_PX) */
   virtual int px_scan_init();
 
  protected:

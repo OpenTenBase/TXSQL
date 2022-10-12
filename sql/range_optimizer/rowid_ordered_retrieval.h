@@ -75,6 +75,18 @@ class RowIDIntersectionIterator : public RowIDCapableRowIterator {
     return m_last_rowid;
   }
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "RowIDIntersection"; }
+  virtual PhysicalRowIteratorType type() override {
+    return PHY_ROWID_INTERSECTION;
+  }
+  virtual void adjust_children() override {
+    for (auto &child : m_children) {
+      add_child(child.get());
+    }
+  }
+#endif /* defined(HAVE_PX) */
+
  private:
   /*
     Range quick selects this intersection consists of, not including
@@ -175,6 +187,18 @@ class RowIDUnionIterator : public TableRowIterator {
 
   bool Init() override;
   int Read() override;
+
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "RowIDUnion"; }
+  virtual PhysicalRowIteratorType type() override {
+    return PHY_ROWID_UNION;
+  }
+  virtual void adjust_children() override {
+    for (auto &child : m_children) {
+      add_child(child.get());
+    }
+  }
+#endif /* defined(HAVE_PX) */
 
  private:
   Mem_root_array<unique_ptr_destroy_only<RowIterator>> m_children;

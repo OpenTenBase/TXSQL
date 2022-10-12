@@ -60,6 +60,13 @@ class RefIterator final : public TableRowIterator {
   bool Init() override;
   int Read() override;
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "Ref"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_REF; }
+  virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const override;
+  bool prepare_for_parallel_query() override;
+#endif /* defined(HAVE_PX) */
+
  private:
   TABLE_REF *const m_ref;
   const bool m_use_order;
@@ -83,6 +90,12 @@ class RefOrNullIterator final : public TableRowIterator {
 
   bool Init() override;
   int Read() override;
+
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "RefOrNull"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_REF_OR_NULL; }
+  //virtual QEP_TAB* get_qep_tab() const override { return m_qep_tab; }
+#endif /* defined(HAVE_PX) */
 
  private:
   TABLE_REF *const m_ref;
@@ -117,6 +130,10 @@ class EQRefIterator final : public TableRowIterator {
   // a single table. Thus, just ignore the call should it happen.
   void StartPSIBatchMode() override {}
 
+#if defined(HAVE_PX)
+  virtual std::string str() override { return "EQRef"; }
+  virtual PhysicalRowIteratorType type() override { return PHY_EQ_REF; }
+#endif /* defined(HAVE_PX) */
  private:
   TABLE_REF *const m_ref;
   const bool m_use_order;

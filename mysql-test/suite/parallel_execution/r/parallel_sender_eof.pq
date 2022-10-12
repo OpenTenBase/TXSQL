@@ -13,11 +13,11 @@ Table	Op	Msg_type	Msg_text
 test.t4	analyze	status	OK
 explain format=tree select distinct 1 from t4 group by companynr;
 EXPLAIN
--> Limit: 1 row(s)  (cost=1.45 rows=1)
+-> Limit: 1 row(s)  (cost=2.87..2.87 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Table scan on <temporary>
-                -> Temporary table  (cost=1.45 rows=12)
+            -> Table scan on <temporary>  (cost=0.22..2.65 rows=12)
+                -> Temporary table  (cost=2.87..5.30 rows=12)
                     -> Parallel index scan on t4 using companyname  (cost=1.45 rows=12)
 
 select distinct 1 from t4 group by companynr;

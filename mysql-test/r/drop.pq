@@ -46,7 +46,6 @@ unlock tables;
 create database mysqltest;
 select schema_name from information_schema.schemata order by schema_name;
 SCHEMA_NAME
-__cdb_recycle_bin__
 information_schema
 mtr
 mysql
@@ -61,7 +60,6 @@ unlock tables;
 drop database mysqltest;
 select schema_name from information_schema.schemata order by schema_name;
 SCHEMA_NAME
-__cdb_recycle_bin__
 information_schema
 mtr
 mysql

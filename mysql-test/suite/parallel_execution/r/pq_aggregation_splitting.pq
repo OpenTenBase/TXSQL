@@ -204,12 +204,12 @@ s
 #
 explain format=tree select * from (select sum(col1) as a from t1 group by t1col2) as t;
 EXPLAIN
--> Table scan on t  (cost=*** rows=***)
-    -> Materialize
+-> Table scan on t  (cost=***..2.56 rows=***)
+    -> Materialize  (cost=***..4.31 rows=***)
         -> Group aggregate: sum(t1.col1)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
-                    -> Group aggregate: sum(t1.col1)
+                    -> Group aggregate: sum(t1.col1)  (cost=*** rows=***)
                         -> Parallel index scan on t1 using idx_col2  (cost=*** rows=***)
 
 select * from (select sum(col1) as a from t1 group by t1col2) as t;
@@ -219,8 +219,8 @@ a
 5
 explain format=tree select * from (select sum(t1col2) as a from t1 group by col1) as t;
 EXPLAIN
--> Table scan on t  (cost=*** rows=***)
-    -> Materialize
+-> Table scan on t  (cost=***..2.50 rows=***)
+    -> Materialize  (cost=***..2.50 rows=***)
         -> Table scan on <temporary>
             -> Final Aggregate using temporary table
                 -> PX Receiver (slice: 0; workers: 1)
@@ -253,16 +253,16 @@ INSERT INTO t1 values(NULL, '');
 INSERT INTO `t2` VALUES ('486878','WDT'),('486910','WDT');
 explain format=tree SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'WDT' GROUP BY t1.f1;
 EXPLAIN
--> Table scan on <temporary>
-    -> Temporary table
+-> Table scan on <temporary>  (cost=***..2.52 rows=***)
+    -> Temporary table  (cost=***..3.73 rows=***)
         -> Group aggregate: sum(t2.f1), count(t2.f1)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 1)
-                    -> Group aggregate: sum(t2.f1), count(t2.f1)
+                    -> Group aggregate: sum(t2.f1), count(t2.f1)  (cost=*** rows=***)
                         -> Nested loop inner join  (cost=*** rows=***)
                             -> Parallel index scan on t1 using PRIMARY  (cost=*** rows=***)
                             -> Filter: (t2.f2 = 'WDT')  (cost=*** rows=***)
-                                -> Index lookup on t2 using k1 (f2='WDT')  (cost=*** rows=***)
+                                -> Covering index lookup on t2 using k1 (f2='WDT')  (cost=*** rows=***)
 
 SELECT SQL_BUFFER_RESULT avg(t2.f1) FROM t1, t2 where t2.f2 = 'SIR' GROUP BY t1.f1;
 avg(t2.f1)
@@ -277,24 +277,23 @@ explain format=tree SELECT distinct 1 FROM t3 group by a order by any_value(coun
 EXPLAIN
 -> Sort: `any_value((``sum(````count(0)````)`` - ``sum(````count(t3.b)````)``))`
     -> Limit: 1 row(s)
-        -> Table scan on <temporary>
-            -> Temporary table
-                -> Table scan on <temporary>
-                    -> Final Aggregate using temporary table
-                        -> PX Receiver (slice: 0; workers: 1)
-                            -> PX Sender (slice: 1; workers: 4)
-                                -> Table scan on <temporary>
-                                    -> Aggregate using temporary table
-                                        -> Parallel table scan on t3  (cost=*** rows=***)
+        -> Stream results
+            -> Table scan on <temporary>
+                -> Final Aggregate using temporary table
+                    -> PX Receiver (slice: 0; workers: 1)
+                        -> PX Sender (slice: 1; workers: 4)
+                            -> Table scan on <temporary>
+                                -> Aggregate using temporary table
+                                    -> Parallel table scan on t3  (cost=*** rows=***)
 
 SELECT distinct 1 FROM t3 group by a order by any_value(count(*)-count(b));
 1
 1
 explain format=tree SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(b);
 EXPLAIN
--> Sort: `(``sum(````count(0)````)`` - ``sum(````count(t3.b)````)``)`
-    -> Table scan on <temporary>
-        -> Temporary table with deduplication
+-> Sort: `count(*)-count(b)`
+    -> Table scan on <temporary>  (cost=***..2.50 rows=***)
+        -> Temporary table with deduplication  (cost=***..2.50 rows=***)
             -> Table scan on <temporary>
                 -> Final Aggregate using temporary table
                     -> PX Receiver (slice: 0; workers: 1)
@@ -308,9 +307,9 @@ SELECT distinct 1, count(*)-count(b) FROM t3 group by a order by count(*)-count(
 1	0
 explain format=tree SELECT distinct 1, (avg(b)-count(b)) FROM t3 group by a order by avg(b)-count(b);
 EXPLAIN
--> Sort: `((``sum(````sum(t3.b)````)`` / ``sum(````count(t3.b)````)``) - ``sum(````count(t3.b)````)``)`
-    -> Table scan on <temporary>
-        -> Temporary table with deduplication
+-> Sort: `(avg(b)-count(b))`
+    -> Table scan on <temporary>  (cost=***..2.50 rows=***)
+        -> Temporary table with deduplication  (cost=***..2.50 rows=***)
             -> Table scan on <temporary>
                 -> Final Aggregate using temporary table
                     -> PX Receiver (slice: 0; workers: 1)
@@ -369,4 +368,45 @@ SELECT AVG(c1), MAX(c1)/2, MIN(c2), AVG(c3)/max(c1), SUM(c4) FROM t1;
 AVG(c1)	MAX(c1)/2	MIN(c2)	AVG(c3)/max(c1)	SUM(c4)
 5.5000	5.0000	1	0.10000000	10
 DROP TABLE t1;
+#
+# case from main.subquery_scalar_to_derived
+# check creation of group list for subquery
+#
+SET @optimizer_switch_saved= @@optimizer_switch;
+SET @@optimizer_switch="subquery_to_derived=on";
+CREATE TABLE t2 (a INT, b INT);
+CREATE TABLE t4 (a INT NOT NULL, b INT NOT NULL);
+INSERT INTO t2 VALUES (1, 7), (2, 7), (2,10);
+INSERT INTO t4 VALUES (4, 8), (3, 8), (5, 9), (12, 7), (1, 7),
+(10, 9), (9, 6), (7, 6), (3, 9), (1, 10);
+ANALYZE TABLE t2, t4;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+test.t4	analyze	status	OK
+explain format=tree SELECT b, MAX(a) AS ma FROM t4 GROUP BY b HAVING ma < (SELECT MAX(t2.a) FROM t2 WHERE t2.b=t4.b);
+EXPLAIN
+-> Filter: (ma < derived_1_2.`MAX(t2.a)`)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Left hash join (derived_1_2.b = t4.b)  (cost=*** rows=***)
+                -> Table scan on t4  (cost=*** rows=***)
+                -> Hash
+                    -> Table scan on derived_1_2  (cost=***..2.50 rows=***)
+                        -> Materialize  (cost=***..2.50 rows=***)
+                            -> Table scan on <temporary>
+                                -> Final Aggregate using temporary table
+                                    -> PX Receiver (slice: 0; workers: 1)
+                                        -> PX Sender (slice: 1; workers: 3)
+                                            -> Table scan on <temporary>
+                                                -> Aggregate using temporary table
+                                                    -> Parallel table scan on t2  (cost=*** rows=***)
+
+Warnings:
+Note	1276	Field or reference 'test.t4.b' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t4.b' of SELECT #2 was resolved in SELECT #1
+SELECT b, MAX(a) AS ma FROM t4 GROUP BY b HAVING ma < (SELECT MAX(t2.a) FROM t2 WHERE t2.b=t4.b);
+b	ma
+10	1
+SET @@optimizer_switch=@optimizer_switch_saved;
 # --include set_px_to_saved.inc
+DROP TABLE t2, t4;

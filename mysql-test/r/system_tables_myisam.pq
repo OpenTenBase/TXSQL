@@ -16,7 +16,8 @@ INSERT INTO system_tables(table_name)
 SELECT concat(table_schema, ".", table_name)
 FROM INFORMATION_SCHEMA.tables WHERE table_schema =
 'mysql' AND table_name NOT IN('general_log', 'slow_log',
-'ndb_binlog_index');
+'ndb_binlog_index')
+ORDER BY table_name;
 #-----------------------------------------------------------------------
 # Test case to verify altering system table's engine to MyISAM. Changing
 # system table's engine to MyISAM is not allowed.
@@ -46,10 +47,6 @@ SET i = i + 1;
 END WHILE;
 END$
 CALL test_system_table_alter_engine();
-@table_name
-mysql.column_statistics_history
-ERROR
-Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
 @table_name
 mysql.columns_priv
 ERROR
@@ -107,10 +104,6 @@ mysql.innodb_table_stats
 ERROR
 The used command is not allowed with this MySQL version
 @table_name
-mysql.outline
-ERROR
-Storage engine 'MyISAM' does not support system tables. [mysql.outline]
-@table_name
 mysql.password_history
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.password_history]
@@ -127,13 +120,25 @@ mysql.proxies_priv
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
 @table_name
-mysql.recycle_bin_info
-ERROR
-Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
-@table_name
 mysql.replication_asynchronous_connection_failover
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover]
+@table_name
+mysql.replication_asynchronous_connection_failover_managed
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover_managed]
+@table_name
+mysql.replication_group_configuration_version
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.replication_group_configuration_version]
+@table_name
+mysql.replication_group_member_actions
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.replication_group_member_actions]
+@table_name
+mysql.resource_groups_extra
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.resource_groups_extra]
 @table_name
 mysql.role_edges
 ERROR
@@ -239,8 +244,6 @@ END WHILE;
 END$
 CALL test_create_system_table();
 SEVERITY	ERRNO	MESSAGE
-Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
-SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.component]
@@ -271,8 +274,6 @@ ERROR	3554	Access to system table 'mysql.innodb_index_stats' is rejected.
 SEVERITY	ERRNO	MESSAGE
 ERROR	3554	Access to system table 'mysql.innodb_table_stats' is rejected.
 SEVERITY	ERRNO	MESSAGE
-Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.outline]
-SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.password_history]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.plugin]
@@ -281,9 +282,15 @@ Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.proc
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
 SEVERITY	ERRNO	MESSAGE
-Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
-SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover_managed]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_group_configuration_version]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_group_member_actions]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.resource_groups_extra]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.role_edges]
 SEVERITY	ERRNO	MESSAGE

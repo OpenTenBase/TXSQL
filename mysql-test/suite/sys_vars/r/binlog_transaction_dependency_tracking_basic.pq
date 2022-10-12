@@ -1,5 +1,7 @@
 SET GLOBAL binlog_transaction_dependency_tracking= 'COMMIT_ORDER';
 SET GLOBAL transaction_write_set_extraction= 'XXHASH64';
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
 SELECT COUNT(@@GLOBAL.binlog_transaction_dependency_tracking);
 COUNT(@@GLOBAL.binlog_transaction_dependency_tracking)
 1
@@ -55,6 +57,8 @@ ERROR HY000: Incorrect usage of transaction_write_set_extraction (changed) and b
 Expect value still set to XXHASH64
 SELECT @@global.transaction_write_set_extraction;
 @@global.transaction_write_set_extraction
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
+Warnings:
 XXHASH64
 Case1 b): "When binlog_transaction_dependency_tracking != COMMIT_ORDER,
 transaction_write_set_extraction cannot be changed."
@@ -66,11 +70,15 @@ ERROR HY000: Incorrect usage of transaction_write_set_extraction (changed) and b
 Expect value still set to XXHASH64
 SELECT @@global.transaction_write_set_extraction;
 @@global.transaction_write_set_extraction
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
+Warnings:
 XXHASH64
 Case2: "When transaction_write_set_extraction = OFF,
 binlog_transaction_dependency_tracking cannot be set to WRITESET%"
 SET GLOBAL binlog_transaction_dependency_tracking= 'COMMIT_ORDER';
 SET GLOBAL transaction_write_set_extraction= OFF;
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
 SET GLOBAL binlog_transaction_dependency_tracking= 'WRITESET';
 ERROR HY000: Incorrect usage of binlog_transaction_dependency_tracking (!= COMMIT_ORDER) and transaction_write_set_extraction (= OFF)
 SET GLOBAL binlog_transaction_dependency_tracking= 'WRITESET_SESSION';
@@ -80,3 +88,7 @@ SELECT @@global.binlog_transaction_dependency_tracking;
 @@global.binlog_transaction_dependency_tracking
 COMMIT_ORDER
 SET GLOBAL transaction_write_set_extraction= XXHASH64;
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.
+Warnings:
+Warning	1287	'@@transaction_write_set_extraction' is deprecated and will be removed in a future release.

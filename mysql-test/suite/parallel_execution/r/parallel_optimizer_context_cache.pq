@@ -531,12 +531,13 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
                       {
                         "index": "name",
                         "ranges": [
-                          "extramarital <= name"
+                          "'extramarital' <= name"
                         ],
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": 0.00909091,
                         "rows": 20868,
                         "cost=***
                         "chosen": false,
@@ -654,12 +655,13 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
                           {
                             "index": "name",
                             "ranges": [
-                              "extramarital <= name"
+                              "'extramarital' <= name"
                             ],
                             "index_dives_for_eq_ranges": true,
                             "rowid_ordered": false,
                             "using_mrr": false,
                             "index_only": false,
+                            "in_memory": 0.00909091,
                             "rows": 20868,
                             "cost=***
                             "chosen": false,
@@ -718,12 +720,12 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
             "delete_length": 0,
             "records": 41736,
             "deleted": 0,
-            "table_in_mem_estimate": 0
+            "table_in_mem_estimate": 0.0045045
           },
           "index_statistics": [
             {
               "name": "PRIMARY",
-              "in_memory_estimate": 0,
+              "in_memory_estimate": 0.0045045,
               "records_per_key": [
                 1
               ],
@@ -732,7 +734,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
             },
             {
               "name": "name",
-              "in_memory_estimate": 0,
+              "in_memory_estimate": 0.0045045,
               "records_per_key": [
                 4637.33,
                 1
@@ -746,7 +748,7 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
             },
             {
               "name": "period",
-              "in_memory_estimate": 0,
+              "in_memory_estimate": 0.0045045,
               "records_per_key": [
                 4173.6,
                 1
@@ -907,7 +909,7 @@ explain
 select * from t1
 where st_a=1 and swt1a=1 and swt2a=1 and st_b=1 and swt1b=1 and swt2b=1 limit 5;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index_merge	sta_swt12a,sta_swt1a,sta_swt2a,sta_swt21a,st_a,stb_swt1a_2b,stb_swt1b,st_b	sta_swt12a,stb_swt1a_2b	15,15	NULL	3	10.00	Using intersect(sta_swt12a,stb_swt1a_2b); Using where
+1	SIMPLE	t1	NULL	index_merge	sta_swt12a,sta_swt1a,sta_swt2a,sta_swt21a,st_a,stb_swt1a_2b,stb_swt1b,st_b	sta_swt12a,stb_swt1a_2b	15,15	NULL	3	9.00	Using intersect(sta_swt12a,stb_swt1a_2b); Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`st_a` AS `st_a`,`test`.`t1`.`swt1a` AS `swt1a`,`test`.`t1`.`swt2a` AS `swt2a`,`test`.`t1`.`st_b` AS `st_b`,`test`.`t1`.`swt1b` AS `swt1b`,`test`.`t1`.`swt2b` AS `swt2b` from `test`.`t1` where ((`test`.`t1`.`swt2b` = 1) and (`test`.`t1`.`swt1b` = 1) and (`test`.`t1`.`st_b` = 1) and (`test`.`t1`.`swt2a` = 1) and (`test`.`t1`.`swt1a` = 1) and (`test`.`t1`.`st_a` = 1)) limit 5
 select * from t1
@@ -983,7 +985,7 @@ NULL                        as const12, @arg12 as param12,
 @arg15 as param15,
 sum(c1) from t1;
 const01	param01	const02	param02	const03	param03	const04	param04	const05	param05	const06	param06	const07	param07	const08	param08	const09	param09	const10	param10	const11	param11	const12	param12	param13	param14	param15	sum(c1)
-8	8	8.0	8.000000000000000000000000000000	8	8	abc	abc	abc	abc	1991-08-05	1991-08-05	1991-08-05	1991-08-05	1991-08-05 01:01:01	1991-08-05 01:01:01	1991-08-05 01:01:01	1991-08-05 01:01:01	662680861	662680861	1991	1991	NULL	NULL	NULL	NULL	NULL	NULL
+8	8	8.0	8.0	8	8	abc	abc	abc	abc	1991-08-05	1991-08-05	1991-08-05	1991-08-05	1991-08-05 01:01:01	1991-08-05 01:01:01	1991-08-05 01:01:01	1991-08-05 01:01:01	662680861	662680861	1991	1991	NULL	NULL	NULL	NULL	NULL	NULL
 explain select
 sum(c1) from t1
 where 8  = @arg01
@@ -1003,8 +1005,8 @@ and @arg14 is null
 and @arg15 is null;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Parallel scan (1 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>)
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`c1`) AS `sum(c1)` from `test`.`t1` where true
 select

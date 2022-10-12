@@ -22,6 +22,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -53,6 +54,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -84,6 +86,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -105,6 +108,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 4
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -136,6 +140,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -167,6 +172,7 @@ a
 7
 8
 9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -199,6 +205,7 @@ a	b	MAX(d)	MIN(d)
 7	2	10	1
 8	2	10	1
 9	2	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -244,6 +251,7 @@ a	b	MAX(d)	MIN(d)
 8	3	10	1
 9	2	10	1
 9	3	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -264,6 +272,7 @@ FLUSH STATUS;
 SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -290,6 +299,7 @@ a	MAX(d)	MIN(d)
 1	9	1
 1	9	1
 1	9	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -314,6 +324,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -338,6 +349,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -360,6 +372,7 @@ a	b
 1	2
 12	15
 12	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -381,6 +394,7 @@ SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -407,6 +421,7 @@ a	b	MAX(d)	MIN(d)
 1	3	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -432,6 +447,7 @@ a	MAX(d)	MIN(d)
 10	10	1
 11	-10	-10
 12	-15	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -452,6 +468,7 @@ FLUSH STATUS;
 SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -472,6 +489,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -492,6 +510,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -508,8 +527,8 @@ EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AN
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	5	NULL	4	6.53	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
@@ -518,6 +537,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -589,6 +609,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -663,6 +684,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -712,6 +734,7 @@ a	b	MIN(d)
 9	3	3
 9	4	3
 9	5	3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -761,6 +784,7 @@ a	b	MAX(d)	MIN(d)
 9	3	9	9
 9	4	9	9
 9	5	9	9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -790,6 +814,7 @@ a	b	MAX(d)	MIN(d)
 10	4	9	1
 10	5	9	1
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -819,6 +844,7 @@ a	b	MIN(d)	MAX(d)
 10	4	9	9
 10	5	9	9
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -848,6 +874,7 @@ a	b	MIN(d)	MAX(d)
 10	4	1	4
 10	5	1	4
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -881,6 +908,7 @@ a	b	MIN(d)
 11	NULL	30
 12	15	-20
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -906,6 +934,7 @@ GROUP BY a, b;
 a	b	max(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -931,6 +960,7 @@ GROUP BY a, b;
 a	b	min(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -953,6 +983,7 @@ a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
 12	2	15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1042,16 +1073,16 @@ ALTER TABLE t DROP KEY k2;
 EXPLAIN SELECT a, b FROM t  WHERE (a > 4) AND (c = 3 OR c > 6)  GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	5	NULL	1508	40.00	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	603	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	603	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where ((`test`.`t`.`a` > 4) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` > 6))) group by `test`.`t`.`a`,`test`.`t`.`b`
 EXPLAIN SELECT a, b FROM t  WHERE (a > 4) AND (c = 3 OR c = 40) AND
 (d = -1 OR d = -2 OR d > 7)  GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	5	NULL	1508	8.74	Parallel scan (4 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	131	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	131	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where ((`test`.`t`.`a` > 4) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = <cache>(-(1))) or (`test`.`t`.`d` = <cache>(-(2))) or (`test`.`t`.`d` > 7))) group by `test`.`t`.`a`,`test`.`t`.`b`
 ALTER TABLE t DROP KEY k1;
@@ -1116,6 +1147,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1147,6 +1179,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1178,6 +1211,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1199,6 +1233,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 4
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1230,6 +1265,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1261,6 +1297,7 @@ a
 7
 8
 9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1293,6 +1330,7 @@ a	b	MAX(d)	MIN(d)
 7	2	10	1
 8	2	10	1
 9	2	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1338,6 +1376,7 @@ a	b	MAX(d)	MIN(d)
 8	3	10	1
 9	2	10	1
 9	3	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1358,6 +1397,7 @@ FLUSH STATUS;
 SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1384,6 +1424,7 @@ a	MAX(d)	MIN(d)
 1	9	1
 1	9	1
 1	9	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1408,6 +1449,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1432,6 +1474,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1454,6 +1497,7 @@ a	b
 1	2
 12	15
 12	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1475,6 +1519,7 @@ SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1501,6 +1546,7 @@ a	b	MAX(d)	MIN(d)
 1	3	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1526,6 +1572,7 @@ a	MAX(d)	MIN(d)
 10	10	1
 11	-10	-10
 12	-15	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1546,6 +1593,7 @@ FLUSH STATUS;
 SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1566,6 +1614,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1586,6 +1635,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1602,8 +1652,8 @@ EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AN
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	5	NULL	4	6.53	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
@@ -1612,6 +1662,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1683,6 +1734,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1757,6 +1809,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1806,6 +1859,7 @@ a	b	MIN(d)
 9	3	3
 9	4	3
 9	5	3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1855,6 +1909,7 @@ a	b	MAX(d)	MIN(d)
 9	3	9	9
 9	4	9	9
 9	5	9	9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1884,6 +1939,7 @@ a	b	MAX(d)	MIN(d)
 10	4	9	1
 10	5	9	1
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1913,6 +1969,7 @@ a	b	MIN(d)	MAX(d)
 10	4	9	9
 10	5	9	9
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1942,6 +1999,7 @@ a	b	MIN(d)	MAX(d)
 10	4	1	4
 10	5	1	4
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -1975,6 +2033,7 @@ a	b	MIN(d)
 11	NULL	30
 12	15	-20
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2000,6 +2059,7 @@ GROUP BY a, b;
 a	b	max(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2025,6 +2085,7 @@ GROUP BY a, b;
 a	b	min(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2047,6 +2108,7 @@ a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
 12	2	15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2083,6 +2145,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2114,6 +2177,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2145,6 +2209,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2166,6 +2231,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 4
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2197,6 +2263,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2228,6 +2295,7 @@ a
 7
 8
 9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2260,6 +2328,7 @@ a	b	MAX(d)	MIN(d)
 7	2	10	1
 8	2	10	1
 9	2	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2305,6 +2374,7 @@ a	b	MAX(d)	MIN(d)
 8	3	10	1
 9	2	10	1
 9	3	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2325,6 +2395,7 @@ FLUSH STATUS;
 SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2351,6 +2422,7 @@ a	MAX(d)	MIN(d)
 1	9	1
 1	9	1
 1	9	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2375,6 +2447,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2399,6 +2472,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2421,6 +2495,7 @@ a	b
 1	2
 12	15
 12	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2442,6 +2517,7 @@ SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2468,6 +2544,7 @@ a	b	MAX(d)	MIN(d)
 1	3	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2493,6 +2570,7 @@ a	MAX(d)	MIN(d)
 10	10	1
 11	-10	-10
 12	-15	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2513,6 +2591,7 @@ FLUSH STATUS;
 SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2533,6 +2612,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2553,6 +2633,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2569,8 +2650,8 @@ EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AN
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	5	NULL	4	6.53	Parallel scan (1 workers); Using where; Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
@@ -2579,6 +2660,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2650,6 +2732,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2724,6 +2807,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -2773,6 +2857,7 @@ a	b	MIN(d)
 9	3	3
 9	4	3
 9	5	3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2822,6 +2907,7 @@ a	b	MAX(d)	MIN(d)
 9	3	9	9
 9	4	9	9
 9	5	9	9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2851,6 +2937,7 @@ a	b	MAX(d)	MIN(d)
 10	4	9	1
 10	5	9	1
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2880,6 +2967,7 @@ a	b	MIN(d)	MAX(d)
 10	4	9	9
 10	5	9	9
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2909,6 +2997,7 @@ a	b	MIN(d)	MAX(d)
 10	4	1	4
 10	5	1	4
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2942,6 +3031,7 @@ a	b	MIN(d)
 11	NULL	30
 12	15	-20
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2967,6 +3057,7 @@ GROUP BY a, b;
 a	b	max(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -2992,6 +3083,7 @@ GROUP BY a, b;
 a	b	min(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3014,6 +3106,7 @@ a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
 12	2	15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3050,6 +3143,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3081,6 +3175,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3112,6 +3207,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3133,6 +3229,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 4
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3164,6 +3261,7 @@ a	MAX(d)	MIN(d)
 7	10	1
 8	10	1
 9	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3195,6 +3293,7 @@ a
 7
 8
 9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3227,6 +3326,7 @@ a	b	MAX(d)	MIN(d)
 7	2	10	1
 8	2	10	1
 9	2	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3272,6 +3372,7 @@ a	b	MAX(d)	MIN(d)
 8	3	10	1
 9	2	10	1
 9	3	10	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3292,6 +3393,7 @@ FLUSH STATUS;
 SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3318,6 +3420,7 @@ a	MAX(d)	MIN(d)
 1	9	1
 1	9	1
 1	9	1
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3342,6 +3445,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3366,6 +3470,7 @@ a	b	MAX(d)	MIN(d)
 1	2	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3388,6 +3493,7 @@ a	b
 1	2
 12	15
 12	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3409,6 +3515,7 @@ SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3435,6 +3542,7 @@ a	b	MAX(d)	MIN(d)
 1	3	10	1
 12	15	-15	-20
 12	2	-23	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3460,6 +3568,7 @@ a	MAX(d)	MIN(d)
 10	10	1
 11	-10	-10
 12	-15	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3480,6 +3589,7 @@ FLUSH STATUS;
 SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3500,6 +3610,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3520,6 +3631,7 @@ FLUSH STATUS;
 SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3544,6 +3656,7 @@ SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3615,6 +3728,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3689,6 +3803,7 @@ a	b	MAX(d)	MIN(d)
 9	3	10	2
 9	4	10	2
 9	5	10	2
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
@@ -3738,6 +3853,7 @@ a	b	MIN(d)
 9	3	3
 9	4	3
 9	5	3
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3787,6 +3903,7 @@ a	b	MAX(d)	MIN(d)
 9	3	9	9
 9	4	9	9
 9	5	9	9
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3816,6 +3933,7 @@ a	b	MAX(d)	MIN(d)
 10	4	9	1
 10	5	9	1
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3845,6 +3963,7 @@ a	b	MIN(d)	MAX(d)
 10	4	9	9
 10	5	9	9
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3874,6 +3993,7 @@ a	b	MIN(d)	MAX(d)
 10	4	1	4
 10	5	1	4
 12	2	NULL	NULL
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3907,6 +4027,7 @@ a	b	MIN(d)
 11	NULL	30
 12	15	-20
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3932,6 +4053,7 @@ GROUP BY a, b;
 a	b	max(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3957,6 +4079,7 @@ GROUP BY a, b;
 a	b	min(d)
 11	2	-10
 12	2	-23
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -3979,6 +4102,7 @@ a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
 12	2	15
+
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0

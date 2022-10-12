@@ -179,8 +179,10 @@ f1()
 -- character_set_client
 -- character_set_connection
 -- character_set_results
+-- collation_connection
 -- utf8mb4
 -- utf8mb4
+-- utf8mb4_0900_ai_ci
 6
 CREATE VIEW v1 AS SELECT f1();
 SELECT * FROM v1;
@@ -194,8 +196,10 @@ f1()
 -- character_set_client
 -- character_set_connection
 -- character_set_results
+-- collation_connection
 -- utf8mb4
 -- utf8mb4
+-- utf8mb4_0900_ai_ci
 6
 CREATE PROCEDURE sp1(OUT x INT)
 BEGIN
@@ -253,9 +257,11 @@ f4()
 -- character_set_client
 -- character_set_connection
 -- character_set_results
--- utf8
+-- collation_connection
+-- utf8mb3
 -- utf8mb4
 -- utf8mb4
+-- utf8mb4_0900_ai_ci
 1
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:

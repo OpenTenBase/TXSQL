@@ -197,6 +197,11 @@ class TimingIterator final : public RowIterator {
   RealIterator *real_iterator() override { return &m_iterator; }
   const RealIterator *real_iterator() const override { return &m_iterator; }
 
+#if defined(HAVE_PX)
+  virtual PhysicalRowIteratorType type() override { return m_iterator.type(); }
+  virtual void adjust_children() override { m_iterator.adjust_children(); }
+#endif /* defined(HAVE_PX) */
+
  private:
   /** This maintains the profiling measurements.*/
   IteratorProfilerImpl m_profiler;

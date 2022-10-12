@@ -285,7 +285,7 @@ Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `s` from `test`.`t1` gro
 select sum(b) s from t1 group by a;
 s
 -0.00
--0.00
+0.00
 0.00
 0.00
 0.00
@@ -317,8 +317,8 @@ test.t1	analyze	status	OK
 explain select sum(b) s from t1 group by a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	a	a	14	NULL	26	100.00	Parallel scan (4 workers); Using index
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using merge sort
+1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	26	100.00	Send to (<receiver1>)
+1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	26	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `s` from `test`.`t1` group by `test`.`t1`.`a`
 select sum(b) s from t1 group by a;
@@ -339,7 +339,7 @@ select sum(b) s from t1 group by a having s <=> 0;
 s
 -0.00
 -0.00
--0.00
+0.00
 0.00
 0.00
 select sum(b) s from t1 group by a having s <=> 0 order by s;

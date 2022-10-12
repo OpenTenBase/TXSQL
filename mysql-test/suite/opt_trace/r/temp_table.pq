@@ -15,8 +15,8 @@ INSERT INTO t1 SELECT pk, col1, col1 FROM tmp;
 SELECT uniq, col1 FROM t1 GROUP BY col2,uniq LIMIT 3;
 uniq	col1
 1	a
-2	b
-3	c
+4	d
+7	g
 SELECT * FROM information_schema.OPTIMIZER_TRACE;
 QUERY	TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	INSUFFICIENT_PRIVILEGES
 SELECT uniq, col1 FROM t1 GROUP BY col2,uniq LIMIT 3	{
@@ -531,8 +531,8 @@ SELECT pool_id FROM information_schema.INNODB_BUFFER_PAGE LIMIT 1	{
     {
       "creating_tmp_table": {
         "tmp_table_info": {
-          "columns": 20,
-          "row_length": 6852,
+          "columns": 21,
+          "row_length": 6863,
           "key_length": 0,
           "unique_constraint": false,
           "makes_grouped_rows": false,
@@ -639,8 +639,8 @@ SELECT pool_id FROM information_schema.INNODB_BUFFER_PAGE LIMIT 1	{
               "tmp_table_info": {
                 "table": "`information_schema`.`INNODB_BUFFER_PAGE`",
                 "in_plan_at_position": 0,
-                "columns": 20,
-                "row_length": 6852,
+                "columns": 21,
+                "row_length": 6863,
                 "key_length": 0,
                 "unique_constraint": false,
                 "makes_grouped_rows": false,
@@ -1247,8 +1247,8 @@ ORDER BY cc	{
               "memory_available": 262144,
               "key_size": 8,
               "row_size": 769,
-              "max_rows_per_buffer": 337,
-              "num_rows_estimate": 18446744073709551615,
+              "max_rows_per_buffer": 132,
+              "num_rows_estimate": 132,
               "num_rows_found": 132,
               "num_initial_chunks_spilled_to_disk": 0,
               "peak_memory_used": "NNN",
@@ -1275,7 +1275,7 @@ ORDER BY cc	{
               "key_size": 1001,
               "row_size": 2512,
               "max_rows_per_buffer": 104,
-              "num_rows_estimate": 18446744073709551615,
+              "num_rows_estimate": 132,
               "num_rows_found": 66,
               "num_initial_chunks_spilled_to_disk": 0,
               "peak_memory_used": "NNN",

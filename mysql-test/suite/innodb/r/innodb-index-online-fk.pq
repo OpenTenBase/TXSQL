@@ -120,7 +120,9 @@ test/child	a2
 SELECT NAME FROM information_schema.INNODB_TABLES WHERE NAME not like 'sys\/%'
   AND name NOT LIKE 'mysql\/%';
 NAME
+mtr/asserted_test_suppressions
 mtr/global_suppressions
+mtr/test_ignored_global_suppressions
 mtr/test_suppressions
 test/child
 test/parent
@@ -307,7 +309,9 @@ test/child	a2
 SELECT NAME FROM information_schema.INNODB_TABLES WHERE NAME not like 'sys\/%'
   AND name NOT LIKE 'mysql\/%';
 NAME
+mtr/asserted_test_suppressions
 mtr/global_suppressions
+mtr/test_ignored_global_suppressions
 mtr/test_suppressions
 test/child
 test/parent
@@ -328,7 +332,9 @@ test/child	a3
 SELECT NAME FROM information_schema.INNODB_TABLES WHERE NAME not like 'sys\/%'
   AND name NOT LIKE 'mysql\/%';
 NAME
+mtr/asserted_test_suppressions
 mtr/global_suppressions
+mtr/test_ignored_global_suppressions
 mtr/test_suppressions
 test/child
 test/parent
@@ -360,7 +366,9 @@ test/child	a2
 SELECT NAME FROM information_schema.INNODB_TABLES WHERE NAME not like 'sys\/%'
   AND name NOT LIKE 'mysql\/%';
 NAME
+mtr/asserted_test_suppressions
 mtr/global_suppressions
+mtr/test_ignored_global_suppressions
 mtr/test_suppressions
 test/child
 test/parent
@@ -392,7 +400,9 @@ test/child	a3
 SELECT NAME FROM information_schema.INNODB_TABLES WHERE NAME not like 'sys\/%'
   AND name NOT LIKE 'mysql\/%';
 NAME
+mtr/asserted_test_suppressions
 mtr/global_suppressions
+mtr/test_ignored_global_suppressions
 mtr/test_suppressions
 test/child
 test/parent

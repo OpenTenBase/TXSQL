@@ -17,7 +17,7 @@ new
 SELECT number, alpha, CONCAT_WS('<->',number,alpha) AS new
 FROM t1 GROUP BY new LIMIT 1;
 number	alpha	new
-1413304	qerfnd	1413304<->qerfnd
+1413006	idlfmv	1413006<->idlfmv
 SELECT number, alpha, CONCAT_WS('-',number,alpha,alpha,alpha,alpha,alpha,alpha,alpha) AS new
 FROM t1 GROUP BY new LIMIT 1;
 number	alpha	new
@@ -132,7 +132,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
 1	SIMPLE	t1	NULL	eq_ref	PRIMARY,a	PRIMARY	318	func,const,const	#	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select concat('gui_',`test`.`t2`.`a`) AS `CONCAT('gui_', t2.a)`,`test`.`t1`.`d` AS `d` from `test`.`t2` left join `test`.`t1` on(((`test`.`t1`.`a` = convert(concat('gui_',`test`.`t2`.`a`) using utf8)) and (`test`.`t1`.`b` = 'a') and (`test`.`t1`.`c` = 'b'))) where true
+Note	1003	/* select#1 */ select concat('gui_',`test`.`t2`.`a`) AS `CONCAT('gui_', t2.a)`,`test`.`t1`.`d` AS `d` from `test`.`t2` left join `test`.`t1` on(((`test`.`t1`.`a` = concat('gui_',`test`.`t2`.`a`)) and (`test`.`t1`.`b` = 'a') and (`test`.`t1`.`c` = 'b'))) where true
 DROP TABLE t1, t2;
 #
 # Bug #50096: CONCAT_WS inside procedure returning wrong data

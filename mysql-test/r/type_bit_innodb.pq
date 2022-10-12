@@ -149,8 +149,8 @@ a+0
 explain select b+0 from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	a	5	NULL	38	100.00	Using index
-Warnings:
 Note	1003	/* select#1 */ select (`test`.`t1`.`b` + 0) AS `b+0` from `test`.`t1`
+Warnings:
 select b+0 from t1;
 b+0
 118
@@ -419,3 +419,22 @@ b'1111111111111111111111111111111111111111111111111111111111111111';
 HEX(a)
 FFFFFFFFFFFFFFFF
 DROP TABLE t1;
+#
+# Bug #31019130 CASTING DOUBLE TO LONGLONG CAUSES UB
+#               IN FIELD_*::STORE(DOUBLE)
+#
+CREATE TABLE t_double (a double not null);
+INSERT INTO t_double (a) VALUES
+(-20000000000000000000000000000.0001), (20000000000000000000000000000.0001);
+CREATE TABLE t_bit (
+b bit(3)
+);
+INSERT IGNORE INTO t_bit (b) SELECT a from t_double;
+Warnings:
+Warning	1406	Data too long for column 'b' at row 1
+Warning	1406	Data too long for column 'b' at row 2
+SELECT HEX(b) FROM t_bit;
+HEX(b)
+7
+7
+DROP TABLE t_double, t_bit;

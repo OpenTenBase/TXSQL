@@ -8,11 +8,11 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 INSERT INTO t1 VALUES ('a',1),('A',1),('aa',1),('AA',1),('a',1),('aaa',0),('BBB',0);
 select if(1,st,st) s from t1 order by s;
 s
+a
+a
 A
-a
-a
-AA
 aa
+AA
 aaa
 BBB
 select if(u=1,st,st) s from t1 order by s;
@@ -20,8 +20,8 @@ s
 a
 a
 A
-aa
 AA
+aa
 aaa
 BBB
 select if(u=1,binary st,st) s from t1 order by s;
@@ -33,6 +33,12 @@ a
 a
 aa
 aaa
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select if(u=1,st,binary st) s from t1 where st like "%a%" order by s;
 s
 A
@@ -41,6 +47,12 @@ a
 a
 aa
 aaa
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
@@ -50,6 +62,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	7	100.00	Receive from (<sender1>); Using merge sort
 Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Note	1003	/* select#1 */ select if((`test`.`t1`.`u` = 1),`test`.`t1`.`st`,cast(`test`.`t1`.`st` as char charset binary)) AS `s` from `test`.`t1` where (`test`.`t1`.`st` like '%a%') order by `s`
 select nullif(u, 1) from t1;
 nullif(u, 1)
@@ -140,7 +153,7 @@ insert into t1 values(1,1),(0,0);
 select f1, f2, if(f1, 40.0, 5.00) from t1 group by f1 order by f2;
 f1	f2	if(f1, 40.0, 5.00)
 0	0	5.00
-1	1	40.00
+1	1	40.0
 drop table t1;
 select if(0, 18446744073709551610, 18446744073709551610);
 if(0, 18446744073709551610, 18446744073709551610)
@@ -324,4 +337,11 @@ SELECT JSON_ARRAYAGG(CASE WHEN true = false THEN NULL ELSE true END);
 JSON_ARRAYAGG(CASE WHEN true = false THEN NULL ELSE true END)
 [1]
 # Bug#32231557: Field_blob::store_to_mem: assertion `field_charset == cs' failed.
-DO GROUP_CONCAT(NULLIF(POINT(250,41), ELT(1, @e)) ORDER BY 1);
+DO GROUP_CONCAT(NULLIF(ELT(1, @e), POINT(250,41)) ORDER BY 1);
+# Bug#32816305: Prepare type checking error
+CREATE TABLE t (t_date DATETIME NULL);
+PREPARE ps FROM 'INSERT INTO t SET t_date = NULLIF(?, '''')';
+SET @t_date = NOW();
+EXECUTE ps USING @t_date;
+DEALLOCATE PREPARE ps;
+DROP TABLE t;

@@ -337,6 +337,31 @@ static bool init_index(TABLE *table, handler *file, uint idx, bool sorted) {
   return false;
 }
 
+#if defined(HAVE_PX)
+template <bool Reverse>
+std::shared_ptr<PX_table_descriptor> RefIterator<Reverse>::get_table_descriptor() const {
+  auto descriptor = std::shared_ptr<PX_table_descriptor>(
+      new (thd()->mem_root) PX_table_descriptor(table(), PX_REF_SCAN,
+          m_ref->key, Reverse),
+      [](PX_table_descriptor *table_descriptor) { destroy(table_descriptor); });
+
+  if (descriptor.get() == nullptr) {
+    my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0), "", __FUNCTION__);
+  }
+
+  return descriptor;
+}
+
+template <bool Reverse>
+bool RefIterator<Reverse>::prepare_for_parallel_query() {
+  table()->file->px_ref_key.key = m_ref->key_buff;
+  table()->file->px_ref_key.keypart_map = make_prev_keypart_map(m_ref->key_parts);
+  table()->file->px_ref_key.length = m_ref->key_length;
+  table()->file->px_ref_key.flag = HA_READ_KEY_OR_NEXT;
+  return false;
+}
+#endif /* defined(HAVE_PX) */
+
 template <bool Reverse>
 bool RefIterator<Reverse>::Init() {
   m_first_record_since_init = true;

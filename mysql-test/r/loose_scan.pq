@@ -142,7 +142,6 @@ SELECT t2.col_varchar_key FROM t2 WHERE t2.pk > t1.col_int
 );
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (1 workers)
-1	SIMPLE	t2	NULL	index	PRIMARY,col_varchar_key	col_varchar_key	7	NULL	#	100.00	Using where; Using index; LooseScan
 1	SIMPLE	t3	NULL	ref	col_varchar_key	col_varchar_key	7	test.t2.col_varchar_key	#	100.00	Using index
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Receive from (<sender1>)
@@ -214,3 +213,27 @@ a	b
 2	2
 2	2
 DROP TABLE t1, t2, t3, t4;
+#
+# Bug #32597719: WL#14325: ASSERTION `IS_NULL_ROW == FALSE' FAILED|SQL/SORTING_ITERATOR.H
+#
+CREATE TABLE t1 (
+col_int INTEGER,
+col_varchar_key VARCHAR(1)
+);
+CREATE TABLE t2 (
+pk INTEGER,
+j JSON
+);
+INSERT INTO t2 VALUES (1,'true'),(2,'true'),(3,'true'),(4,'true'),(5,'true');
+ANALYZE TABLE t1, t2;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+SELECT SUM(t1.col_int)
+FROM t1, t2
+WHERE t2.j IN (
+SELECT t3.j FROM t2 JOIN t2 AS t3 ON t2.pk <> t3.pk
+) AND t1.col_varchar_key='';
+SUM(t1.col_int)
+NULL
+DROP TABLE t1, t2;
