@@ -1530,6 +1530,7 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"REGEXP_LIKE", SQL_FN_V_LIST(Item_func_regexp_like, 2, 3)},
     {"REGEXP_REPLACE", SQL_FN_V_LIST(Item_func_regexp_replace, 3, 6)},
     {"REGEXP_SUBSTR", SQL_FN_V_LIST(Item_func_regexp_substr, 2, 5)},
+    {"REINTERPRET_INT", SQL_FN(Item_func_reinterpret_int, 3)},
     {"RELEASE_ALL_LOCKS", SQL_FN(Item_func_release_all_locks, 0)},
     {"RELEASE_LOCK", SQL_FN(Item_func_release_lock, 1)},
     {"REVERSE", SQL_FN(Item_func_reverse, 1)},

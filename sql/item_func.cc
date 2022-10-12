@@ -10246,4 +10246,74 @@ bool Item_func::is_valid_for_backquery() const {
   }
   return true;
 }
+
+/*
+  Reject deicimal arguments, should be called in resolve_type() for
+  SQL functions/operators where geometries are not suitable as operands.
+ */
+static bool reject_decimal_args(uint arg_count, Item **args, Item_result_field *me) {
+  /*
+    Used for reinterpret functions, we cann't simple reinterprest a decimal value
+    from it's memory.
+  */
+  for (uint i = 0; i < arg_count; i++) {
+    if (args[i]->result_type() != ROW_RESULT &&
+        (args[i]->data_type() == MYSQL_TYPE_DECIMAL ||
+         args[i]->data_type() == MYSQL_TYPE_NEWDECIMAL)) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), me->func_name());
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool Item_func_reinterpret_int::resolve_type(THD *thd) {
+  if (reject_geometry_args(arg_count, args, this) ||
+    reject_decimal_args(arg_count, args, this)) return true;
+  return args[0]->propagate_type(thd, MYSQL_TYPE_LONGLONG, false, true);
+}
+
+longlong Item_func_reinterpret_int::val_int() {
+  longlong value = 0;
+  char value_cache[MY_LONGLONG_NUM_BYTES];
+  void *value_ptr = value_cache;
+  unsigned_flag = args[1]->val_bool();
+  size_t bytes = args[2]->val_int();
+
+  memset(value_cache, 0, MY_LONGLONG_NUM_BYTES);
+  if (bytes  > MY_LONGLONG_NUM_BYTES) {
+    bytes = MY_LONGLONG_NUM_BYTES;
+    push_warning(current_thd, Sql_condition::SL_WARNING,
+                 ER_REINTERPRET_INT_BYTES_TRUNCATED,
+                 ER_THD(current_thd, ER_REINTERPRET_INT_BYTES_TRUNCATED));
+  }
+
+  if (args[0]->cast_to_int_type() == REAL_RESULT) {
+    if (args[0]->data_type() == MYSQL_TYPE_FLOAT) {
+      float data = static_cast<float>(args[0]->val_real());
+      memcpy(value_cache, &data, min(bytes, sizeof(float)));
+    } else {
+      double data = args[0]->val_real();
+      memcpy(value_cache, &data, min(bytes, sizeof(double)));
+    }
+    memcpy(&value, value_ptr, sizeof(longlong));
+    null_value = args[0]->null_value;
+  } else if (args[0]->cast_to_int_type() == INT_RESULT) {
+    longlong data = args[0]->val_int();
+    memcpy(value_cache, &data, bytes);
+    memcpy(&value, value_ptr, sizeof(longlong));
+    null_value = args[0]->null_value;
+  } else {
+    StringBuffer<MAX_FIELD_WIDTH> buffer;
+    String *res = args[0]->val_str(&buffer);
+    null_value = args[0]->null_value;
+    if (!null_value) {
+      memcpy(value_cache, res->ptr(), min(bytes, res->length()));
+      memcpy(&value, value_ptr, sizeof(longlong));
+    }
+  }
+
+  return value;
+}
 /* Changes from TXSQL end. */
