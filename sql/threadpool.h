@@ -51,6 +51,14 @@ extern bool threadpool_process_request_prepare(THD *thd);
 extern void threadpool_remove_psi(THD *thd);
 extern void threadpool_remove_connection_except_psi(THD *thd);
 
+#ifdef HAVE_TDSQL
+extern bool threadpool_eager_mode;
+extern bool threadpool_listen_eager_mode;
+extern bool threadpool_oversubscribe_parall;
+extern uint threadpool_oversubscribe_extra_threads;
+extern uint threadpool_queue_congest_req_timeout;
+extern uint threadpool_queue_congest_threshold;
+#endif /* HAVE_TDSQL */
 /*
   Functions used by scheduler.
   OS-specific implementations are in

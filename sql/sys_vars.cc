@@ -7819,7 +7819,7 @@ static Sys_var_uint Sys_threadpool_stall_limit(
     "If a worker thread is stalled, additional worker thread "
     "may be created to handle remaining clients.",
     GLOBAL_VAR(threadpool_stall_limit), CMD_LINE(REQUIRED_ARG),
-    VALID_RANGE(10, UINT_MAX), DEFAULT(500), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    VALID_RANGE(1, UINT_MAX), DEFAULT(500), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(fix_threadpool_stall_limit));
 
 static Sys_var_uint Sys_threadpool_high_prio_tickets(
@@ -8177,4 +8177,47 @@ static Sys_var_bool Sys_opt_outline_enabled(
     NON_PERSIST SESSION_VAR(cdb_opt_outline_enabled), CMD_LINE(OPT_ARG), DEFAULT(false), 
     NO_MUTEX_GUARD, NOT_IN_BINLOG, 
     ON_CHECK(NULL), ON_UPDATE(NULL));
+
+#ifdef HAVE_TDSQL
+static Sys_var_bool Sys_threadpool_eager_mode(
+    "thread_pool_eager_mode",
+    "Always take on requests, and wake up and/or create even more threads when"
+    " there is pending requests, even already over subscribed(eager mode).",
+    GLOBAL_VAR(threadpool_eager_mode), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_threadpool_listen_eager_mode(
+    "thread_pool_listen_eager_mode", "listener will wake more thread",
+    GLOBAL_VAR(threadpool_listen_eager_mode), CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_threadpool_oversubscribeParall(
+    "thread_pool_oversubscribe_parall",
+    "If request queue is congested, always take on requests, and at most"
+    " thread_pool_oversubscribe_parall_num worker threads will be wakenup or "
+    "created"
+    " regardless of the thread_pool_oversubscribe limit.",
+    GLOBAL_VAR(threadpool_oversubscribe_parall), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
+
+static Sys_var_uint Sys_threadpool_oversubscribeParallNum(
+    "thread_pool_oversubscribe_parall_num",
+    "The number of extra threads allowed to create in eager mode.",
+    GLOBAL_VAR(threadpool_oversubscribe_extra_threads), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 100), DEFAULT(3), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_threadpool_oversubscribeParallTimeout(
+    "thread_pool_oversubscribe_parall_timeout",
+    "If a client's request is not processed after this many milli-seconds since"
+    " it was put into thread pool's request queue, the queue is seen as "
+    "congested.",
+    GLOBAL_VAR(threadpool_queue_congest_req_timeout), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 1000 * 10), DEFAULT(5), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_threadpool_queue_congest_threshold(
+    "thread_pool_queue_congest_threshold",
+    "If any of the threadpool's request queue has more than this many requests "
+    "to"
+    " process, the queue is seen as congested.",
+    GLOBAL_VAR(threadpool_queue_congest_threshold), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1, 1024), DEFAULT(5), BLOCK_SIZE(1));
+#endif /* HAVE_TDSQL */
 /* Changes from txsql end. */
