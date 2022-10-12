@@ -4084,4 +4084,19 @@ bool is_function_of_type(const Item *item, Item_func::Functype type);
 /// Checks if "item" contains a function of the specified type.
 bool contains_function_of_type(Item *item, Item_func::Functype type);
 
+/* Changes from TXSQL start. */
+
+#define MY_LONGLONG_NUM_BYTES 8U
+class Item_func_reinterpret_int : public Item_int_func {
+ public:
+  Item_func_reinterpret_int(const POS &pos, Item *a, Item *b, Item *c)
+    : Item_int_func(pos, a, b, c) {
+  }
+  longlong val_int() override;
+  bool resolve_type(THD *thd) override;
+  const char *func_name() const override { return "reinterpret_int"; }
+};
+
+/* Changes from TXSQL end. */
+
 #endif /* ITEM_FUNC_INCLUDED */
