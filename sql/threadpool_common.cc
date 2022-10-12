@@ -43,6 +43,26 @@ uint threadpool_stall_limit;
 uint threadpool_max_threads;
 uint threadpool_oversubscribe;
 
+#ifdef HAVE_TDSQL
+/**
+  Whether to ignore the thread limit by threadpool_oversubscribe(in
+  too_many_xxx() functions.)
+  when deciding whether to take a job, or wakeup or create more threads.
+  Specifically, when this is 1,
+  a. a worker thread always takes a connection to work on when available.
+  b. if canActiveMoreThreads() and a connection is put to a thread group's
+  queue(in queue_put()), wake up a sleeping thread or create a new one if none
+  sleeping. c. a listener always wakes up enough worker threads or create(if
+  none sleeping) one new worker thread.
+*/
+bool threadpool_eager_mode = 0;
+bool threadpool_listen_eager_mode = 1;
+bool threadpool_oversubscribe_parall = 1;
+uint threadpool_queue_congest_req_timeout = 5;
+uint threadpool_queue_congest_threshold = 5;
+uint threadpool_oversubscribe_extra_threads = 3;
+#endif /* HAVE_TDSQL */
+
 /* Stats */
 TP_STATISTICS tp_stats;
 
