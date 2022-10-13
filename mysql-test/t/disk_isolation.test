@@ -1,0 +1,241 @@
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+
+show grants;
+connect(conn_tencent,localhost,tencentroot,,);
+set global cdb_working_mode_enabled=off;
+select user();
+
+--disable_query_log
+call mtr.add_suppression("TXSQL: kill nonsuper threads: id=[0-9]*, system_type=[0-9]*");
+--enable_query_log
+
+create table t1(a int, b int, c int);
+insert into t1 values(1,2,3);
+select * from t1;
+
+create user 'user1'@'%';
+grant all on test.* to 'user1'@'%';
+
+connect(conn_user1,localhost,user1,,);
+insert into t1 values(2,3,4);
+insert into t1 values(3,4,5);
+select * from t1;
+delete from t1 where t1.a = 3;
+update t1 set t1.b=4 where t1.a=2;
+select * from t1;
+
+#case 1.1: when cdb_work_mode_enable is off.
+#==================================================================
+connection conn_tencent;
+set global cdb_working_mode_enabled=off;
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user1;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+insert into t1 values(2,3,4);
+--error ER_CDB_LOCK_INSTANCE_WRITE
+delete from t1 where t1.a = 1;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+update t1 set t1.b = 1 where t1.a = 1;
+#successfully execute select
+select * from t1 where t1.a > 1;
+
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+
+connection conn_user1;
+insert into t1 values(2,3,4);
+delete from t1 where t1.a = 1;
+update t1 set t1.b = 1 where t1.a = 1;
+select * from t1 where t1.a > 1;
+
+#case 1.2: when the cdb_work_mode_enable is on, still in lease.
+#==================================================================
+connection conn_tencent;
+set global cdb_working_mode_enabled=on;
+set global cdb_workmode_life_interval=10000000000000;
+set global cdb_working_mode_default=readwrite;
+set global cdb_instance_mode=lockwrite;
+
+connect(conn_user2,localhost,user1,,);
+--error ER_CDB_LOCK_INSTANCE_WRITE
+insert into t1 values(10,20,30);
+--error ER_CDB_LOCK_INSTANCE_WRITE
+update t1 set t1.b = 40 where t1.a=10;
+select * from t1;
+
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+insert into t1 values(10,20,30);
+update t1 set t1.b = 40 where t1.a=10;
+select * from t1;
+
+#case 1.3: when the cdb_work_mode_enable is on, first disk full, then offline.
+#==================================================================
+connection conn_tencent;
+set global cdb_instance_mode=lockwrite;
+set global cdb_working_mode_enabled=on;
+set global cdb_working_mode_default=offline;
+
+--error ER_SERVER_OFFLINE_MODE
+connection conn_user2;
+--error 2013
+insert into t1 values(10,20,30);
+
+connection conn_tencent;
+set global cdb_working_mode_enabled=off;
+set global cdb_working_mode_default=readwrite;
+
+connect(conn_user4,localhost,user1,,);
+--error ER_CDB_LOCK_INSTANCE_WRITE
+insert into t1 values(2,3,4);
+select * from t1;
+
+#case 2: query will take long.
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+create table tt(c1 int default null, c2 longtext) engine=innodb default charset=utf8mb4;
+create table tt1(c1 int default null, c2 longtext) engine=innodb default charset=utf8mb4;
+insert into tt values(1, repeat('a',10));
+
+delimiter //;
+create procedure test.per2()
+begin
+declare num int;
+set num=1;
+while num < 20 do 
+insert into test.tt1 values(1, repeat('a',10));
+set num=num+1;
+end while;
+end//
+delimiter ;//
+
+#case 2.1: set the cdb_instance_mode when query executing.
+#          the query will take long time, update/select/delete will be killed.
+#update==================================================================
+connect(conn_user5,localhost,root,,);
+call test.per2;
+set debug_sync = "ha_update_row_end wait_for flushed execute 1";
+--send update tt1 set tt1.c2='123' where tt1.c1=1;
+connection conn_tencent;
+let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%update%';
+--source include/wait_condition.inc
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user5;
+--error ER_QUERY_INTERRUPTED
+--reap;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+insert into t1 values(111,222,333);
+
+#delete==================================================================
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+connect(conn_user6,localhost,root,,);
+set debug_sync = "ha_delete_row_execute wait_for flushed execute 1";
+--send delete from t1 where t1.a>1;
+connection conn_tencent;
+let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%ha_delete_row%';
+--source include/wait_condition.inc
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user6;
+--error ER_QUERY_INTERRUPTED
+--reap;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+insert into t1 values(222,333,444);
+
+#insert==================================================================
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+connect(conn_user7,localhost,root,,);
+set debug_sync = "ha_write_row_execute wait_for flushed execute 1";
+--send insert into t1 values(33,44,55),(55,66,77),(66,77,88);
+connection conn_tencent;
+let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%ha_write_row%';
+--source include/wait_condition.inc
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user7;
+--error ER_QUERY_INTERRUPTED
+--reap;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+insert into t1 values(222,333,444);
+
+#create table/index/db/procedure==========================================
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+connect(conn_user8,localhost,root,,);
+set debug_sync = "mysql_create_table_begin wait_for flushed execute 1";
+--send create table t3(a int, b int, c int);
+connection conn_tencent;
+let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%mysql_create_table_begin%';
+--source include/wait_condition.inc
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user8;
+--error ER_QUERY_INTERRUPTED
+--reap;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+create table t3(a int, b int, c int);
+--error ER_CDB_LOCK_INSTANCE_WRITE
+create database db1;
+
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+connect(conn_user9,localhost,root,,);
+set debug_sync = "alter_table_before_open_tables wait_for flushed execute 1";
+--send create index index1 on t1(a);
+connection conn_tencent;
+let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%alter_table_before_open_tables%';
+--source include/wait_condition.inc
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user9;
+--error ER_QUERY_INTERRUPTED
+--reap;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+create index index1 on t1(a);
+
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+connection conn_user9;
+create index index1 on t1(a);
+set debug_sync = "alter_table_before_open_tables wait_for flushed execute 1";
+--send alter table t1 drop index index1;
+connection conn_tencent;
+let $wait_condition=select count(*)=1 from information_schema.processlist where state like '%alter_table_before_open_tables%';
+--source include/wait_condition.inc
+set global cdb_instance_mode=lockwrite;
+
+connection conn_user9;
+--error ER_QUERY_INTERRUPTED
+--reap;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+alter table t1 drop index index1;
+--error ER_CDB_LOCK_INSTANCE_WRITE
+create view v1 as (select * from t1);
+
+#case 3.1: set the cdb_instance_mode when read only.
+#          reject the select query.
+#==================================================================
+connection conn_tencent;
+set global cdb_instance_mode=lockread;
+set global read_only=on;
+connect(conn_user11,localhost,root,,);
+connection conn_user11;
+--error ER_CDB_LOCK_INSTANCE_READ
+select * from t1;
+
+connection conn_tencent;
+set global cdb_instance_mode=readwrite;
+set global cdb_working_mode_enabled=on;
+set global cdb_working_mode_default=readwrite;
+set global read_only=off;
+
+drop table tt;
+drop table tt1;
+drop procedure test.per2;
+drop table t1;
+drop user 'user1'@'%';

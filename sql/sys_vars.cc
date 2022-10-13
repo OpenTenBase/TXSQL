@@ -8234,6 +8234,26 @@ static Sys_var_bool Sys_opt_outline_enabled(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, 
     ON_CHECK(NULL), ON_UPDATE(NULL));
 
+static bool update_cdb_instance_mode(sys_var *, THD *, enum_var_type) {
+  if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE)
+    killall_non_super_threads(NULL);
+  else if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKREAD)
+    killall_non_super_threads(NULL);
+  return false;
+}
+
+const char *cdb_instance_mode_names[] = {"READWRITE", "LOCKWRITE", "LOCKREAD", 0};
+static Sys_var_enum Sys_cdb_instance_mode(
+    "cdb_instance_mode", "cdb_instance_mode value to assign when mysqld works. "
+    "CDB_INSTANCEMODE_READWRITE means accept any requests, "
+    "CDB_INSTANCEMODE_LOCKWRITE means doesn't accept write requests, "
+    "CDB_INSTANCEMODE_LOCKREAD means doesn't accept read requests, "
+    "users with super privilege will be handled uninfluential ",
+    GLOBAL_VAR(cdb_instance_mode), CMD_LINE(OPT_ARG),
+    cdb_instance_mode_names, DEFAULT(CDB_INSTANCEMODE_READWRITE),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+    ON_UPDATE(update_cdb_instance_mode));
+
 #ifdef HAVE_TDSQL
 static Sys_var_bool Sys_threadpool_eager_mode(
     "thread_pool_eager_mode",

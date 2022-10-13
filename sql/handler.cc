@@ -8098,6 +8098,8 @@ int handler::ha_write_row(uchar *buf) {
       my_error(HA_ERR_CRASHED, MYF(ME_ERRORLOG), table_share->table_name.str);
       set_my_errno(HA_ERR_CRASHED); return HA_ERR_CRASHED;);
 
+  DEBUG_SYNC_C("ha_write_row_execute");
+
   MYSQL_TABLE_IO_WAIT(PSI_TABLE_WRITE_ROW, MAX_KEY, error,
                       { error = write_row(buf); })
 
@@ -8135,6 +8137,8 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
   if (unlikely(error)) return error;
   if (unlikely((error = binlog_log_row(table, old_data, new_data, log_func))))
     return error;
+
+  DEBUG_SYNC_C("ha_update_row_end");
   return 0;
 }
 
@@ -8155,12 +8159,17 @@ int handler::ha_delete_row(const uchar *buf) {
 
   mark_trx_read_write();
 
+
+  DEBUG_SYNC_C("ha_delete_row_execute");  
+
   MYSQL_TABLE_IO_WAIT(PSI_TABLE_DELETE_ROW, active_index, error,
                       { error = delete_row(buf); })
 
   if (unlikely(error)) return error;
   if (unlikely((error = binlog_log_row(table, buf, nullptr, log_func))))
     return error;
+
+  DEBUG_SYNC_C("ha_delete_row_end");  
   return 0;
 }
 

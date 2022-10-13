@@ -9879,6 +9879,12 @@ ER_WRONG_FORMAT_STRING
 ER_CDB_OUTLINE_SET_ERROR
   eng "SET outline_info failed, reason: %s"
 
+ER_CDB_LOCK_INSTANCE_WRITE
+  eng "cdb instance is locked for writing."
+
+ER_CDB_LOCK_INSTANCE_READ
+  eng "cdb instance is locked for reading."
+
 ## extra for semi-sync plugin
 ER_CDB_ERROR_IN_SYNC_DATA
   eng "The binlog(file: %s, end_pos: %lu) of the transaction may not be synchronized to slave when server shutdown."

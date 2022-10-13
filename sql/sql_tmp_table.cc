@@ -2521,6 +2521,11 @@ bool create_ondisk_from_heap(THD *thd, TABLE *wtable, int error,
   bool table_on_disk = false;
   DBUG_TRACE;
 
+  if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE) {
+    my_error(ER_CDB_LOCK_INSTANCE_WRITE, MYF(0));
+    return true;
+  }
+
   if (error != HA_ERR_RECORD_FILE_FULL) {
     /*
       We don't want this error to be converted to a warning, e.g. in case of

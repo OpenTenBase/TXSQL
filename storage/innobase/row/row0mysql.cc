@@ -2084,7 +2084,9 @@ dberr_t row_insert_for_mysql(const byte *mysql_rec, row_prebuilt_t *prebuilt) {
   /* For intrinsic tables there a lot of restrictions that can be
   relaxed including locking of table, transaction handling, etc.
   Use direct cursor interface for inserting to intrinsic tables. */
-  if (prebuilt->table->is_intrinsic()) {
+  if (trx_is_interrupted(prebuilt->trx)) {
+    return DB_INTERRUPTED;
+  } else if (prebuilt->table->is_intrinsic()) {
     return (row_insert_for_mysql_using_cursor(mysql_rec, prebuilt));
   } else {
     return (row_insert_for_mysql_using_ins_graph(mysql_rec, prebuilt));
@@ -2820,7 +2822,9 @@ error:
 @param[in,out]  prebuilt        prebuilt struct in MySQL handle
 @return error code or DB_SUCCESS */
 dberr_t row_update_for_mysql(const byte *mysql_rec, row_prebuilt_t *prebuilt) {
-  if (prebuilt->table->is_intrinsic()) {
+  if (trx_is_interrupted(prebuilt->trx)) {
+    return DB_INTERRUPTED;
+  } else if (prebuilt->table->is_intrinsic()) {
     return (row_del_upd_for_mysql_using_cursor(prebuilt));
   } else {
     ut_a(prebuilt->template_type == ROW_MYSQL_WHOLE_ROW);

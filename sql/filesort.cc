@@ -505,7 +505,11 @@ bool filesort(THD *thd, Filesort *filesort, RowIterator *source_iterator,
         thd, param, filesort->tables, tables_to_get_rowid_for, fs_info,
         &chunk_file, &tempfile, param->using_pq ? &pq : nullptr,
         source_iterator, found_rows, &longest_key, &longest_addons);
-    if (num_rows_found == HA_POS_ERROR) goto err;
+    if (num_rows_found == HA_POS_ERROR) {
+      if(cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE)
+        my_error(ER_CDB_LOCK_INSTANCE_WRITE,MYF(0));
+      goto err;
+    }
   }
 
   size_t num_chunks, num_initial_chunks;
@@ -1089,6 +1093,9 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
                       IO_CACHE *chunk_file, IO_CACHE *tempfile) {
   Merge_chunk merge_chunk;
   DBUG_TRACE;
+
+  if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE)
+    return 1;
 
   count = fs_info->sort_buffer(param, count, param->max_rows);
 
