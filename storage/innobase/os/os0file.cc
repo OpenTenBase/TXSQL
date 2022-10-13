@@ -5498,7 +5498,7 @@ void os_file_set_nocache(int fd [[maybe_unused]],
 #endif /* defined(UNIV_SOLARIS) && defined(DIRECTIO_ON) */
 }
 
-bool os_file_set_size_fast(const char *name, pfs_os_file_t pfs_file,
+bool os_file_set_size_fast(const char *name, pfs_os_file_t &pfs_file,
                            os_offset_t offset, os_offset_t size, bool flush) {
 #if !defined(NO_FALLOCATE) && defined(UNIV_LINUX) && \
     defined(HAVE_FALLOC_FL_ZERO_RANGE)
@@ -5527,30 +5527,31 @@ bool os_file_set_size_fast(const char *name, pfs_os_file_t pfs_file,
   }
 #endif /* !NO_FALLOCATE && UNIV_LINUX && HAVE_FALLOC_FL_ZERO_RANGE */
 
-  if (offset == 0) /* ftruncate can only handle overwrite the whole file */
-    return os_file_set_size_txsql(name, pfs_file, offset, size, flush);
-  else
-    return os_file_set_size(name, pfs_file, offset, size, flush);
-}
-
-bool os_file_set_size_txsql(const char *name, pfs_os_file_t file,
-                            os_offset_t offset, os_offset_t size, bool flush) {
-  if (os_file_truncate(name, file, 0) == false) {
-    ib::info(ER_IB_MSG_1359) << "ftruncate() failed with errno " << errno
-                             << " - falling back to writing NULLs.";
-    return os_file_set_size(name, file, offset, size, flush);
+  os_file_close(pfs_file);
+  int ret2 = truncate(name, 0);
+  bool ret3;
+  if (ret2 != 0) {
+    pfs_file = os_file_create(innodb_log_file_key, name,
+                              OS_FILE_OPEN | OS_FILE_ON_ERROR_NO_EXIT,
+                              OS_FILE_NORMAL, OS_LOG_FILE, false, &ret3);
+    goto fallback;
   }
-  if (os_file_truncate(name, file, size) == false) {
-    ib::info(ER_IB_MSG_1359) << "ftruncate() failed with errno " << errno
-                             << " - falling back to writing NULLs.";
-    return os_file_set_size(name, file, offset, size, flush);
+  ret2 = truncate(name, size);
+  if (ret2 != 0) {
+    pfs_file = os_file_create(innodb_log_file_key, name,
+                              OS_FILE_OPEN | OS_FILE_ON_ERROR_NO_EXIT,
+                              OS_FILE_NORMAL, OS_LOG_FILE, false, &ret3);
+    goto fallback;
   }
-  ib::info() << "Setting file " << name << " size to " << size
-             << " bytes using ftuncate()";
-  if (flush) {
-    return (os_file_flush(file));
+  pfs_file = os_file_create(innodb_log_file_key, name,
+                            OS_FILE_OPEN | OS_FILE_ON_ERROR_NO_EXIT,
+                            OS_FILE_NORMAL, OS_LOG_FILE, false, &ret3);
+  if (!ret3) {
+    ib::error(ER_IB_MSG_LOG_FILE_OS_CREATE_FAILED, name);
+    return false;
   }
-  return true;
+fallback:
+  return os_file_set_size(name, pfs_file, offset, size, flush);
 }
 
 bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
