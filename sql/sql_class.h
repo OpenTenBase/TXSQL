@@ -3757,6 +3757,7 @@ private:
   Gtid owned_gtid;
   static const int OWNED_SIDNO_GTID_SET = -1;
   static const int OWNED_SIDNO_ANONYMOUS = -2;
+  rpl_gno extra_gno;
 
   /**
     For convenience, this contains the SID component of the GTID

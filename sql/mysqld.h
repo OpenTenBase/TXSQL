@@ -930,6 +930,7 @@ enum enum_recycle_bin_startup_mode : ulong {
 extern long recycle_bin_startup_mode;
 extern bool cdb_instant_modify_column_enabled;
 extern bool unix_socket_lock_error;
+extern bool cdb_more_gtid_feature_supported;
 
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

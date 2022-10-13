@@ -317,6 +317,8 @@ The following options may be given as the first argument:
  record_buffer, so it can reduce the negative impact on
  performance when prefetching a large number of records on
  an index. 0 means turn off the limit.
+ --cdb-more-gtid-feature-supported 
+ Gtid supported in trans and nontrans mode!
  --cdb-opt-outline-enabled 
  outline switch
  --cdb-optimize-large-trans-binlog 
@@ -1978,6 +1980,7 @@ cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
 cdb-kill-user-extra (No default value)
 cdb-max-prefetch-rows 0
+cdb-more-gtid-feature-supported FALSE
 cdb-opt-outline-enabled FALSE
 cdb-optimize-large-trans-binlog FALSE
 cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000

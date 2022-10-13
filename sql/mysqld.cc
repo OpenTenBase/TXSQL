@@ -12992,3 +12992,4 @@ ulong cdb_recycle_bin_retention = 0;
 ulong cdb_recycle_scheduler_interval = 0;
 const char *recyle_bin_startup_modes[] = {"NON", "CDB", "TXSQL", NullS};
 long recycle_bin_startup_mode = RECYCLE_BIN_NON;
+bool cdb_more_gtid_feature_supported = false;

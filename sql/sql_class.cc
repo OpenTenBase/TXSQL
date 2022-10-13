@@ -740,6 +740,7 @@ THD::THD(bool enable_plugins)
   m_catalog.str = "std";
   m_catalog.length = 3;
   password = 0;
+  extra_gno = 0;
   query_start_usec_used = false;
   check_for_truncated_fields = CHECK_FIELD_IGNORE;
   killed = NOT_KILLED;

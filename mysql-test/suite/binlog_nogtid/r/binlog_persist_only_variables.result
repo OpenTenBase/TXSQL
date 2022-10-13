@@ -26,7 +26,7 @@ VARIABLE_NAME LIKE '%source%') AND
 (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
 'innodb_master_thread_disabled_debug', 'innodb_replication_delay'))
 ORDER BY VARIABLE_NAME;
-121
+122
 CREATE TABLE non_persisted (name VARCHAR(100) PRIMARY KEY);
 INSERT INTO non_persisted VALUES
 ('gtid_executed'), ('gtid_owned'), ('gtid_purged'), ('log_bin'),
@@ -49,7 +49,7 @@ INSERT INTO aliases(name) VALUES
 ('slave_parallel_workers'), ('slave_pending_jobs_size_max'),
 ('pseudo_slave_mode'), ('skip_slave_start');
 
-include/assert.inc [Expect 121 variables in the table.]
+include/assert.inc [Expect 122 variables in the table.]
 
 # Test SET PERSIST_ONLY
 SET PERSIST_ONLY binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -81,6 +81,7 @@ SET PERSIST_ONLY binlog_transaction_dependency_history_size = @@GLOBAL.binlog_tr
 SET PERSIST_ONLY binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transaction_dependency_tracking;
 SET PERSIST_ONLY binlog_write_threshold = @@GLOBAL.binlog_write_threshold;
 SET PERSIST_ONLY cdb_enable_resource_statistics = @@GLOBAL.cdb_enable_resource_statistics;
+SET PERSIST_ONLY cdb_more_gtid_feature_supported = @@GLOBAL.cdb_more_gtid_feature_supported;
 SET PERSIST_ONLY enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
 SET PERSIST_ONLY forbid_remote_change_master = @@GLOBAL.forbid_remote_change_master;
 SET PERSIST_ONLY forbid_remote_change_sql_log_bin = @@GLOBAL.forbid_remote_change_sql_log_bin;
@@ -271,17 +272,17 @@ SET PERSIST_ONLY sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 SET PERSIST_ONLY sync_source_info = @@GLOBAL.sync_source_info;
 SET PERSIST_ONLY txsql_slave_wait_group_done = @@GLOBAL.txsql_slave_wait_group_done;
 
-include/assert.inc [Expect 108 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 109 persisted variables in persisted_variables table.]
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
-include/assert.inc [Expect 108 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 109 persisted variables in persisted_variables table.]
 
-include/assert.inc [Expect 69  persisted variables shown as PERSISTED in variables_info table.]
-include/assert.inc [Expect 69  persisted variables with matching persisted and global values.]
+include/assert.inc [Expect 70  persisted variables shown as PERSISTED in variables_info table.]
+include/assert.inc [Expect 70  persisted variables with matching persisted and global values.]
 
 ############################################################
 # 3. Test RESET PERSIST. Verify persisted variable settings
@@ -312,6 +313,7 @@ RESET PERSIST binlog_transaction_dependency_history_size;
 RESET PERSIST binlog_transaction_dependency_tracking;
 RESET PERSIST binlog_write_threshold;
 RESET PERSIST cdb_enable_resource_statistics;
+RESET PERSIST cdb_more_gtid_feature_supported;
 RESET PERSIST enforce_gtid_consistency;
 RESET PERSIST forbid_remote_change_master;
 RESET PERSIST forbid_remote_change_sql_log_bin;
