@@ -1245,6 +1245,8 @@ ulonglong cdb_sql_statistics_info_threshold = 10000;
 ulonglong cdb_optimize_large_trans_binlog_last_affected_rows_threshold = 10000;
 ulonglong cdb_optimize_large_trans_binlog_aver_affected_rows_threshold = 10000;
 
+std::atomic<ulong> cdb_instance_mode;
+
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.

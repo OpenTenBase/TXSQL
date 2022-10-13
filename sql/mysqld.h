@@ -932,5 +932,13 @@ extern bool cdb_instant_modify_column_enabled;
 extern bool unix_socket_lock_error;
 extern bool cdb_more_gtid_feature_supported;
 
+enum enum_cdb_instance_mode {
+  CDB_INSTANCEMODE_READWRITE = 0,
+  CDB_INSTANCEMODE_LOCKWRITE = 1,
+  CDB_INSTANCEMODE_LOCKREAD = 2
+};
+
+extern std::atomic<ulong> cdb_instance_mode;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

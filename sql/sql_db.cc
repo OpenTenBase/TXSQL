@@ -367,6 +367,8 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     return true;
   }
 
+  DEBUG_SYNC(thd, "mysql_create_db_begin");
+
   if (ha_check_reserved_db_name(db)) {
     my_error(ER_WRONG_DB_NAME, MYF(0), db);
     return true;

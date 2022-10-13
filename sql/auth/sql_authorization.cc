@@ -2093,6 +2093,69 @@ bool has_partial_view_routine_access(THD *thd, const char *db,
   return !check_routine_level_acl(thd, db, routine_name, is_proc);
 }
 
+/*
+  whether sql_command is locked for write
+  @param sql_command
+  @retval true means sql_command will be rejected 
+  @retval false means sql_command will be ok
+*/
+
+bool is_cdb_sql_lock_write(int sql_command) {
+  bool res= false;
+
+  switch(sql_command) {
+    case SQLCOM_CREATE_TABLE:
+    case SQLCOM_CREATE_INDEX:
+    case SQLCOM_UPDATE:
+    case SQLCOM_UPDATE_MULTI:
+    case SQLCOM_REPLACE:
+    case SQLCOM_INSERT:
+    case SQLCOM_REPLACE_SELECT:
+    case SQLCOM_INSERT_SELECT:
+    case SQLCOM_DELETE:
+    case SQLCOM_DELETE_MULTI:
+    case SQLCOM_LOAD:
+    case SQLCOM_CREATE_DB:
+    case SQLCOM_ALTER_DB:
+    case SQLCOM_CREATE_FUNCTION:
+    case SQLCOM_FLUSH:
+    case SQLCOM_CREATE_PROCEDURE:
+    case SQLCOM_CREATE_SPFUNCTION:
+    case SQLCOM_ALTER_PROCEDURE:
+    case SQLCOM_ALTER_FUNCTION:
+    case SQLCOM_CREATE_VIEW:
+    case SQLCOM_CREATE_TRIGGER:
+    case SQLCOM_ALTER_TABLE:
+      res= true;
+      break;
+    default:
+      break;
+  }
+
+  return res;
+}
+
+/*
+  whether sql_command is locked for read
+  @param sql_command
+  @retval true means sql_command will be rejected 
+  @retval false means sql_command will be ok
+*/
+
+bool is_cdb_sql_lock_read(int sql_command) {
+  bool res= false;
+
+  switch(sql_command) {
+    case SQLCOM_SELECT:
+      res= true;
+      break;
+    default:
+      break;
+  }
+
+  return res;
+}
+
 /**
   @brief Compare requested privileges with the privileges acquired from the
     User- and Db-tables.
@@ -2142,6 +2205,20 @@ bool check_access(THD *thd, ulong want_access, const char *db, ulong *save_priv,
   DBUG_PRINT("enter",
              ("db: %s  want_access: %lu  master_access: %lu", db_name.c_str(),
               want_access, sctx->master_access(db_name)));
+
+  if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE &&
+    !thd_system_privilege(thd) && 
+    is_cdb_sql_lock_write(thd->lex->sql_command)) {
+    my_error(ER_CDB_LOCK_INSTANCE_WRITE, MYF(0),
+             sctx->priv_user().str, sctx->priv_host().str, db);
+    return true;
+  } else if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKREAD &&
+      !thd_system_privilege(thd) && 
+      is_cdb_sql_lock_read(thd->lex->sql_command)) {
+    my_error(ER_CDB_LOCK_INSTANCE_READ, MYF(0),
+             sctx->priv_user().str, sctx->priv_host().str, db);
+    return true;
+  }
 
   if (save_priv)
     *save_priv = 0;
