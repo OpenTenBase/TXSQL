@@ -1494,8 +1494,10 @@ static ulint buf_flush_try_neighbors(const page_id_t &page_id,
   ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
   ut_ad(!buf_flush_list_mutex_own(buf_pool));
 
+  ulong flush_neighbors = srv_flush_neighbors;
+
   if (UT_LIST_GET_LEN(buf_pool->LRU) < BUF_LRU_OLD_MIN_LEN ||
-      srv_flush_neighbors == 0) {
+      flush_neighbors == 0) {
     /* If there is little space or neighbor flushing is
     not enabled then just flush the victim. */
     low = page_id.page_no();
@@ -1513,7 +1515,7 @@ static ulint buf_flush_try_neighbors(const page_id_t &page_id,
     low = (page_id.page_no() / buf_flush_area) * buf_flush_area;
     high = (page_id.page_no() / buf_flush_area + 1) * buf_flush_area;
 
-    if (srv_flush_neighbors == 1) {
+    if (flush_neighbors == 1) {
       /* adjust 'low' and 'high' to limit
          for contiguous dirty area */
       if (page_id.page_no() > low) {

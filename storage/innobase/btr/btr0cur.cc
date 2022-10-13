@@ -4876,9 +4876,18 @@ static int64_t btr_estimate_n_rows_in_range_on_level(
   constexpr uint32_t N_PAGES_READ_LIMIT = 10;
 
   page_id_t page_id(dict_index_get_space(index), slot1->page_no);
-  const fil_space_t *space = fil_space_get(index->space);
-  ut_ad(space);
-  const page_size_t page_size(space->flags);
+  uint32_t flags;
+  if (index->fsp_flags == UINT32_MAX) {
+    const fil_space_t *space = fil_space_get(index->space);
+    ut_ad(space);
+    flags = space->flags;
+    index->fsp_flags = flags;
+  } else {
+    flags = index->fsp_flags;
+  }
+
+  ut_ad(flags == fil_space_get(index->space)->flags);
+  const page_size_t page_size(flags);
 
   level = slot1->page_level;
 

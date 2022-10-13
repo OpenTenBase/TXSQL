@@ -1310,6 +1310,9 @@ struct dict_index_t {
   @return number of nullable fields before first INSTANT ADD */
   uint16_t get_instant_nullable() const { return n_instant_nullable; }
 
+  /**  Cached flags of tablespace to avoid accessing fil_space_t. */
+  uint32_t fsp_flags;
+
   /** Determine if the index has been committed to the
   data dictionary.
   @return whether the index definition has been committed */
