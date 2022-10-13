@@ -615,6 +615,9 @@ bool Instant_ddl_impl<Table>::is_instant_modify_possible(
     new_index->id = old_clust->id;
     new_index->n_uniq = old_clust->n_uniq;
     new_index->cached = old_clust->cached;
+    /* Set row_versions to true, so 1 byte will be reserved when calculate max
+    record size, see dict_index_validate_max_rec_size for more information. */
+    new_index->row_versions = true;
     /* replace old column with new column info. */
     for (ulint i = 0; i < new_index->n_fields; i++) {
       auto field = new_index->get_field(i);

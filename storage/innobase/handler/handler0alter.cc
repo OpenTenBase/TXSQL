@@ -11349,12 +11349,12 @@ static inline bool innobase_support_modify_instant(
         field->binary() != old_field->binary()) {
       return (false);
     }
-    if (old_field->type() == MYSQL_TYPE_TINY) {
+    if (old_field->real_type() == MYSQL_TYPE_TINY) {
       /* check type */
-      if (field->type() != MYSQL_TYPE_SHORT &&
-          field->type() != MYSQL_TYPE_INT24 &&
-          field->type() != MYSQL_TYPE_LONG &&
-          field->type() != MYSQL_TYPE_LONGLONG) {
+      if (field->real_type() != MYSQL_TYPE_SHORT &&
+          field->real_type() != MYSQL_TYPE_INT24 &&
+          field->real_type() != MYSQL_TYPE_LONG &&
+          field->real_type() != MYSQL_TYPE_LONGLONG) {
         return (false);
       }
       /* check unsigned */
@@ -11373,11 +11373,11 @@ static inline bool innobase_support_modify_instant(
               && field->key_type() != HA_KEYTYPE_LONGLONG)) { /* bigint */
         return (false);
       }
-    } else if (old_field->type() == MYSQL_TYPE_SHORT) {
+    } else if (old_field->real_type() == MYSQL_TYPE_SHORT) {
       /* check type */
-      if (field->type() != MYSQL_TYPE_INT24 &&
-          field->type() != MYSQL_TYPE_LONG &&
-          field->type() != MYSQL_TYPE_LONGLONG) {
+      if (field->real_type() != MYSQL_TYPE_INT24 &&
+          field->real_type() != MYSQL_TYPE_LONG &&
+          field->real_type() != MYSQL_TYPE_LONGLONG) {
         return (false);
       }
       /* check unsigned */
@@ -11394,10 +11394,10 @@ static inline bool innobase_support_modify_instant(
               && field->key_type() != HA_KEYTYPE_LONGLONG)) { /* bigint */
         return (false);
       }
-    } else if (old_field->type() == MYSQL_TYPE_INT24) {
+    } else if (old_field->real_type() == MYSQL_TYPE_INT24) {
       /* check type */
-      if (field->type() != MYSQL_TYPE_LONG &&
-          field->type() != MYSQL_TYPE_LONGLONG) {
+      if (field->real_type() != MYSQL_TYPE_LONG &&
+          field->real_type() != MYSQL_TYPE_LONGLONG) {
         return (false);
       }
       /* check unsigned */
@@ -11412,9 +11412,9 @@ static inline bool innobase_support_modify_instant(
               && field->key_type() != HA_KEYTYPE_LONGLONG)) { /* bigint */
         return (false);
       }
-    } else if (old_field->type() == MYSQL_TYPE_LONG) {
+    } else if (old_field->real_type() == MYSQL_TYPE_LONG) {
       /* check type */
-      if (field->type() != MYSQL_TYPE_LONGLONG) {
+      if (field->real_type() != MYSQL_TYPE_LONGLONG) {
         return (false);
       }
       /* check unsigned */
@@ -11427,25 +11427,25 @@ static inline bool innobase_support_modify_instant(
           && field->key_type() != HA_KEYTYPE_LONGLONG) { /* bigint */
         return (false);
       }
-    } else if (old_field->type() == MYSQL_TYPE_VAR_STRING) {
-      if (field->type() != MYSQL_TYPE_VAR_STRING &&
-          field->type() != MYSQL_TYPE_VARCHAR
+    } else if (old_field->real_type() == MYSQL_TYPE_VAR_STRING) {
+      if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
+          field->real_type() != MYSQL_TYPE_VARCHAR
           //&& field->type() != MYSQL_TYPE_BIT
-          && field->type() != MYSQL_TYPE_STRING) {
+          && field->real_type() != MYSQL_TYPE_STRING) {
         return (false);
       }
-    } else if (old_field->type() == MYSQL_TYPE_VARCHAR) {
-      if (field->type() != MYSQL_TYPE_VAR_STRING &&
-          field->type() != MYSQL_TYPE_VARCHAR
+    } else if (old_field->real_type() == MYSQL_TYPE_VARCHAR) {
+      if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
+          field->real_type() != MYSQL_TYPE_VARCHAR
           //&& field->type() != MYSQL_TYPE_BIT
-          && field->type() != MYSQL_TYPE_STRING) {
+          && field->real_type() != MYSQL_TYPE_STRING) {
         return (false);
       }
-    } else if (old_field->type() == MYSQL_TYPE_STRING) {
-      if (field->type() != MYSQL_TYPE_VAR_STRING &&
-          field->type() != MYSQL_TYPE_VARCHAR
+    } else if (old_field->real_type() == MYSQL_TYPE_STRING) {
+      if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
+          field->real_type() != MYSQL_TYPE_VARCHAR
           //&& field->type() != MYSQL_TYPE_BIT
-          && field->type() != MYSQL_TYPE_STRING) {
+          && field->real_type() != MYSQL_TYPE_STRING) {
         return (false);
       }
     } else {

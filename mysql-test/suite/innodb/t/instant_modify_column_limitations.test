@@ -334,3 +334,17 @@ select * from t1;
 
 show create table t1;
 drop table t1;
+
+# test enum and set
+create table t1 (id INT AUTO_INCREMENT PRIMARY KEY, c1 DATE,c2 ENUM('1', '2', '3', 'f'), c3 SET('a', 'b', 'c'));
+disable_warnings;
+insert into t1 values (1, '2022-10-10 12:43:47', '1', 'a,c');insert into t1 values (2, '2022-10-10 12:43:47', '2', 'b');insert into t1 values (3, '2022-10-10 12:43:47', '2', 'a,b,c');insert into t1 values (4, '2022-10-10 12:43:47', '2', 'b');
+enable_warnings;
+--error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON
+alter table t1 modify c2 ENUM('1', '2', '3', 'g'), algorithm=instant;
+--error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON
+alter table t1 modify c3 SET('a', 'b', 'e', 'f'), algorithm=instant;
+# no change, inplace alter
+alter table t1 modify c3 SET('a', 'b', 'c', 'e', 'f'), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+drop table t1;

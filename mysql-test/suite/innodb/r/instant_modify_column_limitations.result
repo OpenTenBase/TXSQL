@@ -352,3 +352,17 @@ t1	CREATE TABLE `t1` (
   KEY `idx` (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t1;
+create table t1 (id INT AUTO_INCREMENT PRIMARY KEY, c1 DATE,c2 ENUM('1', '2', '3', 'f'), c3 SET('a', 'b', 'c'));
+insert into t1 values (1, '2022-10-10 12:43:47', '1', 'a,c');
+insert into t1 values (2, '2022-10-10 12:43:47', '2', 'b');
+insert into t1 values (3, '2022-10-10 12:43:47', '2', 'a,b,c');
+insert into t1 values (4, '2022-10-10 12:43:47', '2', 'b');
+alter table t1 modify c2 ENUM('1', '2', '3', 'g'), algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+alter table t1 modify c3 SET('a', 'b', 'e', 'f'), algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+alter table t1 modify c3 SET('a', 'b', 'c', 'e', 'f'), algorithm=instant;
+select count(*) from information_schema.innodb_instant_modified_cols;
+count(*)
+0
+drop table t1;
