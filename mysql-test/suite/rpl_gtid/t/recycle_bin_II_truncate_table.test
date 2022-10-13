@@ -1,0 +1,297 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+--source include/have_debug.inc
+
+--echo #
+--echo #  Prepare
+--echo #
+
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
+
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+--let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
+--echo # open recycle bin on master
+set global cdb_recycle_bin_enabled = on;
+
+connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
+--echo # open recycle bin on slave
+set global cdb_recycle_bin_enabled = on;
+
+--echo #
+--echo # Run 
+--echo #
+
+
+--echo #
+--echo # case1. replicate truncate without cdb_recycle_bin_enabled enabled
+--echo #
+
+--echo #
+--echo # case1.1. replicate truncate table while the cdb_recycle_bin_enable of
+--echo #          slave is off
+
+--connection con_tencentroot_slave
+set global cdb_recycle_bin_enabled= off;
+
+--connection master 
+create table t1 (a int);
+show create table t1;
+insert into t1 values(1);
+
+--let $table_name=t1
+--source recycle_bin_II_truncate_table_basic.inc
+
+
+--echo #
+--echo # case1.2. replicate truncate table while the cdb_recycle_bin_enable of
+--echo #          slave is on
+
+--connection con_tencentroot_slave
+set global cdb_recycle_bin_enabled= on;
+
+--connection master 
+create table t2 (a int);
+show create table t2;
+insert into t2 values(1);
+
+--let $table_name=t2
+--source recycle_bin_II_truncate_table_basic.inc
+
+
+--echo #
+--echo # case2. differencent table type 
+--echo #
+
+--echo #
+--echo # case2.1. partition table
+--echo #
+
+--connection master 
+create table t3 (a int) PARTITION BY LIST (a) (
+  PARTITION p0 VALUES IN (1),
+  PARTITION p1 VALUES IN (2)
+);
+show create table t1;
+insert into t3 values(1);
+insert into t3 values(2);
+
+--let $table_name=t3
+--source recycle_bin_II_truncate_table_basic.inc
+
+--echo #
+--echo # case2.2. Don't support temporary table
+--echo #   drop temporary table with "drop table" will occur ER_NO_SUCH_TABLE error 
+
+--connection master 
+CREATE TEMPORARY TABLE t4(
+  a INT PRIMARY KEY,
+  b VARCHAR(255)
+);
+
+insert into t4 values (1, "abc");
+
+--error ER_NO_SUCH_TABLE
+truncate table t4;
+drop temporary table t4;
+
+
+--echo #
+--echo # case2.3. non-innodb engine table 
+--echo #
+
+--connection master 
+CREATE TABLE t5(a int) ENGINE=MyISAM; 
+show create table t5;
+insert into t5 values(1);
+
+--let $table_name=t5
+--source recycle_bin_II_truncate_table_basic.inc
+
+
+--echo #
+--echo # case3. crash safe test
+--echo #        
+
+--connection master 
+create table t6 (a int);
+insert into t6 values(1);
+
+call mtr.add_suppression("Scanned file");
+call mtr.add_suppression("is missing!");
+--echo #
+--echo # case3.1 crash before first commit
+--echo #        
+
+--connection master 
+--let $crash_point=rb_crash_before_commit1
+--source recycle_bin_II_truncate_table_crash.inc
+
+--echo #
+--echo # case3.2 crash after first commit
+--echo #        
+
+# COMMENT:
+#  master 
+#   @commit1:  rename table t6 to <recycle_table>; and commit the trx 
+#   ===crash===
+#   @commit2:  create table t6 like <recycle_table>;
+#  
+#  so slave only receive @commit1, this will occur inconsistent
+#    
+
+--connection master 
+--let $crash_point=rb_crash_after_commit1
+--source recycle_bin_II_truncate_table_crash.inc
+
+drop table if exists t6;
+create table t6 (a int);
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables in __txsql_recycle_bin__;
+insert into t6 values(2);
+
+
+
+--echo #
+--echo # case3.3 crash after second commit
+--echo #        
+
+--connection master 
+--let $crash_point=rb_crash_after_commit2
+--source recycle_bin_II_truncate_table_crash.inc
+
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables in __txsql_recycle_bin__;
+
+
+--echo #
+--echo # case4. miscellany 
+--echo #        
+
+--disconnect con_tencentroot_master
+--connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT)
+--disconnect master
+--connect(master,127.0.0.1,root,,test,$MASTER_MYPORT,)
+
+--echo #
+--echo # case4.1 create table like error 
+--echo #        
+--connection con_tencentroot_master
+set global cdb_recycle_bin_enabled = on;
+
+--connection master
+create table t7(a int);
+insert into t7 values(1);
+
+set session debug="+d,rb_fail_to_create_table";
+# ER_IDENT_CAUSES_TOO_LONG_PATH
+--error 1860  
+truncate table t7;
+
+select * from t7;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables in __txsql_recycle_bin__;
+
+set session debug="-d,rb_fail_to_create_table";
+
+--echo #
+--echo # case4.2 with foreign key 
+--echo #  
+
+# COMMENT:
+# for rename table
+# RENAME TABLE tbl_name TO new_tbl_name changes internally generated foreign key 
+# constraint names and user-defined foreign key constraint names that begin with 
+# the string “tbl_name_ibfk_” to reflect the new table name. InnoDB interprets 
+# foreign key constraint names that begin with the string “tbl_name_ibfk_” as 
+# internally generated names.
+#
+# for truncate table
+# TRUNCATE TABLE fails for an InnoDB table or NDB table if there are any FOREIGN 
+# KEY constraints from other tables that reference the table. Foreign key 
+# constraints between columns of the same table are permitted.
+#
+
+--connection con_tencentroot_master
+set global cdb_recycle_bin_enabled = on;
+
+--connection master
+create table t8_parent(a int primary key);
+
+create table t8_child(
+  a int not null,
+  b int not null,
+  primary key (a),
+  foreign key (b) references t8_parent(a)
+);
+
+insert into t8_parent values(1);
+insert into t8_child values(1, 1);
+--error ER_FK_CANNOT_DROP_PARENT
+drop table t8_parent;
+
+# On cdb_recycle_bin_enabled = off, the statement should success. But in
+# order to simplify the logic of purge and recovery table, we do not process the
+# drop of the child table and parent table together.
+
+--error ER_FK_CANNOT_DROP_PARENT
+drop table t8_parent, t8_child;
+
+--error ER_TRUNCATE_ILLEGAL_FK
+truncate t8_parent;
+
+drop table  t8_child;
+drop table t8_parent;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+show tables;
+
+--connection con_tencentroot_master
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t8_child"`;
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+--error ER_CDB_RECYCLE_BIN_ERROR_IN_RECOVERY_TABLE
+eval call sys.recycle_bin_recycle_table("$rb_table_name");
+
+
+--echo #
+--echo # case4.3 scheduler thread clear recycle 
+--echo #  
+
+--connection master
+
+drop table t1,t2,t3,t5,t6,t7;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables in __txsql_recycle_bin__;
+
+--connection con_tencentroot_master
+--let $table_count= `select count(*) from mysql.recycle_bin_info`
+while ($table_count)
+{
+  --let $rb_table_name= `select table_name from mysql.recycle_bin_info limit 1`
+  --replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+  --eval call sys.recycle_bin_purge_table("$rb_table_name")
+  --dec $table_count
+}
+
+
+--echo #
+--echo # Cleanup 
+--echo # 
+
+--connection con_tencentroot_slave
+--eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
+
+
+--connection con_tencentroot_master
+--eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
+
+--source include/rpl_connection_master.inc
+--source include/rpl_end.inc

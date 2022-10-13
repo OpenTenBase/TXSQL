@@ -50,6 +50,7 @@ struct MEM_ROOT;
 struct TABLE;
 struct TABLE_LIST;
 struct handlerton;
+class String;
 
 namespace dd {
 class Foreign_key;
@@ -426,7 +427,9 @@ bool mysql_compare_tables(THD *thd, TABLE *table, Alter_info *alter_info,
                           HA_CREATE_INFO *create_info, bool *metadata_equal);
 bool mysql_recreate_table(THD *thd, TABLE_LIST *table_list, bool table_copy);
 bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
-                             HA_CREATE_INFO *create_info);
+                             HA_CREATE_INFO *create_info,
+                             handlerton **create_post_ddl_ht = nullptr,
+                             bool *is_trans_op = nullptr);
 bool mysql_rename_table(THD *thd, handlerton *base, const char *old_db,
                         const char *old_name, const char *old_fk_db,
                         const char *old_fk_name, const dd::Schema &new_schema,
@@ -615,6 +618,8 @@ bool prepare_check_constraints_for_create(THD *thd, const char *db_name,
 
 /* changes from txsql start. */
 bool mysql_check_index(THD *thd, TABLE_LIST *tables);
-/* changes from txsql end. */
 
+void append_table_ident(const THD *thd, String *to, const TABLE_LIST *table,
+                        bool force_db);
+/* changes from txsql end. */
 #endif /* SQL_TABLE_INCLUDED */

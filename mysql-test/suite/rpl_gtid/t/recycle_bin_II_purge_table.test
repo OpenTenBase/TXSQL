@@ -1,0 +1,77 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+--source include/have_debug.inc
+
+--echo #
+--echo #  Prepare
+--echo #
+
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
+
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+--let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
+--echo # open recycle bin on master
+set global cdb_recycle_bin_enabled = on;
+
+connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
+--echo # open recycle bin on slave
+set global cdb_recycle_bin_enabled = on;
+
+--echo #
+--echo # Run 
+--echo #
+
+
+--echo #
+--echo # case1. show status about events
+--echo #
+
+--connection con_tencentroot_slave
+set global cdb_recycle_bin_enabled= off;
+
+--connection con_tencentroot_master
+set global cdb_recycle_bin_retention=1;
+set global event_scheduler=off;
+show variables like 'event_scheduler';
+set global event_scheduler=on;
+show variables like 'event_scheduler';
+
+--connection master 
+show events;
+select * from INFORMATION_SCHEMA.EVENTS;
+
+--echo #
+--echo # case2. test auto purge 
+--echo #
+
+--connection master 
+create table t1 (a int);
+show create table t1;
+insert into t1 values(1);
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables in __txsql_recycle_bin__;
+--sleep 2.5
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables in __txsql_recycle_bin__;
+
+
+--echo #
+--echo # Cleanup 
+--echo # 
+
+--connection con_tencentroot_slave
+--eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
+
+--connection con_tencentroot_master
+
+--eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
+set global cdb_recycle_bin_retention=default;
+
+--source include/rpl_connection_master.inc
+--source include/rpl_end.inc

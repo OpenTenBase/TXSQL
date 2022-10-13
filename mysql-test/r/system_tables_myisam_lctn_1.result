@@ -128,6 +128,10 @@ MYSQL.PROXIES_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
 @table_name
+MYSQL.RECYCLE_BIN_INFO
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
+@table_name
 MYSQL.REPLICATION_ASYNCHRONOUS_CONNECTION_FAILOVER
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover]
@@ -289,6 +293,8 @@ SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.procs_priv]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover]
 SEVERITY	ERRNO	MESSAGE

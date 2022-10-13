@@ -188,6 +188,8 @@
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "typelib.h"
+#include "sql/dd/impl/types/schema_impl.h"
+#include "sql/dd/impl/transaction_impl.h"
 
 namespace dd {
 class View;
@@ -1841,7 +1843,7 @@ class Drop_tables_ctx {
   quoting and schema part if necessary.
 */
 
-static void append_table_ident(const THD *thd, String *to,
+void append_table_ident(const THD *thd, String *to,
                                const TABLE_LIST *table, bool force_db) {
   //  Don't write the database name if it is the current one.
   if (thd->db().str == nullptr || strcmp(table->db, thd->db().str) != 0 ||
@@ -3046,6 +3048,7 @@ static bool drop_base_table(THD *thd, const Drop_tables_ctx &drop_ctx,
   return result;
 }
 
+
 /**
   Execute the drop of a normal or temporary table.
 
@@ -3097,6 +3100,7 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
   Drop_tables_ctx drop_ctx(if_exists, drop_temporary, drop_database);
   std::vector<MDL_ticket *> safe_to_release_mdl_atomic;
+  Recycle_bin_persistor rb_persistor;
 
   bool default_db_doesnt_exist = false;
 
@@ -3174,6 +3178,15 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
   MEM_ROOT foreach_table_root(key_memory_rm_table_foreach_root,
                               MEM_ROOT_BLOCK_SIZE);
 
+  /*
+    The elements in the vector record information about the table
+    name of each table in the drop table list that is placed in
+    the recycle bin.
+  */
+  const bool is_rb_purge_table =
+      (recycle_bin_enabled(thd) && thd->lex->recycle_bin_op == RB_PURGE_TABLE);
+  bool is_rb_error = false;
+
   if (drop_ctx.has_base_non_atomic_tables()) {
     /*
       Handle base tables in storage engines which don't support atomic DDL.
@@ -3197,6 +3210,17 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
                           nullptr, safe_to_release_mdl, &foreach_table_root))
         goto err_with_rollback;
 
+      /*
+        Write purge table info into recycle bin table.
+      */
+      if (is_rb_purge_table) {
+        Recycle_table_record r;
+        r.set_table_name(table->get_table_name());
+        if ((rb_persistor.drop(thd, &r))) {
+          is_rb_error = true;
+          goto err_with_rollback;
+        }
+      }
       *dropped_non_atomic_flag = true;
 
       drop_ctx.dropped_non_atomic.push_back(table);
@@ -3402,6 +3426,17 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
 
       thd->thread_specific_used = true;
 
+      /*
+        Write purge table info into recycle bin table.
+      */
+      if (is_rb_purge_table && !error) {
+        if (rb_persistor.drop(thd, drop_ctx.base_atomic_tables) ||
+            rb_persistor.drop(thd, drop_ctx.nonexistent_tables)) {
+          is_rb_error = true;
+          goto err_with_rollback;
+        }
+      }
+
       if (built_query.write_bin_log()) goto err_with_rollback;
 
       if (drop_ctx.has_no_gtid_single_table_group() ||
@@ -3478,6 +3513,18 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
     built_query.add_array(drop_ctx.base_non_atomic_tables);
     built_query.add_array(drop_ctx.base_atomic_tables);
     built_query.add_array(drop_ctx.nonexistent_tables);
+
+    /*
+      Write purge table info into recycle bin table.
+    */
+    if (is_rb_purge_table) {
+      if (rb_persistor.drop(thd, drop_ctx.base_non_atomic_tables) ||
+          rb_persistor.drop(thd, drop_ctx.base_atomic_tables) ||
+          rb_persistor.drop(thd, drop_ctx.nonexistent_tables)) {
+        is_rb_error = true;
+        goto err_with_rollback;
+      }
+    }
 
     if (built_query.write_bin_log()) goto err_with_rollback;
 
@@ -3717,6 +3764,7 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
   return false;
 
 err_with_rollback:
+  if (is_rb_error) my_error(ER_CDB_RECYCLE_BIN_WRITE_RECORD_FAILED, MYF(0));
   if (!drop_ctx.drop_database) {
     /*
       Be consistent with successful case. Roll back statement
@@ -9136,7 +9184,8 @@ bool mysql_create_table_no_lock(THD *thd, const char *db,
     build_table_filename(path, sizeof(path) - 1 - reg_ext_length, db, alias, "",
                          0, &was_truncated);
     // Check truncation, will lead to overflow when adding extension
-    if (was_truncated) {
+    if (was_truncated ||
+        DBUG_EVALUATE_IF("rb_fail_to_create_table", true, false)) {
       my_error(ER_IDENT_CAUSES_TOO_LONG_PATH, MYF(0), sizeof(path) - 1, path);
       return true;
     }
@@ -10935,7 +10984,9 @@ bool mysql_rename_table(THD *thd, handlerton *base, const char *old_db,
 */
 
 bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
-                             HA_CREATE_INFO *create_info) {
+                             HA_CREATE_INFO *create_info,
+                             handlerton **create_post_ddl_ht,
+                             bool *is_trans_op) {
   Alter_info local_alter_info(thd->mem_root);
   Alter_table_ctx local_alter_ctx;  // Not used
   bool is_trans = false;
@@ -10943,6 +10994,8 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
   Tablespace_hash_set tablespace_set(PSI_INSTRUMENT_ME);
   handlerton *post_ddl_ht = nullptr;
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+  bool is_commit_trans = !(recycle_bin_enabled(thd) &&
+    thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE);
 
   DBUG_TRACE;
 
@@ -10960,7 +11013,8 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
     CREATE LIKE needs to have the logging format determined if in
     MIXED mode and creating LIKE a TEMP table.
   */
-  if (open_tables(thd, &thd->lex->query_tables, &not_used, 0) ||
+  uint open_table_flags = is_commit_trans ? 0 : MYSQL_OPEN_SKIP_ALL_MDL_LOCK;
+  if (open_tables(thd, &thd->lex->query_tables, &not_used, open_table_flags) ||
       thd->decide_logging_format(thd->lex->query_tables))
     return true;
   src_table->table->use_all_columns();
@@ -10991,6 +11045,20 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
                                 &local_create_info, &local_alter_info,
                                 &local_alter_ctx))
     return true;
+
+  /**
+    Note that: DATA DIRECTORY and INDEX DIRECTORY is not allowed in
+    truncate table, because the create table like statement does not preserve
+    any DATA DIRECTORY or INDEX DIRECTORY table options that were specified
+    for the original table.
+  */
+  if (!is_commit_trans && (local_create_info.data_file_name != nullptr ||
+                           local_create_info.index_file_name != nullptr)) {
+    int err = ER_CDB_RECYCLE_BIN_ERROR_IN_CHECK_SOURCE_TABLE;
+    auto message = "\"truncate table with DATA DIRECTORY or INDEX DIRECTORY\"";
+    my_error(err, MYF(0), message);
+    return true;
+  }
 
   if (prepare_check_constraints_for_create_like_table(thd, src_table, table,
                                                       &local_alter_info))
@@ -11176,6 +11244,7 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
     if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
       if (src_table->table->s->tmp_table)  // Case 2
       {
+        assert(is_commit_trans);
         char buf[2048];
         String query(buf, sizeof(buf), system_charset_info);
         query.length(0);  // Have to zero it since constructor doesn't
@@ -11260,16 +11329,20 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
             goto err;
         }
       } else  // Case 1
-          if (write_bin_log(thd, true, thd->query().str, thd->query().length,
+          if (is_commit_trans &&
+              write_bin_log(thd, true, thd->query().str, thd->query().length,
                             is_trans))
         goto err;
     }
     /*
       Case 3 and 4 does nothing under RBR
     */
-  } else if (write_bin_log(thd, true, thd->query().str, thd->query().length,
+  } else if (is_commit_trans &&
+             write_bin_log(thd, true, thd->query().str, thd->query().length,
                            is_trans))
     goto err;
+
+  if ((is_commit_trans == false) && is_trans_op) *is_trans_op = is_trans;
 
   if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
     /*
@@ -11313,14 +11386,24 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
         goto err;
     }
 
-    if (trans_commit_stmt(thd) || trans_commit_implicit(thd)) goto err;
+    if (is_commit_trans &&
+        (trans_commit_stmt(thd) || trans_commit_implicit(thd))) goto err;
 
-    if (post_ddl_ht) post_ddl_ht->post_ddl(thd);
+
+    if (is_commit_trans && post_ddl_ht) post_ddl_ht->post_ddl(thd);
   }
+  if (create_post_ddl_ht) {
+    /**
+      Don't post the ddl log
+    */
+    assert(is_commit_trans == false);
+    *create_post_ddl_ht = post_ddl_ht;
+  }
+
   return false;
 
 err:
-  if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
+  if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE) && is_commit_trans) {
     trans_rollback_stmt(thd);
     /*
       Full rollback in case we have THD::transaction_rollback_request

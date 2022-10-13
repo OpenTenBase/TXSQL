@@ -71,6 +71,7 @@
 #include "sql/mysqld.h"
 #include "sql/sd_notify.h"  // sysd::notify
 #include "sql/thd_raii.h"
+#include "sql/dd/dd_schema.h"
 
 using namespace dd;
 
@@ -906,6 +907,44 @@ bool initialize(THD *thd) {
   return false;
 }
 
+/* changes from txsql start. */
+static bool check_duplicate_recycle_bin_database(THD *thd) {
+  bool original_exist, new_exist;
+  if (dd::schema_exists(thd, ORIGINA_RECYCLE_BIN_SCHEMA_NAME.str,
+                        &original_exist) ||
+      dd::schema_exists(thd, NEW_RECYCLE_BIN_SCHEMA_NAME.str, &new_exist)) {
+    LogErr(ERROR_LEVEL, ER_CDB_SYS_RECYCLE_BIN_INIT_FAILED,
+           "schema_exists execution failed.");
+    return true;
+  } else if (original_exist && new_exist) {
+    if (recycle_bin_startup_mode == RECYCLE_BIN_NON) {
+      LogErr(ERROR_LEVEL, ER_CDB_SYS_RECYCLE_BIN_INIT_FAILED,
+            "__cdb_recycle_bin__ and __txsql_recycle_bin__ cannot coexist.");
+            return true;
+    }
+    if (recycle_bin_startup_mode == RECYCLE_BIN_CDB)
+      RECYCLE_BIN_SCHEMA_NAME = ORIGINA_RECYCLE_BIN_SCHEMA_NAME;
+    else
+      RECYCLE_BIN_SCHEMA_NAME = NEW_RECYCLE_BIN_SCHEMA_NAME;
+  } else if (original_exist) {
+    if (recycle_bin_startup_mode == RECYCLE_BIN_TXSQL) {
+      LogErr(ERROR_LEVEL, ER_CDB_SYS_RECYCLE_BIN_ALREADY_EXIST,
+             ORIGINA_RECYCLE_BIN_SCHEMA_NAME.str);
+      return true;
+    }
+    RECYCLE_BIN_SCHEMA_NAME = ORIGINA_RECYCLE_BIN_SCHEMA_NAME;
+  } else if (new_exist) {
+    if (recycle_bin_startup_mode == RECYCLE_BIN_CDB) {
+      LogErr(ERROR_LEVEL, ER_CDB_SYS_RECYCLE_BIN_ALREADY_EXIST,
+             NEW_RECYCLE_BIN_SCHEMA_NAME.str);
+      return true;
+    }
+    RECYCLE_BIN_SCHEMA_NAME = NEW_RECYCLE_BIN_SCHEMA_NAME;
+  }
+  return false;
+}
+/* changes from txsql end. */
+
 // Normal server restart.
 bool restart(THD *thd) {
   bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::STARTED);
@@ -930,6 +969,7 @@ bool restart(THD *thd) {
 
   if (create_dd_schema(thd) || initialize_dd_properties(thd) ||
       create_tables(thd, nullptr) || sync_meta_data(thd) ||
+      check_duplicate_recycle_bin_database(thd) ||
       DDSE_dict_recover(thd, DICT_RECOVERY_RESTART_SERVER,
                         d->get_actual_dd_version(thd)) ||
       upgrade::do_server_upgrade_checks(thd) || upgrade::upgrade_tables(thd) ||

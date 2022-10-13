@@ -413,6 +413,12 @@ bool set_default_collation(HA_CREATE_INFO *create_info,
 */
 #define CF_SHOW_USES_SYSTEM_VIEW (1U << 21)
 
+/**
+  Identifies statements and commands that are allowd to access
+  __txsql_recycle_bin__ schema tables
+*/
+#define CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA (1U << 22)
+
 /* Bits in server_command_flags */
 
 /**

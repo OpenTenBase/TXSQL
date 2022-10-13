@@ -361,6 +361,16 @@ The following options may be given as the first argument:
  Print stackframe at the timepoint ofmax query memory
  usage. (THIS WILL HEAVILY IMPACT PERFORMANCE! DO NOT
  ENABLEIF YOU DON'T KNOW WHAT YOU ARE DOING!)
+ --cdb-recycle-bin-db-not-visible 
+ switch of recycle bin
+ (Defaults to on; use --skip-cdb-recycle-bin-db-not-visible to disable.)
+ --cdb-recycle-bin-enabled 
+ switch of recycle bin
+ --cdb-recycle-bin-retention=# 
+ Retention time of each table in recycle bin.
+ --cdb-recycle-scheduler-interval=# 
+ Schedule interval time of each check whether exists table
+ to be purged in recycle bin database.
  --cdb-session-var-privilege-check-enabled 
  Enable SESSION_VARIABLES_ADMIN privilege check for some
  session variables which may cause replication problems,
@@ -1282,6 +1292,14 @@ The following options may be given as the first argument:
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
+ --recycle-bin-startup-mode=name 
+ Set which database is used by recycle bin. CDB mode
+ specifies to use the __cdb_recycle_bin database; TXSQL
+ mode specifies to use the __txsql_recycle_bin database;
+ An error will be reported if both databases exist and the
+ recyle-bin-startup-mode is not specified. An error will
+ be reported if the database of the specified mode does
+ not exist.
  --regexp-stack-limit=# 
  Stack size limit for regular expressions matches
  --regexp-time-limit=# 
@@ -1974,6 +1992,10 @@ cdb-query-memory-log-threshold 1073741824
 cdb-query-memory-profile-enabled FALSE
 cdb-query-memory-profile-max-stage-num 100
 cdb-query-memory-stack-enabled FALSE
+cdb-recycle-bin-db-not-visible TRUE
+cdb-recycle-bin-enabled FALSE
+cdb-recycle-bin-retention 604800
+cdb-recycle-scheduler-interval 0
 cdb-session-var-privilege-check-enabled FALSE
 cdb-kill-user-extra (No default value)
 cdb-optimize-large-trans-binlog FALSE
@@ -2253,6 +2275,7 @@ range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
 read-rnd-buffer-size 262144
+recycle-bin-startup-mode NON
 regexp-stack-limit 8000000
 regexp-time-limit 32
 reject-rw-mysql-user-sys-users FALSE

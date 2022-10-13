@@ -1,0 +1,59 @@
+--source include/have_debug.inc
+
+--echo #
+--echo #  Prepare
+--echo #
+
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+--let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
+set global cdb_recycle_bin_enabled = on;
+
+--echo #
+--echo # Run 
+--echo #
+connection default;
+
+--echo #
+--echo # case1. fix it doesn't inherit foreign key
+--echo #
+
+create table stu(
+  sid int UNSIGNED primary key auto_increment,
+  name varchar(20) not null) ;
+
+create table sc(
+  scid int UNSIGNED primary key auto_increment,
+  sid int UNSIGNED not null,
+  score varchar(20) default '0',index (sid),  
+  FOREIGN KEY (sid) REFERENCES stu(sid) ON DELETE CASCADE ON UPDATE CASCADE);
+
+--error ER_CDB_RECYCLE_BIN_ERROR_IN_CHECK_SOURCE_TABLE
+truncate sc; 
+
+
+--echo #
+--echo # case2. fix it doesn't inherit data directory and index directory
+--echo #
+replace_regex /DIRECTORY=.*tmp/DIRECTORY=<DATA DIRECTORY>/ ;
+eval CREATE TABLE `te` (
+  `c1` int NOT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB  DATA DIRECTORY='/tmp';
+
+insert into te values(1);
+
+--error ER_CDB_RECYCLE_BIN_ERROR_IN_CHECK_SOURCE_TABLE
+truncate te;
+
+select * from te;
+
+--echo #
+--echo # Cleanup 
+--echo # 
+
+--connection con_tencentroot_master
+--eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
+
+drop table if exists stu, sc;
+drop table if exists te;
+

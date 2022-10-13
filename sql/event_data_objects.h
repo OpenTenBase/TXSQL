@@ -89,6 +89,7 @@ class Event_basic {
   virtual ~Event_basic();
   virtual bool fill_event_info(THD *thd, const dd::Event &ev_obj,
                                const char *dbname) = 0;
+  MEM_ROOT *get_mem_root() { return &mem_root; }
 };
 
 class Event_queue_element : public Event_basic {
@@ -197,6 +198,11 @@ bool event_basic_db_equal(LEX_CSTRING db, Event_basic *et);
 bool event_basic_identifier_equal(LEX_CSTRING db, LEX_CSTRING name,
                                   Event_basic *b);
 
+/* changes from txsql start. */
+// supply a interface to outside
+bool create_event_creation_ctx(const dd::Event &event_obj,
+                               Stored_program_creation_ctx **ctx);
+/* changes from txsql end. */
 /**
   @} (End of group Event_Scheduler)
 */

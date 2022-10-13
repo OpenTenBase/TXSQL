@@ -36,6 +36,7 @@
 #include "sql/sql_lex.h"
 #include "sql/table.h"
 #include "sql_string.h"
+#include "sql/mysqld.h"
 
 namespace dd {
 namespace info_schema {
@@ -333,6 +334,25 @@ Query_block *build_show_databases_query(const POS &pos, THD *thd, String *wild,
   if (sub_query.add_select_item(field_schema_name, alias_database) ||
       sub_query.add_from_item(INFORMATION_SCHEMA_NAME, system_view_name))
     return nullptr;
+
+  /*
+    Add sub query "not like cond"
+
+    ...
+      SELECT SCHEMA_NAME as `Database`,
+          FROM information_schema.schemata NOT LIKE RECYCLE_BIN_SCHEMA_NAME.str;
+    ...
+  */
+  if (cdb_recycle_bin_db_not_visible) {
+    String *cond = new (thd->mem_root)
+        String(RECYCLE_BIN_SCHEMA_NAME.str, system_charset_info);
+    if (!cond) return nullptr;
+    Item *like_cond = sub_query.prepare_like_item(field_schema_name, cond);
+    if (!like_cond) return nullptr;
+    Item *not_like_cond = new (thd->mem_root) Item_func_not(pos, like_cond);
+    if (!not_like_cond) return nullptr;
+    if (sub_query.add_condition(not_like_cond)) return nullptr;
+  }
 
   /*
     Build the top level query

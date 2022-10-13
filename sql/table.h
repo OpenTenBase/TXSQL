@@ -4174,6 +4174,15 @@ static const uint MYSQL_SCHEMA_DD_ID = 1;
 extern LEX_CSTRING MYSQL_TABLESPACE_NAME;
 static const uint MYSQL_TABLESPACE_DD_ID = 1;
 
+/* recycle bin schema name */
+extern LEX_CSTRING RECYCLE_BIN_SCHEMA_NAME;
+
+/* recycle bin schema name before 8030 */
+extern LEX_CSTRING ORIGINA_RECYCLE_BIN_SCHEMA_NAME;
+
+/* recycle bin schema name from 8030 */
+extern LEX_CSTRING NEW_RECYCLE_BIN_SCHEMA_NAME;
+
 /* replication's tables */
 extern LEX_CSTRING RLI_INFO_NAME;
 extern LEX_CSTRING MI_INFO_NAME;
@@ -4486,4 +4495,8 @@ bool create_table_share_for_upgrade(THD *thd, const char *path,
 
 bool create_key_part_field_with_prefix_length(TABLE *table, MEM_ROOT *root);
 
+inline bool is_recycle_bin_db(const char *name, size_t len) {
+  return (RECYCLE_BIN_SCHEMA_NAME.length == len &&
+          !my_strcasecmp(system_charset_info, RECYCLE_BIN_SCHEMA_NAME.str, name));
+}
 #endif /* TABLE_INCLUDED */

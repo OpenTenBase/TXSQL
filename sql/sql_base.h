@@ -173,6 +173,13 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type update,
 #define MYSQL_OPEN_NO_NEW_TABLE_IN_SE 0x8000
 /** Open a shadow copy of a table from a secondary storage engine. */
 #define MYSQL_OPEN_SECONDARY_ENGINE 0x10000
+/**
+  When open recycle bin, truncate will be divided into rename table and
+  create table like. Due to rename table has hold the MDL lock and in oreder
+  to avoid locking MDL occur collision, create table like must skip all MDL
+  lock.
+*/
+#define MYSQL_OPEN_SKIP_ALL_MDL_LOCK 0x20000
 
 /** Please refer to the internals manual. */
 #define MYSQL_OPEN_REOPEN                                           \

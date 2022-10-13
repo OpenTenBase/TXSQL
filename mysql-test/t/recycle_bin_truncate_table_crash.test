@@ -1,0 +1,52 @@
+
+
+--echo #
+--echo # Prepare 
+--echo #
+
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+
+let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`;
+set global cdb_recycle_bin_enabled=on;
+
+CREATE TABLE t1(
+  a INT 
+);
+let $db=`select database()`;
+
+
+--echo #
+--echo # Run
+--echo # 
+
+show variables like 'lower_case_table_names';
+show variables like 'cdb_recycle_bin_enabled';
+
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+truncate table t1;
+
+insert into t1 values(3);
+drop table t1;
+
+--echo #
+--echo # Cleanup
+--echo # 
+
+connection con_tencentroot_master;
+set global cdb_recycle_bin_enabled=on;
+
+let table_count=0;
+while ($table_count<2)
+{
+  let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+  replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/;
+  eval call sys.recycle_bin_purge_table("$rb_table_name");
+  inc $table_count;
+}
+
+eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
+
+disconnect con_tencentroot_master;

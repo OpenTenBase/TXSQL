@@ -27,6 +27,7 @@ def	sys	utf8mb4	utf8mb4_0900_ai_ci	NULL	NO
 def	test	utf8mb4	utf8mb4_0900_ai_ci	NULL	NO
 select schema_name from information_schema.schemata ORDER BY schema_name;
 SCHEMA_NAME
+__txsql_recycle_bin__
 information_schema
 mtr
 mysql
@@ -133,6 +134,7 @@ password_history
 plugin
 procs_priv
 proxies_priv
+recycle_bin_info
 replication_asynchronous_connection_failover
 replication_asynchronous_connection_failover_managed
 replication_group_configuration_version
@@ -385,6 +387,7 @@ end	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
 create view v0 (c) as select schema_name from information_schema.schemata order by schema_name;
 select * from v0;
 c
+__txsql_recycle_bin__
 information_schema
 mtr
 mysql
@@ -908,7 +911,7 @@ AND table_name not like 'ndb%' AND table_name COLLATE utf8_general_ci not like '
 GROUP BY TABLE_SCHEMA;
 TABLE_SCHEMA	count(*)
 information_schema	54
-mysql	38
+mysql	39
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
 begin

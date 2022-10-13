@@ -1,0 +1,358 @@
+--echo #
+--echo # Test recycle bin compatibility after upgrading from 8022
+--echo #
+
+connect (con_tencentroot, localhost, tencentroot,'', );
+
+let BASEDIR=    `select @@basedir`;
+let extra_args= --no-defaults --innodb_dedicated_server=OFF --secure-file-priv="" --loose-skip-auto_generate_certs --loose-skip-sha256_password_auto_generate_rsa_keys --skip-ssl --basedir=$BASEDIR --lc-messages-dir=$MYSQL_SHAREDIR;
+
+--echo #
+--echo # Test 1: Test create database permissions
+--echo #
+
+--connection default
+--error ER_NO_SYSTEM_SCHEMA_ACCESS
+create database __txsql_recycle_bin__;
+--error ER_NO_SYSTEM_SCHEMA_ACCESS
+create database __cdb_recycle_bin__;
+
+--connection con_tencentroot
+create database __cdb_recycle_bin__;
+drop database __cdb_recycle_bin__;
+
+--echo #
+--echo # Test 2: The 8022 does not contain __cdb_recycle_bin__
+--echo #
+
+--echo # Stop the running server.
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--connection con_tencentroot
+--source include/wait_until_disconnected.inc
+--echo # Unzip a 8.0.22 datadir
+--file_exists $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_without_cdb_recycle_bin.zip
+--exec unzip -qo $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_without_cdb_recycle_bin.zip -d $MYSQL_TMP_DIR
+let $DATA_80022_DATADIR = $MYSQL_TMP_DIR/data;
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo # SHOW DATABASES
+SHOW DATABASES;
+
+--echo # Test recycle_bin
+
+create table t1(a int);
+
+set global cdb_recycle_bin_enabled= on;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE>
+show tables from __txsql_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_recycle_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_purge_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--echo # clean
+# shutdwon first
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--source include/wait_until_disconnected.inc
+# remove MYSQLD_LOG
+--file_exists $MYSQLD_LOG
+--remove_file $MYSQLD_LOG
+--force-rmdir $MYSQL_TMP_DIR/data
+
+--echo #
+--echo # Test 3: The 8022 contains __cdb_recycle_bin__
+--echo #
+
+--echo # Unzip a 8.0.22 datadir
+--file_exists $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_with_cdb_recycle_bin.zip
+--exec unzip -qo $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_with_cdb_recycle_bin.zip -d $MYSQL_TMP_DIR
+let $DATA_80022_DATADIR = $MYSQL_TMP_DIR/data;
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo # SHOW DATABASES
+SHOW DATABASES;
+
+--echo # Test recycle_bin
+
+create table t1(a int);
+
+set global cdb_recycle_bin_enabled= on;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__cdb_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_recycle_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__cdb_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_purge_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+--echo # clean
+# shutdwon first
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--source include/wait_until_disconnected.inc
+# remove MYSQLD_LOG
+--file_exists $MYSQLD_LOG
+--remove_file $MYSQLD_LOG
+--force-rmdir $MYSQL_TMP_DIR/data
+
+--echo #
+--echo # Test 4: SET recycle-bin-startup-mode = CDB
+--echo #
+
+--echo # Unzip a 8.0.22 datadir
+--file_exists $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_two_recycle_bin.zip
+--exec unzip -qo $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_two_recycle_bin.zip -d $MYSQL_TMP_DIR
+let $DATA_80022_DATADIR = $MYSQL_TMP_DIR/data;
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG --upgrade=force --recycle-bin-startup-mode=CDB" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo # SHOW DATABASES
+SHOW DATABASES;
+
+--echo # Test recycle_bin
+
+create table t1(a int);
+
+set global cdb_recycle_bin_enabled= on;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__cdb_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_recycle_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__cdb_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_purge_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __cdb_recycle_bin__;
+
+--echo #
+--echo # Test 5: SET recycle-bin-startup-mode = TXSQL
+--echo #
+
+--echo # shutdwon first
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--source include/wait_until_disconnected.inc
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG --recycle-bin-startup-mode=TXSQL" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo # SHOW DATABASES
+SHOW DATABASES;
+
+create table t1(a int);
+
+set global cdb_recycle_bin_enabled= on;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_recycle_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+drop table t1;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_purge_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--echo #
+--echo # Test 6: SET __cdb_recycle_bin__ and __txsql_recycle_bin__ coexist
+--echo #
+
+--echo # shutdwon first
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--source include/wait_until_disconnected.inc
+
+--echo # start the server without recycle-bin-startup-mode
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+--error 1
+--exec $MYSQLD $extra_args --log-error=$MYSQLD_LOG --datadir=$DATA_80022_DATADIR
+
+--echo # search error log
+let SEARCH_FILE= $MYSQLD_LOG;
+let SEARCH_PATTERN= TXSQL: recycle_bin initialize failed: __cdb_recycle_bin__ and __txsql_recycle_bin__ cannot coexist.;
+--source include/search_pattern_in_file.inc
+
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG --recycle-bin-startup-mode=TXSQL" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo #
+--echo # Test 7: SET recycle-bin-startup-mode = CDB and __txsql_recycle_bin__ already exist
+--echo #
+
+drop database __cdb_recycle_bin__;
+
+--echo # shutdwon first
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--source include/wait_until_disconnected.inc
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+#--error 1
+#--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG --recycle-bin-startup-mode=CDB" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 1
+--exec $MYSQLD $extra_args --log-error=$MYSQLD_LOG --datadir=$DATA_80022_DATADIR --recycle-bin-startup-mode=CDB
+
+--echo # search error log
+let SEARCH_FILE= $MYSQLD_LOG;
+let SEARCH_PATTERN= TXSQL: recycle_bin database __txsql_recycle_bin__ already exist;
+--source include/search_pattern_in_file.inc
+
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo #
+--echo # Test 8: SET recycle-bin-startup-mode = TXSQL and __cdb_recycle_bin__ already exist
+--echo #
+
+drop database __txsql_recycle_bin__;
+create database __cdb_recycle_bin__;
+
+--echo # shutdwon first
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--source include/wait_until_disconnected.inc
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+#--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG --recycle-bin-startup-mode=TXSQL" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 1
+--exec $MYSQLD $extra_args --log-error=$MYSQLD_LOG --datadir=$DATA_80022_DATADIR --recycle-bin-startup-mode=TXSQL
+
+let SEARCH_FILE= $MYSQLD_LOG;
+let SEARCH_PATTERN= TXSQL: recycle_bin database __cdb_recycle_bin__ already exist.;
+--source include/search_pattern_in_file.inc
+
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --log-error=$MYSQLD_LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--echo #
+--echo # Remove files and stop the server.
+--echo #
+# shutdwon first
+--source include/shutdown_mysqld.inc
+# remove MYSQLD_LOG
+--file_exists $MYSQLD_LOG
+--remove_file $MYSQLD_LOG
+--force-rmdir $MYSQL_TMP_DIR/data
+
+--echo #
+--echo # Restart with default options.
+--echo #
+let $restart_parameters =;
+--source include/start_mysqld_no_echo.inc

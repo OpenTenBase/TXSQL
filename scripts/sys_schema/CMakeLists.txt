@@ -184,6 +184,8 @@ SET(SYS_SCHEMA_SOURCES
   procedures/ps_truncate_all_tables.sql
   procedures/statement_performance_analyzer.sql
   procedures/table_exists.sql
+  procedures/recycle_bin_purge_table.sql
+  procedures/recycle_bin_recycle_table.sql
 
   after_setup.sql
   )

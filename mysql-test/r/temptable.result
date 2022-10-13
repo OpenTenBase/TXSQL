@@ -25,6 +25,7 @@ def	mysql	PRIMARY	mysql	password_history	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	plugin	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	procs_priv	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	proxies_priv	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	recycle_bin_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_asynchronous_connection_failover	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_asynchronous_connection_failover_managed	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_group_configuration_version	PRIMARY KEY	YES

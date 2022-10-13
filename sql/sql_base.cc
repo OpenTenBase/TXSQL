@@ -5409,6 +5409,8 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
   bool need_global_read_lock_protection = false;
   bool acquire_backup_lock = false;
 
+  if (flags & MYSQL_OPEN_SKIP_ALL_MDL_LOCK)
+    return false;
   /*
     This function is not supposed to be used under LOCK TABLES normally.
     Instead open_tables_check_upgradable_mdl() or some other function
