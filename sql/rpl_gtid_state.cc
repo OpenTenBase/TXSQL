@@ -517,8 +517,14 @@ enum_return_status Gtid_state::generate_automatic_gtid(
     if (automatic_gtid.gno == 0) {
       automatic_gtid.gno = get_automatic_gno(automatic_gtid.sidno);
       if (automatic_gtid.sidno == get_server_sidno() &&
-          automatic_gtid.gno != -1)
-        next_free_gno = automatic_gtid.gno + 1;
+          automatic_gtid.gno != -1) {
+        if (check_binlog_cache_dbl_used(thd)) {
+          next_free_gno = automatic_gtid.gno + 2;
+          thd->extra_gno = automatic_gtid.gno + 1;
+        } else {
+          next_free_gno = automatic_gtid.gno + 1;
+        }
+      }
     }
 
     if (automatic_gtid.gno == -1 || acquire_ownership(thd, automatic_gtid))
@@ -852,6 +858,8 @@ void Gtid_state::update_gtids_impl_lock_sidnos(THD *first_thd) {
 }
 
 void Gtid_state::update_gtids_impl_own_gtid(THD *thd, bool is_commit) {
+  Gtid extra_gtid;
+  bool have_extra_gtid= false;
   assert_sidno_lock_owner(thd->owned_gtid.sidno);
   /*
     In Group Replication the GTID may additionally be owned by another
@@ -859,6 +867,16 @@ void Gtid_state::update_gtids_impl_own_gtid(THD *thd, bool is_commit) {
   */
   assert(owned_gtids.is_owned_by(thd->owned_gtid, thd->thread_id()));
   owned_gtids.remove_gtid(thd->owned_gtid, thd->thread_id());
+
+  if (thd->extra_gno) {
+    assert(thd->extra_gno == thd->owned_gtid.gno);
+    extra_gtid = thd->owned_gtid;
+    extra_gtid.gno = thd->extra_gno - 1;
+    owned_gtids.remove_gtid(extra_gtid, thd->thread_id());
+
+    thd->extra_gno = 0;
+    have_extra_gtid = true;
+  }
 
   if (is_commit) {
     assert(!executed_gtids.contains_gtid(thd->owned_gtid));
@@ -879,6 +897,9 @@ void Gtid_state::update_gtids_impl_own_gtid(THD *thd, bool is_commit) {
     */
     CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_gtid_externalization");
     executed_gtids._add_gtid(thd->owned_gtid);
+
+    if (have_extra_gtid) executed_gtids._add_gtid(extra_gtid);
+
     thd->rpl_thd_ctx.session_gtids_ctx().notify_after_gtid_executed_update(thd);
     if (thd->slave_thread && opt_bin_log && !opt_log_replica_updates) {
       lost_gtids._add_gtid(thd->owned_gtid);
@@ -886,8 +907,11 @@ void Gtid_state::update_gtids_impl_own_gtid(THD *thd, bool is_commit) {
     }
   } else {
     if (thd->owned_gtid.sidno == server_sidno &&
-        next_free_gno > thd->owned_gtid.gno)
+        next_free_gno > thd->owned_gtid.gno) {
       next_free_gno = thd->owned_gtid.gno;
+
+      if (have_extra_gtid) next_free_gno = extra_gtid.gno;
+    }
   }
 
   thd->clear_owned_gtids();

@@ -8276,4 +8276,11 @@ static Sys_var_uint Sys_threadpool_queue_congest_threshold(
     GLOBAL_VAR(threadpool_queue_congest_threshold), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1, 1024), DEFAULT(5), BLOCK_SIZE(1));
 #endif /* HAVE_TDSQL */
+
+static Sys_var_bool Sys_cdb_more_gtid_feature_supported(
+    "cdb_more_gtid_feature_supported",
+    "Gtid supported in trans and nontrans mode!",
+    GLOBAL_VAR(cdb_more_gtid_feature_supported), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
 /* Changes from txsql end. */

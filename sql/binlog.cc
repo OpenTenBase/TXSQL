@@ -1214,6 +1214,12 @@ class binlog_cache_mngr {
   }
 #endif
 
+  bool all_finalized() const {
+    return (stmt_cache.is_finalized() && trx_cache.is_finalized() &&
+            cdb_more_gtid_feature_supported && _gtid_consistency_mode &&
+            global_gtid_mode.get());
+  }
+
   /*
     Convenience method to flush both caches to the binary log.
 
@@ -1228,10 +1234,17 @@ class binlog_cache_mngr {
   int flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid) {
     my_off_t stmt_bytes = 0;
     my_off_t trx_bytes = 0;
+    bool reset_gtid_next = false;
     assert(stmt_cache.has_xid() == 0);
+
+    if (all_finalized()) reset_gtid_next = true;
+
     int error = stmt_cache.flush(thd, &stmt_bytes, wrote_xid);
     if (error) return error;
     DEBUG_SYNC(thd, "after_flush_stm_cache_before_flush_trx_cache");
+
+    if (reset_gtid_next && thd->extra_gno) thd->owned_gtid.gno = thd->extra_gno;
+
     error = trx_cache.flush(thd, &trx_bytes, wrote_xid);
     if (error) return error;
     *bytes_written = stmt_bytes + trx_bytes;
@@ -10647,6 +10660,10 @@ bool THD::is_ddl_gtid_compatible() {
   // statement.
   if (!is_binlog_open || !is_binlog_enabled_for_session) return true;
 
+  if (this->slave_thread && this->variables.gtid_next.type == ASSIGNED_GTID) {
+    return true;
+  }
+
   bool is_create_table{lex->sql_command == SQLCOM_CREATE_TABLE};
   bool is_create_temporary_table{false};
   bool is_create_table_select{false};
@@ -10686,6 +10703,11 @@ bool THD::is_ddl_gtid_compatible() {
 
   if (is_create_table_select && !is_create_temporary_table &&
       !is_create_table_atomic) {
+    if (cdb_more_gtid_feature_supported &&
+        (this->variables.binlog_format == BINLOG_FORMAT_ROW) &&
+        (this->variables.gtid_next.type == AUTOMATIC_GTID)) {
+      return true;
+    }
     /*
       CREATE ... SELECT (without TEMPORARY) for engines not supporting
       atomic DDL is unsafe because if binlog_format=row it will be
@@ -10759,6 +10781,13 @@ bool THD::is_dml_gtid_compatible(bool some_transactional_table,
       !(non_transactional_tables_are_tmp &&
         is_current_stmt_binlog_format_row()) &&
       !DBUG_EVALUATE_IF("allow_gtid_unsafe_non_transactional_updates", 1, 0)) {
+    if (cdb_more_gtid_feature_supported &&
+        (this->variables.binlog_format == BINLOG_FORMAT_ROW) &&
+        (this->variables.gtid_next.type == AUTOMATIC_GTID) &&
+        !(lex->sql_command == SQLCOM_UPDATE_MULTI ||
+          lex->sql_command == SQLCOM_DELETE_MULTI)) {
+      return true;
+    }
     return handle_gtid_consistency_violation(
         this, ER_GTID_UNSAFE_NON_TRANSACTIONAL_TABLE,
         ER_RPL_GTID_UNSAFE_STMT_ON_NON_TRANS_TABLE);
@@ -11620,6 +11649,12 @@ void finish_transaction_in_engines(THD *thd, bool all, bool run_after_commit) {
 struct st_mysql_storage_engine binlog_storage_engine = {
     MYSQL_HANDLERTON_INTERFACE_VERSION};
 
+/* Changes from TXSQL start.*/
+bool check_binlog_cache_dbl_used(const THD *thd) {
+  binlog_cache_mngr *cache_mngr = thd_get_cache_mngr(thd);
+  return cache_mngr->all_finalized();
+}
+/* Changes from TXSQL end.*/
 /** @} */
 
 mysql_declare_plugin(binlog){

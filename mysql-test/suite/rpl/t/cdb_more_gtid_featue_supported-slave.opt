@@ -1,0 +1,1 @@
+--tencent-root-cnf=tmy.conf --gtid_mode=ON --enforce_gtid_consistency=ON

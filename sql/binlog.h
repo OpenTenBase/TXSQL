@@ -1075,4 +1075,8 @@ extern ulong rpl_read_size;
 
 bool normalize_binlog_name(char *to, const char *from, bool is_relay_log);
 
+/* Changes from TXSQL start.*/
+bool check_binlog_cache_dbl_used(const THD *thd);
+/* Changes from TXSQL end.*/
+
 #endif /* BINLOG_H_INCLUDED */
