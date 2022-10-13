@@ -22,6 +22,7 @@ password_history
 plugin
 procs_priv
 proxies_priv
+recycle_bin_info
 replication_asynchronous_connection_failover
 replication_asynchronous_connection_failover_managed
 replication_group_configuration_version
@@ -73,6 +74,7 @@ password_history
 plugin
 procs_priv
 proxies_priv
+recycle_bin_info
 replication_asynchronous_connection_failover
 replication_asynchronous_connection_failover_managed
 replication_group_configuration_version

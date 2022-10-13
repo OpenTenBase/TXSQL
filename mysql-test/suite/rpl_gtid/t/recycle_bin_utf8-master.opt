@@ -1,0 +1,2 @@
+--tencent_root_cnf=tmy.conf
+--cdb_recycle_scheduler_interval=2

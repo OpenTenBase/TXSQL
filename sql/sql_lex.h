@@ -93,6 +93,7 @@
 #include "sql_string.h"
 #include "thr_lock.h"  // thr_lock_type
 #include "violite.h"   // SSL_type
+#include "sql/recycle_bin.h"
 
 class Alter_info;
 class Event_parse_data;
@@ -3981,6 +3982,7 @@ struct LEX : public Query_tables_list {
   */
   bool ignore_unknown_user;
   bool drop_temporary;
+  enum enum_recycle_bin_op recycle_bin_op;
   bool autocommit;
   bool verbose, no_write_to_binlog, detail;
   // For show commands to show hidden columns and indexes.

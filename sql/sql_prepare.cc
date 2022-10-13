@@ -3045,7 +3045,8 @@ reexecute:
   */
   Reprepare_observer *stmt_reprepare_observer = nullptr;
 
-  if (sql_command_flags[lex->sql_command] & CF_REEXECUTION_FRAGILE) {
+  if (sql_command_flags[lex->sql_command] & CF_REEXECUTION_FRAGILE &&
+      (lex->recycle_bin_op != RB_RECYCLE_TABLE_BY_TRUNCATE)) {
     reprepare_observer.reset_reprepare_observer();
     stmt_reprepare_observer = &reprepare_observer;
   }
@@ -3058,7 +3059,8 @@ reexecute:
 
   // Check if we have a non-fatal error and the statement allows reexecution.
   if ((sql_command_flags[lex->sql_command] & CF_REEXECUTION_FRAGILE) && error &&
-      !thd->is_fatal_error() && !thd->is_killed()) {
+      !thd->is_fatal_error() && !thd->is_killed() &&
+      (lex->recycle_bin_op != RB_RECYCLE_TABLE_BY_TRUNCATE)) {
     // If we have an error due to a metadata change, reprepare the
     // statement and execute it again.
     if (reprepare_observer.is_invalidated()) {
@@ -3485,6 +3487,34 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor) {
   if (!error) {
     // Execute
     lex->clear_execution();
+    /*
+      Init the table name of recycle bin table in table_list.
+      For example, after "perpare stmt from 'truncate table ..'",
+      ‘execute stmt’ may be called multiple times. It needs
+      to rename a different recycle bin table name each time.
+    */
+    if (recycle_bin_enabled(thd) &&
+        (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP ||
+         thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_RENAME ||
+         thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE)) {
+      for (TABLE_LIST *tables = lex->query_tables; tables;
+           tables = tables->next_global) {
+        tables->open_strategy = TABLE_LIST::OPEN_NORMAL;
+        if (!is_recycle_bin_db(tables->db, tables->db_length)) continue;
+
+        LEX_CSTRING recycle_bin_table = get_recycle_bin_table_name(thd);
+        tables->table_name = recycle_bin_table.str;
+        if (lower_case_table_names && recycle_bin_table.length)
+          recycle_bin_table.length = my_casedn_str(
+              files_charset_info, const_cast<char *>(recycle_bin_table.str));
+        tables->table_name = const_cast<char *>(recycle_bin_table.str);
+        tables->table_name_length = recycle_bin_table.length;
+        tables->alias = const_cast<char *>(recycle_bin_table.str);
+        tables->mdl_request.key.mdl_key_init(
+            tables->mdl_request.key.mdl_namespace(), tables->db,
+            tables->table_name);
+      }
+    }
     if (open_cursor) {
       lex->safe_to_cache_query = false;
       /*

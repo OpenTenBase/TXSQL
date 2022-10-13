@@ -67,6 +67,7 @@
 #include "sql/system_variables.h"
 #include "sql_string.h"
 #include "thr_mutex.h"
+#include "sql/recycle_bin.h"
 
 /**
   @addtogroup Event_Scheduler
@@ -375,7 +376,12 @@ void Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event) {
     name. Separate scope so that the Schema_MDL_locker dtor is run before
     thd is deleted.
   */
-  {
+  if (Recycle_bin_event::instance().is_recycle_bin_event(event->dbname,
+                                                         event->name)) {
+    if (Recycle_bin_event::instance().init_job_data(thd, job_data)) return;
+    DBUG_PRINT(RB_DEBUG_INFO, ("purge table job data init successfully."));
+  } else {
+
     dd::Schema_MDL_locker mdl_handler(thd);
     if (mdl_handler.ensure_locked(event->dbname.str)) goto end;
 
@@ -566,6 +572,7 @@ bool Event_scheduler::run(THD *thd) {
     Recalculate the values in the queue because there could have been stops
     in executions of the scheduler and some times could have passed by.
   */
+  if (Recycle_bin_event::instance().queue_event(thd, queue)) return true;
   queue->recalculate_activation_times(thd);
 
   while (is_running()) {

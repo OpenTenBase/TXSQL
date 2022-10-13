@@ -35,6 +35,7 @@ CREATE TABLE `mysql`.`help_relation` (
 CREATE TABLE `mysql`.`help_topic` (
 CREATE TABLE `mysql`.`password_history` (
 CREATE TABLE `mysql`.`plugin` (
+CREATE TABLE `mysql`.`recycle_bin_info` (
 CREATE TABLE `mysql`.`replication_asynchronous_connection_failover` (
 CREATE TABLE `mysql`.`replication_asynchronous_connection_failover_managed` (
 CREATE TABLE `mysql`.`replication_group_configuration_version` (

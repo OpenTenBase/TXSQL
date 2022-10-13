@@ -99,6 +99,8 @@
 #include "sql/transaction.h"  // trans_rollback_stmt
 #include "sql_string.h"
 #include "typelib.h"
+#include "sql/dd/impl/bootstrap/bootstrap_ctx.h"
+#include "sql/sql_initialize.h"
 
 /*
   .frm is left in this list so that any orphan files can be removed on upgrade.
@@ -304,6 +306,31 @@ static void set_db_default_charset(const THD *thd,
   }
 }
 
+/* changes from txsql start. */
+static bool check_reycle_bin_name(THD *thd, const char *db) {
+  if (strlen(db) != ORIGINA_RECYCLE_BIN_SCHEMA_NAME.length &&
+      strlen(db) != NEW_RECYCLE_BIN_SCHEMA_NAME.length)
+    return false;
+
+  /* Handling data dictionary tables in bootstrap is allowed. */
+  if ((dd::bootstrap::DD_bootstrap_ctx::instance().get_stage() <
+       dd::bootstrap::Stage::FINISHED) ||
+      opt_initialize || opt_initialize_insecure)
+    return false;
+
+  if (thd->is_system_thread()) return false;
+
+  bool is_original = (my_strcasecmp(system_charset_info, db,
+                                    ORIGINA_RECYCLE_BIN_SCHEMA_NAME.str) == 0);
+  bool is_new = (my_strcasecmp(system_charset_info, db,
+                               NEW_RECYCLE_BIN_SCHEMA_NAME.str) == 0);
+  if (!is_original && !is_new) {
+    return false;
+  }
+  return false;
+}
+/* changes from txsql end. */
+
 /**
   Create a database
 
@@ -329,6 +356,8 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     trans_commit() call.
   */
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+
+  if (check_reycle_bin_name(thd, db)) return true;
 
   // Reject creation of the system schema except for system threads.
   if (!thd->is_dd_system_thread() &&

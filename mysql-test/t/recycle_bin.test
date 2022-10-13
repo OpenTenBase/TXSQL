@@ -1,0 +1,184 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+
+--echo #
+--echo # recycle bin test
+--echo #
+
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
+
+--echo #
+--echo # drop temporary table with "drop table" will occur ER_NO_SUCH_TABLE error 
+
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`;
+set global cdb_recycle_bin_enabled=on;
+
+connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
+set global cdb_recycle_bin_enabled= on;
+
+connection master;
+CREATE TEMPORARY TABLE t1(
+  a INT PRIMARY KEY,
+  b VARCHAR(255)
+);
+
+--error ER_NO_SUCH_TABLE
+drop table t1;
+
+# drop
+drop temporary table t1;
+
+--echo
+--echo #
+--echo # drop table with binlog synchronization
+--echo #
+
+--echo
+--echo # phase1. create table and insert into data
+connection master;
+let $db=`select database()`;
+create table t1 (a int);
+insert into t1 values (1);
+select * from t1;
+
+create table t2 (a int);
+insert into t2 values (1);
+select * from t2;
+
+--source include/sync_slave_sql_with_master.inc
+select * from t1;
+select * from t2;
+
+--echo
+--echo # phase2. drop table and select mysql.recycle_bin_info
+connection master;
+drop table t1;
+drop table t2;
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--source include/sync_slave_sql_with_master.inc
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--echo 
+--echo # phase3. recovery table t1 from recycle_bin
+connection master;
+--echo # recycle_table must login tencentroot 
+connection con_tencentroot_master;
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t1"`;
+
+# the table name in recycle bin is $rb_table_name
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_recycle_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--source include/sync_slave_sql_with_master.inc
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from  __txsql_recycle_bin__;
+
+--echo 
+--echo # phase4. purge table from recycle_bin
+connection con_tencentroot_master;
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t2"`;
+
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_purge_table("$rb_table_name");
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--source include/sync_slave_sql_with_master.inc
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--echo
+--echo #
+--echo # test __txsql_recycle_bin__ protect
+--echo #
+connection master;
+show tables;
+select * from mysql.recycle_bin_info;
+create table t2 (a int);
+insert into t2 values (1), (2), (3);
+drop table t2;
+let $rb_table_name= `select table_name from mysql.recycle_bin_info where origin_table="t2"`;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from __txsql_recycle_bin__;
+
+--source include/sync_slave_sql_with_master.inc
+
+
+# dml
+use __txsql_recycle_bin__;
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+eval select * from $rb_table_name;
+
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+eval insert into $rb_table_name values (4), (5), (6);
+
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+eval update $rb_table_name set a= 8 where a= 3;
+
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+eval delete from  $rb_table_name where a= 6;
+
+#ddl
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+eval alter table $rb_table_name add column b int;
+
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+create table tt (a int);
+
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+--error ER_DBACCESS_DENIED_ERROR
+eval drop table $rb_table_name;
+
+--replace_column 1 <RECYCLED_TABLE> 
+show tables;
+
+--echo #
+--echo # clear environment
+--echo # 
+connection master;
+
+
+connection con_tencentroot_slave;
+eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
+
+connection con_tencentroot_master;
+
+eval use $db;
+set global cdb_recycle_bin_enabled=off;
+drop table t1;
+set global cdb_recycle_bin_enabled=on;
+
+--replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+eval call sys.recycle_bin_purge_table("$rb_table_name");
+eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
+
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
+
+disconnect con_tencentroot_master;
+disconnect con_tencentroot_slave;

@@ -1106,6 +1106,8 @@ bool Event_job_data::execute(THD *thd, bool drop) {
 
   thd->set_query(sp_sql.c_ptr_safe(), sp_sql.length());
 
+  DBUG_PRINT(RB_DEBUG_INFO, ("event job content: %s", sp_sql.c_ptr_safe()));
+
   {
     Parser_state parser_state;
 
@@ -1285,6 +1287,14 @@ bool event_basic_identifier_equal(LEX_CSTRING db, LEX_CSTRING name,
   return !sortcmp_lex_string(name, b->m_event_name, system_charset_info) &&
          !sortcmp_lex_string(db, b->m_schema_name, system_charset_info);
 }
+
+/* changes from txsql start. */
+// supply a interface to outside
+bool create_event_creation_ctx(const dd::Event &event_obj,
+                               Stored_program_creation_ctx **ctx) {
+  return Event_creation_ctx::create_event_creation_ctx(event_obj, ctx);
+}
+/* changes from txsql end. */
 
 /**
   @} (End of group Event_Scheduler)

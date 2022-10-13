@@ -1076,6 +1076,16 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_DROP_SRS] |= CF_DISALLOW_IN_RO_TRANS;
 
   /*
+    Mark statements that have __txsql_recycle_bin__ schema access.
+  */
+  sql_command_flags[SQLCOM_CHECK] |= CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA;
+  sql_command_flags[SQLCOM_FLUSH] |= CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA;
+  sql_command_flags[SQLCOM_ANALYZE] |= CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA;
+  sql_command_flags[SQLCOM_CHECKSUM] |= CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA;
+  sql_command_flags[SQLCOM_GRANT] |= CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA;
+  sql_command_flags[SQLCOM_REVOKE] |= CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA;
+
+  /*
     Mark statements that are allowed to be executed by the plugins.
   */
   sql_command_flags[SQLCOM_SELECT] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -3442,6 +3452,19 @@ int mysql_execute_command(THD *thd, bool first_level) {
       my_error(ER_REJECT_BY_CDB_FIREWALL, MYF(0));
       return -1;
     }
+  }
+
+  if (deny_access_recycle_bin_schema(thd, all_tables)) {
+    my_error(ER_DBACCESS_DENIED_ERROR, MYF(0),
+             thd->security_context()->priv_user().str,
+             thd->security_context()->priv_host().str,
+             RECYCLE_BIN_SCHEMA_NAME.str);
+    sql_print_warning("access %s fail, "
+                      "the query string is %s, the db is %s ",
+                      RECYCLE_BIN_SCHEMA_NAME.str,
+                      thd->query().str? thd->query().str : "",
+                      thd->db().str? thd->db().str : "");
+    return -1;
   }
 
   thd->status_var.com_stat[lex->sql_command]++;

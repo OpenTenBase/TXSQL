@@ -917,6 +917,17 @@ extern bool g_txsql_load_data_local_strict_mode;
 extern bool g_tdsql_compat_oracle_mode;
 extern char *opt_cdb_column_encryption_whitelist;
 extern bool cdb_compressed_histogram_enabled;
+extern bool cdb_recycle_bin_enabled;
+extern bool cdb_recycle_bin_db_not_visible;
+extern ulong cdb_recycle_bin_retention;
+extern ulong cdb_recycle_scheduler_interval;
+extern const char *recyle_bin_startup_modes[];
+enum enum_recycle_bin_startup_mode : ulong {
+  RECYCLE_BIN_NON,
+  RECYCLE_BIN_CDB,
+  RECYCLE_BIN_TXSQL,
+};
+extern long recycle_bin_startup_mode;
 extern bool cdb_instant_modify_column_enabled;
 extern bool unix_socket_lock_error;
 

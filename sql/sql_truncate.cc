@@ -78,8 +78,8 @@ class Table;
   @return A human-readable string describing the foreign key.
 */
 
-static const char *fk_info_str(const THD *thd,
-                               const dd::Foreign_key_parent *fk_p) {
+const char *fk_info_str(const THD *thd,
+                        const dd::Foreign_key_parent *fk_p) {
   bool res = false;
   char buffer[STRING_BUFFER_USUAL_SIZE * 2];
   String str(buffer, sizeof(buffer), system_charset_info);

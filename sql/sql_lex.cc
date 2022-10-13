@@ -503,6 +503,7 @@ void LEX::reset() {
   outline_info_str.str = 0;
   outline_info_str.length = 0;
   handle_outline_type = 0;
+  recycle_bin_op = RB_NO_OP;
 }
 
 /**

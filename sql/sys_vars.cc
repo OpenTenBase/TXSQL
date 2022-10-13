@@ -160,6 +160,7 @@
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_histogram.h"  // MAX_NUMBER_OF_BUCKETS
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
+#include "sql/dd/dd_schema.h"                // dd::Schema_MDL_locker
 
 #define MAX_CONNECTIONS 100000
 /* Changes from txsql end. */
@@ -8100,6 +8101,61 @@ static Sys_var_double Sys_pfs_events_statements_histogram_bucket_base_factor(
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, DBL_MAX), DEFAULT(2.0),
     PFS_TRAILING_PROPERTIES);
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
+
+/* false for successfull, true for fail*/
+static bool check_cdb_recycle_bin(sys_var *, THD *thd, set_var *var) {
+  if (!static_cast<bool>(var->save_result.ulonglong_value)) return false;
+
+  bool exists = false;
+  // Error has been reported by the dictionary subsystem.
+  if (dd::schema_exists(thd, RECYCLE_BIN_SCHEMA_NAME.str, &exists)) return true;
+
+  if (!exists) {
+    my_error(ER_NOT_FOUND_RECYCLE_BIN, MYF(0), RECYCLE_BIN_SCHEMA_NAME.str);
+    return true;
+  }
+  return false;
+}
+
+static Sys_var_bool Sys_cdb_recycle_bin_enabled(
+    "cdb_recycle_bin_enabled",
+    "switch of recycle bin",
+    GLOBAL_VAR(cdb_recycle_bin_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_cdb_recycle_bin), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_cdb_recycle_bin_db_not_visible(
+    "cdb_recycle_bin_db_not_visible",
+    "switch of recycle bin",
+    GLOBAL_VAR(cdb_recycle_bin_db_not_visible), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_ulong Sys_cdb_recycle_bin_retention(
+    "cdb_recycle_bin_retention",
+    "Retention time of each table in recycle bin.",
+    GLOBAL_VAR(cdb_recycle_bin_retention),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, (ulong)~(intptr)0), DEFAULT(604800),
+    BLOCK_SIZE(1), ON_CHECK(0));
+
+static Sys_var_ulong Sys_cdb_recycle_scheduler_interval(
+    "cdb_recycle_scheduler_interval",
+    "Schedule interval time of each check whether exists table to be purged in"
+    " recycle bin database.",
+    GLOBAL_VAR(cdb_recycle_scheduler_interval),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, (ulong)~(intptr)0), DEFAULT(0),
+    BLOCK_SIZE(1), ON_CHECK(0));
+
+static Sys_var_enum Sys_recyle_bin_startup_mode(
+    "recycle_bin_startup_mode",
+    "Set which database is used by recycle bin. CDB mode specifies to use the "
+    "__cdb_recycle_bin database; TXSQL mode specifies to use the "
+    "__txsql_recycle_bin database; An error will be reported if both "
+    "databases exist and the recyle-bin-startup-mode is not specified. An "
+    "error will be reported if the database of the specified mode does not "
+    "exist.",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(recycle_bin_startup_mode),
+    CMD_LINE(REQUIRED_ARG), recyle_bin_startup_modes,
+    DEFAULT(RECYCLE_BIN_NON));
 
 static Sys_var_bool Sys_histogram_history_enabled(
     "histogram_history_enabled",

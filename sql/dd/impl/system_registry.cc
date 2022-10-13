@@ -228,6 +228,7 @@ void System_tables::add_remaining_dd_tables() {
   register_table("password_history", system);
   register_table("procs_priv", system);
   register_table("proxies_priv", system);
+  register_table("recycle_bin_info", system);
   register_table("replication_asynchronous_connection_failover", system);
   register_table("replication_asynchronous_connection_failover_managed",
                  system);

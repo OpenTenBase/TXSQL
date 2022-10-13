@@ -1589,4 +1589,34 @@ PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
+--
+-- recycle bin info table
+--
+
+SET @cmd="CREATE TABLE IF NOT EXISTS recycle_bin_info (
+  table_name varchar(64) NOT NULL,
+  origin_schema VARCHAR(64) NOT NULL,
+  origin_table VARCHAR(64) NOT NULL,
+  drop_time timestamp NOT NULL,
+  purge_time timestamp NOT NULL,
+  PRIMARY KEY(table_name),
+  KEY(purge_time)
+  ) ENGINE=INNODB CHARACTER SET utf8 STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
+
+SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+--
+-- recycle bin database
+--
+
+set @is_cdb = (select count(*) from information_schema.SCHEMATA where SCHEMA_NAME = '__cdb_recycle_bin__');
+SET @recycle_bin_name = IF(@is_cdb = 0, "__txsql_recycle_bin__", "__cdb_recycle_bin__");
+SET @str = CONCAT("CREATE DATABASE IF NOT EXISTS ", @recycle_bin_name);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 SET @@session.sql_mode = @old_sql_mode;

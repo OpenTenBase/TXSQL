@@ -168,6 +168,7 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #include "sql_string.h"
 #include "thr_lock.h"
 #include "violite.h"
+#include "sql/recycle_bin.h"
 
 /* this is to get the bison compilation windows warnings out */
 #ifdef _MSC_VER
@@ -2039,7 +2040,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <opt_restrict> opt_restrict;
 
-%type <table_list> table_list opt_table_list
+%type <table_list> table_list opt_table_list drop_table_list
 
 %type <ternary_option> ternary_option;
 
@@ -9858,6 +9859,23 @@ table_to_table:
           {
             LEX *lex=Lex;
             Query_block *sl= Select;
+            if (recycle_bin_enabled(lex->thd) &&
+                lex->recycle_bin_op == RB_NO_OP &&
+                lex->sql_command == SQLCOM_RENAME_TABLE)
+            {
+              if(($1->db.str && !my_strcasecmp(system_charset_info, $1->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
+                (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str)))
+              {
+                lex->recycle_bin_op= RB_RECOVERY_TABLE;
+              }
+
+              if(($4->db.str && !my_strcasecmp(system_charset_info, $4->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
+                (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str)))
+              {
+                lex->recycle_bin_op= RB_RECYCLE_TABLE_BY_RENAME;
+              }
+            }
+
             if (!sl->add_table_to_list(lex->thd, $1,NULL,TL_OPTION_UPDATING,
                                        TL_IGNORE, MDL_EXCLUSIVE) ||
                 !sl->add_table_to_list(lex->thd, $4,NULL,TL_OPTION_UPDATING,
@@ -13127,21 +13145,61 @@ do_stmt:
 */
 
 drop_table_stmt:
-          DROP opt_temporary table_or_tables if_exists table_list opt_wait opt_restrict
+          DROP opt_temporary table_or_tables if_exists
           {
-            // Note: opt_restrict ($7) is ignored!
-            LEX *lex=Lex;
-            lex->sql_command = SQLCOM_DROP_TABLE;
+            // Note: opt_restrict ($6) is ignored!
+            LEX *lex= Lex;
+            lex->sql_command= SQLCOM_DROP_TABLE;
             lex->drop_temporary= $2;
             lex->drop_if_exists= $4;
-            YYPS->m_lock_type= TL_UNLOCK;
-            YYPS->m_mdl_type= MDL_EXCLUSIVE;
-            if (Select->add_tables(YYTHD, $5, TL_OPTION_UPDATING,
-                                   YYPS->m_lock_type, YYPS->m_mdl_type))
-              MYSQL_YYABORT;
-            Lex->wait_time = $6;
+            /* 
+              Recycle bin not support drop temporary table and 
+              drop table if exists.
+              */
+            /**
+              @todo: we need to set flags in thd to indicate the recycle
+              bin switch is open or close. keep consistent in context
+              -by dct
+             */
+            if (!lex->drop_temporary &&
+                !lex->drop_if_exists &&
+                recycle_bin_enabled_in_user_thread(lex->thd))
+            {
+              lex->sql_command= SQLCOM_RENAME_TABLE;
+              lex->recycle_bin_op= RB_RECYCLE_TABLE_BY_DROP;
+            }
+            else
+            {
+              YYPS->m_lock_type= TL_UNLOCK;
+              YYPS->m_mdl_type= MDL_EXCLUSIVE;
+            }
           }
+          drop_table_or_tables
         ;
+
+drop_table_or_tables:
+        drop_table_list opt_wait opt_restrict
+        {
+          /*
+            If you drop the table in the recycle bin, then delete it directly.
+          */
+          if (recycle_bin_enabled(Lex->thd)) {
+            LEX *lex= Lex;
+            if (lex->recycle_bin_op == RB_PURGE_TABLE && 
+                lex->sql_command == SQLCOM_DROP_TABLE)
+            {
+              YYPS->m_lock_type= TL_UNLOCK;
+              YYPS->m_mdl_type= MDL_EXCLUSIVE;
+            }
+          }
+          
+          if (Select->add_tables(YYTHD, $1, TL_OPTION_UPDATING,
+                                 TL_UNLOCK, MDL_EXCLUSIVE))
+            MYSQL_YYABORT;
+
+          Lex->wait_time = $2;
+        }
+;
 
 drop_index_stmt:
           DROP INDEX_SYM ident ON_SYM table_ident opt_index_lock_and_algorithm opt_wait
@@ -13372,6 +13430,61 @@ drop_role_stmt:
           DROP ROLE_SYM if_exists role_list
           {
             $$= NEW_PTN PT_drop_role($3, $4);
+          }
+        ;
+
+drop_table_list:
+          table_ident
+          {
+            $$= NEW_PTN Mem_root_array<Table_ident *>(YYMEM_ROOT);
+            if ($$->push_back($1))
+              MYSQL_YYABORT; // OOM
+
+            if (recycle_bin_enabled(Lex->thd)) {
+              LEX *lex= Lex;      
+              if ((($1->db.str && !my_strcasecmp(system_charset_info, $1->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
+                  (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str))))
+              {
+                lex->sql_command= SQLCOM_DROP_TABLE;
+                lex->recycle_bin_op= RB_PURGE_TABLE;
+              }
+
+              if (lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP)
+              {
+                LEX_CSTRING recycle_bin_db =
+                    make_lex_cstring(YYTHD->mem_root, RECYCLE_BIN_SCHEMA_NAME);
+                LEX_CSTRING recycle_bin_table= get_recycle_bin_table_name(YYTHD);
+                Table_ident *recycle_bin= NEW_PTN Table_ident(recycle_bin_db, recycle_bin_table);
+                if (!recycle_bin || $$->push_back(recycle_bin))
+                  MYSQL_YYABORT; // OOM
+              }
+            }
+          }
+        | drop_table_list ',' table_ident
+          {
+            $$= $1;
+            if ($$ == NULL || $$->push_back($3))
+              MYSQL_YYABORT; // OOM
+
+            if (recycle_bin_enabled(Lex->thd)) {
+              LEX *lex= Lex;
+              if ((($3->db.str && !my_strcasecmp(system_charset_info, $3->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
+                  (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str))))
+              {
+                lex->sql_command= SQLCOM_DROP_TABLE;
+                lex->recycle_bin_op= RB_PURGE_TABLE;
+              }
+
+              if (lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP)
+              {
+                LEX_CSTRING recycle_bin_db =
+                    make_lex_cstring(YYTHD->mem_root, RECYCLE_BIN_SCHEMA_NAME);
+                LEX_CSTRING recycle_bin_table= get_recycle_bin_table_name(YYTHD);
+                Table_ident *recycle_bin= NEW_PTN Table_ident(recycle_bin_db, recycle_bin_table);
+                if (!recycle_bin || $$->push_back(recycle_bin))
+                  MYSQL_YYABORT; // OOM
+              }
+            }
           }
         ;
 

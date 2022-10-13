@@ -9889,6 +9889,27 @@ ER_CDB_INSTANT_MODIFY_NOT_SUPPORTED_MAX_SIZE
 ER_CDB_INSTANT_DROP_NOT_SUPPORTED
   eng "Cannot drop instant modified column with ALGORITHM=INSTANT. Try ALGORITHM=INPLACE/COPY."
 
+ER_NOT_FOUND_RECYCLE_BIN
+  eng "The %s database was not found."
+
+ER_CDB_RECYCLE_BIN_PURGE_SCHEDULER_FAILED
+  eng "recycle_bin_purge_scheduler initialize failed."
+
+ER_CDB_RECYCLE_BIN_PURGE_WORKER_FAILED
+  eng "recycle_bin_purge_worker initialize failed."
+
+ER_CDB_RECYCLE_BIN_WRITE_RECORD_FAILED
+  eng "recycle bin write record about dropped table failed."
+
+ER_CDB_RECYCLE_BIN_ERROR_IN_RECOVERY_TABLE
+  eng "Cannot recovery a table which references to the table in %s, you can recovery table (%.192s) first."
+
+ER_CDB_RECYCLE_BIN_ERROR_IN_CHECK_SOURCE_TABLE
+  eng "the %s is not supported in recycle bin."
+
+ER_CDB_RECYCLE_BIN_DATABASE_DUPLICATE
+  eng "__cdb__recycle_bin__ and __txsql_recycle_bin__ cannot coexist."
+
 ################################################################################
 # Error numbers 5000 to 5999 are reserved for X Plugin. Please do not use
 # them for other error messages.

@@ -2968,14 +2968,24 @@ Sql_cmd *PT_drop_index_stmt::make_cmd(THD *thd) {
 }
 
 Sql_cmd *PT_truncate_table_stmt::make_cmd(THD *thd) {
-  thd->lex->sql_command = SQLCOM_TRUNCATE;
+  bool is_recycle_bin_table =
+      m_table->db.str ? is_recycle_bin_db(m_table->db.str, m_table->db.length)
+                      : is_recycle_bin_db(thd->db().str, thd->db().length);
+  if (recycle_bin_enabled_in_user_thread(thd) && !is_recycle_bin_table) {
+    if (make_recycle_cmd(thd))
+      return nullptr;
+    else
+      return &m_cmd_recycle_truncate_table;
+  } else {
+    thd->lex->sql_command = SQLCOM_TRUNCATE;
 
-  LEX *const lex = thd->lex;
-  Query_block *const select = lex->current_query_block();
+    LEX *const lex = thd->lex;
+    Query_block *const select = lex->current_query_block();
 
-  if (!select->add_table_to_list(thd, m_table, nullptr, TL_OPTION_UPDATING,
-                                 TL_WRITE, MDL_EXCLUSIVE))
-    return nullptr;
+    if (!select->add_table_to_list(thd, m_table, nullptr, TL_OPTION_UPDATING,
+                                   TL_WRITE, MDL_EXCLUSIVE))
+      return nullptr;
+  }
   return &m_cmd_truncate_table;
 }
 
@@ -4448,6 +4458,35 @@ Sql_cmd *PT_check_index_stmt::make_cmd(THD *thd) {
 
   thd->lex->alter_info = &m_alter_info;
   return new (thd->mem_root) Sql_cmd_check_index(&m_alter_info);
+}
+
+bool PT_truncate_table_stmt::make_recycle_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = SQLCOM_RENAME_TABLE;
+  lex->recycle_bin_op = RB_RECYCLE_TABLE_BY_TRUNCATE;
+  LEX_CSTRING db_name =
+      make_lex_cstring(thd->mem_root, RECYCLE_BIN_SCHEMA_NAME);
+  LEX_CSTRING table_name = get_recycle_bin_table_name(thd);
+  Table_ident *recycle_bin_table = new (thd->mem_root) Table_ident(db_name,
+                                                                   table_name);
+  Query_block *const select = lex->current_query_block();
+  /**
+    Table lock:
+    ===========
+    For each table, the thr_lock_type and enum_mdl_type is allocated as
+    following. the <merged result> is the more strict result of the each
+
+    | statement         | thr_lock_type | enum_mdl_type |
+    |-------------------|---------------|---------------|
+    | rename table      | TL_IGNORE     | MDL_EXCLUSIVE |
+    | create table like | TL_READ       | MDL_SHARED    |
+    | <merged result>   | TL_READ       | MDL_EXCLUSIVE |
+  */
+  auto add_table = [=](auto t)-> TABLE_LIST* {
+    return select->add_table_to_list(thd, t, nullptr, TL_OPTION_UPDATING,
+                                     TL_READ, MDL_EXCLUSIVE);
+  };
+  return (!add_table(m_table) || !add_table(recycle_bin_table));
 }
 
 /* Changes from txsql end. */

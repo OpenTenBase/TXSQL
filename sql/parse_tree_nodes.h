@@ -4766,10 +4766,13 @@ class PT_truncate_table_stmt final : public Parse_tree_root {
 
   Sql_cmd *make_cmd(THD *thd) override;
 
+  bool make_recycle_cmd(THD *thd);
+
  private:
   Table_ident *m_table;
 
   Sql_cmd_truncate_table m_cmd_truncate_table;
+  Sql_cmd_recycle_truncate_table m_cmd_recycle_truncate_table;
 };
 
 class PT_assign_to_keycache final : public Table_ddl_node {

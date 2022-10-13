@@ -77,4 +77,21 @@ class Sql_cmd_truncate_table : public Sql_cmd {
                          const std::string &);
 };
 
+/* changes from txsql start. */
+class Sql_cmd_recycle_truncate_table : public Sql_cmd {
+  public:
+  Sql_cmd_recycle_truncate_table() { }
+
+  ~Sql_cmd_recycle_truncate_table() override {}
+
+  bool execute(THD *) override { assert(0); }
+
+  enum_sql_command sql_command_code() const override {
+    return SQLCOM_RENAME_TABLE;
+  }
+};
+/* changes from txsql end. */
+
+const char *fk_info_str(const THD *thd, const dd::Foreign_key_parent *fk_p);
+
 #endif

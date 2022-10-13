@@ -1,0 +1,46 @@
+connect (con_tencentroot, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+--let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
+--let $event_scheduler_default = `select @@event_scheduler`
+
+--echo # open recycle bin
+set global cdb_recycle_bin_enabled = on;
+
+--connection default
+create table t1(a int);
+
+--echo #
+--echo # test prepare stmt from "truncate ..."
+--echo #
+prepare stmt1 from "truncate table t1";
+execute stmt1;
+execute stmt1;
+select count(*) from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from  __txsql_recycle_bin__;
+
+--echo #
+--echo # test prepare stmt from "drop ..."
+--echo #
+prepare stmt2 from "drop table t1";
+execute stmt2;
+create table t1(a int);
+execute stmt2;
+select count(*) from mysql.recycle_bin_info;
+--replace_column 1 <RECYCLED_TABLE> 
+show tables from  __txsql_recycle_bin__;
+
+--echo #
+--echo # clear environment
+--echo #
+--connection con_tencentroot
+let $i = 0;
+while ($i < 4) {
+  --let $rb_table_name = `select table_name from mysql.recycle_bin_info limit 1`
+  --replace_regex /__txsql_[0-9]*_[0-9]*__/<RECYCLED_TABLE>/
+  eval call sys.recycle_bin_purge_table("$rb_table_name");
+  inc $i;
+}
+eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
+
+--connection default
+disconnect con_tencentroot;

@@ -506,6 +506,7 @@ SET(SQL_SHARED_SOURCES
   range_optimizer/rowid_ordered_retrieval.cc
   range_optimizer/rowid_ordered_retrieval_plan.cc
   range_optimizer/tree.cc
+  recycle_bin.cc
   regexp/errors.cc
   regexp/regexp_engine.cc
   regexp/regexp_facade.cc
