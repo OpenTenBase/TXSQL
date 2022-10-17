@@ -1945,7 +1945,7 @@ struct TABLE {
   void update_covering_prefix_keys(Field *field, uint16 key_read_length,
                                    Key_map *covering_prefix_keys);
 
-  bool is_perfix_index(int key, uint key_parts);
+  bool is_prefix_index(int key, uint key_parts);
   bool is_partition() const {
     return s && s->partition_info_str && s->partition_info_str_len > 0;
   }

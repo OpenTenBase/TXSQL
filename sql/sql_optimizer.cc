@@ -2012,8 +2012,8 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
     ref_key_parts = actual_key_parts(&table->key_info[tab->index()]);
   }
   
-  if (order && table->is_partition() &&
-      table->is_perfix_index(ref_key, ref_key_parts)) {
+  if (ref_key >=0 && order && table->is_partition() &&
+      table->is_prefix_index(ref_key, ref_key_parts)) {
     return 0;
   }
 

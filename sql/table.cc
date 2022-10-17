@@ -7862,9 +7862,9 @@ void TABLE::update_covering_prefix_keys(Field *field, uint16 key_read_length,
     }
 }
 
-bool TABLE::is_perfix_index(int key, uint key_parts) {
+bool TABLE::is_prefix_index(int key, uint key_parts) {
 
-  if (!this->key_info || key == -1) {
+  if (!this->key_info || key < 0) {
     return false;
   }
   KEY_PART_INFO *key_part = this->key_info[key].key_part;
