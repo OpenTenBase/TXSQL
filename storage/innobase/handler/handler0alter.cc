@@ -1125,6 +1125,17 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
       case Instant_Type::INSTANT_IMPOSSIBLE:
         break;
       case Instant_Type::INSTANT_ADD_DROP_COLUMN:
+        if (m_prebuilt->table->n_def == REC_MAX_N_FIELDS) {
+          if (ha_alter_info->alter_info->requested_algorithm ==
+              Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
+            my_error(ER_TOO_MANY_FIELDS, MYF(0),
+                     m_prebuilt->table->name.m_name);
+            return HA_ALTER_ERROR;
+          }
+          /* INSTANT can't be done any more. Fall back to INPLACE. */
+          break;
+        }
+        [[fallthrough]];
       case Instant_Type::INSTANT_MODIFY_COLUMN:
         if (ha_alter_info->alter_info->requested_algorithm ==
             Alter_info::ALTER_TABLE_ALGORITHM_INPLACE) {
@@ -10373,6 +10384,16 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
     case Instant_Type::INSTANT_IMPOSSIBLE:
       break;
     case Instant_Type::INSTANT_ADD_DROP_COLUMN:
+      if (m_prebuilt->table->n_def == REC_MAX_N_FIELDS) {
+        if (ha_alter_info->alter_info->requested_algorithm ==
+            Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
+          my_error(ER_TOO_MANY_FIELDS, MYF(0), m_prebuilt->table->name.m_name);
+          return HA_ALTER_ERROR;
+        }
+        /* INSTANT can't be done any more. Fall back to INPLACE. */
+        break;
+      }
+      [[fallthrough]];
     case Instant_Type::INSTANT_MODIFY_COLUMN:
       if (ha_alter_info->alter_info->requested_algorithm ==
           Alter_info::ALTER_TABLE_ALGORITHM_INPLACE) {

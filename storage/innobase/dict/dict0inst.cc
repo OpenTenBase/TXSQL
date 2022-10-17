@@ -272,6 +272,7 @@ void Instant_ddl_impl<Table>::commit_instant_ddl() {
       break;
     case Instant_Type::INSTANT_ADD_DROP_COLUMN:
     case Instant_Type::INSTANT_MODIFY_COLUMN:
+      trx_start_if_not_started(m_trx, true, UT_LOCATION_HERE);
       dd_copy_private(*m_new_dd_tab, *m_old_dd_tab);
 
       /* Fetch the columns which are to be added or dropped */
@@ -301,6 +302,11 @@ void Instant_ddl_impl<Table>::commit_instant_ddl() {
       m_dict_table->current_row_version++;
 
       ut_ad(dd_table_has_instant_cols(m_new_dd_tab->table()));
+
+      for (auto dd_index : *m_new_dd_tab->indexes()) {
+        dd::Properties &p = dd_index->se_private_data();
+        p.set(dd_index_key_strings[DD_INDEX_TRX_ID], m_trx->id);
+      }
 
       row_mysql_lock_data_dictionary(m_trx, UT_LOCATION_HERE);
       innobase_discard_table(m_thd, m_dict_table);
