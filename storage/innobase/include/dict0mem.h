@@ -1310,6 +1310,20 @@ struct dict_index_t {
   @return number of nullable fields before first INSTANT ADD */
   uint16_t get_instant_nullable() const { return n_instant_nullable; }
 
+  /** Get the nullable fields before any INSTANT ADD/DROP
+  @return number of nullable fields */
+  uint16_t get_nullable_before_instant_add_drop() const {
+    if (has_instant_cols()) {
+      return get_instant_nullable();
+    }
+
+    if (has_row_versions()) {
+      return get_nullable_in_version(0);
+    }
+
+    return n_nullable;
+  }
+
   /**  Cached flags of tablespace to avoid accessing fil_space_t. */
   uint32_t fsp_flags;
 
