@@ -172,10 +172,12 @@ Transaction_boundary_parser::get_event_boundary_type(
                                    STRING_WITH_LEN("ROLLBACK TO "))))
         boundary_type = EVENT_BOUNDARY_TYPE_END_TRX;
       /*
-        XA ROLLBACK is always the end of a XA transaction.
+        XA ROLLBACK and XA COMMIT are always the end of a XA transaction.
       */
       else if (!native_strncasecmp(event_info.query,
-                                   STRING_WITH_LEN("XA ROLLBACK")))
+                                   STRING_WITH_LEN("XA ROLLBACK")) ||
+               !native_strncasecmp(event_info.query,
+                                   STRING_WITH_LEN("XA COMMIT")))
         boundary_type = EVENT_BOUNDARY_TYPE_END_XA_TRX;
       /*
         If the query is not (BEGIN | XA START | COMMIT | [XA] ROLLBACK), it can
