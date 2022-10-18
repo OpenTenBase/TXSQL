@@ -1640,6 +1640,7 @@ static int innodb_shutdown(handlerton *, ha_panic_function) {
   DBUG_TRACE;
 
   if (innodb_inited) {
+    srv_cdb_fast_shutdown = srv_cdb_fast_shutdown || innodb_quickly_stoped;
     log_pfs_delete_tables();
 
     innodb_inited = false;
@@ -1662,7 +1663,8 @@ static int innodb_shutdown(handlerton *, ha_panic_function) {
     mysql_mutex_destroy(&resume_encryption_cond_m);
     mysql_cond_destroy(&resume_encryption_cond);
 
-    os_event_global_destroy();
+    if(!srv_cdb_fast_shutdown)
+      os_event_global_destroy();
   }
 
   innobase::component_services::deinitialize_service_handles();
@@ -23894,9 +23896,16 @@ static MYSQL_SYSVAR_ULONG(hot_update_wait_timeout, srv_hot_update_wait_timeout,
                           NULL, 1000000, 1000, 100000000, 0);
 /* Changes from txsql end. */
 
-static MYSQL_SYSVAR_BOOL(quickly_stoped,
-    innodb_quickly_stoped, PLUGIN_VAR_RQCMDARG,
-    "whether quickly stopd innodb,if set ,innodb resource cleaning will be safely ignored",
+static MYSQL_SYSVAR_BOOL(
+    cdb_fast_shutdown, srv_cdb_fast_shutdown, PLUGIN_VAR_NOCMDARG,
+    "Speeds up the shutdown process of the InnoDB storage engine by skipping"
+    " the deconstruction of the global structures.",
+    NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+    quickly_stoped, innodb_quickly_stoped, PLUGIN_VAR_NOCMDARG,
+    "Speeds up the shutdown process of the InnoDB storage engine by skipping"
+    " the deconstruction of the global structures.",
     NULL, NULL, false);
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -24150,6 +24159,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_recover_abort),
     MYSQL_SYSVAR(buffer_pool_recover_after_transmit),
     MYSQL_SYSVAR(buffer_pool_recover_pct),
+    MYSQL_SYSVAR(cdb_fast_shutdown),
     MYSQL_SYSVAR(quickly_stoped),
     nullptr};
 

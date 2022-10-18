@@ -50,9 +50,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 struct rw_lock_t;
 
-//while use multile thread stop,some resouces will not be freed,so the global rw_lock_list will not be valid,we need skip deal it
-extern std::atomic<bool> g_have_used_quickly_stoped ;
-
 #ifndef UNIV_HOTBACKUP
 
 #ifdef UNIV_LIBRARY
