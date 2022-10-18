@@ -559,6 +559,8 @@ class Item_sum : public Item_func {
   // Differs only for Item_rollup_sum_switcher.
   virtual enum Sumfunctype real_sum_func() const { return sum_func(); }
 
+  void set_window_function(PT_window *w) { m_window = w; }
+
   /**
     Resets the aggregate value to its default and aggregates the current
     value of its attribute(s).

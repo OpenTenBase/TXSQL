@@ -231,7 +231,8 @@ constexpr const uint64_t OPTIMIZER_SWITCH_HYPERGRAPH_OPTIMIZER{1ULL << 24};
 constexpr const uint64_t OPTIMIZER_SWITCH_DERIVED_CONDITION_PUSHDOWN{1ULL
                                                                      << 25};
 constexpr const uint64_t OPTIMIZER_SWITCH_SORT_MERGE_JOIN (1ULL << 26);
-constexpr const uint64_t OPTIMIZER_SWITCH_LAST (1ULL << 27);
+constexpr const uint64_t OPTIMIZER_SWITCH_WINMAGIC{1ULL << 27};
+constexpr const uint64_t OPTIMIZER_SWITCH_LAST{1ULL << 28};
 
 enum SHOW_COMP_OPTION { SHOW_OPTION_YES, SHOW_OPTION_NO, SHOW_OPTION_DISABLED };
 
