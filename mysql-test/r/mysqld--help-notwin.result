@@ -957,7 +957,8 @@ The following options may be given as the first argument:
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
  prefer_ordering_index, derived_condition_pushdown,
- sort_merge_join} and val is one of {on, off, default}
+ sort_merge_join, winmagic} and val is one of {on, off,
+ default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option

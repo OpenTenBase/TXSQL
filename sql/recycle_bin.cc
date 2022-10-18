@@ -660,7 +660,7 @@ bool Recycle_bin_persistor::find_tables_from_db(
     if (record.store(FIELD_ORIGIN_SCHEMA, dd::String_type(db_name)))
       return true;
 
-    uint key_parts = 1;
+    uint key_part_cnt = 1;
     uchar user_key[MAX_KEY_LENGTH];
     uint key_no = KEY_SCHEMA_TABLE;
     KEY *key_info = table->key_info + key_no;
@@ -672,7 +672,7 @@ bool Recycle_bin_persistor::find_tables_from_db(
     }
 
     for ((err = table->file->ha_index_read_map(table->record[0], user_key,
-                                               make_prev_keypart_map(key_parts),
+                                               make_prev_keypart_map(key_part_cnt),
                                                HA_READ_PREFIX_LAST));
          !err;
          (err = table->file->ha_index_prev(table->record[0]))) {

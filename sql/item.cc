@@ -897,6 +897,11 @@ bool Item_field::find_item_in_field_list_processor(uchar *arg) {
   return false;
 }
 
+bool Item_field::ignore_ins(uchar *) {
+  ignore_table_ins = true;
+  return false;
+}
+
 bool Item_field::is_valid_for_pushdown(uchar *arg) {
   Condition_pushdown::Derived_table_info *dti =
       pointer_cast<Condition_pushdown::Derived_table_info *>(arg);
@@ -3056,7 +3061,7 @@ bool Item_field::eq(const Item *item, bool) const {
     where the semijoin-merged 'a' and the top query's 'a' are both named t1.a
     and coexist in the top query.
   */
-  if (fixed && item_field->fixed) {
+  if (fixed && item_field->fixed && !ignore_table_ins) {
 #if defined(HAVE_PX)
     if (current_thd && current_thd->m_equivalence_check_phase) {
       // logical equivalence comparison in worker thd.
@@ -8486,6 +8491,25 @@ bool Item_ref::collect_item_field_or_ref_processor(uchar *arg) {
   if (real_item()->type() == Item::FIELD_ITEM) info->m_items->push_back(this);
   info->stop_at(this);
   return false;
+}
+
+bool Item_ref::collect_item_ref_processor(uchar *arg) {
+  auto *info = pointer_cast<Collect_item_fields_or_refs *>(arg);
+  if (info->is_stopped(this)) return false;
+  Item::Type type = real_item()->type();
+  // Collect aggreate ref item which has SUM_FUNC_ITEM.
+  if (type == Item::SUM_FUNC_ITEM) info->m_items->push_back(this);
+  info->stop_at(this);
+  return false;
+}
+
+Item *Item_ref::replace_aggregate_ref(uchar *arg) {
+  auto *info = pointer_cast<Item::Item_aggregate_ref_replacement *>(arg);
+
+  if (this == info->m_target && info->m_curr_block == info->m_trans_block)
+    return info->m_replacement;
+
+  return this;
 }
 
 /**

@@ -109,6 +109,7 @@
 #include "sql/thr_malloc.h"
 #include "sql/visible_fields.h"
 #include "sql/window.h"
+#include "sql/log.h"
 #include "template_utils.h"
 #include "thr_lock.h"  // TL_READ
 
@@ -442,6 +443,11 @@ bool Query_block::prepare(THD *thd, mem_root_deque<Item *> *insert_field_list) {
     // Query block represents a subquery within an IN/ANY/ALL/EXISTS predicate
     if (resolve_subquery(thd)) return true;
   }
+
+  // Transform nested subquery to window function by win magic.
+  if (thd->optimizer_switch_flag(OPTIMIZER_SWITCH_WINMAGIC) &&
+        transform_subquery_to_window_function(thd))
+    return true; /* purecov: inspected */
 
   // Transform eligible scalar subqueries to derived tables.
   //
@@ -7481,6 +7487,700 @@ bool Query_block::supported_correlated_scalar_subquery(THD *thd,
   // there is no outer reference in this query expression/block anymore
   uncacheable &= ~UNCACHEABLE_DEPENDENT;
   master_query_expression()->uncacheable &= ~UNCACHEABLE_DEPENDENT;
+  return false;
+}
+
+/** Append field item to select list in query block. */
+void append_to_select_list(Query_block *query_block, THD *thd,
+                           Mem_root_array<wm_fields_info> *mapper,
+                           mem_root_deque<Item_field*> *fields,
+                           uint16 &field_index) {
+  for (Item_field *field_item : *fields) {
+    TABLE_LIST *table_list = field_item->table_ref;
+    uint16 index = field_item->field->field_index();
+    Table_id table_id(table_list->table->s->get_table_def_version());
+    TABLE_LIST *t = nullptr; // table in sub query.
+    if (!(t = FindByTableId(table_id, query_block->get_table_list())))
+      continue; // no need to replace fields in main query block.
+    Item_field *field = new (thd->mem_root) Item_field(thd, 
+                            &query_block->context, t,
+                            t->table->field[index]);
+    std::pair<Table_id, uint16> field_location(table_id, index);
+    wm_fields_info field_info(field_location, field_index++);
+    mapper->push_back(field_info);
+    query_block->fields.push_back(field);
+  }
+}
+
+/** Get field index in derived table by table_id and field index. */
+bool wm_fields_info_mapper(Mem_root_array<wm_fields_info> *mapper,
+                           Table_id table_id, uint16 index,
+                           uint16 &field_index_in_tl) {
+  for (wm_fields_info field_info : *mapper) {
+    if (table_id == field_info.field_location.first &&
+        index == field_info.field_location.second) {
+      field_index_in_tl = field_info.fields_index;
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Check whether items are unique key for table t. */
+bool has_unique_key(TABLE_LIST *t, Mem_root_array<Item_field *> *fields) {
+  assert(t && fields && fields->size() != 0);
+  size_t size = fields->size();
+  for (size_t i = 0; i < size; ++i)
+    if (t != (*fields)[i]->table_ref) return false;
+
+  uint pk = t->table->s->primary_key;
+  if (MAX_KEY == pk) return false;
+  KEY *primary_key_info = &t->table->key_info[pk];
+
+  for (uint i = 0; i < primary_key_info->actual_key_parts; ++i) {
+    KEY_PART_INFO *key_part = &primary_key_info->key_part[i];
+    bool is_exists = false;
+    for (size_t j = 0; j < size && !is_exists; ++j) {
+      uint16 index = (*fields)[j]->field_index;
+      if (key_part->field->field_index() == index)
+        is_exists = true;
+    }
+    if (!is_exists) return false;
+  }
+
+  return true;
+}
+
+/**
+
+  Check whether can decorrelate subquery by winmagic, if scalar subquery
+  exists. Different from `subquery_to_derived` transformation, winmagic
+  can eliminate redundant scan operations on some tables.
+
+  @param        thd           session context
+  @returns true for ok to winmagic else false
+ */
+bool Query_block::supported_decorrelated_subquery_by_winmagic(
+       Item_singlerow_subselect *&subq, Mem_root_array<Item *> &fields,
+       Mem_root_array<Item *> &outers, Mem_root_array<Item *> &inners,
+       Mem_root_array<TABLE_LIST *> *push_down_tables,
+       Mem_root_array<TABLE_LIST *> *tables_in_subquery,
+       Mem_root_array<TABLE_LIST *> *remaining_tables) {
+  // Extract scalar subquery from the inner query block, it's invalid
+  // if query block count more than 1.
+  Item::Collect_scalar_subquery_info subqueries;
+  subqueries.m_location = Item::Collect_scalar_subquery_info::L_WHERE;
+  Item **where_expr_p = &m_where_cond;
+  if (*where_expr_p != nullptr && (*where_expr_p)->has_subquery()) {
+    if ((*where_expr_p)
+            ->walk(&Item::collect_scalar_subqueries,
+                  enum_walk::PREFIX | enum_walk::POSTFIX,
+                  pointer_cast<uchar *>(&subqueries)))
+      return true; /* purecov: inspected */
+  }
+  // Only one correlated subquery supported.
+  if (subqueries.m_list.size() != 1) return false;
+  subq = subqueries.m_list[0].item;
+  Query_block *inner_query_block = subq->unit->first_query_block();
+
+  // It's invalid if scalar aggregation subquery contains group list.
+  if (inner_query_block->is_explicitly_grouped()) return false;
+
+  // Only one scalar aggregation function supported.
+  if (inner_query_block->num_visible_fields() != 1) return false;
+  // Aggregation function should not contain distinct, compact with wf.
+  if (inner_query_block->fields[0]->type() == Item::SUM_FUNC_ITEM) {
+    Item_sum *sum_item = static_cast<Item_sum*>(inner_query_block->fields[0]);
+    if (sum_item->has_with_distinct()) return false;
+    if (sum_item->sum_func() != Item_sum::MAX_FUNC &&
+        sum_item->sum_func() != Item_sum::MIN_FUNC &&
+        sum_item->sum_func() != Item_sum::COUNT_FUNC &&
+        sum_item->sum_func() != Item_sum::SUM_FUNC &&
+        sum_item->sum_func() != Item_sum::AVG_FUNC)
+      return false;
+  }
+
+  // Conditions from main query block and conditions in subquery.
+  ExtractConditions(inner_query_block->where_cond(), &inners);
+  ExtractConditions(where_cond(), &outers);
+
+  Mem_root_array<Item *> correlated_conds(current_thd->mem_root);
+  for (Item *pred : inners) {
+    if (!ExistsConditions(pred, &outers)) return false;
+    if (pred->is_outer_reference()) correlated_conds.push_back(pred);
+  }
+  // No need to transform if has no correlated conditions.
+  if (correlated_conds.size() == 0) return false;
+  Mem_root_array<Item_field *> key_fields_array(current_thd->mem_root);
+  // Extract the correlated condition items from where clause.
+  for (Item *refer : correlated_conds) {
+    if (static_cast<Item_func*>(refer)->functype() != Item_func::EQ_FUNC &&
+      static_cast<Item_func*>(refer)->functype() != Item_func::EQUAL_FUNC)
+      return false;
+
+    Item **arguments = static_cast<Item_func*>(refer)->arguments();
+    if (arguments[0]->type() != Item::FIELD_ITEM ||
+      arguments[1]->type() != Item::FIELD_ITEM)
+      return false;
+
+    Item_field *arg0 = static_cast<Item_field*>(arguments[0]);
+    Item_field *arg1 = static_cast<Item_field*>(arguments[1]);
+
+    if (!arg0->depended_from) fields.push_back(arg0);
+    if (!arg1->depended_from) fields.push_back(arg1);
+
+    // Since where condition in subquery is correlated, depend_from
+    // of equal condition is not nullptr, but we should make subquery
+    // decorelated, so set depended_from to nullptr.
+    if (arg0->depended_from) key_fields_array.push_back(arg0);
+    if (arg1->depended_from) key_fields_array.push_back(arg1);
+  }
+
+  for (TABLE_LIST *t = table_list.first; t; t = t->next_local)
+    if (has_unique_key(t, &key_fields_array))
+      push_down_tables->push_back(t);
+
+  // Extract the condition from main query block and inner query block,
+  // and check that tables from main query block should contain tables
+  // from subquery.
+  TABLE_LIST *table_i = inner_query_block->table_list.first;
+  for (; table_i; table_i = table_i->next_local)
+    if (table_i->table) tables_in_subquery->push_back(table_i);
+
+  Mem_root_array<TABLE_LIST *> tables_in_main(current_thd->mem_root);
+  TABLE_LIST *table_o = table_list.first;
+  for (; table_o; table_o = table_o->next_local)
+    if (table_o->table) tables_in_main.push_back(table_o);
+
+  for (TABLE_LIST *table : *tables_in_subquery)
+    if (!ExistsTablesList(table, &tables_in_main)) return false;
+
+  for (Item_field *primary_key_field : key_fields_array)
+    primary_key_field->depended_from = nullptr;
+
+  for (table_o = table_list.first; table_o; table_o = table_o->next_local)
+    if (table_o->table &&
+      !ExistsTablesList(table_o, tables_in_subquery) &&
+      !ExistsTablesList(table_o, push_down_tables)) {
+      remaining_tables->push_back(table_o);
+    }
+
+  return true;
+}
+
+bool Query_block::remain_current_query_block(Item *condition,
+       Mem_root_array<TABLE_LIST *> *tables_in_subquery) {
+  mem_root_deque<Item_field *> fields(current_thd->mem_root);
+  condition->walk(&Item::collect_item_field_processor,
+                  enum_walk::POSTFIX,
+                  (uchar *)&fields);
+  for (Item_field *f : fields)
+    if(ExistsTablesList(f->table_ref, tables_in_subquery))
+      return true;
+  return false;
+}
+
+bool Query_block::pull_outer_conditions_to_subquery(THD *thd,
+       Query_block *inner, Mem_root_array<Item *> &condition_outer,
+       Mem_root_array<Item *> &condition_in_subquery,
+       Mem_root_array<TABLE_LIST *> *push_down_tables,
+       Mem_root_array<TABLE_LIST *> *tables_in_subquery,
+       Mem_root_array<TABLE_LIST *> *remaining_tables) {
+  Item *new_cond = nullptr;
+  // Extract the conditions which not exist in subquery, delete
+  // where conditions until one which contains scalar aggregation
+  // item remains.
+  Mem_root_array<Item *> going_subquery(thd->mem_root);
+  Mem_root_array<Item *> remain_current(thd->mem_root);
+  for (Item *pred : condition_outer) {
+    if (pred->has_subquery()) {
+      new_cond = pred;
+      continue;
+    } else if (!ExistsConditions(pred, &condition_in_subquery)) {
+      if (remain_current_query_block(pred, remaining_tables))
+        remain_current.push_back(pred);
+      else
+        going_subquery.push_back(pred);
+    } else if (remain_current_query_block(pred, remaining_tables)) {
+      remain_current.push_back(pred);
+    } else { /*do nothing. */ }
+  }
+  set_where_cond(new_cond);
+
+  for (Item *pred : remain_current) {
+    m_where_cond = and_items(m_where_cond, pred);
+    Item *item = m_where_cond;
+    if (!item->fixed && item->fix_fields(thd, &m_where_cond))
+      return true;
+    m_where_cond->apply_is_true();
+  }
+
+  inner->m_where_cond = nullptr;
+  // Connect them by AND items and push into subquery where condition.
+  Query_block *saved_query_block = thd->lex->current_query_block();
+  for (Item *pred : condition_in_subquery) {
+    if (remain_current_query_block(pred, remaining_tables))
+      continue;
+    inner->m_where_cond = and_items(inner->m_where_cond, pred);
+    Item *item = inner->m_where_cond;
+    if (!item->fixed && item->fix_fields(thd, &inner->m_where_cond)) {
+      thd->lex->set_current_query_block(saved_query_block);
+      return true;
+    }
+    inner->m_where_cond->apply_is_true();
+  }
+
+  for (Item *pred : going_subquery) {
+    inner->m_where_cond = and_items(inner->m_where_cond, pred);
+    Item *item = inner->m_where_cond;
+    if (!item->fixed && item->fix_fields(thd, &inner->m_where_cond)) {
+      thd->lex->set_current_query_block(saved_query_block);
+      return true;
+    }
+    inner->m_where_cond->apply_is_true();
+  }
+
+  return false;
+}
+
+bool Query_block::push_tables_down_to_subquery(THD *thd, Query_block *inner,
+       Mem_root_array<TABLE_LIST *> *push_down_tables,
+       Mem_root_array<TABLE_LIST *> *tables_in_subquery) {
+  TABLE_LIST *table_outer = table_list.first;
+  Mem_root_array<TABLE_LIST *> tables_outer(thd->mem_root);
+  for (; table_outer; table_outer = table_outer->next_local)
+    tables_outer.push_back(table_outer);
+  // Clean join_list and top_join_list, recombine tables for subquery.
+  top_join_list.clear();
+  join_list->clear();
+
+  // Colllect the table id from subquery query block, collect tables
+  // from main query block, move tables which exist in main query
+  // block but not exist in subquery to inner query block.
+  SQL_I_List<TABLE_LIST> save_list;
+  for (size_t i = 0; i < tables_outer.size(); ++i) {
+    table_outer = tables_outer[i];
+    assert(table_outer->table->s != nullptr);
+    Table_id table_id(table_outer->table->s->get_table_def_version());
+    if (ExistsTablesList(table_outer, tables_in_subquery)) continue;
+    if (!ExistsTablesList(table_outer, push_down_tables)) continue;
+    TABLE_LIST *tr = leaf_tables;
+    TABLE_LIST **tr_p = &tr->next_leaf;
+    for (; nullptr != tr; tr_p = &tr->next_leaf, tr = tr->next_leaf) {
+      assert(tr->table->s != nullptr);
+      // Delete this table list from this current query block.
+      if (tr->table->s->get_table_def_version() != table_id) {
+        *tr_p = tr->next_leaf;
+        leaf_table_count--;
+      }
+    }
+
+    recursive_reference = nullptr;
+    inner->recursive_reference = nullptr;
+    table_outer->next_leaf = nullptr;
+    table_outer->next_local = nullptr;
+    table_outer->next_global = nullptr;
+    table_outer->query_block = inner;
+    inner->top_join_list.push_back(table_outer);
+    TABLE_LIST *leaf = inner->leaf_tables;
+    for (; nullptr != leaf->next_leaf; leaf = leaf->next_leaf);
+    leaf->next_leaf = table_outer;
+    leaf->next_local = table_outer;
+    leaf->next_global = table_outer;
+    inner->table_list.link_in_list(table_outer, &table_outer->next_leaf);
+    inner->leaf_table_count++;
+    inner->uncacheable = 0;
+  }
+  // Reset the table list and remap tables' map in inner query block.
+  table_list = save_list;
+  inner->remap_tables(thd);
+
+  return false;
+}
+
+bool Query_block::create_windows_function_from_aggr(THD *thd,
+       Query_block *subs_query_block,
+       Mem_root_array<Item *> *partition_by_items,
+       Mem_root_array<TABLE_LIST *> *push_down_tables,
+       Mem_root_array<TABLE_LIST *> *tables_in_subquery,
+       Mem_root_array<wm_fields_info> *mapper) {
+  // Create windows for scalar aggregation function in subquery, in
+  // over() clause, no need to set order by items.
+  // TPCH-17 convert to:
+  // select sum(le)
+  //   from (select l_quantity as lq, l_extendedprice as le,
+  //                0.2*avg(l_quantity) over (partition by l_partkey) as aq
+  //           from lineitem, part
+  //          where p_partkey = l_partkey
+  //              and p_brand = 'Brand#13'
+  //              and p_container = 'JUMBO PKG') as d
+  // where d.lq < d.aq;
+
+  size_t size = subs_query_block->fields.size();
+  Item *composite_item = subs_query_block->fields[size-1];
+  List<Item> fields_or_refs;
+  Item::Collect_item_fields_or_refs info{&fields_or_refs};
+  if (composite_item->walk(&Item::collect_item_ref_processor,
+                     enum_walk::PREFIX | enum_walk::POSTFIX,
+                     pointer_cast<uchar *>(&info)))
+    return true;
+
+  Item_sum *agg_sum_item = (info.m_items->size() == 1) ?
+    static_cast<Item_sum*>(*static_cast<Item_ref*>((*info.m_items)[0])->ref) :
+    static_cast<Item_sum*>(composite_item);
+  Item_ref *aggregate_ref = (info.m_items->size() == 1) ?
+    static_cast<Item_ref*>((*info.m_items)[0]) : nullptr;
+
+  // Collect fields in main query block and subquery to construct fields
+  // in derived table, it contains:
+  //   1. replace select list by using fields in derived table;
+  //   2. replace where condition by using fields in derived table;
+  //   3. no need to replace in join conditions, all going to subquery;
+  //   4. having clause;
+  //   5. group by items, in base_ref_items;
+  //   6. order by items, in base_ref_items;
+  //   7. no need to replace limit;
+  mem_root_deque<Item_field *> current_fields(thd->mem_root);
+  for (size_t i = 0; i < fields.size(); ++i)
+    if (fields[i]->hidden == false)
+      fields[i]->walk(&Item::collect_item_field_processor,
+                      enum_walk::POSTFIX,
+                      (uchar *)&current_fields);
+
+  mem_root_deque<Item_field *> where_fields(thd->mem_root);
+  mem_root_deque<Item_field *> where_correlated_fields(thd->mem_root);
+  m_where_cond->walk(&Item::collect_item_field_processor,
+                     enum_walk::POSTFIX,
+                     (uchar *)&where_fields);
+  for (Item_field *field_item : where_fields) {
+    TABLE_LIST *table_list = field_item->table_ref;
+    if (ExistsTablesList(table_list, push_down_tables) ||
+        ExistsTablesList(table_list, tables_in_subquery))
+      where_correlated_fields.push_back(field_item);
+  }
+
+  uint16 index = 0;
+  subs_query_block->fields.clear();
+  subs_query_block->base_ref_items.reset();
+  append_to_select_list(subs_query_block, thd, mapper, &current_fields, index);
+  append_to_select_list(subs_query_block, thd, mapper, 
+                        &where_correlated_fields, index);
+
+  // create window functions to select list.
+  PT_order_list *partition_by = new (thd->mem_root) PT_order_list;
+  for (Item *item : *partition_by_items)
+    partition_by->push_back(new (thd->mem_root)PT_order_expr(item, ORDER_ASC));
+
+  PT_border *start = new (thd->mem_root) PT_border(WBT_UNBOUNDED_PRECEDING);
+  PT_border *end = new (thd->mem_root) PT_border(WBT_UNBOUNDED_FOLLOWING);
+  PT_borders *borders = new (thd->mem_root) PT_borders(start, end);
+  PT_frame *frame = new (thd->mem_root) PT_frame(WFU_RANGE, borders, nullptr);
+  frame->m_originally_absent = true;
+  PT_window *w = new (thd->mem_root) PT_window(partition_by, nullptr, frame);
+  agg_sum_item->set_wf();
+  agg_sum_item->reset_aggregation();
+  agg_sum_item->set_window_function(w);
+  agg_sum_item->aggr_query_block = nullptr;
+  agg_sum_item->fixed = false;
+  agg_sum_item->m_is_window_function = true;
+  agg_sum_item->hidden = false;
+  if (agg_sum_item != composite_item) {
+    Item::Item_aggregate_ref_replacement aggregate_ref_replacement
+      (aggregate_ref, agg_sum_item, this);
+    Item *new_item = composite_item->transform(&Item::replace_aggregate_ref,
+            pointer_cast<uchar *>(&aggregate_ref_replacement));
+    if (new_item == nullptr) return true;
+  }
+  if (agg_sum_item->Item_sum::fix_fields(thd, nullptr)) return true;
+  w->set_is_last(true);
+  subs_query_block->fields.push_back(composite_item);
+  subs_query_block->m_windows.push_back(w);
+  subs_query_block->set_agg_func_used(false); 
+  thd->want_privilege = SELECT_ACL;
+  // Cleanup fields and base_ref_items, setup_fields after setting select
+  // list to fileds, setup_windows1 after setting m_windows.
+  if (subs_query_block->setup_base_ref_items(thd)) return true;
+  if (setup_fields(thd, thd->want_privilege, true, true, false, nullptr,
+                   &subs_query_block->fields,
+                   subs_query_block->base_ref_items)) {
+    return true;
+  }
+  agg_sum_item->fixed = true;
+  if (subs_query_block->m_windows.elements != 0 &&
+      Window::setup_windows1(thd, subs_query_block,
+                              subs_query_block->base_ref_items,
+                              get_table_list(),
+                              &subs_query_block->fields,
+                              &subs_query_block->m_windows))
+    return true;
+
+  return false;
+}
+
+TABLE_LIST *Query_block::synthesize_derived(THD *thd,
+                                            Item_singlerow_subselect *subq)
+{
+  TABLE_LIST * tl = nullptr;
+  {
+    Prepared_stmt_arena_holder ps_arena_holder(thd);
+
+    Query_expression *const subs_expr = subq->unit;
+    Query_block *sub_query_block = subs_expr->first_query_block();
+    thd->lex->query_tables_last = &leaf_tables;
+
+    if (!(tl = synthesize_derived(thd, subs_expr, nullptr, false, false)))
+      return nullptr;
+
+    top_join_list.push_back(tl);
+    join_list->push_back(tl);
+    leaf_tables = tl;
+    leaf_table_count = 0;
+    thd->lex->query_tables = tl;
+    tl->next_global = sub_query_block->get_table_list();
+    tl->set_tableno(leaf_table_count);
+    leaf_table_count += 1;
+
+    if (!(tl->derived_result = new (thd->mem_root) Query_result_union()))
+      return nullptr; /* purecov: inspected */
+    subs_expr->set_explain_marker(thd, CTX_DERIVED);
+    sub_query_block->linkage = DERIVED_TABLE_TYPE;
+    // Break connection to the subquery expression:
+    subs_expr->item = nullptr;
+    subs_expr->set_query_result(tl->derived_result);
+    sub_query_block->set_query_result(tl->derived_result);
+    materialized_derived_table_count++;
+    derived_table_count++;
+  }
+
+  assert(tl->table == nullptr);
+  if (tl->setup_materialized_derived(thd)) return nullptr;
+  return tl;
+}
+
+bool Query_block::pull_up_tables_list(THD *thd, TABLE_LIST *end_table,
+       Mem_root_array<TABLE_LIST *> *remaining_tables) {
+  SQL_I_List<TABLE_LIST> save_list;
+  save_list.link_in_list(end_table, &end_table->next_leaf);
+  table_list = save_list; // Reset the table_list.
+  Query_block*subq = thd->lex->query_block->slave->slave;
+  for (TABLE_LIST *t : *remaining_tables) {
+    t->next_leaf = nullptr;
+    t->next_local = nullptr;
+    t->next_global = nullptr;
+    t->query_block = this;
+    top_join_list.push_back(t);
+    TABLE_LIST *leaf = leaf_tables;
+    for (; nullptr != leaf->next_leaf; leaf = leaf->next_leaf);
+    leaf->next_leaf = t;
+    leaf->next_local = t;
+    TABLE_LIST *global = subq->leaf_tables;
+    for (; nullptr != global->next_global; global = global->next_global);
+    global->next_global = t;
+    table_list.link_in_list(t, &t->next_leaf);
+    leaf_table_count++;
+    uncacheable = 0;
+  }
+  remap_tables(thd);
+  return false;
+}
+
+bool Query_block::replace_fields_in_derived_table(THD *thd, TABLE_LIST *tl,
+       Mem_root_array<wm_fields_info> *mapper) {
+  // In out most query block, fields in every where in query block
+  // should use select lists in derived tables.
+
+  // Replace subquery in where condition with derived table field.
+  Item_subselect::Collect_subq_info subqueries(this);
+  if (m_where_cond->walk(&Item::collect_subqueries, enum_walk::PREFIX,
+                         pointer_cast<uchar *>(&subqueries)))
+    return true; /* purecov: inspected */
+  assert(subqueries.list.size() == 1);
+  Item* subquery = subqueries.list[0];
+  Item_field *r1 = new (thd->mem_root) Item_field(thd, &context, 
+                                tl, tl->table->field[mapper->size()]);
+  if (nullptr == r1) return true;
+
+  Item::Item_singlerow_subselect_replacement info1(subquery, r1, this);
+  Item *item1 = m_where_cond->transform(&Item::replace_item_subselect,
+                  pointer_cast<uchar *>(&info1));
+  if (nullptr == item1) return true;
+
+  Mem_root_array<Item::WM_replace_info*> replace_infos(thd->mem_root);
+  // Collect composite item and its fields in select list, group by
+  // items, in base_ref_items, order by items, in base_ref_items, no
+  // need to replace limit.
+  for (Item *&item : fields) {
+    if (item->hidden == true) continue;
+    // Collect fields in expr, but not from inside grouped aggregates.
+    mem_root_deque<Item *> fields_info(thd->mem_root);
+    // Collect fields in expr, but not from inside grouped aggregates.
+    if (item->walk(&Item::collect_item_field_processor,
+                   enum_walk::SUBQUERY_PREFIX | enum_walk::POSTFIX,
+                   (uchar *)(&fields_info)))
+      return true;
+
+    for (Item *field : fields_info)
+      replace_infos.push_back(
+        new (thd->mem_root) Item::WM_replace_info(&item, field));
+  }
+
+  // Collect field items in where condition clause.
+  mem_root_deque<Item *> where_fields_info(thd->mem_root);
+  if (m_where_cond->walk(&Item::collect_item_field_processor,
+                         enum_walk::SUBQUERY_PREFIX | enum_walk::POSTFIX,
+                         (uchar *)(&where_fields_info)))
+    return true;
+
+  for (Item *field : where_fields_info)
+    replace_infos.push_back(
+      new (thd->mem_root) Item::WM_replace_info(&m_where_cond, field));
+
+  // Collect field items in having condition clause.
+  mem_root_deque<Item *> having_fields_info(thd->mem_root);
+  if ((nullptr != m_having_cond) && // when having clause exists.
+      m_having_cond->walk(&Item::collect_item_field_processor,
+                          enum_walk::SUBQUERY_PREFIX | enum_walk::POSTFIX,
+                          (uchar *)(&having_fields_info)))
+    return true;
+
+  for (Item *field : having_fields_info)
+    replace_infos.push_back(
+      new (thd->mem_root) Item::WM_replace_info(&m_having_cond, field));
+
+  // Replace fields of collection with field in derived table.
+  for (Item::WM_replace_info *replace_info : replace_infos) {
+    assert(nullptr != replace_info->field);
+    assert(nullptr != replace_info->p_composite_item);
+    Item **item = replace_info->p_composite_item;
+    if (replace_info->field->type() == Item::FIELD_ITEM) {
+      Item_field *f = down_cast<Item_field *>(replace_info->field);
+      if (f->table_ref == tl) continue; // ignore derived field.
+      Field *f_field = f->field;
+
+      uint16 field_index_in_tl = 0;
+      Table_id table_id(f->table_ref->table->s->get_table_def_version());
+      if (wm_fields_info_mapper(mapper, table_id, f_field->field_index(), 
+                                field_index_in_tl))
+        continue;
+
+      Item_field *r = new (thd->mem_root) Item_field(thd, &context, 
+                             tl, tl->table->field[field_index_in_tl]);
+      if (nullptr == r) return true;
+
+      Item::Item_field_replacement info(f_field, r, this);
+      Item *new_item = (*item)->transform(&Item::replace_item_field,
+                                          pointer_cast<uchar *>(&info));
+      if (nullptr == new_item) return true;
+
+      bool hidden = (*item)->hidden;
+      if (new_item != (*item)) {
+        // Replace in base_ref_items
+        for (size_t j = 0; j < fields.size(); j++) {
+          if (base_ref_items[j] == (*item)) {
+            base_ref_items[j] = new_item;
+            break;
+          }
+        }
+        // Replace in fields
+        (*item) = new_item;
+        (*item)->hidden = hidden;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool Query_block::transform_subquery_to_window_function(THD *thd) {
+  // Some correlated subquery can be disassociated by converting to
+  // window function, such as Query-17 in TPCH. The main idea is to
+  // remove repeated table scan operations in the query, the large
+  // performance improvement will be obtained depends on specific
+  // query.
+  //
+  // TPCH-17:
+  // select sum(l_extendedprice)/7.0 as avg_yearly
+  //   from lineitem, part
+  //  where p_partkey = l_partkey
+  //    and p_brand = 'Brand#13'
+  //    and p_container = 'JUMBO PKG'
+  //    and l_quantity < (select 0.2 * avg(l_quantity)
+  //                        from lineitem
+  //                       where l_partkey = p_partkey);
+
+  Mem_root_array<Item *> condition_outer(thd->mem_root);
+  Mem_root_array<Item *> condition_in_subquery(thd->mem_root);
+  Mem_root_array<Item *> parititon_by_items(thd->mem_root);
+  Mem_root_array<TABLE_LIST *> push_down_tables(thd->mem_root);
+  Mem_root_array<TABLE_LIST *> tables_in_subquery(thd->mem_root);
+  Mem_root_array<TABLE_LIST *> remaining_tables(thd->mem_root);
+  Mem_root_array<wm_fields_info> wm_fields_info_mapper(thd->mem_root);
+  Item_singlerow_subselect *subq = nullptr;
+
+  // Check valid before entering transformation to window function,
+  // SQL could be rewritten if meeting following conditions:
+  // 1. the from list of subquery should be a subset of the from
+  //    list of the main query;
+  // 2. for each condition in subquery, it should satisfy one of
+  //    the following:
+  //    a. same as a condition in the outer stmt;
+  //    b. simple comparision, left and right param should be same;
+  // 3. tables of the join condition should be corresponding;
+  if (!supported_decorrelated_subquery_by_winmagic(subq,
+         parititon_by_items, condition_outer, condition_in_subquery,
+         &push_down_tables, &tables_in_subquery, &remaining_tables))
+    return false;
+
+  // This query can be transformed to window function.
+  Query_block *subs_query_block = subq->unit->first_query_block();
+
+  // step.1 
+  // Extract the conditions which not exist in subquery, connect them
+  // by AND items and push into subquery where condition, at the same
+  // time, delete where conditions until the one which contains scalar
+  // aggregation item remains.
+  // TPCH-17:
+  // move p_brand='Brand#13' and p_container='JUMBO PKG' to subquery.
+  if (pull_outer_conditions_to_subquery(thd, subs_query_block,
+        condition_outer, condition_in_subquery, &push_down_tables,
+        &tables_in_subquery, &remaining_tables))
+    return true;
+
+  // step.2
+  // Pull down the tables involved in the correlated conditions from
+  // the outer query block to the subquery.
+  // TPCH-17:
+  // move part table from main query block to subquery.
+  if (push_tables_down_to_subquery(thd, subs_query_block,
+                                   &push_down_tables,
+                                   &tables_in_subquery))
+    return true;
+
+  // step.3
+  // Create windows functions for the aggregate function.
+  // TPCH-17:
+  // 0.2 * avg(l_quantity) which is scalar aggregation function could
+  // be converted to 0.2*avg(l_quantity) over (partition by l_partkey)
+  // , l_partkey is the column which is correlated column.
+  if (create_windows_function_from_aggr(thd, subs_query_block,
+                                        &parititon_by_items,
+                                        &push_down_tables,
+                                        &tables_in_subquery,
+                                        &wm_fields_info_mapper))
+    return true;
+
+  // step.4
+  // Create derived table for subquery which contains window function.
+  // Replace fields in derived table for tl, and clean up in current
+  // query block and link the tables list.
+  TABLE_LIST *tl = nullptr;
+  if (!(tl = synthesize_derived(thd, subq))) return true;
+
+  if (pull_up_tables_list(thd, tl, &remaining_tables)) return true;
+
+  if (replace_fields_in_derived_table(thd, tl, &wm_fields_info_mapper))
+    return true;
+
   return false;
 }
 

@@ -534,6 +534,13 @@ class Index_hint {
   void print(const THD *thd, String *str);
 };
 
+struct wm_fields_info {
+  std::pair<Table_id, uint16> field_location;  // location of field.
+  uint16 fields_index;  // field index in derived table.
+  wm_fields_info(std::pair<Table_id, uint16> location, uint16 index)
+    : field_location(location), fields_index(index) {}
+};
+
 /*
   Class Query_expression represents a query expression.
   Class Query_block represents a query block.
@@ -2289,6 +2296,36 @@ class Query_block {
                        bool in_update);
   bool find_common_table_expr(THD *thd, Table_ident *table_id, TABLE_LIST *tl,
                               Parse_context *pc, bool *found);
+  bool transform_subquery_to_window_function(THD *thd);
+  bool supported_decorrelated_subquery_by_winmagic(
+         Item_singlerow_subselect *&subq, Mem_root_array<Item *> &fields,
+         Mem_root_array<Item *> &outers, Mem_root_array<Item *> &inners,
+         Mem_root_array<TABLE_LIST *> *push_down_tables,
+         Mem_root_array<TABLE_LIST *> *tables_in_subquery,
+         Mem_root_array<TABLE_LIST *> *remaining_tables);
+  bool pull_outer_conditions_to_subquery(THD *thd, Query_block *inner_query_block,
+         Mem_root_array<Item *> &condition_outer,
+         Mem_root_array<Item *> &condition_in_subquery,
+         Mem_root_array<TABLE_LIST *> *push_down_tables,
+         Mem_root_array<TABLE_LIST *> *tables_in_subquery,
+         Mem_root_array<TABLE_LIST *> *remaining_tables);
+  bool push_tables_down_to_subquery(THD *thd, Query_block *inner,
+         Mem_root_array<TABLE_LIST *> *push_down_tables,
+         Mem_root_array<TABLE_LIST *> *tables_in_subquery);
+  bool create_windows_function_from_aggr(THD *thd,
+         Query_block *subs_query_block,
+         Mem_root_array<Item *> *partition_by_items,
+         Mem_root_array<TABLE_LIST *> *push_down_tables,
+         Mem_root_array<TABLE_LIST *> *tables_in_subquery,
+         Mem_root_array<wm_fields_info> *mapper);
+  TABLE_LIST *synthesize_derived(THD *thd, Item_singlerow_subselect *subq);
+  bool replace_fields_in_derived_table(THD *thd, TABLE_LIST *tl,
+         Mem_root_array<wm_fields_info> *mapper);
+  bool pull_up_tables_list(THD *thd, TABLE_LIST *end_table,
+                           Mem_root_array<TABLE_LIST *> *remaining_tables);
+  bool remain_current_query_block(Item *condition,
+         Mem_root_array<TABLE_LIST *> *tables_in_subquery);
+
   /**
     Transform eligible scalar subqueries in the SELECT list, WHERE condition,
     HAVING condition or JOIN conditions of a query block[*] to an equivalent

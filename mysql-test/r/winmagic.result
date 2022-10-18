@@ -1,0 +1,1513 @@
+SET optimizer_switch='winmagic=on';
+TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+#
+# Tests for Winmagic which delete scans for some tables.
+# We test Win magic transformation rule in following aspects:
+# 1. Check valid for winmagic algo;
+# 2. Integrity of SQL syntax;
+# 3. Unique key push down tables;
+# 4. Real query in TPCH-H, test query 2 and query 17;
+#
+# Data preparation.
+CREATE DATABASE `tpch`;
+USE `tpch`;
+CREATE TABLE `lineitem` (
+`l_orderkey` int NOT NULL,
+`l_partkey` int NOT NULL,
+`l_suppkey` int NOT NULL,
+`l_linenumber` int NOT NULL,
+`l_quantity` decimal(15,2) NOT NULL,
+`l_extendedprice` decimal(15,2) NOT NULL,
+`l_discount` decimal(15,2) NOT NULL,
+`l_tax` decimal(15,2) NOT NULL,
+`l_returnflag` char(1) NOT NULL,
+`l_linestatus` char(1) NOT NULL,
+`l_shipdate` date NOT NULL,
+`l_commitdate` date NOT NULL,
+`l_receiptdate` date NOT NULL,
+`l_shipinstruct` char(25) NOT NULL,
+`l_shipmode` char(10) NOT NULL,
+`l_comment` varchar(44) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `part` (
+`p_partkey` int NOT NULL,
+`p_name` varchar(55) NOT NULL,
+`p_mfgr` char(25) NOT NULL,
+`p_brand` char(10) NOT NULL,
+`p_type` varchar(25) NOT NULL,
+`p_size` int NOT NULL,
+`p_container` char(10) NOT NULL,
+`p_retailprice` decimal(15,2) NOT NULL,
+`p_comment` varchar(23) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `supplier` (
+`s_suppkey` int NOT NULL,
+`s_name` char(25) NOT NULL,
+`s_address` varchar(40) NOT NULL,
+`s_nationkey` int NOT NULL,
+`s_phone` char(15) NOT NULL,
+`s_acctbal` decimal(15,2) NOT NULL,
+`s_comment` varchar(101) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `partsupp` (
+`ps_partkey` int NOT NULL,
+`ps_suppkey` int NOT NULL,
+`ps_availqty` int NOT NULL,
+`ps_supplycost` decimal(15,2) NOT NULL,
+`ps_comment` varchar(199) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `nation` (
+`n_nationkey` int NOT NULL,
+`n_name` char(25) NOT NULL,
+`n_regionkey` int NOT NULL,
+`n_comment` varchar(152) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `region` (
+`r_regionkey` int NOT NULL,
+`r_name` char(25) NOT NULL,
+`r_comment` varchar(152) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+alter table tpch.region add primary key (r_regionkey);
+alter table tpch.nation add primary key (n_nationkey);
+alter table tpch.part add primary key (p_partkey);
+alter table tpch.supplier add primary key (s_suppkey);
+alter table tpch.partsupp add primary key (ps_partkey,ps_suppkey);
+alter table tpch.lineitem add primary key (l_orderkey,l_linenumber);
+alter table tpch.nation add constraint nation_fk1 foreign key(n_regionkey) references tpch.region(r_regionkey);
+alter table tpch.supplier add constraint supplier_fk1 foreign key(s_nationkey) references tpch.nation(n_nationkey);
+alter table tpch.partsupp add constraint partsupp_fk1 foreign key(ps_suppkey) references tpch.supplier(s_suppkey);
+alter table tpch.partsupp add constraint partsupp_fk2 foreign key(ps_partkey) references tpch.part(p_partkey);
+alter table tpch.lineitem add constraint lineitem_fk2 foreign key(l_partkey,l_suppkey) references tpch.partsupp(ps_partkey,ps_suppkey);
+create table t1(a int,b int,c int);
+insert into t1 values(1,2,3);
+insert into t1 values(2,2,3);
+insert into t1 values(3,2,3);
+insert into t1 values(4,2,3);
+insert into t1 values(5,2,3);
+insert into t1 values(6,2,3);
+create table t2(a int,b int,c int);
+insert into t2 values(1,1,1);
+insert into t2 values(2,2,2);
+insert into t2 values(3,3,3);
+insert into t2 values(4,4,4);
+insert into t2 values(5,5,5);
+create table t3(a int,b int,c int);
+insert into t3 values(1,2,3);
+insert into t3 values(2,3,4);
+insert into t3 values(3,4,5);
+create table t4(a int,b int,c int, primary key(a));
+insert into t4 values(1,2,3);
+insert into t4 values(2,3,4);
+insert into t4 values(3,4,5);
+create table t5(a int,b int,c int, primary key(a,b));
+insert into t5 values(1,20,3);
+insert into t5 values(2,30,4);
+insert into t5 values(3,40,5);
+insert into t5 values(4,2,3);
+insert into t5 values(5,2,3);
+insert into t5 values(6,2,3);
+analyze table `lineitem`;
+Table	Op	Msg_type	Msg_text
+tpch.lineitem	analyze	status	OK
+analyze table `part`;
+Table	Op	Msg_type	Msg_text
+tpch.part	analyze	status	OK
+analyze table `supplier`;
+Table	Op	Msg_type	Msg_text
+tpch.supplier	analyze	status	OK
+analyze table `partsupp`;
+Table	Op	Msg_type	Msg_text
+tpch.partsupp	analyze	status	OK
+analyze table `nation`;
+Table	Op	Msg_type	Msg_text
+tpch.nation	analyze	status	OK
+analyze table `region`;
+Table	Op	Msg_type	Msg_text
+tpch.region	analyze	status	OK
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+tpch.t1	analyze	status	OK
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+tpch.t2	analyze	status	OK
+analyze table t3;
+Table	Op	Msg_type	Msg_text
+tpch.t3	analyze	status	OK
+analyze table t4;
+Table	Op	Msg_type	Msg_text
+tpch.t4	analyze	status	OK
+analyze table t5;
+Table	Op	Msg_type	Msg_text
+tpch.t5	analyze	status	OK
+SET optimizer_switch='winmagic=default';
+SET optimizer_switch='winmagic=on';
+#
+# 1. Tests for Check valid on multiple situations.
+#
+# situation.1 t2.b < 10 is not same as t2.b < 1.
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 1);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=1.70 rows=1)
+    -> Filter: (t2.c > (select #2))  (cost=1.60 rows=1)
+        -> Inner hash join (t1.a = t2.a)  (cost=1.60 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+        -> Select #2 (subquery in condition; dependent)
+            -> Aggregate: max(t2.c)  (cost=0.85 rows=1)
+                -> Filter: ((t1.a = t2.a) and (t2.a > 1) and (t2.b < 1))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select max(t2.c) from t2 where t1.a = t2.a and t2.a > 100 and t2.b < 3);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=1.70 rows=1)
+    -> Filter: (t2.c > (select #2))  (cost=1.60 rows=1)
+        -> Inner hash join (t1.a = t2.a)  (cost=1.60 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+        -> Select #2 (subquery in condition; dependent)
+            -> Aggregate: max(t2.c)  (cost=0.85 rows=1)
+                -> Filter: ((t1.a = t2.a) and (t2.a > 100) and (t2.b < 3))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+# situation.2 inner query block more condition.
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 
+(select avg(t2.c) from t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 100);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=2.17 rows=1)
+    -> Filter: (t2.c < (select #2))  (cost=2.00 rows=2)
+        -> Inner hash join (t1.b = t2.b), (t1.a = t2.a)  (cost=2.00 rows=2)
+            -> Table scan on t1  (cost=0.21 rows=6)
+            -> Hash
+                -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+        -> Select #2 (subquery in condition; dependent)
+            -> Aggregate: avg(t2.c)  (cost=0.85 rows=1)
+                -> Filter: ((t1.a = t2.a) and (t1.b = t2.b) and (t2.a > 1) and (t2.c < 100))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t1.b' of SELECT #2 was resolved in SELECT #1
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 
+(select avg(t2.c) from t2 where t1.a = t2.a and t1.b = t2.b and t2.b > 1 and t2.a > 1 and t2.c < 100);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=2.17 rows=1)
+    -> Filter: (t2.c < (select #2))  (cost=2.00 rows=2)
+        -> Inner hash join (t1.b = t2.b), (t1.a = t2.a)  (cost=2.00 rows=2)
+            -> Table scan on t1  (cost=0.21 rows=6)
+            -> Hash
+                -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+        -> Select #2 (subquery in condition; dependent)
+            -> Aggregate: avg(t2.c)  (cost=0.85 rows=1)
+                -> Filter: ((t1.a = t2.a) and (t1.b = t2.b) and (t2.b > 1) and (t2.a > 1) and (t2.c < 100))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t1.b' of SELECT #2 was resolved in SELECT #1
+# situation.3 inner query block more join conditon.
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c < 
+(select avg(t2.c) from t2 where t1.a = t2.a and t1.b = t2.c and t2.a > 1 and t2.c < 100);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=2.17 rows=1)
+    -> Filter: (t2.c < (select #2))  (cost=2.00 rows=2)
+        -> Inner hash join (t1.a = t2.a)  (cost=2.00 rows=2)
+            -> Table scan on t1  (cost=0.21 rows=6)
+            -> Hash
+                -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+        -> Select #2 (subquery in condition; dependent)
+            -> Aggregate: avg(t2.c)  (cost=0.85 rows=1)
+                -> Filter: ((t1.a = t2.a) and (t1.b = t2.c) and (t2.a > 1) and (t2.c < 100))  (cost=0.75 rows=1)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t1.b' of SELECT #2 was resolved in SELECT #1
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 
+(select avg(t2.c) from t2 where t1.a = t2.c and t1.a = t2.a and t1.b = t2.b and t2.a > 1);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=2.17 rows=1)
+    -> Filter: (t2.c < (select #2))  (cost=2.00 rows=2)
+        -> Inner hash join (t1.b = t2.b), (t1.a = t2.a)  (cost=2.00 rows=2)
+            -> Table scan on t1  (cost=0.21 rows=6)
+            -> Hash
+                -> Filter: (t2.a > 1)  (cost=0.75 rows=2)
+                    -> Table scan on t2  (cost=0.75 rows=5)
+        -> Select #2 (subquery in condition; dependent)
+            -> Aggregate: avg(t2.c)  (cost=0.78 rows=1)
+                -> Filter: ((t1.a = t2.c) and (t1.a = t2.a) and (t1.b = t2.b) and (t2.a > 1))  (cost=0.68 rows=1)
+                    -> Table scan on t2  (cost=0.68 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t1.b' of SELECT #2 was resolved in SELECT #1
+# situation.4 add group by in subquery.
+explain format=tree select sum(t2.a) from t1,t2,t3 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select max(t2.c) from t2,t3 where t2.a = t1.a and t2.a > 1 and t2.b < 10 group by t2.a);
+EXPLAIN
+-> Aggregate: sum(t2.a)  (cost=2.45 rows=1)
+    -> Inner hash join (no condition)  (cost=2.15 rows=3)
+        -> Table scan on t3  (cost=0.55 rows=3)
+        -> Hash
+            -> Inner hash join (t1.a = t2.a), (t2.c = (select #2))  (cost=1.60 rows=1)
+                -> Table scan on t1  (cost=0.35 rows=6)
+                -> Hash
+                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=1)
+                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+# situation.5 no correlated join condition.
+explain format=tree select a from t1 where a=(select max(a) from t1);
+EXPLAIN
+-> Filter: (t1.a = (select #2))  (cost=0.85 rows=1)
+    -> Table scan on t1  (cost=0.85 rows=6)
+    -> Select #2 (subquery in condition; run only once)
+        -> Aggregate: max(t1.a)  (cost=1.45 rows=1)
+            -> Table scan on t1  (cost=0.85 rows=6)
+
+explain format=tree select a from t1 where a=(select max(a) from t1) and a;
+EXPLAIN
+-> Filter: (t1.a = (select #2))  (cost=0.85 rows=1)
+    -> Table scan on t1  (cost=0.85 rows=6)
+    -> Select #2 (subquery in condition; run only once)
+        -> Aggregate: max(t1.a)  (cost=1.45 rows=1)
+            -> Table scan on t1  (cost=0.85 rows=6)
+
+explain format=tree select a from t1 where a=(select max(a) from t1) and (a > 1);
+EXPLAIN
+-> Filter: (t1.a = (select #2))  (cost=0.85 rows=1)
+    -> Table scan on t1  (cost=0.85 rows=6)
+    -> Select #2 (subquery in condition; run only once)
+        -> Aggregate: max(t1.a)  (cost=1.45 rows=1)
+            -> Table scan on t1  (cost=0.85 rows=6)
+
+# situation.6 derived table 
+explain format=tree select not exists (select a from t1 where a in (select b from t1));
+EXPLAIN
+-> Rows fetched before execution  (cost=0.00..0.00 rows=1)
+-> Select #2 (subquery in projection; run only once)
+    -> Limit: 1 row(s)  (cost=5.05 rows=1)
+        -> Nested loop inner join  (cost=5.05 rows=36)
+            -> Filter: (t1.a is not null)  (cost=0.85 rows=6)
+                -> Table scan on t1  (cost=0.85 rows=6)
+            -> Single-row index lookup on <subquery3> using <auto_distinct_key> (b=t1.a)
+                -> Materialize with deduplication  (cost=1.45..1.45 rows=6)
+                    -> Filter: (t1.b is not null)  (cost=0.85 rows=6)
+                        -> Table scan on t1  (cost=0.85 rows=6)
+
+# situation.7 keys not cover not push down
+explain format=tree select t1.a from t1, t5 where t1.a = t5.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.a > 1);
+EXPLAIN
+-> Nested loop inner join  (cost=3.08 rows=1)
+    -> Filter: ((derived_1_2.c = derived_1_2.`min(t1.c)`) and (derived_1_2.a is not null))  (cost=2.73..2.73 rows=1)
+        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+            -> Materialize  (cost=2.50..2.50 rows=0)
+                -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a ) 
+                    -> Sort: t1.a  (cost=0.85 rows=6)
+                        -> Filter: (t1.a > 1)  (cost=0.85 rows=6)
+                            -> Table scan on t1  (cost=0.85 rows=6)
+    -> Covering index lookup on t5 using PRIMARY (a=derived_1_2.a)  (cost=0.35 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+#
+# 2. Integrity of SQL syntax
+#
+# normal.1
+EXPLAIN select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`max(t2.c)`))
+EXPLAIN FORMAT=TREE select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.a)  (cost=3.68 rows=1)
+    -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+        -> Table scan on t1  (cost=0.35 rows=6)
+        -> Hash
+            -> Filter: (derived_1_2.c > derived_1_2.`max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                            -> Sort: t2.a  (cost=0.75 rows=5)
+                                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+sum(t2.a)
+NULL
+# normal.2 0.2 * avg
+EXPLAIN select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c >
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`))
+EXPLAIN FORMAT=TREE select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c >
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.a)  (cost=3.68 rows=1)
+    -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+        -> Table scan on t1  (cost=0.35 rows=6)
+        -> Hash
+            -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                            -> Sort: t2.a  (cost=0.75 rows=5)
+                                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c >
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+sum(t2.a)
+14
+EXPLAIN select sum(t2.a) + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (sum(`derived_1_2`.`a`) + 1) AS `sum(t2.a) + 1` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`))
+EXPLAIN FORMAT=TREE select sum(t2.a) + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.a)  (cost=3.68 rows=1)
+    -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+        -> Table scan on t1  (cost=0.35 rows=6)
+        -> Hash
+            -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                            -> Sort: t2.a  (cost=0.75 rows=5)
+                                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select sum(t2.a) + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+sum(t2.a) + 1
+15
+# normal.3 max(a+b)
+EXPLAIN select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + t2.b > 
+(select 0.2 * max(t2.c + t2.b) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`a` AS `a`,(0.2 * max((`tpch`.`t2`.`c` + `tpch`.`t2`.`b`)) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c + t2.b)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`a` AS `a`,(0.2 * max((`tpch`.`t2`.`c` + `tpch`.`t2`.`b`)) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c + t2.b)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and ((`derived_1_2`.`c` + `derived_1_2`.`b`) > `derived_1_2`.`0.2 * max(t2.c + t2.b)`))
+EXPLAIN FORMAT=TREE select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + t2.b > 
+(select 0.2 * max(t2.c + t2.b) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.a)  (cost=3.68 rows=1)
+    -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+        -> Table scan on t1  (cost=0.35 rows=6)
+        -> Hash
+            -> Filter: ((derived_1_2.c + derived_1_2.b) > derived_1_2.`0.2 * max(t2.c + t2.b)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: max((t2.c + t2.b)) OVER (PARTITION BY t2.a ) 
+                            -> Sort: t2.a  (cost=0.75 rows=5)
+                                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + t2.b > 
+(select 0.2 * max(t2.c + t2.b) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+sum(t2.a)
+14
+EXPLAIN select t2.c from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + 1> 
+(select 0.2 * max(t2.c + 1) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`c` AS `c` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max((`tpch`.`t2`.`c` + 1)) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c + 1)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max((`tpch`.`t2`.`c` + 1)) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c + 1)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and ((`derived_1_2`.`c` + 1) > `derived_1_2`.`0.2 * max(t2.c + 1)`))
+EXPLAIN FORMAT=TREE select t2.c from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + 1> 
+(select 0.2 * max(t2.c + 1) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Filter: ((derived_1_2.c + 1) > derived_1_2.`0.2 * max(t2.c + 1)`)  (cost=2.73..2.73 rows=1)
+            -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                -> Materialize  (cost=2.50..2.50 rows=0)
+                    -> Window aggregate with buffering: max((t2.c + 1)) OVER (PARTITION BY t2.a ) 
+                        -> Sort: t2.a  (cost=0.75 rows=5)
+                            -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.c from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + 1> 
+(select 0.2 * max(t2.c + 1) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+c
+2
+3
+4
+5
+# normal.4 t1.a = t2.a and t2.a = t1.a
+EXPLAIN select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`))
+EXPLAIN FORMAT=TREE select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.a)  (cost=3.68 rows=1)
+    -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+        -> Table scan on t1  (cost=0.35 rows=6)
+        -> Hash
+            -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                            -> Sort: t2.a  (cost=0.75 rows=5)
+                                -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                    -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10);
+sum(t2.a)
+14
+# normal.5 more condition in outer query block.
+EXPLAIN select t2.a, t2.b from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a`,`derived_1_2`.`b` AS `b` from `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select t2.a, t2.b from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+            -> Table scan on t3  (cost=0.35 rows=3)
+            -> Hash
+                -> Filter: (derived_1_2.c = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.a, t2.b from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+a	b
+2	2
+3	3
+EXPLAIN select t2.a, t2.b, t3.c from t1, t2, t3 where t2.a = t3.a and t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a`,`derived_1_2`.`b` AS `b`,`tpch`.`t3`.`c` AS `c` from `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select t2.a, t2.b, t3.c from t1, t2, t3 where t2.a = t3.a and t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+            -> Table scan on t3  (cost=0.35 rows=3)
+            -> Hash
+                -> Filter: (derived_1_2.c = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.a, t2.b, t3.c from t1, t2, t3 where t2.a = t3.a and t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+a	b	c
+2	2	4
+3	3	5
+# normal.6 more tables
+EXPLAIN select t2.a, t2.b from t1, t2, t3, t4 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+1	PRIMARY	t4	NULL	index	NULL	PRIMARY	4	NULL	3	100.00	Using index; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a`,`derived_1_2`.`b` AS `b` from `tpch`.`t4` join `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select t2.a, t2.b from t1, t2, t3, t4 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (no condition)  (cost=4.68 rows=3)
+    -> Index scan on t4 using PRIMARY  (cost=0.55 rows=3)
+    -> Hash
+        -> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+                    -> Table scan on t3  (cost=0.35 rows=3)
+                    -> Hash
+                        -> Filter: (derived_1_2.c = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                            -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                                -> Materialize  (cost=2.50..2.50 rows=0)
+                                    -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                        -> Sort: t2.a  (cost=0.75 rows=5)
+                                            -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                                -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.a, t2.b from t1, t2, t3, t4 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+a	b
+3	3
+2	2
+3	3
+2	2
+3	3
+2	2
+# normal.7 more select list fields.
+EXPLAIN select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a`,`derived_1_2`.`b` AS `b`,`derived_1_2`.`b` AS `b`,`derived_1_2`.`c` AS `c` from `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+            -> Table scan on t3  (cost=0.35 rows=3)
+            -> Hash
+                -> Filter: (derived_1_2.c = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+a	b	b	c
+2	2	2	2
+3	3	3	3
+EXPLAIN select * from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,`derived_1_2`.`a` AS `a`,`derived_1_2`.`b` AS `b`,`derived_1_2`.`c` AS `c`,`tpch`.`t3`.`a` AS `a`,`tpch`.`t3`.`b` AS `b`,`tpch`.`t3`.`c` AS `c` from `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select * from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+            -> Table scan on t3  (cost=0.35 rows=3)
+            -> Hash
+                -> Filter: (derived_1_2.c = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select * from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+a	b	c	a	b	c	a	b	c
+2	2	3	2	2	2	2	3	4
+3	2	3	3	3	3	3	4	5
+# normal.8 more select list fields and condition not same field.
+EXPLAIN select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a`,`derived_1_2`.`b` AS `b`,`derived_1_2`.`b` AS `b`,`derived_1_2`.`c` AS `c` from `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`a` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+            -> Table scan on t3  (cost=0.35 rows=3)
+            -> Hash
+                -> Filter: (derived_1_2.a = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+a	b	b	c
+2	2	2	2
+3	3	3	3
+EXPLAIN select t2.a+t2.b, t2.b+t2.c+t3.c+10, t2.b+t3.c+1 from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (`derived_1_2`.`a` + `derived_1_2`.`b`) AS `t2.a+t2.b`,(((`derived_1_2`.`b` + `derived_1_2`.`c`) + `tpch`.`t3`.`c`) + 10) AS `t2.b+t2.c+t3.c+10`,((`derived_1_2`.`b` + `tpch`.`t3`.`c`) + 1) AS `t2.b+t3.c+1` from `tpch`.`t3` join `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`b` AS `b`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,min(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` )  AS `min(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t3`.`a` = `derived_1_2`.`a`) and (`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`a` = `derived_1_2`.`min(t2.c)`))
+EXPLAIN FORMAT=TREE select t2.a+t2.b, t2.b+t2.c+t3.c+10, t2.b+t3.c+1 from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+EXPLAIN
+-> Inner hash join (t1.a = derived_1_2.a)  (cost=4.13 rows=1)
+    -> Table scan on t1  (cost=0.35 rows=6)
+    -> Hash
+        -> Inner hash join (t3.a = derived_1_2.a)  (cost=3.28 rows=1)
+            -> Table scan on t3  (cost=0.35 rows=3)
+            -> Hash
+                -> Filter: (derived_1_2.a = derived_1_2.`min(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: min(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t2.a+t2.b, t2.b+t2.c+t3.c+10, t2.b+t3.c+1 from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+(select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+t2.a+t2.b	t2.b+t2.c+t3.c+10	t2.b+t3.c+1
+4	18	7
+6	21	9
+EXPLAIN select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) having sum(t2.a) > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) having (sum(`derived_1_2`.`a`) > 1)
+EXPLAIN FORMAT=TREE select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) having sum(t2.a) > 1;
+EXPLAIN
+-> Filter: (sum(derived_1_2.a) > 1)  (cost=3.68 rows=1)
+    -> Aggregate: sum(derived_1_2.a), sum(derived_1_2.a)  (cost=3.68 rows=1)
+        -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) having sum(t2.a) > 1;
+sum(t2.a)
+14
+EXPLAIN select t1.a, sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) group by t1.a having sum(t2.a) > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `tpch`.`t1`.`a` AS `a`,sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) group by `tpch`.`t1`.`a` having (sum(`derived_1_2`.`a`) > 1)
+EXPLAIN FORMAT=TREE select t1.a, sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) group by t1.a having sum(t2.a) > 1;
+EXPLAIN
+-> Filter: (sum(derived_1_2.a) > 1)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+                -> Table scan on t1  (cost=0.35 rows=6)
+                -> Hash
+                    -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                            -> Materialize  (cost=2.50..2.50 rows=0)
+                                -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                    -> Sort: t2.a  (cost=0.75 rows=5)
+                                        -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                            -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t1.a, sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) group by t1.a having sum(t2.a) > 1;
+a	sum(t2.a)
+2	2
+3	3
+4	4
+5	5
+EXPLAIN select t1.a, sum(t4.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.b < 10 and t1.c > 
+(select 0.2 * max(t4.c) from t1 where t1.a = t4.a and t1.a > 1 and t1.b < 10) group by t1.a having sum(t4.a) > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using temporary; Using filesort
+2	DERIVED	t4	NULL	eq_ref	PRIMARY	PRIMARY	4	tpch.t1.a	1	100.00	NULL
+Warnings:
+Note	1276	Field or reference 'tpch.t4.c' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a`,sum(`derived_1_2`.`a`) AS `sum(t4.a)` from (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t4`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,(0.2 * max(`tpch`.`t4`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` ) ) AS `0.2 * max(t4.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t4`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1) and (`tpch`.`t1`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t4`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,(0.2 * max(`tpch`.`t4`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` ) ) AS `0.2 * max(t4.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t4`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1) and (`tpch`.`t1`.`b` < 10))) `derived_1_2` where (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t4.c)`) group by `derived_1_2`.`a` having (sum(`derived_1_2`.`a`) > 1)
+EXPLAIN FORMAT=TREE select t1.a, sum(t4.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.b < 10 and t1.c > 
+(select 0.2 * max(t4.c) from t1 where t1.a = t4.a and t1.a > 1 and t1.b < 10) group by t1.a having sum(t4.a) > 1;
+EXPLAIN
+-> Filter: (sum(derived_1_2.a) > 1)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t4.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: max(t4.c) OVER (PARTITION BY t1.a ) 
+                            -> Sort: t1.a
+                                -> Stream results  (cost=1.20 rows=1)
+                                    -> Nested loop inner join  (cost=1.20 rows=1)
+                                        -> Filter: ((t1.a > 1) and (t1.b < 10) and (t1.a is not null))  (cost=0.85 rows=1)
+                                            -> Table scan on t1  (cost=0.85 rows=6)
+                                        -> Single-row index lookup on t4 using PRIMARY (a=t1.a)  (cost=0.35 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t4.c' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+select t1.a, sum(t4.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.b < 10 and t1.c > 
+(select 0.2 * max(t4.c) from t1 where t1.a = t4.a and t1.a > 1 and t1.b < 10) group by t1.a having sum(t4.a) > 1;
+a	sum(t4.a)
+2	2
+3	3
+EXPLAIN select t1.a, sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `tpch`.`t1`.`a` AS `a`,sum(`derived_1_2`.`a`) AS `sum(t2.a)` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) group by `tpch`.`t1`.`a`
+EXPLAIN FORMAT=TREE select t1.a, sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a;
+EXPLAIN
+-> Table scan on <temporary>
+    -> Aggregate using temporary table
+        -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t1.a, sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a;
+a	sum(t2.a)
+2	2
+3	3
+4	4
+5	5
+EXPLAIN select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (`tpch`.`t1`.`a` + 1) AS `t1.a + 1` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) group by (`tpch`.`t1`.`a` + 1)
+EXPLAIN FORMAT=TREE select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1;
+EXPLAIN
+-> Table scan on <temporary>  (cost=2.51..2.51 rows=1)
+    -> Temporary table with deduplication  (cost=6.19..6.19 rows=1)
+        -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1;
+t1.a + 1
+3
+4
+5
+6
+EXPLAIN select t1.a + 1 from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10 and t1.c > 
+(select 0.2 * max(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10) group by t1.a + 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using temporary; Using filesort
+2	DERIVED	t5	NULL	eq_ref	PRIMARY	PRIMARY	8	tpch.t1.a,tpch.t1.b	1	100.00	Using index
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (`derived_1_2`.`a` + 1) AS `t1.a + 1` from (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,(0.2 * max(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` ) ) AS `0.2 * max(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1) and (`tpch`.`t1`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,(0.2 * max(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` ) ) AS `0.2 * max(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1) and (`tpch`.`t1`.`b` < 10))) `derived_1_2` where (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t1.c)`) group by (`derived_1_2`.`a` + 1)
+EXPLAIN FORMAT=TREE select t1.a + 1 from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10 and t1.c > 
+(select 0.2 * max(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10) group by t1.a + 1;
+EXPLAIN
+-> Table scan on <temporary>  (cost=2.51..2.51 rows=1)
+    -> Temporary table with deduplication  (cost=5.34..5.34 rows=1)
+        -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t1.c)`)  (cost=2.73..2.73 rows=1)
+            -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                -> Materialize  (cost=2.50..2.50 rows=0)
+                    -> Window aggregate with buffering: max(t1.c) OVER (PARTITION BY t1.a,t1.b ) 
+                        -> Sort: t1.a, t1.b
+                            -> Stream results  (cost=1.20 rows=1)
+                                -> Nested loop inner join  (cost=1.20 rows=1)
+                                    -> Filter: ((t1.a > 1) and (t1.b < 10) and (t1.a is not null) and (t1.b is not null))  (cost=0.85 rows=1)
+                                        -> Table scan on t1  (cost=0.85 rows=6)
+                                    -> Single-row covering index lookup on t5 using PRIMARY (a=t1.a, b=t1.b)  (cost=0.35 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+select t1.a + 1 from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10 and t1.c > 
+(select 0.2 * max(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10) group by t1.a + 1;
+t1.a + 1
+5
+6
+7
+EXPLAIN select t1.a + t2.a from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1) order by t1.a + t2.a desc;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary; Using filesort
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	33.33	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (`tpch`.`t1`.`a` + `derived_1_2`.`a`) AS `t1.a + t2.a` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where (`tpch`.`t2`.`a` > 1)) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`a` AS `a`,`tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where (`tpch`.`t2`.`a` > 1)) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) order by (`tpch`.`t1`.`a` + `derived_1_2`.`a`) desc
+EXPLAIN FORMAT=TREE select t1.a + t2.a from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1) order by t1.a + t2.a desc;
+EXPLAIN
+-> Sort: `t1.a + t2.a` DESC
+    -> Stream results  (cost=3.58 rows=1)
+        -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+            -> Table scan on t1  (cost=0.35 rows=6)
+            -> Hash
+                -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                        -> Materialize  (cost=2.50..2.50 rows=0)
+                            -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                -> Sort: t2.a  (cost=0.75 rows=5)
+                                    -> Filter: (t2.a > 1)  (cost=0.75 rows=5)
+                                        -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t1.a + t2.a from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1) order by t1.a + t2.a desc;
+t1.a + t2.a
+10
+8
+6
+4
+EXPLAIN select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary; Using filesort
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (`tpch`.`t1`.`a` + 1) AS `t1.a + 1` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) group by (`tpch`.`t1`.`a` + 1) desc order by (`tpch`.`t1`.`a` + 1) desc
+EXPLAIN FORMAT=TREE select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc;
+EXPLAIN
+-> Sort: `t1.a + 1` DESC
+    -> Table scan on <temporary>  (cost=2.51..2.51 rows=1)
+        -> Temporary table with deduplication  (cost=6.19..6.19 rows=1)
+            -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+                -> Table scan on t1  (cost=0.35 rows=6)
+                -> Hash
+                    -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                            -> Materialize  (cost=2.50..2.50 rows=0)
+                                -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                    -> Sort: t2.a  (cost=0.75 rows=5)
+                                        -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                            -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc;
+t1.a + 1
+6
+5
+4
+3
+EXPLAIN select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where; Using temporary; Using filesort
+1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+2	DEPENDENT DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using filesort
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (`tpch`.`t1`.`a` + 1) AS `t1.a + 1` from `tpch`.`t1` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` join (/* select#2 */ select `tpch`.`t2`.`c` AS `c`,`tpch`.`t2`.`a` AS `a`,(0.2 * max(`tpch`.`t2`.`c`) OVER (PARTITION BY `tpch`.`t2`.`a` ) ) AS `0.2 * max(t2.c)` from `tpch`.`t2` where ((`tpch`.`t2`.`a` > 1) and (`tpch`.`t2`.`b` < 10))) `derived_1_2` where ((`tpch`.`t1`.`a` = `derived_1_2`.`a`) and (`derived_1_2`.`c` > `derived_1_2`.`0.2 * max(t2.c)`)) group by (`tpch`.`t1`.`a` + 1) desc order by (`tpch`.`t1`.`a` + 1) desc limit 2
+EXPLAIN FORMAT=TREE select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc limit 2;
+EXPLAIN
+-> Limit: 2 row(s)
+    -> Sort: `t1.a + 1` DESC, limit input to 2 row(s) per chunk
+        -> Table scan on <temporary>  (cost=2.51..2.51 rows=1)
+            -> Temporary table with deduplication  (cost=6.19..6.19 rows=1)
+                -> Inner hash join (t1.a = derived_1_2.a)  (cost=3.58 rows=1)
+                    -> Table scan on t1  (cost=0.35 rows=6)
+                    -> Hash
+                        -> Filter: (derived_1_2.c > derived_1_2.`0.2 * max(t2.c)`)  (cost=2.73..2.73 rows=1)
+                            -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                                -> Materialize  (cost=2.50..2.50 rows=0)
+                                    -> Window aggregate with buffering: max(t2.c) OVER (PARTITION BY t2.a ) 
+                                        -> Sort: t2.a  (cost=0.75 rows=5)
+                                            -> Filter: ((t2.a > 1) and (t2.b < 10))  (cost=0.75 rows=5)
+                                                -> Table scan on t2  (cost=0.75 rows=5)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t1.a' of SELECT #2 was resolved in SELECT #1
+select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+(select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc limit 2;
+t1.a + 1
+6
+5
+#
+# 3. Unique key push down tables;
+#
+EXPLAIN select t1.a from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DERIVED	t4	NULL	index	PRIMARY	PRIMARY	4	NULL	3	66.67	Using where; Using index; Using temporary; Using filesort
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a` from (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` where (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`)
+EXPLAIN FORMAT=TREE select t1.a from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+EXPLAIN
+-> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+        -> Materialize  (cost=2.50..2.50 rows=0)
+            -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a ) 
+                -> Sort: t1.a
+                    -> Stream results  (cost=2.40 rows=2)
+                        -> Inner hash join (t1.a = t4.a)  (cost=2.40 rows=2)
+                            -> Table scan on t1  (cost=0.38 rows=6)
+                            -> Hash
+                                -> Filter: (t4.a > 1)  (cost=0.55 rows=2)
+                                    -> Index scan on t4 using PRIMARY  (cost=0.55 rows=3)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+select t1.a from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+a
+2
+3
+EXPLAIN select sum(t1.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DERIVED	t4	NULL	index	PRIMARY	PRIMARY	4	NULL	3	66.67	Using where; Using index; Using temporary; Using filesort
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(`derived_1_2`.`a`) AS `sum(t1.a)` from (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` where (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`)
+EXPLAIN FORMAT=TREE select sum(t1.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.a)  (cost=2.83..2.83 rows=1)
+    -> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+            -> Materialize  (cost=2.50..2.50 rows=0)
+                -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a ) 
+                    -> Sort: t1.a
+                        -> Stream results  (cost=2.40 rows=2)
+                            -> Inner hash join (t1.a = t4.a)  (cost=2.40 rows=2)
+                                -> Table scan on t1  (cost=0.38 rows=6)
+                                -> Hash
+                                    -> Filter: (t4.a > 1)  (cost=0.55 rows=2)
+                                        -> Index scan on t4 using PRIMARY  (cost=0.55 rows=3)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+select sum(t1.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+sum(t1.a)
+5
+EXPLAIN select sum(t1.a+t2.b) from t1, t2, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using join buffer (hash join)
+2	DERIVED	t4	NULL	index	PRIMARY	PRIMARY	4	NULL	3	66.67	Using where; Using index; Using temporary; Using filesort
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum((`derived_1_2`.`a` + `tpch`.`t2`.`b`)) AS `sum(t1.a+t2.b)` from `tpch`.`t2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` where (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`)
+EXPLAIN FORMAT=TREE select sum(t1.a+t2.b) from t1, t2, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+EXPLAIN
+-> Aggregate: sum((derived_1_2.a + t2.b))  (cost=3.98 rows=1)
+    -> Inner hash join (no condition)  (cost=3.48 rows=5)
+        -> Table scan on t2  (cost=0.75 rows=5)
+        -> Hash
+            -> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a ) 
+                            -> Sort: t1.a
+                                -> Stream results  (cost=2.40 rows=2)
+                                    -> Inner hash join (t1.a = t4.a)  (cost=2.40 rows=2)
+                                        -> Table scan on t1  (cost=0.38 rows=6)
+                                        -> Hash
+                                            -> Filter: (t4.a > 1)  (cost=0.55 rows=2)
+                                                -> Index scan on t4 using PRIMARY  (cost=0.55 rows=3)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+select sum(t1.a+t2.b) from t1, t2, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+sum(t1.a+t2.b)
+55
+EXPLAIN select sum(t1.a+t2.b+1) from t1, t2, t3, t4 where t1.a = t4.a and t1.b = t3.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using join buffer (hash join)
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using join buffer (hash join)
+2	DERIVED	t4	NULL	index	PRIMARY	PRIMARY	4	NULL	3	66.67	Using where; Using index; Using temporary; Using filesort
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	16.67	Using where; Using join buffer (hash join)
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(((`derived_1_2`.`a` + `tpch`.`t2`.`b`) + 1)) AS `sum(t1.a+t2.b+1)` from `tpch`.`t3` join `tpch`.`t2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,`tpch`.`t1`.`b` AS `b`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,`tpch`.`t1`.`b` AS `b`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a` )  AS `min(t1.c)` from `tpch`.`t4` join `tpch`.`t1` where ((`tpch`.`t1`.`a` = `tpch`.`t4`.`a`) and (`tpch`.`t4`.`a` > 1))) `derived_1_2` where ((`tpch`.`t3`.`b` = `derived_1_2`.`b`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`))
+EXPLAIN FORMAT=TREE select sum(t1.a+t2.b+1) from t1, t2, t3, t4 where t1.a = t4.a and t1.b = t3.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+EXPLAIN
+-> Aggregate: sum(((derived_1_2.a + t2.b) + 1))  (cost=4.53 rows=1)
+    -> Inner hash join (no condition)  (cost=4.03 rows=5)
+        -> Table scan on t2  (cost=0.75 rows=5)
+        -> Hash
+            -> Inner hash join (t3.b = derived_1_2.b)  (cost=3.28 rows=1)
+                -> Table scan on t3  (cost=0.35 rows=3)
+                -> Hash
+                    -> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+                        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                            -> Materialize  (cost=2.50..2.50 rows=0)
+                                -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a ) 
+                                    -> Sort: t1.a
+                                        -> Stream results  (cost=2.40 rows=2)
+                                            -> Inner hash join (t1.a = t4.a)  (cost=2.40 rows=2)
+                                                -> Table scan on t1  (cost=0.38 rows=6)
+                                                -> Hash
+                                                    -> Filter: (t4.a > 1)  (cost=0.55 rows=2)
+                                                        -> Index scan on t4 using PRIMARY  (cost=0.55 rows=3)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t4.a' of SELECT #2 was resolved in SELECT #1
+select sum(t1.a+t2.b+1) from t1, t2, t3, t4 where t1.a = t4.a and t1.b = t3.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+sum(t1.a+t2.b+1)
+65
+EXPLAIN select t1.a from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	33.33	Using where; Using temporary; Using filesort
+2	DERIVED	t5	NULL	eq_ref	PRIMARY	PRIMARY	8	tpch.t1.a,tpch.t1.b	1	100.00	Using index
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`a` AS `a` from (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` where (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`)
+EXPLAIN FORMAT=TREE select t1.a from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+EXPLAIN
+-> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+        -> Materialize  (cost=2.50..2.50 rows=0)
+            -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a,t1.b ) 
+                -> Sort: t1.a, t1.b
+                    -> Stream results  (cost=1.55 rows=2)
+                        -> Nested loop inner join  (cost=1.55 rows=2)
+                            -> Filter: ((t1.a > 1) and (t1.a is not null) and (t1.b is not null))  (cost=0.85 rows=2)
+                                -> Table scan on t1  (cost=0.85 rows=6)
+                            -> Single-row covering index lookup on t5 using PRIMARY (a=t1.a, b=t1.b)  (cost=0.30 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+select t1.a from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+a
+4
+5
+6
+EXPLAIN select sum(t1.a+t5.b) from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	33.33	Using where; Using temporary; Using filesort
+2	DERIVED	t5	NULL	eq_ref	PRIMARY	PRIMARY	8	tpch.t1.a,tpch.t1.b	1	100.00	Using index
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum((`derived_1_2`.`a` + `derived_1_2`.`b`)) AS `sum(t1.a+t5.b)` from (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t5`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t5`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` where (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`)
+EXPLAIN FORMAT=TREE select sum(t1.a+t5.b) from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+EXPLAIN
+-> Aggregate: sum((derived_1_2.a + derived_1_2.b))  (cost=2.83..2.83 rows=1)
+    -> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+            -> Materialize  (cost=2.50..2.50 rows=0)
+                -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a,t1.b ) 
+                    -> Sort: t1.a, t1.b
+                        -> Stream results  (cost=1.55 rows=2)
+                            -> Nested loop inner join  (cost=1.55 rows=2)
+                                -> Filter: ((t1.a > 1) and (t1.a is not null) and (t1.b is not null))  (cost=0.85 rows=2)
+                                    -> Table scan on t1  (cost=0.85 rows=6)
+                                -> Single-row covering index lookup on t5 using PRIMARY (a=t1.a, b=t1.b)  (cost=0.30 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+select sum(t1.a+t5.b) from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+sum(t1.a+t5.b)
+21
+EXPLAIN select sum(t1.a+t5.b+100) from t1, t2, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using join buffer (hash join)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	33.33	Using where; Using temporary; Using filesort
+2	DERIVED	t5	NULL	eq_ref	PRIMARY	PRIMARY	8	tpch.t1.a,tpch.t1.b	1	100.00	Using index
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(((`derived_1_2`.`a` + `derived_1_2`.`b`) + 100)) AS `sum(t1.a+t5.b+100)` from `tpch`.`t2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t5`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t5`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` where (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`)
+EXPLAIN FORMAT=TREE select sum(t1.a+t5.b+100) from t1, t2, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+EXPLAIN
+-> Aggregate: sum(((derived_1_2.a + derived_1_2.b) + 100))  (cost=3.98 rows=1)
+    -> Inner hash join (no condition)  (cost=3.48 rows=5)
+        -> Table scan on t2  (cost=0.75 rows=5)
+        -> Hash
+            -> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                    -> Materialize  (cost=2.50..2.50 rows=0)
+                        -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a,t1.b ) 
+                            -> Sort: t1.a, t1.b
+                                -> Stream results  (cost=1.55 rows=2)
+                                    -> Nested loop inner join  (cost=1.55 rows=2)
+                                        -> Filter: ((t1.a > 1) and (t1.a is not null) and (t1.b is not null))  (cost=0.85 rows=2)
+                                            -> Table scan on t1  (cost=0.85 rows=6)
+                                        -> Single-row covering index lookup on t5 using PRIMARY (a=t1.a, b=t1.b)  (cost=0.30 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+select sum(t1.a+t5.b+100) from t1, t2, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+sum(t1.a+t5.b+100)
+1605
+EXPLAIN select sum(t1.a+t5.b+100) from t1, t2, t3, t4, t5 where t2.a = t3.a and t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+1	PRIMARY	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using join buffer (hash join)
+1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	5	20.00	Using where; Using join buffer (hash join)
+1	PRIMARY	t4	NULL	index	NULL	PRIMARY	4	NULL	3	100.00	Using index; Using join buffer (hash join)
+2	DERIVED	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	33.33	Using where; Using temporary; Using filesort
+2	DERIVED	t5	NULL	eq_ref	PRIMARY	PRIMARY	8	tpch.t1.a,tpch.t1.b	1	100.00	Using index
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select sum(((`derived_1_2`.`a` + `derived_1_2`.`b`) + 100)) AS `sum(t1.a+t5.b+100)` from `tpch`.`t4` join `tpch`.`t3` join `tpch`.`t2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t5`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` join (/* select#2 */ select `tpch`.`t1`.`a` AS `a`,`tpch`.`t5`.`b` AS `b`,`tpch`.`t1`.`c` AS `c`,min(`tpch`.`t1`.`c`) OVER (PARTITION BY `tpch`.`t1`.`a`,`tpch`.`t1`.`b` )  AS `min(t1.c)` from `tpch`.`t5` join `tpch`.`t1` where ((`tpch`.`t5`.`b` = `tpch`.`t1`.`b`) and (`tpch`.`t5`.`a` = `tpch`.`t1`.`a`) and (`tpch`.`t1`.`a` > 1))) `derived_1_2` where ((`tpch`.`t2`.`a` = `tpch`.`t3`.`a`) and (`derived_1_2`.`c` = `derived_1_2`.`min(t1.c)`))
+EXPLAIN FORMAT=TREE select sum(t1.a+t5.b+100) from t1, t2, t3, t4, t5 where t2.a = t3.a and t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+EXPLAIN
+-> Aggregate: sum(((derived_1_2.a + derived_1_2.b) + 100))  (cost=7.08 rows=1)
+    -> Inner hash join (no condition)  (cost=6.18 rows=9)
+        -> Index scan on t4 using PRIMARY  (cost=0.18 rows=3)
+        -> Hash
+            -> Inner hash join (t2.a = t3.a)  (cost=5.03 rows=3)
+                -> Table scan on t2  (cost=0.12 rows=5)
+                -> Hash
+                    -> Inner hash join (no condition)  (cost=3.28 rows=3)
+                        -> Table scan on t3  (cost=0.55 rows=3)
+                        -> Hash
+                            -> Filter: (derived_1_2.c = derived_1_2.`min(t1.c)`)  (cost=2.73..2.73 rows=1)
+                                -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+                                    -> Materialize  (cost=2.50..2.50 rows=0)
+                                        -> Window aggregate with buffering: min(t1.c) OVER (PARTITION BY t1.a,t1.b ) 
+                                            -> Sort: t1.a, t1.b
+                                                -> Stream results  (cost=1.55 rows=2)
+                                                    -> Nested loop inner join  (cost=1.55 rows=2)
+                                                        -> Filter: ((t1.a > 1) and (t1.a is not null) and (t1.b is not null))  (cost=0.85 rows=2)
+                                                            -> Table scan on t1  (cost=0.85 rows=6)
+                                                        -> Single-row covering index lookup on t5 using PRIMARY (a=t1.a, b=t1.b)  (cost=0.30 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.t5.a' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'tpch.t5.b' of SELECT #2 was resolved in SELECT #1
+select sum(t1.a+t5.b+100) from t1, t2, t3, t4, t5 where t2.a = t3.a and t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+sum(t1.a+t5.b+100)
+2889
+#
+# 4. Real query in TPCH-H, test query 2 and query 17;
+#
+#
+# query-17 in TPCH which can use winmagic to speedup.
+#
+EXPLAIN select sum(l_extendedprice)/7.0 as avg_yearly
+from lineitem, part
+where p_partkey = l_partkey
+and p_brand = 'Brand#13'
+   and p_container = 'JUMBO PKG'
+   and l_quantity < (select 0.2 * avg(l_quantity)
+from lineitem
+where p_partkey = l_partkey);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Using where
+2	DERIVED	lineitem	NULL	ALL	lineitem_fk2	NULL	NULL	NULL	1	100.00	Using temporary; Using filesort
+2	DERIVED	part	NULL	eq_ref	PRIMARY	PRIMARY	4	tpch.lineitem.l_partkey	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'tpch.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select (sum(`derived_1_2`.`l_extendedprice`) / 7.0) AS `avg_yearly` from (/* select#2 */ select `tpch`.`lineitem`.`l_extendedprice` AS `l_extendedprice`,`tpch`.`lineitem`.`l_quantity` AS `l_quantity`,(0.2 * avg(`tpch`.`lineitem`.`l_quantity`) OVER (PARTITION BY `tpch`.`lineitem`.`l_partkey` ) ) AS `0.2 * avg(l_quantity)` from `tpch`.`part` join `tpch`.`lineitem` where ((`tpch`.`part`.`p_container` = 'JUMBO PKG') and (`tpch`.`part`.`p_brand` = 'Brand#13') and (`tpch`.`part`.`p_partkey` = `tpch`.`lineitem`.`l_partkey`))) `derived_1_2` join (/* select#2 */ select `tpch`.`lineitem`.`l_extendedprice` AS `l_extendedprice`,`tpch`.`lineitem`.`l_quantity` AS `l_quantity`,(0.2 * avg(`tpch`.`lineitem`.`l_quantity`) OVER (PARTITION BY `tpch`.`lineitem`.`l_partkey` ) ) AS `0.2 * avg(l_quantity)` from `tpch`.`part` join `tpch`.`lineitem` where ((`tpch`.`part`.`p_container` = 'JUMBO PKG') and (`tpch`.`part`.`p_brand` = 'Brand#13') and (`tpch`.`part`.`p_partkey` = `tpch`.`lineitem`.`l_partkey`))) `derived_1_2` where (`derived_1_2`.`l_quantity` < `derived_1_2`.`0.2 * avg(l_quantity)`)
+EXPLAIN FORMAT=TREE select sum(l_extendedprice)/7.0 as avg_yearly
+from lineitem, part
+where p_partkey = l_partkey
+and p_brand = 'Brand#13'
+   and p_container = 'JUMBO PKG'
+   and l_quantity < (select 0.2 * avg(l_quantity)
+from lineitem
+where p_partkey = l_partkey);
+EXPLAIN
+-> Aggregate: sum(derived_1_2.l_extendedprice)  (cost=2.83..2.83 rows=1)
+    -> Filter: (derived_1_2.l_quantity < derived_1_2.`0.2 * avg(l_quantity)`)  (cost=2.73..2.73 rows=1)
+        -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+            -> Materialize  (cost=2.50..2.50 rows=0)
+                -> Window aggregate with buffering: avg(lineitem.l_quantity) OVER (PARTITION BY lineitem.l_partkey ) 
+                    -> Sort: lineitem.l_partkey
+                        -> Stream results  (cost=0.70 rows=1)
+                            -> Nested loop inner join  (cost=0.70 rows=1)
+                                -> Table scan on lineitem  (cost=0.35 rows=1)
+                                -> Filter: ((part.p_container = 'JUMBO PKG') and (part.p_brand = 'Brand#13'))  (cost=0.35 rows=1)
+                                    -> Single-row index lookup on part using PRIMARY (p_partkey=lineitem.l_partkey)  (cost=0.35 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+select sum(l_extendedprice)/7.0 as avg_yearly
+from lineitem, part
+where p_partkey = l_partkey
+and p_brand = 'Brand#13'
+   and p_container = 'JUMBO PKG'
+   and l_quantity < (select 0.2 * avg(l_quantity)
+from lineitem
+where p_partkey = l_partkey);
+avg_yearly
+NULL
+#
+# query-2 in TPCH which can use winmagic to speedup.
+#
+EXPLAIN select s_acctbal, s_name, n_name, p_partkey, p_mfgr, s_address, s_phone, s_comment
+from part, supplier, partsupp, nation, region
+where p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and p_size = 30
+and p_type like '%STEEL'
+   and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'ASIA'
+   and ps_supplycost = (select min(ps_supplycost)
+from partsupp, supplier, nation,region
+where p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'ASIA');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+2	DERIVED	partsupp	NULL	ALL	PRIMARY,partsupp_fk1	NULL	NULL	NULL	1	100.00	Using temporary; Using filesort
+2	DERIVED	supplier	NULL	eq_ref	PRIMARY,supplier_fk1	PRIMARY	4	tpch.partsupp.ps_suppkey	1	100.00	NULL
+2	DERIVED	nation	NULL	eq_ref	PRIMARY,nation_fk1	PRIMARY	4	tpch.supplier.s_nationkey	1	100.00	NULL
+2	DERIVED	region	NULL	eq_ref	PRIMARY	PRIMARY	4	tpch.nation.n_regionkey	1	100.00	Using where
+2	DERIVED	part	NULL	eq_ref	PRIMARY	PRIMARY	4	tpch.partsupp.ps_partkey	1	100.00	Using where
+Warnings:
+Note	1276	Field or reference 'tpch.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	/* select#1 */ select `derived_1_2`.`s_acctbal` AS `s_acctbal`,`derived_1_2`.`s_name` AS `s_name`,`derived_1_2`.`n_name` AS `n_name`,`derived_1_2`.`p_partkey` AS `p_partkey`,`derived_1_2`.`p_mfgr` AS `p_mfgr`,`derived_1_2`.`s_address` AS `s_address`,`derived_1_2`.`s_phone` AS `s_phone`,`derived_1_2`.`s_comment` AS `s_comment` from (/* select#2 */ select `tpch`.`supplier`.`s_acctbal` AS `s_acctbal`,`tpch`.`supplier`.`s_name` AS `s_name`,`tpch`.`nation`.`n_name` AS `n_name`,`tpch`.`part`.`p_partkey` AS `p_partkey`,`tpch`.`part`.`p_mfgr` AS `p_mfgr`,`tpch`.`supplier`.`s_address` AS `s_address`,`tpch`.`supplier`.`s_phone` AS `s_phone`,`tpch`.`supplier`.`s_comment` AS `s_comment`,`tpch`.`partsupp`.`ps_supplycost` AS `ps_supplycost`,min(`tpch`.`partsupp`.`ps_supplycost`) OVER (PARTITION BY `tpch`.`partsupp`.`ps_partkey` )  AS `min(ps_supplycost)` from `tpch`.`part` join `tpch`.`partsupp` join `tpch`.`supplier` join `tpch`.`nation` join `tpch`.`region` where ((`tpch`.`part`.`p_size` = 30) and (`tpch`.`region`.`r_name` = 'ASIA') and (`tpch`.`region`.`r_regionkey` = `tpch`.`nation`.`n_regionkey`) and (`tpch`.`nation`.`n_nationkey` = `tpch`.`supplier`.`s_nationkey`) and (`tpch`.`supplier`.`s_suppkey` = `tpch`.`partsupp`.`ps_suppkey`) and (`tpch`.`part`.`p_partkey` = `tpch`.`partsupp`.`ps_partkey`) and (`tpch`.`part`.`p_type` like '%STEEL'))) `derived_1_2` join (/* select#2 */ select `tpch`.`supplier`.`s_acctbal` AS `s_acctbal`,`tpch`.`supplier`.`s_name` AS `s_name`,`tpch`.`nation`.`n_name` AS `n_name`,`tpch`.`part`.`p_partkey` AS `p_partkey`,`tpch`.`part`.`p_mfgr` AS `p_mfgr`,`tpch`.`supplier`.`s_address` AS `s_address`,`tpch`.`supplier`.`s_phone` AS `s_phone`,`tpch`.`supplier`.`s_comment` AS `s_comment`,`tpch`.`partsupp`.`ps_supplycost` AS `ps_supplycost`,min(`tpch`.`partsupp`.`ps_supplycost`) OVER (PARTITION BY `tpch`.`partsupp`.`ps_partkey` )  AS `min(ps_supplycost)` from `tpch`.`part` join `tpch`.`partsupp` join `tpch`.`supplier` join `tpch`.`nation` join `tpch`.`region` where ((`tpch`.`part`.`p_size` = 30) and (`tpch`.`region`.`r_name` = 'ASIA') and (`tpch`.`region`.`r_regionkey` = `tpch`.`nation`.`n_regionkey`) and (`tpch`.`nation`.`n_nationkey` = `tpch`.`supplier`.`s_nationkey`) and (`tpch`.`supplier`.`s_suppkey` = `tpch`.`partsupp`.`ps_suppkey`) and (`tpch`.`part`.`p_partkey` = `tpch`.`partsupp`.`ps_partkey`) and (`tpch`.`part`.`p_type` like '%STEEL'))) `derived_1_2` where (`derived_1_2`.`min(ps_supplycost)` = `derived_1_2`.`ps_supplycost`)
+EXPLAIN FORMAT=TREE select s_acctbal, s_name, n_name, p_partkey, p_mfgr, s_address, s_phone, s_comment
+from part, supplier, partsupp, nation, region
+where p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and p_size = 30
+and p_type like '%STEEL'
+   and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'ASIA'
+   and ps_supplycost = (select min(ps_supplycost)
+from partsupp, supplier, nation,region
+where p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'ASIA');
+EXPLAIN
+-> Filter: (derived_1_2.`min(ps_supplycost)` = derived_1_2.ps_supplycost)  (cost=1.36..2.73 rows=2)
+    -> Table scan on derived_1_2  (cost=2.50..2.50 rows=0)
+        -> Materialize  (cost=2.50..2.50 rows=0)
+            -> Window aggregate with buffering: min(partsupp.ps_supplycost) OVER (PARTITION BY partsupp.ps_partkey ) 
+                -> Sort: partsupp.ps_partkey
+                    -> Stream results  (cost=1.75 rows=1)
+                        -> Nested loop inner join  (cost=1.75 rows=1)
+                            -> Nested loop inner join  (cost=1.40 rows=1)
+                                -> Nested loop inner join  (cost=1.05 rows=1)
+                                    -> Nested loop inner join  (cost=0.70 rows=1)
+                                        -> Table scan on partsupp  (cost=0.35 rows=1)
+                                        -> Single-row index lookup on supplier using PRIMARY (s_suppkey=partsupp.ps_suppkey)  (cost=0.35 rows=1)
+                                    -> Single-row index lookup on nation using PRIMARY (n_nationkey=supplier.s_nationkey)  (cost=0.35 rows=1)
+                                -> Filter: (region.r_name = 'ASIA')  (cost=0.35 rows=1)
+                                    -> Single-row index lookup on region using PRIMARY (r_regionkey=nation.n_regionkey)  (cost=0.35 rows=1)
+                            -> Filter: ((part.p_size = 30) and (part.p_type like '%STEEL'))  (cost=0.35 rows=1)
+                                -> Single-row index lookup on part using PRIMARY (p_partkey=partsupp.ps_partkey)  (cost=0.35 rows=1)
+
+Warnings:
+Note	1276	Field or reference 'tpch.part.p_partkey' of SELECT #2 was resolved in SELECT #1
+select s_acctbal, s_name, n_name, p_partkey, p_mfgr, s_address, s_phone, s_comment
+from part, supplier, partsupp, nation, region
+where p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and p_size = 30
+and p_type like '%STEEL'
+   and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'ASIA'
+   and ps_supplycost = (select min(ps_supplycost)
+from partsupp, supplier, nation,region
+where p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'ASIA');
+s_acctbal	s_name	n_name	p_partkey	p_mfgr	s_address	s_phone	s_comment
+#
+# check valid failed.
+SET optimizer_switch='winmagic=default';
+drop table `lineitem`;
+drop table `partsupp`;
+drop table `supplier`;
+drop table `nation`;
+drop table `region`;
+drop table `part`;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop database tpch;
